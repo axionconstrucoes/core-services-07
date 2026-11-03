@@ -130,7 +130,7 @@ await check("7. Override de entrega ≠ caixa dedicada => BLOCKED_OVERRIDE_MISMA
   const blocked = creds.checkOverrideCompatibility(BOX, "outra@axion.com.br");
   assert(blocked.ok === false && blocked.status === "BLOCKED_OVERRIDE_MISMATCH");
   assert(creds.checkOverrideCompatibility(BOX, "reynaldo@axion.com.br").ok === false);
-  assert(phase7.includes('select("pilot_delivery_override_email")') && phase7.includes("checkOverrideCompatibility(mailbox, overrideRow?.pilot_delivery_override_email ?? null)"));
+  assert(phase7.includes('select("pilot_delivery_override_email")') && phase7.includes("checkOverrideCompatibility(mailbox, resolveProjectPilotReplyMailbox(config.projectId) ? null : (overrideRow?.pilot_delivery_override_email ?? null))"));
   assert(phase7.includes("summary.replies.skippedProjects.push({ projectId: config.projectId, status: compat.status });") && phase7.includes("continue;"), "projeto incompatível é pulado antes de qualquer leitura de Gmail");
 });
 

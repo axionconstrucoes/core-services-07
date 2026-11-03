@@ -19,6 +19,8 @@ export async function sendVersionImpactReviewEmail(input: {
   response: string;
   sentToBudget: boolean;
   accUrl: string;
+  // Projeto da mensagem: o transporte do piloto por projeto (project-pilot-profile.ts) precisa dele para restringir o destino.
+  projectId: string;
 }) {
   const isHigh = input.scheduleImpact !== "NAO" || input.priceImpact !== "NAO";
   const label = isHigh ? "ALTO" : "MÉDIO";
@@ -44,5 +46,6 @@ export async function sendVersionImpactReviewEmail(input: {
     text: body.text,
     html: body.html,
     correlationId: crypto.randomUUID(),
+    pilot: { projectId: input.projectId, participantLabel: "destinatário da revisão de versão", escalationLevel: null },
   });
 }

@@ -49,7 +49,7 @@ check("cliente cria submissão antes das fotos", app.indexOf('"create_ssma_form_
 check("cliente calcula SHA-256", app.includes("computeFileSha256Hex(photo.file)"));
 check("Storage nunca sobrescreve", app.includes("upsert: false"));
 check("cliente registra metadado após upload", app.includes('"register_ssma_submission_photo"'));
-check("falha de registro tenta limpeza segura", app.includes('"discard_unregistered_ssma_photo"'));
+check("falha de registro pede limpeza ao servidor (API do Storage), sem RPC que apague storage.objects", app.includes("/api/ssma/photos/discard") && !app.includes('"discard_unregistered_ssma_photo"'));
 check("envio só conclui após finalizar", app.includes('"finalize_ssma_form_submission"'));
 check("progresso é exibido", app.includes("Enviando fotos:"));
 check("interface não afirma mais ser protótipo", !app.includes("Protótipo funcional sem gravação externa"));

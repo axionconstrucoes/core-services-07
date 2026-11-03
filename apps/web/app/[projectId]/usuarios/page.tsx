@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { EmptyState } from "@/components/shared/empty-state";
 import { ManageMembersPanel } from "@/components/users/manage-members-panel";
 import { MemberRowActions } from "@/components/users/member-row-actions";
+import { MemberWhatsappForm } from "@/components/users/member-whatsapp-form";
 import { SlaAreaResponsiblesForm } from "@/components/sla/sla-area-responsibles-form";
 import { SlaMatrixConfigForm } from "@/components/sla/sla-matrix-config-form";
 import { SlaProjectSettingsForm } from "@/components/sla/sla-project-settings-form";
@@ -52,6 +53,18 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
   // status=ACTIVE na origem, então este valor só é ADMINISTRADOR quando
   // a própria membership do usuário logado está ativa.
   const canManage = permission === "ADMINISTRADOR";
+  // Contatos WhatsApp só são lidos por administradores (a RLS também restringe a leitura do telefone).
+  const whatsappContacts = new Map<string, { phone: string; authorized: boolean }>();
+  if (canManage) {
+    // Contato é da PESSOA (reaproveitado entre projetos); a RLS só entrega quem tem vínculo ativo com um projeto administrado.
+    const { data: contactRows } = await supabase
+      .from("person_whatsapp_contacts")
+      .select("user_id,phone_e164,channel_authorized")
+      .in("user_id", members.map((member) => member.userId));
+    for (const row of contactRows ?? []) {
+      whatsappContacts.set(row.user_id as string, { phone: row.phone_e164 as string, authorized: row.channel_authorized as boolean });
+    }
+  }
   const currentUserId = authData.data.user?.id ?? null;
   const projectLabel = project ? `${project.code} — ${project.name}` : "";
   const pendingInvitations = invitations.filter((invitation) => invitation.status === "PENDING");
@@ -88,6 +101,7 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
               <TableHead>Área</TableHead>
               <TableHead>Permissão</TableHead>
               <TableHead>Status</TableHead>
+              {canManage ? <TableHead>WhatsApp (alerta crítico na Diretoria)</TableHead> : null}
               <TableHead>Ações</TableHead>
             </TableRow>
           </TableHeader>
@@ -118,6 +132,21 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
                     {membershipStatusLabels[m.status]}
                   </Badge>
                 </TableCell>
+                {canManage ? (
+                  <TableCell>
+                    {m.status === "ACTIVE" ? (
+                      <MemberWhatsappForm
+                        key={`${m.userId}:${whatsappContacts.get(m.userId)?.phone ?? ""}:${whatsappContacts.get(m.userId)?.authorized ?? false}`}
+                        projectId={projectId}
+                        userId={m.userId}
+                        currentPhone={whatsappContacts.get(m.userId)?.phone ?? null}
+                        currentAuthorized={whatsappContacts.get(m.userId)?.authorized ?? false}
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                ) : null}
                 <TableCell>
                   {canManage ? (
                     <MemberRowActions
@@ -157,6 +186,7 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
                 <TableCell>
                   <Badge variant="outline">{memberInvitationStatusLabels[invitation.status]}</Badge>
                 </TableCell>
+                {canManage ? <TableCell /> : null}
                 <TableCell />
               </TableRow>
             ))}

@@ -16,6 +16,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 import { getDashboardVisualData } from "@/lib/dashboard-visual/get-dashboard-visual-data";
 import { getEvents } from "@/lib/data";
 import { formatCurrency, formatDateTime } from "@/lib/labels";
+import { resolveSystemStatus } from "@/lib/ui/resolve-system-status";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -668,14 +669,10 @@ export default async function DashboardPage({
             : "BAIXO";
 
 
-  const systemOperational =
-    data.integrationStatusGroups.length > 0 &&
-    data.integrationStatusGroups.every(
-      (group) => group.status === "CONECTADO" || group.count === 0
-    );
+  const systemStatus = resolveSystemStatus(data.integrationStatusGroups);
 
   return (
-    <div className="-m-6 min-h-full bg-[#260611] p-2 text-white xl:h-[calc(100dvh-4rem)] xl:overflow-hidden xl:p-2">
+    <div className="-m-6 min-h-full bg-[var(--dashboard-bg)] p-2 text-white xl:h-[calc(100dvh-4rem)] xl:overflow-hidden xl:p-2">
       <div className="mx-auto flex h-full w-full max-w-[1920px] flex-col gap-2">
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-1">
           <div>
@@ -695,16 +692,28 @@ export default async function DashboardPage({
           </div>
 
           <div className="flex items-center gap-3">
-            <div
-              className={`grid h-12 w-[270px] place-items-center rounded-xl px-4 text-center shadow-lg ${
-                systemOperational
-                  ? "bg-emerald-600 text-white ring-2 ring-emerald-400/40"
-                  : "bg-red-600 text-white ring-2 ring-red-400/40"
-              }`}
-            >
-              <span className="block w-full whitespace-nowrap text-center text-[17px] font-bold uppercase tracking-wide leading-none">
-                {systemOperational ? "SISTEMA OPERACIONAL" : "SISTEMA NÃO OPERACIONAL"}
-              </span>
+            <div className="flex w-[270px] flex-col items-center gap-1">
+              <div
+                title={systemStatus.reason || undefined}
+                className={`grid h-12 w-full place-items-center rounded-xl px-4 text-center shadow-lg ${
+                  systemStatus.level === "OPERACIONAL"
+                    ? "bg-emerald-600 text-white ring-2 ring-emerald-400/40"
+                    : systemStatus.level === "PARCIAL"
+                      ? "bg-amber-400 text-black ring-2 ring-amber-300/50"
+                      : systemStatus.level === "FALHA"
+                        ? "bg-red-600 text-white ring-2 ring-red-400/40"
+                        : "bg-slate-500 text-white ring-2 ring-slate-300/40"
+                }`}
+              >
+                <span className="block w-full whitespace-nowrap text-center text-[17px] font-bold uppercase tracking-wide leading-none">
+                  {systemStatus.label}
+                </span>
+              </div>
+              {systemStatus.reason ? (
+                <p className="text-center text-[14px] leading-tight text-[#e6d4d6]">
+                  {systemStatus.reason}
+                </p>
+              ) : null}
             </div>
 
             <div className="rounded-lg border border-white/10 bg-white/[0.05] px-4 py-2 text-right">
@@ -882,7 +891,7 @@ export default async function DashboardPage({
                 />
               </div>
 
-              <p className="mt-2 text-[15px] leading-tight text-[#a98288]">
+              <p className="mt-2 text-[15px] leading-tight text-[#c3a3a8]">
                 Valores em R$ mil · realizado inclui faturamento AXION +
                 faturamento direto WEG.
               </p>
@@ -953,7 +962,7 @@ export default async function DashboardPage({
                 />
               </div>
 
-              <p className="mt-2 text-[15px] leading-tight text-[#a98288]">
+              <p className="mt-2 text-[15px] leading-tight text-[#c3a3a8]">
                 Fonte: formulários SSMA registrados no ACC.
               </p>
             </Panel>
@@ -1191,7 +1200,7 @@ export default async function DashboardPage({
                 />
 
                 {dashboardCurrentWorkforcePeriod ? (
-                  <p className="mt-1 text-right text-[15px] text-[#a98288]">
+                  <p className="mt-1 text-right text-[15px] text-[#c3a3a8]">
                     Histograma {dashboardCurrentWorkforcePeriod}
                   </p>
                 ) : null}
@@ -1320,7 +1329,7 @@ export default async function DashboardPage({
           </div>
         </div>
 
-        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-1 text-[15px] text-[#a98288]">
+        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-1 text-[15px] text-[#c3a3a8]">
           <span>ACC · Dashboard executivo</span>
           <span>
             Nenhum indicador financeiro ou SSMA é estimado quando a fonte não

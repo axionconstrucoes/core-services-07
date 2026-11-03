@@ -13,7 +13,7 @@ import { applyAlertAction } from "../alert-state-machine";
 import { routeExpert } from "../experts/route-alert-expert";
 import { DEFAULT_CORPORATE_EMAIL_DOMAIN } from "../plan-risk-alerts";
 import type { RiskAlertStore } from "../store";
-import { authorizeReply, classifyReply, correlateReply, filterInboundMessage, parseReplyBody, replyToFormalAction } from "./reply-pipeline";
+import { authorizePilotMailboxReply, authorizeReply, classifyReply, correlateReply, filterInboundMessage, parseReplyBody, replyToFormalAction } from "./reply-pipeline";
 
 export interface ProcessRepliesResult {
   projectId: string;
@@ -26,7 +26,15 @@ export interface ProcessRepliesResult {
   recorded: number;
 }
 
-export async function processAlertReplies(store: RiskAlertStore, projectId: string, nowIso: string, accMailboxes: string[]): Promise<ProcessRepliesResult> {
+export interface ProcessRepliesOptions {
+  /** Caixa do PILOTO por projeto (project-pilot-profile.ts) quando ESTE projeto é o piloto; null/ausente => comportamento de sempre. */
+  pilotMailbox?: string | null;
+}
+
+export async function processAlertReplies(store: RiskAlertStore, projectId: string, nowIso: string, accMailboxes: string[], options: ProcessRepliesOptions = {}): Promise<ProcessRepliesResult> {
+  const pilotMailbox = options.pilotMailbox?.trim().toLowerCase() || null;
+  // No piloto a caixa de entrada É a caixa dos participantes simulados: respostas escritas por ela não são "auto-envio" do ACC (o ACC envia por outra identidade).
+  const selfMailboxes = pilotMailbox ? accMailboxes.filter((m) => m.trim().toLowerCase() !== pilotMailbox) : accMailboxes;
   const result: ProcessRepliesResult = { projectId, received: 0, ignored: 0, unauthorized: 0, pendingHumanReview: 0, reviewRequired: 0, applied: 0, recorded: 0 };
   const inbound = await store.listInboundToProcess(projectId);
   if (inbound.length === 0) return result;
@@ -35,18 +43,22 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
   const config = snapshot.config;
   const corporateDomain = (config?.senderDomain ?? DEFAULT_CORPORATE_EMAIL_DOMAIN).toLowerCase();
   const profileByEmail = new Map<string, { userId: string; email: string; membershipStatus: string | null }>();
+  const profileById = new Map<string, { userId: string; membershipStatus: string | null }>();
   for (const profile of snapshot.recipients.values()) {
     if (profile.email) profileByEmail.set(profile.email.toLowerCase(), { userId: profile.userId, email: profile.email, membershipStatus: profile.membershipStatus });
+    profileById.set(profile.userId, { userId: profile.userId, membershipStatus: profile.membershipStatus });
   }
 
   for (const message of inbound) {
     result.received += 1;
-    const verdict = filterInboundMessage(message.headers, { accMailboxes, seenMessageIds: index.seenMessageIds });
+    const verdict = filterInboundMessage(message.headers, { accMailboxes: selfMailboxes, seenMessageIds: index.seenMessageIds });
     if (verdict !== "OK") {
       await store.updateInboundMessage(message.id, { status: verdict, statusReason: verdict });
       result.ignored += 1;
       continue;
     }
+    // Aceita UMA vez: a duplicata (mesmo Message-ID) pendente neste lote vira IGNORED_LOOP.
+    if (message.headers.messageId) index.seenMessageIds.add(message.headers.messageId);
     const parsed = parseReplyBody(message.bodyOriginal);
     const correlation = correlateReply(message.headers, `${message.headers.subject ?? ""}\n${parsed.clean}`, index);
     if (!correlation.caseId) {
@@ -61,7 +73,7 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
       continue;
     }
     const senderProfile = profileByEmail.get(message.headers.from.trim().toLowerCase()) ?? null;
-    const authorization = authorizeReply({
+    const baseAuthorization = authorizeReply({
       senderEmail: message.headers.from,
       profile: senderProfile ? { userId: senderProfile.userId, email: senderProfile.email, active: true } : null,
       membershipStatus: senderProfile?.membershipStatus ?? null,
@@ -71,6 +83,26 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
       corporateDomain,
       authenticationResults: message.headers.authenticationResults ?? null,
     });
+    // Piloto por projeto: resposta escrita pela caixa dos participantes simulados é atribuída ao participante da mensagem respondida (sem elevar permissões).
+    let authorization: { authorized: true; userId: string; note: string | null } | { authorized: false; reason: string } = baseAuthorization;
+    if (!baseAuthorization.authorized && pilotMailbox) {
+      const pilotAuth = authorizePilotMailboxReply({
+        senderEmail: message.headers.from,
+        pilotMailbox,
+        correlationMethod: correlation.method,
+        participantUserId: correlation.participantUserId,
+        participant: correlation.participantUserId && profileById.has(correlation.participantUserId) ? { userId: correlation.participantUserId, active: true, membershipStatus: profileById.get(correlation.participantUserId)!.membershipStatus } : null,
+        alertRecipientUserIds: loaded.alertRecipientUserIds,
+        allowlistUserIds: config?.pilotRecipientAllowlistUserIds ?? [],
+        authenticationResults: message.headers.authenticationResults ?? null,
+      });
+      if (pilotAuth.authorized) {
+        authorization = { authorized: true, userId: pilotAuth.userId, note: pilotAuth.note };
+        await store.audit(projectId, [{ action: "RISK_ALERT_PILOT_MAILBOX_REPLY", entityType: "RISK_ALERT_CASE", entityId: correlation.caseId, detail: `Resposta pela caixa do piloto atribuída ao participante simulado ${pilotAuth.userId} (correlação ${correlation.method}).` }]);
+      } else if (pilotAuth.reason !== "NOT_PILOT_MAILBOX") {
+        authorization = { authorized: false, reason: `PILOT_${pilotAuth.reason}` };
+      }
+    }
     if (!authorization.authorized) {
       // Não altera o alerta; não devolve dados do projeto; registra o motivo.
       await store.updateInboundMessage(message.id, { caseId: correlation.caseId, correlationMethod: correlation.method, bodyClean: parsed.clean, quotedText: parsed.quoted, signatureText: parsed.signature, status: "UNAUTHORIZED_REPLY", statusReason: authorization.reason });

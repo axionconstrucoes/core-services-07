@@ -42,7 +42,26 @@ export interface SendEmailInput {
   // piloto não precisa tocá-los.
   inReplyTo?: string;
   references?: string[];
+  // Contexto da assistente AXIA para o cabeçalho do e-mail (opcional; sem ele abre a ajuda geral).
+  vera?: VeraEmailHint;
+  // Contexto do PILOTO por projeto (ver project-pilot-profile.ts): projeto, participante simulado e nível de escalonamento para a
+  // identificação da mensagem. Só rótulos curtos e ids — nunca o endereço do destinatário lógico. Sem ele, o projeto vem de `vera.projectId`.
+  pilot?: PilotMessageContext;
   correlationId: string;
+}
+
+export interface PilotMessageContext {
+  projectId?: string | null;
+  participantLabel?: string | null;
+  escalationLevel?: string | null;
+}
+
+// Dica de contexto do botão "Fale com a AXIA" que o provider acrescenta ao cabeçalho do e-mail (ver
+// branding/vera-email-header.ts). Só ids (UUID) e um tipo fixo — nunca dado pessoal ou contratual.
+export interface VeraEmailHint {
+  projectId?: string | null;
+  context?: "geral" | "alerta" | "providencia" | "ssma" | "autorizacao";
+  authorizationId?: string | null;
 }
 
 export interface AlertReplyToContext {

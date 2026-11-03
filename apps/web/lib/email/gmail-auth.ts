@@ -50,3 +50,27 @@ export function loadGmailConfig(): GmailConfig {
     senderEmail: senderEmail!,
   };
 }
+
+// Identidade de envio do PROJETO PILOTO (project-pilot-profile.ts): OAuth de uma caixa que realmente pode enviar como o remetente
+// institucional do piloto (a própria caixa dele). NUNCA há fallback para o remetente padrão nem troca só do cabeçalho From:
+// sem esta configuração completa, a mensagem do projeto piloto não sai (fail closed). Outros projetos não usam estas variáveis.
+export function loadGmailPilotSenderConfig(expectedSender: string): GmailConfig {
+  const base = {
+    clientId: process.env.GOOGLE_GMAIL_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_GMAIL_CLIENT_SECRET,
+    refreshToken: process.env.GOOGLE_GMAIL_PILOT_REFRESH_TOKEN,
+    senderEmail: (process.env.GOOGLE_GMAIL_PILOT_SENDER_EMAIL ?? "").trim().toLowerCase(),
+  };
+  const missing: string[] = [];
+  if (!base.clientId) missing.push("GOOGLE_GMAIL_CLIENT_ID");
+  if (!base.clientSecret) missing.push("GOOGLE_GMAIL_CLIENT_SECRET");
+  if (!base.refreshToken) missing.push("GOOGLE_GMAIL_PILOT_REFRESH_TOKEN");
+  if (!base.senderEmail) missing.push("GOOGLE_GMAIL_PILOT_SENDER_EMAIL");
+  if (missing.length > 0) {
+    throw new Error(`Remetente do piloto não configurado — variáveis ausentes: ${missing.join(", ")} (fail closed; sem fallback para o remetente padrão).`);
+  }
+  if (base.senderEmail !== expectedSender.trim().toLowerCase()) {
+    throw new Error("GOOGLE_GMAIL_PILOT_SENDER_EMAIL diferente do remetente autorizado do piloto (fail closed).");
+  }
+  return { clientId: base.clientId!, clientSecret: base.clientSecret!, refreshToken: base.refreshToken!, senderEmail: base.senderEmail };
+}

@@ -25,12 +25,9 @@
 //     node scripts/sql/run-contract-attachments-functional-cycle.mjs
 
 import { spawnSync } from "node:child_process";
+import { requireDisposableContainer } from "./lib/disposable-target.mjs";
 
-const container = process.env.ACC_ATTACH_CYCLE_DB_CONTAINER;
-if (!container) {
-  console.error('Defina ACC_ATTACH_CYCLE_DB_CONTAINER="<nome exato do container>".');
-  process.exit(1);
-}
+const container = requireDisposableContainer("ACC_ATTACH_CYCLE_DB_CONTAINER");
 if (process.env.ACC_ATTACH_CYCLE_I_UNDERSTAND_THIS_IS_DISPOSABLE !== "true") {
   console.error('ACC_ATTACH_CYCLE_I_UNDERSTAND_THIS_IS_DISPOSABLE precisa ser exatamente "true".');
   process.exit(1);

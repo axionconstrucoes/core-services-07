@@ -60,6 +60,7 @@ export async function sendSsmaAccidentAlertEmail(input: SsmaAccidentAlertInput) 
       html: signed.html,
       inlineImages: inlineLogo ? [inlineLogo] : undefined,
       correlationId: crypto.randomUUID(),
+      vera: { projectId: input.projectId, context: "ssma" },
     });
   } catch (error) {
     if (error instanceof EmailSendError) throw error;

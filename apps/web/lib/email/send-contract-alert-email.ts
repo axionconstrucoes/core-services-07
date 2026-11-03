@@ -160,6 +160,7 @@ export async function sendContractAlertEmail(
       html: signed.html,
       inlineImages: logos.images.length > 0 ? logos.images : undefined,
       correlationId,
+      vera: { projectId: input.projectId, context: "alerta" },
     });
   } catch (error) {
     if (tracking) await failManualAlertBatch(adminForTracking, tracking.batchId);

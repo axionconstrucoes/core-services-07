@@ -10,13 +10,10 @@
 //     node scripts/sql/run-single-active-contract-base-test.mjs
 
 import { spawnSync } from "node:child_process";
+import { requireDisposableContainer } from "./lib/disposable-target.mjs";
 
-const EXACT_DB_CONTAINER = "supabase_db_acc-disposable-20260829";
+const EXACT_DB_CONTAINER = requireDisposableContainer("ACC_SINGLE_CB_TEST_DB_CONTAINER");
 
-if (process.env.ACC_SINGLE_CB_TEST_DB_CONTAINER !== EXACT_DB_CONTAINER) {
-  console.error(`ACC_SINGLE_CB_TEST_DB_CONTAINER precisa ser exatamente "${EXACT_DB_CONTAINER}".`);
-  process.exit(1);
-}
 if (process.env.ACC_SINGLE_CB_TEST_I_UNDERSTAND_THIS_IS_DISPOSABLE !== "true") {
   console.error('ACC_SINGLE_CB_TEST_I_UNDERSTAND_THIS_IS_DISPOSABLE precisa ser exatamente "true".');
   process.exit(1);
@@ -63,6 +60,17 @@ const CB3 = "88888888-8888-4888-8888-888888899906";
 const ADT1 = "88888888-8888-4888-8888-888888899904";
 const ADT2 = "88888888-8888-4888-8888-888888899905";
 
+// Limpeza: remove SOMENTE as linhas exatas deste teste (ids fixos acima). Roda antes (resíduo de execução interrompida) e,
+// via finally, depois — inclusive quando um check falha. Nada além desses ids é tocado.
+function cleanupOwnRows() {
+  psql(`
+    delete from public.documents where project_id = '${PROJECT}' and id in ('${CB1}', '${CB2}', '${CB3}', '${ADT1}', '${ADT2}');
+    delete from public.projects where id = '${PROJECT}' and code = 'SINGLE-CB-TEST';
+  `);
+}
+
+cleanupOwnRows();
+try {
 psql(`
   insert into public.projects (id, code, name, client, status, location, start_date, baseline_end_date) values
     ('${PROJECT}', 'SINGLE-CB-TEST', 'Projeto (teste automatizado single contrato-base)', 'Cliente Teste', 'ATIVO', 'Teste', '2026-01-01', '2026-12-31')
@@ -101,6 +109,14 @@ check("restaurar o CONTRATO_BASE antigo agora que já existe um novo ATIVO: RECU
   const row = psql(`select deleted_at is not null as ainda_na_lixeira from public.documents where id = '${CB1}';`);
   if (!row.includes(" t")) throw new Error("o documento antigo deveria continuar na lixeira (restauração recusada)");
 });
+
+} finally {
+  cleanupOwnRows();
+  const left = psql(`select (select count(*) from public.projects where id = '${PROJECT}') || ',' || (select count(*) from public.documents where project_id = '${PROJECT}');`);
+  check("limpeza: nenhum resíduo do teste (projeto, documentos)", () => {
+    if (!left.includes("0,0")) throw new Error(`resíduos: ${left}`);
+  });
+}
 
 console.log("");
 console.log("======================================");

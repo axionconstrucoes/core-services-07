@@ -10,6 +10,8 @@ export async function sendSystemHealthAlertEmail(input: {
   sourceType: string;
   summary: string;
   auditUrl: string;
+  // Projeto da falha: permite ao transporte do piloto por projeto (project-pilot-profile.ts) restringir o destino.
+  projectId: string;
 }) {
   const subject = `🟡 [RISCO ALTO] ACC - FALHA OPERACIONAL - ${input.projectName}`;
   const text = `ACC · SUPERVISÃO OPERACIONAL\nRISCO ALTO\n\nFonte: ${input.sourceType}\nProblema: ${input.summary}\n\nAbrir Auditoria: ${input.auditUrl}\n\nO ACC suprimiu repetições desta mesma falha para evitar excesso de e-mails.`;
@@ -23,6 +25,7 @@ export async function sendSystemHealthAlertEmail(input: {
     html: signed.html,
     inlineImages: logo ? [logo] : undefined,
     correlationId: crypto.randomUUID(),
+    pilot: { projectId: input.projectId, participantLabel: "administrador (supervisão operacional)", escalationLevel: null },
   });
 }
 

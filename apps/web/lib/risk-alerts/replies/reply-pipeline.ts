@@ -105,15 +105,42 @@ export interface CorrelationIndex {
   byReplyTokenHash: Map<string, string>;
   /** código visível -> caseId. */
   byVisibleCode: Map<string, string>;
+  /** Participante (user_id do destinatário lógico) a quem foi enviada cada mensagem de alerta — usado só pelo piloto por projeto. */
+  participantByMessageId?: Map<string, string>;
+  participantByReplyTokenHash?: Map<string, string>;
 }
 
 export interface CorrelationResult {
   caseId: string | null;
   method: ReplyCorrelationMethod;
   ambiguous: boolean;
+  /** Participante da MENSAGEM respondida (In-Reply-To/Reply-To), quando o índice o conhece; null se desconhecido ou conflitante. */
+  participantUserId?: string | null;
 }
 
 export function correlateReply(headers: InboundHeaders, bodyText: string, index: CorrelationIndex): CorrelationResult {
+  const result = correlateReplyCase(headers, bodyText, index);
+  return { ...result, participantUserId: resolveReplyParticipant(headers, index) };
+}
+
+/**
+ * Participante simulado da mensagem respondida: In-Reply-To (mensagem enviada a ele) e token opaco do Reply-To precisam concordar quando
+ * ambos existem; código visível e References NUNCA identificam participante. Conflito ou desconhecido => null.
+ */
+export function resolveReplyParticipant(headers: InboundHeaders, index: CorrelationIndex): string | null {
+  const normalize = (id: string) => id.trim().replace(/^<?/, "<").replace(/>?$/, ">");
+  const found = new Set<string>();
+  if (headers.inReplyTo) {
+    const user = index.participantByMessageId?.get(normalize(headers.inReplyTo));
+    if (user) found.add(user);
+  }
+  const tokens = extractReplyTokens([...headers.to, ...(headers.cc ?? [])]);
+  const byToken = new Set(tokens.map((t) => index.participantByReplyTokenHash?.get(hashReplyToken(t))).filter((id): id is string => Boolean(id)));
+  for (const user of byToken) found.add(user);
+  return found.size === 1 ? Array.from(found)[0] : null;
+}
+
+function correlateReplyCase(headers: InboundHeaders, bodyText: string, index: CorrelationIndex): CorrelationResult {
   const normalize = (id: string) => id.trim().replace(/^<?/, "<").replace(/>?$/, ">");
   if (headers.inReplyTo) {
     const caseId = index.byMessageId.get(normalize(headers.inReplyTo));
@@ -265,4 +292,40 @@ export function replyToFormalAction(result: ReplyClassificationResult): "TAKING_
   if (result.classification === "ACKNOWLEDGEMENT") return "OTHER";
   if (result.classification === "QUESTION_TO_EXPERT") return "EXPERT_CONSULTATION";
   return null;
+}
+
+// ------------------------------------------------------------------
+// 3b. Resposta escrita pela CAIXA do piloto (projeto piloto por projeto)
+// ------------------------------------------------------------------
+// No piloto de um projeto todos os participantes são SIMULADOS e entregues numa única caixa institucional. Quem responde por ela escreve
+// "como" o participante da mensagem respondida. A autorização é ESTRITA e não eleva nada: o ator é exatamente o participante daquela
+// mensagem (o mesmo que responderia com o próprio e-mail), com as mesmas regras (destinatário do alerta, allowlist, vínculo ativo) e as
+// mesmas transições/permissões da máquina de estados. Só vale para o projeto piloto, para o remetente = caixa do piloto e para
+// correlação por token do Reply-To ou In-Reply-To (nunca código visível nem References).
+export interface PilotMailboxReplyContext {
+  senderEmail: string;
+  pilotMailbox: string;
+  correlationMethod: ReplyCorrelationMethod;
+  participantUserId: string | null | undefined;
+  participant: { userId: string; active: boolean; membershipStatus: string | null } | null;
+  alertRecipientUserIds: string[];
+  allowlistUserIds: string[];
+  authenticationResults: string | null;
+}
+
+export type PilotMailboxReplyAuthorization =
+  | { authorized: true; userId: string; note: string }
+  | { authorized: false; reason: "NOT_PILOT_MAILBOX" | "WEAK_CORRELATION" | "PARTICIPANT_UNKNOWN" | "PROFILE_INACTIVE" | "MEMBERSHIP_INACTIVE" | "NOT_RECIPIENT" | "NOT_ALLOWLISTED" | "AUTH_FAILED" };
+
+export function authorizePilotMailboxReply(ctx: PilotMailboxReplyContext): PilotMailboxReplyAuthorization {
+  if (ctx.senderEmail.trim().toLowerCase() !== ctx.pilotMailbox.trim().toLowerCase()) return { authorized: false, reason: "NOT_PILOT_MAILBOX" };
+  if (ctx.correlationMethod !== "REPLY_TO_TOKEN" && ctx.correlationMethod !== "IN_REPLY_TO") return { authorized: false, reason: "WEAK_CORRELATION" };
+  if (!ctx.participantUserId || !ctx.participant || ctx.participant.userId !== ctx.participantUserId) return { authorized: false, reason: "PARTICIPANT_UNKNOWN" };
+  if (!ctx.participant.active) return { authorized: false, reason: "PROFILE_INACTIVE" };
+  if (ctx.participant.membershipStatus !== "ACTIVE") return { authorized: false, reason: "MEMBERSHIP_INACTIVE" };
+  const auth = parseAuthenticationResults(ctx.authenticationResults);
+  if ([auth.spf, auth.dkim, auth.dmarc].some((v) => v === "fail" || v === "permerror")) return { authorized: false, reason: "AUTH_FAILED" };
+  if (!ctx.alertRecipientUserIds.includes(ctx.participantUserId)) return { authorized: false, reason: "NOT_RECIPIENT" };
+  if (!ctx.allowlistUserIds.includes(ctx.participantUserId)) return { authorized: false, reason: "NOT_ALLOWLISTED" };
+  return { authorized: true, userId: ctx.participantUserId, note: "Resposta pela caixa do piloto, atribuída ao participante simulado da mensagem respondida." };
 }

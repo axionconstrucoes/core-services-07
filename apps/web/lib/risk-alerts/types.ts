@@ -42,6 +42,8 @@ export const DIGEST_WEEKDAY = 3; // quarta-feira (0 = domingo)
 export const DIGEST_HOUR_LOCAL = 7; // 07:00 no timezone do projeto
 export const DEFAULT_PROJECT_TIMEZONE = "America/Sao_Paulo";
 export const MAX_SEND_ATTEMPTS = 3;
+/** Validade do lease de envio da outbox (risk_alert_outbox.claimed_at): maior que o tempo máximo de um ciclo (300 s). */
+export const CLAIM_LEASE_MS = 10 * 60 * 1000;
 
 /** Caso de risco normalizado a partir de uma fonte do módulo semanal. */
 export interface RiskCaseInput {
@@ -186,6 +188,8 @@ export interface DigestItem {
   responsibleName: string | null;
   originPath: string;
   slaActionId: string | null;
+  /** Responsável (Nível 1) do item — usado para reconstruir o consolidado em retentativas. */
+  responsibleUserId?: string | null;
   state: "NEW" | "CHANGED" | "OPEN" | "CLOSED";
 }
 
@@ -361,6 +365,8 @@ export interface PilotReadinessInput {
   replyMailbox?: string | null;
   /** Override de entrega do piloto (normalizado) — quando presente, deve ser a própria caixa inbound (respostas voltam à mesma caixa). */
   deliveryOverrideEmail?: string | null;
+  /** true quando ESTE projeto é o piloto (ACC_PROJECT_PILOT_PROJECT_ID) mas o perfil de e-mail do piloto está inválido: o envio seria recusado, então o ciclo nem começa. */
+  projectPilotProfileInvalid?: boolean;
 }
 
 export type PilotReadinessBlocker =
@@ -374,4 +380,5 @@ export type PilotReadinessBlocker =
   | "WORKSPACE_NOT_CONFIGURED"
   | "SEVERITY_MAP_NOT_CONFIGURED"
   | "REPLY_MAILBOX_NOT_CONFIGURED"
-  | "DELIVERY_OVERRIDE_REPLY_MAILBOX_MISMATCH";
+  | "DELIVERY_OVERRIDE_REPLY_MAILBOX_MISMATCH"
+  | "PROJECT_PILOT_PROFILE_INVALID";

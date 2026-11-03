@@ -11,6 +11,8 @@ import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
 import { issueEmailAlertActionButtons } from "@/lib/email-actions/issue-tokens";
 import { EmailSendError } from "@/lib/email/email-provider";
 import { sendSlaEscalationEmail } from "@/lib/email/send-sla-escalation-email";
+import { runManualEscalationHook } from "@/lib/whatsapp/hooks";
+import { notifyDirectorateWhatsappSafely } from "@/lib/whatsapp/notify-directorate-server";
 import { getProject } from "@/lib/data";
 import { computeEscalation } from "@/lib/sla/compute-escalation";
 import { computeSlaDeadlines } from "@/lib/sla/compute-deadlines";
@@ -634,6 +636,22 @@ export async function processSlaEscalationsAction(
           continue;
         }
       }
+
+      // WhatsApp SIMULADO (desligado por padrão), só CRÍTICO que chegou à Diretoria. Este ponto só é alcançado quando a ação NÃO
+      // está vinculada a um alerta de risco (esse caso segue pela outbox e é tratado no ciclo), então não há envio duplicado.
+      await runManualEscalationHook(
+        {
+          projectId,
+          projectName: project?.name ?? null,
+          recipientUserId: destination.userId ?? null,
+          actionId: action.id,
+          actionTitle: action.title,
+          actionUrl: buildSlaActionUrl(baseUrl, projectId, action.id),
+          riskLevel: action.riskLevel,
+          newLevel: destination.level,
+        },
+        notifyDirectorateWhatsappSafely
+      ).catch(() => false); // o canal nunca interrompe a varredura de escalonamentos
 
       if (rule.notifyByEmail && project) {
         const notifiedUserId = destination.userId;

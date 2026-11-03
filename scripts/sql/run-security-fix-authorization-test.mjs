@@ -60,12 +60,9 @@
 //     node scripts/sql/run-security-fix-authorization-test.mjs
 
 import { spawnSync } from "node:child_process";
+import { requireDisposableContainer } from "./lib/disposable-target.mjs";
 
-const container = process.env.ACC_SECFIX_TEST_DB_CONTAINER;
-if (!container) {
-  console.error('Defina ACC_SECFIX_TEST_DB_CONTAINER="<nome exato do container>".');
-  process.exit(1);
-}
+const container = requireDisposableContainer("ACC_SECFIX_TEST_DB_CONTAINER");
 if (process.env.ACC_SECFIX_TEST_I_UNDERSTAND_THIS_IS_DISPOSABLE !== "true") {
   console.error('ACC_SECFIX_TEST_I_UNDERSTAND_THIS_IS_DISPOSABLE precisa ser exatamente "true".');
   process.exit(1);

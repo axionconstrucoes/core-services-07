@@ -39,3 +39,6 @@ export const initialSetMemberJobTitleState: SetMemberJobTitleState = { error: nu
 
 export type PreRegisterMemberState = { error: string | null; success: boolean };
 export const initialPreRegisterMemberState: PreRegisterMemberState = { error: null, success: false };
+
+export type SetMemberWhatsappContactState = { error: string | null; success: boolean };
+export const initialSetMemberWhatsappContactState: SetMemberWhatsappContactState = { error: null, success: false };

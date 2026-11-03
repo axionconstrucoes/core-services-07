@@ -186,6 +186,7 @@ export async function performActionRequestNotification(
       text: signed.text,
       html: signed.html,
       correlationId,
+      vera: { projectId, context: "geral" },
     });
   } catch (error) {
     const { error: failedUpdateError } = await admin

@@ -45,6 +45,7 @@
 //   ACC_CONCURRENCY_TEST_I_UNDERSTAND_THIS_IS_DISPOSABLE=true \
 //     node scripts/sql/run-contractual-link-concurrency-test.mjs
 
+import { publishedPostgresPort, requireDisposableContainer } from "./lib/disposable-target.mjs";
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
@@ -66,7 +67,10 @@ const repoRoot = path.resolve(here, "..", "..");
 // 55024, que por sinal caem dentro da faixa de exclusão administrada
 // do Windows 54947-55046 — mais um motivo para nunca confiar numa
 // faixa ampla sem verificação real a cada execução).
-const EXACT_DISPOSABLE_PORT = 55511;
+// A porta deixou de ser fixa: é a porta que o Docker publica para o Postgres do container descartável validado
+// (requireDisposableContainer), então a URL só vale se apontar para ESSE container.
+const EXACT_DISPOSABLE_DB_CONTAINER = requireDisposableContainer("ACC_CONCURRENCY_TEST_DB_CONTAINER");
+const EXACT_DISPOSABLE_PORT = publishedPostgresPort(EXACT_DISPOSABLE_DB_CONTAINER);
 // Faixa real da stack Supabase local deste projeto — ver
 // supabase/config.toml (portas 54320-54329) — recusada explicitamente,
 // mesmo que caia fora da porta exata escolhida por acidente de digitação.
@@ -149,16 +153,6 @@ if (process.env.ACC_CONCURRENCY_TEST_I_UNDERSTAND_THIS_IS_DISPOSABLE !== "true")
 // profundidade, mas quem decide COM QUAL container o runner realmente
 // fala é o nome exato abaixo — verificado nesta execução via `docker
 // ps` (nunca um prefixo/padrão, nunca "qualquer container supabase_db_*").
-const EXACT_DISPOSABLE_DB_CONTAINER = "supabase_db_acc-disposable-20260829";
-const containerNameRaw = process.env.ACC_CONCURRENCY_TEST_DB_CONTAINER;
-if (containerNameRaw !== EXACT_DISPOSABLE_DB_CONTAINER) {
-  console.error(
-    `ACC_CONCURRENCY_TEST_DB_CONTAINER precisa ser exatamente "${EXACT_DISPOSABLE_DB_CONTAINER}" (obtido: ${JSON.stringify(containerNameRaw)}) — ` +
-      "nunca um prefixo/padrão, nunca o container da stack local real (supabase_db_axion-contract-intelligence)."
-  );
-  process.exit(1);
-}
-
 function readSqlFile(relativePath) {
   return readFileSync(path.join(repoRoot, relativePath), "utf8");
 }

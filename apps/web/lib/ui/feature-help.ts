@@ -117,6 +117,14 @@ const DEFINITIONS: FeatureHelpDefinition[] = [
     humanReview: "A IA analisa e recomenda. Decisões vinculantes permanecem humanas.",
   },
   {
+    id: "autorizacoes-email",
+    title: "Autorizações de e-mail",
+    shortDescription: "Consentimento dos colaboradores para o acesso aos e-mails da obra (só administradores).",
+    description:
+      "Mostra, por colaborador, conta e obra, se o acesso aos e-mails foi autorizado, recusado ou revogado, quando, e a situação da conexão da conta. O aceite é registrado no ACC; a conexão da conta Google é separada e feita pelo administrador.",
+    humanReview: "A permissão do Google (somente leitura) não é limitada a uma obra; quem limita a leitura à obra são os filtros do ACC.",
+  },
+  {
     id: "startup-acc",
     title: "Start-up ACC",
     shortDescription: "Validação dos riscos históricos antes da operação normal.",

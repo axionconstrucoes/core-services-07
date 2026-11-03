@@ -35,6 +35,7 @@ export async function sendWeeklyAlertDigestEmail(input: {
       html: signed.html,
       inlineImages: inlineLogo ? [inlineLogo] : undefined,
       correlationId,
+      vera: { projectId: input.projectId, context: "alerta" },
     });
   } catch (error) {
     await admin
