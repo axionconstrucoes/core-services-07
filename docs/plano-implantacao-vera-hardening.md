@@ -5,11 +5,11 @@
 
 ## 1. Premissas
 - Um merge na `main` dispara **deploy automático** da aplicação. As migrations **não** acompanham o deploy: precisam ser aplicadas à parte.
-- Produção já tem as migrations até `20261028130000` (ver `docs/transicao-remota/aplicacao-migrations-producao.md`). Esta integração traz **seis** novas.
+- Produção já tem as migrations até `20261028130000` (ver `docs/transicao-remota/aplicacao-migrations-producao.md`). Esta integração traz **sete** novas.
 - PITR do banco desativado; há backups físicos diários. Não há reversão automática de migration.
 - Canais externos novos nascem **desligados**: WhatsApp (`ACC_WHATSAPP_ENABLED` ausente) e voz ElevenLabs (`ELEVENLABS_ENABLED` ausente). Nenhuma variável nova é obrigatória.
 
-## 2. As seis migrations (ordem de versão = ordem de aplicação)
+## 2. As sete migrations (ordem de versão = ordem de aplicação)
 | # | Versão | O que faz | Natureza | Código antigo com ela aplicada | Código novo sem ela |
 |---|---|---|---|---|---|
 | 1 | `20261029120000_email_access_authorizations` | tabelas/funções de autorização de e-mail por projeto (RLS, histórico imutável) | aditiva | não usa; sem efeito | página/aba de autorização falha só nessas telas |
@@ -18,6 +18,7 @@
 | 4 | `20261030140000_ssma_photo_discard_authorize_only` | cria `authorize_discard_unregistered_ssma_photo` e **remove** `discard_unregistered_ssma_photo` | remove função | o cliente SSMA antigo chama a função removida só na limpeza após falha de registro (já não removia o arquivo): erro ignorado | a rota nova responde 403 (nada é removido) até a migration |
 | 5 | `20261030150000_restrict_anon_execute_authenticated_only_functions` | revoga `EXECUTE` de `anon`/PUBLIC em 22 funções SECURITY DEFINER | restringe privilégio | compatível: todos os chamadores são sessão autenticada ou servidor (service role); conferido por busca no código e pelos runners na stack completa | sem efeito |
 | 6 | `20261031100000_whatsapp_contacts_and_simulated_log` | tabelas `person_whatsapp_contacts` e `whatsapp_simulated_messages`, funções `set_person_whatsapp_contact` e `whatsapp_dispatch_target` | aditiva | não usa | formulário de telefone falha ao salvar; a tela de usuários continua carregando (a leitura do contato é tolerante) |
+| 7 | `20261101100000_restrict_anon_execute_remaining_security_definer` | revoga `EXECUTE` de `anon`/PUBLIC em 21 funções SECURITY DEFINER antigas; **4 exceções documentadas** (helpers de RLS `has_project_permission`, `is_project_member`, `is_shared_project_admin`, `is_any_project_admin`) | restringe privilégio (falha e desfaz se `authenticated`/`service_role` mudarem ou se sobrar outra função anônima) | compatível: todos os chamadores são sessão autenticada ou servidor; sem sessão já eram recusadas no corpo | sem efeito funcional |
 
 Dependências entre elas: a 5 cita funções criadas pela 1 (`request/decide/revoke_email_access_authorization`) e a 2 cita funções de SSMA/Construmanager já em produção;
 a 4 é a única que remove algo. Cada migration valida as assinaturas esperadas e **falha inteira** sem aplicar nada parcialmente.
@@ -34,7 +35,7 @@ autorização, descarte e contato WhatsApp), sem quebrar fluxos existentes.
      `select count(*) from public.construmanager_version_impact_reviews where not ((not send_to_budget and budget_user_id is null and budget_response is null and budget_responded_at is null and status='CONCLUIDA') or (send_to_budget and budget_user_id is not null and budget_response is null and budget_responded_at is null and status='PENDENTE_ORCAMENTO') or (send_to_budget and budget_user_id is not null and coalesce(length(btrim(budget_response)),0) >= 10 and budget_responded_at is not null and status='CONCLUIDA'));`
    - a função removida não é chamada por jobs: `select count(*) from pg_stat_user_functions where funcname='discard_unregistered_ssma_photo';`
    - funções executáveis por `anon` hoje (lista de referência da migration 5).
-4. Ensaio em banco descartável: aplicar as seis sobre uma cópia **somente do esquema** de produção (sem dados) e rodar a auditoria `run-security-definer-search-path-audit` (esperado: 0 falhas) e o runner `run-ssma-construmanager-search-path-test`.
+4. Ensaio em banco descartável: aplicar as sete sobre uma cópia **somente do esquema** de produção (sem dados) e rodar a auditoria `run-security-definer-search-path-audit` (esperado: 0 falhas) e o runner `run-ssma-construmanager-search-path-test`.
 5. Congelar merges na `main` durante a janela; avisar usuários do SSMA (a janela é curta, as migrations são rápidas).
 
 ## 4. Fase 1 — migrations em produção (autorização explícita; uma de cada vez, em ordem)
@@ -44,8 +45,9 @@ autorização, descarte e contato WhatsApp), sem quebrar fluxos existentes.
 3. Migration 2: `select proname, proconfig from pg_proc where proname in (…12 funções…)` com `search_path=""`.
 4. Migration 3: constraint `construmanager_version_impact_reviews_state_check` presente e a antiga ausente.
 5. Migration 4: `authorize_discard_unregistered_ssma_photo` existe e `discard_unregistered_ssma_photo` não.
-6. Migration 5: a mesma contagem (`select count(*) from pg_proc p where pronamespace='public'::regnamespace and prosecdef and prorettype<>'trigger'::regtype and has_function_privilege('anon',p.oid,'execute')`) deve **cair em 22** (no ensaio com o esquema de produção: 47 → 25; ver a seção 8). Não espere 0: 25 funções antigas continuam executáveis por `anon` e a migration 5 não as cobre.
-7. Migration 6: duas tabelas novas com RLS; `whatsapp_dispatch_target` só executável por `service_role`.
+6. Migrations 5 e 7: a mesma contagem (`select count(*) from pg_proc p where pronamespace='public'::regnamespace and prosecdef and prorettype<>'trigger'::regtype and has_function_privilege('anon',p.oid,'execute')`). Esperado (esquema de produção, ver seção 8): 45 antes da 1; 47 após a 1; **25 após a 5**; **4 após a 7** (as exceções documentadas). Qualquer outro valor: parar.
+7. Migration 7: `authenticated` e `service_role` mantêm EXECUTE nas 21; as 4 exceções continuam executáveis por `anon` (decisão registrada no cabeçalho da migration).
+8. Migration 6: duas tabelas novas com RLS; `whatsapp_dispatch_target` só executável por `service_role`.
 Se qualquer verificação falhar: **parar**, não aplicar a seguinte, e usar a seção 6.
 
 ## 5. Fase 2 — merge e deploy automático
@@ -60,6 +62,8 @@ Se qualquer verificação falhar: **parar**, não aplicar a seguinte, e usar a s
 
 ```sql
 begin;
+-- 7) devolver EXECUTE a anon nas 21 funções da migration 20261101100000 (só se surgir chamador anônimo legítimo; ver a lista no cabeçalho dela)
+-- grant execute on function <assinatura> to anon;
 -- 6) WhatsApp (aditiva) — perde contatos/registros simulados: exportar antes
 drop function if exists public.whatsapp_dispatch_target(uuid, uuid);
 drop function if exists public.set_person_whatsapp_contact(uuid, uuid, text, boolean);
@@ -123,12 +127,16 @@ Feito em 2026-11-03, só local. Esquema obtido por `supabase db dump` (somente D
 | 5 | aplicou; EXECUTE de `anon` removido de 22 funções (47 → 25); `authenticated` mantém EXECUTE |
 | 6 | aplicou; 2 tabelas com RLS; `whatsapp_dispatch_target` só para `service_role` |
 
-Com as seis aplicadas: auditoria de `search_path` 353 OK / **1 falha**, runner SSMA/Construmanager 48 OK, runner de autorização 19 OK. A falha é "nenhuma função SECURITY DEFINER é executável por `anon`": 25 funções **anteriores a esta integração** (ex.: gestão de membros, termos de ciência, envio SSMA, resposta do orçamento) continuam com EXECUTE para `anon` no esquema real de produção. O CI não vê isso (PGlite não tem os privilégios padrão do Supabase). Cada uma valida `auth.uid()` no corpo, mas o critério da auditoria só fecha com uma migration adicional (decisão pendente: revogar `anon` também nelas; cuidado com funções usadas em políticas RLS).
+Com as seis aplicadas: auditoria de `search_path` 353 OK / **1 falha** (25 funções antigas ainda executáveis por `anon`; o CI não vê isso porque PGlite não tem os privilégios padrão do Supabase). Isso levou à **migration 7**.
+
+### Migration 7 (ensaio na mesma base, privilégios do Supabase)
+Investigação das 25: assinaturas, corpos, ACL efetiva (incluindo herança de PUBLIC), chamadores no código e políticas RLS. Sem sessão (papel `anon`), as 21 RPCs já recusavam no corpo (`auth.uid()` nulo); 4 helpers de RLS devolvem só `false`. Dos helpers, ~80 políticas "TO public" (valem para anon) os chamam: revogar o EXECUTE faria consultas anônimas falharem com "permission denied" em vez de devolver vazio (já é assim em `documents`, por `is_active_project_administrator`), sem fechar nenhum acesso — ficam como exceções explícitas. `can_upload_ssma_photo_object` só é usada em política `TO authenticated` e foi revogada.
+Resultado: 21 revogadas; auditoria **355 OK / 0 falhas** com a lista de exceções justificada (a auditoria falha se aparecer qualquer outra função anônima, ou se uma concessão direta a `anon` ou a PUBLIC for feita — testado); `run-anon-execute-restriction-test` **56 passos OK**: anon/PUBLIC sem EXECUTE e recusado com `permission denied` em cada uma das 21, `authenticated` e `service_role` intactos, exceções devolvendo `false` e nenhuma linha, administrador da obra 1 age na obra 1 e é recusado na obra 2, membro comum e administrador de outra obra são recusados, isolamento de linhas por RLS entre obras.
 Compatibilidade: das chamadas `rpc` do código antigo (`main`), a única sem destino é `discard_unregistered_ssma_photo` (removida de propósito); o código novo encontra todas as funções que chama, com EXECUTE para `authenticated` ou `service_role`.
 **O que o ensaio não prova:** dados reais (a pré-checagem do CHECK da migration 3 tem de ser rodada em produção), corpos de função de produção diferentes das migrations (comparados só por assinatura e ACL), volume e tempo de bloqueio, extensões/configurações do projeto hospedado, Storage com objetos reais.
 
 ## 7. Pendências antes de executar
 - Autorização para acessar o remoto e aplicar migrations; janela e responsável.
-- ~~Ensaio das seis migrations sobre o esquema de produção~~ — feito (seção 8). Resta decidir sobre as 25 funções ainda executáveis por `anon` e rodar as pré-checagens com dados reais na janela.
+- ~~Ensaio das seis migrations sobre o esquema de produção~~ — feito (seção 8). As 25 funções anônimas foram tratadas na migration 7. Resta rodar as pré-checagens com dados reais na janela.
 - Arte definitiva da AXIA com origem/direitos comprovados (a integração usa um ícone neutro).
 - Definir se o PR será único ou empilhado.

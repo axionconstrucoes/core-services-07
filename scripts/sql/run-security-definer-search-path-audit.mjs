@@ -225,13 +225,25 @@ function main() {
   });
 
   // Privilégios de anon: nenhuma função SECURITY DEFINER (não-trigger) do schema public pode ser executável sem sessão.
-  // Exceção só com motivo comprovado em ANON_EXECUTE_ALLOWLIST (hoje vazia).
-  const ANON_EXECUTE_ALLOWLIST = {};
+  // Exceção só com motivo comprovado em ANON_EXECUTE_ALLOWLIST (assinatura => justificativa). Qualquer outra função falha.
+  const RLS_HELPER_REASON =
+    "helper de RLS usado em políticas declaradas TO public (valem para anon); devolve só boolean e depende de auth.uid() (nulo => false); " +
+    "revogar faria consultas anônimas falharem com permission denied em vez de devolver vazio (ver 20261101100000)";
+  const ANON_EXECUTE_ALLOWLIST = {
+    "has_project_permission(uuid,text)": RLS_HELPER_REASON,
+    "is_project_member(uuid)": RLS_HELPER_REASON,
+    "is_shared_project_admin(uuid)": RLS_HELPER_REASON,
+    "is_any_project_admin()": RLS_HELPER_REASON,
+  };
+  check("exceções de anon: cada uma tem justificativa não vazia", () => {
+    const vazias = Object.entries(ANON_EXECUTE_ALLOWLIST).filter(([, why]) => !why || why.trim().length < 40).map(([sig]) => sig);
+    if (vazias.length > 0) throw new Error(`exceção sem justificativa: ${vazias.join(", ")}`);
+  });
   check("nenhuma função SECURITY DEFINER não-trigger é executável por anon/PUBLIC", () => {
     const rows = psql(
       "select p.oid::regprocedure::text from pg_proc p where p.pronamespace = 'public'::regnamespace and p.prokind = 'f' and p.prosecdef " +
         "and p.prorettype <> 'trigger'::regtype and has_function_privilege('anon', p.oid, 'execute') order by 1"
-    ).map((r) => r[0]).filter((sig) => !(sig in ANON_EXECUTE_ALLOWLIST));
+    ).map((r) => r[0].replace(/^public./, "")).filter((sig) => !(sig in ANON_EXECUTE_ALLOWLIST));
     if (rows.length > 0) throw new Error(`${rows.length} função(ões) executável(is) por anon: ${rows.join(", ")}`);
   });
 
