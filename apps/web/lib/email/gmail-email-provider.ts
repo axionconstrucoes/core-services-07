@@ -33,11 +33,12 @@ export class GmailEmailProvider implements EmailProvider {
     // escapa da trava do piloto.
     // Perfil do PROJETO PILOTO (project-pilot-profile.ts): destino e remetente fixos, sem CC/BCC; outros projetos passam intocados.
     const routing = applyProjectPilotProfile(applyPilotOutboundGuard(input));
-    const guardedInput = assertOnlyRecipient(applyVeraEmailHeader(routing.input));
+    const guardedInput = assertOnlyRecipient(applyVeraEmailHeader(routing.input), undefined, undefined, routing.destination);
 
     // Mensagem do piloto só sai pela identidade do remetente do piloto — nunca pelo remetente padrão, nunca só trocando o From.
     let config = this.config;
-    if (routing.routed) {
+    // Se o remetente padrão JÁ é o remetente do piloto (mesma conta autenticada), usa a configuração padrão; senão exige a identidade própria.
+    if (routing.routed && this.config.senderEmail.trim().toLowerCase() !== routing.sender) {
       try {
         config = loadGmailPilotSenderConfig(routing.sender as string);
       } catch {

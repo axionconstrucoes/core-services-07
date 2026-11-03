@@ -49,7 +49,7 @@ export class FakeEmailProvider implements EmailProvider {
     // falha simulada acima — mesma trava aplicada em GmailEmailProvider,
     // para que os testes exerçam exatamente a mesma transformação real.
     const routing = applyProjectPilotProfile(applyPilotOutboundGuard(input));
-    const guardedInput = assertOnlyRecipient(applyVeraEmailHeader(routing.input));
+    const guardedInput = assertOnlyRecipient(applyVeraEmailHeader(routing.input), undefined, undefined, routing.destination);
     // Mesma conferência do transporte real: MIME montado com o remetente do piloto, Para único, sem Cc/Bcc.
     if (routing.routed) {
       assertPilotMimeRecipients(buildMimeMessage(guardedInput, routing.sender as string, "<fake.axion.local>"), routing.sender as string, routing.destination as string);

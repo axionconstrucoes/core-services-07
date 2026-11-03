@@ -167,7 +167,7 @@ await check("transporte final: conferência do MIME (Para único, From do piloto
   await throwsEmail(() => assertPilotMimeRecipients("From: <outra@axion.com.br>\r\nTo: axion@axion.com.br\r\n\r\nx", "crm@axion.com.br", "axion@axion.com.br"), "From diferente");
 });
 
-await check("prontidão: projeto piloto exige que a caixa inbound seja o remetente do piloto", () => {
+await check("prontidão: perfil do piloto inválido para o projeto bloqueia o ciclo; sem perfil nada muda", () => {
   const base = {
     featureEnabled: true,
     config: { enabled: true, riskAlertsEnabled: true },
@@ -179,16 +179,19 @@ await check("prontidão: projeto piloto exige que a caixa inbound seja o remeten
     workspaceConfigured: true,
     severityMapConfigured: true,
     replyMailboxConfigured: true,
+    replyMailbox: "x@axion.com.br",
   };
-  assert(readiness.evaluatePilotReadiness({ ...base, replyMailbox: "crm@axion.com.br", projectPilotSender: "crm@axion.com.br" }).blockers.length === 0, "caixa igual ao remetente");
-  assert(readiness.evaluatePilotReadiness({ ...base, replyMailbox: "outra@axion.com.br", projectPilotSender: "crm@axion.com.br" }).blockers.includes("PROJECT_PILOT_REPLY_MAILBOX_MISMATCH"));
-  assert(readiness.evaluatePilotReadiness({ ...base, replyMailbox: "outra@axion.com.br", projectPilotSender: null }).blockers.length === 0, "projeto sem perfil não muda");
+  assert(readiness.evaluatePilotReadiness({ ...base, projectPilotProfileInvalid: true }).blockers.includes("PROJECT_PILOT_PROFILE_INVALID"));
+  assert(readiness.blockerToSuppressionReason("PROJECT_PILOT_PROFILE_INVALID") === "PROVIDER_NOT_CONFIGURED");
+  assert(readiness.evaluatePilotReadiness({ ...base, projectPilotProfileInvalid: false }).blockers.length === 0);
+  assert(readiness.evaluatePilotReadiness(base).blockers.length === 0, "projeto sem perfil não muda");
 });
 
 await check("estrutural: o transporte real aplica o perfil, usa a identidade do piloto e confere o MIME antes da rede", () => {
   const gmail = read("apps/web/lib/email/gmail-email-provider.ts");
   assert(gmail.includes("applyProjectPilotProfile(applyPilotOutboundGuard(input))"));
   assert(gmail.includes("loadGmailPilotSenderConfig(routing.sender"), "identidade do remetente do piloto");
+  assert(gmail.includes("this.config.senderEmail.trim().toLowerCase() !== routing.sender"), "usa a conta padrão quando ela já é o remetente do piloto");
   assert(gmail.indexOf("assertPilotMimeRecipients(") > 0 && gmail.indexOf("assertPilotMimeRecipients(") < gmail.indexOf("gmail.users.messages.send"), "conferência do MIME antes do envio");
   assert(!/this\.config\.(clientId|refreshToken)/.test(gmail), "credenciais devem vir da identidade escolhida");
   const auth = read("apps/web/lib/email/gmail-auth.ts");

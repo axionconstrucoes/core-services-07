@@ -37,7 +37,12 @@ import { buildAlertFollowUpEmail, buildImmediateRiskAlertEmail, buildRiskDigestE
 import { evaluatePilotReadiness, blockerToSuppressionReason, isSeverityMapComplete } from "./pilot-readiness";
 import { evaluateRecipient, planRiskAlerts } from "./plan-risk-alerts";
 import { resolveDeliveryAddress } from "@/lib/email/pilot-delivery-override";
-import { resolveProjectPilotProfile } from "@/lib/email/project-pilot-profile";
+import { resolveProjectPilotProfile, resolveProjectPilotReplyMailbox } from "@/lib/email/project-pilot-profile";
+
+/** Projeto piloto por projeto: a entrega é decidida pelo perfil de e-mail (destino único); o override de entrega legado não se aplica. */
+function projectPilotActive(projectId: string): boolean {
+  return resolveProjectPilotReplyMailbox(projectId) !== null;
+}
 import { runCycleEscalationHook } from "@/lib/whatsapp/hooks";
 import { notifyDirectorateWhatsappSafely } from "@/lib/whatsapp/notify-directorate-server";
 
@@ -157,13 +162,10 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       severityMapConfigured: isSeverityMapComplete(snapshot.config?.severityMap ?? null),
       replyMailboxConfigured: Boolean(snapshot.replyMailbox),
       replyMailbox: snapshot.replyMailbox,
-      deliveryOverrideEmail: snapshot.config?.pilotDeliveryOverrideEmail ?? null,
-      projectPilotSender: (() => {
+      deliveryOverrideEmail: projectPilotActive(projectId) ? null : (snapshot.config?.pilotDeliveryOverrideEmail ?? null),
+      projectPilotProfileInvalid: (() => {
         const profile = resolveProjectPilotProfile();
-        if (!profile.configured) return null;
-        // Perfil configurado mas inválido para ESTE projeto: valor impossível => bloqueia a prontidão (o envio já falharia fechado).
-        if (!profile.valid) return (process.env.ACC_PROJECT_PILOT_PROJECT_ID ?? "").trim().toLowerCase() === projectId.toLowerCase() ? "perfil-do-piloto-invalido" : null;
-        return profile.projectId === projectId.toLowerCase() ? profile.sender : null;
+        return profile.configured && !profile.valid && (process.env.ACC_PROJECT_PILOT_PROJECT_ID ?? "").trim().toLowerCase() === projectId.toLowerCase();
       })(),
     });
 
@@ -388,7 +390,7 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
   // lógico (recipientUserId/recipientEmail) permanece na outbox e na auditoria.
   const delivery = resolveDeliveryAddress({
     logicalEmail: recipientEmail,
-    overrideEmail: ctx.snapshot.config?.pilotDeliveryOverrideEmail ?? null,
+    overrideEmail: projectPilotActive(ctx.projectId) ? null : (ctx.snapshot.config?.pilotDeliveryOverrideEmail ?? null),
     eventKey: `${caseId ?? idempotencyKey}:${notificationType}:${escalationLevel ?? "-"}`,
   });
   if (delivery.overridden && ctx.deliveredKeys.has(delivery.dedupKey)) {

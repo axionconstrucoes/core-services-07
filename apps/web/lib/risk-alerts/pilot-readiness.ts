@@ -87,8 +87,7 @@ export function evaluatePilotReadiness(input: PilotReadinessInput): { ready: boo
   // Override de entrega do piloto: as respostas precisam voltar à MESMA caixa
   // que recebe os alertas — o override só é válido quando é a caixa inbound oficial.
   if (input.deliveryOverrideEmail && input.replyMailbox && input.deliveryOverrideEmail !== input.replyMailbox) blockers.push("DELIVERY_OVERRIDE_REPLY_MAILBOX_MISMATCH");
-  // Projeto piloto com remetente fixo: as respostas só são lidas pela ingestão se a caixa inbound oficial for esse mesmo remetente.
-  if (input.projectPilotSender && input.replyMailbox !== input.projectPilotSender) blockers.push("PROJECT_PILOT_REPLY_MAILBOX_MISMATCH");
+  if (input.projectPilotProfileInvalid) blockers.push("PROJECT_PILOT_PROFILE_INVALID");
   return { ready: blockers.length === 0, blockers };
 }
 
@@ -96,8 +95,8 @@ export function evaluatePilotReadiness(input: PilotReadinessInput): { ready: boo
 export function blockerToSuppressionReason(blocker: PilotReadinessBlocker): RiskSuppressionReason {
   switch (blocker) {
     case "WORKSPACE_NOT_CONFIGURED":
+    case "PROJECT_PILOT_PROFILE_INVALID":
       return "PROVIDER_NOT_CONFIGURED";
-    case "PROJECT_PILOT_REPLY_MAILBOX_MISMATCH":
     case "DELIVERY_OVERRIDE_REPLY_MAILBOX_MISMATCH":
       return "REPLY_MAILBOX_NOT_CONFIGURED";
     default:
@@ -117,5 +116,5 @@ export const PILOT_READINESS_LABELS: Record<PilotReadinessBlocker, string> = {
   SEVERITY_MAP_NOT_CONFIGURED: "Severidade dos alertas de ausência não configurada para o projeto",
   REPLY_MAILBOX_NOT_CONFIGURED: "Caixa inbound oficial do ACC (GOOGLE_GMAIL_INBOUND_MAILBOX) não configurada no worker — sem Reply-To/resposta por e-mail",
   DELIVERY_OVERRIDE_REPLY_MAILBOX_MISMATCH: "Override de entrega do piloto diferente da caixa inbound oficial — respostas não voltariam à caixa que recebe os alertas",
-  PROJECT_PILOT_REPLY_MAILBOX_MISMATCH: "Projeto piloto: a caixa inbound oficial (GOOGLE_GMAIL_INBOUND_MAILBOX) não é o remetente do piloto — as respostas não seriam lidas pela ingestão",
+  PROJECT_PILOT_PROFILE_INVALID: "Projeto piloto com perfil de e-mail inválido (ACC_PROJECT_PILOT_*): destino/remetente fora da lista fixa — envio recusado",
 };

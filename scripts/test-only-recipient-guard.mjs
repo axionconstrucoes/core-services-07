@@ -105,7 +105,7 @@ await check("encadeado ao piloto: destino qualquer vira crm@ (guarda do piloto) 
 
 await check("o provider do Gmail aplica a trava ANTES de credenciais, MIME e rede", () => {
   const src = readFileSync(path.join(root, "apps/web/lib/email/gmail-email-provider.ts"), "utf8");
-  const guard = src.indexOf("assertOnlyRecipient(applyVeraEmailHeader(routing.input))");
+  const guard = src.indexOf("assertOnlyRecipient(applyVeraEmailHeader(routing.input), undefined, undefined, routing.destination)");
   ok(guard > 0, "trava não aplicada no provider do Gmail");
   const pilotGuard = src.indexOf("applyProjectPilotProfile(applyPilotOutboundGuard(input))");
   ok(pilotGuard > 0 && pilotGuard < guard, "guarda do piloto (global + perfil do projeto) precisa vir antes da trava de destino único");

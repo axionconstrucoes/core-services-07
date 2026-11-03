@@ -103,6 +103,10 @@ jobs:
           ACC_RISK_ALERTS_INBOUND_CLIENT_SECRET: ${{ secrets.ACC_RISK_ALERTS_INBOUND_CLIENT_SECRET }}
           ACC_RISK_ALERTS_INBOUND_REFRESH_TOKEN: ${{ secrets.ACC_RISK_ALERTS_INBOUND_REFRESH_TOKEN }}
           ACC_RISK_ALERTS_INBOUND_MAILBOX: ${{ secrets.ACC_RISK_ALERTS_INBOUND_MAILBOX }}
+          # Piloto por projeto (docs/piloto-projeto-email.md): vazios => nada muda. Só a caixa do piloto é usada na atribuição de respostas.
+          ACC_PROJECT_PILOT_PROJECT_ID: ${{ vars.ACC_PROJECT_PILOT_PROJECT_ID }}
+          ACC_PROJECT_PILOT_DESTINATION: ${{ vars.ACC_PROJECT_PILOT_DESTINATION }}
+          ACC_PROJECT_PILOT_SENDER: ${{ vars.ACC_PROJECT_PILOT_SENDER }}
 
   risk-alerts:
     # Só agendado ou manual com fase "all" — nunca em execuções manuais de

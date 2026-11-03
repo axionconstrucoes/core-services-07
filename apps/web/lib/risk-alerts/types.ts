@@ -361,8 +361,8 @@ export interface PilotReadinessInput {
   replyMailbox?: string | null;
   /** Override de entrega do piloto (normalizado) — quando presente, deve ser a própria caixa inbound (respostas voltam à mesma caixa). */
   deliveryOverrideEmail?: string | null;
-  /** Remetente do perfil de e-mail do projeto piloto (project-pilot-profile.ts), quando ESTE projeto é o piloto: as respostas precisam voltar a ele. */
-  projectPilotSender?: string | null;
+  /** true quando ESTE projeto é o piloto (ACC_PROJECT_PILOT_PROJECT_ID) mas o perfil de e-mail do piloto está inválido: o envio seria recusado, então o ciclo nem começa. */
+  projectPilotProfileInvalid?: boolean;
 }
 
 export type PilotReadinessBlocker =
@@ -377,4 +377,4 @@ export type PilotReadinessBlocker =
   | "SEVERITY_MAP_NOT_CONFIGURED"
   | "REPLY_MAILBOX_NOT_CONFIGURED"
   | "DELIVERY_OVERRIDE_REPLY_MAILBOX_MISMATCH"
-  | "PROJECT_PILOT_REPLY_MAILBOX_MISMATCH";
+  | "PROJECT_PILOT_PROFILE_INVALID";

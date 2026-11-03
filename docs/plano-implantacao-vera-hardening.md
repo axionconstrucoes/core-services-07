@@ -140,3 +140,33 @@ Compatibilidade: das chamadas `rpc` do código antigo (`main`), a única sem des
 - ~~Ensaio das seis migrations sobre o esquema de produção~~ — feito (seção 8). As 25 funções anônimas foram tratadas na migration 7. Resta rodar as pré-checagens com dados reais na janela.
 - Arte definitiva da AXIA com origem/direitos comprovados (a integração usa um ícone neutro).
 - Definir se o PR será único ou empilhado.
+
+## 9. Sequência de implantação das sete migrations e do piloto da Fase 1
+Cada passo marcado com [AUTORIZAÇÃO] só roda com ordem expressa; nada abaixo foi executado em produção.
+
+**A. Antes de tudo (somente leitura)**
+1. [feito] Estado das migrations em produção = até `20261028130000`; pendentes = as sete. Esquema idêntico ao do ensaio (738 objetos, 913 concessões).
+2. Pré-checagens com dados reais: violações do CHECK da migration 3 (esperado 0); `discard_unregistered_ssma_photo` sem chamadores; contagem de funções SECURITY DEFINER executáveis por `anon` (esperado 45).
+3. Backup/dump fora do repositório (PITR desativado); congelar merges na `main` durante a janela.
+
+**B. Banco ([AUTORIZAÇÃO]) — migrations 1→7, uma de cada vez, na ordem de versão**
+Após cada uma, a verificação da seção 4 (contagens de `anon`: 47 após a 1; 25 após a 5; **4 após a 7**). Falhou algo ⇒ parar e usar a seção 6. Com as sete aplicadas, o código antigo segue funcionando (única perda: `discard_unregistered_ssma_photo`, ineficaz).
+
+**C. Configuração remota do piloto ([AUTORIZAÇÃO]) — antes do merge, com o perfil ainda inerte**
+1. Confirmar o UUID do projeto piloto (`scripts/resolve-pilot-project.mjs --project-id`); entre os 5 candidatos "WEG" só um tem atividade real (alertas habilitados e piloto confirmado, e-mails, SLA, ocorrências); os outros 4 são pré-contrato sem uso. O UUID fica só nas variáveis de ambiente.
+2. **Respostas** — escolher UMA caixa para o `Reply-To` e para a fase de respostas (as duas variáveis abaixo precisam apontar para ela):
+   - **Opção B (sem consentimento interativo):** a credencial de leitura que já existe (inbound sync) lê `crm@axion.com.br`. Copiar suas 3 credenciais para `ACC_RISK_ALERTS_INBOUND_CLIENT_ID/CLIENT_SECRET/REFRESH_TOKEN` (secrets do GitHub), `ACC_RISK_ALERTS_INBOUND_MAILBOX=crm@axion.com.br`, e `GOOGLE_GMAIL_INBOUND_MAILBOX=crm@axion.com.br` no app. As respostas escritas por `axion@` vão ao `Reply-To` `crm+alerta-<token>@…` e são lidas por `crm@`.
+   - **Opção A (caixa `axion@`):** consentimento OAuth interativo como `axion@axion.com.br`: `node --env-file=apps/web/.env.local scripts/gmail-inbound-oauth.mjs --prefix=ACC_RISK_ALERTS_INBOUND` (com `ACC_RISK_ALERTS_INBOUND_CLIENT_ID/CLIENT_SECRET/MAILBOX=axion@axion.com.br` no `.env.local`), depois subir as 4 variáveis como secrets e `GOOGLE_GMAIL_INBOUND_MAILBOX=axion@axion.com.br` no app.
+   - Ambas mudam o `GOOGLE_GMAIL_INBOUND_MAILBOX` global (Reply-To de todos os projetos com alertas ativos).
+3. Variáveis do piloto: `ACC_PROJECT_PILOT_PROJECT_ID/DESTINATION/SENDER` no app (Vercel) e em `vars` do GitHub (worker). `ACC_EMAIL_ONLY_RECIPIENT` não é alterada. Remetente: a conta de envio padrão já envia como `crm@` (confirmado pelas mensagens recebidas); sem `GOOGLE_GMAIL_PILOT_*`.
+4. Allowlist do projeto (`pilot_recipient_allowlist_user_ids`) hoje tem 2 usuários: incluir os participantes dos 3 níveis do teste (Responsável, Escalão 1, Diretoria). O override de entrega legado (`crm@`) pode ficar: é ignorado com o perfil ativo.
+
+**D. Merge e deploy ([AUTORIZAÇÃO])** — com `ACC_PROJECT_PILOT_*` ainda ausentes no app o comportamento é o anterior. Depois do deploy `READY`, definir as variáveis do app e fazer novo deploy (variáveis só valem no deploy seguinte).
+
+**E. Execução do piloto ([AUTORIZAÇÃO] — envia e-mail real, só a `axion@`)**
+1. Readiness do projeto sem bloqueios (`Verificar escalonamentos` num alerta de teste do projeto piloto).
+2. Disparar um alerta CRÍTICO de teste: conferir em `axion@` — remetente `crm@`, Para único, `[PILOTO]`, faixa com participante e nível; nada em outras caixas; auditoria com o destinatário lógico.
+3. Responder pela `axion@` (resposta ao e-mail): na rodada seguinte da fase de respostas conferir `senderUserId` = participante da mensagem, alerta correto e auditoria `RISK_ALERT_PILOT_MAILBOX_REPLY`.
+4. Avançar T+1h (Escalão 1) e T+2h (Diretoria) conferindo cada mensagem e a ausência de duplicidade.
+
+**F. Recuperação do piloto:** remover `ACC_PROJECT_PILOT_PROJECT_ID` (app e GitHub) e redeploy ⇒ volta ao comportamento anterior; o guard global do modo piloto continua ativo. Código: rollback do deploy. Banco: seção 6.

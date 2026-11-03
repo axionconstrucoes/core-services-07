@@ -596,22 +596,30 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
     },
 
     async loadCorrelationIndex(projectId) {
-      const [{ data: messages }, { data: conversations }, { data: cases }] = await Promise.all([
-        client.from("alert_email_messages").select("case_id,message_id_header,reply_token_hash,direction,provider_message_id").eq("project_id", projectId),
+      const [{ data: messages }, { data: conversations }, { data: cases }, { data: outboxRows }] = await Promise.all([
+        client.from("alert_email_messages").select("case_id,message_id_header,reply_token_hash,direction,provider_message_id,outbox_id").eq("project_id", projectId),
         client.from("alert_email_conversations").select("case_id,reply_token_hash").eq("project_id", projectId),
         client.from("risk_alert_cases").select("id,visible_code").eq("project_id", projectId),
+        client.from("risk_alert_outbox").select("id,recipient_user_id").eq("project_id", projectId),
       ]);
       const byMessageId = new Map<string, string>();
       const byReplyTokenHash = new Map<string, string>();
       const seenMessageIds = new Set<string>();
+      // Participante (destinatário lógico) de cada mensagem enviada: base da atribuição de respostas no piloto por projeto.
+      const recipientByOutbox = new Map((outboxRows ?? []).map((row) => [row.id as string, row.recipient_user_id as string]));
+      const participantByMessageId = new Map<string, string>();
+      const participantByReplyTokenHash = new Map<string, string>();
       for (const row of messages ?? []) {
         if (row.message_id_header && row.case_id) byMessageId.set(row.message_id_header as string, row.case_id as string);
         if (row.message_id_header) seenMessageIds.add(row.message_id_header as string);
         if (row.reply_token_hash && row.case_id) byReplyTokenHash.set(row.reply_token_hash as string, row.case_id as string);
+        const participant = row.direction === "OUTBOUND" && row.outbox_id ? recipientByOutbox.get(row.outbox_id as string) : undefined;
+        if (participant && row.message_id_header) participantByMessageId.set(row.message_id_header as string, participant);
+        if (participant && row.reply_token_hash) participantByReplyTokenHash.set(row.reply_token_hash as string, participant);
       }
       for (const row of conversations ?? []) if (row.reply_token_hash) byReplyTokenHash.set(row.reply_token_hash as string, row.case_id as string);
       const byVisibleCode = new Map((cases ?? []).map((row) => [row.visible_code as string, row.id as string]));
-      return { byMessageId, byReplyTokenHash, byVisibleCode, seenMessageIds };
+      return { byMessageId, byReplyTokenHash, byVisibleCode, seenMessageIds, participantByMessageId, participantByReplyTokenHash };
     },
 
     async listInboundToProcess(projectId) {

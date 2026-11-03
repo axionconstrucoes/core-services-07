@@ -13,7 +13,15 @@ export const ONLY_RECIPIENT_ENV = "ACC_EMAIL_ONLY_RECIPIENT";
 
 type Env = Record<string, string | undefined>;
 
-export function assertOnlyRecipient(input: SendEmailInput, env: Env = process.env, log: (message: string) => void = (m) => console.info(m)): SendEmailInput {
+// `projectPilotDestination`: destino único do perfil de e-mail do PROJETO PILOTO (project-pilot-profile.ts), informado SOMENTE para mensagens
+// que passaram por esse perfil (To já fixado na lista do código, Cc/Bcc removidos e conferidos no MIME). Para elas, a variável global é
+// satisfeita quando o destino efetivo é exatamente esse destino do piloto; mensagens dos demais projetos continuam presas ao valor global.
+export function assertOnlyRecipient(
+  input: SendEmailInput,
+  env: Env = process.env,
+  log: (message: string) => void = (m) => console.info(m),
+  projectPilotDestination: string | null = null
+): SendEmailInput {
   const raw = env[ONLY_RECIPIENT_ENV];
   if (raw === undefined || raw.trim() === "") return input;
 
@@ -23,6 +31,10 @@ export function assertOnlyRecipient(input: SendEmailInput, env: Env = process.en
   }
 
   const to = input.to.trim().toLowerCase();
+  if (projectPilotDestination && to === projectPilotDestination.trim().toLowerCase()) {
+    log(`[email-only-recipient] destino do piloto do projeto conferido: ${to} (envio liberado)`);
+    return input;
+  }
   if (to !== only) {
     throw new EmailSendError("Destino efetivo diferente do único destino autorizado para este envio — bloqueado antes de qualquer chamada de rede.");
   }

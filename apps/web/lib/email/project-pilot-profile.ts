@@ -151,3 +151,13 @@ export function assertPilotMimeRecipients(mime: string, sender: string, destinat
   const from = addressesOf("from");
   if (from.length !== 1 || from[0] !== sender) throw new EmailSendError("Mensagem do projeto piloto com remetente diferente do remetente do piloto — bloqueada antes de qualquer chamada de rede.");
 }
+
+/**
+ * Caixa do piloto (destino único) quando `projectId` é o projeto piloto com perfil VÁLIDO; null em qualquer outro caso.
+ * Usada pela fase de respostas para atribuir respostas escritas por essa caixa ao participante simulado da mensagem respondida.
+ */
+export function resolveProjectPilotReplyMailbox(projectId: string, env: Env = process.env): string | null {
+  const profile = resolveProjectPilotProfile(env);
+  if (!profile.configured || !profile.valid) return null;
+  return profile.projectId === projectId.trim().toLowerCase() ? profile.destination : null;
+}
