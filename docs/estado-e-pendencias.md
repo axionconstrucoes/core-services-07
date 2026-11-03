@@ -1,9 +1,9 @@
-# Estado e pendências — VERA, autorização de e-mail, endurecimento de banco e WhatsApp simulado
+# Estado e pendências — AXIA, autorização de e-mail, endurecimento de banco e WhatsApp simulado
 
 > Nada neste documento contém credenciais, dados de clientes, anexos ou caminhos pessoais. Nomes e números são exemplos.
 
 ## 1. Concluído (testado em ambiente descartável)
-- **VERA (assistente)**: botão "Fale com a VERA", ajuda contextual, cabeçalho nos e-mails enviados pelo ACC, voz via ElevenLabs
+- **AXIA (assistente)**: botão "Fale com a AXIA", ajuda contextual, cabeçalho nos e-mails enviados pelo ACC, voz via ElevenLabs
   **desativada por padrão** (fail-closed; reserva de crédito antes de cada leitura).
 - **Autorização de acesso por e-mail por projeto** (RLS + histórico imutável) e página de confirmação.
 - **Guarda de destinatário único** (`ACC_EMAIL_ONLY_RECIPIENT`), aplicada antes de qualquer chamada de rede.
@@ -17,7 +17,7 @@
 - A sincronização do Gmail ainda não consulta as autorizações de e-mail (`docs/vera-autorizacao-email-e-voz.md`).
 - Migrations novas **não aplicadas em produção** (ver `docs/plano-implantacao-vera-hardening.md`).
 - WhatsApp real: não existe provedor; fica para etapa futura.
-- Imagem da VERA: usa um ícone neutro da marca até que origem e direitos da arte definitiva sejam comprovados.
+- Imagem da AXIA: usa um ícone neutro da marca até que origem e direitos da arte definitiva sejam comprovados.
 
 ## 3. Testes
 Comandos do CI (`.github/workflows/ci-pr-checks.yml`): `lint`, `build`, `npm test`, `test:scripts`, `test:email`, `test:sql`, `test:ssma`

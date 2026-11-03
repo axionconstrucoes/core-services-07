@@ -1,4 +1,4 @@
-# Plano de implantação e recuperação — VERA, autorização de e-mail, endurecimento e WhatsApp simulado
+# Plano de implantação e recuperação — AXIA, autorização de e-mail, endurecimento e WhatsApp simulado
 
 > **Plano, não execução.** Nenhum passo abaixo foi executado em produção. Cada fase que toca produção exige autorização expressa.
 > Nenhuma credencial neste documento. Identificadores de projeto/deploy ficam no painel dos provedores, não aqui.
@@ -114,5 +114,5 @@ Restauração por backup físico diário é o último recurso (perde dados poste
 ## 7. Pendências antes de executar
 - Autorização para acessar o remoto e aplicar migrations; janela e responsável.
 - Ensaio das seis migrations sobre o esquema de produção (somente esquema) em banco descartável.
-- Arte definitiva da VERA com origem/direitos comprovados (a integração usa um ícone neutro).
+- Arte definitiva da AXIA com origem/direitos comprovados (a integração usa um ícone neutro).
 - Definir se o PR será único ou empilhado.

@@ -1,4 +1,4 @@
-# Voz da VERA com ElevenLabs
+# Voz da AXIA com ElevenLabs
 
 Estado: implementada e testada **somente com serviço simulado**. **Nenhuma chamada real à ElevenLabs foi feita** e a voz fica desligada até você configurar as variáveis abaixo. Esta página substitui o piloto de voz que havia sido preparado para o Azure (removido).
 
@@ -36,7 +36,7 @@ O plano da sua conta e os créditos disponíveis **não foram consultados** (nen
 3. Escolha as vozes (a primeira deve ser feminina pt-BR) e cadastre no **Vercel (Production, tipo sensível)**:
    `ELEVENLABS_ENABLED=true`, `ELEVENLABS_API_KEY=<sua chave>`, `ELEVENLABS_VOICE_IDS=<id1,id2,…>`; opcionais: `ELEVENLABS_DEFAULT_VOICE_ID`, `ELEVENLABS_MODEL_ID`, `ELEVENLABS_CREDIT_RESERVE`.
 4. Nunca coloque a chave em arquivo versionado (`.env*` está ignorado pelo Git).
-5. Primeira amostra real (só depois do seu aval): uma resposta curta da base de conhecimento ("Quem é a VERA"), ≤ 200 créditos; o áudio fica salvo para você ouvir.
+5. Primeira amostra real (só depois do seu aval): uma resposta curta da base de conhecimento ("Quem é a AXIA"), ≤ 200 créditos; o áudio fica salvo para você ouvir.
 
 ## Testes
 `scripts/test-vera-voice-elevenlabs.mjs` (28 verificações, serviço simulado, nenhuma rede): configuração fail-closed, lista autorizada, ordem créditos→síntese, reserva (limite exato), falhas HTTP/rede/timeout sem vazar a chave, modo simulado, rótulos de voz, ausência de chave em componente/rota/log e de qualquer segredo no repositório.

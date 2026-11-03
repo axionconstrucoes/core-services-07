@@ -1,4 +1,4 @@
-// Motor de resposta da VERA — Assistente ACC (piloto): recuperação determinística sobre a base de conhecimento.
+// Motor de resposta da AXIA — Assistente ACC (piloto): recuperação determinística sobre a base de conhecimento.
 //
 // Reaproveita a convenção de provider de IA do ACC (lib/ai/providers): o modo é escolhido por variável de
 // ambiente explícita — AXION_AI_PROVIDER_ASSISTENTE — e é FAIL CLOSED: "fake" (padrão) = base de conhecimento
@@ -46,7 +46,7 @@ export function resolveAssistantMode(env: Record<string, string | undefined> = p
   const raw = (env[ASSISTANT_PROVIDER_ENV_VAR] ?? "fake").trim().toLowerCase();
   if (raw === "fake" || raw === "") return "BASE_CONHECIMENTO";
   throw new AssistantConfigError(
-    `${ASSISTANT_PROVIDER_ENV_VAR}="${raw}" ainda não está implementado no piloto da VERA — Assistente ACC. ` +
+    `${ASSISTANT_PROVIDER_ENV_VAR}="${raw}" ainda não está implementado no piloto da AXIA — Assistente ACC. ` +
       'Use "fake" (base de conhecimento local). Nenhum modelo de IA é chamado e nenhum outro modo é escolhido em silêncio.'
   );
 }

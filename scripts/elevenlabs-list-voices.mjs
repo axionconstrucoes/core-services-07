@@ -1,5 +1,5 @@
 // Utilitário MANUAL (nunca roda em testes nem em produção): lista as vozes da SUA conta ElevenLabs e a situação dos
-// créditos, para você escolher as vozes autorizadas da VERA (ELEVENLABS_VOICE_IDS) e conferir o saldo antes da
+// créditos, para você escolher as vozes autorizadas da AXIA (ELEVENLABS_VOICE_IDS) e conferir o saldo antes da
 // primeira leitura. As duas consultas são somente leitura e NÃO consomem créditos.
 //
 // Segurança:

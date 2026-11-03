@@ -79,7 +79,7 @@ export default async function EmailAuthorizationPage({
   return (
     <div className="min-h-dvh bg-muted p-3 sm:p-4">
       <div className="mx-auto w-full max-w-3xl space-y-3">
-        {/* Cabeçalho em uma linha: logo ACC à esquerda, título centralizado, foto da VERA (clicável) à direita. */}
+        {/* Cabeçalho em uma linha: logo ACC à esquerda, título centralizado, foto da AXIA (clicável) à direita. */}
         <header className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-xl border border-border bg-white px-3 py-2 shadow-sm sm:gap-4 sm:px-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/branding/acc-logo.png" alt="ACC" className="h-10 w-auto sm:h-12" />

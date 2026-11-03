@@ -12,7 +12,7 @@ import {
 } from "@/lib/assistant/elevenlabs-speech";
 import { allowRequest } from "@/lib/assistant/rate-limit";
 
-// Voz da VERA — Assistente ACC (piloto), ElevenLabs — chave só no servidor.
+// Voz da AXIA — Assistente ACC (piloto), ElevenLabs — chave só no servidor.
 // GET: vozes AUTORIZADAS (lista fixa no servidor) e se o serviço está disponível (nunca devolve chave nem configuração).
 // POST {entryId, voice}: o servidor monta o texto a partir da base de conhecimento pelo id — texto vindo do
 // navegador nunca é enviado ao serviço de voz — e só aceita vozes da lista autorizada. A leitura só começa quando

@@ -18,7 +18,7 @@ export async function TopBar({
   const currentProject = projects.find((p) => p.id === projectId);
 
   return (
-    // A coluna da direita nunca fica menor que o seu conteúdo (minmax(max-content,1fr)): com a VERA ao lado de
+    // A coluna da direita nunca fica menor que o seu conteúdo (minmax(max-content,1fr)): com a AXIA ao lado de
     // seletor/código/contrato/editar, em larguras médias o título cede espaço em vez de os itens se sobreporem;
     // com espaço de sobra as duas colunas continuam iguais e o título fica centralizado.
     // Grade de 2 colunas no mobile (título · avatar+sair) que vira 3

@@ -9,7 +9,7 @@ import type { AssistantAnswer } from "@/lib/assistant/answer";
 import { ASSISTANT_QUESTION_MAX_LENGTH } from "@/lib/assistant/limits";
 import { VERA_CONTEXTS, VERA_OPEN_EVENT, type VeraContext, type VeraOpenDetail } from "./vera-events";
 
-// VERA — Assistente ACC (piloto): caixa de conversa aberta pelos gatilhos "Fale com a VERA".
+// AXIA — Assistente ACC (piloto): caixa de conversa aberta pelos gatilhos "Fale com a AXIA".
 // Só orienta — não altera dados. A resposta é texto; a leitura em voz só começa quando a pessoa clica em
 // "Ouvir resposta".
 
@@ -240,18 +240,18 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
     <section
       role="dialog"
       aria-labelledby="vera-titulo"
-      aria-label="VERA — Assistente ACC"
+      aria-label="AXIA — Assistente ACC"
       className="fixed inset-x-2 top-[8.5rem] z-50 flex max-h-[calc(100dvh-9.5rem)] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl sm:inset-x-auto sm:right-4 sm:top-[6.25rem] sm:max-h-[calc(100dvh-7.5rem)] sm:w-[400px]"
     >
       <header className="flex items-center gap-3 bg-brand-sidebar px-4 py-3 text-brand-sidebar-foreground">
         <Image src="/assistente/ajuda-acc.png" alt="" width={40} height={40} className="size-10 rounded-full border-2 border-white/70 object-cover" />
         <div className="min-w-0 flex-1">
           <p id="vera-titulo" className="text-sm font-bold leading-tight">
-            VERA — Assistente ACC
+            AXIA — Assistente ACC
           </p>
           <p className="text-xs leading-tight text-white/80">Orienta sobre o uso do ACC. Não altera dados.</p>
         </div>
-        <button type="button" onClick={closeBox} aria-label="Fechar a VERA" className="flex size-11 items-center justify-center rounded-md hover:bg-white/15">
+        <button type="button" onClick={closeBox} aria-label="Fechar a AXIA" className="flex size-11 items-center justify-center rounded-md hover:bg-white/15">
           <X className="size-5" />
         </button>
       </header>
@@ -259,7 +259,7 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-3 text-sm text-gray-800">
         {turns.length === 0 && !loading ? (
           <div className="space-y-2">
-            <p>Olá! Sou a VERA, a assistente do ACC. Pergunte como usar o sistema — documentos, alertas, providências, SSMA ou a autorização de e-mails.</p>
+            <p>Olá! Sou a AXIA, a assistente do ACC. Pergunte como usar o sistema — documentos, alertas, providências, SSMA ou a autorização de e-mails.</p>
             <div className="flex flex-wrap gap-2">
               {SUGGESTIONS[context].map((suggestion) => (
                 <button
@@ -378,7 +378,7 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
             onChange={(event) => setInput(event.target.value)}
             maxLength={ASSISTANT_QUESTION_MAX_LENGTH}
             placeholder="Digite sua pergunta"
-            aria-label="Pergunta para a VERA"
+            aria-label="Pergunta para a AXIA"
             className="min-h-11 min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm"
           />
           <button

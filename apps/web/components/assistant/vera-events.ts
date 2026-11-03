@@ -1,4 +1,4 @@
-// Eventos entre os gatilhos da VERA (topo das telas, cabeçalho da autorização, links de e-mail) e a caixa de conversa.
+// Eventos entre os gatilhos da AXIA (topo das telas, cabeçalho da autorização, links de e-mail) e a caixa de conversa.
 // O gatilho só pede para abrir; a caixa (AssistantWidget) é montada uma vez por layout.
 
 export const VERA_OPEN_EVENT = "vera:open";

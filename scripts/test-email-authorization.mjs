@@ -1,4 +1,4 @@
-// Testes da autorização de acesso aos e-mails por obra e do cabeçalho "Fale com a VERA" nos e-mails.
+// Testes da autorização de acesso aos e-mails por obra e do cabeçalho "Fale com a AXIA" nos e-mails.
 // Lógica pura + checagens estruturais + inventário dos remetentes. Nenhum e-mail real, nenhuma rede.
 // (As regras de banco — quem solicita/decide/revoga, isolamento, histórico imutável — têm o seu teste real em
 // scripts/sql/run-email-authorization-test.mjs.)
@@ -118,8 +118,8 @@ await check("e-mail: avisa que abrir o link não registra resposta e tem alterna
   ok(email.text.includes(`NÃO AUTORIZAR: ${BASE}/autorizacao-email/${ID}?acao=recusar`), "texto sem link recusar");
 });
 
-// ---------- Cabeçalho "Fale com a VERA" ----------
-await check("URL da VERA: contexto da autorização, da obra ou ajuda geral; só ids (UUID) e tipo fixo", () => {
+// ---------- Cabeçalho "Fale com a AXIA" ----------
+await check("URL da AXIA: contexto da autorização, da obra ou ajuda geral; só ids (UUID) e tipo fixo", () => {
   eq(vera.buildVeraUrl(BASE, { authorizationId: ID, projectId: PROJECT, context: "autorizacao" }), `${BASE}/autorizacao-email/${ID}?vera=abrir`, "autorização");
   eq(vera.buildVeraUrl(BASE, { projectId: PROJECT, context: "alerta" }), `${BASE}/${PROJECT}/ajuda?vera=abrir&contexto=alerta`, "alerta");
   eq(vera.buildVeraUrl(BASE, { projectId: PROJECT, context: "providencia" }), `${BASE}/${PROJECT}/ajuda?vera=abrir&contexto=providencia`, "providência");
@@ -133,21 +133,21 @@ await check("URL da VERA: contexto da autorização, da obra ou ajuda geral; só
 const image = { cid: vera.VERA_EMAIL_IMAGE_CID, filename: "ajuda-acc-email.png", mimeType: "image/png", contentBase64: "AAAA" };
 const baseInput = { to: "a@axion.com.br", subject: "S", text: "Corpo", html: "<html><body style=\"x\"><p>Conteúdo</p></body></html>", correlationId: "c1" };
 
-await check("cabeçalho: foto circular + 'Fale com a VERA' à direita, link, alt legível; conteúdo preservado", () => {
+await check("cabeçalho: foto circular + 'Fale com a AXIA' à direita, link, alt legível; conteúdo preservado", () => {
   const out = vera.applyVeraEmailHeader({ ...baseInput, vera: { projectId: PROJECT, context: "alerta" } }, { baseUrl: BASE, loadImage: () => image });
-  ok(out.html.includes('align="right"') && out.html.includes("Fale com a VERA") && out.html.includes(`cid:${image.cid}`), "cabeçalho incompleto");
-  ok(out.html.includes("border-radius:20px") && out.html.includes('alt="VERA — Assistente ACC"'), "foto circular/alt");
+  ok(out.html.includes('align="right"') && out.html.includes("Fale com a AXIA") && out.html.includes(`cid:${image.cid}`), "cabeçalho incompleto");
+  ok(out.html.includes("border-radius:20px") && out.html.includes('alt="AXIA — Assistente ACC"'), "foto circular/alt");
   ok(out.html.includes(`href="${BASE}/${PROJECT}/ajuda?vera=abrir&amp;contexto=alerta"`), "link");
   ok(out.html.includes("<p>Conteúdo</p>") && out.html.indexOf("data-vera-header") < out.html.indexOf("<p>Conteúdo</p>"), "conteúdo preservado e cabeçalho antes");
   ok(out.html.startsWith("<html><body"), "estrutura do documento");
   eq(out.subject, baseInput.subject, "assunto");
   eq(out.inlineImages.length, 1, "imagem anexada");
-  ok(out.text.startsWith("Fale com a VERA (assistente do ACC): ") && out.text.endsWith("Corpo"), "texto alternativo");
+  ok(out.text.startsWith("Fale com a AXIA (assistente do ACC): ") && out.text.endsWith("Corpo"), "texto alternativo");
 });
 
 await check("cabeçalho: sem imagem disponível, o texto-link continua (alternativa legível)", () => {
   const out = vera.applyVeraEmailHeader(baseInput, { baseUrl: BASE, loadImage: () => null });
-  ok(out.html.includes("Fale com a VERA") && !out.html.includes("cid:"), "sem imagem: texto deve permanecer");
+  ok(out.html.includes("Fale com a AXIA") && !out.html.includes("cid:"), "sem imagem: texto deve permanecer");
   eq(out.inlineImages, undefined, "sem anexo");
 });
 
@@ -161,14 +161,14 @@ await check("cabeçalho: idempotente, não duplica a imagem e não age sem URL b
   eq(vera.applyVeraEmailHeader(baseInput, { baseUrl: "javascript:alert(1)" }), baseInput, "base inválida");
 });
 
-await check("e-mail só em texto e HTML sem <body> também recebem a VERA", () => {
+await check("e-mail só em texto e HTML sem <body> também recebem a AXIA", () => {
   const textOnly = vera.applyVeraEmailHeader({ to: "a@axion.com.br", subject: "S", text: "Corpo", correlationId: "c" }, { baseUrl: BASE, loadImage: () => image });
-  ok(textOnly.text.startsWith("Fale com a VERA") && textOnly.html === undefined, "texto simples");
+  ok(textOnly.text.startsWith("Fale com a AXIA") && textOnly.html === undefined, "texto simples");
   const noBody = vera.applyVeraEmailHeader({ ...baseInput, html: "<table><tr><td>X</td></tr></table>" }, { baseUrl: BASE, loadImage: () => image });
   ok(noBody.html.startsWith("<table role=\"presentation\"") && noBody.html.endsWith("</table>"), "sem body");
 });
 
-await check("pelo provider (guarda do piloto + VERA): o destino continua redirecionado e o cabeçalho entra", async () => {
+await check("pelo provider (guarda do piloto + AXIA): o destino continua redirecionado e o cabeçalho entra", async () => {
   const previous = process.env.AXION_APP_BASE_URL;
   const previousRecipient = process.env.ACC_PILOT_RECIPIENT;
   process.env.AXION_APP_BASE_URL = BASE;
@@ -177,7 +177,7 @@ await check("pelo provider (guarda do piloto + VERA): o destino continua redirec
     let seen = null;
     const provider = new FakeEmailProvider({ onGuardedInput: (input) => (seen = input) });
     await provider.send({ ...baseInput, to: "cliente.externo@exemplo.com", vera: { projectId: PROJECT, context: "alerta" } });
-    ok(seen && seen.html.includes("Fale com a VERA"), "provider não aplicou a VERA");
+    ok(seen && seen.html.includes("Fale com a AXIA"), "provider não aplicou a AXIA");
     eq(seen.to, "crm@axion.com.br", "destino redirecionado à caixa de teste");
     ok(seen.subject.startsWith("[TESTE CONTROLADO]") || process.env.ACC_OUTBOUND_MODE === "production", "guarda do piloto alterada");
   } finally {
@@ -199,7 +199,7 @@ function walk(dir, out = []) {
   return out;
 }
 
-await check("TODO ponto de envio passa por provider.send (que aplica a guarda e a VERA); contexto informado onde há obra", () => {
+await check("TODO ponto de envio passa por provider.send (que aplica a guarda e a AXIA); contexto informado onde há obra", () => {
   const web = path.join(root, "apps/web");
   const files = walk(web).filter((f) => /\.(getEmailProvider\(\)|provider|sender)?send\(\{/.test("") || /(getEmailProvider\(\)|provider|ctx\.provider|mailer)\.send\(\{/.test(readFileSync(f, "utf8")));
   const rel = files.map((f) => path.relative(root, f).replaceAll("\\", "/"));
@@ -219,11 +219,11 @@ await check("TODO ponto de envio passa por provider.send (que aplica a guarda e 
     "apps/web/lib/risk-alerts/run-risk-alert-cycle.ts",
   ].sort();
   eq(JSON.stringify(rel.sort()), JSON.stringify(expected), "remetentes encontrados");
-  // Sem obra no contexto (a VERA abre a ajuda geral): saúde do sistema e revisão de impacto de versão.
+  // Sem obra no contexto (a AXIA abre a ajuda geral): saúde do sistema e revisão de impacto de versão.
   // followup-engine só delega ao mailer (delivery-item-reminder-mailer), que já informa o contexto.
   const withoutProject = new Set(["apps/web/lib/email/send-system-health-alert-email.ts", "apps/web/lib/email/send-version-impact-review-email.ts", "apps/web/lib/alerts/followup-engine.ts"]);
-  for (const f of rel) if (!withoutProject.has(f)) ok(/vera:\s*\{/.test(rd(f)), `${f}: sem contexto da VERA`);
-  // O contexto da VERA precisa estar DENTRO da chamada de envio (provider.send({ ... })), nunca em um insert/upsert
+  for (const f of rel) if (!withoutProject.has(f)) ok(/vera:\s*\{/.test(rd(f)), `${f}: sem contexto da AXIA`);
+  // O contexto da AXIA precisa estar DENTRO da chamada de envio (provider.send({ ... })), nunca em um insert/upsert
   // do banco (uma coluna inexistente derrubaria lotes e lembretes). Procura o abridor mais próximo antes de cada `vera:`.
   for (const f of rel) {
     const src = rd(f);
@@ -235,7 +235,7 @@ await check("TODO ponto de envio passa por provider.send (que aplica a guarda e 
     }
   }
   const provider = rd("apps/web/lib/email/gmail-email-provider.ts") + rd("apps/web/lib/email/fake-email-provider.ts");
-  eq((provider.match(/applyVeraEmailHeader\(applyPilotOutboundGuard\(input\)\)/g) ?? []).length, 2, "providers aplicam guarda + VERA");
+  eq((provider.match(/applyVeraEmailHeader\(applyPilotOutboundGuard\(input\)\)/g) ?? []).length, 2, "providers aplicam guarda + AXIA");
 });
 
 // ---------- Páginas e controles ----------
@@ -253,14 +253,14 @@ await check("página de autorização: leitura apenas (GET não grava); decisão
   ok(actions.includes("decide_email_access_authorization") && actions.includes("revoke_email_access_authorization"), "ações sem as funções do banco");
 });
 
-await check("cabeçalho da página: logo ACC à esquerda, título centralizado, foto da VERA clicável à direita, em uma linha", () => {
+await check("cabeçalho da página: logo ACC à esquerda, título centralizado, foto da AXIA clicável à direita, em uma linha", () => {
   ok(/grid-cols-\[auto_1fr_auto\]/.test(page), "grade de 3 colunas");
   const logo = page.indexOf('src="/branding/acc-logo.png"');
   const title = page.indexOf("Autorização de acesso aos e-mails da obra</h1>");
   const trigger = page.indexOf('<VeraTrigger context="autorizacao"');
-  ok(logo > 0 && title > logo && trigger > title, "ordem logo → título → VERA");
-  ok(page.includes("text-center") && page.includes("<AssistantWidget projectId={authorization.projectId} />"), "título centralizado e caixa da VERA");
-  ok(!rd("apps/web/app/login/page.tsx").includes("ajuda-acc"), "a tela de login não deve ter a VERA");
+  ok(logo > 0 && title > logo && trigger > title, "ordem logo → título → AXIA");
+  ok(page.includes("text-center") && page.includes("<AssistantWidget projectId={authorization.projectId} />"), "título centralizado e caixa da AXIA");
+  ok(!rd("apps/web/app/login/page.tsx").includes("ajuda-acc"), "a tela de login não deve ter a AXIA");
 });
 
 await check("aba Autorizações: só administrador (menu, servidor, ações e banco); a página não usa chave de serviço", () => {

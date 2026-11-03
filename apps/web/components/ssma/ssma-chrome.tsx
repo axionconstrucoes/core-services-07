@@ -10,7 +10,7 @@ import { VeraTrigger } from "@/components/assistant/vera-trigger";
 export type SsmaTab = "home" | "registros" | "sync" | "perfil";
 
 export function SsmaHeader({ title, onBack }: { title: string; onBack?: () => void }) {
-  // A VERA só aparece dentro de uma obra (/ssma/{obra}): a ajuda respeita login e participação na obra.
+  // A AXIA só aparece dentro de uma obra (/ssma/{obra}): a ajuda respeita login e participação na obra.
   const pathname = usePathname();
   const veraProjectId = pathname?.match(/^\/ssma\/([0-9a-fA-F-]{36})(?:\/|$)/)?.[1] ?? null;
   return (

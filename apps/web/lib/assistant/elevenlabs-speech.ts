@@ -1,4 +1,4 @@
-// Voz da VERA via ElevenLabs (text-to-speech REST) — somente no servidor.
+// Voz da AXIA via ElevenLabs (text-to-speech REST) — somente no servidor.
 //
 // Regras de segurança e de custo do piloto:
 //  - a chave (ELEVENLABS_API_KEY) só é lida aqui, no servidor; nunca vai ao navegador, a respostas, a erros ou a logs;

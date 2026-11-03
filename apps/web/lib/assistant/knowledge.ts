@@ -1,4 +1,4 @@
-// Base de conhecimento da VERA — Assistente ACC (piloto).
+// Base de conhecimento da AXIA — Assistente ACC (piloto).
 //
 // Conteúdo CURADO e estático, derivado do tutorial publicado (ACC-apresentacao-e-tutorial) e da ajuda
 // contextual (lib/ui/feature-help.ts). Não contém dados de nenhuma obra, contrato ou usuário: é o mesmo texto
@@ -227,10 +227,10 @@ export const ASSISTANT_ENTRIES: AssistantEntry[] = [
   },
   {
     id: "vera",
-    title: "Quem é a VERA",
-    keywords: ["vera", "quem e voce", "quem e a vera", "assistente", "voce faz", "o que voce faz", "seu nome"],
+    title: "Quem é a AXIA",
+    keywords: ["axia", "vera", "quem e voce", "quem e a axia", "quem e a vera", "assistente", "voce faz", "o que voce faz", "seu nome"],
     summary:
-      "Sou a VERA, a Assistente ACC. Oriento sobre o uso do ACC com base no tutorial e na ajuda do sistema. Não altero dados, não aprovo nem envio nada: quem executa as ações é você, com o seu perfil.",
+      "Sou a AXIA, a Assistente ACC. Oriento sobre o uso do ACC com base no tutorial e na ajuda do sistema. Não altero dados, não aprovo nem envio nada: quem executa as ações é você, com o seu perfil.",
     steps: ["Posso explicar módulos, alertas, graus de risco, providências, SSMA e a autorização de e-mails.", "Quando eu não souber, indico como consultar o administrador da obra."],
     links: [],
     tutorialSlide: null,
@@ -336,7 +336,7 @@ export const ASSISTANT_FALLBACK = {
 
 /** Texto exibido quando a pergunta pede para alterar dados — a assistente só orienta. */
 export const ASSISTANT_READ_ONLY_NOTICE =
-  "A VERA só orienta: ela não altera dados nem executa ações no sistema. Os passos abaixo mostram como fazer isso você mesmo, com o seu perfil.";
+  "A AXIA só orienta: ela não altera dados nem executa ações no sistema. Os passos abaixo mostram como fazer isso você mesmo, com o seu perfil.";
 
 export function getAssistantEntry(id: string): AssistantEntry | null {
   return ASSISTANT_ENTRIES.find((entry) => entry.id === id) ?? null;

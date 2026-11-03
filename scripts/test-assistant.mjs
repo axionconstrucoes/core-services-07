@@ -61,7 +61,7 @@ const CASES = [
   ["como revogo a autorização desta obra?", "autorizacao-revogacao"],
   ["como revogo a permissão no Google?", "autorizacao-google"],
   ["qual a diferença entre o aceite e a conexão da conta?", "autorizacao-conexao"],
-  ["quem é você, VERA?", "vera"],
+  ["quem é você, AXIA?", "vera"],
 ];
 for (const [question, expected] of CASES) {
   await check(`pergunta → assunto: "${question.slice(0, 48)}"`, () => eq(answerQuestion(question, P).entryId, expected, "assunto"));
@@ -176,8 +176,8 @@ await check("logs só registram o código do erro (nunca chave, texto ou respost
   ok(!/console\./.test(lib), "o módulo de voz não deve logar");
 });
 
-await check("interface: caixa da VERA com a imagem, Ouvir/Parar, seleção de voz, tutorial e aviso de falha", () => {
-  for (const marker of ["/assistente/ajuda-acc.png", "VERA — Assistente ACC", "Ouvir resposta", "Parar", 'id="assistente-voz"', "/ajuda`", "A resposta em texto continua disponível", 'role="alert"']) {
+await check("interface: caixa da AXIA com a imagem, Ouvir/Parar, seleção de voz, tutorial e aviso de falha", () => {
+  for (const marker of ["/assistente/ajuda-acc.png", "AXIA — Assistente ACC", "Ouvir resposta", "Parar", 'id="assistente-voz"', "/ajuda`", "A resposta em texto continua disponível", 'role="alert"']) {
     ok(widget.includes(marker), `falta: ${marker}`);
   }
   ok(/listen\(last\.answer\.entryId\)/.test(widget) && !/useEffect\([^)]*listen/.test(widget), "a leitura deve começar só no clique");
@@ -185,7 +185,7 @@ await check("interface: caixa da VERA com a imagem, Ouvir/Parar, seleção de vo
   ok(!/font-(black|extrabold)/.test(widget), "peso Black/Extrabold");
 });
 
-await check("nome definitivo: VERA — Assistente ACC; nenhum nome anterior na interface da assistente", () => {
+await check("nome definitivo: AXIA — Assistente ACC; nenhum nome anterior na interface da assistente", () => {
   const files = [
     "apps/web/components/assistant/assistant-widget.tsx",
     "apps/web/components/assistant/vera-trigger.tsx",
@@ -195,19 +195,19 @@ await check("nome definitivo: VERA — Assistente ACC; nenhum nome anterior na i
   ];
   for (const f of files) {
     const src = rd(f);
-    ok(!/Sofia|Ajuda ACC|Assistente ACC \(piloto\)/.test(src.replace(/VERA — Assistente ACC/g, "")), `${f}: nome anterior`);
+    ok(!/Sofia|\bVERA\b|Ajuda ACC|Assistente ACC \(piloto\)/.test(src.replace(/AXIA — Assistente ACC/g, "")), `${f}: nome anterior`);
   }
-  ok(rd("apps/web/components/assistant/assistant-widget.tsx").includes("VERA — Assistente ACC"), "título da caixa");
+  ok(rd("apps/web/components/assistant/assistant-widget.tsx").includes("AXIA — Assistente ACC"), "título da caixa");
 });
 
-await check("gatilho 'Fale com a VERA' no topo das telas e no cabeçalho do PWA SSMA; foto, texto e teclado", () => {
+await check("gatilho 'Fale com a AXIA' no topo das telas e no cabeçalho do PWA SSMA; foto, texto e teclado", () => {
   const top = rd("apps/web/components/layout/top-bar.tsx");
   ok(top.includes("<VeraTrigger />"), "top bar sem gatilho");
   const trig = rd("apps/web/components/assistant/vera-trigger.tsx");
-  for (const m of ["Fale com a VERA", "/assistente/ajuda-acc.png", "min-h-11", 'type="button"', "aria-label"]) ok(trig.includes(m), `gatilho sem ${m}`);
+  for (const m of ["Fale com a AXIA", "/assistente/ajuda-acc.png", "min-h-11", 'type="button"', "aria-label"]) ok(trig.includes(m), `gatilho sem ${m}`);
   ok(rd("apps/web/components/ssma/ssma-chrome.tsx").includes("VeraTrigger"), "PWA sem gatilho");
   const chrome = rd("apps/web/components/ssma/ssma-chrome.tsx");
-  ok(chrome.indexOf("</header>") < chrome.indexOf("<AssistantWidget"), "a caixa da VERA não pode ficar dentro do cabeçalho (herdaria texto branco)");
+  ok(chrome.indexOf("</header>") < chrome.indexOf("<AssistantWidget"), "a caixa da AXIA não pode ficar dentro do cabeçalho (herdaria texto branco)");
   const widget = rd("apps/web/components/assistant/assistant-widget.tsx");
   ok(widget.includes('event.key === "Escape"') && widget.includes("openerRef.current?.focus()"), "teclado/foco");
 });

@@ -1,4 +1,4 @@
-// Testes da voz da VERA com ElevenLabs — TUDO com serviço simulado: nenhuma chamada de rede, nenhuma chave real.
+// Testes da voz da AXIA com ElevenLabs — TUDO com serviço simulado: nenhuma chamada de rede, nenhuma chave real.
 // Uso: node --import ./scripts/lib/block-live-ai.mjs scripts/test-vera-voice-elevenlabs.mjs
 
 import { readFileSync, readdirSync, statSync } from "node:fs";

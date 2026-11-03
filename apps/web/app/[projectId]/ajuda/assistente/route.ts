@@ -5,7 +5,7 @@ import { getProject } from "@/lib/data";
 import { ASSISTANT_QUESTION_MAX_LENGTH, AssistantConfigError, answerQuestion } from "@/lib/assistant/answer";
 import { allowRequest } from "@/lib/assistant/rate-limit";
 
-// VERA — Assistente ACC (piloto) — só orienta: lê uma pergunta e devolve texto da base de conhecimento. Nunca grava nada,
+// AXIA — Assistente ACC (piloto) — só orienta: lê uma pergunta e devolve texto da base de conhecimento. Nunca grava nada,
 // nunca consulta dados da obra. Exige login e participação na obra (getProject usa a sessão e a RLS).
 export async function POST(request: Request, { params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;

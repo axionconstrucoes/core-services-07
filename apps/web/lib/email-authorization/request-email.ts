@@ -1,7 +1,7 @@
 // E-mail individual da solicitação de autorização de acesso aos e-mails da obra.
 // Puro (sem I/O): devolve assunto, texto e HTML. Os botões são LINKS para a página autenticada do ACC — abrir o
 // link (GET) nunca registra aceite ou recusa; a decisão só é gravada depois da confirmação explícita na página.
-// O cabeçalho "Fale com a VERA" é acrescentado pelo provider de e-mail (lib/email/branding/vera-email-header.ts).
+// O cabeçalho "Fale com a AXIA" é acrescentado pelo provider de e-mail (lib/email/branding/vera-email-header.ts).
 
 import {
   ACC_COLOR_BODY,
