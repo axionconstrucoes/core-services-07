@@ -58,6 +58,7 @@ export async function sendSlaEscalationEmail(
       inlineImages: inlineLogo ? [inlineLogo] : undefined,
       correlationId,
       vera: { projectId: input.projectId, context: "alerta" },
+      pilot: { projectId: input.projectId, participantLabel: `Responsável do ${input.email.escalationLevelLabel}`, escalationLevel: input.email.escalationLevelLabel },
     });
   } catch (error) {
     if (error instanceof EmailSendError) {

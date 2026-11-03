@@ -87,6 +87,7 @@ export async function submitVersionImpactReviewAction(
         response: planningResponse,
         sentToBudget: sendToBudget,
         accUrl: `${accBaseUrl}/${projectId}/integracoes`,
+        projectId,
       });
       await admin.from("construmanager_version_review_deliveries").update({ status: "SENT", provider_message_id: sent.providerMessageId, sent_at: sent.sentAt }).eq("id", delivery.id);
     } catch (sendError) {

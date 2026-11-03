@@ -7,11 +7,12 @@ import {
   type SendEmailInput,
   type SendEmailResult,
 } from "./email-provider";
-import { loadGmailConfig, type GmailConfig } from "./gmail-auth";
+import { loadGmailConfig, loadGmailPilotSenderConfig, type GmailConfig } from "./gmail-auth";
 import { base64UrlEncode, buildMimeMessage } from "./mime-message";
 import { applyPilotOutboundGuard } from "./pilot-outbound-guard";
 import { applyVeraEmailHeader } from "./branding/vera-email-header";
 import { assertOnlyRecipient } from "./only-recipient-guard";
+import { applyProjectPilotProfile, assertPilotMimeRecipients } from "./project-pilot-profile";
 
 export { base64UrlEncode, buildMimeMessage };
 
@@ -30,20 +31,32 @@ export class GmailEmailProvider implements EmailProvider {
     // Obrigatório e incondicional — antes de qualquer credencial, MIME
     // ou chamada de rede. Nenhuma instanciação direta desta classe
     // escapa da trava do piloto.
-    const guardedInput = assertOnlyRecipient(applyVeraEmailHeader(applyPilotOutboundGuard(input)));
+    // Perfil do PROJETO PILOTO (project-pilot-profile.ts): destino e remetente fixos, sem CC/BCC; outros projetos passam intocados.
+    const routing = applyProjectPilotProfile(applyPilotOutboundGuard(input));
+    const guardedInput = assertOnlyRecipient(applyVeraEmailHeader(routing.input));
+
+    // Mensagem do piloto só sai pela identidade do remetente do piloto — nunca pelo remetente padrão, nunca só trocando o From.
+    let config = this.config;
+    if (routing.routed) {
+      try {
+        config = loadGmailPilotSenderConfig(routing.sender as string);
+      } catch {
+        throw new EmailSendError("GmailEmailProvider: remetente do piloto não configurado — envio bloqueado antes de qualquer chamada de rede.");
+      }
+    }
 
     const senderDomain =
-      this.config.senderEmail.split("@")[1] ?? "axion.local";
+      config.senderEmail.split("@")[1] ?? "axion.local";
 
     const messageIdHeader = `<${guardedInput.correlationId}@${senderDomain}>`;
 
     const oauth2Client = new google.auth.OAuth2(
-      this.config.clientId,
-      this.config.clientSecret
+      config.clientId,
+      config.clientSecret
     );
 
     oauth2Client.setCredentials({
-      refresh_token: this.config.refreshToken,
+      refresh_token: config.refreshToken,
     });
 
     const gmail = google.gmail({
@@ -51,13 +64,10 @@ export class GmailEmailProvider implements EmailProvider {
       auth: oauth2Client,
     });
 
-    const raw = base64UrlEncode(
-      buildMimeMessage(
-        guardedInput,
-        this.config.senderEmail,
-        messageIdHeader
-      )
-    );
+    const mime = buildMimeMessage(guardedInput, config.senderEmail, messageIdHeader);
+    // Transporte final: Para = destino único, From = remetente do piloto, nenhum Cc/Bcc — conferido sobre o MIME já montado.
+    if (routing.routed) assertPilotMimeRecipients(mime, routing.sender as string, routing.destination as string);
+    const raw = base64UrlEncode(mime);
 
     let providerMessageId: string | null | undefined;
     let providerThreadId: string | null | undefined;
@@ -93,7 +103,7 @@ export class GmailEmailProvider implements EmailProvider {
 
     return {
       provider: "GMAIL",
-      from: this.config.senderEmail,
+      from: config.senderEmail,
       providerMessageId,
       providerThreadId,
       messageIdHeader,

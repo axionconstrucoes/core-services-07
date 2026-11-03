@@ -7,6 +7,8 @@ import { EmailSendError, type EmailProvider, type SendEmailInput, type SendEmail
 import { applyPilotOutboundGuard } from "./pilot-outbound-guard";
 import { applyVeraEmailHeader } from "./branding/vera-email-header";
 import { assertOnlyRecipient } from "./only-recipient-guard";
+import { applyProjectPilotProfile, assertPilotMimeRecipients } from "./project-pilot-profile";
+import { buildMimeMessage } from "./mime-message";
 
 const FAKE_SENDER_ADDRESS = "dev-fake-sender@axion.local";
 
@@ -46,14 +48,19 @@ export class FakeEmailProvider implements EmailProvider {
     // Obrigatório e incondicional para qualquer envio que não seja a
     // falha simulada acima — mesma trava aplicada em GmailEmailProvider,
     // para que os testes exerçam exatamente a mesma transformação real.
-    const guardedInput = assertOnlyRecipient(applyVeraEmailHeader(applyPilotOutboundGuard(input)));
+    const routing = applyProjectPilotProfile(applyPilotOutboundGuard(input));
+    const guardedInput = assertOnlyRecipient(applyVeraEmailHeader(routing.input));
+    // Mesma conferência do transporte real: MIME montado com o remetente do piloto, Para único, sem Cc/Bcc.
+    if (routing.routed) {
+      assertPilotMimeRecipients(buildMimeMessage(guardedInput, routing.sender as string, "<fake.axion.local>"), routing.sender as string, routing.destination as string);
+    }
     this.onGuardedInput?.(guardedInput);
 
     const digest = createHash("sha256").update(guardedInput.correlationId).digest("hex");
 
     return {
       provider: "FAKE",
-      from: FAKE_SENDER_ADDRESS,
+      from: routing.routed ? (routing.sender as string) : FAKE_SENDER_ADDRESS,
       providerMessageId: `fake-message-${digest.slice(0, 16)}`,
       providerThreadId: `fake-thread-${digest.slice(16, 32)}`,
       messageIdHeader: `<fake-${digest.slice(0, 24)}@fake.axion.local>`,

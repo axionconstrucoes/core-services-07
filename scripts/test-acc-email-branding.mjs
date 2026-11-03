@@ -141,7 +141,7 @@ check("buildMimeMessage: From nunca sai duplicado/aninhado quando o chamador pas
 check("gmail-email-provider.ts (caminho real do provider): passa this.config.senderEmail (endereço puro) para buildMimeMessage, nunca um valor pré-formatado", () => {
   const providerSource = readSource("apps/web/lib/email/gmail-email-provider.ts");
   assert(
-    /buildMimeMessage\(\s*guardedInput,\s*this\.config\.senderEmail,/.test(providerSource),
+    /buildMimeMessage\(\s*guardedInput,\s*(?:this\.)?config\.senderEmail,/.test(providerSource),
     "gmail-email-provider.ts deveria chamar buildMimeMessage(guardedInput, this.config.senderEmail, ...) — endereço puro, sem formatSenderHeader aplicado antes"
   );
   assert(!providerSource.includes("formatSenderHeader"), "gmail-email-provider.ts não deveria importar/chamar formatSenderHeader — isso é responsabilidade exclusiva de buildMimeMessage");

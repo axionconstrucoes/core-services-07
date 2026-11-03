@@ -402,6 +402,8 @@ check("bypass 4/4 — nenhum arquivo de PRODUÇÃO fora de gmail-email-provider.
   const offenders = allSourceFiles.filter((file) => {
     const base = path.basename(file);
     if (base === "gmail-email-provider.ts" || base === "mime-message.ts") return false;
+    // O provider falso monta o MIME só DEPOIS da guarda, para conferir Para/From/Cc/Bcc do perfil do piloto; nunca envia.
+    if (base === "fake-email-provider.ts") return false;
     if (base.startsWith("test-") || base.startsWith("generate-")) return false;
     return /\bbuildMimeMessage\(/.test(readFileSync(file, "utf8"));
   });

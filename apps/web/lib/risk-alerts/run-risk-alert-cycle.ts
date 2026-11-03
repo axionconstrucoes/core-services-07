@@ -37,6 +37,7 @@ import { buildAlertFollowUpEmail, buildImmediateRiskAlertEmail, buildRiskDigestE
 import { evaluatePilotReadiness, blockerToSuppressionReason, isSeverityMapComplete } from "./pilot-readiness";
 import { evaluateRecipient, planRiskAlerts } from "./plan-risk-alerts";
 import { resolveDeliveryAddress } from "@/lib/email/pilot-delivery-override";
+import { resolveProjectPilotProfile } from "@/lib/email/project-pilot-profile";
 import { runCycleEscalationHook } from "@/lib/whatsapp/hooks";
 import { notifyDirectorateWhatsappSafely } from "@/lib/whatsapp/notify-directorate-server";
 
@@ -157,6 +158,13 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       replyMailboxConfigured: Boolean(snapshot.replyMailbox),
       replyMailbox: snapshot.replyMailbox,
       deliveryOverrideEmail: snapshot.config?.pilotDeliveryOverrideEmail ?? null,
+      projectPilotSender: (() => {
+        const profile = resolveProjectPilotProfile();
+        if (!profile.configured) return null;
+        // Perfil configurado mas inválido para ESTE projeto: valor impossível => bloqueia a prontidão (o envio já falharia fechado).
+        if (!profile.valid) return (process.env.ACC_PROJECT_PILOT_PROJECT_ID ?? "").trim().toLowerCase() === projectId.toLowerCase() ? "perfil-do-piloto-invalido" : null;
+        return profile.projectId === projectId.toLowerCase() ? profile.sender : null;
+      })(),
     });
 
     const plan: RiskAlertPlan = planRiskAlerts({
@@ -408,6 +416,7 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
       references: conversation?.rootMessageIdHeader ? [conversation.rootMessageIdHeader] : undefined,
       correlationId: crypto.randomUUID(),
       vera: { projectId: ctx.projectId, context: "alerta" },
+      pilot: { projectId: ctx.projectId, participantLabel: `usuário ${recipientUserId.slice(0, 8)}`, escalationLevel: escalationLevel ?? notificationType },
     });
     const emailId = await ctx.store.recordEmail(ctx.projectId, { from: sent.from, to: delivery.deliveryEmail, subject: built.subject, sentAt: sent.sentAt, snippet: built.text });
     await ctx.store.markSent(outboxId, { recipientEmail: delivery.deliveryEmail, provider: sent.provider, providerMessageId: sent.providerMessageId, emailId, sentAt: sent.sentAt, messageIdHeader: sent.messageIdHeader, conversationId: conversation?.id ?? null });

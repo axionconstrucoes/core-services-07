@@ -60,6 +60,7 @@ export async function GET(request: Request) {
           sourceType: row.source_type,
           summary,
           auditUrl: `${getAppBaseUrl()}/${row.project_id}/auditoria?tipo=INTEGRACOES`,
+          projectId: row.project_id,
         });
         sent += 1;
       } catch {
