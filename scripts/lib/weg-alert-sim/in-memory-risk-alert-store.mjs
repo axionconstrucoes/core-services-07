@@ -292,9 +292,11 @@ export function createInMemoryRiskAlertStore(world) {
     },
     async loadCorrelationIndex() {
       return buildCorrelationIndex(
-        state.messages.map((m) => ({ case_id: m.caseId ?? null, message_id_header: m.messageIdHeader ?? null, reply_token_hash: m.replyTokenHash ?? null, direction: m.direction, status: m.status ?? null })),
+        state.messages.map((m) => ({ case_id: m.caseId ?? null, message_id_header: m.messageIdHeader ?? null, reply_token_hash: m.replyTokenHash ?? null, direction: m.direction, status: m.status ?? null, outbox_id: m.outboxId ?? null })),
         [],
-        [...state.cases.values()].map((c) => ({ id: c.id, visible_code: c.visibleCode }))
+        [...state.cases.values()].map((c) => ({ id: c.id, visible_code: c.visibleCode })),
+        // Destinatário lógico de cada envio (piloto por projeto): outbox -> usuário.
+        new Map(state.outbox.map((o) => [o.id, o.recipientUserId]))
       );
     },
     async listInboundToProcess() {
