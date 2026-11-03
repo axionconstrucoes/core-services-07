@@ -3,6 +3,7 @@ import { Pencil } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { VeraTrigger } from "@/components/assistant/vera-trigger";
 import { getProjects } from "@/lib/data";
 import { ProjectSwitcher } from "./project-switcher";
 
@@ -17,6 +18,9 @@ export async function TopBar({
   const currentProject = projects.find((p) => p.id === projectId);
 
   return (
+    // A coluna da direita nunca fica menor que o seu conteúdo (minmax(max-content,1fr)): com a VERA ao lado de
+    // seletor/código/contrato/editar, em larguras médias o título cede espaço em vez de os itens se sobreporem;
+    // com espaço de sobra as duas colunas continuam iguais e o título fica centralizado.
     // Grade de 2 colunas no mobile (título · avatar+sair) que vira 3
     // colunas (espaçador · título · grupo da direita) a partir de sm.
     // As duas colunas 1fr do desktop são SEMPRE iguais entre si (regra
@@ -24,7 +28,7 @@ export async function TopBar({
     // largura do cabeçalho — não só "no meio do espaço sobrando" como
     // aconteceria com flexbox — independentemente da largura do grupo
     // da direita (nome de projeto curto ou longo).
-    <header className="grid shrink-0 grid-cols-2 items-center gap-x-3 gap-y-2 border-b border-border bg-white px-4 py-2 text-foreground shadow-sm sm:h-14 sm:grid-cols-[1fr_auto_1fr] sm:py-0">
+    <header className="grid shrink-0 grid-cols-2 items-center gap-x-3 gap-y-2 border-b border-border bg-white px-4 py-2 text-foreground shadow-sm sm:h-14 sm:grid-cols-[minmax(0,1fr)_auto_minmax(max-content,1fr)] sm:py-0">
       {/* Espaçador: só existe em sm+, com a mesma largura (1fr) do grupo
           da direita — é o que garante a centralização real do título. */}
       <div aria-hidden="true" className="hidden sm:block" />
@@ -73,12 +77,13 @@ export async function TopBar({
               className={buttonVariants({ variant: "outline", size: "sm", className: "shrink-0 gap-1.5" })}
             >
               <Pencil aria-hidden="true" />
-              <span className="sm:hidden xl:inline">Editar projeto</span>
+              <span className="sm:hidden 2xl:inline">Editar projeto</span>
             </Link>
           )}
         </div>
 
-        <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-3">
+        <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-2 sm:gap-3">
+          <VeraTrigger />
           <Avatar>AS</Avatar>
           <LogoutButton />
         </div>

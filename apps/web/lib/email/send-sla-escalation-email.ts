@@ -57,6 +57,7 @@ export async function sendSlaEscalationEmail(
       html: signed.html,
       inlineImages: inlineLogo ? [inlineLogo] : undefined,
       correlationId,
+      vera: { projectId: input.projectId, context: "alerta" },
     });
   } catch (error) {
     if (error instanceof EmailSendError) {

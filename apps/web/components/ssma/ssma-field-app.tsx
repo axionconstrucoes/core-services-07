@@ -390,10 +390,12 @@ function ChecklistForm({
                 p_sha256_hash: sha256Hash,
               });
               if (registerError) {
-                await supabase.rpc("discard_unregistered_ssma_photo", {
-                  p_submission_id: submissionId,
-                  p_storage_path: storagePath,
-                });
+                // Limpeza best-effort: o servidor autoriza no banco e remove o arquivo pela API do Storage.
+                await fetch("/api/ssma/photos/discard", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ submissionId, storagePath }),
+                }).catch(() => undefined);
                 throw new Error(`Falha ao registrar “${photo.file.name}”.`);
               }
               setUploadProgress(Math.round(((index + 1) / Math.max(photos.length, 1)) * 100));

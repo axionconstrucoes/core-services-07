@@ -514,9 +514,22 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SECRET_KEY;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
+// Esta seção cria dados, gera link mágico de login e grava auditoria: só roda contra Supabase LOCAL. Um shell com as variáveis
+// de produção exportadas não pode, por acidente, fazer a suíte de rotina (npm run test:scripts) escrever no banco real.
+const isLocalSupabase = (() => {
+  try {
+    return ["127.0.0.1", "localhost", "::1", "[::1]"].includes(new URL(supabaseUrl).hostname);
+  } catch {
+    return false;
+  }
+})();
+
 if (!supabaseUrl || !serviceKey || !anonKey) {
   console.log("");
   console.log("SKIP testes reais de SLA/escalonamento — Supabase não configurado.");
+} else if (!isLocalSupabase) {
+  console.log("");
+  console.log("SKIP testes reais de SLA/escalonamento — NEXT_PUBLIC_SUPABASE_URL não é local; esta seção grava dados e nunca roda contra banco remoto.");
 } else {
   const REFERENCE_PROJECT_ID = "00000000-0000-4000-8000-000000000001";
   const TEST_AUTHOR_EMAIL = "reynaldo@axion.com.br";

@@ -16,6 +16,7 @@ import type {
   SearchProfileState,
   SetMemberJobTitleState,
   SetMemberStatusState,
+  SetMemberWhatsappContactState,
   UpdateMemberPermissionState,
 } from "./actions-state";
 
@@ -338,5 +339,40 @@ export async function preRegisterProjectMemberAction(
       error: error instanceof Error ? error.message : "Falha ao pré-cadastrar usuário.",
       success: false,
     };
+  }
+}
+
+const WHATSAPP_CONTACT_ERRORS: Record<string, string> = {
+  AUTH_REQUIRED: "Sessão expirada. Faça login novamente.",
+  ADMIN_REQUIRED: "Apenas administradores do projeto podem cadastrar o WhatsApp de um membro.",
+  MEMBER_NOT_ACTIVE: "O usuário não é membro ativo deste projeto.",
+  INVALID_INTERNATIONAL_PHONE: "Informe o telefone no formato internacional, com + e código do país (ex.: +5527999990000).",
+  PHONE_REQUIRED_FOR_AUTHORIZATION: "Informe o telefone antes de autorizar o canal.",
+};
+
+// Telefone internacional + autorização do canal WhatsApp (simulado, só alertas CRÍTICOS na Diretoria). RPC
+// set_person_whatsapp_contact: valida ADMINISTRADOR no banco e audita cada mudança com o telefone mascarado.
+export async function setMemberWhatsappContactAction(
+  _prevState: SetMemberWhatsappContactState,
+  formData: FormData
+): Promise<SetMemberWhatsappContactState> {
+  const supabase = await createSupabaseServerClient();
+  try {
+    const projectId = requiredField(formData, "projectId");
+    const userId = requiredField(formData, "userId");
+    const { error } = await supabase.rpc("set_person_whatsapp_contact", {
+      p_project_id: projectId,
+      p_user_id: userId,
+      p_phone: String(formData.get("phone") ?? ""),
+      p_channel_authorized: formData.get("channelAuthorized") === "on",
+    });
+    if (error) {
+      const code = Object.keys(WHATSAPP_CONTACT_ERRORS).find((key) => error.message.includes(key));
+      throw new Error(code ? WHATSAPP_CONTACT_ERRORS[code] : "Não foi possível salvar o contato WhatsApp.");
+    }
+    revalidatePath(`/${projectId}/usuarios`);
+    return { error: null, success: true };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Falha ao salvar o contato WhatsApp.", success: false };
   }
 }

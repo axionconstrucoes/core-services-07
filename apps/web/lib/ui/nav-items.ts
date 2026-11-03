@@ -46,6 +46,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "experts-ia", label: "Experts IA", icon: "Bot", helpId: "experts-ia" },
   { href: "integracoes", label: "Integrações", icon: "Plug", helpId: "integracoes" },
   { href: "usuarios", label: "Usuários", icon: "Users", helpId: "usuarios" },
+  { href: "autorizacoes", label: "Autorizações", icon: "ShieldCheck", helpId: "autorizacoes-email", restrictedTo: "admin" },
   { href: "auditoria", label: "Auditoria", icon: "AlertTriangle", helpId: "auditoria" },
   { href: "ajuda", label: "Ajuda e tutorial", icon: "BookOpen", helpId: "ajuda-tutorial" },
   { href: "startup", label: "Start-up ACC", icon: "Rocket", helpId: "startup-acc", restrictedTo: "admin" },

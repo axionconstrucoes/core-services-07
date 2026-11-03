@@ -37,6 +37,8 @@ import { buildAlertFollowUpEmail, buildImmediateRiskAlertEmail, buildRiskDigestE
 import { evaluatePilotReadiness, blockerToSuppressionReason, isSeverityMapComplete } from "./pilot-readiness";
 import { evaluateRecipient, planRiskAlerts } from "./plan-risk-alerts";
 import { resolveDeliveryAddress } from "@/lib/email/pilot-delivery-override";
+import { runCycleEscalationHook } from "@/lib/whatsapp/hooks";
+import { notifyDirectorateWhatsappSafely } from "@/lib/whatsapp/notify-directorate-server";
 
 import { buildOpaqueReplyTo, generateReplyToken, hashReplyToken } from "./replies/reply-pipeline";
 import type { PendingOutboxRow, RiskAlertProjectSnapshot, RiskAlertStore } from "./store";
@@ -373,7 +375,7 @@ async function issueActionLinks(ctx: SendContext, caseId: string, recipientUserI
   return links;
 }
 
-async function deliver(ctx: SendContext, outboxId: string, caseId: string | null, recipientUserId: string, recipientEmail: string, built: BuiltEmail, notificationType: string, escalationLevel: string | null, idempotencyKey: string): Promise<"SENT" | "FAILED" | "SKIPPED"> {
+async function deliver(ctx: SendContext, outboxId: string, caseId: string | null, recipientUserId: string, recipientEmail: string, built: BuiltEmail, notificationType: string, escalationLevel: string | null, idempotencyKey: string, riskLevel?: string): Promise<"SENT" | "FAILED" | "SKIPPED"> {
   // Override de ENTREGA do piloto: só o To muda (nunca CC/BCC); o destinatário
   // lógico (recipientUserId/recipientEmail) permanece na outbox e na auditoria.
   const delivery = resolveDeliveryAddress({
@@ -405,6 +407,7 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
       inReplyTo: conversation?.rootMessageIdHeader ?? undefined,
       references: conversation?.rootMessageIdHeader ? [conversation.rootMessageIdHeader] : undefined,
       correlationId: crypto.randomUUID(),
+      vera: { projectId: ctx.projectId, context: "alerta" },
     });
     const emailId = await ctx.store.recordEmail(ctx.projectId, { from: sent.from, to: delivery.deliveryEmail, subject: built.subject, sentAt: sent.sentAt, snippet: built.text });
     await ctx.store.markSent(outboxId, { recipientEmail: delivery.deliveryEmail, provider: sent.provider, providerMessageId: sent.providerMessageId, emailId, sentAt: sent.sentAt, messageIdHeader: sent.messageIdHeader, conversationId: conversation?.id ?? null });
@@ -436,6 +439,11 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
         detail: `E-mail ${notificationType}${escalationLevel ? ` (${escalationLevel})` : ""} enviado ao usuário ${recipientUserId} via ${sent.provider} (${sent.providerMessageId}). Chave ${idempotencyKey}.${delivery.overridden ? " Override de entrega do piloto: entregue na caixa institucional configurada (destinatário lógico preservado)." : ""}`,
       },
     ]);
+    // WhatsApp SIMULADO (desligado por padrão): só alerta CRÍTICO que acabou de chegar à Diretoria. Nunca lança nem altera o resultado do e-mail.
+    await runCycleEscalationHook(
+      { notificationType, escalationLevel, riskLevel, idempotencyKey, projectId: ctx.projectId, projectName: ctx.projectName, recipientUserId, caseId, baseUrl: ctx.baseUrl, subject: built.subject },
+      notifyDirectorateWhatsappSafely
+    ).catch(() => false); // o canal nunca pode marcar o e-mail como falho
     return "SENT";
   } catch (error) {
     const message = error instanceof EmailSendError ? error.message : sanitizeError(error);
@@ -471,7 +479,7 @@ async function sendPlanned(outboxId: string, caseId: string | null, entry: Plann
       visibleCode: record?.visibleCode ?? null,
     });
   }
-  const outcome = await deliver(ctx, outboxId, caseId, entry.recipient.userId, recipientEmail, built, entry.notificationType, entry.escalationLevel, entry.idempotencyKey);
+  const outcome = await deliver(ctx, outboxId, caseId, entry.recipient.userId, recipientEmail, built, entry.notificationType, entry.escalationLevel, entry.idempotencyKey, entry.riskLevel);
   if (outcome === "SENT" && entry.content.kind === "DIGEST") {
     const caseKeys = (entry.payloadSummary.caseKeys as string[] | undefined) ?? [];
     await ctx.store.markDigestWindow(caseKeys.map((key) => ctx.caseIds.get(key)).filter((id): id is string => Boolean(id)), entry.content.window);
@@ -550,6 +558,6 @@ async function sendPendingRow(row: PendingOutboxRow, ctx: SendContext): Promise<
     }
     built = buildAlertFollowUpEmail({ kind, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseId: record.id, caseTitle: record.title, riskLevel, visibleCode: record.visibleCode, rows, paragraphs, requiresHumanReview: kind === "EXPERT_ANSWER", actionLinks: kind === "FORWARD" ? await issueActionLinks(ctx, record.id, row.recipientUserId) : undefined });
   }
-  const outcome = await deliver(ctx, row.id, record.id, row.recipientUserId, recipient.email, built, row.notificationType, row.escalationLevel, row.idempotencyKey);
+  const outcome = await deliver(ctx, row.id, record.id, row.recipientUserId, recipient.email, built, row.notificationType, row.escalationLevel, row.idempotencyKey, row.riskLevel);
   return outcome;
 }

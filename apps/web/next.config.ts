@@ -36,6 +36,8 @@ const nextConfig: NextConfig = {
       "public/branding/acc-logo.png",
       // Versão invertida (derivada do oficial) usada nas caixas de alerta CRÍTICO/ALTO.
       "public/branding/acc-logo-invertido.png",
+      // Foto da VERA embutida (CID) no cabeçalho dos e-mails.
+      "public/assistente/ajuda-acc-email.png",
       // Tutorial (PDF/PPTX) lido em runtime por /{obra}/ajuda/tutorial/{formato}; fica fora de public/.
       "content/tutorial/**",
       // Fontes padrão (base-14) do pdfjs-dist, usadas pela extração de

@@ -1,13 +1,20 @@
 "use client";
 
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import { ArrowLeft, CloudUpload, History, Home, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AssistantWidget } from "@/components/assistant/assistant-widget";
+import { VeraTrigger } from "@/components/assistant/vera-trigger";
 
 export type SsmaTab = "home" | "registros" | "sync" | "perfil";
 
 export function SsmaHeader({ title, onBack }: { title: string; onBack?: () => void }) {
+  // A VERA só aparece dentro de uma obra (/ssma/{obra}): a ajuda respeita login e participação na obra.
+  const pathname = usePathname();
+  const veraProjectId = pathname?.match(/^\/ssma\/([0-9a-fA-F-]{36})(?:\/|$)/)?.[1] ?? null;
   return (
+    <>
     <header className="flex min-h-24 items-center gap-2 bg-[#7f1d1d] px-2 text-white shadow-sm sm:px-4">
       {onBack ? (
         <button
@@ -28,7 +35,11 @@ export function SsmaHeader({ title, onBack }: { title: string; onBack?: () => vo
         className={cn("size-16 shrink-0 object-cover", !onBack && "ml-2")}
       />
       <h1 className="min-w-0 flex-1 break-words text-center text-lg font-bold uppercase leading-tight sm:text-xl">{title}</h1>
+      {veraProjectId ? <VeraTrigger tone="dark" alwaysShowText /> : null}
     </header>
+    {/* Fora do cabeçalho: dentro dele a caixa herdaria o texto branco. */}
+    {veraProjectId ? <AssistantWidget projectId={veraProjectId} /> : null}
+    </>
   );
 }
 

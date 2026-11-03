@@ -42,7 +42,17 @@ export interface SendEmailInput {
   // piloto não precisa tocá-los.
   inReplyTo?: string;
   references?: string[];
+  // Contexto da assistente VERA para o cabeçalho do e-mail (opcional; sem ele abre a ajuda geral).
+  vera?: VeraEmailHint;
   correlationId: string;
+}
+
+// Dica de contexto do botão "Fale com a VERA" que o provider acrescenta ao cabeçalho do e-mail (ver
+// branding/vera-email-header.ts). Só ids (UUID) e um tipo fixo — nunca dado pessoal ou contratual.
+export interface VeraEmailHint {
+  projectId?: string | null;
+  context?: "geral" | "alerta" | "providencia" | "ssma" | "autorizacao";
+  authorizationId?: string | null;
 }
 
 export interface AlertReplyToContext {

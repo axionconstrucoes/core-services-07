@@ -51,6 +51,11 @@
   --brand-sidebar-foreground: oklch(0.985 0 0);
   --brand-header: oklch(0.396 0.141 25.723);
   --brand-header-foreground: oklch(0.985 0 0);
+
+  /* Fundo da área principal do Dashboard: mesmo vermelho da marca, um pouco mais
+     escuro que --brand-sidebar (L 0.396 -> 0.335), para a barra lateral se destacar
+     sem perder contraste dos textos claros. Só o Dashboard usa este token. */
+  --dashboard-bg: oklch(0.335 0.115 25.7);
 }
 
 .dark {

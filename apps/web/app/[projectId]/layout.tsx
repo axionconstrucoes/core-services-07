@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@axion/db/server";
+import { AssistantWidget } from "@/components/assistant/assistant-widget";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { TopBar } from "@/components/layout/top-bar";
 import { getProject } from "@/lib/data";
@@ -59,6 +60,8 @@ export default async function WorkspaceLayout({
           {children}
         </main>
       </div>
+
+      <AssistantWidget projectId={projectId} />
     </div>
   );
 }

@@ -10,6 +10,8 @@ import {
 import { loadGmailConfig, type GmailConfig } from "./gmail-auth";
 import { base64UrlEncode, buildMimeMessage } from "./mime-message";
 import { applyPilotOutboundGuard } from "./pilot-outbound-guard";
+import { applyVeraEmailHeader } from "./branding/vera-email-header";
+import { assertOnlyRecipient } from "./only-recipient-guard";
 
 export { base64UrlEncode, buildMimeMessage };
 
@@ -28,7 +30,7 @@ export class GmailEmailProvider implements EmailProvider {
     // Obrigatório e incondicional — antes de qualquer credencial, MIME
     // ou chamada de rede. Nenhuma instanciação direta desta classe
     // escapa da trava do piloto.
-    const guardedInput = applyPilotOutboundGuard(input);
+    const guardedInput = assertOnlyRecipient(applyVeraEmailHeader(applyPilotOutboundGuard(input)));
 
     const senderDomain =
       this.config.senderEmail.split("@")[1] ?? "axion.local";

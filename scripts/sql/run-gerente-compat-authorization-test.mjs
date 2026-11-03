@@ -34,13 +34,10 @@
 //     node scripts/sql/run-gerente-compat-authorization-test.mjs
 
 import { spawnSync } from "node:child_process";
+import { requireDisposableContainer } from "./lib/disposable-target.mjs";
 
-const EXACT_DB_CONTAINER = "supabase_db_acc-gerente-compat-test";
+const EXACT_DB_CONTAINER = requireDisposableContainer("ACC_GERENTE_TEST_DB_CONTAINER", { legacyNames: ["supabase_db_acc-gerente-compat-test"] });
 
-if (process.env.ACC_GERENTE_TEST_DB_CONTAINER !== EXACT_DB_CONTAINER) {
-  console.error(`ACC_GERENTE_TEST_DB_CONTAINER precisa ser exatamente "${EXACT_DB_CONTAINER}".`);
-  process.exit(1);
-}
 if (process.env.ACC_GERENTE_TEST_I_UNDERSTAND_THIS_IS_DISPOSABLE !== "true") {
   console.error('ACC_GERENTE_TEST_I_UNDERSTAND_THIS_IS_DISPOSABLE precisa ser exatamente "true".');
   process.exit(1);

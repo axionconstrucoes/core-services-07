@@ -17,20 +17,13 @@
 //     node scripts/sql/run-trash-admin-authorization-test.mjs
 
 import { spawnSync } from "node:child_process";
+import { requireDisposableContainer, requireLocalApiUrl } from "./lib/disposable-target.mjs";
 
-const EXACT_API_URL = "http://127.0.0.1:55513";
-const EXACT_DB_CONTAINER = "supabase_db_acc-disposable-20260829";
+const EXACT_API_URL = requireLocalApiUrl("ACC_TRASH_AUTH_TEST_API_URL");
+const EXACT_DB_CONTAINER = requireDisposableContainer("ACC_TRASH_AUTH_TEST_DB_CONTAINER");
 const ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
 
-if (process.env.ACC_TRASH_AUTH_TEST_API_URL !== EXACT_API_URL) {
-  console.error(`ACC_TRASH_AUTH_TEST_API_URL precisa ser exatamente "${EXACT_API_URL}".`);
-  process.exit(1);
-}
-if (process.env.ACC_TRASH_AUTH_TEST_DB_CONTAINER !== EXACT_DB_CONTAINER) {
-  console.error(`ACC_TRASH_AUTH_TEST_DB_CONTAINER precisa ser exatamente "${EXACT_DB_CONTAINER}".`);
-  process.exit(1);
-}
 if (process.env.ACC_TRASH_AUTH_TEST_I_UNDERSTAND_THIS_IS_DISPOSABLE !== "true") {
   console.error('ACC_TRASH_AUTH_TEST_I_UNDERSTAND_THIS_IS_DISPOSABLE precisa ser exatamente "true".');
   process.exit(1);

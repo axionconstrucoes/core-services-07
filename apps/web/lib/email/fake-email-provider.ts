@@ -5,6 +5,8 @@
 import { createHash } from "node:crypto";
 import { EmailSendError, type EmailProvider, type SendEmailInput, type SendEmailResult } from "./email-provider";
 import { applyPilotOutboundGuard } from "./pilot-outbound-guard";
+import { applyVeraEmailHeader } from "./branding/vera-email-header";
+import { assertOnlyRecipient } from "./only-recipient-guard";
 
 const FAKE_SENDER_ADDRESS = "dev-fake-sender@axion.local";
 
@@ -44,7 +46,7 @@ export class FakeEmailProvider implements EmailProvider {
     // Obrigatório e incondicional para qualquer envio que não seja a
     // falha simulada acima — mesma trava aplicada em GmailEmailProvider,
     // para que os testes exerçam exatamente a mesma transformação real.
-    const guardedInput = applyPilotOutboundGuard(input);
+    const guardedInput = assertOnlyRecipient(applyVeraEmailHeader(applyPilotOutboundGuard(input)));
     this.onGuardedInput?.(guardedInput);
 
     const digest = createHash("sha256").update(guardedInput.correlationId).digest("hex");
