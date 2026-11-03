@@ -44,7 +44,7 @@ autorização, descarte e contato WhatsApp), sem quebrar fluxos existentes.
 3. Migration 2: `select proname, proconfig from pg_proc where proname in (…12 funções…)` com `search_path=""`.
 4. Migration 3: constraint `construmanager_version_impact_reviews_state_check` presente e a antiga ausente.
 5. Migration 4: `authorize_discard_unregistered_ssma_photo` existe e `discard_unregistered_ssma_photo` não.
-6. Migration 5: `select count(*) from pg_proc p where pronamespace='public'::regnamespace and prosecdef and prorettype<>'trigger'::regtype and has_function_privilege('anon',p.oid,'execute')` = 0.
+6. Migration 5: a mesma contagem (`select count(*) from pg_proc p where pronamespace='public'::regnamespace and prosecdef and prorettype<>'trigger'::regtype and has_function_privilege('anon',p.oid,'execute')`) deve **cair em 22** (no ensaio com o esquema de produção: 47 → 25; ver a seção 8). Não espere 0: 25 funções antigas continuam executáveis por `anon` e a migration 5 não as cobre.
 7. Migration 6: duas tabelas novas com RLS; `whatsapp_dispatch_target` só executável por `service_role`.
 Se qualquer verificação falhar: **parar**, não aplicar a seguinte, e usar a seção 6.
 
@@ -111,8 +111,24 @@ Restauração por backup físico diário é o último recurso (perde dados poste
 - Erro 5xx em telas de autorização/usuários/SSMA após o deploy → rollback do código (instantâneo) e investigação com as migrations mantidas.
 - Qualquer linha em `whatsapp_simulated_messages` com o canal desligado → incidente (não deveria existir).
 
+## 8. Ensaio realizado (banco descartável com o esquema de produção)
+Feito em 2026-11-03, só local. Esquema obtido por `supabase db dump` (somente DDL, **sem dados**) e comparado com um banco descartável construído pelas 117 migrations já aplicadas em produção (+ privilégios padrão do Supabase): **738 objetos** (tabelas, funções, triggers, políticas, índices, constraints) e **913 concessões (GRANT)** idênticos. Depois as seis migrations foram aplicadas uma a uma, em ordem de versão, com verificação após cada uma:
+
+| # | Resultado do ensaio |
+|---|---|
+| 1 | aplicou; 2 tabelas, 4 funções, todas com RLS |
+| 2 | aplicou; as 11 funções verificadas com `search_path=""` |
+| 3 | aplicou; as 2 linhas sintéticas (válidas no CHECK antigo) foram preservadas; estados novos válidos aceitos (3/3), inválidos rejeitados (2/2) |
+| 4 | aplicou; função nova existe, função antiga removida, `protect_delete` e demais gatilhos de `storage.objects` seguem ativos |
+| 5 | aplicou; EXECUTE de `anon` removido de 22 funções (47 → 25); `authenticated` mantém EXECUTE |
+| 6 | aplicou; 2 tabelas com RLS; `whatsapp_dispatch_target` só para `service_role` |
+
+Com as seis aplicadas: auditoria de `search_path` 353 OK / **1 falha**, runner SSMA/Construmanager 48 OK, runner de autorização 19 OK. A falha é "nenhuma função SECURITY DEFINER é executável por `anon`": 25 funções **anteriores a esta integração** (ex.: gestão de membros, termos de ciência, envio SSMA, resposta do orçamento) continuam com EXECUTE para `anon` no esquema real de produção. O CI não vê isso (PGlite não tem os privilégios padrão do Supabase). Cada uma valida `auth.uid()` no corpo, mas o critério da auditoria só fecha com uma migration adicional (decisão pendente: revogar `anon` também nelas; cuidado com funções usadas em políticas RLS).
+Compatibilidade: das chamadas `rpc` do código antigo (`main`), a única sem destino é `discard_unregistered_ssma_photo` (removida de propósito); o código novo encontra todas as funções que chama, com EXECUTE para `authenticated` ou `service_role`.
+**O que o ensaio não prova:** dados reais (a pré-checagem do CHECK da migration 3 tem de ser rodada em produção), corpos de função de produção diferentes das migrations (comparados só por assinatura e ACL), volume e tempo de bloqueio, extensões/configurações do projeto hospedado, Storage com objetos reais.
+
 ## 7. Pendências antes de executar
 - Autorização para acessar o remoto e aplicar migrations; janela e responsável.
-- Ensaio das seis migrations sobre o esquema de produção (somente esquema) em banco descartável.
+- ~~Ensaio das seis migrations sobre o esquema de produção~~ — feito (seção 8). Resta decidir sobre as 25 funções ainda executáveis por `anon` e rodar as pré-checagens com dados reais na janela.
 - Arte definitiva da AXIA com origem/direitos comprovados (a integração usa um ícone neutro).
 - Definir se o PR será único ou empilhado.
