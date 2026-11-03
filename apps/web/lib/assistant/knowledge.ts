@@ -84,9 +84,9 @@ export const ASSISTANT_ENTRIES: AssistantEntry[] = [
     steps: [
       "Não há um número fixo de dias que separe os graus; o sistema não inventa esse limite.",
       "A sugestão automática só indica um grau quando os dados permitem; toda classificação exige revisão humana com justificativa.",
-      "Para reclassificar, abra o evento em EVENTOS e use “Registrar classificação”; o histórico é imutável.",
+      "Para reclassificar, abra o evento em Eventos e use “Registrar classificação”; o histórico é imutável.",
     ],
-    links: [{ label: "EVENTOS", path: "ledger" }],
+    links: [{ label: "Eventos", path: "ledger" }],
     tutorialSlide: 9,
   },
   {
@@ -115,7 +115,7 @@ export const ASSISTANT_ENTRIES: AssistantEntry[] = [
       "O painel mostra quantos alertas já foram respondidos (por exemplo 2 de 4).",
       "“Confirmar tudo” só fica disponível depois que todos os alertas tiverem ação; abrir o link por si só não registra nada.",
     ],
-    links: [{ label: "EVENTOS", path: "ledger" }],
+    links: [{ label: "Eventos", path: "ledger" }],
     tutorialSlide: 13,
   },
   {

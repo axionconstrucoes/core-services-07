@@ -20,6 +20,7 @@ import { getConstrumanagerMetadataOverview } from "@/lib/integrations/construman
 import { getConstrumanagerVersionTransitions } from "@/lib/integrations/construmanager/get-version-transitions";
 import { getDiarioDeObraMonitoringOverview } from "@/lib/integrations/diario-de-obra/get-monitoring-overview";
 import { getDiarioDeObraClimateKpiOverview } from "@/lib/integrations/diario-de-obra/get-climate-kpi-overview";
+import { requireProjectAdminPage } from "@/lib/auth/project-admin-guard";
 
 export const metadata: Metadata = { title: "Integrações" };
 
@@ -29,6 +30,7 @@ export default async function IntegracoesPage({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = await params;
+  await requireProjectAdminPage(projectId);
 
   const supabase = await createSupabaseServerClient();
   const sources = getSourceDefinitions();

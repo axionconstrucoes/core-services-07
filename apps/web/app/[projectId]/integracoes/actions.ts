@@ -10,6 +10,7 @@
 // requisito: nenhuma carga real nesta tarefa).
 
 import { revalidatePath } from "next/cache";
+import { assertProjectAdmin } from "@/lib/auth/project-admin-guard";
 import { createSupabaseServerClient } from "@axion/db/server";
 import { getSourceDefinitions } from "@/lib/data";
 import { createDriveReadOnlyFilesClient } from "@/lib/drive/drive-client";
@@ -84,13 +85,20 @@ async function requireUser(supabase: Awaited<ReturnType<typeof createSupabaseSer
   return data.user;
 }
 
+// Integrações é área exclusiva de administrador: toda ação confere o vínculo ADMINISTRADOR ativo no servidor.
+async function requireAdminUser(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, formData: FormData) {
+  const user = await requireUser(supabase);
+  await assertProjectAdmin(requiredField(formData, "projectId"));
+  return user;
+}
+
 export async function registerEmailAccountAction(
   _prevState: RegisterEmailAccountState,
   formData: FormData
 ): Promise<RegisterEmailAccountState> {
   const supabase = await createSupabaseServerClient();
   try {
-    await requireUser(supabase);
+    await requireAdminUser(supabase, formData);
     const projectId = requiredField(formData, "projectId");
     const emailAddress = requiredField(formData, "emailAddress");
     const displayName = optionalField(formData, "displayName");
@@ -114,7 +122,7 @@ export async function disconnectEmailAccountAction(
 ): Promise<DisconnectEmailAccountState> {
   const supabase = await createSupabaseServerClient();
   try {
-    await requireUser(supabase);
+    await requireAdminUser(supabase, formData);
     const projectId = requiredField(formData, "projectId");
     const accountId = requiredField(formData, "accountId");
 
@@ -134,7 +142,7 @@ export async function saveEmailIngestionConfigAction(
 ): Promise<SaveEmailIngestionConfigState> {
   const supabase = await createSupabaseServerClient();
   try {
-    await requireUser(supabase);
+    await requireAdminUser(supabase, formData);
     const projectId = requiredField(formData, "projectId");
     const emailAccountId = requiredField(formData, "emailAccountId");
     const windowMode = requiredField(formData, "windowMode");
@@ -172,7 +180,7 @@ export async function saveEmailProjectScopeAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireUser(supabase);
+    await requireAdminUser(supabase, formData);
 
     const projectId = requiredField(formData, "projectId");
 
@@ -227,7 +235,7 @@ export async function saveIntegrationOriginAction(
 ): Promise<SaveIntegrationOriginState> {
   const supabase = await createSupabaseServerClient();
   try {
-    await requireUser(supabase);
+    await requireAdminUser(supabase, formData);
     const projectId = requiredField(formData, "projectId");
     const sourceType = requiredField(formData, "sourceType");
 
@@ -272,7 +280,7 @@ export async function validateSsmaDriveSourceAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    const user = await requireUser(supabase);
+    const user = await requireAdminUser(supabase, formData);
     const projectId = requiredField(formData, "projectId");
 
     const { data: membership, error: membershipError } = await supabase
@@ -321,7 +329,7 @@ export async function validateSsmaDriveSourceAction(
 export async function startEmailSyncAction(_prevState: StartEmailSyncState, formData: FormData): Promise<StartEmailSyncState> {
   const supabase = await createSupabaseServerClient();
   try {
-    await requireUser(supabase);
+    await requireAdminUser(supabase, formData);
     const projectId = requiredField(formData, "projectId");
     const configId = requiredField(formData, "configId");
 
@@ -359,7 +367,7 @@ export async function validateConstrumanagerConnectionAction(
   let projectId: string | null = null;
 
   try {
-    await requireUser(supabase);
+    await requireAdminUser(supabase, formData);
     projectId = requiredField(formData, "projectId");
 
     const { data: config, error: configError } = await supabase
@@ -501,7 +509,7 @@ export async function syncConstrumanagerMetadataAction(
   let projectId: string | null = null;
 
   try {
-    await requireUser(supabase);
+    await requireAdminUser(supabase, formData);
     projectId = requiredField(formData, "projectId");
 
     const { data: config, error: configError } = await supabase
@@ -696,7 +704,7 @@ export async function downloadConstrumanagerContentAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireUser(supabase);
+    await requireAdminUser(supabase, formData);
     const projectId = requiredField(formData, "projectId");
     const requestedLinkId = optionalField(formData, "linkId");
 
@@ -877,7 +885,7 @@ export async function prepareConstrumanagerContentAction(
   const supabase = await createSupabaseServerClient();
 
   try {
-    await requireUser(supabase);
+    await requireAdminUser(supabase, formData);
     const projectId = requiredField(formData, "projectId");
 
     if (!isValidProjectId(projectId)) {

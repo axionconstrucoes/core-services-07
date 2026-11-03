@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ADMIN_ONLY_MESSAGE, isProjectAdminForAction } from "@/lib/auth/project-admin-guard";
 import { createSupabaseServerClient } from "@axion/db/server";
 import { validateConfrontationJustification } from "@/lib/ledger/confrontation-justification-validation";
 import type { ReviewEventClauseConfrontationCandidateState } from "./actions-state";
@@ -23,6 +24,7 @@ export async function reviewEventClauseConfrontationCandidateAction(
   formData: FormData
 ): Promise<ReviewEventClauseConfrontationCandidateState> {
   const projectId = optionalField(formData, "projectId");
+  if (projectId && !(await isProjectAdminForAction(projectId))) return { error: ADMIN_ONLY_MESSAGE };
   const eventId = optionalField(formData, "eventId");
   const candidateId = optionalField(formData, "candidateId");
 
@@ -83,6 +85,7 @@ export async function amendConfrontationReviewNoteAction(
   formData: FormData
 ): Promise<ReviewEventClauseConfrontationCandidateState> {
   const projectId = optionalField(formData, "projectId");
+  if (projectId && !(await isProjectAdminForAction(projectId))) return { error: ADMIN_ONLY_MESSAGE };
   const eventId = optionalField(formData, "eventId");
   const candidateId = optionalField(formData, "candidateId");
 

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ADMIN_ONLY_MESSAGE, isProjectAdminForAction } from "@/lib/auth/project-admin-guard";
 import { createSupabaseServerClient } from "@axion/db/server";
 import type { CreateEventNoteState } from "./event-notes-actions-state";
 
@@ -30,6 +31,7 @@ export async function createEventNoteAction(
   formData: FormData
 ): Promise<CreateEventNoteState> {
   const projectId = optionalField(formData, "projectId");
+  if (projectId && !(await isProjectAdminForAction(projectId))) return { error: ADMIN_ONLY_MESSAGE };
   const eventId = optionalField(formData, "eventId");
   const category = optionalField(formData, "category");
   const text = optionalField(formData, "text");

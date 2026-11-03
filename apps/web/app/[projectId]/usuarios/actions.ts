@@ -9,6 +9,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@axion/db/server";
+import { ADMIN_ONLY_MESSAGE, assertProjectAdmin, isProjectAdminForAction } from "@/lib/auth/project-admin-guard";
 import type {
   AddProjectMemberState,
   FoundProfile,
@@ -74,6 +75,7 @@ export async function searchProfileForMembershipAction(
 ): Promise<SearchProfileState> {
   const supabase = await createSupabaseServerClient();
   const projectId = requiredField(formData, "projectId");
+  if (!(await isProjectAdminForAction(projectId))) return { error: ADMIN_ONLY_MESSAGE, result: null, searchedEmail: null, notFound: false };
   const query = requiredField(formData, "query").toLowerCase();
 
   if (!query.includes("@") || !query.endsWith(AXION_EMAIL_DOMAIN)) {
@@ -139,6 +141,7 @@ export async function addProjectMemberAction(
 
   try {
     const projectId = requiredField(formData, "projectId");
+    await assertProjectAdmin(projectId);
     const userId = requiredField(formData, "userId");
     const permission = requiredField(formData, "permission");
     const area = requiredField(formData, "area");
@@ -180,6 +183,7 @@ export async function setMemberStatusAction(
 
   try {
     const projectId = requiredField(formData, "projectId");
+    await assertProjectAdmin(projectId);
     const userId = requiredField(formData, "userId");
     const status = requiredField(formData, "status");
 
@@ -222,6 +226,7 @@ export async function updateMemberPermissionAction(
 
   try {
     const projectId = requiredField(formData, "projectId");
+    await assertProjectAdmin(projectId);
     const userId = requiredField(formData, "userId");
     const newPermission = requiredField(formData, "newPermission");
 
@@ -265,6 +270,7 @@ export async function setMemberJobTitleAction(
 
   try {
     const projectId = requiredField(formData, "projectId");
+    await assertProjectAdmin(projectId);
     const userId = requiredField(formData, "userId");
     const jobTitle = optionalField(formData, "jobTitle");
 
@@ -301,6 +307,7 @@ export async function preRegisterProjectMemberAction(
 
   try {
     const projectId = requiredField(formData, "projectId");
+    await assertProjectAdmin(projectId);
     const email = requiredField(formData, "email").toLowerCase();
     const name = requiredField(formData, "name");
     const jobTitle = optionalField(formData, "jobTitle");
@@ -359,6 +366,7 @@ export async function setMemberWhatsappContactAction(
   const supabase = await createSupabaseServerClient();
   try {
     const projectId = requiredField(formData, "projectId");
+    await assertProjectAdmin(projectId);
     const userId = requiredField(formData, "userId");
     const { error } = await supabase.rpc("set_person_whatsapp_contact", {
       p_project_id: projectId,

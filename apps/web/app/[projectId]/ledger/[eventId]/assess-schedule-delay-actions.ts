@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ADMIN_ONLY_MESSAGE, isProjectAdminForAction } from "@/lib/auth/project-admin-guard";
 
 import { createSupabaseAdminClient } from "@axion/db/admin";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
@@ -25,6 +26,7 @@ export async function assessScheduleDelayAction(
   formData: FormData
 ): Promise<AssessScheduleDelayState> {
   const projectId = String(formData.get("projectId") ?? "").trim();
+  if (projectId && !(await isProjectAdminForAction(projectId))) return { error: ADMIN_ONLY_MESSAGE, success: null };
   const eventId = String(formData.get("eventId") ?? "").trim();
 
   if (!projectId || !eventId) {

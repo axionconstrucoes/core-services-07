@@ -28,6 +28,7 @@ import {
   formatDateTime,
   sourceTypeShortLabels,
 } from "@/lib/labels";
+import { requireProjectAdminPage } from "@/lib/auth/project-admin-guard";
 
 export default async function EventDetailPage({
   params,
@@ -37,6 +38,7 @@ export default async function EventDetailPage({
   searchParams: Promise<{ respond?: string; riskLevel?: string; alertId?: string }>;
 }) {
   const { projectId, eventId } = await params;
+  await requireProjectAdminPage(projectId);
   const resolvedSearchParams = await searchParams;
   const arrivedFromAlertEmail = resolvedSearchParams.respond === "acc";
   const alertRiskLevel = resolvedSearchParams.riskLevel as keyof typeof alertRiskLevelLabels | undefined;

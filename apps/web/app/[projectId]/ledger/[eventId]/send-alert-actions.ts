@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ADMIN_ONLY_MESSAGE, isProjectAdminForAction } from "@/lib/auth/project-admin-guard";
 
 import { buildEvidenceItem, formatClauseLabel, summarizeClauseText } from "@/lib/alerts/alert-source-links";
 import { getAppBaseUrl } from "@/lib/app-base-url";
@@ -36,6 +37,7 @@ export async function sendContractAlertEmailAction(
   formData: FormData
 ): Promise<SendContractAlertState> {
   const projectId = String(formData.get("projectId") ?? "").trim();
+  if (projectId && !(await isProjectAdminForAction(projectId))) return { error: ADMIN_ONLY_MESSAGE, success: null };
   const eventId = String(formData.get("eventId") ?? "").trim();
   const submittedRecipientEmail = String(formData.get("recipientEmail") ?? "").trim();
 

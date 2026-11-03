@@ -28,6 +28,7 @@ import { resolveBusinessHoursConfig, resolveGenericMatrixRule } from "@/lib/sla/
 import { formatInvitationSelection, formatMemberSelection } from "@/lib/sla/responsible-selection";
 import { getSlaAreaResponsibles, getSlaMatrixRules, getSlaProjectSettings } from "@/lib/sla/sla-actions-data";
 import type { SlaArea, SlaRiskLevel } from "@/lib/sla/types";
+import { requireProjectAdminPage } from "@/lib/auth/project-admin-guard";
 
 const RISK_LEVELS: SlaRiskLevel[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
 const SLA_AREAS = Object.keys(slaAreaLabels) as SlaArea[];
@@ -36,6 +37,7 @@ export const metadata: Metadata = { title: "Usuários" };
 
 export default async function UsuariosPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
+  await requireProjectAdminPage(projectId);
   const supabase = await createSupabaseServerClient();
 
   const [members, invitations, permission, project, authData, matrixRules, areaResponsibles, projectSettings] = await Promise.all([
