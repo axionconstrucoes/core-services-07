@@ -9,12 +9,14 @@
 -- Correção: ator = auth.uid(); se nulo, quem agiu (acknowledged_by_user_id, que a RPC define a partir do
 -- usuário identificado na resposta); se ainda nulo, SYSTEM (sem rótulo). Nenhuma outra regra muda.
 -- CREATE OR REPLACE sobre a definição vigente (20260822060313); migrations já aplicadas não são editadas.
+-- search_path vazio (não `public`): a definição vigente em produção já é endurecida e a auditoria de SECURITY DEFINER (run-security-definer-search-path-audit)
+-- reprova `public`; o corpo só usa nomes qualificados (public.*, auth.uid()) e funções do pg_catalog.
 
 create or replace function public.audit_sla_action_updated()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_started_actor uuid := coalesce(auth.uid(), new.acknowledged_by_user_id);
