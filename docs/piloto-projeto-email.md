@@ -4,7 +4,7 @@
 
 ## O que faz
 Para **um** projeto (escolhido pelo UUID), toda mensagem do ACC sobre ele — alertas, escalonamentos (T0, N1, Diretoria, topo), repetições, reenvios, lembretes/filas, resumos, revisão de versão, falha operacional, autorização de e-mail — passa por um único transporte restrito, no último ponto antes da rede (`GmailEmailProvider.send`, espelhado no `FakeEmailProvider`):
-- **Remetente:** `crm@axion.com.br` (lista fixa no código). Se a conta autenticada do envio padrão já é essa, é ela que envia; senão exige identidade OAuth própria (`GOOGLE_GMAIL_PILOT_*`). **Nunca** só troca o cabeçalho `From` e **nunca** cai em outro remetente.
+- **Remetente:** `crm@axion.com.br` (lista fixa no código). Se a conta de envio padrão (`GOOGLE_GMAIL_SENDER_EMAIL`) já é essa, é ela que envia; senão exige identidade OAuth própria (`GOOGLE_GMAIL_PILOT_*`, gerada por `scripts/gmail-pilot-sender-oauth.mjs`, que só salva se a conta autenticada for exatamente `crm@`). **A identidade efetiva de envio em produção não está comprovada** (ver "Evidências"). **Nunca** só troca o cabeçalho `From` e **nunca** cai em outro remetente.
 - **Destino:** `axion@axion.com.br` (lista fixa). Todos os participantes simulados recebem ali; nenhum Para/CC/CCO real. A conferência final é sobre o MIME já montado (Para único, `From` do piloto, nenhum `Cc`/`Bcc`/`Resent-*`).
 - **Identificação:** assunto `[PILOTO] [<nível>]`; faixa no topo (texto e HTML) com "PILOTO — TESTE CONTROLADO", **participante simulado** e **nível de escalonamento**. O endereço do destinatário lógico nunca aparece.
 - **Rastreabilidade:** o destinatário lógico continua decidido e gravado pelos fluxos de origem (outbox, `emails`, auditoria, conversa/Reply-To). Cada participante gera sua própria mensagem. O **override de entrega legado** do projeto (`pilot_delivery_override_email`) é ignorado enquanto o perfil estiver ativo, para não fundir participantes por endereço de entrega.
@@ -27,10 +27,30 @@ Não precisa ser esvaziada nem alterada. A trava continua valendo para todos os 
 ## Identificar o projeto certo
 O nome não identifica o piloto: `node --env-file=apps/web/.env.local scripts/resolve-pilot-project.mjs --search <trecho>` lista candidatos e `--project-id <uuid>` confirma (somente leitura). Registre a conferência no PR/ata, **não** o UUID em arquivos do repositório.
 
-## Dependências externas
-1. **Fase de respostas:** exige `ACC_RISK_ALERTS_INBOUND_{CLIENT_ID,CLIENT_SECRET,REFRESH_TOKEN,MAILBOX}` (GitHub Actions, escopo `gmail.readonly`) — sem elas a fase é pulada. A caixa configurada ali tem de ser a mesma de `GOOGLE_GMAIL_INBOUND_MAILBOX` do app (é o endereço do `Reply-To`). Veja as duas opções no relatório da etapa.
-2. UUID do projeto conferido pelo responsável; allowlist do projeto com os participantes que receberão cada nível.
-3. Eventual consentimento OAuth interativo (só se escolher caixa que ainda não tenha credencial de leitura dedicada).
+## Evidências do ambiente real (somente leitura, 2026-11-04)
+- **Vercel (production), só nomes/metadados:** presentes `AXION_EMAIL_PROVIDER`, `GOOGLE_GMAIL_{CLIENT_ID,CLIENT_SECRET,REFRESH_TOKEN,SENDER_EMAIL}`, `GOOGLE_GMAIL_INBOUND_MAILBOX`, `ACC_OUTBOUND_MODE`, `ACC_PILOT_RECIPIENT`; **ausentes** `ACC_EMAIL_ONLY_RECIPIENT`, `ACC_PROJECT_PILOT_*`, `GOOGLE_GMAIL_PILOT_*`, `ELEVENLABS_*`, `ACC_WHATSAPP_ENABLED`. Os valores são "sensitive" (ilegíveis): **caixa de envio e caixa do Reply-To em produção não podem ser lidas**.
+- **GitHub:** secrets `GOOGLE_GMAIL_INBOUND_*` e `GOOGLE_GMAIL_INBOUND_MAILBOX` existem; `ACC_RISK_ALERTS_INBOUND_*` **não existem**. Última execução (2026-11-03): fase de respostas `SKIPPED_NOT_CONFIGURED` (variáveis ausentes). Variáveis `ACC_PROJECT_PILOT_*` ausentes.
+- **Identidade de envio:** a credencial de envio local tem só `gmail.send` (a conta não é consultável sem enviar). Mensagens do ACC recebidas na caixa `crm@` mostram `From: crm@` (17, 2026-09-21 a 10-27) e `From:` de uma caixa pessoal de usuário (8, 2026-09-24 a 10-28) — períodos sobrepostos e o último é dessa caixa pessoal: **inconclusivo**. Prova possível: um envio controlado (autorizado) após a configuração, ou o consentimento do passo S2.
+- **Caixa de leitura:** a credencial de leitura local lê `crm@axion.com.br` (escopo `gmail.readonly`); que o secret do GitHub seja a mesma conta não pôde ser provado aqui — a própria fase de respostas confere o perfil Gmail autenticado contra `ACC_RISK_ALERTS_INBOUND_MAILBOX` e bloqueia se divergir.
+
+## Mapeamento de configuração (Opção B decidida) — nada foi alterado
+| Onde | Variável | Valor |
+|---|---|---|
+| GitHub secrets | `ACC_RISK_ALERTS_INBOUND_CLIENT_ID / _CLIENT_SECRET / _REFRESH_TOKEN` | mesmos valores de `GOOGLE_GMAIL_INBOUND_CLIENT_ID / _CLIENT_SECRET / _REFRESH_TOKEN` (credencial de leitura que lê `crm@`) |
+| GitHub secrets | `ACC_RISK_ALERTS_INBOUND_MAILBOX` | `crm@axion.com.br` |
+| Vercel (production) | `GOOGLE_GMAIL_INBOUND_MAILBOX` | `crm@axion.com.br` (base do Reply-To; global para todos os projetos com alertas) |
+| Vercel + GitHub `vars` | `ACC_PROJECT_PILOT_PROJECT_ID` | UUID confirmado pelo responsável do projeto (nunca versionado) |
+| Vercel + GitHub `vars` | `ACC_PROJECT_PILOT_DESTINATION` / `ACC_PROJECT_PILOT_SENDER` | `axion@axion.com.br` / `crm@axion.com.br` |
+| Vercel | `GOOGLE_GMAIL_PILOT_SENDER_EMAIL`, `GOOGLE_GMAIL_PILOT_REFRESH_TOKEN` | **só se S2** (abaixo) |
+| — | `ACC_EMAIL_ONLY_RECIPIENT` | continua ausente; não precisa mudar |
+
+**Remetente (decidir após a evidência):** S1 — se `GOOGLE_GMAIL_SENDER_EMAIL` de produção for `crm@`, nenhuma variável de remetente é necessária. S2 — se for outra conta (ou não puder ser provado), rodar `node --env-file=apps/web/.env.local scripts/gmail-pilot-sender-oauth.mjs --mailbox=crm@axion.com.br` (ação interativa, logado como `crm@`; o script só salva se a conta autenticada for `crm@`) e cadastrar as duas variáveis `GOOGLE_GMAIL_PILOT_*` como sensíveis. Sem S1 nem S2 a mensagem do piloto é recusada (por desenho).
+
+## Dependências externas pendentes
+1. Confirmação explícita do projeto (UUID) pelo responsável do projeto — não ativado automaticamente.
+2. Secrets `ACC_RISK_ALERTS_INBOUND_*`, `GOOGLE_GMAIL_INBOUND_MAILBOX` e variáveis do piloto (tabela acima).
+3. Comprovação da identidade de envio (S1) ou consentimento OAuth do `crm@` (S2).
+4. Vínculos dos níveis (ver relatório): Escalão 1 (Gestor) não definido nas áreas; allowlist do projeto cobre só 2 pessoas.
 
 ## Testes
 `test-project-pilot-profile.mjs` (12) e `test-pilot-mailbox-reply.mjs` (9), no `npm run test:email` (etapa do CI).

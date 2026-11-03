@@ -230,5 +230,44 @@ await check("estrutural: todo envio por provider.send carrega o projeto (vera.pr
   assert(offenders.length === 0, `envio sem projeto: ${offenders.join(", ")}`);
 });
 
+await check("três participantes simulados na MESMA caixa: cada mensagem mantém seu participante, nível e correlação (sem fusão)", async () => {
+  const saved = { ...process.env };
+  try {
+    Object.assign(process.env, ENV, { ACC_OUTBOUND_MODE: "production" });
+    delete process.env.ACC_EMAIL_ONLY_RECIPIENT;
+    const levels = [
+      ["Responsável (usuário aaaa1111)", "RESPONSAVEL"],
+      ["Gestor (usuário bbbb2222)", "ESCALAO_1"],
+      ["Diretoria (usuário cccc3333)", "DIRETORIA"],
+    ];
+    const seen = [];
+    for (const [i, [participantLabel, escalationLevel]] of levels.entries()) {
+      await new FakeEmailProvider({ onGuardedInput: (g) => seen.push(g) }).send(
+        msg(PILOT, { to: `logico${i}@exemplo.invalid`, correlationId: `corr-${i}`, pilot: { projectId: PILOT, participantLabel, escalationLevel } })
+      );
+    }
+    assert(seen.length === 3 && seen.every((g) => g.to === "axion@axion.com.br"), "todas na caixa do piloto");
+    assert(new Set(seen.map((g) => g.correlationId)).size === 3, "correlação distinta por mensagem");
+    levels.forEach(([label, level], i) => {
+      assert(seen[i].text.includes(label) && seen[i].text.includes(level) && seen[i].subject.includes(`[${level}]`), `participante/nível da mensagem ${i}`);
+      for (const [j, [otherLabel]] of levels.entries()) if (j !== i) assert(!seen[i].text.includes(otherLabel), `mensagem ${i} não pode citar o participante ${j}`);
+    });
+  } finally {
+    for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+    Object.assign(process.env, saved);
+  }
+});
+
+await check("OAuth do remetente do piloto: só variáveis GOOGLE_GMAIL_PILOT_*, só remetente da lista fixa, só salva se a conta autenticada for a caixa", () => {
+  const oauth = read("scripts/gmail-pilot-sender-oauth.mjs");
+  const literal = profileMod.PROJECT_PILOT_ALLOWED_SENDERS.map((s) => JSON.stringify(s)).join(", ");
+  assert(oauth.includes(`const ALLOWED_SENDERS = [${literal}]`), "lista de remetentes espelhada");
+  assert(oauth.includes('setEnvValue("GOOGLE_GMAIL_PILOT_REFRESH_TOKEN"') && oauth.includes('setEnvValue("GOOGLE_GMAIL_PILOT_SENDER_EMAIL"'));
+  assert(!oauth.includes('setEnvValue("GOOGLE_GMAIL_REFRESH_TOKEN"') && !oauth.includes('setEnvValue("GOOGLE_GMAIL_SENDER_EMAIL"'), "não toca no envio padrão");
+  const check = oauth.indexOf("account !== mailbox");
+  assert(check > 0 && check < oauth.indexOf('setEnvValue("GOOGLE_GMAIL_PILOT_REFRESH_TOKEN"'), "confere a conta antes de salvar");
+  assert(!/console\.log\([^)]*tokens\.refresh_token/.test(oauth), "não exibe o token");
+});
+
 console.log(`\nRESULTADO: ${passed} passaram, ${failed} falharam`);
 process.exit(failed > 0 ? 1 : 0);
