@@ -851,10 +851,10 @@ export default async function DashboardPage({
             <Panel title="Distribuição dos alertas">
               <div className="grid grid-cols-4 gap-2">
                 {[
-                  ["Baixo", data.activeFindingsSummary.countsBySeverity.BAIXA, "bg-emerald-500", "text-white"],
-                  ["Médio", data.activeFindingsSummary.countsBySeverity.MEDIA, "bg-yellow-400", "text-black"],
-                  ["Alto", data.activeFindingsSummary.countsBySeverity.ALTA, "bg-orange-500", "text-white"],
-                  ["Crítico", data.activeFindingsSummary.countsBySeverity.CRITICA, "bg-red-500", "text-white"],
+                  ["Baixo", data.activeFindingsSummary.countsBySeverity.BAIXA, "bg-[#166534]", "text-[#ffffff]"],
+                  ["Médio", data.activeFindingsSummary.countsBySeverity.MEDIA, "bg-yellow-400", "text-[#000000]"],
+                  ["Alto", data.activeFindingsSummary.countsBySeverity.ALTA, "bg-[#c2410c]", "text-[#ffffff]"],
+                  ["Crítico", data.activeFindingsSummary.countsBySeverity.CRITICA, "bg-[#b91c1c]", "text-[#ffffff]"],
                 ].map(([label, value, color, textColor]) => (
                   <div
                     key={String(label)}
