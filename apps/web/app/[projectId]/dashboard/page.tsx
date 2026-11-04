@@ -672,7 +672,7 @@ export default async function DashboardPage({
   const systemStatus = resolveSystemStatus(data.integrationStatusGroups);
 
   return (
-    <div className="-m-6 min-h-full bg-[var(--dashboard-bg)] p-2 text-white xl:h-[calc(100dvh-4rem)] xl:overflow-hidden xl:p-2">
+    <div className="-m-6 min-h-full bg-[var(--dashboard-bg)] p-2 text-white xl:h-[calc(100dvh-4.5rem)] xl:overflow-hidden xl:p-2">
       <div className="mx-auto flex h-full w-full max-w-[1920px] flex-col gap-2">
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-1">
           <div>
@@ -754,7 +754,7 @@ export default async function DashboardPage({
                       ? "text-orange-400"
                       : highestRisk === "MÉDIO"
                         ? "text-amber-300"
-                        : "text-emerald-400"
+                        : "text-[#2fbf71]"
                 }
               >
                 {highestRisk}
