@@ -44,7 +44,7 @@ function ExecutiveKpi({
         {compactStatus(value)}
       </div>
 
-      {subtitle ? <div className="text-[11px] leading-tight text-[#b8c7dc]">{subtitle}</div> : null}
+      {subtitle ? <div className="text-[12px] leading-tight text-[#b8c7dc]">{subtitle}</div> : null}
     </div>
   );
 }
@@ -131,7 +131,7 @@ function compactStatus(value: React.ReactNode): React.ReactNode {
     (value === "EXTRACTED" || value === "PROCESSED")
   ) {
     return (
-      <span className="inline-flex rounded-md bg-emerald-600 px-2.5 py-1 text-[13px] font-normal leading-none text-white">
+      <span className="inline-flex rounded-md bg-emerald-600 px-2.5 py-1 text-[14px] font-normal leading-none text-white">
         OK
       </span>
     );
