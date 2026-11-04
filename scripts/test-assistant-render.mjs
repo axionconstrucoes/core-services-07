@@ -115,5 +115,18 @@ await check("fiação: o widget usa o componente e repassa o estado da rota de v
   ok(!widget.includes("A leitura em voz ainda não está habilitada"), "o aviso de voz desabilitada foi removido (só texto)");
 });
 
+await check("gatilho 'Fale com a AXIA' na barra superior: ícone + texto no MESMO botão, visível em desktop, sem depender da voz, com contraste no fundo escuro", () => {
+  const trig = readFileSync(path.join(root, "apps", "web", "components", "assistant", "vera-trigger.tsx"), "utf8");
+  const bar = readFileSync(path.join(root, "apps", "web", "components", "layout", "top-bar.tsx"), "utf8");
+  ok(bar.includes("<VeraTrigger"), "a barra compartilhada deve renderizar o gatilho");
+  ok(trig.includes("/assistente/ajuda-acc.png") && trig.includes("Fale com a AXIA"), "ícone provisório e texto no gatilho");
+  ok((trig.match(/<button\s/g) ?? []).length === 1 && trig.includes("onClick={() => openVera("), "ícone e texto abrem a mesma conversa (um só botão)");
+  ok(/sm:inline/.test(trig) && !/(lg|md|xl|sm):hidden/.test(trig), "o texto deve aparecer a partir de sm (desktop incluído)");
+  ok(!/ELEVENLABS|voiceAvailable|speech/i.test(trig), "a visibilidade não pode depender da configuração de voz");
+  ok(!trig.includes("text-brand-sidebar") && trig.includes("text-white") && trig.includes("border-[#f7f3ea]"), "contraste: texto branco e borda creme sobre a barra escura");
+  const side = readFileSync(path.join(root, "apps", "web", "components", "layout", "app-sidebar.tsx"), "utf8");
+  ok(side.includes("h-[55px]") && side.includes("/branding/acc-logo.png"), "logo ACC da lateral mantido, 15% maior (48 px → 55 px)");
+});
+
 console.log(`\nRESULTADO: ${passed} passaram, ${failed} falharam`);
 process.exit(failed === 0 ? 0 : 1);

@@ -104,7 +104,7 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
     >
       <div className="flex h-20 items-center justify-center border-b border-white/15">
         {/* eslint-disable-next-line @next/next/no-img-element -- PNG estático em public/, sem otimização de imagem necessária. Logo ACC aparece SOMENTE aqui na sidebar — nunca duplicado na área de conteúdo/cards. O nome por extenso da marca agora vive só no cabeçalho superior (ver top-bar.tsx) — aqui fica só o símbolo, centralizado, sempre visível (expandida ou recolhida). */}
-        <img src="/branding/acc-logo.png" alt="ACC" className="h-12 w-auto shrink-0" />
+        <img src="/branding/acc-logo.png" alt="ACC" className="h-[55px] w-auto shrink-0" />
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 p-2">
