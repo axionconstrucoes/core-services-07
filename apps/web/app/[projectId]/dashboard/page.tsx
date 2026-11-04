@@ -34,13 +34,13 @@ function ExecutiveKpi({
   icon: React.ComponentType<{ className?: string }>;
 }) {
   return (
-    <div className="flex min-h-[78px] flex-col items-center justify-center rounded-[7px] border border-[#263b5c] bg-[#182941] px-3 py-2 text-center">
+    <div className="flex min-h-[64px] flex-col items-center justify-center rounded-[7px] border border-[#263b5c] bg-[#182941] px-3 py-1 text-center">
       <div className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-[0.1em] text-[#c9d6e8]">
         <Icon className="size-3.5" />
         {label}
       </div>
 
-      <div className="flex min-h-8 items-center justify-center text-center text-2xl font-bold leading-none text-white">
+      <div className="flex min-h-7 items-center justify-center text-center text-2xl font-bold leading-none text-white">
         {compactStatus(value)}
       </div>
 
@@ -60,11 +60,11 @@ function Panel({
 }) {
   return (
     <section className={`rounded-[7px] border border-[#263b5c] bg-[#182941] ${className}`}>
-      <div className="border-b border-[#263b5c] px-3 py-1.5">
+      <div className="border-b border-[#263b5c] px-3 py-1">
         <h2 className="text-[14px] font-semibold uppercase tracking-[0.1em] text-white">{title}</h2>
       </div>
 
-      <div className="px-3 py-1.5">{children}</div>
+      <div className="px-3 py-1">{children}</div>
     </section>
   );
 }
@@ -88,7 +88,7 @@ function StatusLine({
           : "bg-slate-400";
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-white/[0.07] py-[3px] last:border-b-0">
+    <div className="flex items-center justify-between gap-3 border-b border-white/[0.07] py-px last:border-b-0">
       <div className="flex min-w-0 items-center gap-2">
         <span className={`size-2 shrink-0 rounded-full ${dot}`} />
         <span className="truncate text-[15px] font-medium leading-5 text-white">{label}</span>
@@ -99,7 +99,7 @@ function StatusLine({
   );
 }
 
-function ProgressRing({ percent, size = 84 }: { percent: number | null; size?: number }) {
+function ProgressRing({ percent, size = 72 }: { percent: number | null; size?: number }) {
   const deg = percent === null ? 0 : Math.max(0, Math.min(100, percent)) * 3.6;
   return (
     <div
@@ -690,7 +690,7 @@ export default async function DashboardPage({
   return (
     <div className="-m-6 min-h-full bg-[var(--dashboard-bg)] p-2 text-white xl:h-[calc(100%+3rem)] xl:overflow-y-auto">
       <div className="mx-auto flex min-h-full w-full max-w-[1920px] flex-col gap-2">
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#263b5c] pb-1.5">
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#263b5c] pb-1">
           <div>
             <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-[#c9d6e8]">AXION CONTROLE DE CONTRATOS</p>
 
@@ -798,7 +798,7 @@ export default async function DashboardPage({
           />
         </div>
 
-        <div className="grid grid-cols-1 items-start gap-2 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 items-start gap-2 md:grid-cols-2 xl:grid-cols-5">
           {/* COLUNA 1 */}
           <div className="flex flex-col gap-2">
             <Panel title="Situação contratual">
@@ -830,6 +830,28 @@ export default async function DashboardPage({
               />
             </Panel>
 
+            <Panel title="Distribuição dos alertas">
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  ["Baixo", data.activeFindingsSummary.countsBySeverity.BAIXA, "bg-emerald-500", "text-white"],
+                  ["Médio", data.activeFindingsSummary.countsBySeverity.MEDIA, "bg-yellow-400", "text-black"],
+                  ["Alto", data.activeFindingsSummary.countsBySeverity.ALTA, "bg-orange-500", "text-white"],
+                  ["Crítico", data.activeFindingsSummary.countsBySeverity.CRITICA, "bg-red-500", "text-white"],
+                ].map(([label, value, color, textColor]) => (
+                  <div
+                    key={String(label)}
+                    className={`flex h-11 flex-col items-center justify-center rounded-[5px] ${color} ${textColor}`}
+                  >
+                    <span className="text-[13px] font-medium leading-none">{label}</span>
+                    <span className="mt-1 text-xl font-bold leading-none">{Number(value)}</span>
+                  </div>
+                ))}
+              </div>
+            </Panel>
+          </div>
+
+          {/* COLUNA 2 */}
+          <div className="flex flex-col gap-2">
             <Panel title="Financeiro resumido — R$ mil">
               <StatusLine
                 label="Contrato + aditivos"
@@ -891,7 +913,7 @@ export default async function DashboardPage({
             </Panel>
           </div>
 
-          {/* COLUNA 2 */}
+          {/* COLUNA 3 */}
           <div className="flex flex-col gap-2">
             <Panel title="Avanço físico do contrato">
               <div className="flex items-center gap-3">
@@ -965,7 +987,92 @@ export default async function DashboardPage({
             </Panel>
           </div>
 
-          {/* COLUNA 3 */}
+          {/* COLUNA 4 */}
+          <div className="flex flex-col gap-2">
+            <Panel title="Status das integrações">
+              {data.integrationStatusGroups.flatMap((group) =>
+                group.labels.map((label) => (
+                  <div
+                    key={`${group.status}-${label}`}
+                    className="flex items-center justify-between gap-3 border-b border-white/[0.07] py-px last:border-b-0"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className={`size-2 shrink-0 rounded-full ${
+                          group.status === "CONECTADO"
+                            ? "bg-emerald-400"
+                            : group.status === "ATENCAO"
+                              ? "bg-amber-400"
+                              : group.status === "ERRO"
+                                ? "bg-red-400"
+                                : "bg-slate-400"
+                        }`}
+                      />
+                      <span className="truncate text-[15px] font-medium text-white">{label}</span>
+                    </div>
+
+                    <span
+                      className={`shrink-0 rounded-[3px] px-2 py-0.5 text-[12px] font-bold uppercase tracking-wide ${
+                        group.status === "CONECTADO"
+                          ? "bg-emerald-600 text-white"
+                          : group.status === "ATENCAO"
+                            ? "bg-amber-400 text-black"
+                            : group.status === "ERRO"
+                              ? "bg-red-600 text-white"
+                              : "bg-slate-500 text-white"
+                      }`}
+                    >
+                      {group.status === "CONECTADO"
+                        ? "ATIVO"
+                        : group.status === "ATENCAO"
+                          ? "ATENÇÃO"
+                          : group.status === "ERRO"
+                            ? "ERRO"
+                            : "PENDENTE"}
+                    </span>
+                  </div>
+                ))
+              )}
+            </Panel>
+
+            <Panel title="Relatório semanal processado">
+              <StatusLine
+                label="Curva S"
+                value={sheetByCategory.get("CURVA_S")?.status ?? "Ausente"}
+                status={sheetByCategory.get("CURVA_S") ? "ok" : "neutral"}
+              />
+              <StatusLine
+                label="Linha de Base"
+                value={sheetByCategory.get("LINHA_BASE")?.status ?? "Ausente"}
+                status={sheetByCategory.get("LINHA_BASE") ? "ok" : "neutral"}
+              />
+              <StatusLine
+                label="Financeiro"
+                value={sheetByCategory.get("FINANCEIRO")?.status ?? "Ausente"}
+                status={sheetByCategory.get("FINANCEIRO") ? "ok" : "neutral"}
+              />
+              <StatusLine
+                label="SSMA"
+                value={sheetByCategory.get("SSMA")?.status ?? "Ausente"}
+                status={sheetByCategory.get("SSMA") ? "ok" : "neutral"}
+              />
+            </Panel>
+
+            <div className="rounded-[7px] border border-[#263b5c] bg-[#182941] px-3 py-1.5">
+              <div className="flex items-start gap-2">
+                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#8fb8f0]" />
+                <div>
+                  <p className="text-[14px] font-semibold text-white">Atualização automática</p>
+                  <p className="text-[12px] leading-snug text-[#b8c7dc]">
+                    Cronograma, relatório semanal, financeiro e SSMA são exibidos somente após o respectivo e-mail/anexo
+                    ter sido persistido e processado pelo ACC.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* COLUNA 5 */}
           <div className="flex flex-col gap-2">
             <Panel title="Planejamento — recebimento por e-mail">
               <StatusLine
@@ -1048,110 +1155,6 @@ export default async function DashboardPage({
                 ) : null}
               </div>
             </Panel>
-
-            <Panel title="Relatório semanal processado">
-              <StatusLine
-                label="Curva S"
-                value={sheetByCategory.get("CURVA_S")?.status ?? "Ausente"}
-                status={sheetByCategory.get("CURVA_S") ? "ok" : "neutral"}
-              />
-              <StatusLine
-                label="Linha de Base"
-                value={sheetByCategory.get("LINHA_BASE")?.status ?? "Ausente"}
-                status={sheetByCategory.get("LINHA_BASE") ? "ok" : "neutral"}
-              />
-              <StatusLine
-                label="Financeiro"
-                value={sheetByCategory.get("FINANCEIRO")?.status ?? "Ausente"}
-                status={sheetByCategory.get("FINANCEIRO") ? "ok" : "neutral"}
-              />
-              <StatusLine
-                label="SSMA"
-                value={sheetByCategory.get("SSMA")?.status ?? "Ausente"}
-                status={sheetByCategory.get("SSMA") ? "ok" : "neutral"}
-              />
-            </Panel>
-          </div>
-
-          {/* COLUNA 4 */}
-          <div className="flex flex-col gap-2">
-            <Panel title="Status das integrações">
-              {data.integrationStatusGroups.flatMap((group) =>
-                group.labels.map((label) => (
-                  <div
-                    key={`${group.status}-${label}`}
-                    className="flex items-center justify-between gap-3 border-b border-white/[0.07] py-[3px] last:border-b-0"
-                  >
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span
-                        className={`size-2 shrink-0 rounded-full ${
-                          group.status === "CONECTADO"
-                            ? "bg-emerald-400"
-                            : group.status === "ATENCAO"
-                              ? "bg-amber-400"
-                              : group.status === "ERRO"
-                                ? "bg-red-400"
-                                : "bg-slate-400"
-                        }`}
-                      />
-                      <span className="truncate text-[15px] font-medium text-white">{label}</span>
-                    </div>
-
-                    <span
-                      className={`shrink-0 rounded-[3px] px-2 py-0.5 text-[12px] font-bold uppercase tracking-wide ${
-                        group.status === "CONECTADO"
-                          ? "bg-emerald-600 text-white"
-                          : group.status === "ATENCAO"
-                            ? "bg-amber-400 text-black"
-                            : group.status === "ERRO"
-                              ? "bg-red-600 text-white"
-                              : "bg-slate-500 text-white"
-                      }`}
-                    >
-                      {group.status === "CONECTADO"
-                        ? "ATIVO"
-                        : group.status === "ATENCAO"
-                          ? "ATENÇÃO"
-                          : group.status === "ERRO"
-                            ? "ERRO"
-                            : "PENDENTE"}
-                    </span>
-                  </div>
-                ))
-              )}
-            </Panel>
-
-            <Panel title="Distribuição dos alertas">
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  ["Baixo", data.activeFindingsSummary.countsBySeverity.BAIXA, "bg-emerald-500", "text-white"],
-                  ["Médio", data.activeFindingsSummary.countsBySeverity.MEDIA, "bg-yellow-400", "text-black"],
-                  ["Alto", data.activeFindingsSummary.countsBySeverity.ALTA, "bg-orange-500", "text-white"],
-                  ["Crítico", data.activeFindingsSummary.countsBySeverity.CRITICA, "bg-red-500", "text-white"],
-                ].map(([label, value, color, textColor]) => (
-                  <div
-                    key={String(label)}
-                    className={`flex h-14 flex-col items-center justify-center rounded-[5px] ${color} ${textColor}`}
-                  >
-                    <span className="text-[13px] font-medium leading-none">{label}</span>
-                    <span className="mt-1 text-xl font-bold leading-none">{Number(value)}</span>
-                  </div>
-                ))}
-              </div>
-            </Panel>
-
-            <div className="rounded-[7px] border border-[#263b5c] bg-[#182941] px-3 py-1.5">
-              <div className="flex items-start gap-2">
-                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#8fb8f0]" />
-                <div>
-                  <p className="text-[14px] font-semibold text-white">Atualização automática</p>
-                  <p className="text-[12px] leading-snug text-[#b8c7dc]">
-                    Cronograma, relatório semanal, financeiro e SSMA são exibidos somente após o respectivo e-mail/anexo
-                    ter sido persistido e processado pelo ACC.
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
