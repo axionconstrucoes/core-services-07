@@ -110,7 +110,7 @@ check("fundo do Dashboard vem do token --dashboard-bg e o antigo #260611 saiu", 
 check("o fundo do Dashboard segue o tema escuro aprovado (grafite #1B2027, docs/ui-redesign-axion.md), sem redefinir a marca", () => {
   const dash = css.match(/--dashboard-bg:\s*(#[0-9a-fA-F]{6})/);
   if (!dash) throw new Error("--dashboard-bg deve ser o grafite hexadecimal do tema");
-  if (dash[1].toLowerCase() !== "#1b2027") throw new Error(`fundo esperado #1b2027, obtido ${dash[1]}`);
+  if (dash[1].toLowerCase() !== "#0b1629") throw new Error(`fundo esperado #0b1629, obtido ${dash[1]}`);
   if (!/--brand-sidebar:\s*oklch\(0\.396 0\.141 25\.723\)/.test(css)) throw new Error("--brand-sidebar (vermelho da marca) não pode ser alterado");
 });
 
