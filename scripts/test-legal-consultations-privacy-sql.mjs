@@ -139,6 +139,14 @@ await check("autor exclui a própria consulta; depois ela deixa de aparecer na l
   assert.equal((await db.query("select count(*)::int c from public.legal_consultations where id=$1", [consultaId])).rows[0].c, 0);
 });
 
+await check("service_role (ignora RLS por definição) não consegue criar consulta SEM autor identificável: author_user_id é obrigatório", async () => {
+  await expectError(
+    as(db, { role: "service_role" }, () => db.query("insert into public.legal_consultations (project_id, question, response) values ($1,'sem autor','{}'::jsonb)", [P])),
+    /null value|not-null|author_user_id/i
+  );
+  assert.equal((await db.query("select count(*)::int c from public.legal_consultations where question='sem autor'")).rows[0].c, 0);
+});
+
 await check("pergunta vazia ou gigante é recusada pelo banco", async () => {
   await expectError(insert(U.autor, { question: "" }), /check/i);
   await expectError(insert(U.autor, { question: "x".repeat(8001) }), /check/i);

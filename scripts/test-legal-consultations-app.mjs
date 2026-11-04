@@ -44,6 +44,15 @@ function walk(dir, acc = []) {
 const users = walk("apps/web").filter((f) => rd(f).includes("legal_consultations")).map((f) => f.replaceAll("\\", "/"));
 t(`só um módulo acessa a tabela (sem busca/exportação paralela): ${users.join(", ")}`, users.length === 1 && users[0].endsWith("lib/legal/consultations.ts"));
 
+// service_role/cliente administrativo ignoram RLS: nenhum arquivo que os use pode importar o módulo do histórico nem citar a tabela.
+const adminFiles = walk("apps/web").filter((f) => /createSupabaseAdminClient|SUPABASE_SECRET_KEY|service_role/.test(rd(f)));
+const adminTouching = adminFiles.filter((f) => /lib\/legal\/consultations|legal_consultations/.test(rd(f))).map((f) => f.replaceAll("\\", "/"));
+t(`rotas/jobs com service_role (${adminFiles.length} arquivos) NÃO importam nem consultam o histórico jurídico: ${adminTouching.join(", ") || "nenhum"}`, adminTouching.length === 0);
+const importers = walk("apps/web").filter((f) => /from "@\/lib\/legal\/consultations"/.test(rd(f))).map((f) => f.replaceAll("\\", "/"));
+t(`só estes arquivos importam o módulo do histórico (todos com sessão de usuário): ${importers.length}`, importers.length > 0 && importers.every((f) => !adminFiles.map((x) => x.replaceAll("\\", "/")).includes(f)));
+const cycle = rd("apps/web/lib/risk-alerts/run-risk-alert-cycle.ts");
+t("ciclo automático de alertas (service_role) chama o especialista direto e NÃO grava histórico de consulta", cycle.includes("answerLegalConsultantQuery") && !cycle.includes("saveLegalConsultation"));
+
 const mig = rd("supabase/migrations/20261104120000_legal_consultations_private.sql");
 t("migration: RLS forçada, sem policy de administrador, sem UPDATE, anon sem acesso", /force row level security/.test(mig) && !/for update/.test(mig) && !/ADMINISTRADOR/.test(mig.replace(/--.*$/gm, "")) && /revoke all on public\.legal_consultations from anon/.test(mig));
 
