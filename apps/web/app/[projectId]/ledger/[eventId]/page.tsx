@@ -1,3 +1,4 @@
+import { requireProjectAdminPage } from "@/lib/email-authorization/guard";
 import { notFound } from "next/navigation";
 import { ShieldAlert } from "lucide-react";
 import { CategoryBadge, ConfrontationCandidateStatusBadge, SeverityBadge, StatusBadge } from "@/components/shared/badges";
@@ -37,6 +38,7 @@ export default async function EventDetailPage({
   searchParams: Promise<{ respond?: string; riskLevel?: string; alertId?: string }>;
 }) {
   const { projectId, eventId } = await params;
+  await requireProjectAdminPage(projectId); // aba só para administradores (o menu também a oculta)
   const resolvedSearchParams = await searchParams;
   const arrivedFromAlertEmail = resolvedSearchParams.respond === "acc";
   const alertRiskLevel = resolvedSearchParams.riskLevel as keyof typeof alertRiskLevelLabels | undefined;

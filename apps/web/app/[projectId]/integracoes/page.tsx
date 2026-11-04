@@ -1,3 +1,4 @@
+import { requireProjectAdminPage } from "@/lib/email-authorization/guard";
 import type { Metadata } from "next";
 import { createSupabaseServerClient } from "@axion/db/server";
 import { EmailAccountsPanel } from "@/components/integrations/email-accounts-panel";
@@ -29,6 +30,7 @@ export default async function IntegracoesPage({
   params: Promise<{ projectId: string }>;
 }) {
   const { projectId } = await params;
+  await requireProjectAdminPage(projectId); // aba só para administradores (o menu também a oculta)
 
   const supabase = await createSupabaseServerClient();
   const sources = getSourceDefinitions();

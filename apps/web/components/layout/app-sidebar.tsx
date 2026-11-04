@@ -98,16 +98,16 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
   return (
     <aside
       className={cn(
-        "flex shrink-0 flex-col border-r border-black/10 bg-brand-sidebar text-brand-sidebar-foreground transition-[width] duration-150",
-        collapsed ? "w-14" : "w-60"
+        "acc-sidebar-grid flex shrink-0 flex-col border-r border-black/10 text-brand-sidebar-foreground transition-[width] duration-150",
+        collapsed ? "w-14" : "w-[264px] max-md:w-14"
       )}
     >
       <div className="flex h-20 items-center justify-center border-b border-white/15">
         {/* eslint-disable-next-line @next/next/no-img-element -- PNG estático em public/, sem otimização de imagem necessária. Logo ACC aparece SOMENTE aqui na sidebar — nunca duplicado na área de conteúdo/cards. O nome por extenso da marca agora vive só no cabeçalho superior (ver top-bar.tsx) — aqui fica só o símbolo, centralizado, sempre visível (expandida ou recolhida). */}
-        <img src="/branding/acc-logo.png" alt="ACC" className="h-12 w-auto shrink-0" />
+        <img src="/branding/acc-logo.png" alt="ACC" className="h-[55px] w-auto shrink-0" />
       </div>
 
-      <nav className="flex flex-1 flex-col gap-0.5 p-2">
+      <nav className="flex flex-1 flex-col gap-0 p-2">
         {visibleItems.map((item) => {
           const href = `/${projectId}/${item.href}`;
           const active = pathname?.startsWith(href);
@@ -133,13 +133,14 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
               // adiantar rotas que o usuário ainda não pediu.
               prefetch={false}
               className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                "flex min-h-9 items-center gap-2 rounded-[5px] px-3 py-1.5 text-[15px] font-medium transition-colors",
                 collapsed && "justify-center px-0",
-                active ? "bg-brand-sidebar-active text-white" : "text-white/75 hover:bg-white/10 hover:text-white"
+                "max-md:justify-center max-md:px-0",
+                active ? "bg-[#f7f3ea] font-semibold text-[#5e1414]" : "text-white/85 hover:bg-white/10 hover:text-white"
               )}
             >
               {Icon ? <Icon className="size-4 shrink-0" /> : null}
-              {!collapsed ? <span className="leading-tight break-words">{item.label}</span> : null}
+              {!collapsed ? <span className="leading-tight break-words max-md:hidden">{item.label}</span> : null}
             </Link>
           );
         })}

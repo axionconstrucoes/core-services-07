@@ -107,16 +107,11 @@ check("fundo do Dashboard vem do token --dashboard-bg e o antigo #260611 saiu", 
   if (page.includes("#260611")) throw new Error("cor antiga ainda na página");
 });
 
-check("o fundo do Dashboard é mais escuro que a barra lateral (mesmo matiz, L menor)", () => {
-  const side = css.match(/--brand-sidebar:\s*oklch\(([\d.]+)\s+([\d.]+)\s+([\d.]+)\)/);
-  const dash = css.match(/--dashboard-bg:\s*oklch\(([\d.]+)\s+([\d.]+)\s+([\d.]+)\)/);
-  if (!side || !dash) throw new Error("não foi possível ler os tokens");
-  const [sl, , sh] = side.slice(1).map(Number);
-  const [dl, , dh] = dash.slice(1).map(Number);
-  if (!(dl < sl)) throw new Error(`L do dashboard (${dl}) deve ser menor que a da barra (${sl})`);
-  if (sl - dl > 0.1) throw new Error("diferença grande demais: deve ser discreta (<= 0.10 de luminosidade)");
-  if (sl - dl < 0.03) throw new Error("diferença imperceptível (< 0.03)");
-  if (Math.abs(sh - dh) > 3) throw new Error("matiz deve continuar o vermelho da marca");
+check("o fundo do Dashboard segue o tema escuro aprovado (grafite #1B2027, docs/ui-redesign-axion.md), sem redefinir a marca", () => {
+  const dash = css.match(/--dashboard-bg:\s*(#[0-9a-fA-F]{6})/);
+  if (!dash) throw new Error("--dashboard-bg deve ser o grafite hexadecimal do tema");
+  if (dash[1].toLowerCase() !== "#0b1629") throw new Error(`fundo esperado #0b1629, obtido ${dash[1]}`);
+  if (!/--brand-sidebar:\s*oklch\(0\.396 0\.141 25\.723\)/.test(css)) throw new Error("--brand-sidebar (vermelho da marca) não pode ser alterado");
 });
 
 check("sem font-black no Dashboard", () => {

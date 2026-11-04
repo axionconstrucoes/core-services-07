@@ -18,3 +18,9 @@ export async function isProjectAdmin(projectId: string): Promise<{ isAdmin: bool
     .maybeSingle();
   return { isAdmin: membership?.status === "ACTIVE" && membership?.permission === "ADMINISTRADOR", userId: authData.user.id };
 }
+
+/** Guarda de PÁGINA das abas só para administradores (Eventos, Integrações, Usuários): sem perfil administrativo ativo ⇒ 404. */
+export async function requireProjectAdminPage(projectId: string): Promise<void> {
+  const { notFound } = await import("next/navigation");
+  if (!(await isProjectAdmin(projectId)).isAdmin) notFound();
+}

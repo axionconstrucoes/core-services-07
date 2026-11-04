@@ -9,6 +9,7 @@ import {
 } from "./expert-query-request";
 import type { AskCommercialDirectorState } from "./expert-query-state";
 import { buildAiProviderUiMetadata } from "./provider-ui-metadata";
+import { saveLegalConsultation } from "@/lib/legal/consultations";
 
 // `scope` é fixo em "PROJECT" abaixo, de propósito: esta consulta é
 // sempre do espaço jurídico inteiro e o navegador nunca pode influenciar
@@ -64,10 +65,13 @@ export async function askLegalConsultantAction(
       // ExpertQuerySafeError e o provider nem e chamado.
       { requireContractualDocuments: true }
     );
+    const meta = buildAiProviderUiMetadata(result.audit.providerId, result.audit.model);
+    // Histórico PRIVADO do autor (autoria da sessão + RLS). Falha ao gravar nunca derruba a resposta.
+    await saveLegalConsultation({ projectId, question, response: result.response, providerMeta: meta });
     return {
       response: result.response,
       error: null,
-      meta: buildAiProviderUiMetadata(result.audit.providerId, result.audit.model),
+      meta,
       coverage: result.documentCoverage,
     };
   } catch (error) {

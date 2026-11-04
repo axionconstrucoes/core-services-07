@@ -3,26 +3,31 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --radius: 0.625rem;
+  /* Tema escuro aprovado (docs/ui-redesign-axion.md + ref-visual-acc): fundo #1B2027, cartão #242A33,
+     barra #2F3641, texto #E8EBF0/#AEB6C2, borda #343C48, ação primária creme #F7F3EA. */
+  color-scheme: dark;
+  --background: #0b1629;
+  --foreground: #ffffff;
+  --card: #182941;
+  --card-foreground: #ffffff;
+  --popover: #182941;
+  --popover-foreground: #ffffff;
+  --primary: #f7f3ea;
+  --primary-foreground: #5e1414;
+  --secondary: #13233b;
+  --secondary-foreground: #ffffff;
+  --muted: #0f1d33;
+  --muted-foreground: #b8c7dc;
+  --accent: #1b3050;
+  --accent-foreground: #ffffff;
+  --destructive: #ff6b57;
+  --destructive-foreground: #0b1629;
+  --border: #263b5c;
+  --input: #35507a;
+  --ring: #b8c7dc;
+  --radius: 7px;
+  --surface-topbar: #13233b;
+  --surface-sunken: #0f1d33;
 
   --severity-baixa: oklch(0.6 0.09 175);
   --severity-media: oklch(0.75 0.14 85);
@@ -55,7 +60,7 @@
   /* Fundo da área principal do Dashboard: mesmo vermelho da marca, um pouco mais
      escuro que --brand-sidebar (L 0.396 -> 0.335), para a barra lateral se destacar
      sem perder contraste dos textos claros. Só o Dashboard usa este token. */
-  --dashboard-bg: oklch(0.335 0.115 25.7);
+  --dashboard-bg: #0b1629;
 }
 
 .dark {
@@ -81,6 +86,8 @@
 }
 
 @theme inline {
+  --font-sans: var(--font-plex-sans), system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -117,6 +124,166 @@
   --color-brand-header: var(--brand-header);
   --color-brand-header-foreground: var(--brand-header-foreground);
 }
+
+/* Paleta Tailwind remapeada para o tema escuro: as ~700 classes bg-/text-/border-<cor>-<n> do ACC passam a usar
+   as cores da referência sem editar cada componente. Etiquetas de risco: fundo escuro + texto claro (docs/ui-redesign-axion.md §2). */
+:root {
+  --color-red-50: #5c2219;
+  --color-red-100: #5c2219;
+  --color-red-200: color-mix(in srgb, #ff6b57 35%, #182941);
+  --color-red-300: color-mix(in srgb, #ff6b57 55%, #182941);
+  --color-red-400: #ff6b57;
+  --color-red-500: #ff6b57;
+  --color-red-600: #ff6b57;
+  --color-red-700: #ffa899;
+  --color-red-800: #ffa899;
+  --color-red-900: #ffa899;
+  --color-red-950: color-mix(in srgb, #5c2219 70%, #0b1629);
+  --color-amber-50: #5a4311;
+  --color-amber-100: #5a4311;
+  --color-amber-200: color-mix(in srgb, #f2b33d 35%, #182941);
+  --color-amber-300: color-mix(in srgb, #f2b33d 55%, #182941);
+  --color-amber-400: #f2b33d;
+  --color-amber-500: #f2b33d;
+  --color-amber-600: #f2b33d;
+  --color-amber-700: #f7d488;
+  --color-amber-800: #f7d488;
+  --color-amber-900: #f7d488;
+  --color-amber-950: color-mix(in srgb, #5a4311 70%, #0b1629);
+  --color-yellow-50: #5a4311;
+  --color-yellow-100: #5a4311;
+  --color-yellow-200: color-mix(in srgb, #f2b33d 35%, #182941);
+  --color-yellow-300: color-mix(in srgb, #f2b33d 55%, #182941);
+  --color-yellow-400: #f2b33d;
+  --color-yellow-500: #f2b33d;
+  --color-yellow-600: #f2b33d;
+  --color-yellow-700: #f7d488;
+  --color-yellow-800: #f7d488;
+  --color-yellow-900: #f7d488;
+  --color-yellow-950: color-mix(in srgb, #5a4311 70%, #0b1629);
+  --color-orange-50: #5e3114;
+  --color-orange-100: #5e3114;
+  --color-orange-200: color-mix(in srgb, #f28c45 35%, #182941);
+  --color-orange-300: color-mix(in srgb, #f28c45 55%, #182941);
+  --color-orange-400: #f28c45;
+  --color-orange-500: #f28c45;
+  --color-orange-600: #f28c45;
+  --color-orange-700: #f9be8c;
+  --color-orange-800: #f9be8c;
+  --color-orange-900: #f9be8c;
+  --color-orange-950: color-mix(in srgb, #5e3114 70%, #0b1629);
+  --color-emerald-50: #1e4a3c;
+  --color-emerald-100: #1e4a3c;
+  --color-emerald-200: color-mix(in srgb, #3fbf93 35%, #182941);
+  --color-emerald-300: color-mix(in srgb, #3fbf93 55%, #182941);
+  --color-emerald-400: #3fbf93;
+  --color-emerald-500: #3fbf93;
+  --color-emerald-600: #3fbf93;
+  --color-emerald-700: #8fe0c0;
+  --color-emerald-800: #8fe0c0;
+  --color-emerald-900: #8fe0c0;
+  --color-emerald-950: color-mix(in srgb, #1e4a3c 70%, #0b1629);
+  --color-green-50: #1e4a3c;
+  --color-green-100: #1e4a3c;
+  --color-green-200: color-mix(in srgb, #3fbf93 35%, #182941);
+  --color-green-300: color-mix(in srgb, #3fbf93 55%, #182941);
+  --color-green-400: #3fbf93;
+  --color-green-500: #3fbf93;
+  --color-green-600: #3fbf93;
+  --color-green-700: #8fe0c0;
+  --color-green-800: #8fe0c0;
+  --color-green-900: #8fe0c0;
+  --color-green-950: color-mix(in srgb, #1e4a3c 70%, #0b1629);
+  --color-blue-50: #1d4f86;
+  --color-blue-100: #1d4f86;
+  --color-blue-200: color-mix(in srgb, #3d8fe0 35%, #182941);
+  --color-blue-300: color-mix(in srgb, #3d8fe0 55%, #182941);
+  --color-blue-400: #3d8fe0;
+  --color-blue-500: #3d8fe0;
+  --color-blue-600: #3d8fe0;
+  --color-blue-700: #a9d0f5;
+  --color-blue-800: #a9d0f5;
+  --color-blue-900: #a9d0f5;
+  --color-blue-950: color-mix(in srgb, #1d4f86 70%, #0b1629);
+  --color-sky-50: #1d4f86;
+  --color-sky-100: #1d4f86;
+  --color-sky-200: color-mix(in srgb, #3d8fe0 35%, #182941);
+  --color-sky-300: color-mix(in srgb, #3d8fe0 55%, #182941);
+  --color-sky-400: #3d8fe0;
+  --color-sky-500: #3d8fe0;
+  --color-sky-600: #3d8fe0;
+  --color-sky-700: #a9d0f5;
+  --color-sky-800: #a9d0f5;
+  --color-sky-900: #a9d0f5;
+  --color-sky-950: color-mix(in srgb, #1d4f86 70%, #0b1629);
+  --color-violet-50: #3b2d6b;
+  --color-violet-100: #3b2d6b;
+  --color-violet-200: color-mix(in srgb, #9b84f0 35%, #182941);
+  --color-violet-300: color-mix(in srgb, #9b84f0 55%, #182941);
+  --color-violet-400: #9b84f0;
+  --color-violet-500: #9b84f0;
+  --color-violet-600: #9b84f0;
+  --color-violet-700: #c9bbf5;
+  --color-violet-800: #c9bbf5;
+  --color-violet-900: #c9bbf5;
+  --color-violet-950: color-mix(in srgb, #3b2d6b 70%, #0b1629);
+  --color-slate-50: #0f1d33;
+  --color-slate-100: #0b1629;
+  --color-slate-200: #263b5c;
+  --color-slate-300: #35507a;
+  --color-slate-400: #7e93b3;
+  --color-slate-500: #b8c7dc;
+  --color-slate-600: #cbd7e8;
+  --color-slate-700: #dbe4f1;
+  --color-slate-800: #eef3fa;
+  --color-slate-900: #ffffff;
+  --color-slate-950: #ffffff;
+  --color-gray-50: #0f1d33;
+  --color-gray-100: #0b1629;
+  --color-gray-200: #263b5c;
+  --color-gray-300: #35507a;
+  --color-gray-400: #7e93b3;
+  --color-gray-500: #b8c7dc;
+  --color-gray-600: #cbd7e8;
+  --color-gray-700: #dbe4f1;
+  --color-gray-800: #eef3fa;
+  --color-gray-900: #ffffff;
+  --color-gray-950: #ffffff;
+  --color-zinc-50: #0f1d33;
+  --color-zinc-100: #0b1629;
+  --color-zinc-200: #263b5c;
+  --color-zinc-300: #35507a;
+  --color-zinc-400: #7e93b3;
+  --color-zinc-500: #b8c7dc;
+  --color-zinc-600: #cbd7e8;
+  --color-zinc-700: #dbe4f1;
+  --color-zinc-800: #eef3fa;
+  --color-zinc-900: #ffffff;
+  --color-zinc-950: #ffffff;
+  --color-neutral-50: #0f1d33;
+  --color-neutral-100: #0b1629;
+  --color-neutral-200: #263b5c;
+  --color-neutral-300: #35507a;
+  --color-neutral-400: #7e93b3;
+  --color-neutral-500: #b8c7dc;
+  --color-neutral-600: #cbd7e8;
+  --color-neutral-700: #dbe4f1;
+  --color-neutral-800: #eef3fa;
+  --color-neutral-900: #ffffff;
+  --color-neutral-950: #ffffff;
+}
+
+/* Superfícies brancas fixas viram cartão escuro; o texto branco (text-white) permanece. */
+.bg-white { background-color: var(--card); }
+.bg-black { background-color: #12161b; }
+
+/* Lateral AXION: vermelho institucional + grade de 48 px a 7% (só sobre o vermelho da marca). */
+.acc-sidebar-grid {
+  background-color: var(--brand-sidebar);
+  background-image: linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.font-mono, .tabular-nums { font-family: var(--font-plex-mono), ui-monospace, monospace; }
 
 body {
   background: var(--background);

@@ -1,5 +1,6 @@
 "use server";
 
+import { isProjectAdmin } from "@/lib/email-authorization/guard";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@axion/db/server";
 import { validateConfrontationJustification } from "@/lib/ledger/confrontation-justification-validation";
@@ -28,6 +29,11 @@ export async function reviewEventClauseConfrontationCandidateAction(
 
   if (!projectId || !eventId || !candidateId) {
     return { error: "Dados do candidato ausentes. Recarregue a página e tente novamente." };
+  }
+
+  // Aba Eventos é só de administradores: a ação confere no servidor (o banco também exige ADMINISTRADOR).
+  if (!(await isProjectAdmin(projectId)).isAdmin) {
+    return { error: "Ação restrita a administradores do projeto.", success: null } as never;
   }
 
   const action = optionalField(formData, "reviewAction")?.toUpperCase() ?? null;
@@ -88,6 +94,11 @@ export async function amendConfrontationReviewNoteAction(
 
   if (!projectId || !eventId || !candidateId) {
     return { error: "Dados do candidato ausentes. Recarregue a página e tente novamente." };
+  }
+
+  // Aba Eventos é só de administradores: a ação confere no servidor (o banco também exige ADMINISTRADOR).
+  if (!(await isProjectAdmin(projectId)).isAdmin) {
+    return { error: "Ação restrita a administradores do projeto.", success: null } as never;
   }
 
   const newReviewNote = String(formData.get("reviewNote") ?? "").trim();

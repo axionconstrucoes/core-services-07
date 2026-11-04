@@ -1,3 +1,4 @@
+import { requireProjectAdminPage } from "@/lib/email-authorization/guard";
 import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
 import { EventTable } from "@/components/ledger/event-table";
@@ -8,11 +9,12 @@ export const metadata: Metadata = { title: "Event Ledger" };
 
 export default async function LedgerPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params;
+  await requireProjectAdminPage(projectId); // aba só para administradores (o menu também a oculta)
   const events = await getEvents(projectId);
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="EVENTOS" description="Registro cronológico de eventos com possível implicação contratual." />
+      <PageHeader title="Eventos" description="Registro cronológico de eventos com possível implicação contratual." />
       {events.length === 0 ? <EmptyState message="Nenhum evento registrado." /> : <EventTable events={events} projectId={projectId} />}
     </div>
   );

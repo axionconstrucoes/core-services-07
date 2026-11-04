@@ -4,6 +4,7 @@ import { Building2, FileText, Scale } from "lucide-react";
 import { ExpertQueryPanel } from "@/components/ai/expert-query-panel";
 import { PrecontractCurationPanel } from "@/components/ai/precontract-curation-panel";
 import { PrecontractWorkspaceClient } from "@/components/legal/precontract-workspace-client";
+import { LegalConsultationHistory } from "@/components/legal/legal-consultation-history";
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -28,8 +29,9 @@ export const maxDuration = 300;
 
 const CONTRACTUAL_KINDS = new Set(["CONTRATO_BASE", "ADITIVO"]);
 
-export default async function ProjectLegalPage({ params }: { params: Promise<{ projectId: string }> }) {
+export default async function ProjectLegalPage({ params, searchParams }: { params: Promise<{ projectId: string }>; searchParams: Promise<{ consulta?: string }> }) {
   const { projectId } = await params;
+  const { consulta: consultaFlash } = await searchParams;
   const [project, documents, permission] = await Promise.all([
     getProject(projectId),
     getManagedDocuments(projectId),
@@ -114,6 +116,8 @@ export default async function ProjectLegalPage({ params }: { params: Promise<{ p
           />
         </>
       )}
+
+      <LegalConsultationHistory projectId={projectId} flash={consultaFlash} />
 
       {isPrecontract ? <PrecontractCurationPanel projectId={projectId} /> : null}
 

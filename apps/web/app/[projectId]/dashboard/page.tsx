@@ -34,21 +34,17 @@ function ExecutiveKpi({
   icon: React.ComponentType<{ className?: string }>;
 }) {
   return (
-    <div className="flex min-h-[118px] flex-col items-center justify-center rounded-xl border border-white/10 bg-white/[0.055] px-4 py-4 text-center shadow-lg shadow-black/10">
-      <div className="mb-2 flex items-center gap-2 text-[15px] font-semibold uppercase tracking-[0.16em] text-[#d8b9bd]">
-        <Icon className="size-4" />
+    <div className="flex min-h-[64px] flex-col items-center justify-center rounded-[7px] border border-[#263b5c] bg-[#182941] px-3 py-1 text-center">
+      <div className="flex items-center gap-1.5 text-[12px] font-normal uppercase tracking-[0.04em] text-[#c9d6e8]">
+        <Icon className="size-3.5" />
         {label}
       </div>
 
-      <div className="flex min-h-10 items-center justify-center text-center text-3xl font-bold leading-none text-white">
+      <div className="flex min-h-7 items-center justify-center text-center text-2xl font-normal leading-none text-white">
         {compactStatus(value)}
       </div>
 
-      {subtitle ? (
-        <div className="mt-2 text-[15px] leading-tight text-[#bfa1a6]">
-          {subtitle}
-        </div>
-      ) : null}
+      {subtitle ? <div className="text-[12px] leading-tight text-[#b8c7dc]">{subtitle}</div> : null}
     </div>
   );
 }
@@ -63,16 +59,12 @@ function Panel({
   className?: string;
 }) {
   return (
-    <section
-      className={`rounded-xl border border-white/10 bg-white/[0.045] shadow-lg shadow-black/10 ${className}`}
-    >
-      <div className="border-b border-white/10 px-4 py-2">
-        <h2 className="text-[17px] font-semibold uppercase tracking-[0.12em] text-white">
-          {title}
-        </h2>
+    <section className={`rounded-[7px] border border-[#263b5c] bg-[#182941] ${className}`}>
+      <div className="border-b border-[#263b5c] px-2.5 py-1">
+        <h2 className="text-[15px] font-semibold tracking-[0.005em] text-white">{title}</h2>
       </div>
 
-      <div className="p-3">{children}</div>
+      <div className="px-2.5 py-1">{children}</div>
     </section>
   );
 }
@@ -96,29 +88,71 @@ function StatusLine({
           : "bg-slate-400";
 
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-white/7 py-1.5 last:border-b-0">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <span className={`size-2.5 shrink-0 rounded-full ${dot}`} />
-        <span className="truncate text-[17px] font-medium leading-5 text-[#e6d4d6]">{label}</span>
+    <div className="flex items-center justify-between gap-2 border-b border-white/[0.07] py-px last:border-b-0">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <span className={`size-2 shrink-0 rounded-full ${dot}`} />
+        <span className="break-words text-[13px] font-normal leading-[18px] text-white">{label}</span>
       </div>
 
-      <span className="shrink-0 text-right text-base font-semibold text-white">
-        {compactStatus(value)}
-      </span>
+      <span className="shrink-0 whitespace-nowrap text-right text-[14px] font-normal text-white">{compactStatus(value)}</span>
     </div>
   );
 }
 
+function ProgressRing({ percent, size = 72 }: { percent: number | null; size?: number }) {
+  const deg = percent === null ? 0 : Math.max(0, Math.min(100, percent)) * 3.6;
+  return (
+    <div
+      className="relative flex shrink-0 items-center justify-center rounded-full"
+      style={{
+        width: size,
+        height: size,
+        background:
+          percent === null
+            ? "rgba(255,255,255,0.1)"
+            : `conic-gradient(#22c55e 0deg, #22c55e ${deg}deg, rgba(255,255,255,0.1) ${deg}deg, rgba(255,255,255,0.1) 360deg)`,
+      }}
+    >
+      <div
+        className="flex flex-col items-center justify-center rounded-full bg-[#182941]"
+        style={{ width: size - 12, height: size - 12 }}
+      >
+        <span className="text-[10px] font-normal uppercase tracking-[0.04em] text-[#c9d6e8]">Realizado</span>
+        <span className="text-lg font-normal leading-tight text-white">
+          {percent !== null ? `${percent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—"}
+        </span>
+      </div>
+    </div>
+  );
+}
+// Selo de status padrão do Dashboard (o mesmo de "Status das integrações"): mesma altura, espaçamento, fonte, cantos
+// e alinhamento à direita nos três painéis. ATIVO/OK = verde-escuro #166534 com texto branco; PENDENTE = laranja
+// #FB923C com texto preto. Só o TEXTO exibido muda (ex.: PENDING → PENDENTE); o valor interno do sistema não é alterado.
+type BadgeTone = "ok" | "pending" | "warning" | "error" | "neutral";
+
+const BADGE_TONE_CLASS: Record<BadgeTone, string> = {
+  ok: "bg-[#166534] text-[#ffffff]",
+  pending: "bg-[#fb923c] text-[#000000]",
+  warning: "bg-amber-400 text-black",
+  error: "bg-red-600 text-white",
+  neutral: "bg-[#475569] text-[#ffffff]",
+};
+
+function StatusBadge({ tone, children }: { tone: BadgeTone; children: React.ReactNode }) {
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded-[3px] px-2 py-0.5 text-[11px] font-normal uppercase leading-[15px] tracking-[0.02em] ${BADGE_TONE_CLASS[tone]}`}
+    >
+      {children}
+    </span>
+  );
+}
+
 function compactStatus(value: React.ReactNode): React.ReactNode {
-  if (
-    typeof value === "string" &&
-    (value === "EXTRACTED" || value === "PROCESSED")
-  ) {
-    return (
-      <span className="inline-flex rounded-md bg-emerald-600 px-2.5 py-1 text-[15px] font-semibold leading-none text-white">
-        OK
-      </span>
-    );
+  if (typeof value === "string") {
+    if (value === "EXTRACTED" || value === "PROCESSED") return <StatusBadge tone="ok">OK</StatusBadge>;
+    if (value === "PENDING") return <StatusBadge tone="pending">PENDENTE</StatusBadge>;
+    if (value === "Ausente" || value === "Não recebido") return <StatusBadge tone="neutral">{value}</StatusBadge>;
   }
 
   return value;
@@ -672,57 +706,48 @@ export default async function DashboardPage({
   const systemStatus = resolveSystemStatus(data.integrationStatusGroups);
 
   return (
-    <div className="-m-6 min-h-full bg-[var(--dashboard-bg)] p-2 text-white xl:h-[calc(100dvh-4rem)] xl:overflow-hidden xl:p-2">
-      <div className="mx-auto flex h-full w-full max-w-[1920px] flex-col gap-2">
-        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-1">
+    <div className="-m-6 min-h-full bg-[var(--dashboard-bg)] p-2 text-white xl:h-[calc(100%+3rem)] xl:overflow-y-auto">
+      <div className="mx-auto flex min-h-full w-full max-w-[1920px] flex-col gap-2">
+        <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#263b5c] pb-1">
           <div>
-            <p className="text-[15px] font-semibold uppercase tracking-[0.22em] text-[#cfaeb3]">
-              AXION CONTROLE DE CONTRATOS
-            </p>
+            <p className="text-[13px] font-normal uppercase tracking-[0.08em] text-[#c9d6e8]">AXION CONTROLE DE CONTRATOS</p>
 
-            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">
+            <h1 className="text-xl font-semibold leading-tight tracking-tight text-white">
               Dashboard Executivo
+              <span className="ml-3 text-[15px] font-normal text-[#c9d6e8]">
+                {data.project?.name ?? "Projeto não disponível"}
+                {" · "}
+                {data.project?.code ?? "Código não disponível"}
+              </span>
             </h1>
-
-            <p className="mt-1 text-[17px] text-[#c9aeb2]">
-              {data.project?.name ?? "Projeto não disponível"}
-              {" · "}
-              {data.project?.code ?? "Código não disponível"}
-            </p>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex w-[270px] flex-col items-center gap-1">
+            <div className="flex items-center gap-2">
               <div
                 title={systemStatus.reason || undefined}
-                className={`grid h-12 w-full place-items-center rounded-xl px-4 text-center shadow-lg ${
+                className={`grid h-9 place-items-center rounded-[5px] px-4 text-center ${
                   systemStatus.level === "OPERACIONAL"
-                    ? "bg-emerald-600 text-white ring-2 ring-emerald-400/40"
+                    ? "bg-emerald-600 text-white"
                     : systemStatus.level === "PARCIAL"
-                      ? "bg-amber-400 text-black ring-2 ring-amber-300/50"
+                      ? "bg-amber-400 text-black"
                       : systemStatus.level === "FALHA"
-                        ? "bg-red-600 text-white ring-2 ring-red-400/40"
-                        : "bg-slate-500 text-white ring-2 ring-slate-300/40"
+                        ? "bg-red-600 text-white"
+                        : "bg-slate-500 text-white"
                 }`}
               >
-                <span className="block w-full whitespace-nowrap text-center text-[17px] font-bold uppercase tracking-wide leading-none">
+                <span className="block whitespace-nowrap text-center text-[13px] font-normal uppercase tracking-[0.02em] leading-none">
                   {systemStatus.label}
                 </span>
               </div>
               {systemStatus.reason ? (
-                <p className="text-center text-[14px] leading-tight text-[#e6d4d6]">
-                  {systemStatus.reason}
-                </p>
+                <p className="max-w-[360px] text-[12px] leading-tight text-[#c9d6e8]">{systemStatus.reason}</p>
               ) : null}
             </div>
 
-            <div className="rounded-lg border border-white/10 bg-white/[0.05] px-4 py-2 text-right">
-              <p className="text-[15px] uppercase tracking-wider text-[#b8949a]">
-                Atualização operacional
-              </p>
-              <p className="mt-1 text-[17px] font-semibold text-white">
-                Dados persistidos no ACC
-              </p>
+            <div className="rounded-[5px] border border-[#263b5c] bg-[#182941] px-3 py-1 text-right">
+              <p className="text-[11px] font-normal uppercase tracking-[0.04em] text-[#b8c7dc]">Atualização operacional</p>
+              <p className="text-[13px] font-normal text-white">Dados persistidos no ACC</p>
             </div>
           </div>
         </header>
@@ -736,12 +761,7 @@ export default async function DashboardPage({
             icon={AlertTriangle}
           />
 
-          <ExecutiveKpi
-            label="Eventos Ledger"
-            value={events.length}
-            subtitle="Eventos registrados"
-            icon={Activity}
-          />
+          <ExecutiveKpi label="Eventos Ledger" value={events.length} subtitle="Eventos registrados" icon={Activity} />
 
           <ExecutiveKpi
             label="Risco atual"
@@ -754,7 +774,7 @@ export default async function DashboardPage({
                       ? "text-orange-400"
                       : highestRisk === "MÉDIO"
                         ? "text-amber-300"
-                        : "text-emerald-400"
+                        : "text-[#2fbf71]"
                 }
               >
                 {highestRisk}
@@ -791,211 +811,132 @@ export default async function DashboardPage({
                   })}%`
                 : "—"
             }
-            subtitle={
-              physicalActual === null
-                ? "Aguardando Curva S"
-                : "Último relatório semanal"
-            }
+            subtitle={physicalActual === null ? "Aguardando Curva S" : "Último relatório semanal"}
             icon={CalendarClock}
           />
         </div>
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 xl:grid-cols-2">
-          {/* COLUNA PRINCIPAL */}
-          <div className="grid min-h-0 grid-cols-1 gap-2 lg:grid-cols-2">
-
+        <div className="grid grid-cols-1 items-start gap-2 md:grid-cols-2 xl:grid-cols-5">
+          {/* COLUNA 1 */}
+          <div className="flex flex-col gap-2">
             <Panel title="Situação contratual">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-lg bg-black/15 p-2 text-center">
-                  <p className="text-[17px] font-medium leading-5 text-[#d8c0c4]">
-                    Alertas ativos
-                  </p>
-                  <p className="mt-2 text-4xl font-bold">
-                    {data.activeFindingsSummary.totalActive}
-                  </p>
-                </div>
-
-                <div className="rounded-lg bg-black/15 p-2 text-center">
-                  <p className="text-[17px] font-medium leading-5 text-[#d8c0c4]">
-                    Ações pendentes
-                  </p>
-                  <p className="mt-2 text-4xl font-bold">
-                    {data.slaSummary.pending}
-                  </p>
-                </div>
-
-                <StatusLine
-                  label="Ações vencidas"
-                  value={data.slaSummary.overdue}
-                  status={data.slaSummary.overdue > 0 ? "error" : "ok"}
-                />
-
-                <StatusLine
-                  label="Escalonamentos"
-                  value={data.slaSummary.escalated}
-                  status={data.slaSummary.escalated > 0 ? "warning" : "ok"}
-                />
-
-                <div className="col-span-2">
-                  <StatusLine
-                    label="Data de início"
-                    value={formatDashboardDate(contractStartDate)}
-                    status={contractStartDate ? "ok" : "neutral"}
-                  />
-
-                  <StatusLine
-                    label="Data de término"
-                    value={formatDashboardDate(dashboardContractEndDate)}
-                    status={dashboardContractEndDate ? "ok" : "neutral"}
-                  />
-                </div>
-              </div>
+              <StatusLine
+                label="Alertas ativos"
+                value={data.activeFindingsSummary.totalActive}
+                status={data.activeFindingsSummary.totalActive > 0 ? "warning" : "ok"}
+              />
+              <StatusLine label="Ações pendentes" value={data.slaSummary.pending} status={data.slaSummary.pending > 0 ? "warning" : "ok"} />
+              <StatusLine
+                label="Ações vencidas"
+                value={data.slaSummary.overdue}
+                status={data.slaSummary.overdue > 0 ? "error" : "ok"}
+              />
+              <StatusLine
+                label="Escalonamentos"
+                value={data.slaSummary.escalated}
+                status={data.slaSummary.escalated > 0 ? "warning" : "ok"}
+              />
+              <StatusLine
+                label="Data de início"
+                value={formatDashboardDate(contractStartDate)}
+                status={contractStartDate ? "ok" : "neutral"}
+              />
+              <StatusLine
+                label="Data de término"
+                value={formatDashboardDate(dashboardContractEndDate)}
+                status={dashboardContractEndDate ? "ok" : "neutral"}
+              />
             </Panel>
 
-            <Panel title="Financeiro resumido — R$ mil">
-              <div className="space-y-0">
-                <StatusLine
-                  label="Contrato + aditivos"
-                  value={formatDashboardMil(dashboardContractTotal)}
-                  status={
-                    dashboardContractTotal !== null ? "ok" : "neutral"
-                  }
-                />
-
-                <StatusLine
-                  label="Aditivos"
-                  value={formatDashboardMil(dashboardAdditives)}
-                  status={
-                    dashboardAdditives !== null ? "ok" : "neutral"
-                  }
-                />
-
-                <StatusLine
-                  label="Realizado total"
-                  value={formatDashboardMil(dashboardFinancialRealized)}
-                  status={
-                    dashboardFinancialRealized !== null
-                      ? "ok"
-                      : "neutral"
-                  }
-                />
-
-                <StatusLine
-                  label="Saldo"
-                  value={formatDashboardMil(dashboardFinancialBalance)}
-                  status={
-                    dashboardFinancialBalance !== null
-                      ? "ok"
-                      : "neutral"
-                  }
-                />
+            <Panel title="Distribuição dos alertas">
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  ["Baixo", data.activeFindingsSummary.countsBySeverity.BAIXA, "bg-[#166534]", "text-[#ffffff]"],
+                  ["Médio", data.activeFindingsSummary.countsBySeverity.MEDIA, "bg-yellow-400", "text-[#000000]"],
+                  ["Alto", data.activeFindingsSummary.countsBySeverity.ALTA, "bg-[#c2410c]", "text-[#ffffff]"],
+                  ["Crítico", data.activeFindingsSummary.countsBySeverity.CRITICA, "bg-[#b91c1c]", "text-[#ffffff]"],
+                ].map(([label, value, color, textColor]) => (
+                  <div
+                    key={String(label)}
+                    className={`flex h-11 flex-col items-center justify-center rounded-[5px] ${color} ${textColor}`}
+                  >
+                    <span className="text-[12px] font-normal leading-none">{label}</span>
+                    <span className="mt-1 text-xl font-normal leading-none">{Number(value)}</span>
+                  </div>
+                ))}
               </div>
+            </Panel>
+          </div>
 
-              <p className="mt-2 text-[15px] leading-tight text-[#c3a3a8]">
-                Valores em R$ mil · realizado inclui faturamento AXION +
-                faturamento direto WEG.
+          {/* COLUNA 2 */}
+          <div className="flex flex-col gap-2">
+            <Panel title="Financeiro resumido — R$ mil">
+              <StatusLine
+                label="Contrato + aditivos"
+                value={formatDashboardMil(dashboardContractTotal)}
+                status={dashboardContractTotal !== null ? "ok" : "neutral"}
+              />
+              <StatusLine
+                label="Aditivos"
+                value={formatDashboardMil(dashboardAdditives)}
+                status={dashboardAdditives !== null ? "ok" : "neutral"}
+              />
+              <StatusLine
+                label="Realizado total"
+                value={formatDashboardMil(dashboardFinancialRealized)}
+                status={dashboardFinancialRealized !== null ? "ok" : "neutral"}
+              />
+              <StatusLine
+                label="Saldo"
+                value={formatDashboardMil(dashboardFinancialBalance)}
+                status={dashboardFinancialBalance !== null ? "ok" : "neutral"}
+              />
+              <p className="pt-1 text-[11px] leading-tight text-[#b8c7dc]">
+                Valores em R$ mil · realizado inclui faturamento AXION + faturamento direto WEG.
               </p>
             </Panel>
 
             <Panel title="SSMA — Segurança">
-              <div className="space-y-0">
-                <StatusLine
-                  label="Acidentes com afastamento"
-                  value={
-                    dashboardAccidentsWithLeave !== null
-                      ? dashboardAccidentsWithLeave
-                      : "—"
-                  }
-                  status={
-                    dashboardAccidentsWithLeave !== null
-                      ? dashboardAccidentsWithLeave > 0
-                        ? "error"
-                        : "ok"
-                      : "neutral"
-                  }
-                />
-
-                <StatusLine
-                  label="Acidentes sem afastamento"
-                  value={
-                    dashboardAccidentsWithoutLeave !== null
-                      ? dashboardAccidentsWithoutLeave
-                      : "—"
-                  }
-                  status={
-                    dashboardAccidentsWithoutLeave !== null
-                      ? dashboardAccidentsWithoutLeave > 0
-                        ? "warning"
-                        : "ok"
-                      : "neutral"
-                  }
-                />
-
-                <StatusLine
-                  label="Ocorrências de segurança"
-                  value={
-                    dashboardSafetyOccurrences !== null
-                      ? dashboardSafetyOccurrences
-                      : "—"
-                  }
-                  status={
-                    dashboardSafetyOccurrences !== null
-                      ? dashboardSafetyOccurrences > 0
-                        ? "warning"
-                        : "ok"
-                      : "neutral"
-                  }
-                />
-
-                <StatusLine
-                  label="Dias sem acidente"
-                  value={
-                    dashboardDaysWithoutAccident !== null
-                      ? dashboardDaysWithoutAccident
-                      : "—"
-                  }
-                  status={
-                    dashboardDaysWithoutAccident !== null
-                      ? "ok"
-                      : "neutral"
-                  }
-                />
-              </div>
-
-              <p className="mt-2 text-[15px] leading-tight text-[#c3a3a8]">
-                Fonte: formulários SSMA registrados no ACC.
-              </p>
+              <StatusLine
+                label="Acidentes com afastamento"
+                value={dashboardAccidentsWithLeave !== null ? dashboardAccidentsWithLeave : "—"}
+                status={
+                  dashboardAccidentsWithLeave !== null ? (dashboardAccidentsWithLeave > 0 ? "error" : "ok") : "neutral"
+                }
+              />
+              <StatusLine
+                label="Acidentes sem afastamento"
+                value={dashboardAccidentsWithoutLeave !== null ? dashboardAccidentsWithoutLeave : "—"}
+                status={
+                  dashboardAccidentsWithoutLeave !== null
+                    ? dashboardAccidentsWithoutLeave > 0
+                      ? "warning"
+                      : "ok"
+                    : "neutral"
+                }
+              />
+              <StatusLine
+                label="Ocorrências de segurança"
+                value={dashboardSafetyOccurrences !== null ? dashboardSafetyOccurrences : "—"}
+                status={
+                  dashboardSafetyOccurrences !== null ? (dashboardSafetyOccurrences > 0 ? "warning" : "ok") : "neutral"
+                }
+              />
+              <StatusLine
+                label="Dias sem acidente"
+                value={dashboardDaysWithoutAccident !== null ? dashboardDaysWithoutAccident : "—"}
+                status={dashboardDaysWithoutAccident !== null ? "ok" : "neutral"}
+              />
+              <p className="pt-1 text-[11px] leading-tight text-[#b8c7dc]">Fonte: formulários SSMA registrados no ACC.</p>
             </Panel>
+          </div>
 
-            <div className="flex min-h-0 flex-col gap-3">
-              <Panel title="Avanço físico do contrato">
-              <div className="flex h-full flex-col items-center justify-center gap-4 py-2">
-                <div
-                  className="relative flex h-32 w-32 items-center justify-center rounded-full"
-                  style={{
-                    background: `conic-gradient(
-                      #22c55e 0deg,
-                      #22c55e ${Math.max(0, Math.min(100, Number(physicalActual ?? 0))) * 3.6}deg,
-                      rgba(255,255,255,0.08) ${Math.max(0, Math.min(100, Number(physicalActual ?? 0))) * 3.6}deg,
-                      rgba(255,255,255,0.08) 360deg
-                    )`,
-                  }}
-                >
-                  <div className="flex h-28 w-28 flex-col items-center justify-center rounded-full bg-[#3a0c16]">
-                    <span className="text-[15px] font-medium uppercase tracking-[0.14em] text-[#d8c0c4]">
-                      Realizado
-                    </span>
-                    <span className="mt-1 text-4xl font-bold text-white">
-                      {physicalActual !== null
-                        ? `${physicalActual.toLocaleString("pt-BR", {
-                            maximumFractionDigits: 1,
-                          })}%`
-                        : "—"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="w-full space-y-2">
+          {/* COLUNA 3 */}
+          <div className="flex flex-col gap-2">
+            <Panel title="Avanço físico do contrato">
+              <div className="flex items-center gap-3">
+                <ProgressRing percent={physicalActual !== null ? Number(physicalActual) : null} />
+                <div className="min-w-0 flex-1">
                   <StatusLine
                     label="Avanço físico atual"
                     value={
@@ -1007,8 +948,7 @@ export default async function DashboardPage({
                     }
                     status={physicalActual !== null ? "ok" : "neutral"}
                   />
-
-                  <p className="text-center text-[15px] leading-relaxed text-[#caa8ae]">
+                  <p className="pt-1 text-[11px] leading-tight text-[#b8c7dc]">
                     {physicalActual !== null
                       ? "Percentual acumulado apurado pela Curva S."
                       : "Aguardando processamento da Curva S."}
@@ -1017,38 +957,10 @@ export default async function DashboardPage({
               </div>
             </Panel>
 
-              <Panel title="Avanço financeiro do contrato">
-              <div className="flex h-full flex-col items-center justify-center gap-4 py-2">
-                <div
-                  className="relative flex h-32 w-32 items-center justify-center rounded-full"
-                  style={{
-                    background:
-                      financialProgressPercent !== null
-                        ? `conic-gradient(
-                            #22c55e 0deg,
-                            #22c55e ${financialProgressPercent * 3.6}deg,
-                            rgba(255,255,255,0.08) ${financialProgressPercent * 3.6}deg,
-                            rgba(255,255,255,0.08) 360deg
-                          )`
-                        : "rgba(255,255,255,0.08)",
-                  }}
-                >
-                  <div className="flex h-28 w-28 flex-col items-center justify-center rounded-full bg-[#3a0c16]">
-                    <span className="text-[15px] font-medium uppercase tracking-[0.14em] text-[#d8c0c4]">
-                      Realizado
-                    </span>
-
-                    <span className="mt-1 text-4xl font-bold text-white">
-                      {financialProgressPercent !== null
-                        ? `${financialProgressPercent.toLocaleString("pt-BR", {
-                            maximumFractionDigits: 1,
-                          })}%`
-                        : "—"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="w-full space-y-1">
+            <Panel title="Avanço financeiro do contrato">
+              <div className="flex items-center gap-3">
+                <ProgressRing percent={financialProgressPercent} />
+                <div className="min-w-0 flex-1">
                   <StatusLine
                     label="Avanço financeiro"
                     value={
@@ -1060,86 +972,156 @@ export default async function DashboardPage({
                     }
                     status={financialProgressPercent !== null ? "ok" : "neutral"}
                   />
-
-                  <StatusLine
-                    label="Faturamento AXION"
-                    value={formatFinancialMil(financialAxion)}
-                    status={financialAxion !== null ? "ok" : "neutral"}
-                  />
-
-                  <StatusLine
-                    label="Faturamento Direto WEG"
-                    value={formatFinancialMil(financialDirect)}
-                    status={financialDirect !== null ? "ok" : "neutral"}
-                  />
-
-                  <StatusLine
-                    label="Realizado total"
-                    value={formatFinancialMil(financialActual)}
-                    status={financialActual !== null ? "ok" : "neutral"}
-                  />
-
-                  <StatusLine
-                    label="Base contratual"
-                    value={formatFinancialMil(financialPlanned)}
-                    status={financialPlanned !== null ? "ok" : "neutral"}
-                  />
-
-                  <StatusLine
-                    label="Saldo"
-                    value={formatFinancialMil(financialBalance)}
-                    status={financialBalance !== null ? "ok" : "neutral"}
-                  />
                 </div>
               </div>
+
+              <div className="mt-1">
+                <StatusLine
+                  label="Faturamento AXION"
+                  value={formatFinancialMil(financialAxion)}
+                  status={financialAxion !== null ? "ok" : "neutral"}
+                />
+                <StatusLine
+                  label="Faturamento Direto WEG"
+                  value={formatFinancialMil(financialDirect)}
+                  status={financialDirect !== null ? "ok" : "neutral"}
+                />
+                <StatusLine
+                  label="Realizado total"
+                  value={formatFinancialMil(financialActual)}
+                  status={financialActual !== null ? "ok" : "neutral"}
+                />
+                <StatusLine
+                  label="Base contratual"
+                  value={formatFinancialMil(financialPlanned)}
+                  status={financialPlanned !== null ? "ok" : "neutral"}
+                />
+                <StatusLine
+                  label="Saldo"
+                  value={formatFinancialMil(financialBalance)}
+                  status={financialBalance !== null ? "ok" : "neutral"}
+                />
+              </div>
             </Panel>
-            </div>
-
-
-
-            
-
-            
-
           </div>
 
-          {/* COLUNA DIREITA */}
-          <div className="grid min-h-0 grid-cols-1 gap-2 lg:grid-cols-2">
+          {/* COLUNA 4 */}
+          <div className="flex flex-col gap-2">
+            <Panel title="Status das integrações">
+              {data.integrationStatusGroups.flatMap((group) =>
+                group.labels.map((label) => (
+                  <div
+                    key={`${group.status}-${label}`}
+                    className="flex items-center justify-between gap-3 border-b border-white/[0.07] py-px last:border-b-0"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className={`size-2 shrink-0 rounded-full ${
+                          group.status === "CONECTADO"
+                            ? "bg-emerald-400"
+                            : group.status === "ATENCAO"
+                              ? "bg-amber-400"
+                              : group.status === "ERRO"
+                                ? "bg-red-400"
+                                : "bg-slate-400"
+                        }`}
+                      />
+                      <span className="break-words text-[13px] font-normal leading-[18px] text-white">{label}</span>
+                    </div>
 
+                    <StatusBadge
+                      tone={
+                        group.status === "CONECTADO"
+                          ? "ok"
+                          : group.status === "ATENCAO"
+                            ? "warning"
+                            : group.status === "ERRO"
+                              ? "error"
+                              : "pending"
+                      }
+                    >
+                      {group.status === "CONECTADO"
+                        ? "ATIVO"
+                        : group.status === "ATENCAO"
+                          ? "ATENÇÃO"
+                          : group.status === "ERRO"
+                            ? "ERRO"
+                            : "PENDENTE"}
+                    </StatusBadge>
+                  </div>
+                ))
+              )}
+            </Panel>
+
+            <Panel title="Relatório semanal processado">
+              <StatusLine
+                label="Curva S"
+                value={sheetByCategory.get("CURVA_S")?.status ?? "Ausente"}
+                status={sheetByCategory.get("CURVA_S") ? "ok" : "neutral"}
+              />
+              <StatusLine
+                label="Linha de Base"
+                value={sheetByCategory.get("LINHA_BASE")?.status ?? "Ausente"}
+                status={sheetByCategory.get("LINHA_BASE") ? "ok" : "neutral"}
+              />
+              <StatusLine
+                label="Financeiro"
+                value={sheetByCategory.get("FINANCEIRO")?.status ?? "Ausente"}
+                status={sheetByCategory.get("FINANCEIRO") ? "ok" : "neutral"}
+              />
+              <StatusLine
+                label="SSMA"
+                value={sheetByCategory.get("SSMA")?.status ?? "Ausente"}
+                status={sheetByCategory.get("SSMA") ? "ok" : "neutral"}
+              />
+            </Panel>
+
+            <div className="rounded-[7px] border border-[#263b5c] bg-[#182941] px-3 py-1.5">
+              <div className="flex items-start gap-2">
+                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#8fb8f0]" />
+                <div>
+                  <p className="text-[13px] font-normal text-white">Atualização automática</p>
+                  <p className="text-[11px] leading-snug text-[#b8c7dc]">
+                    Cronograma, relatório semanal, financeiro e SSMA são exibidos somente após o respectivo e-mail/anexo
+                    ter sido persistido e processado pelo ACC.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* COLUNA 5 */}
+          <div className="flex flex-col gap-2">
             <Panel title="Planejamento — recebimento por e-mail">
-              <div className="space-y-1">
-                <StatusLine
-                  label="Cronograma atualizado"
-                  value={
-                    scheduleAttachment
-                      ? scheduleAttachment.processing_status
-                      : "Não recebido"
-                  }
-                  status={scheduleAttachment ? "ok" : "warning"}
-                />
+              <StatusLine
+                label="Cronograma atualizado"
+                value={scheduleAttachment ? scheduleAttachment.processing_status : "Não recebido"}
+                status={scheduleAttachment ? "ok" : "warning"}
+              />
 
-                {scheduleEmail ? (
-                  <div className="pb-1 pl-5 text-[15px] leading-snug text-[#b9999e]">
+              {scheduleEmail ? (
+                <details className="pb-1 pl-4 text-[12px] leading-snug text-[#c9d6e8]">
+                  <summary className="cursor-pointer select-none text-[#8fb8f0]">Detalhes do cronograma</summary>
+                  <div className="break-words pt-0.5">
                     {scheduleAttachment?.original_file_name}
                     <br />
                     {scheduleEmail.from_address}
                     <br />
                     {formatDateTime(scheduleEmail.sent_at)}
                   </div>
-                ) : null}
+                </details>
+              ) : null}
 
-                <StatusLine
-                  label="Relatório semanal"
-                  value={
-                    latestWorkbook?.status ??
-                    weeklyAttachment?.processing_status ??
-                    "Não recebido"
-                  }
-                  status={weeklyAttachment ? "ok" : "warning"}
-                />
+              <StatusLine
+                label="Relatório semanal"
+                value={latestWorkbook?.status ?? weeklyAttachment?.processing_status ?? "Não recebido"}
+                status={weeklyAttachment ? "ok" : "warning"}
+              />
 
-                {weeklyEmail ? (
-                  <div className="pb-1 pl-5 text-[15px] leading-snug text-[#b9999e]">
+              {weeklyEmail ? (
+                <details className="pb-1 pl-4 text-[12px] leading-snug text-[#c9d6e8]">
+                  <summary className="cursor-pointer select-none text-[#8fb8f0]">Detalhes do relatório semanal</summary>
+                  <div className="break-words pt-0.5">
                     {weeklyAttachment?.original_file_name}
                     <br />
                     {weeklyEmail.work_week_label ?? weeklyEmail.subject}
@@ -1148,43 +1130,35 @@ export default async function DashboardPage({
                     <br />
                     {formatDateTime(weeklyEmail.sent_at)}
                   </div>
-                ) : null}
+                </details>
+              ) : null}
 
-                <div className="mt-2 border-t border-white/10 pt-2">
-                  <StatusLine
-                    label="Dias decorridos"
-                    value={elapsedDays ?? "Não disponível"}
-                    status={elapsedDays !== null ? "ok" : "neutral"}
-                  />
-
-                  <StatusLine
-                    label="Dias não trabalhados"
-                    value={equivalentNonWorkedDays.toLocaleString("pt-BR", {
-                      minimumFractionDigits: 1,
-                      maximumFractionDigits: 1,
-                    })}
-                    status={equivalentNonWorkedDays > 0 ? "warning" : "ok"}
-                  />
-
-                  <StatusLine
-                    label="Impacto climático"
-                    value={
-                      climateImpactPercent !== null
-                        ? `${climateImpactPercent.toLocaleString("pt-BR", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}%`
-                        : "Não disponível"
-                    }
-                    status={
-                      climateImpactPercent !== null && climateImpactPercent > 0
-                        ? "warning"
-                        : "ok"
-                    }
-                  />
-                </div>
-              </div>
-                          <div className="mt-1 border-t border-white/10 pt-1">
+              <div className="mt-1 border-t border-[#263b5c] pt-1">
+                <StatusLine
+                  label="Dias decorridos"
+                  value={elapsedDays ?? "Não disponível"}
+                  status={elapsedDays !== null ? "ok" : "neutral"}
+                />
+                <StatusLine
+                  label="Dias não trabalhados"
+                  value={equivalentNonWorkedDays.toLocaleString("pt-BR", {
+                    minimumFractionDigits: 1,
+                    maximumFractionDigits: 1,
+                  })}
+                  status={equivalentNonWorkedDays > 0 ? "warning" : "ok"}
+                />
+                <StatusLine
+                  label="Impacto climático"
+                  value={
+                    climateImpactPercent !== null
+                      ? `${climateImpactPercent.toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}%`
+                      : "Não disponível"
+                  }
+                  status={climateImpactPercent !== null && climateImpactPercent > 0 ? "warning" : "ok"}
+                />
                 <StatusLine
                   label="Efetivo atual"
                   value={
@@ -1192,149 +1166,19 @@ export default async function DashboardPage({
                       ? `${dashboardCurrentWorkforce.toLocaleString("pt-BR")} pessoas`
                       : "Não disponível"
                   }
-                  status={
-                    dashboardCurrentWorkforce !== null
-                      ? "ok"
-                      : "neutral"
-                  }
+                  status={dashboardCurrentWorkforce !== null ? "ok" : "neutral"}
                 />
-
                 {dashboardCurrentWorkforcePeriod ? (
-                  <p className="mt-1 text-right text-[15px] text-[#c3a3a8]">
-                    Histograma {dashboardCurrentWorkforcePeriod}
-                  </p>
+                  <p className="text-right text-[11px] text-[#b8c7dc]">Histograma {dashboardCurrentWorkforcePeriod}</p>
                 ) : null}
               </div>
-
-</Panel>
-
-            <Panel title="Status das integrações">
-              <div className="space-y-0">
-                {data.integrationStatusGroups.flatMap((group) =>
-                  group.labels.map((label) => (
-                    <div
-                      key={`${group.status}-${label}`}
-                      className="flex items-center justify-between gap-3 border-b border-white/10 py-1.5 last:border-b-0"
-                    >
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <span
-                          className={`size-2.5 shrink-0 rounded-full ${
-                            group.status === "CONECTADO"
-                              ? "bg-emerald-400"
-                              : group.status === "ATENCAO"
-                                ? "bg-amber-400"
-                                : group.status === "ERRO"
-                                  ? "bg-red-400"
-                                  : "bg-slate-400"
-                          }`}
-                        />
-
-                        <span className="truncate text-[15px] font-medium text-[#e6d4d6]">
-                          {label}
-                        </span>
-                      </div>
-
-                      <span
-                        className={`shrink-0 rounded-md px-2 py-1 text-[15px] font-bold uppercase ${
-                          group.status === "CONECTADO"
-                            ? "bg-emerald-600 text-white"
-                            : group.status === "ATENCAO"
-                              ? "bg-amber-400 text-black"
-                              : group.status === "ERRO"
-                                ? "bg-red-600 text-white"
-                                : "bg-slate-500 text-white"
-                        }`}
-                      >
-                        {group.status === "CONECTADO"
-                          ? "ATIVO"
-                          : group.status === "ATENCAO"
-                            ? "ATENÇÃO"
-                            : group.status === "ERRO"
-                              ? "ERRO"
-                              : "PENDENTE"}
-                      </span>
-                    </div>
-                  ))
-                )}
-              </div>
             </Panel>
-
-            <Panel title="Distribuição dos alertas">
-              <div className="grid grid-cols-4 gap-3">
-                {[
-                  ["Baixo", data.activeFindingsSummary.countsBySeverity.BAIXA, "bg-emerald-500", "text-white"],
-                  ["Médio", data.activeFindingsSummary.countsBySeverity.MEDIA, "bg-yellow-400", "text-black"],
-                  ["Alto", data.activeFindingsSummary.countsBySeverity.ALTA, "bg-orange-500", "text-white"],
-                  ["Crítico", data.activeFindingsSummary.countsBySeverity.CRITICA, "bg-red-500", "text-white"],
-                ].map(([label, value, color, textColor]) => (
-                  <div
-                    key={String(label)}
-                    className={`aspect-square flex flex-col items-center justify-center rounded-xl ${color} ${textColor}`}
-                  >
-                    <span className="text-[17px] font-normal">{label}</span>
-                    <span className="mt-1 text-3xl font-bold">
-                      {Number(value)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </Panel>
-
-            
-
-            <Panel title="Relatório semanal processado">
-              <StatusLine
-                label="Curva S"
-                value={sheetByCategory.get("CURVA_S")?.status ?? "Ausente"}
-                status={sheetByCategory.get("CURVA_S") ? "ok" : "neutral"}
-              />
-
-              <StatusLine
-                label="Linha de Base"
-                value={sheetByCategory.get("LINHA_BASE")?.status ?? "Ausente"}
-                status={sheetByCategory.get("LINHA_BASE") ? "ok" : "neutral"}
-              />
-
-              <StatusLine
-                label="Financeiro"
-                value={sheetByCategory.get("FINANCEIRO")?.status ?? "Ausente"}
-                status={sheetByCategory.get("FINANCEIRO") ? "ok" : "neutral"}
-              />
-
-              <StatusLine
-                label="SSMA"
-                value={sheetByCategory.get("SSMA")?.status ?? "Ausente"}
-                status={sheetByCategory.get("SSMA") ? "ok" : "neutral"}
-              />
-            </Panel>
-
-            <div className="rounded-xl border border-[#9c3b49]/40 bg-[#57101c] p-2">
-              <div className="flex items-start gap-3">
-                <ShieldCheck className="mt-0.5 size-5 shrink-0 text-[#e6bec4]" />
-
-                <div>
-                  <p className="text-[17px] font-semibold text-white">
-                    Atualização automática
-                  </p>
-
-                  <p className="mt-1 text-[15px] leading-relaxed text-[#d2b4b8]">
-                    Cronograma, relatório semanal, financeiro e SSMA são
-                    exibidos somente após o respectivo e-mail/anexo ter sido
-                    persistido e processado pelo ACC.
-                  </p>
-                </div>
-              </div>
-            </div>
-
           </div>
         </div>
 
-        <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-1 text-[15px] text-[#c3a3a8]">
+        <footer className="mt-auto flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[#263b5c] pt-1 text-[11px] text-[#b8c7dc]">
           <span>ACC · Dashboard executivo</span>
-          <span>
-            Nenhum indicador financeiro ou SSMA é estimado quando a fonte não
-            está disponível.
-          </span>
+          <span>Nenhum indicador financeiro ou SSMA é estimado quando a fonte não está disponível.</span>
         </footer>
       </div>
     </div>
