@@ -28,6 +28,10 @@ export interface AssistantEntry {
   links: AssistantLink[];
   /** Slide do tutorial que detalha o assunto. */
   tutorialSlide: number | null;
+  /** Seção do manual de referência que sustenta a resposta (citação mostrada ao usuário). Opcional. */
+  manualSection?: string;
+  /** Cobertura da resposta; ausente = "completa". "parcial" aciona o encaminhamento "Falar com o ADMIN". */
+  coverage?: "completa" | "parcial";
 }
 
 export const ASSISTANT_ENTRIES: AssistantEntry[] = [

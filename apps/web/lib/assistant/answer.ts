@@ -15,6 +15,8 @@ import {
   getAssistantEntry,
   type AssistantEntry,
 } from "./knowledge";
+import { QA_FIXTURE_ENTRIES } from "./qa-fixtures";
+import { qaFixturesEnabled, resolveAdminHandoff, type AdminHandoff, type AnswerCoverage } from "./qa-handoff";
 
 export const ASSISTANT_PROVIDER_ENV_VAR = "AXION_AI_PROVIDER_ASSISTENTE";
 export { ASSISTANT_QUESTION_MAX_LENGTH };
@@ -32,6 +34,12 @@ export interface AssistantAnswer {
   tutorialSlide: number | null;
   /** Presente quando a pergunta pedia para alterar dados. */
   readOnlyNotice: string | null;
+  /** "parcial" e "ausente" mostram "Falar com o ADMIN" sem esperar o clique em "Isso não respondeu à minha pergunta". */
+  coverage: AnswerCoverage;
+  /** Seção do manual que sustenta a resposta; null quando não há citação. */
+  manualSection: string | null;
+  /** Como encaminhar ao ADMIN (link fixo ou só texto). Nunca contém a pergunta nem o histórico. */
+  adminHandoff: AdminHandoff;
 }
 
 export class AssistantConfigError extends Error {
@@ -108,13 +116,19 @@ function toLinks(entry: Pick<AssistantEntry, "links">, projectId: string) {
   return entry.links.map((link) => ({ label: link.label, href: `/${projectId}/${link.path}` }));
 }
 
-export function answerQuestion(question: string, projectId: string): AssistantAnswer {
+export function answerQuestion(
+  question: string,
+  projectId: string,
+  env: Record<string, string | undefined> = process.env
+): AssistantAnswer {
   resolveAssistantMode();
+  const adminHandoff = resolveAdminHandoff(env);
+  const entries = qaFixturesEnabled(env) ? [...ASSISTANT_ENTRIES, ...QA_FIXTURE_ENTRIES] : ASSISTANT_ENTRIES;
   const normalized = normalizeText(question.slice(0, ASSISTANT_QUESTION_MAX_LENGTH));
   const questionTokens = tokens(normalized);
   const readOnlyNotice = asksToChangeData(normalized) ? ASSISTANT_READ_ONLY_NOTICE : null;
 
-  const ranked = ASSISTANT_ENTRIES.map((entry) => ({ entry, score: scoreEntry(entry, normalized, questionTokens) })).sort(
+  const ranked = entries.map((entry) => ({ entry, score: scoreEntry(entry, normalized, questionTokens) })).sort(
     (a, b) => b.score - a.score
   );
   const best = ranked[0];
@@ -129,6 +143,9 @@ export function answerQuestion(question: string, projectId: string): AssistantAn
       links: [{ label: "Ajuda e tutorial", href: `/${projectId}/ajuda` }],
       tutorialSlide: null,
       readOnlyNotice,
+      coverage: "ausente",
+      manualSection: null,
+      adminHandoff,
     };
   }
 
@@ -142,6 +159,9 @@ export function answerQuestion(question: string, projectId: string): AssistantAn
     links: toLinks(entry, projectId),
     tutorialSlide: entry.tutorialSlide,
     readOnlyNotice,
+    coverage: entry.coverage ?? "completa",
+    manualSection: entry.manualSection ?? null,
+    adminHandoff,
   };
 }
 
