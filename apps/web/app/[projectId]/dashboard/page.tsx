@@ -125,16 +125,34 @@ function ProgressRing({ percent, size = 72 }: { percent: number | null; size?: n
     </div>
   );
 }
+// Selo de status padrão do Dashboard (o mesmo de "Status das integrações"): mesma altura, espaçamento, fonte, cantos
+// e alinhamento à direita nos três painéis. ATIVO/OK = verde-escuro #166534 com texto branco; PENDENTE = laranja
+// #FB923C com texto preto. Só o TEXTO exibido muda (ex.: PENDING → PENDENTE); o valor interno do sistema não é alterado.
+type BadgeTone = "ok" | "pending" | "warning" | "error" | "neutral";
+
+const BADGE_TONE_CLASS: Record<BadgeTone, string> = {
+  ok: "bg-[#166534] text-[#ffffff]",
+  pending: "bg-[#fb923c] text-[#000000]",
+  warning: "bg-amber-400 text-black",
+  error: "bg-red-600 text-white",
+  neutral: "bg-[#475569] text-[#ffffff]",
+};
+
+function StatusBadge({ tone, children }: { tone: BadgeTone; children: React.ReactNode }) {
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded-[3px] px-2 py-0.5 text-[11px] font-normal uppercase leading-[15px] tracking-[0.02em] ${BADGE_TONE_CLASS[tone]}`}
+    >
+      {children}
+    </span>
+  );
+}
+
 function compactStatus(value: React.ReactNode): React.ReactNode {
-  if (
-    typeof value === "string" &&
-    (value === "EXTRACTED" || value === "PROCESSED")
-  ) {
-    return (
-      <span className="inline-flex rounded-md bg-emerald-600 px-2.5 py-1 text-[14px] font-normal leading-none text-white">
-        OK
-      </span>
-    );
+  if (typeof value === "string") {
+    if (value === "EXTRACTED" || value === "PROCESSED") return <StatusBadge tone="ok">OK</StatusBadge>;
+    if (value === "PENDING") return <StatusBadge tone="pending">PENDENTE</StatusBadge>;
+    if (value === "Ausente" || value === "Não recebido") return <StatusBadge tone="neutral">{value}</StatusBadge>;
   }
 
   return value;
@@ -1011,16 +1029,16 @@ export default async function DashboardPage({
                       <span className="break-words text-[13px] font-normal leading-[18px] text-white">{label}</span>
                     </div>
 
-                    <span
-                      className={`shrink-0 rounded-[3px] px-2 py-0.5 text-[11px] font-normal uppercase tracking-[0.02em] ${
+                    <StatusBadge
+                      tone={
                         group.status === "CONECTADO"
-                          ? "bg-[#166534] text-[#ffffff]"
+                          ? "ok"
                           : group.status === "ATENCAO"
-                            ? "bg-amber-400 text-black"
+                            ? "warning"
                             : group.status === "ERRO"
-                              ? "bg-red-600 text-white"
-                              : "bg-slate-500 text-white"
-                      }`}
+                              ? "error"
+                              : "pending"
+                      }
                     >
                       {group.status === "CONECTADO"
                         ? "ATIVO"
@@ -1029,7 +1047,7 @@ export default async function DashboardPage({
                           : group.status === "ERRO"
                             ? "ERRO"
                             : "PENDENTE"}
-                    </span>
+                    </StatusBadge>
                   </div>
                 ))
               )}
