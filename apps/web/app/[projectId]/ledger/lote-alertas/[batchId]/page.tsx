@@ -1,3 +1,4 @@
+import { requireProjectAdminPage } from "@/lib/email-authorization/guard";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -21,6 +22,7 @@ export default async function ContractAlertBatchPage({
   searchParams: Promise<{ acao?: string | string[]; evento?: string | string[] }>;
 }) {
   const { projectId, batchId } = await params;
+  await requireProjectAdminPage(projectId); // aba só para administradores (o menu também a oculta)
   const query = await searchParams;
   const [batch, members] = await Promise.all([
     getContractAlertBatch(projectId, batchId),
