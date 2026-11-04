@@ -28,7 +28,7 @@ export async function TopBar({
     // largura do cabeçalho — não só "no meio do espaço sobrando" como
     // aconteceria com flexbox — independentemente da largura do grupo
     // da direita (nome de projeto curto ou longo).
-    <header className="grid shrink-0 grid-cols-2 items-center gap-x-3 gap-y-2 border-b border-border bg-white px-4 py-2 text-foreground shadow-sm sm:h-14 sm:grid-cols-[minmax(0,1fr)_auto_minmax(max-content,1fr)] sm:py-0">
+    <header className="grid shrink-0 grid-cols-2 items-center gap-x-3 gap-y-2 border-b border-border bg-[var(--surface-topbar)] px-4 py-2 text-foreground sm:h-[72px] sm:grid-cols-[minmax(0,1fr)_auto_minmax(max-content,1fr)] sm:py-0">
       {/* Espaçador: só existe em sm+, com a mesma largura (1fr) do grupo
           da direita — é o que garante a centralização real do título. */}
       <div aria-hidden="true" className="hidden sm:block" />
@@ -37,7 +37,7 @@ export async function TopBar({
           sidebar mantém só o símbolo (ver app-sidebar.tsx). Uma única
           linha (truncate) em vez de permitir quebra, para nunca colidir
           verticalmente com o grupo da direita. */}
-      <h1 className="col-start-1 row-start-1 min-w-0 truncate text-center text-sm font-bold uppercase tracking-wide text-foreground sm:col-start-2">
+      <h1 className="col-start-1 row-start-1 min-w-0 truncate text-center text-base font-semibold tracking-tight text-foreground sm:text-xl sm:col-start-2">
         AXION Controle de Contratos
       </h1>
 

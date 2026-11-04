@@ -98,8 +98,8 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
   return (
     <aside
       className={cn(
-        "flex shrink-0 flex-col border-r border-black/10 bg-brand-sidebar text-brand-sidebar-foreground transition-[width] duration-150",
-        collapsed ? "w-14" : "w-60"
+        "acc-sidebar-grid flex shrink-0 flex-col border-r border-black/10 text-brand-sidebar-foreground transition-[width] duration-150",
+        collapsed ? "w-14" : "w-[264px] max-md:w-14"
       )}
     >
       <div className="flex h-20 items-center justify-center border-b border-white/15">
@@ -133,13 +133,14 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
               // adiantar rotas que o usuário ainda não pediu.
               prefetch={false}
               className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                "flex min-h-11 items-center gap-2 rounded-[5px] px-3 py-2 text-[15px] font-medium transition-colors",
                 collapsed && "justify-center px-0",
-                active ? "bg-brand-sidebar-active text-white" : "text-white/75 hover:bg-white/10 hover:text-white"
+                "max-md:justify-center max-md:px-0",
+                active ? "bg-[#f7f3ea] font-semibold text-[#5e1414]" : "text-white/85 hover:bg-white/10 hover:text-white"
               )}
             >
               {Icon ? <Icon className="size-4 shrink-0" /> : null}
-              {!collapsed ? <span className="leading-tight break-words">{item.label}</span> : null}
+              {!collapsed ? <span className="leading-tight break-words max-md:hidden">{item.label}</span> : null}
             </Link>
           );
         })}

@@ -14,5 +14,11 @@ const pages = {
   "usuarios/page.tsx": "requireProjectAdminPage", "autorizacoes/page.tsx": "isProjectAdmin", "startup/page.tsx": 'permission !== "ADMINISTRADOR"',
 };
 for (const [p, needle] of Object.entries(pages)) t(`rota ${p}: guarda de admin no servidor`, readFileSync(`apps/web/app/[projectId]/${p}`, "utf8").includes(needle));
+for (const f of ["actions", "assess-schedule-delay-actions", "event-notes-actions", "run-multi-expert-curation-actions", "send-alert-actions"]) {
+  const src = readFileSync(`apps/web/app/[projectId]/ledger/[eventId]/${f}.ts`, "utf8");
+  const fns = (src.match(/^export async function /gm) ?? []).length;
+  const guards = (src.match(/isProjectAdmin\(projectId\)/g) ?? []).length;
+  t(`ação ${f}.ts: ${fns} função(ões) exportada(s), ${guards} guarda(s) de admin`, fns > 0 && guards === fns);
+}
 console.log(`\nRESULTADO: ${ok} passaram, ${bad} falharam`);
 process.exit(bad ? 1 : 0);

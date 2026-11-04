@@ -1,8 +1,12 @@
 import type { Metadata } from "next";
+import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import { TestModeBanner } from "@/components/layout/test-mode-banner";
 import { PwaRegistration } from "@/components/pwa-registration";
 import { AutomaticFieldHelp } from "@/components/shared/automatic-field-help";
 import "./globals.css";
+
+const plexSans = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plex-sans", display: "swap" });
+const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plex-mono", display: "swap" });
 
 // Título de aba do navegador: "ACC | <Nome da aba>" — cada page.tsx
 // define seu próprio `title` curto (ex.: "Dashboard"), substituído no
@@ -28,7 +32,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={`${plexSans.variable} ${plexMono.variable}`}>
       <body className="antialiased font-sans">
         <PwaRegistration />
         <AutomaticFieldHelp />

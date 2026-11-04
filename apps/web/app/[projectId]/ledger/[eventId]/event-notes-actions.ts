@@ -1,5 +1,6 @@
 "use server";
 
+import { isProjectAdmin } from "@/lib/email-authorization/guard";
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@axion/db/server";
 import type { CreateEventNoteState } from "./event-notes-actions-state";
@@ -36,6 +37,11 @@ export async function createEventNoteAction(
 
   if (!projectId || !eventId) {
     return { error: "Dados do evento ausentes. Recarregue a página e tente novamente." };
+  }
+
+  // Aba Eventos é só de administradores: a ação confere no servidor (o banco também exige ADMINISTRADOR).
+  if (!(await isProjectAdmin(projectId)).isAdmin) {
+    return { error: "Ação restrita a administradores do projeto.", success: null } as never;
   }
 
   if (!category || !VALID_CATEGORIES.includes(category)) {

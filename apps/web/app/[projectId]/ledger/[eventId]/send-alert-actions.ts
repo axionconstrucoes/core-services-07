@@ -1,5 +1,6 @@
 "use server";
 
+import { isProjectAdmin } from "@/lib/email-authorization/guard";
 import { revalidatePath } from "next/cache";
 
 import { buildEvidenceItem, formatClauseLabel, summarizeClauseText } from "@/lib/alerts/alert-source-links";
@@ -41,6 +42,11 @@ export async function sendContractAlertEmailAction(
 
   if (!projectId || !eventId) {
     return { error: "Dados do evento ausentes. Recarregue a página e tente novamente.", success: null };
+  }
+
+  // Aba Eventos é só de administradores: a ação confere no servidor (o banco também exige ADMINISTRADOR).
+  if (!(await isProjectAdmin(projectId)).isAdmin) {
+    return { error: "Ação restrita a administradores do projeto.", success: null } as never;
   }
   if (!submittedRecipientEmail) {
     return { error: "Informe o e-mail do destinatário.", success: null };
