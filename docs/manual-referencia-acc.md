@@ -47,7 +47,7 @@ O **ACC (Axion Contract Intelligence)** é o sistema da Axion para acompanhar co
 **Estado desta fase (Fase 1)**
 - A **AXIA responde somente por texto**. A voz Elena Vinter (ElevenLabs) fica para a **Fase 3**; a integração e o Voice ID foram preservados, desligados.
 - **Imagem da AXIA:** esta versão usa o **ícone neutro provisório** derivado do ícone oficial da marca ACC (`apps/web/public/assistente/ajuda-acc.png`). A arte definitiva da AXIA só entra depois de comprovadas a origem e os direitos de uso (autoria/licença e, se houver pessoa retratada, consentimento); ver `docs/vera-autorizacao-email-e-voz.md` §1.
-- Os alertas automáticos e o piloto de e-mail **não estão comprovados em produção**: o ensaio com e-mails reais foi em ambiente isolado, e as variáveis do piloto por projeto estavam ausentes na produção em 04/11/2026 (`docs/piloto-projeto-email.md`).
+- Os alertas automáticos e o piloto de e-mail **não estão comprovados em produção**: o ensaio com e-mails reais foi em ambiente isolado, e o documento do piloto registra as variáveis do piloto por projeto como ausentes na produção em 04/11/2026, **mas a leitura da configuração da Vercel nessa data mostra que elas existem** (criadas em 03/11/2026, antes do último deploy; os valores não foram lidos) — ver Anexo E (`docs/piloto-projeto-email.md`).
 - A produção roda o commit `a83843d` (merge do PR #128).
 
 **Entrada no sistema:** login com conta Google corporativa (`@axion.com.br`); o acesso é **por projeto**, não basta ter a conta (seção 4.1). A faixa **"SISTEMA EM TESTE"** aparece em todas as páginas até a configuração `NEXT_PUBLIC_ACC_TEST_MODE=false` e novo deploy.
@@ -2127,7 +2127,7 @@ Verificado em 04/11/2026 com as migrations reais em PGlite (a seleção do produ
 | Regras de envio (BAIXO/MÉDIO não imediatos; ALTO/CRÍTICO imediatos; consolidado quarta ≥ 07:00 SP) | Testes de script | `scripts/test-pilot-risk-alerts.mjs` (testes 9–14) |
 | CRÍTICO imediato + lembrete + escalonamento com e-mails reais | **Ambiente isolado** descartável, 5 e-mails à caixa de teste | `docs/teste-controlado-alertas-criticos.md` |
 | Ensaio de preparação | **Não executado** | `docs/ensaio-alertas-criticos-preparacao.md:1-3` |
-| Piloto por projeto | "Implementado e testado sem envio real"; `ACC_PROJECT_PILOT_*` ausentes na produção em 2026-11-04 | `docs/piloto-projeto-email.md:3,31,199-200` |
+| Piloto por projeto | "Implementado e testado sem envio real"; o documento diz `ACC_PROJECT_PILOT_*` ausentes em 2026-11-04, mas a Vercel lista essas variáveis em produção (ver Anexo E) | `docs/piloto-projeto-email.md:3,31,199-200` |
 
 ### 6.9 Divergências do capítulo 6 (para revisão)
 
@@ -2249,7 +2249,7 @@ Se a detecção fosse às 18:20 ou no sábado, a contagem só começaria na pró
   - Destino do escalonamento sem usuário ⇒ o nível **sobe**, **não sai e-mail**, fica registrado na auditoria (`:286-347`).
   - Destinatário sem e-mail no momento do envio ⇒ falha registrada: “Destinatário sem e-mail no momento do envio.” (`run-risk-alert-cycle.ts:474-478`).
 - **Falha e reprocessamento:** máximo de **3 tentativas** (`lib/risk-alerts/types.ts:44`); falha mantém PENDING até esgotar, depois FAILED; SENT/FAILED/SUPPRESSED/SKIPPED não repetem; reivindicação (claim) de 10 min evita envio duplicado em execuções simultâneas (`supabase-store.ts:509-537`). Chaves únicas: imediato `caso:IMMEDIATE:fingerprint:usuário`; escalonamento `caso:ESCALATION:nível:usuário` (mesma chave do botão manual e da ação humana); consolidado `projeto:DIGEST:janela:usuário`. Mudança de conteúdo gera nova chave e e-mail “ATUALIZADO”. Consolidado com falha é retentado por até 6 dias, depois `DIGEST_WINDOW_EXPIRED` (`plan-risk-alerts.ts:221,307,405`; `run-risk-alert-cycle.ts:509,524-528`).
-- **Modo piloto:** `ACC_PROJECT_PILOT_*` envia tudo de `crm@axion.com.br` para `axion@axion.com.br` com `[PILOTO]` e faixa de teste, mantendo o destinatário lógico na auditoria; `ACC_EMAIL_ONLY_RECIPIENT` é trava global opcional. **Ambas ausentes em produção em 04/11/2026** (`docs/piloto-projeto-email.md:3-15,31,45`). DEPENDE DE CONFIGURAÇÃO.
+- **Modo piloto:** `ACC_PROJECT_PILOT_*` envia tudo de `crm@axion.com.br` para `axion@axion.com.br` com `[PILOTO]` e faixa de teste, mantendo o destinatário lógico na auditoria; `ACC_EMAIL_ONLY_RECIPIENT` é trava global opcional. **Segundo a Vercel (leitura em 04/11/2026), `ACC_PROJECT_PILOT_*` existem em produção e `ACC_EMAIL_ONLY_RECIPIENT` não existe** (o documento do piloto diz que ambas estavam ausentes; divergência — Anexo E) (`docs/piloto-projeto-email.md:3-15,31,45`). DEPENDE DE CONFIGURAÇÃO.
 
 ### 7.8 O que foi validado
 
@@ -2568,3 +2568,17 @@ Verificações feitas **sem rede, sem e-mail e sem banco remoto**, com as 126 mi
 | **Sem prova** | Definição da função de permissão em produção; o produtor TS rodando contra banco; PDF misto passando como leitura parcial sem alerta; qualidade de extração em aditivos reais; migrations aplicadas em produção; tela aberta em navegador autenticado | — |
 
 **Regras operacionais preservadas:** nada foi alterado em permissões, envios, matriz de SLA ou migrations; as divergências estão registradas para decisão.
+
+### E.2 Produção — leitura de configuração e migrations (Vercel e Supabase, somente leitura, 04/11/2026)
+
+| Item | Resultado | Situação da prova |
+|---|---|---|
+| Deploy ativo em produção | `a83843d` (Merge PR #128), estado READY; é a base do candidato | Lido na Vercel |
+| Migrations | 126 locais, 126 aplicadas no projeto Supabase de produção (mesmo `ref` da `NEXT_PUBLIC_SUPABASE_URL` de produção), nenhuma pendente, nenhuma só no remoto; a última é `20261101100000`; o candidato não adiciona migration | Lido (`supabase migration list --linked`) |
+| `ACC_OUTBOUND_MODE` | `pilot` em produção | Lido |
+| `ACC_PROJECT_PILOT_PROJECT_ID`, `_DESTINATION`, `_SENDER` | **Existem** em produção, criadas em 03/11/2026 13:35 UTC, três minutos antes do último deploy; **valores não lidos**. O documento do piloto dizia que estavam ausentes | Lido (existência) — divergência com o documento |
+| `ACC_PILOT_RECIPIENT` | Existe; valor não lido | Lido (existência) |
+| `ACC_EMAIL_ONLY_RECIPIENT` | **Não existe** em produção | Lido |
+| `ACC_WEEKLY_REPORTS_ENABLED`, `ACC_RISK_ALERTS_CRON_SECRET`, `CRON_SECRET` | Existem, mas são variáveis sensíveis: o valor não é legível, então **não se sabe** se o ciclo automático de riscos está ligado | Sem prova do valor |
+| `ELEVENLABS_*` | **Nenhuma** variável em produção ⇒ voz desligada (o código exige `ELEVENLABS_ENABLED="true"`) | Lido |
+| `AXION_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `ANTHROPIC_MAX_TOKENS` | Existem em produção; os valores de provedor e chave são sensíveis e não foram lidos | Lido (existência) |
