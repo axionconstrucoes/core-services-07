@@ -3,15 +3,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BookOpen, Send, Square, Volume2, X } from "lucide-react";
+import { BookOpen, Send, X } from "lucide-react";
 
 import type { AssistantAnswer } from "@/lib/assistant/answer";
 import { ASSISTANT_QUESTION_MAX_LENGTH } from "@/lib/assistant/limits";
+import { AssistantVoiceControls } from "./assistant-voice-controls";
 import { VERA_CONTEXTS, VERA_OPEN_EVENT, type VeraContext, type VeraOpenDetail } from "./vera-events";
 
 // AXIA — Assistente ACC (piloto): caixa de conversa aberta pelos gatilhos "Fale com a AXIA".
-// Só orienta — não altera dados. A resposta é texto; a leitura em voz só começa quando a pessoa clica em
-// "Ouvir resposta".
+// Só orienta — não altera dados. A resposta é texto; a leitura em voz (Fase 3, hoje desligada) só começa quando a pessoa
+// aciona o botão de voz (ver assistant-voice-controls.tsx).
 
 interface Voice {
   id: string;
@@ -313,57 +314,23 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
       </div>
 
       <div className="space-y-2 border-t border-gray-200 bg-gray-50 px-4 py-3">
-        {last ? (
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <label htmlFor="assistente-voz" className="text-xs font-semibold text-gray-700">
-                Voz
-              </label>
-              <select
-                id="assistente-voz"
-                value={voiceId}
-                disabled={voices.length === 0 || speaking}
-                onChange={(event) => {
-                  setVoiceId(event.target.value);
-                  storeVoice(event.target.value);
-                }}
-                className="min-h-9 min-w-0 flex-1 rounded-md border border-gray-300 bg-white px-2 py-1 text-xs"
-              >
-                {voices.map((voice) => (
-                  <option key={voice.id} value={voice.id}>
-                    {voice.label} — {voice.note}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => void listen(last.answer.entryId)}
-                disabled={voiceAvailable === false || voiceLoading || speaking}
-                className="inline-flex min-h-9 items-center gap-1 rounded-md bg-brand-sidebar px-2.5 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-              >
-                <Volume2 className="size-4" />
-                {voiceLoading ? "Preparando…" : "Ouvir resposta"}
-              </button>
-              <button
-                type="button"
-                onClick={stopAudio}
-                disabled={!speaking}
-                className="inline-flex min-h-9 items-center gap-1 rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-800 disabled:opacity-50"
-              >
-                <Square className="size-4" />
-                Parar
-              </button>
-            </div>
-            {voiceAvailable === false ? (
-              <p className="text-xs text-gray-600">A leitura em voz ainda não está habilitada neste ambiente. A resposta em texto continua disponível.</p>
-            ) : null}
-            {voiceNotice ? (
-              <p role="alert" className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-900">
-                {voiceNotice}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
+        <AssistantVoiceControls
+          available={voiceAvailable}
+          hasAnswer={Boolean(last)}
+          voices={voices}
+          voiceId={voiceId}
+          loading={voiceLoading}
+          speaking={speaking}
+          notice={voiceNotice}
+          onVoiceChange={(id) => {
+            setVoiceId(id);
+            storeVoice(id);
+          }}
+          onListen={() => {
+            if (last) void listen(last.answer.entryId);
+          }}
+          onStop={stopAudio}
+        />
 
         <form
           onSubmit={(event) => {

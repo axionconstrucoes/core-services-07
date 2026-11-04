@@ -177,8 +177,13 @@ await check("logs só registram o código do erro (nunca chave, texto ou respost
 });
 
 await check("interface: caixa da AXIA com a imagem, Ouvir/Parar, seleção de voz, tutorial e aviso de falha", () => {
-  for (const marker of ["/assistente/ajuda-acc.png", "AXIA — Assistente ACC", "Ouvir resposta", "Parar", 'id="assistente-voz"', "/ajuda`", "A resposta em texto continua disponível", 'role="alert"']) {
+  const voiceControls = rd("apps/web/components/assistant/assistant-voice-controls.tsx");
+  for (const marker of ["/assistente/ajuda-acc.png", "AXIA — Assistente ACC", "/ajuda`", "A resposta em texto continua disponível", 'role="alert"']) {
     ok(widget.includes(marker), `falta: ${marker}`);
+  }
+  // Os controles de voz moraram no widget; agora ficam em componente próprio (renderização testada em test-assistant-render.mjs).
+  for (const marker of ["Ouvir resposta", "Parar", 'id="assistente-voz"']) {
+    ok(voiceControls.includes(marker), `falta nos controles de voz: ${marker}`);
   }
   ok(/listen\(last\.answer\.entryId\)/.test(widget) && !/useEffect\([^)]*listen/.test(widget), "a leitura deve começar só no clique");
   ok(!/autoPlay|\.play\(\)\s*;?\s*\}\s*,\s*\[/.test(widget), "reprodução automática");
