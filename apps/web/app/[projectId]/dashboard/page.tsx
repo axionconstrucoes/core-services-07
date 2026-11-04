@@ -35,16 +35,16 @@ function ExecutiveKpi({
 }) {
   return (
     <div className="flex min-h-[64px] flex-col items-center justify-center rounded-[7px] border border-[#263b5c] bg-[#182941] px-3 py-1 text-center">
-      <div className="flex items-center gap-1.5 text-[13px] font-normal uppercase tracking-[0.04em] text-[#c9d6e8]">
+      <div className="flex items-center gap-1.5 text-[12px] font-normal uppercase tracking-[0.04em] text-[#c9d6e8]">
         <Icon className="size-3.5" />
         {label}
       </div>
 
-      <div className="flex min-h-7 items-center justify-center text-center text-2xl font-bold leading-none text-white">
+      <div className="flex min-h-7 items-center justify-center text-center text-2xl font-normal leading-none text-white">
         {compactStatus(value)}
       </div>
 
-      {subtitle ? <div className="text-[13px] leading-tight text-[#b8c7dc]">{subtitle}</div> : null}
+      {subtitle ? <div className="text-[11px] leading-tight text-[#b8c7dc]">{subtitle}</div> : null}
     </div>
   );
 }
@@ -91,10 +91,10 @@ function StatusLine({
     <div className="flex items-center justify-between gap-2 border-b border-white/[0.07] py-px last:border-b-0">
       <div className="flex min-w-0 items-center gap-1.5">
         <span className={`size-2 shrink-0 rounded-full ${dot}`} />
-        <span className="break-words text-[14px] font-normal leading-[18px] text-white">{label}</span>
+        <span className="break-words text-[13px] font-normal leading-[18px] text-white">{label}</span>
       </div>
 
-      <span className="shrink-0 whitespace-nowrap text-right text-[15px] font-semibold text-white">{compactStatus(value)}</span>
+      <span className="shrink-0 whitespace-nowrap text-right text-[14px] font-normal text-white">{compactStatus(value)}</span>
     </div>
   );
 }
@@ -118,7 +118,7 @@ function ProgressRing({ percent, size = 72 }: { percent: number | null; size?: n
         style={{ width: size - 12, height: size - 12 }}
       >
         <span className="text-[10px] font-normal uppercase tracking-[0.04em] text-[#c9d6e8]">Realizado</span>
-        <span className="text-lg font-bold leading-tight text-white">
+        <span className="text-lg font-normal leading-tight text-white">
           {percent !== null ? `${percent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—"}
         </span>
       </div>
@@ -131,7 +131,7 @@ function compactStatus(value: React.ReactNode): React.ReactNode {
     (value === "EXTRACTED" || value === "PROCESSED")
   ) {
     return (
-      <span className="inline-flex rounded-md bg-emerald-600 px-2.5 py-1 text-[15px] font-semibold leading-none text-white">
+      <span className="inline-flex rounded-md bg-emerald-600 px-2.5 py-1 text-[13px] font-normal leading-none text-white">
         OK
       </span>
     );
@@ -718,18 +718,18 @@ export default async function DashboardPage({
                         : "bg-slate-500 text-white"
                 }`}
               >
-                <span className="block whitespace-nowrap text-center text-[14px] font-semibold uppercase tracking-[0.02em] leading-none">
+                <span className="block whitespace-nowrap text-center text-[13px] font-normal uppercase tracking-[0.02em] leading-none">
                   {systemStatus.label}
                 </span>
               </div>
               {systemStatus.reason ? (
-                <p className="max-w-[360px] text-[13px] leading-tight text-[#c9d6e8]">{systemStatus.reason}</p>
+                <p className="max-w-[360px] text-[12px] leading-tight text-[#c9d6e8]">{systemStatus.reason}</p>
               ) : null}
             </div>
 
             <div className="rounded-[5px] border border-[#263b5c] bg-[#182941] px-3 py-1 text-right">
-              <p className="text-[12px] font-normal uppercase tracking-[0.04em] text-[#b8c7dc]">Atualização operacional</p>
-              <p className="text-[14px] font-semibold text-white">Dados persistidos no ACC</p>
+              <p className="text-[11px] font-normal uppercase tracking-[0.04em] text-[#b8c7dc]">Atualização operacional</p>
+              <p className="text-[13px] font-normal text-white">Dados persistidos no ACC</p>
             </div>
           </div>
         </header>
@@ -842,8 +842,8 @@ export default async function DashboardPage({
                     key={String(label)}
                     className={`flex h-11 flex-col items-center justify-center rounded-[5px] ${color} ${textColor}`}
                   >
-                    <span className="text-[13px] font-normal leading-none">{label}</span>
-                    <span className="mt-1 text-xl font-bold leading-none">{Number(value)}</span>
+                    <span className="text-[12px] font-normal leading-none">{label}</span>
+                    <span className="mt-1 text-xl font-normal leading-none">{Number(value)}</span>
                   </div>
                 ))}
               </div>
@@ -873,7 +873,7 @@ export default async function DashboardPage({
                 value={formatDashboardMil(dashboardFinancialBalance)}
                 status={dashboardFinancialBalance !== null ? "ok" : "neutral"}
               />
-              <p className="pt-1 text-[12px] leading-tight text-[#b8c7dc]">
+              <p className="pt-1 text-[11px] leading-tight text-[#b8c7dc]">
                 Valores em R$ mil · realizado inclui faturamento AXION + faturamento direto WEG.
               </p>
             </Panel>
@@ -909,7 +909,7 @@ export default async function DashboardPage({
                 value={dashboardDaysWithoutAccident !== null ? dashboardDaysWithoutAccident : "—"}
                 status={dashboardDaysWithoutAccident !== null ? "ok" : "neutral"}
               />
-              <p className="pt-1 text-[12px] leading-tight text-[#b8c7dc]">Fonte: formulários SSMA registrados no ACC.</p>
+              <p className="pt-1 text-[11px] leading-tight text-[#b8c7dc]">Fonte: formulários SSMA registrados no ACC.</p>
             </Panel>
           </div>
 
@@ -930,7 +930,7 @@ export default async function DashboardPage({
                     }
                     status={physicalActual !== null ? "ok" : "neutral"}
                   />
-                  <p className="pt-1 text-[12px] leading-tight text-[#b8c7dc]">
+                  <p className="pt-1 text-[11px] leading-tight text-[#b8c7dc]">
                     {physicalActual !== null
                       ? "Percentual acumulado apurado pela Curva S."
                       : "Aguardando processamento da Curva S."}
@@ -1008,11 +1008,11 @@ export default async function DashboardPage({
                                 : "bg-slate-400"
                         }`}
                       />
-                      <span className="break-words text-[14px] font-normal leading-[18px] text-white">{label}</span>
+                      <span className="break-words text-[13px] font-normal leading-[18px] text-white">{label}</span>
                     </div>
 
                     <span
-                      className={`shrink-0 rounded-[3px] px-2 py-0.5 text-[12px] font-semibold uppercase tracking-[0.02em] ${
+                      className={`shrink-0 rounded-[3px] px-2 py-0.5 text-[11px] font-normal uppercase tracking-[0.02em] ${
                         group.status === "CONECTADO"
                           ? "bg-emerald-600 text-white"
                           : group.status === "ATENCAO"
@@ -1062,8 +1062,8 @@ export default async function DashboardPage({
               <div className="flex items-start gap-2">
                 <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#8fb8f0]" />
                 <div>
-                  <p className="text-[14px] font-semibold text-white">Atualização automática</p>
-                  <p className="text-[12px] leading-snug text-[#b8c7dc]">
+                  <p className="text-[13px] font-normal text-white">Atualização automática</p>
+                  <p className="text-[11px] leading-snug text-[#b8c7dc]">
                     Cronograma, relatório semanal, financeiro e SSMA são exibidos somente após o respectivo e-mail/anexo
                     ter sido persistido e processado pelo ACC.
                   </p>
@@ -1082,7 +1082,7 @@ export default async function DashboardPage({
               />
 
               {scheduleEmail ? (
-                <details className="pb-1 pl-4 text-[13px] leading-snug text-[#c9d6e8]">
+                <details className="pb-1 pl-4 text-[12px] leading-snug text-[#c9d6e8]">
                   <summary className="cursor-pointer select-none text-[#8fb8f0]">Detalhes do cronograma</summary>
                   <div className="break-words pt-0.5">
                     {scheduleAttachment?.original_file_name}
@@ -1101,7 +1101,7 @@ export default async function DashboardPage({
               />
 
               {weeklyEmail ? (
-                <details className="pb-1 pl-4 text-[13px] leading-snug text-[#c9d6e8]">
+                <details className="pb-1 pl-4 text-[12px] leading-snug text-[#c9d6e8]">
                   <summary className="cursor-pointer select-none text-[#8fb8f0]">Detalhes do relatório semanal</summary>
                   <div className="break-words pt-0.5">
                     {weeklyAttachment?.original_file_name}
@@ -1151,14 +1151,14 @@ export default async function DashboardPage({
                   status={dashboardCurrentWorkforce !== null ? "ok" : "neutral"}
                 />
                 {dashboardCurrentWorkforcePeriod ? (
-                  <p className="text-right text-[12px] text-[#b8c7dc]">Histograma {dashboardCurrentWorkforcePeriod}</p>
+                  <p className="text-right text-[11px] text-[#b8c7dc]">Histograma {dashboardCurrentWorkforcePeriod}</p>
                 ) : null}
               </div>
             </Panel>
           </div>
         </div>
 
-        <footer className="mt-auto flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[#263b5c] pt-1 text-[12px] text-[#b8c7dc]">
+        <footer className="mt-auto flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[#263b5c] pt-1 text-[11px] text-[#b8c7dc]">
           <span>ACC · Dashboard executivo</span>
           <span>Nenhum indicador financeiro ou SSMA é estimado quando a fonte não está disponível.</span>
         </footer>
