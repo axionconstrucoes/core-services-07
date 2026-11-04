@@ -71,7 +71,7 @@ export function EditProjectForm({ project, origin }: { project: Project; origin:
           {state.error ? <p role="alert" className="text-sm font-medium text-[#7f1d1d]">{state.error}</p> : null}
 
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link href={editProjectReturnPath(project.id, origin)} className={buttonVariants({ variant: "outline", className: "border-[#000000] bg-transparent text-[#000000] hover:bg-black/10 hover:text-[#000000] focus-visible:ring-2 focus-visible:ring-[#000000]" })}>
+            <Link href={editProjectReturnPath(project.id, origin)} className={buttonVariants({ variant: "outline", className: "!border-[#000000] bg-transparent text-[#000000] hover:bg-black/10 hover:text-[#000000] focus-visible:ring-2 focus-visible:ring-[#000000]" })}>
               Cancelar
             </Link>
             <Button type="submit" disabled={pending} className="bg-[#7f1d1d] text-[#ffffff] hover:bg-[#681717] hover:text-[#ffffff] focus-visible:ring-2 focus-visible:ring-[#000000]">
