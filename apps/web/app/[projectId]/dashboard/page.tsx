@@ -1014,7 +1014,7 @@ export default async function DashboardPage({
                     <span
                       className={`shrink-0 rounded-[3px] px-2 py-0.5 text-[11px] font-normal uppercase tracking-[0.02em] ${
                         group.status === "CONECTADO"
-                          ? "bg-emerald-600 text-white"
+                          ? "bg-[#166534] text-[#ffffff]"
                           : group.status === "ATENCAO"
                             ? "bg-amber-400 text-black"
                             : group.status === "ERRO"
