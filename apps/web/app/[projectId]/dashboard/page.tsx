@@ -35,7 +35,7 @@ function ExecutiveKpi({
 }) {
   return (
     <div className="flex min-h-[64px] flex-col items-center justify-center rounded-[7px] border border-[#263b5c] bg-[#182941] px-3 py-1 text-center">
-      <div className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-[0.1em] text-[#c9d6e8]">
+      <div className="flex items-center gap-1.5 text-[13px] font-normal uppercase tracking-[0.04em] text-[#c9d6e8]">
         <Icon className="size-3.5" />
         {label}
       </div>
@@ -61,7 +61,7 @@ function Panel({
   return (
     <section className={`rounded-[7px] border border-[#263b5c] bg-[#182941] ${className}`}>
       <div className="border-b border-[#263b5c] px-3 py-1">
-        <h2 className="text-[14px] font-semibold uppercase tracking-[0.1em] text-white">{title}</h2>
+        <h2 className="text-[15px] font-semibold tracking-[0.005em] text-white">{title}</h2>
       </div>
 
       <div className="px-3 py-1">{children}</div>
@@ -91,10 +91,10 @@ function StatusLine({
     <div className="flex items-center justify-between gap-3 border-b border-white/[0.07] py-px last:border-b-0">
       <div className="flex min-w-0 items-center gap-2">
         <span className={`size-2 shrink-0 rounded-full ${dot}`} />
-        <span className="truncate text-[15px] font-medium leading-5 text-white">{label}</span>
+        <span className="break-words text-[15px] font-normal leading-[18px] text-white">{label}</span>
       </div>
 
-      <span className="shrink-0 text-right text-[15px] font-semibold text-white">{compactStatus(value)}</span>
+      <span className="shrink-0 whitespace-nowrap text-right text-[15px] font-semibold text-white">{compactStatus(value)}</span>
     </div>
   );
 }
@@ -117,7 +117,7 @@ function ProgressRing({ percent, size = 72 }: { percent: number | null; size?: n
         className="flex flex-col items-center justify-center rounded-full bg-[#182941]"
         style={{ width: size - 12, height: size - 12 }}
       >
-        <span className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#c9d6e8]">Realizado</span>
+        <span className="text-[10px] font-normal uppercase tracking-[0.04em] text-[#c9d6e8]">Realizado</span>
         <span className="text-lg font-bold leading-tight text-white">
           {percent !== null ? `${percent.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : "—"}
         </span>
@@ -692,7 +692,7 @@ export default async function DashboardPage({
       <div className="mx-auto flex min-h-full w-full max-w-[1920px] flex-col gap-2">
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-[#263b5c] pb-1">
           <div>
-            <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-[#c9d6e8]">AXION CONTROLE DE CONTRATOS</p>
+            <p className="text-[13px] font-normal uppercase tracking-[0.08em] text-[#c9d6e8]">AXION CONTROLE DE CONTRATOS</p>
 
             <h1 className="text-xl font-semibold leading-tight tracking-tight text-white">
               Dashboard Executivo
@@ -718,7 +718,7 @@ export default async function DashboardPage({
                         : "bg-slate-500 text-white"
                 }`}
               >
-                <span className="block whitespace-nowrap text-center text-[14px] font-bold uppercase tracking-wide leading-none">
+                <span className="block whitespace-nowrap text-center text-[14px] font-semibold uppercase tracking-[0.02em] leading-none">
                   {systemStatus.label}
                 </span>
               </div>
@@ -728,7 +728,7 @@ export default async function DashboardPage({
             </div>
 
             <div className="rounded-[5px] border border-[#263b5c] bg-[#182941] px-3 py-1 text-right">
-              <p className="text-[12px] uppercase tracking-wider text-[#b8c7dc]">Atualização operacional</p>
+              <p className="text-[12px] font-normal uppercase tracking-[0.04em] text-[#b8c7dc]">Atualização operacional</p>
               <p className="text-[14px] font-semibold text-white">Dados persistidos no ACC</p>
             </div>
           </div>
@@ -842,7 +842,7 @@ export default async function DashboardPage({
                     key={String(label)}
                     className={`flex h-11 flex-col items-center justify-center rounded-[5px] ${color} ${textColor}`}
                   >
-                    <span className="text-[13px] font-medium leading-none">{label}</span>
+                    <span className="text-[13px] font-normal leading-none">{label}</span>
                     <span className="mt-1 text-xl font-bold leading-none">{Number(value)}</span>
                   </div>
                 ))}
@@ -1008,11 +1008,11 @@ export default async function DashboardPage({
                                 : "bg-slate-400"
                         }`}
                       />
-                      <span className="truncate text-[15px] font-medium text-white">{label}</span>
+                      <span className="break-words text-[15px] font-normal leading-[18px] text-white">{label}</span>
                     </div>
 
                     <span
-                      className={`shrink-0 rounded-[3px] px-2 py-0.5 text-[12px] font-bold uppercase tracking-wide ${
+                      className={`shrink-0 rounded-[3px] px-2 py-0.5 text-[12px] font-semibold uppercase tracking-[0.02em] ${
                         group.status === "CONECTADO"
                           ? "bg-emerald-600 text-white"
                           : group.status === "ATENCAO"
