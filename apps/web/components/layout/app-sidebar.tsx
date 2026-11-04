@@ -107,7 +107,7 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
         <img src="/branding/acc-logo.png" alt="ACC" className="h-[55px] w-auto shrink-0" />
       </div>
 
-      <nav className="flex flex-1 flex-col gap-px p-2">
+      <nav className="flex flex-1 flex-col gap-0 p-2">
         {visibleItems.map((item) => {
           const href = `/${projectId}/${item.href}`;
           const active = pathname?.startsWith(href);
