@@ -1870,7 +1870,7 @@ Conteúdo, identidades, escopo e limites dos especialistas: ver CAP69 cap. 8 (n�
 |---|---|---|
 | Gatilho (hover) | `title="Fale com a AXIA"` | `vera-trigger.tsx:34` |
 | Gatilho (leitor de tela) | `aria-label="Fale com a AXIA — Assistente ACC"`; texto visível "Fale com a AXIA" (oculto em tela estreita; `sr-only` na variante "photo") | `vera-trigger.tsx:33,45,47` |
-| Caixa | `aria-label="AXIA — Assistente ACC"`; título "AXIA — Assistente ACC"; subtítulo "Orienta sobre o uso do ACC. Não altera dados." | `assistant-widget.tsx:243-253` |
+| Caixa | `aria-label="AXIA — Assistente ACC"`; título "AXIA — Assistente ACC"; subtítulo "Ajuda com o ACC" | `assistant-widget.tsx:243-253` |
 | Fechar | `aria-label="Fechar a AXIA"` | `:255` |
 | Campo | placeholder "Digite sua pergunta"; `aria-label="Pergunta para a AXIA"`; botão `aria-label="Enviar pergunta"` | `:347-354` |
 | Carregando | "Procurando a orientação…" | `:307` |
@@ -1888,7 +1888,7 @@ Conteúdo, identidades, escopo e limites dos especialistas: ver CAP69 cap. 8 (n�
   2. O comentário do limitador cita "camada gratuita (F0) do serviço de voz" (`rate-limit.ts:5-6`), referência ao antigo piloto Azure; o serviço atual é ElevenLabs. Só comentário de código, mas confunde quem audita.
   3. O texto do assistente menciona "Fase 3" para a voz (`assistant-widget.tsx:14`; `assistant-voice-controls.tsx:5-6` "Fase 1"/"Fase 3"); manter a numeração de fases consistente no manual.
   4. "Não encontrei esse assunto" é correto, mas a sugestão "Reformule a pergunta com uma dessas palavras" (`knowledge.ts:334`) funcionaria melhor com os botões de sugestão exibidos novamente.
-  5. Acessibilidade: a caixa usa `role="dialog"` com `aria-labelledby` e também `aria-label` (`assistant-widget.tsx:242-244`); manter só um dos dois. A nota "Orienta sobre o uso do ACC. Não altera dados." já cumpre a regra de "não altera evidências / diferencia fato e recomendação" do CLAUDE.md (regra 12).
+  5. Acessibilidade: a caixa usa `role="dialog"` com `aria-labelledby` e também `aria-label` (`assistant-widget.tsx:242-244`); manter só um dos dois. A nota "Ajuda com o ACC" já cumpre a regra de "não altera evidências / diferencia fato e recomendação" do CLAUDE.md (regra 12).
 
 - **Fontes**
   `components/assistant/{assistant-widget,assistant-voice-controls,vera-trigger,vera-events}.ts*`; `app/[projectId]/ajuda/assistente/route.ts`; `app/[projectId]/ajuda/assistente/voz/route.ts`; `app/vera/page.tsx`; `lib/assistant/{answer,knowledge,limits,rate-limit,elevenlabs-speech}.ts`; `components/layout/top-bar.tsx:86`; `app/[projectId]/layout.tsx:63`; `docs/vera-autorizacao-email-e-voz.md` §1, §3, §4; `git status` (alterações locais).
@@ -2429,7 +2429,7 @@ Uso do sistema → AXIA. Contrato/aditivo → Jurídico. Estratégia e valores �
 | Evento, `run-multi-expert-curation-button.tsx:68-71` | “Roteia este evento aos Experts IA competentes e consolida as posições via CEO IA. Análise de IA sujeita a revisão humana — nenhuma ação é executada automaticamente.” |
 | CONSULTAR IA, `alert-consult-panel.tsx:96,116,127` | “A consulta não altera o alerta e não registra nenhuma providência.” · “Resposta de TESTE ({provider}) — nenhuma análise real de IA foi realizada.” · “Fontes utilizadas (consultáveis no ACC)” |
 | SSMA, `app/ssma/.../record-consult.tsx:35-45` | “A consulta não altera o registro nem a ação corretiva.” · “Sem conexão: a consulta exige internet.” |
-| AXIA, `components/assistant/assistant-widget.tsx:243-358` | “Orienta sobre o uso do ACC. Não altera dados.” · “Fale com a AXIA” (`vera-trigger.tsx:33-34`) · “A leitura em voz ainda não está habilitada neste ambiente. A resposta em texto continua disponível.” |
+| AXIA, `components/assistant/assistant-widget.tsx:243-358` | “Ajuda com o ACC” · “Fale com a AXIA” (`vera-trigger.tsx:33-34`) · “A leitura em voz ainda não está habilitada neste ambiente. A resposta em texto continua disponível.” |
 | Base da AXIA, `lib/assistant/knowledge.ts` | Entradas `criterios-risco`, `cores-repeticao`, `alertas-resposta`, `consultar-ia`, `providencias`, `permissoes`, `vera`. **Não há entradas** sobre escalonamento, Matriz de SLA, hub Experts IA, ação ESPECIALISTA, curadoria ou CEO IA — essas perguntas caem no texto de “não encontrei”. |
 
 #### 9.2.2 **Sugestões de melhoria** (não aplicadas; nada foi alterado no código)

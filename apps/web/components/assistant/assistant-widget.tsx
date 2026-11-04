@@ -250,7 +250,7 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
           <p id="vera-titulo" className="text-sm font-bold leading-tight">
             AXIA — Assistente ACC
           </p>
-          <p className="text-xs leading-tight text-white/80">Orienta sobre o uso do ACC. Não altera dados.</p>
+          <p className="text-xs leading-tight text-white/80">Ajuda com o ACC</p>
         </div>
         <button type="button" onClick={closeBox} aria-label="Fechar a AXIA" className="flex size-11 items-center justify-center rounded-md hover:bg-white/15">
           <X className="size-5" />
@@ -279,9 +279,9 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
         {turns.map((turn, index) => (
           <div key={index} className="space-y-2">
             <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-gray-100 px-3 py-2 text-gray-900">{turn.question}</p>
-            <div className="space-y-2 rounded-2xl rounded-bl-sm border border-gray-200 px-3 py-2">
-              {turn.answer.readOnlyNotice ? <p className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-900">{turn.answer.readOnlyNotice}</p> : null}
-              <p className="font-bold text-gray-900">{turn.answer.title}</p>
+            <div data-axia-resposta className="space-y-2 rounded-2xl rounded-bl-sm border border-gray-300 bg-[#ffffff] px-3 py-2 text-[#000000]">
+              {turn.answer.readOnlyNotice ? <p className="rounded-md bg-[#fff3cd] px-2 py-1 text-xs text-[#000000]">{turn.answer.readOnlyNotice}</p> : null}
+              <p className="font-bold text-[#000000]">{turn.answer.title}</p>
               <p>{turn.answer.summary}</p>
               {turn.answer.steps.length > 0 ? (
                 <ol className="list-decimal space-y-1 pl-5">
@@ -297,7 +297,7 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
                       {link.label}
                     </Link>
                   ))}
-                  {turn.answer.tutorialSlide ? <span className="px-1 py-1 text-xs text-gray-500">Tutorial: slide {turn.answer.tutorialSlide}</span> : null}
+                  {turn.answer.tutorialSlide ? <span className="px-1 py-1 text-xs text-[#000000]">Tutorial: slide {turn.answer.tutorialSlide}</span> : null}
                 </div>
               ) : null}
             </div>
@@ -358,7 +358,7 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
           </button>
         </form>
 
-        <Link href={`/${projectId}/ajuda`} className="inline-flex min-h-9 items-center gap-1 text-xs font-semibold text-brand-sidebar hover:underline">
+        <Link href={`/${projectId}/ajuda`} className="inline-flex min-h-9 items-center gap-1 text-xs font-semibold text-[#ffd54f] hover:underline">
           <BookOpen className="size-4" />
           Abrir o tutorial completo (PDF e PowerPoint)
         </Link>

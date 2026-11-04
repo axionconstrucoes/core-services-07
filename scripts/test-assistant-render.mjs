@@ -128,5 +128,18 @@ await check("gatilho 'Fale com a AXIA' na barra superior: ícone + texto no MESM
   ok(side.includes("h-[55px]") && side.includes("/branding/acc-logo.png"), "logo ACC da lateral mantido, 15% maior (48 px → 55 px)");
 });
 
+await check("caixa da AXIA: subtítulo 'Ajuda com o ACC', cartão de resposta branco com texto preto, link do tutorial amarelo #FFD54F, chip Eventos vinho com texto branco", () => {
+  const w = readFileSync(path.join(root, "apps", "web", "components", "assistant", "assistant-widget.tsx"), "utf8");
+  ok(w.includes("AXIA — Assistente ACC") && w.includes(">Ajuda com o ACC<"), "título mantido e subtítulo 'Ajuda com o ACC'");
+  ok(!w.includes("Orienta sobre o uso do ACC"), "subtítulo antigo removido");
+  const card = w.split("\n").find((l) => l.includes("data-axia-resposta")) ?? "";
+  ok(card.includes("bg-[#ffffff]") && card.includes("text-[#000000]"), "cartão da resposta: fundo #FFFFFF e texto #000000");
+  ok(/font-bold text-\[#000000\]\">\{turn\.answer\.title/.test(w), "título da resposta em preto");
+  ok(/text-\[#000000\]\">Tutorial: slide/.test(w), "'Tutorial: slide N' em preto");
+  ok(/text-\[#ffd54f\] hover:underline/.test(w) && w.includes("<BookOpen"), "link 'Abrir o tutorial completo' amarelo #FFD54F (texto e ícone por currentColor)");
+  ok(w.includes("bg-brand-sidebar px-2 py-1.5 text-xs font-semibold text-white"), "chip de link (Eventos) vinho com texto branco");
+  ok(!/answer[^\n]*text-gray-(500|600|700|800|900)/.test(w.split("\n").filter((l) => /turn\.answer\.(title|summary)/.test(l)).join("\n")), "sem cinzas no conteúdo da resposta");
+});
+
 console.log(`\nRESULTADO: ${passed} passaram, ${failed} falharam`);
 process.exit(failed === 0 ? 0 : 1);
