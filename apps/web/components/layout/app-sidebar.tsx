@@ -107,7 +107,7 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
         <img src="/branding/acc-logo.png" alt="ACC" className="h-[55px] w-auto shrink-0" />
       </div>
 
-      <nav className="flex flex-1 flex-col gap-0.5 p-2">
+      <nav className="flex flex-1 flex-col gap-px p-2">
         {visibleItems.map((item) => {
           const href = `/${projectId}/${item.href}`;
           const active = pathname?.startsWith(href);
@@ -133,7 +133,7 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
               // adiantar rotas que o usuário ainda não pediu.
               prefetch={false}
               className={cn(
-                "flex min-h-11 items-center gap-2 rounded-[5px] px-3 py-2 text-[15px] font-medium transition-colors",
+                "flex min-h-9 items-center gap-2 rounded-[5px] px-3 py-1.5 text-[15px] font-medium transition-colors",
                 collapsed && "justify-center px-0",
                 "max-md:justify-center max-md:px-0",
                 active ? "bg-[#f7f3ea] font-semibold text-[#5e1414]" : "text-white/85 hover:bg-white/10 hover:text-white"

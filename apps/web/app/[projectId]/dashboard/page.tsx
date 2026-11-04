@@ -60,11 +60,11 @@ function Panel({
 }) {
   return (
     <section className={`rounded-[7px] border border-[#263b5c] bg-[#182941] ${className}`}>
-      <div className="border-b border-[#263b5c] px-3 py-1">
+      <div className="border-b border-[#263b5c] px-2.5 py-1">
         <h2 className="text-[15px] font-semibold tracking-[0.005em] text-white">{title}</h2>
       </div>
 
-      <div className="px-3 py-1">{children}</div>
+      <div className="px-2.5 py-1">{children}</div>
     </section>
   );
 }
@@ -88,10 +88,10 @@ function StatusLine({
           : "bg-slate-400";
 
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-white/[0.07] py-px last:border-b-0">
-      <div className="flex min-w-0 items-center gap-2">
+    <div className="flex items-center justify-between gap-2 border-b border-white/[0.07] py-px last:border-b-0">
+      <div className="flex min-w-0 items-center gap-1.5">
         <span className={`size-2 shrink-0 rounded-full ${dot}`} />
-        <span className="break-words text-[15px] font-normal leading-[18px] text-white">{label}</span>
+        <span className="break-words text-[14px] font-normal leading-[18px] text-white">{label}</span>
       </div>
 
       <span className="shrink-0 whitespace-nowrap text-right text-[15px] font-semibold text-white">{compactStatus(value)}</span>
@@ -1008,7 +1008,7 @@ export default async function DashboardPage({
                                 : "bg-slate-400"
                         }`}
                       />
-                      <span className="break-words text-[15px] font-normal leading-[18px] text-white">{label}</span>
+                      <span className="break-words text-[14px] font-normal leading-[18px] text-white">{label}</span>
                     </div>
 
                     <span
