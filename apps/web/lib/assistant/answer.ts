@@ -15,6 +15,7 @@ import {
   getAssistantEntry,
   type AssistantEntry,
 } from "./knowledge";
+import { PENDING_REVIEW_PATTERNS } from "./approved-batch-1";
 import { QA_FIXTURE_ENTRIES } from "./qa-fixtures";
 import { qaFixturesEnabled, resolveAdminHandoff, type AdminHandoff, type AnswerCoverage } from "./qa-handoff";
 
@@ -96,6 +97,8 @@ export function scoreEntry(entry: AssistantEntry, normalizedQuestion: string, qu
   for (const token of questionTokens) {
     if (title.includes(token)) score += 1;
   }
+  // Entradas com seção do manual (Q&A aprovado) têm prioridade sobre o texto genérico quando já casaram por frase-chave.
+  if (entry.manualSection && score >= 3) score += 4;
   return score;
 }
 
@@ -133,7 +136,9 @@ export function answerQuestion(
   );
   const best = ranked[0];
 
-  if (!best || best.score < MIN_SCORE) {
+  const heldForReview = !!best && best.entry.id.startsWith("qa-") && PENDING_REVIEW_PATTERNS.some((pattern) => pattern.test(normalized));
+
+  if (!best || best.score < MIN_SCORE || heldForReview) {
     return {
       mode: "BASE_CONHECIMENTO",
       entryId: ASSISTANT_FALLBACK.id,
