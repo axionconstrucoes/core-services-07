@@ -58,7 +58,7 @@ const nonAdmin = await converse({ question: "como envio documetnos pro sistema",
 t("não elegível: sem chamada à IA, sem reserva de orçamento, resposta determinística do Q&A", calls === 0 && store.snapshot().calls === 0 && nonAdmin.via === "base");
 const social = await converse({ question: "Bom dia!", projectId: A, env: {}, provider: prov, budgetStore: store, aiAllowed: false, userKey: "col" });
 t("não elegível: saudações básicas e Q&A aprovado seguem normais", calls === 0 && social.kind === "social" && (await converse({ question: "Como entro no ACC e escolho a obra?", projectId: A, env: {}, provider: prov, budgetStore: store, aiAllowed: false })).entryId === "qa-N2");
-const admin = await converse({ question: "algo estranho aqui", projectId: A, env: {}, provider: prov, budgetStore: store, aiAllowed: true, userKey: "adm" });
+const admin = await converse({ question: "o botao verificar", projectId: A, env: {}, provider: prov, budgetStore: store, aiAllowed: true, userKey: "adm" });
 t("elegível: a IA é chamada (uma vez) e o gasto é registrado", calls === 1 && store.snapshot().calls === 1 && admin.via === "ia");
 
 // fiação das rotas

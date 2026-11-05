@@ -173,7 +173,7 @@ await wipe();
 }
 
 // ───────────────────────── 4. contabilidade em timeout / incerteza (orquestrador) ─────────────────────────
-const asked = (store, provider, extra = {}) => orch.converse({ question: "algo estranho aqui", projectId: P1, env: {}, provider, budgetStore: store, userKey: U(7), now: NOW, ...extra });
+const asked = (store, provider, extra = {}) => orch.converse({ question: "o botao verificar", projectId: P1, env: {}, provider, budgetStore: store, userKey: U(7), now: NOW, ...extra });
 const usageOK = { inputTokens: 3400, outputTokens: 120 };
 const ok400 = { id: "anthropic", model: "m", plan: async () => ({ raw: { intent: "unclear", entry_ids: [] }, usage: usageOK }) };
 
@@ -295,7 +295,7 @@ for (const kind of ["memória", "SQL"]) {
   const prov = { id: "anthropic", model: "m", plan: async () => { calls++; inFlight++; maxInFlight = Math.max(maxInFlight, inFlight); await sleep(5); inFlight--; return { raw: { intent: "unclear", entry_ids: [] }, usage: null }; } };
   const env = { AXIA_CHAT_DAILY_BUDGET_USD: String((WORST * 25) / 1e6), AXIA_CHAT_USER_DAILY_CALLS: "100" };
   orch.resetChatCircuit();
-  const answers = await Promise.all(Array.from({ length: 200 }, (_, i) => orch.converse({ question: `algo estranho aqui ${i}`, projectId: P1, env, provider: prov, budgetStore: sql, userKey: U(1 + (i % 20)), now: NOW })));
+  const answers = await Promise.all(Array.from({ length: 200 }, (_, i) => orch.converse({ question: `o botao verificar ${i}`, projectId: P1, env, provider: prov, budgetStore: sql, userKey: U(1 + (i % 20)), now: NOW })));
   const d = await day();
   t("200 conversas simultâneas contra um teto de 25 reservas: só 25 chamadas à IA, as outras 175 pela base", calls === 25 && answers.filter((a) => a.via === "ia").length === 25 && answers.filter((a) => a.via === "base").length === 175);
   t("gasto final = 25 × pior caso (sem usage a reserva permanece) e nunca passou do teto; há execuções realmente simultâneas", d.spent === 25 * WORST && d.spent <= budget.toMicros((WORST * 25) / 1e6) && maxInFlight > 1);

@@ -251,7 +251,7 @@ export function AssistantWidget({ projectId }: { projectId: string | null }) {
 
   const last = turns[turns.length - 1];
   // "Falar com o ADMIN": resposta parcial, ausência de resposta aprovada ou clique em "Isso não respondeu à minha pergunta".
-  const needsAdmin = Boolean(last && last.answer.kind !== "social" && (last.answer.coverage !== "completa" || last.notAnswered));
+  const needsAdmin = Boolean(last && last.answer.kind !== "social" && last.answer.kind !== "scope" && (last.answer.coverage !== "completa" || last.notAnswered));
 
   return (
     <section
@@ -303,8 +303,11 @@ export function AssistantWidget({ projectId }: { projectId: string | null }) {
                 </p>
               ) : null}
               {turn.answer.readOnlyNotice ? <p className="rounded-md bg-[#fff3cd] px-2 py-1 text-xs text-[#000000]">{turn.answer.readOnlyNotice}</p> : null}
-              {turn.answer.kind === "social" ? (
-                <p>{turn.answer.summary}</p>
+              {turn.answer.kind === "social" || turn.answer.kind === "scope" ? (
+                <>
+                  {turn.answer.kind === "scope" ? <p className="font-bold text-[#000000]">{turn.answer.title}</p> : null}
+                  <p data-axia-escopo={turn.answer.kind === "scope" ? "" : undefined}>{turn.answer.summary}</p>
+                </>
               ) : (
                 <>
                   <p className="font-bold text-[#000000]">{turn.answer.title}</p>

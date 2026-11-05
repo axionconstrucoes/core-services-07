@@ -326,6 +326,7 @@ export const APPROVED_BATCH_1_ENTRIES: AssistantEntry[] = [
 export const PENDING_REVIEW_PATTERNS: RegExp[] = [
   /quem (define|decide|pode (mudar|alterar|reclassificar|registrar)|reclassifica|revisa).*(grau|risco|nivel)/, // R2
   /(reclassificar|reclassifica|reclassificado)/, // R2, R10
+  /\b(quem|qual (perfil|papel|cargo|pessoa))\b.*\b(define|decide|muda|mudar|altera|alterar|registra|registrar|revisa|revisar|autoridade|aprova|aprovar)\b.*\b(gravidade|classificacao|severidade|grau de risco|nivel de risco)\b|\bautoridade para (mudar|alterar|definir|classificar)\b/, // R2 (paráfrases)
   /(prazo|sla).*(feriado|fim de semana|sabado|domingo)|(feriado|fim de semana).*(prazo|sla)/, // E6, R6
   /(como|quando) .*(alerta|aviso) .*(e enviado|enviado|chega)/, // R8, R9, E5
   /\bsla\b|matriz de prazos/, // E10 (configuração da matriz); prazos por grau são respondidos por E2/R7 (guards.ts)
