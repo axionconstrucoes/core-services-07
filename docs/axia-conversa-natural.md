@@ -68,7 +68,7 @@ Cálculo do cenário base: 3 × 3.400 = 10.200 tokens × US$ 0,10/MTok = US$ 0,0
 
 ## Validação
 
-`scripts/test-axia-conversa.mjs` (95 verificações, sem rede), `scripts/test-axia-budget.mjs` (57, PGlite) e `scripts/test-axia-budget-replay.mjs` (18, schema completo): cumprimentos, idade, identidade, agradecimentos, brincadeira, erros de digitação, saudação + dúvida, pergunta composta, pedido de esclarecimento (e repetição → Ajuda/ADMIN), perguntas pendentes (com e sem IA, inclusive se o "modelo" escolher outra entrada), tentativas de induzir regra inventada, planos maliciosos do provedor, falha/limite/tempo do provedor, conteúdo das mensagens enviadas, formato da chamada Anthropic (cliente falso) e isolamento entre projetos. A validação com o **modelo real** depende de ativar a chave/modelo (não feita).
+`scripts/test-axia-conversa.mjs` (95 verificações, sem rede), `scripts/test-axia-acesso.mjs` (16), `scripts/test-axia-budget.mjs` (57, PGlite) e `scripts/test-axia-budget-replay.mjs` (18, schema completo): cumprimentos, idade, identidade, agradecimentos, brincadeira, erros de digitação, saudação + dúvida, pergunta composta, pedido de esclarecimento (e repetição → Ajuda/ADMIN), perguntas pendentes (com e sem IA, inclusive se o "modelo" escolher outra entrada), tentativas de induzir regra inventada, planos maliciosos do provedor, falha/limite/tempo do provedor, conteúdo das mensagens enviadas, formato da chamada Anthropic (cliente falso) e isolamento entre projetos. A validação com o **modelo real** depende de ativar a chave/modelo (não feita).
 
 ## Guardas determinísticas (rodam antes da IA, com ou sem provedor) — `apps/web/lib/assistant/guards.ts`
 
@@ -173,6 +173,31 @@ Otimização possível (não implementada): cache de prompt (o prefixo fixo ≈ 
 Limites do substituto: não é o Supabase real (auth/storage simplificados) e o PGlite serializa as consultas; a atomicidade sob concorrência real é a do `UPDATE` condicional do PostgreSQL. **Recomenda-se repetir no banco descartável Docker/Supabase em um computador com Docker antes de aplicar em produção** (`scripts/sql/replay-pending-migrations-disposable.sh`).
 
 **Regressão com a IA desligada** (`AXIA_CHAT_PROVIDER` ausente): 1.179 perguntas geradas do catálogo comparadas ao Q&A da `main` (`4077ce0`) — 1.165 idênticas; as 14 diferenças são intencionais: 11 de identidade/capacidades da AXIA ("quem é você", "o que você faz", "seu nome" → resposta social em vez do texto antigo "vera") e 3 de prazo por grau (R7 no lugar do encaminhamento). O teste da suíte mantém essa garantia.
+
+## Piloto restrito aos administradores (`AXIA_CHAT_ACCESS`)
+
+Não existia controle de acesso à IA por perfil (a AXIA é aberta a todo membro). Implementado `apps/web/lib/assistant/chat-access.ts`: com `AXIA_CHAT_ACCESS=admins` (**padrão**, valor desconhecido = admins), a IA só é chamada para quem é **ADMINISTRADOR ativo** da obra (na tela "Selecione um projeto": administrador ativo em alguma obra). A permissão é lida com a **sessão do usuário (RLS)**, nunca com o cliente de serviço; erro de leitura = não elegível. Quem não é elegível recebe exatamente o Q&A determinístico (mesmas respostas aprovadas, saudações básicas e encaminhamentos), sem chamar a IA nem reservar orçamento. `AXIA_CHAT_ACCESS=all` libera a todos os membros (liberação progressiva). Teste: `scripts/test-axia-acesso.mjs` (16).
+
+## Valores pretendidos (produção) — preparados, IA desligada
+
+| Variável | Valor | Observação |
+|---|---|---|
+| `AXIA_CHAT_PROVIDER` | **`off`** | só muda para `anthropic` com autorização específica |
+| `AXIA_CHAT_MODEL` | `claude-haiku-5-5` | |
+| `AXIA_CHAT_DAILY_BUDGET_USD` | `1` | teto global/dia (≈ 1.700 chamadas) |
+| `AXIA_CHAT_USER_DAILY_CALLS` | `100` | por usuário/dia |
+| `AXIA_CHAT_ACCESS` | `admins` | piloto |
+
+## Aplicação da migration, verificação e reversão
+
+**Pré-condições (todas):** (1) backup recente confirmado no painel do Supabase (Database → Backups; PITR está desativado, backups diários) e procedimento de recuperação conhecido; (2) lista de migrations do remoto conferida (`supabase migration list --linked`): só `20261105150000` pendente; (3) autorização explícita para alterar o banco de produção.
+
+**Aplicar:** `supabase db push --linked` (aplica **apenas** a pendente). **Verificar (somente leitura + 1 teste):** 3 tabelas `axia_chat_*` com RLS ligada; 6 funções `SECURITY DEFINER` com `search_path` vazio; `has_function_privilege('anon'|'authenticated', …, 'execute')` falso; teste financeiro **sem chamada paga**: com o `service_role`, `axia_chat_reserve(null, 1, 1000000, 1)` seguido de `axia_chat_release(<id>)` (volta a zero).
+
+**Reversão (ordem de preferência):**
+1. *Desligar a IA (imediato, sem tocar no banco):* kill-switch de gasto — `update public.axia_chat_budget_day set spent_micros = 1000000000 where day = (now() at time zone 'utc')::date;` (nenhuma reserva passa até o dia seguinte UTC); e/ou remover `AXIA_CHAT_PROVIDER` + redeploy. Com a IA desligada o sistema funciona sem as tabelas.
+2. *Restaurar backup:* só em desastre (substitui o banco inteiro; perde o que foi gravado depois do backup).
+3. *Remoção das estruturas novas:* **não** executar `DROP` das tabelas de orçamento se contiverem dados reais sem autorização específica (guardam o histórico de consumo); `supabase migration repair` só acerta o histórico de migrations — **não** é reversão física.
 
 ## Para ativar em produção (depois da aprovação — NÃO feito)
 
