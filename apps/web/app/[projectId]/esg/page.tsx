@@ -15,6 +15,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { askEsgDirectorAction } from "@/lib/ai/esg-query-action";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { getClauses } from "@/lib/data";
+import { computeEsgSummary } from "@/lib/dashboard-visual/compute-esg-summary";
+import { ESG_FILTROS, parseEsgFiltro } from "@/lib/esg/esg-filtro";
 import { computeObligationRisk } from "@/lib/esg/compute-obligation-risk";
 import {
   getEsgObligationEvidenceForProject,
@@ -34,8 +36,15 @@ import {
 
 export const metadata: Metadata = { title: "ESG / SSMA" };
 
-export default async function EsgObligationsPage({ params }: { params: Promise<{ projectId: string }> }) {
+export default async function EsgObligationsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ filtro?: string | string[] }>;
+}) {
   const { projectId } = await params;
+  const filtro = parseEsgFiltro((await searchParams).filtro);
 
   const [obligations, submissions, evidence, permission, clauses] = await Promise.all([
     getEsgObligations(projectId),
@@ -114,6 +123,10 @@ export default async function EsgObligationsPage({ params }: { params: Promise<{
     }
   }
 
+  const filtroItems = filtro
+    ? computeEsgSummary(obligations, submissions, evidence, today).items[ESG_FILTROS[filtro].bucket]
+    : [];
+
   const clauseOptions = clauses.map((c) => ({
     id: c.id,
     label: `Cláusula ${c.clauseNumber} — ${c.title}`,
@@ -153,7 +166,47 @@ export default async function EsgObligationsPage({ params }: { params: Promise<{
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="pendencias">
+      {filtro ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {ESG_FILTROS[filtro].label} — Obrigações que compõem: {filtroItems.length}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Posição atual das obrigações ativas (comprovação mais recente de cada uma).{" "}
+              <Link href={`/${projectId}/esg`} className="underline">
+                Limpar filtro
+              </Link>
+            </p>
+          </CardHeader>
+          <CardContent>
+            {filtroItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma obrigação neste grupo.</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {filtroItems.map((item) => (
+                  <li key={item.obligationId} className="rounded-md border bg-muted/30 p-3 text-sm">
+                    <Link href={`/${projectId}/esg?filtro=${filtro}#obrigacao-${item.obligationId}`} className="font-medium underline">
+                      {item.title}
+                    </Link>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <span>{esgObligationCategoryLabels[item.category]}</span>
+                      <span>Responsável: {item.responsibleLabel ?? "não informado"}</span>
+                      <span>Status: {item.status ? esgObligationStatusLabels[item.status] : "Sem comprovação"}</span>
+                      <span>Prazo: {item.dueDate ? formatDate(item.dueDate) : "sem prazo"}</span>
+                      <span>Evidências: {item.evidenceCount}</span>
+                      <span>Revisão: {item.reviewedAt ? `revisado em ${formatDateTime(item.reviewedAt)}` : "aguardando revisão"}</span>
+                      {item.riskLevel ? <SeverityBadge severity={confrontationSeverityToAlertSeverity[item.riskLevel]} /> : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Tabs defaultValue={filtro ? "checklist" : "pendencias"}>
         <TabsList>
           <span className="inline-flex items-center gap-1">
             <TabsTrigger value="pendencias">Minhas pendências</TabsTrigger>
@@ -199,7 +252,7 @@ export default async function EsgObligationsPage({ params }: { params: Promise<{
             obligations.map((obligation) => {
               const obligationSubmissions = submissionsByObligationId.get(obligation.id) ?? [];
               return (
-                <Card key={obligation.id}>
+                <Card key={obligation.id} id={`obrigacao-${obligation.id}`}>
                   <CardHeader className="gap-2">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
