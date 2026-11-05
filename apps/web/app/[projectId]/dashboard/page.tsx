@@ -876,7 +876,7 @@ export default async function DashboardPage({
               />
               <p className="pt-1 text-[10px] leading-tight text-[#b8c7dc]">
                 {ssmaDash.hasData
-                  ? `Fonte: ${ssmaDash.sources.forms} formulário(s) e ${ssmaDash.sources.fieldRecords} registro(s) de campo SSMA; obrigações ESG cadastradas. Zero = nenhum registrado.`
+                  ? `Fonte: ${ssmaDash.sources.forms} formulário(s) e ${ssmaDash.sources.fieldRecords} registro(s) de campo SSMA${ssmaDash.period ? `, de ${new Date(ssmaDash.period.firstAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} a ${new Date(ssmaDash.period.lastAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}${ssmaDash.occurrenceSources && ssmaDash.occurrenceSources.duplicatesDiscounted > 0 ? `; ${ssmaDash.occurrenceSources.duplicatesDiscounted} relato(s) do mesmo fato contado(s) uma vez` : ""}. Zero = nenhum registrado.`
                   : "Sem registros SSMA nesta obra ainda: “—” significa sem dado, não zero."}
               </p>
             </Panel>
