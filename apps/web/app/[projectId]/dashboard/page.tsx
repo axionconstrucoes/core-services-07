@@ -61,7 +61,7 @@ function Panel({
   return (
     <section className={`rounded-[7px] border border-[#263b5c] bg-[#182941] ${className}`}>
       <div className="border-b border-[#263b5c] px-2.5 py-1">
-        <h2 className="text-[15px] font-semibold tracking-[0.005em] text-white">{title}</h2>
+        <h2 className="text-[15px] font-medium tracking-[0.005em] text-white">{title}</h2>
       </div>
 
       <div className="px-2.5 py-1">{children}</div>
@@ -716,7 +716,7 @@ export default async function DashboardPage({
           {/* Marca fica só na barra superior. Nome e código da obra ativa: uma linha, peso regular; em tela estreita
               trunca com reticências e o texto completo aparece no title (mouse) e ao focar com o teclado (Tab). */}
           <div className="flex min-w-[16rem] flex-1 items-baseline gap-3">
-            <h1 className="shrink-0 text-xl font-semibold leading-tight tracking-tight text-white">Dashboard Executivo</h1>
+            <h1 className="shrink-0 text-xl font-medium leading-tight tracking-tight text-white">Dashboard Executivo</h1>
             <p
               tabIndex={0}
               title={projectLabel}
