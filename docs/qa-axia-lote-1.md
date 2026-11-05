@@ -68,6 +68,8 @@
 
 ## Painel de aprovação (38 entradas)
 
+> **Integração do lote 1 (05/11/2026):** por autorização do Reynaldo, as **20 entradas PRONTAS** (N2, N7, N8, R1, R3, R4, R5, R7, E1, E2, E3, E4, E7, E9, X1–X6) foram integradas à AXIA (`apps/web/lib/assistant/approved-batch-1.ts`), cada uma com a seção do manual. As **18 restantes** (7 com ressalva e 11 que aguardam decisão) **continuam em revisão** e não foram integradas; perguntas sobre elas seguem o encaminhamento para a Ajuda. **Falar com o ADMIN:** orientação **em texto**; o hiperlink fica **pendente** (G1, sem canal oficial). O destino fictício `example.invalid` existe só nos testes.
+
 **Contagem por status (38 = 20 + 7 + 11), conferida contra as listas de IDs:**
 
 | Status | Qtd | IDs |
