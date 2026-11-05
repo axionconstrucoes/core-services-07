@@ -24,6 +24,7 @@
 import { createSupabaseServerClient } from "@axion/db/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
+import { LEGAL_ADMIN_ONLY_MESSAGE } from "@/lib/legal/access";
 import {
   EmptyDocumentTextError,
   UnsupportedDocumentFormatError,
@@ -81,6 +82,8 @@ async function authorizeWorkspace(
 
   const permission = await getCurrentProjectPermission(projectId);
   if (permission === null) return { ok: false, message: "Você não possui acesso ativo a esta análise." };
+  // Jurídico IA: somente administrador ativo (a UI também esconde a tela; aqui é a barreira do servidor).
+  if (permission !== "ADMINISTRADOR") return { ok: false, message: LEGAL_ADMIN_ONLY_MESSAGE };
 
   const { data: projectData, error: projectError } = await supabase
     .from("projects")

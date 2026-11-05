@@ -11,6 +11,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { initialAskCommercialDirectorState } from "@/lib/ai/expert-query-state";
 import { askLegalConsultantAction } from "@/lib/ai/legal-query-action";
+import { notFound } from "next/navigation";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { getProject } from "@/lib/data";
 import { getManagedDocuments } from "@/lib/document-management";
@@ -42,6 +43,8 @@ export default async function ProjectLegalPage({ params, searchParams }: { param
     CONTRACTUAL_KINDS.has(document.kind) || Boolean(document.parentDocumentId)
   );
   const isPrecontract = project.workspaceType === "PRE_CONTRATUAL";
+  // Análise jurídica pré-contratual ("Jurídico IA"): SOMENTE administrador ativo deste espaço (rota direta = 404 para os demais).
+  if (isPrecontract && permission !== "ADMINISTRADOR") notFound();
   const canUpload = permission === "ADMINISTRADOR" || permission === "GESTOR" || permission === "GERENTE";
 
   // Documentos ja existentes, carregados NO SERVIDOR e entregues ao card:

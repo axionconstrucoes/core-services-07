@@ -1,21 +1,25 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { deleteOwnLegalConsultation } from "@/lib/legal/consultations";
 
-// Exclui a consulta jurídica do PRÓPRIO autor (autoria da sessão; RLS no banco). Exige confirmação explícita.
-// Não revela se a consulta existe quando não é do autor: o resultado para quem não é o autor é idêntico ao de "não encontrada".
-export async function deleteLegalConsultationAction(formData: FormData): Promise<void> {
+export type DeleteLegalConsultationResult = { ok: boolean; message: string };
+
+// Exclui a consulta jurídica do PRÓPRIO autor (autoria vem da sessão no servidor; a RLS do banco é a barreira final).
+// Exige confirmação explícita. Não revela se a consulta existe quando não é do autor: o resultado para quem não é o autor é
+// idêntico ao de "não encontrada". Devolve o resultado (sem redirecionar) para a interface atualizar a lista e limpar a resposta aberta.
+export async function deleteLegalConsultationAction(formData: FormData): Promise<DeleteLegalConsultationResult> {
+  const fail: DeleteLegalConsultationResult = { ok: false, message: "Não foi possível excluir a consulta." };
   const projectId = String(formData.get("projectId") ?? "").trim();
   const consultationId = String(formData.get("consultationId") ?? "").trim();
   const confirmed = String(formData.get("confirmed") ?? "") === "true";
 
-  if (!projectId || !consultationId || !confirmed) redirect(`/${projectId}/juridico?consulta=nao-excluida`);
-  if ((await getCurrentProjectPermission(projectId)) === null) redirect(`/${projectId}/juridico?consulta=nao-excluida`);
+  if (!projectId || !consultationId || !confirmed) return fail;
+  if ((await getCurrentProjectPermission(projectId)) === null) return fail;
 
   const deleted = await deleteOwnLegalConsultation(projectId, consultationId);
+  if (!deleted) return fail;
   revalidatePath(`/${projectId}/juridico`);
-  redirect(`/${projectId}/juridico?consulta=${deleted ? "excluida" : "nao-excluida"}`);
+  return { ok: true, message: "Consulta excluída do seu histórico." };
 }

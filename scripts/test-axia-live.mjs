@@ -19,14 +19,29 @@ if (env0.ACC_ALLOW_LIVE_AI_TESTS !== "1" && env0.ACC_LIVE_DRYRUN !== "1") {
   console.log("[test-axia-live] ACC_ALLOW_LIVE_AI_TESTS=1 não definido — NENHUMA chamada feita.");
   process.exit(0);
 }
+// Carregamento da chave (nunca impressa): 1) ambiente do terminal; 2) apps/web/.env.local (arquivo IGNORADO pelo Git), linha ANTHROPIC_API_KEY=...
+if (!env0.ANTHROPIC_API_KEY) {
+  try {
+    const { readFileSync } = await import("node:fs");
+    const line = readFileSync(new URL("../apps/web/.env.local", import.meta.url), "utf8").split(/\r?\n/).find((l) => /^ANTHROPIC_API_KEY=./.test(l));
+    if (line) env0.ANTHROPIC_API_KEY = line.slice("ANTHROPIC_API_KEY=".length).trim().replace(/^"|"$/g, "");
+  } catch { /* sem arquivo: segue sem chave */ }
+}
 const DRY = env0.ACC_LIVE_DRYRUN === "1"; // ensaio SEM rede e SEM custo, com o simulador (só valida os critérios do script)
 if (!env0.ANTHROPIC_API_KEY && !DRY) {
-  console.log("[test-axia-live] ANTHROPIC_API_KEY ausente — NENHUMA chamada feita.");
+  console.log("[test-axia-live] ANTHROPIC_API_KEY ausente — NENHUMA chamada feita. Insira a chave em UM destes lugares (sem aspas extras, sem commitar): (1) no terminal: $env:ANTHROPIC_API_KEY=\"...\" ; (2) em apps/web/.env.local (ignorado pelo Git), na linha ANTHROPIC_API_KEY=...");
   process.exit(0);
 }
 if (env0.AXIA_CHAT_MODEL && env0.AXIA_CHAT_MODEL !== MODEL) {
   console.log(`[test-axia-live] modelo recusado (${env0.AXIA_CHAT_MODEL}); este teste só valida ${MODEL}.`);
   process.exit(2);
+}
+// Preflight SEM custo: confirma que o provedor aceita o identificador do modelo (GET /v1/models/{id}; não consome tokens).
+if (!DRY) {
+  const res = await fetch(`https://api.anthropic.com/v1/models/${MODEL}`, { headers: { "x-api-key": env0.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" } });
+  const info = res.ok ? await res.json().catch(() => ({})) : {};
+  console.log(`[test-axia-live] preflight do modelo ${MODEL}: HTTP ${res.status}${res.ok && info.id === MODEL ? " — identificador ACEITO pelo provedor" : " — identificador NÃO confirmado"}`);
+  if (!res.ok || info.id !== MODEL) process.exit(2);
 }
 const budgetUsd = Math.min(HARD_CAP_USD, Number(env0.ACC_LIVE_BUDGET_USD ?? HARD_CAP_USD) || HARD_CAP_USD);
 

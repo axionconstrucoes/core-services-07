@@ -5,12 +5,16 @@ import { InstitutionalBackground } from "@/components/brand/institutional-backgr
 import { PrecontractWorkspaceCreateForm } from "@/components/legal/precontract-workspace-create-form";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { notFound } from "next/navigation";
+import { isActiveAdminAnywhere } from "@/lib/legal/access";
 import { getProjects } from "@/lib/data";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = { title: "Jurídico pré-contratual" };
 
 export default async function JuridicoPage() {
+  // Rota direta: só administrador ativo; os demais recebem 404 (igual a "não existe").
+  if (!(await isActiveAdminAnywhere())) notFound();
   const projects = await getProjects();
   const workspaces = projects.filter((project) => project.workspaceType === "PRE_CONTRATUAL");
 

@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from "@axion/db/server";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
+import { LEGAL_ADMIN_ONLY_MESSAGE, isActiveAdminOfProject } from "@/lib/legal/access";
 import { answerLegalConsultantQuery } from "./experts/legal-consultant/query";
 import {
   MISSING_QUERY_CONTEXT_MESSAGE,
@@ -31,6 +32,9 @@ export async function askLegalConsultantAction(
   if ((await getCurrentProjectPermission(projectId)) === null) {
     return { response: null, error: "Você não possui acesso ativo a este espaço.", meta: null };
   }
+
+  // Jurídico IA: somente administrador ativo do espaço (servidor; a UI também esconde a tela).
+  if (!(await isActiveAdminOfProject(projectId))) return { response: null, error: LEGAL_ADMIN_ONLY_MESSAGE, meta: null };
 
   const supabase = await createSupabaseServerClient();
 
@@ -67,12 +71,13 @@ export async function askLegalConsultantAction(
     );
     const meta = buildAiProviderUiMetadata(result.audit.providerId, result.audit.model);
     // Histórico PRIVADO do autor (autoria da sessão + RLS). Falha ao gravar nunca derruba a resposta.
-    await saveLegalConsultation({ projectId, question, response: result.response, providerMeta: meta });
+    const saved = await saveLegalConsultation({ projectId, question, response: result.response, providerMeta: meta });
     return {
       response: result.response,
       error: null,
       meta,
       coverage: result.documentCoverage,
+      consultationId: saved.id,
     };
   } catch (error) {
     return {

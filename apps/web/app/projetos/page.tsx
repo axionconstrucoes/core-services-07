@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { AssistantWidget } from "@/components/assistant/assistant-widget";
 import { VeraTrigger } from "@/components/assistant/vera-trigger";
+import { isActiveAdminAnywhere } from "@/lib/legal/access";
 import { getProjects } from "@/lib/data";
 import { formatDate } from "@/lib/labels";
 import { Pencil, Plus, Scale } from "lucide-react";
@@ -51,6 +52,8 @@ export default async function ProjetosPage() {
   }
 
   const canCreateProject = adminProjectIds.size > 0;
+  // Jurídico IA: mesmo critério de /juridico (administrador ativo em algum espaço).
+  const showLegalCard = await isActiveAdminAnywhere();
 
   return (
     <div className="relative flex min-h-dvh items-center justify-center overflow-hidden p-6">
@@ -146,25 +149,28 @@ export default async function ProjetosPage() {
             ))}
           </div>
 
-          <Link
-            href="/juridico"
-            title="Criar ou abrir uma análise de minuta antes da contratação da obra."
-            className="block"
-          >
-            <Card className="h-full border-[#0756A8] bg-[#1267C4] text-white shadow-md transition-all hover:bg-[#0E5AAD] hover:shadow-lg">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-3 text-xl font-semibold text-white">
-                  <Scale className="size-6" />
-                  Jurídico IA
-                </CardTitle>
-              </CardHeader>
+          {/* Jurídico IA: SOMENTE administradores ativos (a rota /juridico, as ações e as APIs repetem a checagem no servidor). */}
+          {showLegalCard ? (
+            <Link
+              href="/juridico"
+              title="Criar ou abrir uma análise de minuta antes da contratação da obra."
+              className="block"
+            >
+              <Card className="h-full border-[#0756A8] bg-[#1267C4] text-white shadow-md transition-all hover:bg-[#0E5AAD] hover:shadow-lg">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-3 text-xl font-semibold text-white">
+                    <Scale className="size-6" />
+                    Jurídico IA
+                  </CardTitle>
+                </CardHeader>
 
-              <CardContent className="pb-5 pt-0 text-base leading-relaxed text-white">
-                Análise prévia de minutas para apoiar a negociação contratual,
-                com consulta integrada aos especialistas do CEO IA.
-              </CardContent>
-            </Card>
-          </Link>
+                <CardContent className="pb-5 pt-0 text-base leading-relaxed text-white">
+                  Análise prévia de minutas para apoiar a negociação contratual,
+                  com consulta integrada aos especialistas do CEO IA.
+                </CardContent>
+              </Card>
+            </Link>
+          ) : null}
         </div>
       </div>
       <AssistantWidget projectId={null} />

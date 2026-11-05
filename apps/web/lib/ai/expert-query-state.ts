@@ -40,6 +40,8 @@ export type AskCommercialDirectorState = {
    * pre-contratual a preenche.
    */
   coverage?: ContextDocumentCoverage | null;
+  /** Id da consulta jurídica gravada no histórico privado do autor (só o fluxo jurídico preenche); permite limpar a resposta aberta ao excluir. */
+  consultationId?: string | null;
 };
 
 export const initialAskCommercialDirectorState: AskCommercialDirectorState = {

@@ -2,12 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@axion/db/server";
+import { LEGAL_ADMIN_ONLY_MESSAGE, isActiveAdminAnywhere } from "@/lib/legal/access";
 import type { CreatePrecontractWorkspaceState } from "@/lib/legal/precontract-workspace-state";
 
 export async function createPrecontractWorkspaceAction(
   _previousState: CreatePrecontractWorkspaceState,
   formData: FormData
 ): Promise<CreatePrecontractWorkspaceState> {
+  if (!(await isActiveAdminAnywhere())) return { error: LEGAL_ADMIN_ONLY_MESSAGE, projectId: null, projectName: null };
   const name = String(formData.get("name") ?? "").trim();
   const client = String(formData.get("client") ?? "").trim();
   if (!name || !client) {
