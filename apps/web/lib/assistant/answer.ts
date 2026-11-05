@@ -54,7 +54,7 @@ export interface AssistantAnswer {
   adminHandoff: AdminHandoff;
 
   /** Tipo da resposta: "social" (conversa, sem fonte nem ADMIN), "clarify" (pedido de esclarecimento) ou "acc" (padrão). */
-  kind?: "social" | "acc" | "clarify";
+  kind?: "social" | "acc" | "clarify" | "scope";
   /** Saudação/abertura curta antes da resposta ("Bom dia!"). Nunca contém regra operacional. */
   intro?: string | null;
   /** "ia": a IA interpretou a pergunta; "base": caminho determinístico. O conteúdo operacional é sempre da base aprovada. */
@@ -99,7 +99,7 @@ const STOPWORDS = new Set([
   "faco", "preciso", "quero", "sobre", "ser", "tem", "ter", "isso", "esse", "essa", "e", "ja", "mais", "muito",
 ]);
 
-function tokens(normalized: string): string[] {
+export function tokens(normalized: string): string[] {
   return normalized.split(" ").filter((token) => token.length > 1 && !STOPWORDS.has(token));
 }
 

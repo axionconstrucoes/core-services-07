@@ -115,7 +115,13 @@ const CASES = [
   // continuidade
   ["esclarecimento", "não foi isso que perguntei", [{ question: "Como envio documentos?", entryId: "documentos" }], (a) => a.kind === "clarify" && a.summary.endsWith("?") && a.summary.length <= 160],
   ["esclarecimento-repetido", "ainda não é isso", [{ question: "Como envio documentos?", entryId: "documentos" }, { question: "não foi isso que perguntei", entryId: "clarificacao" }], (a) => a.coverage === "ausente" && a.links.some((l) => l.href.endsWith("/ajuda"))],
-  ["fora-do-escopo", "Qual a previsão do tempo em Marte?", [], (a) => a.entryId === "fallback" && a.manualSection === null],
+  ["fora-do-escopo", "Qual a previsão do tempo em Marte?", [], (a) => a.kind === "scope" && a.manualSection === null],
+  ["geral-com-termo-acc", "No ACC, qual a capital da França?", [], (a) => a.entryId === "fallback" && !/paris/i.test(body(a))],
+  ["complexa-1", "Quando o responsável não assume o alerta e o prazo vence, o que muda para a diretoria e como isso aparece no histórico?", [], (a) => isApprovedOrFallback(a) && (a.via === "ia" || a.via === "base")],
+  ["complexa-2", "Se o administrador responder o alerta como resolvido sem evidência, o caso escala ou fica aberto e quem confirma a resolução?", [], (a) => isApprovedOrFallback(a)],
+  ["complexa-3", "Qual a relação entre o risco crítico, o escalonamento e as providências quando a obra tem atraso?", [], (a) => isApprovedOrFallback(a)],
+  ["complexa-4", "O que o sistema faz com um alerta de risco médio que ninguém assumiu, e isso entra no consolidado semanal?", [], (a) => isApprovedOrFallback(a)],
+  ["contrato-especialista", "Resuma a cláusula 12 do contrato da obra", [], (a) => a.entryId === "encaminha-especialista"],
 ];
 
 let failed = 0;

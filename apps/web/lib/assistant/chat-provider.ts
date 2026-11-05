@@ -25,6 +25,8 @@ export interface ChatProviderRequest {
   /** Só para o simulador local (não é enviado a nenhum serviço). */
   question: string;
   history: HistoryTurn[];
+  /** Ids dos CANDIDATOS aprovados enviados à IA (o simulador local escolhe só entre eles). */
+  candidateIds: string[];
 }
 
 export interface ChatUsage {
