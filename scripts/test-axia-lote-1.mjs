@@ -48,6 +48,13 @@ for (const q of REVIEW) {
   const a = answerQuestion(q, P, ENV);
   t(`em revisão não é respondida por entrada do lote: "${q}" (obteve ${a.entryId})`, !a.entryId.startsWith("qa-"));
 }
+// Pendentes que o texto genérico antigo respondia errado ou fora do tema: agora vão ao encaminhamento
+for (const q of ["Qual o prazo para agir em cada grau?", "Como configuro a matriz de SLA?", "Quais são os perfis e o que cada um pode fazer?", "Qual a diferença entre Gerente e Colaborador?"]) {
+  const a = answerQuestion(q, P, ENV);
+  t(`pendente vai ao encaminhamento: "${q}" (obteve ${a.entryId})`, a.entryId === "fallback" && a.coverage === "ausente");
+}
+const cno = answerQuestion("Como funciona o prazo do CNO?", P, ENV);
+t("pergunta fora das pendentes continua respondida (prazo do CNO)", cno.entryId !== "fallback");
 // Sem resposta aprovada: encaminhamento
 const none = answerQuestion("Qual a previsão do tempo em Marte?", P, ENV);
 t("sem resposta: fallback, cobertura ausente, link da Ajuda", none.entryId === "fallback" && none.coverage === "ausente" && none.links.some((l) => l.href === `/${P}/ajuda`));
