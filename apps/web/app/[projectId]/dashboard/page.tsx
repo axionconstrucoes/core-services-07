@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { createSupabaseServerClient } from "@axion/db/server";
+import type { EsgSummary } from "@/lib/dashboard-visual/compute-esg-summary";
 import { getDashboardVisualData } from "@/lib/dashboard-visual/get-dashboard-visual-data";
 import { getEvents } from "@/lib/data";
 import { formatCurrency, formatDateTime } from "@/lib/labels";
@@ -97,6 +99,44 @@ function StatusLine({
       </div>
 
       <span className="shrink-0 whitespace-nowrap text-right text-[13px] font-normal text-white">{compactStatus(value)}</span>
+    </div>
+  );
+}
+
+function EsgObligationsBlock({ projectId, summary }: { projectId: string; summary: EsgSummary }) {
+  const hasObligations = summary.occurrences > 0;
+  const cells: Array<{ label: string; filtro: string; value: number; tone: "ok" | "warning" | "error" | "neutral" }> = [
+    { label: "Cumpridas", filtro: "cumpridas", value: summary.cumprida, tone: "ok" },
+    { label: "Pendentes", filtro: "pendentes", value: summary.pendente, tone: summary.pendente > 0 ? "warning" : "ok" },
+    { label: "Vencidas", filtro: "vencidas", value: summary.vencida, tone: summary.vencida > 0 ? "error" : "ok" },
+    { label: "Ag. revisão", filtro: "revisao", value: summary.aguardandoRevisao, tone: summary.aguardandoRevisao > 0 ? "warning" : "ok" },
+    { label: "Evid. pend.", filtro: "evidencias", value: summary.evidenciaPendente, tone: summary.evidenciaPendente > 0 ? "warning" : "ok" },
+  ];
+  const color = { ok: "text-emerald-300", warning: "text-amber-300", error: "text-red-300", neutral: "text-slate-300" };
+  return (
+    <div className="border-b border-white/[0.07] py-px">
+      <div className="text-[12px] leading-[18px] text-white">Obrigações ESG (posição atual)</div>
+      <div className="grid grid-cols-5 gap-1">
+        {cells.map((cell) => (
+          <Link
+            key={cell.filtro}
+            href={`/${projectId}/esg?filtro=${cell.filtro}`}
+            className="flex flex-col items-center rounded px-0.5 text-center hover:bg-white/10"
+            title={`Ver as obrigações: ${cell.label}`}
+          >
+            <span className={`text-[14px] leading-4 ${color[hasObligations ? cell.tone : "neutral"]}`}>
+              {hasObligations ? cell.value : "—"}
+            </span>
+            <span className="text-[9px] leading-3 text-[#b8c7dc]">{cell.label}</span>
+          </Link>
+        ))}
+      </div>
+      {hasObligations && summary.dispensada > 0 ? (
+        <div className="text-[9px] leading-3 text-[#b8c7dc]">
+          {summary.dispensada} dispensada(s)/não aplicável(is), fora das pendências. Total: {summary.occurrences}.
+        </div>
+      ) : null}
+      {!hasObligations ? <div className="text-[9px] leading-3 text-[#b8c7dc]">Sem obrigações cadastradas.</div> : null}
     </div>
   );
 }
@@ -869,11 +909,7 @@ export default async function DashboardPage({
                 value={ssmaDash.overdueCorrectiveActions !== null ? ssmaDash.overdueCorrectiveActions : "—"}
                 status={ssmaDash.overdueCorrectiveActions !== null ? (ssmaDash.overdueCorrectiveActions > 0 ? "error" : "ok") : "neutral"}
               />
-              <StatusLine
-                label="Obrigações ESG em aberto"
-                value={data.esgSummary.occurrences > 0 ? `${data.esgSummary.open} de ${data.esgSummary.occurrences}` : "—"}
-                status={data.esgSummary.occurrences > 0 ? (data.esgSummary.open > 0 ? "warning" : "ok") : "neutral"}
-              />
+              <EsgObligationsBlock projectId={projectId} summary={data.esgSummary} />
               <p className="pt-1 text-[10px] leading-tight text-[#b8c7dc]">
                 {ssmaDash.hasData
                   ? `Fonte: ${ssmaDash.sources.forms} formulário(s) e ${ssmaDash.sources.fieldRecords} registro(s) de campo SSMA${ssmaDash.period ? `, de ${new Date(ssmaDash.period.firstAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} a ${new Date(ssmaDash.period.lastAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}${ssmaDash.occurrenceSources && ssmaDash.occurrenceSources.duplicatesDiscounted > 0 ? `; ${ssmaDash.occurrenceSources.duplicatesDiscounted} relato(s) do mesmo fato contado(s) uma vez` : ""}. Zero = nenhum registrado.`
