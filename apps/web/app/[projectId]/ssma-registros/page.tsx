@@ -8,6 +8,11 @@ import { getProject, getProjectMembers } from "@/lib/data";
 import { getFieldRecords } from "@/lib/ssma/field-records/data";
 import { FieldRecordsTable } from "@/components/ssma/field-records/field-records-table";
 import { summarizeFieldRecords } from "@/lib/ssma/field-records/field-record-view";
+import { PossibleDuplicatesPanel } from "@/components/ssma/field-records/possible-duplicates-panel";
+import { getCurrentProjectPermission } from "@/lib/contract-review";
+import { findPossibleDuplicates, type SsmaFormMetricsRow, type SsmaIncidentLinkRow } from "@/lib/ssma/dashboard-metrics";
+import type { FieldRecordRow } from "@/lib/ssma/field-records/field-record-view";
+import { createSupabaseServerClient } from "@axion/db/server";
 
 export const metadata: Metadata = { title: "Registros de campo SSMA" };
 
@@ -21,6 +26,31 @@ export default async function SsmaFieldRecordsPage({ params }: { params: Promise
   const { available, records } = await getFieldRecords(projectId, names);
   const today = new Date().toISOString().slice(0, 10);
   const summary = summarizeFieldRecords(records, today);
+
+  // Possíveis duplicidades (acidente x ocorrência de campo): só o Administrador revisa; nada é descontado sem a decisão.
+  let duplicatePairs: ReturnType<typeof findPossibleDuplicates> = [];
+  const duplicateLabels: Record<string, { form: string; record: string }> = {};
+  if (available && (await getCurrentProjectPermission(projectId)) === "ADMINISTRADOR") {
+    const supabase = await createSupabaseServerClient();
+    const [forms, rows, links] = await Promise.all([
+      supabase.from("ssma_form_submissions").select("id,checklist_slug,occurred_at,field_values").eq("project_id", projectId).eq("status", "SUBMITTED").eq("checklist_slug", "ocorrencia-acidente"),
+      supabase.from("ssma_field_records").select("id,kind,category,description,location,occurred_at").eq("project_id", projectId).eq("kind", "OCORRENCIA"),
+      supabase.from("ssma_incident_links").select("form_submission_id,field_record_id,decision").eq("project_id", projectId),
+    ]);
+    if (!forms.error && !rows.error && !links.error) {
+      duplicatePairs = findPossibleDuplicates({
+        forms: (forms.data ?? []) as SsmaFormMetricsRow[],
+        fieldRecords: (rows.data ?? []) as unknown as FieldRecordRow[],
+        links: (links.data ?? []) as SsmaIncidentLinkRow[],
+      });
+      for (const f of (forms.data ?? []) as Array<{ id: string; field_values: Record<string, unknown> | null }>) {
+        duplicateLabels[f.id] = { form: `${String(f.field_values?.funcionario ?? "acidente")} (${String(f.field_values?.afastamento ?? "sem classificação")})`, record: "" };
+      }
+      for (const r of (rows.data ?? []) as Array<{ id: string; category: string; location: string }>) {
+        duplicateLabels[r.id] = { form: "", record: `${r.category} · ${r.location}` };
+      }
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -48,6 +78,8 @@ export default async function SsmaFieldRecordsPage({ params }: { params: Promise
               <Card key={label as string}><CardContent className="p-4"><p className="text-2xl font-bold">{value}</p><p className="text-xs text-muted-foreground">{label}</p></CardContent></Card>
             ))}
           </section>
+
+          <PossibleDuplicatesPanel projectId={projectId} pairs={duplicatePairs} labels={duplicateLabels} />
 
           <Card>
             <CardHeader><CardTitle className="text-base">Registros</CardTitle></CardHeader>

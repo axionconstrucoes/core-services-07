@@ -19,7 +19,7 @@ import { getDashboardVisualData } from "@/lib/dashboard-visual/get-dashboard-vis
 import { getEvents } from "@/lib/data";
 import { formatCurrency, formatDateTime } from "@/lib/labels";
 import type { FieldRecordRow } from "@/lib/ssma/field-records/field-record-view";
-import { computeSsmaDashboardMetrics, type SsmaFormMetricsRow } from "@/lib/ssma/dashboard-metrics";
+import { computeSsmaDashboardMetrics, type SsmaFormMetricsRow, type SsmaIncidentLinkRow } from "@/lib/ssma/dashboard-metrics";
 import { resolveSystemStatus } from "@/lib/ui/resolve-system-status";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -624,10 +624,10 @@ export default async function DashboardPage({
   //   trilha B = registros de campo + ações corretivas. Zero verdadeiro ≠ sem dado (lib/ssma/dashboard-metrics.ts).
   // ----------------------------------------------------------
 
-  const [{ data: dashboardSsmaForms }, { data: dashboardSsmaFieldRecords }] = await Promise.all([
+  const [{ data: dashboardSsmaForms }, { data: dashboardSsmaFieldRecords }, dashboardIncidentLinks] = await Promise.all([
     supabase
       .from("ssma_form_submissions")
-      .select("checklist_slug,occurred_at,field_values")
+      .select("id,checklist_slug,occurred_at,field_values")
       .eq("project_id", projectId)
       .eq("status", "SUBMITTED"),
     supabase
@@ -636,9 +636,13 @@ export default async function DashboardPage({
         "id,kind,category,description,location,occurred_at,client_created_at,received_at,risk_level,responsible_user_id,due_date,reported_by_user_id,ssma_corrective_actions(id,status,due_date,concluded_at,responsible_user_id)"
       )
       .eq("project_id", projectId),
+    // Decisões humanas sobre duplicidade acidente × ocorrência de campo. Tabela ausente (migration pendente) ou erro:
+    // sem vínculos => nada é descontado (comportamento seguro).
+    supabase.from("ssma_incident_links").select("form_submission_id,field_record_id,decision").eq("project_id", projectId),
   ]);
 
   const ssmaDash = computeSsmaDashboardMetrics({
+    links: dashboardIncidentLinks.error ? [] : ((dashboardIncidentLinks.data ?? []) as SsmaIncidentLinkRow[]),
     forms: (dashboardSsmaForms ?? []) as SsmaFormMetricsRow[],
     fieldRecords: (dashboardSsmaFieldRecords ?? []) as unknown as FieldRecordRow[],
     today: new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }),
@@ -895,6 +899,11 @@ export default async function DashboardPage({
                 }
               />
               <StatusLine
+                label="Quase-acidentes (campo)"
+                value={ssmaDash.nearMisses !== null ? ssmaDash.nearMisses : "—"}
+                status={ssmaDash.nearMisses !== null ? (ssmaDash.nearMisses > 0 ? "warning" : "ok") : "neutral"}
+              />
+              <StatusLine
                 label="Dias sem acidente"
                 value={dashboardDaysWithoutAccident !== null ? dashboardDaysWithoutAccident : "—"}
                 status={dashboardDaysWithoutAccident !== null ? "ok" : "neutral"}
@@ -912,7 +921,7 @@ export default async function DashboardPage({
               <EsgObligationsBlock projectId={projectId} summary={data.esgSummary} />
               <p className="pt-1 text-[10px] leading-tight text-[#b8c7dc]">
                 {ssmaDash.hasData
-                  ? `Fonte: ${ssmaDash.sources.forms} formulário(s) e ${ssmaDash.sources.fieldRecords} registro(s) de campo SSMA${ssmaDash.period ? `, de ${new Date(ssmaDash.period.firstAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} a ${new Date(ssmaDash.period.lastAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}${ssmaDash.occurrenceSources && ssmaDash.occurrenceSources.duplicatesDiscounted > 0 ? `; ${ssmaDash.occurrenceSources.duplicatesDiscounted} relato(s) do mesmo fato contado(s) uma vez` : ""}. Zero = nenhum registrado.`
+                  ? `Fonte: ${ssmaDash.sources.forms} formulário(s) e ${ssmaDash.sources.fieldRecords} registro(s) de campo SSMA${ssmaDash.period ? `, de ${new Date(ssmaDash.period.firstAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} a ${new Date(ssmaDash.period.lastAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}${ssmaDash.occurrenceSources && ssmaDash.occurrenceSources.confirmedSameFact > 0 ? `; ${ssmaDash.occurrenceSources.confirmedSameFact} mesmo(s) fato(s) confirmado(s) por humano contado(s) uma vez` : ""}${ssmaDash.occurrenceSources && ssmaDash.occurrenceSources.possibleDuplicates > 0 ? `; ${ssmaDash.occurrenceSources.possibleDuplicates} possível(is) duplicidade(s) aguardando confirmação (não descontada(s))` : ""}${ssmaDash.nearMissSource && ssmaDash.nearMissSource.period ? `; quase-acidentes: categoria "Quase-acidente" de ${new Date(ssmaDash.nearMissSource.period.firstAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} a ${new Date(ssmaDash.nearMissSource.period.lastAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}. Zero = nenhum registrado.`
                   : "Sem registros SSMA nesta obra ainda: “—” significa sem dado, não zero."}
               </p>
             </Panel>

@@ -21,6 +21,10 @@
 --    do Administrador (RPC review_esg_obligation_submission, inalterada); configuração de obrigações
 --    continua só do Administrador. Storage: upload em <obra>/esg-evidence/ liberado ao mesmo grupo.
 -- 3. NOTIFICAÇÕES de campo: tabela de entregas (dedupe, falha, ausência de destinatário).
+-- 4. VÍNCULO EXPLÍCITO entre acidente de formulário e ocorrência de campo (dupla contagem): só um vínculo CONFIRMADO por
+--    Administrador (RPC ssma_incident_link_set, com auditoria) desconta um relato do total; proximidade de datas apenas SUGERE.
+-- 5. CLASSIFICAÇÃO ESTRUTURADA do registro de campo (categoria de lista fechada, constraint NOT VALID: vale para registros
+--    novos; os anteriores não são reescritos nem revalidados) — base do indicador de quase-acidentes.
 --
 -- Nada é apagado: só ADD COLUMN/INDEX/TABLE, troca de constraints/policies e CREATE OR REPLACE de funções.
 -- ============================================================
@@ -543,3 +547,90 @@ as $$
 $$;
 revoke all on function public.ssma_notification_summary(uuid) from public, anon;
 grant execute on function public.ssma_notification_summary(uuid) to authenticated, service_role;
+
+-- ------------------------------------------------------------
+-- 4. Vínculo explícito acidente (formulário, trilha A) ↔ ocorrência de campo (trilha B)
+-- ------------------------------------------------------------
+create table if not exists public.ssma_incident_links (
+  id uuid primary key default gen_random_uuid(),
+  project_id uuid not null references public.projects (id) on delete cascade,
+  form_submission_id uuid not null references public.ssma_form_submissions (id) on delete cascade,
+  field_record_id uuid not null references public.ssma_field_records (id) on delete cascade,
+  -- SAME_FACT: confirmado por humano que os dois relatos são o MESMO fato (desconta 1 do total).
+  -- DISTINCT_FACTS: confirmado que são fatos DIFERENTES (para de sugerir; nada é descontado).
+  decision text not null check (decision in ('SAME_FACT', 'DISTINCT_FACTS')),
+  note text check (note is null or char_length(note) <= 500),
+  decided_by_user_id uuid not null references public.profiles (id) on delete restrict,
+  decided_at timestamptz not null default now(),
+  unique (form_submission_id, field_record_id)
+);
+-- Um formulário só é o mesmo fato de UM registro de campo, e vice-versa (1:1).
+create unique index if not exists ssma_incident_links_form_same_uidx
+  on public.ssma_incident_links (form_submission_id) where decision = 'SAME_FACT';
+create unique index if not exists ssma_incident_links_record_same_uidx
+  on public.ssma_incident_links (field_record_id) where decision = 'SAME_FACT';
+create index if not exists ssma_incident_links_project_idx on public.ssma_incident_links (project_id);
+
+alter table public.ssma_incident_links enable row level security;
+revoke all on public.ssma_incident_links from anon, authenticated;
+grant select on public.ssma_incident_links to authenticated;
+grant all on public.ssma_incident_links to service_role;
+create policy "ssma_incident_links_select_members" on public.ssma_incident_links
+  for select to authenticated using (public.is_project_member(project_id));
+
+create or replace function public.ssma_incident_link_set(
+  p_form_submission_id uuid,
+  p_field_record_id uuid,
+  p_decision text,
+  p_note text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user uuid := auth.uid();
+  v_form_project uuid;
+  v_record_project uuid;
+  v_id uuid;
+begin
+  if v_user is null then raise exception 'AUTH_REQUIRED'; end if;
+  if coalesce(p_decision, '') not in ('SAME_FACT', 'DISTINCT_FACTS') then raise exception 'INVALID_DECISION'; end if;
+
+  select f.project_id into v_form_project from public.ssma_form_submissions f
+   where f.id = p_form_submission_id and f.checklist_slug = 'ocorrencia-acidente' and f.status = 'SUBMITTED';
+  if v_form_project is null then raise exception 'FORM_NOT_FOUND'; end if;
+  select r.project_id into v_record_project from public.ssma_field_records r where r.id = p_field_record_id and r.kind = 'OCORRENCIA';
+  if v_record_project is null then raise exception 'RECORD_NOT_FOUND'; end if;
+  if v_form_project <> v_record_project then raise exception 'PROJECT_MISMATCH'; end if;
+  if not coalesce(public.has_project_permission(v_form_project, 'ADMINISTRADOR'), false) then raise exception 'ADMIN_REQUIRED'; end if;
+
+  begin
+    insert into public.ssma_incident_links (project_id, form_submission_id, field_record_id, decision, note, decided_by_user_id)
+    values (v_form_project, p_form_submission_id, p_field_record_id, p_decision, nullif(btrim(coalesce(p_note, '')), ''), v_user)
+    on conflict (form_submission_id, field_record_id) do update
+      set decision = excluded.decision, note = excluded.note, decided_by_user_id = excluded.decided_by_user_id, decided_at = now()
+    returning id into v_id;
+  exception when unique_violation then
+    -- outro vínculo SAME_FACT já usa este formulário ou este registro
+    raise exception 'ALREADY_LINKED';
+  end;
+
+  insert into public.audit_log_entries (project_id, actor_type, actor_user_id, actor_label, action, entity_type, entity_id, detail)
+  values (v_form_project, 'USER', v_user, null, 'SSMA_INCIDENT_LINK_SET', 'SSMA_INCIDENT_LINK', v_id::text,
+          format('Decisão humana sobre duplicidade: %s (formulário %s, registro de campo %s).', p_decision, p_form_submission_id, p_field_record_id));
+  return v_id;
+end;
+$$;
+revoke all on function public.ssma_incident_link_set(uuid, uuid, text, text) from public, anon;
+grant execute on function public.ssma_incident_link_set(uuid, uuid, text, text) to authenticated;
+
+-- ------------------------------------------------------------
+-- 5. Classificação estruturada do registro de campo (base do indicador de quase-acidentes)
+-- ------------------------------------------------------------
+alter table public.ssma_field_records drop constraint if exists ssma_field_records_category_structured_check;
+alter table public.ssma_field_records
+  add constraint ssma_field_records_category_structured_check
+  check (category in ('Condição insegura', 'Ato inseguro', 'Quase-acidente', 'EPI', 'Sinalização', 'Organização e limpeza', 'Meio ambiente', 'Inspeção de rotina', 'Outra'))
+  not valid;

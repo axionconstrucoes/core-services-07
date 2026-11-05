@@ -252,6 +252,51 @@ await check("ESG Storage: upload em <obra>/esg-evidence/ liberado a Administrado
   ok(!(await can(U.ger, `lixo/esg-evidence/${OBL}/sub/f.jpg`)), "obra inválida");
 });
 
+// ───── vínculo explícito de duplicidade + classificação estruturada ─────
+const FORM = (n) => `22000000-0000-4000-8000-0000000000${String(n).padStart(2, "0")}`;
+const accidentForm = (n, at) => db.query("insert into public.ssma_form_submissions (id,project_id,checklist_slug,checklist_number,checklist_title,drive_folder_name,occurred_at,technician_user_id,field_values,checklist_values,status,submitted_at) values ($1,$2,'ocorrencia-acidente',12,'Ocorrência / acidente','12 - OCORRÊNCIAS E ACIDENTES',$3,$4,'{\"afastamento\":\"Sem afastamento\"}'::jsonb,'{}'::jsonb,'SUBMITTED',now())", [FORM(n), P1, at, id(U.col)]);
+await accidentForm(1, "2026-11-05T12:00:00Z");
+await accidentForm(2, "2026-11-05T14:00:00Z");
+const link = (uid, form, rec, decision, note = null) => as(id(uid), () => db.query("select public.ssma_incident_link_set($1::uuid,$2::uuid,$3::text,$4::text) as id", [form, rec, decision, note]));
+await check("vínculo explícito: SOMENTE o Administrador decide; colaborador, gerente, leitura e outra obra são recusados; nada é descontado sem decisão", async () => {
+  for (const n of [U.col, U.ger, U.lei]) { const e = await err(link(n, FORM(1), NR, "SAME_FACT")); ok(/ADMIN_REQUIRED/.test(e ?? ""), `perfil ${n}: ${e}`); }
+  ok(/ADMIN_REQUIRED|FORM_NOT_FOUND|RECORD_NOT_FOUND/.test(await err(link(U.fora, FORM(1), NR, "SAME_FACT"))), "outra obra");
+  eq((await q("select count(*)::int n from public.ssma_incident_links"))[0].n, 0, "sem vínculos");
+});
+await check("vínculo explícito: validações (decisão, formulário de acidente enviado, ocorrência — não inspeção —, mesma obra) e auditoria", async () => {
+  ok(/INVALID_DECISION/.test(await err(link(U.adm, FORM(1), NR, "TALVEZ"))), "decisão inválida");
+  ok(/FORM_NOT_FOUND/.test(await err(link(U.adm, "22000000-0000-4000-8000-000000000099", NR, "SAME_FACT"))), "formulário inexistente");
+  const insp = "21000000-0000-4000-8000-000000000077";
+  await db.query("insert into public.ssma_field_records (id,project_id,kind,category,description,location,occurred_at,client_created_at,risk_level,reported_by_user_id) values ($1,$2,'INSPECAO','Inspeção de rotina','Ronda','A','2026-11-05T12:30:00Z','2026-11-05T12:30:00Z','BAIXA',$3)", [insp, P1, id(U.col)]);
+  ok(/RECORD_NOT_FOUND/.test(await err(link(U.adm, FORM(1), insp, "SAME_FACT"))), "inspeção não é ocorrência");
+  const linkId = (await link(U.adm, FORM(1), NR, "SAME_FACT", "Mesmo acidente relatado nas duas trilhas"))[0]?.id ?? (await q("select id from public.ssma_incident_links limit 1"))[0].id;
+  ok(linkId, "vínculo criado");
+  eq((await q("select count(*)::int n from public.audit_log_entries where action='SSMA_INCIDENT_LINK_SET' and actor_type='USER'"))[0].n, 1, "auditoria da decisão humana");
+});
+await check("vínculo explícito: 1:1 — o mesmo formulário ou o mesmo registro de campo não podem ser 'mesmo fato' de dois; decisão pode ser revista sem duplicar", async () => {
+  ok(/ALREADY_LINKED/.test(await err(link(U.adm, FORM(2), NR, "SAME_FACT"))), "registro já é o mesmo fato de outro formulário");
+  const NR2 = "21000000-0000-4000-8000-000000000078";
+  await db.query("insert into public.ssma_field_records (id,project_id,kind,category,description,location,occurred_at,client_created_at,risk_level,reported_by_user_id) values ($1,$2,'OCORRENCIA','EPI','Outro relato','B','2026-11-05T13:00:00Z','2026-11-05T13:00:00Z','BAIXA',$3)", [NR2, P1, id(U.col)]);
+  ok(/ALREADY_LINKED/.test(await err(link(U.adm, FORM(1), NR2, "SAME_FACT"))), "formulário já é o mesmo fato de outro registro");
+  await link(U.adm, FORM(2), NR2, "DISTINCT_FACTS");
+  await link(U.adm, FORM(2), NR2, "DISTINCT_FACTS");
+  eq((await q("select count(*)::int n from public.ssma_incident_links where form_submission_id=$1 and field_record_id=$2", [FORM(2), NR2]))[0].n, 1, "revisão não duplica");
+  await link(U.adm, FORM(1), NR, "DISTINCT_FACTS");
+  eq((await q("select decision from public.ssma_incident_links where form_submission_id=$1 and field_record_id=$2", [FORM(1), NR]))[0].decision, "DISTINCT_FACTS", "decisão revista");
+});
+await check("vínculo explícito: leitura por membros da obra, nenhuma escrita direta, isolamento entre obras; registros anteriores intactos", async () => {
+  ok((await as(id(U.col), () => q("select * from public.ssma_incident_links"))).length >= 2, "membro lê");
+  eq((await as(id(U.fora), () => q("select * from public.ssma_incident_links"))).length, 0, "outra obra não lê");
+  ok(await err(as(id(U.adm), () => db.query("insert into public.ssma_incident_links (project_id,form_submission_id,field_record_id,decision,decided_by_user_id) values ($1,$2,$3,'SAME_FACT',$4)", [P1, FORM(2), NR, id(U.adm)]))), "authenticated não grava direto");
+  eq((await q("select count(*)::int n from public.ssma_field_records where id = any($1)", [[REC(1), REC(2), REC(3), REC(4), REC(5)]]))[0].n, 5, "registros anteriores preservados");
+});
+await check("classificação estruturada: categoria fora da lista fechada é recusada em registros NOVOS; registros anteriores não são reescritos", async () => {
+  const bad = await err(db.query("insert into public.ssma_field_records (id,project_id,kind,category,description,location,occurred_at,client_created_at,risk_level,reported_by_user_id) values ('21000000-0000-4000-8000-000000000067',$1,'OCORRENCIA','categoria livre qualquer','d','l',now(),now(),'BAIXA',$2)", [P1, id(U.col)]));
+  ok(/ssma_field_records_category_structured_check/.test(bad ?? ""), "categoria livre recusada");
+  await db.query("insert into public.ssma_field_records (id,project_id,kind,category,description,location,occurred_at,client_created_at,risk_level,reported_by_user_id) values ('21000000-0000-4000-8000-000000000068',$1,'OCORRENCIA','Quase-acidente','Quase atingido por carga','Pátio',now(),now(),'MEDIA',$2)", [P1, id(U.col)]);
+  eq((await q("select count(*)::int n from public.ssma_field_records where category='Quase-acidente'"))[0].n, 1, "quase-acidente estruturado");
+});
+
 // ───── notificações ─────
 await check("notificações: dedupe por registro+evento+dia+destinatário; e-mail em minúsculas; só service_role grava; só administrador lê as linhas", async () => {
   const row = (email, st = "PENDING") => db.query("insert into public.ssma_field_notification_deliveries (project_id,record_id,event,event_date,recipient_email,status) values ($1,$2,'CRITICAL_RECORD','2026-11-05',$3,$4)", [P1, NR, email, st]);
