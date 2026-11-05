@@ -51,7 +51,7 @@ function setup({ failFor = new Set(), delayMs = 0 } = {}) {
   const provider = new FakeEmailProvider({ onGuardedInput: (i) => guarded.push(i), shouldFail: (i) => failFor.has(i.to) });
   const audits = [];
   const mailer = {
-    async send({ to, content, projectId, correlationId }) {
+    async deliver({ to, content, projectId, correlationId }) {
       if (delayMs) await new Promise((r) => setTimeout(r, delayMs));
       const result = await provider.send({ to, subject: content.subject, text: content.text, html: content.html, correlationId, vera: { projectId, context: "ssma" } });
       return { providerMessageId: result.providerMessageId, sentAt: result.sentAt };
