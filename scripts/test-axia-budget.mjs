@@ -260,8 +260,8 @@ for (const kind of ["memória", "SQL"]) {
   for (const k of Object.keys(orig)) console[k] = (...a) => { logs.push(a.map((x) => (typeof x === "string" ? x : JSON.stringify(x))).join(" ")); };
   const made = [];
   const create = (config) => { const p = { id: "anthropic", model: config.model, plan: async () => ({ raw: null, usage: null }) }; made.push({ config, p }); return p; };
-  const KEY1 = "sk-ant-api03-ROTACAO-UM-aaaaaaaaaaaaaaaaaaaaaaaa";
-  const KEY2 = "sk-ant-api03-ROTACAO-DOIS-bbbbbbbbbbbbbbbbbbbbbbb";
+  const KEY1 = "chave-de-teste-ROTACAO-UM-aaaaaaaaaaaa";
+  const KEY2 = "chave-de-teste-ROTACAO-DOIS-bbbbbbbbbbb";
   const E = (k, m = "claude-haiku-5-5") => ({ AXIA_CHAT_PROVIDER: "anthropic", ANTHROPIC_API_KEY: k, AXIA_CHAT_MODEL: m });
   const p1 = orch.resolveChatProvider(E(KEY1), create);
   const p1b = orch.resolveChatProvider(E(KEY1), create);
