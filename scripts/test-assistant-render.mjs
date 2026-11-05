@@ -119,7 +119,7 @@ await check("gatilho 'Fale com a AXIA' na barra superior: ícone + texto no MESM
   const trig = readFileSync(path.join(root, "apps", "web", "components", "assistant", "vera-trigger.tsx"), "utf8");
   const bar = readFileSync(path.join(root, "apps", "web", "components", "layout", "top-bar.tsx"), "utf8");
   ok(bar.includes("<VeraTrigger"), "a barra compartilhada deve renderizar o gatilho");
-  ok(trig.includes("/assistente/ajuda-acc.png") && trig.includes("Fale com a AXIA"), "ícone provisório e texto no gatilho");
+  ok(trig.includes("/assistente/axia-avatar.png") && trig.includes("Fale com a AXIA"), "avatar oficial e texto no gatilho");
   ok((trig.match(/<button\s/g) ?? []).length === 1 && trig.includes("onClick={() => openVera("), "ícone e texto abrem a mesma conversa (um só botão)");
   ok(/sm:inline/.test(trig) && !/(lg|md|xl|sm):hidden/.test(trig), "o texto deve aparecer a partir de sm (desktop incluído)");
   ok(!/ELEVENLABS|voiceAvailable|speech/i.test(trig), "a visibilidade não pode depender da configuração de voz");

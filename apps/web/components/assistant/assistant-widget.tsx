@@ -33,6 +33,7 @@ const SUGGESTIONS: Record<VeraContext, string[]> = {
   alerta: ["O que significa risco crítico?", "De quantos em quantos dias o alerta repete?", "Como respondo a um lote de alertas?"],
   providencia: ["Como cadastro uma providência?", "Como funciona o prazo do CNO?", "O que significa D-60?"],
   ssma: ["Como instalo o SSMA no celular?", "Como registro uma ocorrência?", "O que funciona sem internet?"],
+  selecao: ["Como escolho a obra?", "Por que não vejo a minha obra?", "O que é a AXIA?"],
   autorizacao: [
     "Para que serve esta autorização?",
     "O que o ACC poderá ler na minha conta?",
@@ -61,7 +62,8 @@ function storeVoice(id: string) {
   }
 }
 
-export function AssistantWidget({ projectId }: { projectId: string }) {
+/** projectId nulo = tela "Selecione um projeto" (antes da escolha da obra): sem links de obra e sem voz. */
+export function AssistantWidget({ projectId }: { projectId: string | null }) {
   const [open, setOpen] = useState(false);
   const [context, setContext] = useState<VeraContext>("geral");
   const [input, setInput] = useState("");
@@ -82,7 +84,7 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const busyRef = useRef(false);
-  const base = `/${projectId}/ajuda/assistente`;
+  const base = projectId ? `/${projectId}/ajuda/assistente` : "/projetos/assistente";
 
   const stopAudio = useCallback(() => {
     const audio = audioRef.current;
@@ -172,7 +174,7 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
   }, [open]);
 
   useEffect(() => {
-    if (!open || voices.length > 0) return;
+    if (!open || voices.length > 0 || !projectId) return;
     let cancelled = false;
     fetch(`${base}/voz`, { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : Promise.reject(new Error("voz"))))
@@ -189,7 +191,7 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [open, voices.length, base]);
+  }, [open, voices.length, base, projectId]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ block: "end" });
@@ -250,7 +252,7 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
       className="fixed inset-x-2 top-[8.5rem] z-50 flex max-h-[calc(100dvh-9.5rem)] flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl sm:inset-x-auto sm:right-4 sm:top-[6.25rem] sm:max-h-[calc(100dvh-7.5rem)] sm:w-[400px]"
     >
       <header className="flex items-center gap-3 bg-brand-sidebar px-4 py-3 text-brand-sidebar-foreground">
-        <Image src="/assistente/ajuda-acc.png" alt="" width={40} height={40} className="size-10 rounded-full border-2 border-white/70 object-cover" />
+        <Image src="/assistente/axia-avatar.png" alt="" width={40} height={40} className="size-10 rounded-full border-2 border-white/70 object-cover" />
         <div className="min-w-0 flex-1">
           <p id="vera-titulo" className="text-sm font-bold leading-tight">
             AXIA — Assistente ACC
@@ -389,10 +391,17 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
         </form>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          <Link href={`/${projectId}/ajuda`} className="inline-flex min-h-9 items-center gap-1 text-xs font-semibold text-[#ffd54f] hover:underline">
-            <BookOpen className="size-4" />
-            Abrir o tutorial completo (PDF e PowerPoint)
-          </Link>
+          {projectId ? (
+            <Link href={`/${projectId}/ajuda`} className="inline-flex min-h-9 items-center gap-1 text-xs font-semibold text-[#ffd54f] hover:underline">
+              <BookOpen className="size-4" />
+              Abrir o tutorial completo (PDF e PowerPoint)
+            </Link>
+          ) : (
+            <span className="inline-flex min-h-9 items-center gap-1 text-xs font-semibold text-[#ffd54f]">
+              <BookOpen className="size-4" />
+              O tutorial completo abre depois que você escolher a obra.
+            </span>
+          )}
           {needsAdmin && last ? (
             last.answer.adminHandoff.mode === "link" && last.answer.adminHandoff.href ? (
               // Link FIXO montado no servidor: não leva a pergunta nem o histórico, e o clique não faz nenhuma requisição ao ACC.

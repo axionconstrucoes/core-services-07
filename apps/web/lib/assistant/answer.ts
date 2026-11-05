@@ -115,13 +115,31 @@ export function asksToChangeData(normalizedQuestion: string): boolean {
 
 const MIN_SCORE = 2;
 
-function toLinks(entry: Pick<AssistantEntry, "links">, projectId: string) {
+export const PROJECT_SELECTION_ENTRY_ID = "selecao-obra";
+const PROJECT_SELECTION_GUIDANCE =
+  "Essa pergunta depende de uma obra específica, e a AXIA só orienta (não lê dados da obra). Antes de perguntar, escolha a obra na lista desta tela.";
+const PROJECT_SELECTION_STEPS = [
+  "Clique no cartão da obra: o Dashboard dela abre.",
+  "Abra “Fale com a AXIA” na barra de cima e repita a pergunta; as respostas passam a trazer os links dessa obra.",
+  "Se a obra não aparece na lista, o acesso é concedido por obra pelo Administrador, na tela Usuários.",
+] as const;
+
+/** Perguntas sobre "a minha obra", "esta obra", "o contrato da obra" etc. dependem de saber qual é a obra. */
+const PROJECT_SPECIFIC_PATTERN =
+  /(\b(minha|nossa|esta|essa|desta|dessa|nesta|nessa) (obra|projeto)\b|\b(meus|minhas|nossos|nossas|meu) (alertas?|contratos?|documentos?|prazos?|eventos?|providencias?|riscos?|aditivos?|solicitacoes)\b|\bobra (weg|0079)\b)/;
+
+export function dependsOnSpecificProject(normalizedQuestion: string): boolean {
+  return PROJECT_SPECIFIC_PATTERN.test(normalizedQuestion);
+}
+
+function toLinks(entry: Pick<AssistantEntry, "links">, projectId: string | null) {
+  if (!projectId) return []; // antes de escolher a obra não há tela de obra para abrir
   return entry.links.map((link) => ({ label: link.label, href: `/${projectId}/${link.path}` }));
 }
 
 export function answerQuestion(
   question: string,
-  projectId: string,
+  projectId: string | null,
   env: Record<string, string | undefined> = process.env
 ): AssistantAnswer {
   resolveAssistantMode();
@@ -130,6 +148,23 @@ export function answerQuestion(
   const normalized = normalizeText(question.slice(0, ASSISTANT_QUESTION_MAX_LENGTH));
   const questionTokens = tokens(normalized);
   const readOnlyNotice = asksToChangeData(normalized) ? ASSISTANT_READ_ONLY_NOTICE : null;
+
+  // Tela "Selecione um projeto": a pergunta que depende de uma obra específica pede a escolha da obra antes.
+  if (!projectId && dependsOnSpecificProject(normalized)) {
+    return {
+      mode: "BASE_CONHECIMENTO",
+      entryId: PROJECT_SELECTION_ENTRY_ID,
+      title: "Escolha a obra primeiro",
+      summary: PROJECT_SELECTION_GUIDANCE,
+      steps: [...PROJECT_SELECTION_STEPS],
+      links: [],
+      tutorialSlide: null,
+      readOnlyNotice,
+      coverage: "completa",
+      manualSection: "4.1 (fluxo principal, passos 1 a 6)",
+      adminHandoff,
+    };
+  }
 
   const ranked = entries.map((entry) => ({ entry, score: scoreEntry(entry, normalized, questionTokens) })).sort(
     (a, b) => b.score - a.score
@@ -145,7 +180,7 @@ export function answerQuestion(
       title: "Não encontrei esse assunto",
       summary: ASSISTANT_FALLBACK.summary,
       steps: [...ASSISTANT_FALLBACK.steps],
-      links: [{ label: "Ajuda e tutorial", href: `/${projectId}/ajuda` }],
+      links: projectId ? [{ label: "Ajuda e tutorial", href: `/${projectId}/ajuda` }] : [],
       tutorialSlide: null,
       readOnlyNotice,
       coverage: "ausente",
