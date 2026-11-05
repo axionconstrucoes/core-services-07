@@ -1,3 +1,4 @@
+import { canConfigureEsg, canRegisterEsgCompliance, canReviewEsg } from "@/lib/esg/esg-permissions";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ExpertQueryPanel } from "@/components/ai/expert-query-panel";
@@ -54,9 +55,9 @@ export default async function EsgObligationsPage({
     getClauses(projectId),
   ]);
 
-  const canFill = permission === "ADMINISTRADOR";
-  const canConfigure = permission === "ADMINISTRADOR";
-  const canReview = permission === "ADMINISTRADOR";
+  const canFill = canRegisterEsgCompliance(permission);
+  const canConfigure = canConfigureEsg(permission);
+  const canReview = canReviewEsg(permission);
 
   const submissionsByObligationId = new Map<string, EsgObligationSubmission[]>();
   for (const submission of submissions) {
