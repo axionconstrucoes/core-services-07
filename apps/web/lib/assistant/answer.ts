@@ -136,7 +136,7 @@ export function answerQuestion(
   );
   const best = ranked[0];
 
-  const heldForReview = !!best && best.entry.id.startsWith("qa-") && PENDING_REVIEW_PATTERNS.some((pattern) => pattern.test(normalized));
+  const heldForReview = PENDING_REVIEW_PATTERNS.some((pattern) => pattern.test(normalized));
 
   if (!best || best.score < MIN_SCORE || heldForReview) {
     return {

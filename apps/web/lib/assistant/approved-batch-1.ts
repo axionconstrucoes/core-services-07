@@ -320,13 +320,14 @@ export const APPROVED_BATCH_1_ENTRIES: AssistantEntry[] = [
 ];
 
 /**
- * Perguntas das entradas EM REVISÃO que se parecem com uma entrada aprovada. Se a melhor correspondência for uma
- * entrada do lote 1 e a pergunta casar com um destes padrões (texto normalizado), a AXIA não responde com a entrada
- * aprovada: encaminha como pergunta sem resposta aprovada.
+ * Perguntas das entradas EM REVISÃO. Se a pergunta casar com um destes padrões (texto normalizado), a AXIA não responde
+ * com nenhuma entrada (nem do lote 1, nem do texto genérico antigo): encaminha como pergunta sem resposta aprovada.
  */
 export const PENDING_REVIEW_PATTERNS: RegExp[] = [
   /quem (define|decide|pode (mudar|alterar|reclassificar|registrar)|reclassifica|revisa).*(grau|risco|nivel)/, // R2
   /(reclassificar|reclassifica|reclassificado)/, // R2, R10
   /(prazo|sla).*(feriado|fim de semana|sabado|domingo)|(feriado|fim de semana).*(prazo|sla)/, // E6, R6
   /(como|quando) .*(alerta|aviso) .*(e enviado|enviado|chega)/, // R8, R9, E5
+  /\bprazo\b.*\b(agir|assumir|cada grau|por grau)\b|\bsla\b|matriz de prazos/, // R6, E10
+  /(quais|quantos) (sao )?(os )?perfis|\bperfis\b.*\b(pode|podem|diferenca)\b|diferenca entre (gerente|gestor|colaborador|administrador|leitura)/, // N4
 ];
