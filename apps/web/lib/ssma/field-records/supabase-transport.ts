@@ -81,7 +81,22 @@ export function createSupabaseTransport(supabase: SupabaseClient): SyncTransport
         p_file_size_bytes: photo.size,
         p_sha256_hash: photo.sha256,
       });
+      // 23505 = a mesma foto (mesmo hash) já está registrada neste registro com outro id: é duplicidade, não falha.
+      // A confirmação logo depois prova que o servidor tem a foto.
+      if (error && (error as { code?: string }).code !== "23505") throw toTransportError(error);
+    },
+
+    async confirmPhoto(item, photo) {
+      const { data, error } = await supabase
+        .from("ssma_field_record_photos")
+        .select("id, sha256_hash, file_size_bytes")
+        .eq("record_id", item.clientId)
+        .eq("sha256_hash", photo.sha256)
+        .maybeSingle();
       if (error) throw toTransportError(error);
+      if (!data || data.sha256_hash !== photo.sha256 || Number(data.file_size_bytes) !== photo.size) {
+        throw new TransportError("SERVER", "Recebimento da foto não confirmado.", "PHOTO_NOT_CONFIRMED");
+      }
     },
   };
 }

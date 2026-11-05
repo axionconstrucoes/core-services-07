@@ -56,6 +56,7 @@ const transport = {
   submitRecord: (item) => call("/api/submit", { id: item.clientId, user: sessionUser, createdAt: item.clientCreatedAt, itemUser: item.userId }),
   uploadPhoto: (item, photo, blob) => call("/api/upload", { id: photo.id, size: blob.size }),
   registerPhoto: (item, photo) => call("/api/register", { id: photo.id }),
+  confirmPhoto: (item, photo) => call("/api/confirm", { id: photo.id }),
 };
 const db = await openOfflineDb();
 const store = createIdbStore(db);
@@ -65,7 +66,7 @@ window.READY = true;
 </script>`);
 
 // 2) Servidor FALSO, idempotente.
-const server = { records: new Map(), photos: new Set(), uploads: new Set(), calls: [], user: "u-ana" };
+const server = { records: new Map(), photos: new Set(), uploads: new Set(), calls: [], user: "u-ana", withholdConfirm: false };
 const http = createServer((req, res) => {
   if (req.method === "GET") {
     const file = path.join(out, req.url === "/" ? "index.html" : req.url.split("?")[0]);
@@ -90,6 +91,7 @@ const http = createServer((req, res) => {
     }
     if (req.url === "/api/upload") { server.uploads.add(body.id); return reply(200, {}); }
     if (req.url === "/api/register") { server.photos.add(body.id); return reply(200, {}); }
+    if (req.url === "/api/confirm") return server.withholdConfirm || !server.photos.has(body.id) ? reply(404, { code: "PHOTO_NOT_CONFIRMED" }) : reply(200, {});
     return reply(404, {});
   });
 });
@@ -164,9 +166,25 @@ try {
       eq([server.records.size, server.uploads.size], [1, 2], "sem duplicar");
     });
 
+    await check("recebimento não confirmado (Chrome real): a foto fica 'Falha' e o arquivo no aparelho; ao confirmar, sincroniza sem duplicar", async () => {
+      server.withholdConfirm = true;
+      const r = await c.eval(`(async () => {
+        const item = await T.queue.save({ userId: "u-ana", projectId: "p-1", draft: ${draft}, photos: [{ name: "c.jpg", mimeType: "image/jpeg", blob: new Blob(["c".repeat(2000)], { type: "image/jpeg" }) }] });
+        const report = await T.queue.sync("u-ana");
+        const l = (await T.queue.listForUser("u-ana"))[0];
+        const blob = await T.store.getBlob(l.clientId + ":" + l.photos[0].id);
+        return { failed: report.failed, status: l.status, confirmed: l.photos[0].confirmed === true, blob: blob ? blob.size : -1, id: item.clientId };
+      })()`);
+      eq([r.failed, r.status, r.confirmed, r.blob], [1, "FAILED", false, 2000], "sem confirmação");
+      server.withholdConfirm = false;
+      const again = await c.eval(`(async () => { const report = await T.queue.sync("u-ana"); const l = (await T.queue.listForUser("u-ana"))[0]; const blob = await T.store.getBlob(l.clientId + ":" + l.photos[0].id); return { synced: report.synced, status: l.status, confirmed: l.photos[0].confirmed === true, blob }; })()`);
+      eq([again.synced, again.status, again.confirmed, again.blob], [1, "SYNCED", true, null], "após confirmar");
+      eq(server.records.size, 2, "um registro novo, sem duplicar o anterior");
+    });
+
     await check("descartar remove registro e arquivos do aparelho", async () => {
       const gone = await c.eval(`(async () => { const l = await T.queue.listForUser("u-ana"); const ok = await T.queue.discard("u-ana", l[0].clientId); return { ok, left: (await T.queue.listForUser("u-ana")).length }; })()`);
-      eq([gone.ok, gone.left], [true, 0], "descarte");
+      eq([gone.ok, gone.left], [true, 1], "descarte (um dos dois itens sincronizados)");
     });
   });
 } finally {

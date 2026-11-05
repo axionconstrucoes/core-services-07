@@ -45,10 +45,31 @@ exigindo conexão para enviar.
 Estados mostrados ao usuário: **Salvo no aparelho** → **Aguardando envio** → **Sincronizado** (e **Falha no
 envio**, com motivo, nova tentativa e descarte).
 
+**Estado de cada foto** (chips em Registros e em Envios): **Pendente no aparelho** → **Enviando** → **Sincronizada**
+(ou **Falha no envio**). Uma foto só é "Sincronizada" depois da **confirmação de recebimento**: após o upload ao
+Storage e o registro pela RPC, o app lê de volta a linha da foto no servidor (mesmo registro, mesmo hash SHA-256,
+mesmo tamanho). Enquanto isso não ocorre — sem sinal, falha ou confirmação negada — a foto continua identificada
+como pendente/falha e **o arquivo permanece no aparelho**; ele só é apagado do aparelho depois de todas as fotos
+do registro estarem confirmadas. Reenvio nunca duplica: ids gerados no aparelho, upload idempotente, registro
+idempotente por id, `unique (record_id, sha256_hash)` e a mesma foto repetida no mesmo registro é guardada uma vez.
+
+**Onde a foto fica e quando está protegida.**
+1. Escolhida/tirada: arquivo no **IndexedDB do aparelho** (já protegida contra fechar a aba ou perder sinal; não
+   contra apagar os dados do site/trocar de aparelho).
+2. Enviada: **Storage `project-documents` + linha em `ssma_field_record_photos`** (autoridade; protegida pelo
+   Supabase). O envio é automático ao salvar com internet, ao reconectar (evento `online`), ao voltar para a
+   aba e a cada 30 s com pendências — **não depende de GitHub nem do computador do escritório**.
+3. Espelho no Google Drive (somente fotos dos **formulários/checklists**, `ssma_submission_photos`): feito pelo
+   workflow **SSMA Drive Photo Sync** (GitHub Actions, a cada 2 h nominais; o GitHub pode atrasar horas). Existe
+   só porque as credenciais do Drive estão nos *secrets* do GitHub e não na Vercel. É **recuperação/cópia**,
+   não protege a foto: o original já está no Supabase. As fotos dos registros de campo (trilha B) não são
+   espelhadas no Drive hoje.
+
 Testado (`npm run test:ssma`):
-- lógica da fila (18 casos, módulo puro): gravação sem rede, reconexão, duplicidade, queda no meio do envio
+- lógica da fila (22 casos, módulo puro): gravação sem rede, reconexão, duplicidade, queda no meio do envio
   (retoma sem reenviar), falha do servidor, erro permanente, troca de conta, isolamento por usuário e obra,
-  execuções simultâneas, falta de espaço, arquivo local ausente;
+  execuções simultâneas, falta de espaço, arquivo local ausente, **estados da foto, confirmação de recebimento
+  negada (arquivo fica no aparelho, nova tentativa confirma sem duplicar)** e item antigo sem confirmação;
 - IndexedDB **real** e corte de rede **real** em Chrome (persistência entre recarregamentos, fotos, isolamento,
   envio na reconexão, sem duplicar);
 - service worker real em Chrome: guarda só a casca e estáticos; nunca páginas com dados nem API; sem rede,
