@@ -39,7 +39,7 @@ export default async function LegalConsultationPage({ params }: { params: Promis
         </CardContent>
       </Card>
       <div className="space-y-2">
-        <DeleteLegalConsultationButton projectId={projectId} consultationId={consultation.id} />
+        <DeleteLegalConsultationButton projectId={projectId} consultationId={consultation.id} afterDelete="list" />
         <p className="text-xs text-muted-foreground">{LEGAL_CONSULTATION_DELETE_SCOPE_NOTICE}</p>
       </div>
     </div>

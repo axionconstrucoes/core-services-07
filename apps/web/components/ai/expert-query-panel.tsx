@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { AlertTriangle, FlaskConical, HelpCircle, Loader2 } from "lucide-react";
 import { AiPendingIndicator } from "@/components/ai/ai-pending-indicator";
 import { SeverityBadge } from "@/components/shared/badges";
@@ -355,7 +355,18 @@ export function ExpertQueryPanel({
   /** Exemplo contextual da pergunta, definido por cada Expert quando necessário. */
   questionPlaceholder?: string;
 }) {
-  const [state, formAction, pending] = useActionState(action, initialState);
+  const [rawState, formAction, pending] = useActionState(action, initialState);
+  // Consulta jurídica excluída no histórico: limpa a resposta aberta correspondente (mesmo consultationId).
+  const [dismissedId, setDismissedId] = useState<string | null>(null);
+  useEffect(() => {
+    function onDeleted(event: Event) {
+      const id = (event as CustomEvent<{ id?: string }>).detail?.id;
+      if (id) setDismissedId(id);
+    }
+    window.addEventListener("acc:legal-consultation-deleted", onDeleted);
+    return () => window.removeEventListener("acc:legal-consultation-deleted", onDeleted);
+  }, []);
+  const state = dismissedId && rawState.consultationId === dismissedId ? initialState : rawState;
   const { response, error } = state;
   // Ao iniciar outra consulta, a resposta anterior sai imediatamente da
   // tela. `useActionState` mantem apenas o resultado mais recente e nao ha

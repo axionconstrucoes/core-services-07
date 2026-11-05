@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from "@axion/db/server";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
+import { LEGAL_ADMIN_ONLY_MESSAGE, isActiveAdminOfProject } from "@/lib/legal/access";
 import { runMultiExpertCuration } from "./curation/run-multi-expert-curation";
 import type { MultiExpertCuration } from "./curation/types";
 import {
@@ -28,6 +29,8 @@ export async function runPrecontractCurationAction(
   if ((await getCurrentProjectPermission(projectId)) === null) {
     return { result: null, error: "Você não possui acesso ativo a esta análise pré-contratual." };
   }
+  // Jurídico IA: somente administrador ativo do espaço.
+  if (!(await isActiveAdminOfProject(projectId))) return { result: null, error: LEGAL_ADMIN_ONLY_MESSAGE };
 
   try {
     const supabase = await createSupabaseServerClient();
