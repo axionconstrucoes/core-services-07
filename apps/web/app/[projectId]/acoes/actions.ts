@@ -252,6 +252,10 @@ export async function completeSlaActionAction(
     const { error } = await supabase.from("sla_actions").update(updates).eq("id", actionId);
 
     if (error) {
+      // Ação de origem SSMA: a conclusão exige a evidência registrada no app SSMA (a trigger do banco recusa aqui).
+      if (/SSMA_ACTION_COMPLETE_VIA_SSMA/.test(error.message)) {
+        return { error: "Esta ação nasceu de uma ação corretiva SSMA de campo. Conclua pelo app SSMA, anexando a foto de evidência (ou a justificativa do gestor).", success: false };
+      }
       return { error: error.message, success: false };
     }
 

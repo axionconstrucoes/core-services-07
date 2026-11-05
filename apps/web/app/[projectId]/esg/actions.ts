@@ -5,6 +5,15 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@axion/db/server";
 
 import { computeObligationRisk } from "@/lib/esg/compute-obligation-risk";
+import {
+  canConfigureEsg,
+  canRegisterEsgCompliance,
+  canReviewEsg,
+  ESG_CONFIGURE_DENIED_MESSAGE,
+  ESG_REGISTER_DENIED_MESSAGE,
+  ESG_REVIEW_DENIED_MESSAGE,
+} from "@/lib/esg/esg-permissions";
+import { getCurrentProjectPermission } from "@/lib/contract-review";
 import type { EsgRiskLevel } from "@/lib/esg/types";
 import type { CreateEsgObligationState, CreateEsgSubmissionState, ReviewEsgSubmissionState } from "./actions-state";
 
@@ -43,6 +52,9 @@ export async function createEsgObligationAction(
     const title = requiredField(formData, "title");
     const category = requiredField(formData, "category");
     const periodicity = requiredField(formData, "periodicity");
+    if (!canConfigureEsg(await getCurrentProjectPermission(projectId))) {
+      return { error: ESG_CONFIGURE_DENIED_MESSAGE, success: false };
+    }
     const description = optionalField(formData, "description");
     const sourceReference = optionalField(formData, "sourceReference");
     const requiredEvidenceDescription = optionalField(formData, "requiredEvidenceDescription");
@@ -97,6 +109,9 @@ export async function createEsgObligationSubmissionAction(
     const obligationId = requiredField(formData, "obligationId");
     const referenceDate = requiredField(formData, "referenceDate");
     const status = requiredField(formData, "status");
+    if (!canRegisterEsgCompliance(await getCurrentProjectPermission(projectId))) {
+      return { error: ESG_REGISTER_DENIED_MESSAGE, submissionId: null };
+    }
     const referencePeriodLabel = optionalField(formData, "referencePeriodLabel");
     const dueDate = optionalField(formData, "dueDate");
     const description = optionalField(formData, "description");
@@ -198,10 +213,18 @@ export async function reviewEsgObligationSubmissionAction(
 ): Promise<ReviewEsgSubmissionState> {
   const supabase = await createSupabaseServerClient();
 
+  const { data: authData, error: authError } = await supabase.auth.getUser();
+  if (authError || !authData.user) {
+    return { error: "Sessão expirada. Faça login novamente.", success: false };
+  }
+
   try {
     const projectId = requiredField(formData, "projectId");
     const submissionId = requiredField(formData, "submissionId");
     const newStatus = requiredField(formData, "newStatus");
+    if (!canReviewEsg(await getCurrentProjectPermission(projectId))) {
+      return { error: ESG_REVIEW_DENIED_MESSAGE, success: false };
+    }
     const reviewNote = optionalField(formData, "reviewNote");
 
     const { error } = await supabase.rpc("review_esg_obligation_submission", {

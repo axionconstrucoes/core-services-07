@@ -47,6 +47,7 @@ export type SlaActionOrigin =
   | "EVENT"
   | "ACTION_REQUEST"
   | "AI_FINDING"
+  | "SSMA_CORRECTIVE_ACTION"
   | "OTHER";
 
 export type SlaEscalationReason =
