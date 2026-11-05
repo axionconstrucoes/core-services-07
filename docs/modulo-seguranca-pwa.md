@@ -157,9 +157,11 @@ sincronização exibem este mesmo resumo (`components/ssma/ssma-offline-capabili
 
 O painel "SSMA / ESG — Segurança" lê **campos estruturados**: acidentes do formulário `ocorrencia-acidente`
 (campo `afastamento`), registros de campo (trilha B) e ações corretivas. Cada número vem com **origem** (nº de
-formulários e de registros de campo) e **período** (primeiro e último fato). Um relato do formulário de acidente e um
-registro de campo OCORRÊNCIA até 24 h um do outro contam **uma vez** (1:1; o painel informa quantos foram
-descontados). **Zero registrado (0) ≠ ausência de dados (—)**. Detalhes e limite da regra: `docs/ssma-esg-fechamento-2026-11-06.md`.
+formulários e de registros de campo) e **período** (primeiro e último fato). Um acidente do formulário e uma
+ocorrência de campo até 24 h um do outro são apenas **possível duplicidade** (sugestão); **só a decisão humana do
+Administrador** ("mesmo fato", vínculo explícito 1:1 e auditado) desconta um relato do total — dois acidentes distintos
+no mesmo intervalo contam 2. **Quase-acidentes** = categoria estruturada "Quase-acidente" dos registros de campo,
+com origem e período. **Zero registrado (0) ≠ ausência de dados (—)**. Detalhes e limite da regra: `docs/ssma-esg-fechamento-2026-11-06.md`.
 
 ## Ação corretiva ↔ Ações e Escalonamentos, avisos e perfis ESG (migration pendente)
 
