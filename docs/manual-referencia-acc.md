@@ -1,5 +1,7 @@
 # Manual de Referência do ACC — Axion Contract Intelligence
 
+> **Atualização de 04/11/2026 (pós-PR #129, produção `751fe2f`):** menu, perfis, histórico privado do Jurídico e Dashboard publicado foram atualizados nos capítulos 2, 3 e 4 e no **Anexo F**, que lista os pontos a revisar. O restante do texto continua com a base `a83843d`.
+>
 > **Estado:** rascunho para revisão de Reynaldo. Elaborado por leitura do código e da documentação do repositório em 04/11/2026 (base: produção `a83843d`). Nenhuma tela foi aberta em navegador autenticado nesta análise: o que vale para o comportamento em tela vem de leitura de código, de migrations e de testes automatizados. Itens verificados por execução em banco de teste (PGlite) estão assinalados como **PROVADO POR EXECUÇÃO**.
 >
 > **Como ler as fontes:** caminhos relativos a `apps/web/` salvo indicação (`docs/…`, `scripts/…`, `supabase/…` são da raiz). `arquivo:linha` reflete o código desta data e pode deslocar.
@@ -21,7 +23,7 @@
 7. Escalonamento de alertas
 8. Uso dos especialistas
 9. Q&A e textos de ajuda
-- Anexos: A (divergências de riscos e escalonamento), B (divergências de especialistas), C (itens não encontrados), D (divergências por aba), E (verificações em ambiente de teste)
+- Anexos: A (divergências de riscos e escalonamento), B (divergências de especialistas), C (itens não encontrados), D (divergências por aba), E (verificações em ambiente de teste), **F (atualização pós-publicação da Fase 1 e pontos para revisão)**
 
 ---
 
@@ -31,7 +33,7 @@ O **ACC (Axion Contract Intelligence)** é o sistema da Axion para acompanhar co
 
 **O que o ACC faz**
 - **Guarda e lê documentos** (Documentos, Jurídico): versões, tipo, idioma, extração de texto e OCR com marcação de cobertura parcial (cap. 6.2).
-- **Registra eventos com possível implicação contratual** (EVENTOS, Timeline) e confronta cada evento com as cláusulas, com aprovação humana.
+- **Registra eventos com possível implicação contratual** (Eventos, Timeline) e confronta cada evento com as cláusulas, com aprovação humana.
 - **Classifica o risco** em Baixo, Médio, Alto e Crítico por critérios adotados pela Axion; a sugestão é uma regra, a IA só propõe de forma provisória e quem registra o grau é uma pessoa, com justificativa e histórico imutável (cap. 6).
 - **Dispara e cobra alertas** com prazos de ação por criticidade (SLA), escalonamento do responsável ao gestor e à Diretoria, lembretes recorrentes e resumos semanais (cap. 7).
 - **Acompanha providências**, obrigações **ESG/SSMA** (inclusive o app de campo, com fila offline), solicitações e o relatório semanal (cronograma, financeiro).
@@ -62,7 +64,7 @@ O **ACC (Axion Contract Intelligence)** é o sistema da Axion para acompanhar co
 
 **Consequência — a tela promete mais do que o banco aceita em vários pontos:** Providências, Classificação de risco, concluir alerta de providência, Revisão de cláusulas e Start-up mostram formulários a perfis que o banco recusa ao salvar, e alguns textos citam "EDITOR ou ADMIN" ou "gestor, gerente ou administrador". As mensagens de erro do banco chegam em inglês em alguns pontos. Lista em Anexo D.
 
-**Esconder o menu nunca é a única barreira:** itens restritos (Financeiro, Autorizações, Start-up ACC) somem do menu, mas rota, carregador, ações e RLS aplicam a mesma regra (`lib/ui/nav-items.ts:17-22`).
+**Esconder o menu nunca é a única barreira:** itens restritos somem do menu, mas rota, carregador, ações e RLS aplicam a mesma regra (`lib/ui/nav-items.ts:17-22`). **Desde o PR #129**, **Eventos, Integrações, Usuários, Autorizações e Start-up ACC** são **só para o Administrador** (menu e páginas; as ações de Eventos conferem o perfil no servidor, e o banco continua sendo a barreira das escritas). **Financeiro** segue a regra própria. Quem não é Administrador recebe "página não encontrada" (404) ao abrir essas rotas pelo endereço. Ver pontos a revisar no **Anexo F** (F1).
 
 **Regras gerais de tela**
 - Todas as rotas exigem login, exceto `/login`, `/auth/callback` e rotas de cron (`proxy.ts:46-66`); sem sessão, o destino fica em `?next=`.
@@ -73,13 +75,13 @@ O **ACC (Axion Contract Intelligence)** é o sistema da Axion para acompanhar co
 
 ## 3. MAPA DE NAVEGAÇÃO
 
-Menu lateral (`lib/ui/nav-items.ts:26-53`):
+Menu lateral (`lib/ui/nav-items.ts:26-53`; **atualizado após o PR #129**: rótulo "Eventos" e abas administrativas):
 
 | Aba (rótulo) | Rota | Restrição de menu | Seção do manual |
 |---|---|---|---|
 | Dashboard | `/{obra}/dashboard` | — | 4.2 |
 | Timeline | `/{obra}/timeline` | — | 4.3 |
-| EVENTOS | `/{obra}/ledger` | — | 4.4 a 4.6 |
+| Eventos | `/{obra}/ledger` | **só Administrador** (desde o PR #129) | 4.4 a 4.6 |
 | Solicitações | `/{obra}/action-requests` | — | 4.7 |
 | Ações e Escalonamentos | `/{obra}/acoes` | — | 4.8 a 4.11 |
 | Jurídico | `/{obra}/juridico` | — | 4.20 |
@@ -88,8 +90,8 @@ Menu lateral (`lib/ui/nav-items.ts:26-53`):
 | Financeiro | `/{obra}/financeiro` | papel Administrador/Gerente ou área Diretoria/Financeiro; depende de `ACC_WEEKLY_REPORTS_ENABLED` | 4.24 |
 | ESG/SSMA | `/{obra}/esg` | — | 4.27 a 4.29 |
 | Experts IA | `/{obra}/experts-ia` | — | 4.25 e cap. 8 |
-| Integrações | `/{obra}/integracoes` | — | 4.26 |
-| Usuários | `/{obra}/usuarios` | — | 4.30 |
+| Integrações | `/{obra}/integracoes` | **só Administrador** (desde o PR #129) | 4.26 |
+| Usuários | `/{obra}/usuarios` | **só Administrador** (desde o PR #129) | 4.30 |
 | Autorizações | `/{obra}/autorizacoes` | só Administrador | 4.31 |
 | Auditoria | `/{obra}/auditoria` | — | 4.32 |
 | Ajuda e tutorial | `/{obra}/ajuda` | — | 4.33 e 4.34 |
@@ -104,7 +106,7 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
 | Aba | Rota | Restrição de menu |
 |---|---|---|
 | ESG/SSMA | `/{obra}/esg` | nenhuma (`nav-items.ts:45`) |
-| Usuários | `/{obra}/usuarios` | nenhuma (`nav-items.ts:48`) |
+| Usuários | `/{obra}/usuarios` | `restrictedTo: "admin"` (desde o PR #129) |
 | Autorizações | `/{obra}/autorizacoes` | `restrictedTo: "admin"` (`nav-items.ts:49`) |
 | Auditoria | `/{obra}/auditoria` | nenhuma (`nav-items.ts:50`) |
 | Ajuda e tutorial | `/{obra}/ajuda` | nenhuma (`nav-items.ts:51`) |
@@ -119,9 +121,9 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
 - 4.1 Entrada no sistema, seleção de projeto e faixa "SISTEMA EM TESTE"
 - 4.2 Dashboard
 - 4.3 Timeline
-- 4.4 EVENTOS (lista)
-- 4.5 EVENTOS — detalhe do evento, confronto evento × cláusula, curadoria, notas e envio de alerta
-- 4.6 EVENTOS — Responder alertas do ACC (lote de alertas)
+- 4.4 Eventos (lista)
+- 4.5 Eventos — detalhe do evento, confronto evento × cláusula, curadoria, notas e envio de alerta
+- 4.6 Eventos — Responder alertas do ACC (lote de alertas)
 - 4.7 Solicitações
 - 4.8 Ações e Escalonamentos
 - 4.9 Botão "Verificar escalonamentos"
@@ -160,6 +162,8 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
 
 ### 4.1 Entrada no sistema, seleção de projeto e faixa "SISTEMA EM TESTE" — rotas `/`, `/login`, `/projetos` (e `/{obra}/dashboard` como destino)
 
+> **Atualização pós-PR #129 — caixa "Editar projeto".** O formulário (`/projetos/{id}/editar`, só Administrador) agora tem fundo cinza médio opaco `#A8ADB5`, título, descrição, rótulos, valores, datas e botão Cancelar em preto `#000000`, campos brancos com borda visível, ícones e calendário escuros e **Salvar alterações** em vinho com texto branco (contraste medido em produção: 9,3:1 no cinza, 21:1 nos campos, 10:1 no botão Salvar). Cancelar volta ao Dashboard sem gravar. A barra lateral esconde agora **Eventos, Integrações, Usuários, Autorizações e Start-up ACC** de quem não é Administrador (a frase sobre "Autorizações e Start-up ACC" em *Estados e exceções* é anterior ao PR #129).
+
 - **Para que serve**
   Porta de entrada do ACC. `/` apenas redireciona para `/projetos` (`app/page.tsx:3-4`). `/login` autentica com a conta Google corporativa. `/projetos` lista as obras do usuário e leva ao Dashboard da obra escolhida (`app/projetos/page.tsx:99`). A faixa "SISTEMA EM TESTE" aparece no topo de todas as páginas, inclusive no login (`app/layout.tsx:36`).
 
@@ -185,7 +189,7 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
   - Erros no login (`app/login/page.tsx:10-14,58`): `oauth_missing_code` e `oauth_exchange_failed` mostram "Não foi possível concluir o login com Google. Tente novamente."; `domain_not_allowed` mostra "Acesso restrito a contas do domínio @axion.com.br.".
   - Sem projetos para a conta: "Nenhum projeto disponível para sua conta." (`app/projetos/page.tsx:94`).
   - Acessar `/{obra}/...` de obra inexistente ou sem acesso: o layout responde página não encontrada (404), sem explicação de permissão (`app/[projectId]/layout.tsx:21-22`).
-  - A barra lateral esconde "Autorizações" e "Start-up ACC" de quem não é ADMINISTRADOR e "Financeiro" de quem não passa na regra financeira; esconder o menu não é a barreira — rota, loader, actions e RLS aplicam a mesma regra (`app/[projectId]/layout.tsx:42-47`; `lib/ui/nav-items.ts:21-25,38,50,52`). Financeiro só aparece se a flag de relatórios semanais estiver ligada (**DEPENDE DE CONFIGURAÇÃO**: `ACC_WEEKLY_REPORTS_ENABLED`, `lib/feature-flags/weekly-reports.ts:22-24`; `app/[projectId]/layout.tsx:25-29`).
+  - A barra lateral esconde "Eventos", "Integrações", "Usuários", "Autorizações" e "Start-up ACC" de quem não é ADMINISTRADOR (Eventos, Integrações e Usuários desde o PR #129) e "Financeiro" de quem não passa na regra financeira; esconder o menu não é a barreira — rota, loader, actions e RLS aplicam a mesma regra (`app/[projectId]/layout.tsx:42-47`; `lib/ui/nav-items.ts:21-25,38,50,52`). Financeiro só aparece se a flag de relatórios semanais estiver ligada (**DEPENDE DE CONFIGURAÇÃO**: `ACC_WEEKLY_REPORTS_ENABLED`, `lib/feature-flags/weekly-reports.ts:22-24`; `app/[projectId]/layout.tsx:25-29`).
   - Acesso financeiro: ADMINISTRADOR ou GERENTE, ou área DIRETORIA/FINANCEIRO (`lib/financial/access.ts:17-35`).
 
 - **Textos hover e avisos atuais**
@@ -229,6 +233,8 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
 
 ### 4.2 Dashboard — rota `/{obra}/dashboard` (a rota `/{obra}/dashboard/visual` só redireciona para ela)
 
+> **Atualização pós-PR #129 (Dashboard publicado).** Tema escuro: fundo `#0B1629`, barra superior `#13233B`, cartões `#182941`; lateral vinho com o logo ACC 15% maior. Faixa de seis indicadores (números em 24 px, peso 400; "SEM RISCO" em verde `#2FBF71`) e cinco colunas de painéis; títulos das caixas em peso 600, conteúdo em 400. **Selo de status padronizado** nos painéis "Status das integrações", "Relatório semanal processado" e "Planejamento — recebimento por e-mail" (mesma altura, fonte, cantos e alinhamento à direita): ATIVO e OK em verde-escuro `#166534` com texto branco; PENDENTE em laranja `#FB923C` com texto preto (o valor interno "PENDING" aparece como "PENDENTE"). "Distribuição dos alertas": Baixo `#166534`, Médio amarelo com texto preto, Alto `#C2410C`, Crítico `#B91C1C`, todos com rótulo e número brancos (exceto Médio). Metadados longos de Planejamento ficam em "Detalhes" expansíveis. Cabe sem rolagem em 1536×775 e 1920×970 (viewport CSS). **Duas propostas de tipografia (A e B) estão só em prévia local, aguardando escolha** — nada delas está publicado. Itens que ainda podem divergir do texto abaixo: ver **Anexo F** (F6).
+
 - **Para que serve**
   Painel executivo da obra em uma tela: alertas ativos, quantidade de eventos, risco atual, integrações, aditivos, avanço físico, financeiro resumido, SSMA, prazo/planejamento, distribuição dos alertas e status do relatório semanal. Texto de ajuda no menu: "Visão executiva do contrato e dos principais riscos." (`lib/ui/feature-help.ts:23-28`). Não há ação de edição nesta tela (só leitura).
 
@@ -243,7 +249,7 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
   2. Ler o selo de integrações no cabeçalho (INTEGRAÇÕES ATIVAS / PARCIAIS / FALHA EM INTEGRAÇÃO / SEM INTEGRAÇÕES). Passar o mouse mostra o motivo; o motivo também aparece escrito abaixo do selo (`page.tsx:696-718`; `lib/ui/resolve-system-status.ts:35-58`).
   3. Conferir os seis cartões de topo: Alertas ativos, Eventos Ledger, Risco atual, Integrações, Aditivos, Avanço físico (`page.tsx:731-801`).
   4. Descer pelos painéis: Situação contratual, Financeiro resumido — R$ mil, SSMA — Segurança, Avanço físico/financeiro do contrato, Planejamento — recebimento por e-mail, Status das integrações, Distribuição dos alertas, Relatório semanal processado (`page.tsx:807-1308`).
-  5. Para tratar um alerta ou evento, usar as abas EVENTOS, Ações e Escalonamentos (ver cap. 6 e 7) — o Dashboard não tem links de navegação nos cartões.
+  5. Para tratar um alerta ou evento, usar as abas Eventos, Ações e Escalonamentos (ver cap. 6 e 7) — o Dashboard não tem links de navegação nos cartões.
 
 - **Estados e exceções**
   - Sem dado: "—", "Não disponível", "Não recebido", "Ausente" ou "Aguardando Curva S" conforme o campo (`page.tsx:793-797,1115-1117,1137-1139,1288-1306`). O rodapé afirma: "Nenhum indicador financeiro ou SSMA é estimado quando a fonte não está disponível." (`page.tsx:1335-1337`).
@@ -289,7 +295,7 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
   Observação: a página **não usa FeatureInfo (ⓘ)** nem `title` em cartões; o único `title` próprio é o do selo de integrações (`page.tsx:697`).
 
 - **Sugestões de melhoria dos textos**
-  - "Eventos Ledger" (`page.tsx:740`) usa o termo técnico "Ledger"; o menu chama a aba de "EVENTOS". Sugestão: "Eventos registrados" como título e "Total de eventos" como subtítulo.
+  - "Eventos Ledger" (`page.tsx:740`) usa o termo técnico "Ledger"; o menu chama a aba de "Eventos". Sugestão: "Eventos registrados" como título e "Total de eventos" como subtítulo.
   - "Alertas ativos / Achados ainda ativos" mistura "alerta" e "achado" (a aba Providências e o cap. 6.1 distinguem trilhas de alerta). Sugestão: manter um termo só ("Achados ativos") ou explicar a diferença em um ⓘ.
   - "Distribuição dos alertas" mostra Baixo/Médio/Alto/Crítico sem dizer que se refere a **achados ativos** (não aos e-mails enviados).
   - "Risco atual — Situação consolidada": explicar no hover que é a maior severidade entre os achados ativos.
@@ -304,6 +310,8 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
 ---
 
 ### 4.3 Timeline — rota `/{obra}/timeline` (com exportação do Timeline filtrado)
+
+> **Atualização pós-PR #129 — filtros da Timeline.** Em Fontes, Categorias/Impactos e Participantes, **"Todos" marcado = sem filtro**. Desmarcar uma opção preserva as demais; **desmarcar todas** deixa nenhuma caixa marcada e a Timeline **volta a exibir todos os eventos**, com o aviso "Nenhuma opção marcada — exibindo todas (sem filtro)" e **sem remarcar sozinha** nenhuma caixa. A caixa, o rótulo e a tecla Espaço funcionam; "Todos" responde ao clique. **Ponto a revisar (F1):** o clique em um evento leva ao detalhe na aba Eventos, que agora é só do Administrador.
 
 - **Para que serve**
   Linha do tempo cronológica dos eventos consolidados da obra, com busca em todo o acervo e filtros por fonte, categoria, período e participantes. Permite exportar o conjunto filtrado (dossiê PDF, índice XLSX/CSV, arquivos originais, ZIP) para uso jurídico, perícia ou arbitragem (`docs/timeline-export.md:1-14`). Descrição no cabeçalho: "Linha do tempo cronológica de todos os eventos consolidados." (`app/[projectId]/timeline/page.tsx:88`).
@@ -373,17 +381,19 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
 
 ---
 
-### 4.4 EVENTOS (lista) — rota `/{obra}/ledger`
+### 4.4 Eventos (lista) — rota `/{obra}/ledger`
+
+> **Atualização pós-PR #129.** A aba **Eventos** é **só para o Administrador** (menu e página; sem perfil administrativo ativo a rota devolve 404). Rótulo e título passaram de "EVENTOS" para "Eventos". **Ponto a revisar:** links de outras telas e dos e-mails levam a esta aba (F1).
 
 - **Para que serve**
-  Registro cronológico dos eventos da obra com possível implicação contratual, em tabela: data, evento, fonte, categorias, status e severidade do achado de IA (`app/[projectId]/ledger/page.tsx:15`; `components/ledger/event-table.tsx:12-17`). O rótulo no menu é "EVENTOS" (rota técnica `ledger`) (`lib/ui/nav-items.ts:31`).
+  Registro cronológico dos eventos da obra com possível implicação contratual, em tabela: data, evento, fonte, categorias, status e severidade do achado de IA (`app/[projectId]/ledger/page.tsx:15`; `components/ledger/event-table.tsx:12-17`). O rótulo no menu é "Eventos" (rota técnica `ledger`) (`lib/ui/nav-items.ts:31`).
 
 - **Quem acessa / permissões**
   - UI e servidor: leitura por qualquer membro do projeto; a lista não tem botões de escrita (`ledger/page.tsx:9-18`).
   - Restrição de menu: nenhuma.
 
 - **Fluxo principal**
-  1. Abrir "EVENTOS".
+  1. Abrir "Eventos".
   2. Localizar o evento na tabela (ordem do mais recente ao mais antigo, `lib/data.ts:196-200`).
   3. Clicar na data ou no título para abrir o detalhe (ver próxima seção) (`event-table.tsx:24-31`).
 
@@ -397,16 +407,16 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
 
 | Elemento | Texto literal | arquivo:linha |
 |---|---|---|
-| Menu lateral (title) | `EVENTOS — Registro estruturado dos eventos relevantes do contrato.` | `lib/ui/feature-help.ts:37-42`; `app-sidebar.tsx:125` |
+| Menu lateral (title) | `Eventos — Registro estruturado dos eventos relevantes do contrato.` | `lib/ui/feature-help.ts:37-42`; `app-sidebar.tsx:125` |
 | FeatureInfo "event-ledger" (catálogo) | `Mantém os acontecimentos relevantes identificados no projeto, com origem, evidência, impacto, classificação e rastreabilidade.` | `lib/ui/feature-help.ts:40-41` |
-| Cabeçalho | `EVENTOS` / `Registro cronológico de eventos com possível implicação contratual.` | `ledger/page.tsx:15` |
+| Cabeçalho | `Eventos` / `Registro cronológico de eventos com possível implicação contratual.` | `ledger/page.tsx:15` |
 | Colunas | `Data`, `Evento`, `Fonte`, `Categorias`, `Status`, `Achado IA` | `event-table.tsx:12-17` |
 | Vazio | `Nenhum evento registrado.` | `ledger/page.tsx:16` |
 | Título da guia do navegador | `Event Ledger` | `ledger/page.tsx:7` |
 
 - **Sugestões de melhoria dos textos**
-  - Título da guia "Event Ledger" (`ledger/page.tsx:7`) contradiz o menu "EVENTOS"; alinhar.
-  - Páginas de lote usam "Voltar para o Ledger" / "Ver Ledger" (`ledger/lote-alertas/[batchId]/page.tsx:36,71`); trocar por "Voltar para EVENTOS".
+  - Título da guia "Event Ledger" (`ledger/page.tsx:7`) contradiz o menu "Eventos"; alinhar.
+  - Páginas de lote usam "Voltar para o Ledger" / "Ver Ledger" (`ledger/lote-alertas/[batchId]/page.tsx:36,71`); trocar por "Voltar para Eventos".
   - Coluna "Achado IA" pode confundir com "alerta"; sugestão de hover: "Severidade sugerida pela IA — sujeita a revisão humana".
 
 - **Fontes**
@@ -414,7 +424,9 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
 
 ---
 
-### 4.5 EVENTOS — detalhe do evento, confronto evento × cláusula, curadoria, notas e envio de alerta — rota `/{obra}/ledger/{eventoId}`
+### 4.5 Eventos — detalhe do evento, confronto evento × cláusula, curadoria, notas e envio de alerta — rota `/{obra}/ledger/{eventoId}`
+
+> **Atualização pós-PR #129.** O detalhe do evento (`/{obra}/ledger/{eventoId}`) e as seis ações do servidor da página (confronto, nota de revisão, anotações, avaliação de atraso, curadoria multiagente e envio de alerta) **conferem Administrador no servidor** antes de agir; o banco já exigia esse perfil para gravar. O botão "RESPONDER AO ACC" do e-mail aponta para esta rota: **quem não é Administrador recebe 404** (F1).
 
 - **Para que serve**
   Página completa de um evento: resumo, status e categorias; "Achado da IA" com severidade e confiança; revisão de risco; evidência original; confronto com outras fontes; anotações; histórico de ações por e-mail; confrontação contratual (evento × cláusula) com revisão humana; curadoria multiagente; consulta a especialistas. Também é o destino dos botões dos e-mails de alerta (`?respond=acc`) (`app/[projectId]/ledger/[eventId]/page.tsx:41,98-107`). Princípio: a IA sugere, o humano revisa; confiança "sujeita a revisão humana, não substitui decisão da equipe" (`page.tsx:136-138`).
@@ -430,7 +442,7 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
   - Resumo prático: **ADMINISTRADOR** faz tudo; **GESTOR/GERENTE** veem tudo e podem rodar a curadoria multiagente (UI); **COLABORADOR e LEITURA** só leem.
 
 - **Fluxo principal**
-  1. Abrir o evento (pela lista EVENTOS, pela Timeline ou pelo botão do e-mail de alerta). Se veio do e-mail, aparece o aviso azul: "Você chegou aqui a partir de um alerta de risco {nível} enviado por e-mail. Sua resposta em "Anotações do Evento" abaixo fica registrada e vinculada a este evento." (`page.tsx:98-106`).
+  1. Abrir o evento (pela lista Eventos, pela Timeline ou pelo botão do e-mail de alerta). Se veio do e-mail, aparece o aviso azul: "Você chegou aqui a partir de um alerta de risco {nível} enviado por e-mail. Sua resposta em "Anotações do Evento" abaixo fica registrada e vinculada a este evento." (`page.tsx:98-106`).
   2. Ler resumo, "Registrado por ..." (usuário, "sistema (ingestão automática)" ou "... (registro histórico)") e o cartão "Achado da IA — {tipo}" (`page.tsx:77-153`; tipos: Desvio, Conflito, Informação Nova, Impacto Potencial, `lib/labels.ts:67-72`).
   3. Conferir "Evidência original" (e-mail com De/Para/Assunto/trecho; documento com título e versão) e "Confronto com outras fontes" (referências cruzadas) (`page.tsx:157-165`; `components/ledger/evidence-viewer.tsx`; `components/ledger/cross-reference-list.tsx`).
   4. **Confrontação contratual — Revisão humana** (`page.tsx:177-278`): para cada candidato (cláusula, confiança, status, tipo, severidade, fundamentos do evento e da cláusula, autor da análise), o administrador escreve a justificativa e clica "Aprovar relação" ou "Rejeitar". Justificativa mínima 20 caracteres, específica, sem frases genéricas como "aprovado" ou "de acordo" (`lib/ledger/confrontation-justification-validation.ts:24-81`). Após decidido, aparece quem decidiu e quando; aprovações antigas sem justificativa específica mostram aviso e permitem "Complementar justificativa" (`page.tsx:227-261`).
@@ -499,7 +511,9 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
 
 ---
 
-### 4.6 EVENTOS — Responder alertas do ACC (lote de alertas) — rota `/{obra}/ledger/lote-alertas/{loteId}`
+### 4.6 Eventos — Responder alertas do ACC (lote de alertas) — rota `/{obra}/ledger/lote-alertas/{loteId}`
+
+> **Atualização pós-PR #129.** A página do lote (`/{obra}/ledger/lote-alertas/{loteId}`) também é **só para o Administrador**. A tela `/alertas/acao/{obra}/{lote}/{evento}` (resposta pelo e-mail) tem botão "RESPONDER AO ACC" que leva a esta rota (F1).
 
 - **Para que serve**
   Tela aberta pelo botão do e-mail que reúne vários alertas de contrato. O responsável define uma ação por alerta (RESOLVIDO, EM ANDAMENTO ou ENVIADO P/ outro colaborador) e envia a resposta ao ACC (`lote-alertas/[batchId]/page.tsx:60-81`; `lib/email-actions/contract-alert-batch-types.ts:13-29`).
@@ -537,7 +551,7 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
 | Botões | `Salvar esta ação` / `Salvando…`; `Ação salva`; `RESPONDER AO ACC` / `CONFIRMAR TUDO` / `Enviando resposta…` | `contract-alert-batch-form.tsx:185-187,203` |
 
 - **Sugestões de melhoria dos textos**
-  - "Voltar para o Ledger" e "Ver Ledger" (`page.tsx:36,71`): trocar por "EVENTOS".
+  - "Voltar para o Ledger" e "Ver Ledger" (`page.tsx:36,71`): trocar por "Eventos".
   - "ENVIADO P/" é abreviação em maiúsculas; no aviso "O destinatário receberá este alerta..." fica claro; sugestão de rótulo "ENVIAR PARA OUTRO RESPONSÁVEL" ou manter e explicar no ⓘ.
   - "Responsável: {nome}" pode confundir com responsável pela ação; no lote é o destinatário do e-mail. Sugestão "Destinatário do lote".
   - Esta página não usa FeatureInfo; não há ⓘ explicando "o que acontece com cada ação" além do aviso azul e do aviso por ação (intervalos: ver cap. 6.7 e 7.3).
@@ -556,7 +570,7 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
   - Ver lista e detalhe: qualquer membro do projeto (RLS `is_project_member`, `supabase/migrations/20260819014144_action_request_foundation.sql:166-169`). Detalhe de solicitação de outra obra: página não encontrada (`[actionRequestId]/page.tsx:52-55`).
   - **Enviar por e-mail:** a UI mostra o formulário a qualquer um que veja o detalhe, sem checar perfil (`[actionRequestId]/page.tsx:100-148`). A Server Action não confere perfil; só exige que o ActionRequest seja visível pela sessão e delega à notificação (`actions.ts:28-31,70-77`; `lib/email/send-action-request-notification.ts:27-47`). **Ou seja, aparentemente qualquer perfil com acesso (inclusive LEITURA) pode disparar o envio** — comportamento inferido do código, **não testado em tela**; vale confirmar se é intencional, pois outras ações de envio da obra exigem ADMINISTRADOR (ex.: alerta de evento, `lib/email/send-contract-alert-email.ts:87-92`).
   - Restrição de menu: nenhuma (`lib/ui/nav-items.ts:32`).
-  - **DEPENDE DE CONFIGURAÇÃO:** envio de e-mail depende do provedor e do modo de saída (ver detalhe de EVENTOS); o aviso de MODO PILOTO desta tela **não foi encontrado** — o formulário de Solicitações não mostra aviso de piloto.
+  - **DEPENDE DE CONFIGURAÇÃO:** envio de e-mail depende do provedor e do modo de saída (ver detalhe de Eventos); o aviso de MODO PILOTO desta tela **não foi encontrado** — o formulário de Solicitações não mostra aviso de piloto.
 
 - **Fluxo principal**
   1. Abrir "Solicitações" e clicar em uma solicitação (título, situação, resumo de 2 linhas e "Solicitada em {data}") (`action-requests/page.tsx:25-38`).
@@ -594,12 +608,12 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
 
 - **Sugestões de melhoria dos textos**
   - Hover do campo Destinatário: `Função deste campo: destinatario@exemplo.com.` (usa o placeholder). Sugestão: `aria-label="E-mail de quem vai receber a solicitação"`.
-  - Falta aviso de MODO PILOTO (existe em EVENTOS). Se o ambiente estiver em piloto, o usuário pode achar que o e-mail chegou à pessoa; replicar `getPilotSendNotice()` aqui, se confirmado.
+  - Falta aviso de MODO PILOTO (existe em Eventos). Se o ambiente estiver em piloto, o usuário pode achar que o e-mail chegou à pessoa; replicar `getPilotSendNotice()` aqui, se confirmado.
   - "Nenhuma tentativa automática adicional foi feita" não diz o que fazer: sugestão "Entre em contato com o administrador do projeto para reenviar" (não há botão de reenvio).
   - Erro técnico "Campo obrigatório ausente: recipientEmail" (`actions.ts:22`) deve virar mensagem amigável.
   - Mensagem "não pode ser desfeito" está correta (não há cancelamento do envio); manter.
   - A definição de "Solicitações" no menu ("direcionadas às áreas e responsáveis da AXION") sugere criação/uso interno, mas a tela só envia e acompanha; alinhar texto ou implementar criação.
-  - Perfis: se for decidido restringir o envio a ADMINISTRADOR, mostrar a mensagem de leitura usada em EVENTOS.
+  - Perfis: se for decidido restringir o envio a ADMINISTRADOR, mostrar a mensagem de leitura usada em Eventos.
 
 - **Fontes**
   `app/[projectId]/action-requests/page.tsx`, `app/[projectId]/action-requests/[actionRequestId]/page.tsx`, `app/[projectId]/action-requests/actions.ts`, `lib/email/send-action-request-notification.ts`, `lib/data.ts` (`getActionRequests`, linha ~1013), `lib/labels.ts`, `lib/ui/feature-help.ts`, `supabase/migrations/20260819014144_action_request_foundation.sql`.
@@ -1009,6 +1023,8 @@ Itens do menu e restrição, `lib/ui/nav-items.ts:26-53`:
 
 ### 4.20 Jurídico — rota `/{obra}/juridico` (e entrada global `/juridico`)
 
+> **Atualização pós-PR #129 — histórico privado das consultas jurídicas (novo).** Antes, a consulta ao Especialista Jurídico (pergunta e resposta) **não era gravada** em lugar nenhum. Agora, cada consulta bem-sucedida é gravada em `legal_consultations` (migration `20261104120000_legal_consultations_private`, **aplicada em produção em 04/11/2026**) e a seção **"Minhas consultas jurídicas"** da aba lista, abre (`/{obra}/juridico/consulta/{id}`) e exclui (com confirmação em duas etapas) **somente as consultas do próprio autor**. **Ninguém mais** — outro membro da obra, **inclusive o Administrador pela interface do ACC** — lista, abre ou exclui a consulta alheia; por ID direto o resultado é 404. A autoria vem da sessão; o banco aplica a regra por RLS (sem UPDATE; `anon` sem acesso). Se a gravação falhar, a resposta continua aparecendo na tela. **Alcance real da exclusão** (texto exibido na tela): remove do histórico no ACC; cópias técnicas (backups do banco, sem prazo de rotação definido) e o que o provedor de IA retenha pela política dele **não** são apagadas. `service_role` ignora RLS por definição do Supabase, mas nenhum código do ACC o usa nessa tabela. **Validado:** testes automatizados (PGlite, duas contas do mesmo projeto) e leitura em produção (seção visível, ID inexistente = 404). **ADIADO:** validação manual com duas contas reais. Consultas anteriores à migration não existem (não eram gravadas).
+
 - **Para que serve**
   Tela única com dois comportamentos conforme o tipo do espaço (`project.workspaceType`, `app/[projectId]/juridico/page.tsx:42`). Em **obra contratada**: lista a base documental contratual (contrato-base, aditivos e documentos vinculados) e oferece a consulta ao Consultor Jurídico IA (`:93-113`). Em **espaço pré-contratual** (negociação de minuta, separado das obras assinadas): card de upload da minuta + consulta jurídica + "Análise integrada para negociação" com todos os especialistas e consolidação do CEO IA (`:59-66`, `:118`). A entrada global `/juridico` cria e lista os espaços pré-contratuais (`app/juridico/page.tsx:13-43`); o card "Jurídico IA" em `/projetos` leva a ela (`app/projetos/page.tsx:147-150`). Conteúdo dos especialistas: ver CAP69 cap. 8.
 
@@ -1367,6 +1383,8 @@ Conteúdo, identidades, escopo e limites dos especialistas: ver CAP69 cap. 8 (n�
 
 ### 4.26 Integrações — rota `/{obra}/integracoes`
 
+> **Atualização pós-PR #129.** A aba Integrações é **só para o Administrador** (menu e página; 404 para os demais). As ações do servidor da aba continuam com a barreira do banco (Administrador) e, em parte, conferência própria no código — **ponto a revisar (F2)**.
+
 - **Para que serve**
   Administração do status operacional das fontes do projeto (e-mail corporativo/Google Workspace, Diário de Obra, Construmanager, ESG/SSMA) e da ingestão controlada de e-mails (Gmail). Política vigente: contratos, aditivos, edital/RFI/RFP, dúvidas de licitação e serviços adicionais entram por **upload manual** em Documentos; o **Google Drive é usado somente para ESG/SSMA**; Drive de Orçamentos e de Planejamento não estão integrados (`FH:137-142`; `packages/mock-data/src/sources.ts:3-25`). Cabeçalho da tela: "Administração de Integrações" (`app/[projectId]/integracoes/page.tsx:67`), enquanto o menu diz "Integrações".
 
@@ -1624,6 +1642,8 @@ Conteúdo, identidades, escopo e limites dos especialistas: ver CAP69 cap. 8 (n�
 
 ### 4.30 Usuários — rota `/{obra}/usuarios`
 
+> **Atualização pós-PR #129.** A aba Usuários é **só para o Administrador** (menu e página; 404 para os demais). O texto abaixo que descreve a visão de leitura para outros perfis refere-se ao comportamento anterior. As ações do servidor continuam protegidas pelas funções do banco (F2).
+
 - **Para que serve**
   Mostra quem tem acesso à obra (internos Axion e terceiros), com cargo, área, permissão e status. O Administrador adiciona/pré-cadastra pessoas, muda permissão, cargo e status, cadastra o WhatsApp para alerta crítico e configura a **Matriz de responsabilidades e prazos** da obra (`app/[projectId]/usuarios/page.tsx:88-90,197-309`). Participar de um e-mail não concede acesso ao ACC (`lib/ui/feature-help.ts:249-255`).
 
@@ -1835,6 +1855,8 @@ Conteúdo, identidades, escopo e limites dos especialistas: ver CAP69 cap. 8 (n�
 ---
 
 ### 4.34 AXIA — "Fale com a AXIA" (caixa de conversa) e rota `/vera`
+
+> **Atualização pós-PR #129 — caixa da AXIA.** Título "AXIA — Assistente ACC", subtítulo **"Ajuda com o ACC"**, ícone provisório da Fase 1. O cartão de **resposta** da assistente é branco `#FFFFFF` com texto preto `#000000`; o botão do módulo (por exemplo, "Eventos") é vinho com texto branco; o link **"Abrir o tutorial completo"** e seu ícone são amarelos `#FFD54F`. A AXIA responde **só por texto** e os controles de voz ficam ocultos (voz = Fase 3). Verificado em produção com a pergunta "O que significam os graus de risco?". O Q&A novo (`docs/qa-axia-lote-1.md`) é **proposta ainda não consultada pela AXIA**.
 
 - **Para que serve**
   Assistente de ajuda do ACC. **Nesta fase responde apenas por texto**: recupera orientação de uma **base de conhecimento curada** (sem IA generativa, sem rede, sem custo), nunca consulta dados da obra e nunca altera nada (`lib/assistant/answer.ts:1-8,44-52`; `app/[projectId]/ajuda/assistente/route.ts:8-9`). A leitura em voz (ElevenLabs) existe no código mas está **desligada** (ver estados). O nome técnico `vera` foi mantido em rota e eventos (`docs/vera-autorizacao-email-e-voz.md`, nota de renomeação).
@@ -2076,14 +2098,14 @@ A criticidade afeta duas decisões **independentes**: *quanto tempo* a equipe te
 
 Matriz padrão no **código** (`lib/sla/default-matrix.ts:17-70`; espelho em `docs/sla-escalation.md:20-31`). Não há seed no banco (nenhuma migration insere em `sla_matrix_rules`). Cada projeto pode sobrescrever (ADMINISTRADOR, em `/{obra}/acoes/configuracao`; `app/[projectId]/acoes/actions.ts:326-331`). Precedência: regra da **área** do projeto > regra geral do projeto > padrão do código (`lib/sla/resolve-matrix-rule.ts:197-210`).
 
-| Risco | Prazo para **assumir** | Intervalo adicional até **Nível 2** (gerência) | Intervalo adicional até **Nível 3** (Diretoria) | Unidade | Pede confirmação de ciência | Pede justificativa de atraso |
+| Risco | Prazo para **assumir** (sobe ao Nível 2) | Intervalo do prazo de assumir até a **subida ao Nível 3** (Diretoria) — campo "Até 2º escalão" | Intervalo da Diretoria até o **limite** — campo "Até Diretoria" | Unidade | Pede confirmação de ciência | Pede justificativa de atraso |
 |---|---|---|---|---|---|---|
 | **CRÍTICO** | **1** | +1 | +2 | **horas corridas** | sim | sim |
 | **ALTO** | **4** | +4 | +4 | **horas úteis** | sim | sim |
 | **MÉDIO** | **1** | +1 | +1 | **dias úteis** | não | sim |
 | **BAIXO** | **3** | +3 | +2 | **dias úteis** | não | sim |
 
-Os prazos de *responder* e *concluir* são **nulos** no padrão ("nunca inventados"). Os números "Nível 2" e "Nível 3" são **intervalos acumulados** em cadeia, não horários absolutos desde o início (capítulo 7.3). Situação: IMPLEMENTADO; valores por obra DEPENDEM DE CONFIGURAÇÃO; o ensaio isolado usou a matriz CRÍTICO equivalente ao padrão (`docs/teste-controlado-alertas-criticos.md:40`).
+Os prazos de *responder* e *concluir* são **nulos** no padrão ("nunca inventados"). Os dois últimos números são **intervalos em cadeia**, cada um contado a partir do **marco calculado** do passo anterior (não do horário em que o aviso saiu). Desde o início (T0), o padrão de CRÍTICO dá 1 h (Nível 2), 2 h (Nível 3) e 4 h (limite) — correção de rótulo de 04/11/2026; detalhe em `docs/diagnostico-fase-2-f1-d1-d2-d3.md` (D3). Situação: IMPLEMENTADO; valores por obra DEPENDEM DE CONFIGURAÇÃO; o ensaio isolado usou a matriz CRÍTICO equivalente ao padrão (`docs/teste-controlado-alertas-criticos.md:40`).
 
 > **Confirmação do pedido.** CRÍTICO 1 h corrida, ALTO 4 h úteis, MÉDIO 1 dia útil e BAIXO 3 dias úteis **conferem** com o código para o prazo de *assumir*. Ressalvas: (a) feriados não são considerados (cap. 7.4); (b) para MÉDIO e BAIXO não há escalonamento por prazo no ciclo automático — o prazo só vale em ações SLA manuais e aparece como "Prazo para assumir" no consolidado semanal (D5 do cap. 7).
 
@@ -2094,7 +2116,7 @@ A regra esperada ("ALTO e CRÍTICO imediatos; MÉDIO e BAIXO consolidados em lot
 | Trilha | CRÍTICO / ALTO | MÉDIO / BAIXO | Confirma a regra esperada? | Condições (DEPENDE DE CONFIGURAÇÃO) |
 |---|---|---|---|---|
 | **B — Casos de risco do módulo semanal** | **Imediato** ao surgir, subir ou alterar: cria a ação SLA, envia ao Nível 1 e escalona. "Imediato" = **próximo ciclo horário** (`20 * * * *`, `.github/workflows/weekly-schedule-email-ingestion.yml:32`) | **Nunca individual**: um consolidado por destinatário (Nível 1 da área), **quarta-feira a partir das 07:00** no fuso do projeto (`lib/risk-alerts/types.ts:4-5`, `digest-window.ts:1-9`) | **SIM** (fontes: `plan-risk-alerts.ts:12-14,49,193-194`; `components/sla/pilot-risk-alerts-panel.tsx:41-42`) | `ACC_WEEKLY_REPORTS_ENABLED="true"` (`lib/feature-flags/weekly-reports.ts:22-24`), `risk_alerts_enabled` do projeto, allowlist de destinatários, mapa de severidade, matriz explícita nos 4 níveis (`pilot-readiness.ts:76-90`), `ACC_RISK_ALERTS_CRON_SECRET` |
-| **A — Eventos do Ledger** | **Não há envio automático imediato.** O envio é **manual**, a qualquer grau, por ADMINISTRADOR (`send-alert-actions.ts:27-33`; `send-contract-alert-email.ts:87-91`). Depois do envio, entram a repetição 1/2/4/7 dias e a cobrança | **Lote semanal automático** de ações SLA `LOW`/`MEDIUM` ligadas a evento: quarta, 10:10 UTC = 07:10 em São Paulo (`.github/workflows/contract-alert-batches.yml:5`; também chamado pelo cron Vercel `0 10 * * 3`, `vercel.json`); um e-mail por obra e destinatário (`lib/alerts/batch-grouping.ts:1-4`) | **PARCIAL — DIVERGÊNCIA D2 (alta)**: o lote escolhe por `sla_actions.risk_level` (`run-contract-alert-batches.ts:73`), mas exibe o grau revisado ou da IA (`:207`), e a revisão **não altera** `sla_actions`. Um evento revisado para ALTO/CRÍTICO **que ainda não entrou em lote** pode sair no lote de quarta (provado por execução em banco de teste, ver 6.7.4) | `CRON_SECRET`, `ACC_APP_BASE_URL`, modo de envio (`ACC_OUTBOUND_MODE`, `ACC_PILOT_RECIPIENT`) |
+| **A — Eventos do Ledger** | **Não há envio automático imediato.** O envio é **manual**, a qualquer grau, por ADMINISTRADOR (`send-alert-actions.ts:27-33`; `send-contract-alert-email.ts:87-91`). Depois do envio, entram a repetição 1/2/4/7 dias e a cobrança | **Lote semanal automático** de ações SLA `LOW`/`MEDIUM` ligadas a evento: quarta, 10:10 UTC = 07:10 em São Paulo (`.github/workflows/contract-alert-batches.yml:5`; o cron da Vercel `0 10 * * 3` dispara outra rotina, o resumo semanal `/api/cron/weekly-alert-digest` — correção de 04/11/2026); um e-mail por obra e destinatário (`lib/alerts/batch-grouping.ts:1-4`) | **PARCIAL — DIVERGÊNCIA D2 (alta)**: o lote escolhe por `sla_actions.risk_level` (`run-contract-alert-batches.ts:73`), mas exibe o grau revisado ou da IA (`:207`), e a revisão **não altera** `sla_actions`. Um evento revisado para ALTO/CRÍTICO **que ainda não entrou em lote** pode sair no lote de quarta (provado por execução em banco de teste, ver 6.7.4) | `CRON_SECRET`, `ACC_APP_BASE_URL`, modo de envio (`ACC_OUTBOUND_MODE`, `ACC_PILOT_RECIPIENT`) |
 | **C — Providências** | Alerta quando a janela abre (D-60 ou prazo individual), com repetição por grau | idem (o grau decide só o intervalo) | Não se aplica (regra própria) | datas da obra / prazo individual (`delivery-items.ts:323-352`) |
 | Ações SLA manuais **sem evento** | — | Resumo semanal próprio, semana de segunda a domingo (`lib/email/run-weekly-alert-digests.ts:20-34,57-66`) | Não se aplica | `/api/cron/weekly-alert-digest` |
 
@@ -2516,7 +2538,7 @@ D1 O hub aponta o Comercial ao Dashboard (`experts-ia/page.tsx:22,37`), onde nã
 4. ⓘ do dashboard antigo (`feature-help.ts:144-240`) e componentes `components/dashboard-visual/*`, `components/dashboard/*` sem uso nas páginas atuais.
 5. Termo "Ledger" persiste em: título da guia (`ledger/page.tsx:7`), cartão do Dashboard (`dashboard/page.tsx:740`), botões do lote (`lote-alertas/.../page.tsx:36,71`).
 6. Envio por e-mail de Solicitações sem verificação de perfil e sem aviso de modo piloto (inferido do código; não testado).
-7. Não encontrado: criação de solicitação pelo app; reenvio após falha; ⓘ (FeatureInfo) nas páginas Dashboard, Timeline, EVENTOS, Solicitações (existem no catálogo `feature-help.ts` apenas para o título do menu).
+7. Não encontrado: criação de solicitação pelo app; reenvio após falha; ⓘ (FeatureInfo) nas páginas Dashboard, Timeline, Eventos, Solicitações (existem no catálogo `feature-help.ts` apenas para o título do menu).
 8. Não verificado: páginas `/projetos/novo` e `/projetos/{id}/editar`; política exata de leitura dos candidatos de busca da Timeline; quem pode gravar a resposta do lote; GESTOR/GERENTE conseguirem gravar auditoria da curadoria.
 9. Não executado: nenhuma tela foi aberta em navegador nesta análise; tudo vem de leitura de código e migrações.
 
@@ -2582,3 +2604,47 @@ Verificações feitas **sem rede, sem e-mail e sem banco remoto**, com as 126 mi
 | `ACC_WEEKLY_REPORTS_ENABLED`, `ACC_RISK_ALERTS_CRON_SECRET`, `CRON_SECRET` | Existem, mas são variáveis sensíveis: o valor não é legível, então **não se sabe** se o ciclo automático de riscos está ligado | Sem prova do valor |
 | `ELEVENLABS_*` | **Nenhuma** variável em produção ⇒ voz desligada (o código exige `ELEVENLABS_ENABLED="true"`) | Lido |
 | `AXION_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `ANTHROPIC_MAX_TOKENS` | Existem em produção; os valores de provedor e chave são sensíveis e não foram lidos | Lido (existência) |
+
+---
+
+## ANEXO F — Atualização após a publicação da Fase 1 (PR #129) e pontos para revisão
+
+**Publicado:** PR #129 mesclado em `main` (`751fe2f`), deploy Ready na Vercel em `acc.axion.com.br`, migration `20261104120000_legal_consultations_private` aplicada em produção (única migration; 127 de 127 alinhadas). Travas do piloto preservadas. Ícone provisório da AXIA no candidato público; o PNG oficial e os commits que o contêm continuam fora do histórico público, aguardando autorização específica.
+
+### F.1 O que mudou e onde o manual foi atualizado
+
+| Tema | O que mudou | Onde |
+|---|---|---|
+| Menu | Aba "EVENTOS" virou "Eventos"; Eventos, Integrações e Usuários passaram a **só Administrador** (Autorizações e Start-up já eram) | cap. 2, cap. 3, 4.4 a 4.6, 4.26, 4.30 |
+| Acesso | Páginas de Eventos (lista, detalhe, lote), Integrações e Usuários devolvem 404 sem perfil administrativo; 6 ações do servidor de Eventos conferem Administrador | cap. 2, 4.5 |
+| Jurídico | Histórico **privado por autor** das consultas (migration aplicada) | 4.20 |
+| AXIA | Subtítulo "Ajuda com o ACC"; cartão de resposta branco com texto preto; link do tutorial amarelo; texto apenas (voz na Fase 3) | 4.34 |
+| Dashboard | Tema, tipografia, selos padronizados, cores de "Distribuição dos alertas", cabe em 100% | 4.2 |
+| Timeline | Correção dos checkboxes dos filtros ("nenhuma marcada" = sem filtro, sem remarcar sozinho) | 4.3 |
+| Editar projeto | Caixa cinza `#A8ADB5`, texto preto, campos brancos, Salvar vinho | 4.1 |
+
+### F.2 Verificado em produção (04/11/2026, sessão autenticada do Administrador, nada gravado)
+
+Timeline (marcar e desmarcar; última desmarcada exibe todos os eventos sem remarcar); Editar projeto (contraste ≥ 4,5:1 em todos os textos; saída por Cancelar sem gravar); AXIA (resposta em texto para "O que significam os graus de risco?", link amarelo abre a Ajuda, controles de voz ocultos); Dashboard (selos, cores, sem rolagem); seção "Minhas consultas jurídicas" visível e ID inexistente = 404.
+
+### F.3 Pontos para revisão (divergência entre interface, código e manual)
+
+| # | Gravidade | Ponto | Evidência |
+|---|---|---|---|
+| **F1** | **Alta** | **Links que levam a Eventos viram 404 para quem não é Administrador.** O botão "RESPONDER AO ACC" dos e-mails de alerta, os eventos clicados na **Timeline** e nos resultados de busca, a página de resposta pelo e-mail (`/alertas/acao/...`) e a "Consultar IA" apontam para `/{obra}/ledger/...`. Destinatários de alerta que não são Administradores (por exemplo, o responsável de nível 1) não conseguem abrir a rota. **Decisão pendente:** (a) manter Eventos só para Administrador e ajustar links e mensagem ("peça a um Administrador"), ou (b) liberar a **leitura** do evento a membros ativos e manter só a escrita para Administrador. Nenhuma regra foi alterada. | `lib/email/build-respond-to-acc-url.ts:24`; `components/timeline/timeline-list.tsx:43`; `app/[projectId]/timeline/timeline-search-actions.ts:679,725`; `app/alertas/acao/[projectId]/[batchId]/[eventId]/page.tsx:95`; `lib/ai/alert-consult/load-alert-consult-subject.ts:39`; `lib/alerts/alert-source-links.ts:55`; `lib/alerts/contract-event-reminder-mailer.ts:63` |
+| **F2** | Média | Ações do servidor de **Usuários** e da maior parte de **Integrações** **não conferem o perfil no código**; a barreira é o banco (RPC e RLS exigem Administrador). Só a validação do Drive de SSMA/ESG confere no código. As páginas estão guardadas. Para uniformizar com Eventos, conferir também nas ações. | `app/[projectId]/usuarios/actions.ts`; `app/[projectId]/integracoes/actions.ts:267-290` |
+| **F3** | Média | **Validação com conta sem privilégios administrativos** (menu, rotas e ações) **não foi feita com sessão real**; há só testes automatizados. **ADIADA** por decisão do responsável. | `scripts/test-nav-admin-only.mjs` |
+| **F4** | Média | **Validação manual do Jurídico com duas contas reais ADIADA**; há testes automatizados (banco local) e leitura em produção. | `scripts/test-legal-consultations-*.mjs` |
+| **F5** | Média | **Base da AXIA** ainda diz "EVENTOS" no texto das respostas e aponta o usuário para Eventos mesmo quando ele não é Administrador; continua dizendo "três perfis" (D12) e não tem entradas sobre navegação geral, escalonamento, Matriz de SLA, hub Experts IA, ação ESPECIALISTA e CEO IA. | `apps/web/lib/assistant/knowledge.ts` |
+| **F6** | Baixa | Descrições do Dashboard em 4.2 anteriores à publicação (colunas, cores, tipografia) podem divergir em detalhes; as **propostas A/B de tipografia** (títulos 500, números maiores, 4 colunas na B) **não estão publicadas**. | 4.2; prévia local |
+| **F7** | Baixa | Seção "Eventos Ledger" do cartão de indicadores e títulos internos ainda usam "Ledger" (D do Anexo D), enquanto o menu diz "Eventos". | `app/[projectId]/dashboard/page.tsx` |
+| **F8** | Informativa | `ACC_WEEKLY_REPORTS_ENABLED` na Vercel: valor sensível, **não lido**, mas **confirmado de forma indireta como ligado até 03/11/2026 06:57 UTC**: o ciclo `/api/cron/risk-alerts` respondeu HTTP 200 (a rota devolve 204 se a flag não for `true`) nas 8 últimas execuções. Desde 03/11 10:22 (-03:00) o workflow do ciclo está desabilitado. | execuções do workflow `weekly-schedule-email-ingestion.yml` |
+| **F9** | Informativa | Permissão de revisão do grau (D1) e lote semanal × grau efetivo (D2) **continuam como estavam**; a publicação não os alterou. | Anexo A |
+
+### F.4 Verificações adicionais da Fase 2 (04/11/2026, somente leitura)
+
+- **D1 em produção:** `has_project_permission` (ADMINISTRADOR nível 3; GESTOR, GERENTE, COLABORADOR e LEITURA nível 1; a exigência `GESTOR` é nível 2) e `review_risk_classification` (exige `GESTOR`) **existem em produção com a mesma definição provada em teste**. Logo, **só o Administrador revisa o grau**, e a ressalva "sem prova em produção" do 6.4 deixa de valer. A função de revisão **existe em produção** (o D11 sobre "migrations não aplicadas" está desatualizado para este caso).
+- **F1:** a lista completa dos links que levam a Eventos e o fluxo proposto estão em `docs/diagnostico-fase-2-f1-d1-d2-d3.md`.
+- **Correção do manual:** o lote semanal de eventos do Ledger é disparado **só pelo workflow do GitHub** (quarta 10:10 UTC); o cron da Vercel `0 10 * * 3` dispara o resumo semanal de ações sem evento (corrigido em 6.7.2).
+- **Rotinas em produção (04/11/2026):** o ciclo horário de risco e escalonamento, o lote semanal de eventos e os lembretes (workflows do GitHub) estão **desabilitados manualmente desde 03/11/2026 10:22 (-03:00)**. O **resumo semanal de ações sem evento** (cron da Vercel) roda às quartas ~10:11 UTC (enviado em 14, 21 e 28/10) e **falhou no envio em 04/11/2026** ("Falha no envio do resumo semanal."; causa não determinada). O lote semanal de eventos rodou em 14, 21 e 28/10 com 0 eventos elegíveis. Nenhum lembrete recorrente foi gravado em produção (0 acompanhamentos). Detalhe e evidências: `docs/diagnostico-fase-2-f1-d1-d2-d3.md` (D3.1-c).
+- **Feriados:** confirmado que **não** consomem nem são descontados do prazo útil (só sábado e domingo são excluídos).

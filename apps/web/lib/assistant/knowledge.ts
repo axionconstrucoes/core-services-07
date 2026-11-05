@@ -8,6 +8,7 @@
 //
 // Puro, sem I/O, sem "server-only": testável por script Node (mesmo padrão de lib/ui/feature-help.ts).
 
+import { APPROVED_BATCH_1_ENTRIES } from "./approved-batch-1";
 import { EMAIL_AUTH_FILTERS, GMAIL_OAUTH_SCOPE, GOOGLE_PERMISSIONS_URL } from "../email-authorization/notice";
 
 export interface AssistantLink {
@@ -28,9 +29,13 @@ export interface AssistantEntry {
   links: AssistantLink[];
   /** Slide do tutorial que detalha o assunto. */
   tutorialSlide: number | null;
+  /** Seção do manual de referência que sustenta a resposta (citação mostrada ao usuário). Opcional. */
+  manualSection?: string;
+  /** Cobertura da resposta; ausente = "completa". "parcial" aciona o encaminhamento "Falar com o ADMIN". */
+  coverage?: "completa" | "parcial";
 }
 
-export const ASSISTANT_ENTRIES: AssistantEntry[] = [
+const CORE_ASSISTANT_ENTRIES: AssistantEntry[] = [
   {
     id: "acesso",
     title: "Entrar no ACC e escolher a obra",
@@ -337,6 +342,9 @@ export const ASSISTANT_FALLBACK = {
 /** Texto exibido quando a pergunta pede para alterar dados — a assistente só orienta. */
 export const ASSISTANT_READ_ONLY_NOTICE =
   "A AXIA só orienta: ela não altera dados nem executa ações no sistema. Os passos abaixo mostram como fazer isso você mesmo, com o seu perfil.";
+
+/** Base completa: entradas do tutorial + 20 entradas aprovadas do lote 1 do Q&A (docs/qa-axia-lote-1.md). */
+export const ASSISTANT_ENTRIES: AssistantEntry[] = [...CORE_ASSISTANT_ENTRIES, ...APPROVED_BATCH_1_ENTRIES];
 
 export function getAssistantEntry(id: string): AssistantEntry | null {
   return ASSISTANT_ENTRIES.find((entry) => entry.id === id) ?? null;

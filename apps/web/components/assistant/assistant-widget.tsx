@@ -7,6 +7,7 @@ import { BookOpen, Send, X } from "lucide-react";
 
 import type { AssistantAnswer } from "@/lib/assistant/answer";
 import { ASSISTANT_QUESTION_MAX_LENGTH } from "@/lib/assistant/limits";
+import { NOT_ANSWERED_LABEL } from "@/lib/assistant/qa-handoff";
 import { AssistantVoiceControls } from "./assistant-voice-controls";
 import { VERA_CONTEXTS, VERA_OPEN_EVENT, type VeraContext, type VeraOpenDetail } from "./vera-events";
 
@@ -23,6 +24,8 @@ interface Voice {
 interface Turn {
   question: string;
   answer: AssistantAnswer;
+  /** A pessoa clicou em "Isso não respondeu à minha pergunta". Estado só deste navegador: nada é enviado. */
+  notAnswered?: boolean;
 }
 
 const SUGGESTIONS: Record<VeraContext, string[]> = {
@@ -236,6 +239,8 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
   if (!open) return null;
 
   const last = turns[turns.length - 1];
+  // "Falar com o ADMIN": resposta parcial, ausência de resposta aprovada ou clique em "Isso não respondeu à minha pergunta".
+  const needsAdmin = Boolean(last && (last.answer.coverage !== "completa" || last.notAnswered));
 
   return (
     <section
@@ -300,6 +305,31 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
                   {turn.answer.tutorialSlide ? <span className="px-1 py-1 text-xs text-[#000000]">Tutorial: slide {turn.answer.tutorialSlide}</span> : null}
                 </div>
               ) : null}
+              {turn.answer.manualSection ? (
+                <p data-axia-citacao className="text-xs text-[#000000]">
+                  Fonte no manual: seção {turn.answer.manualSection}
+                </p>
+              ) : null}
+              {turn.answer.coverage === "parcial" ? (
+                <p data-axia-cobertura="parcial" className="rounded-md bg-[#fff3cd] px-2 py-1 text-xs text-[#000000]">
+                  Resposta parcial: pode não cobrir o seu caso.
+                </p>
+              ) : null}
+              {turn.answer.coverage === "ausente" ? (
+                <p data-axia-cobertura="ausente" className="rounded-md bg-[#fff3cd] px-2 py-1 text-xs text-[#000000]">
+                  Ainda não tenho uma resposta aprovada para isso.
+                </p>
+              ) : null}
+              {turn.answer.coverage === "completa" && !turn.notAnswered ? (
+                <button
+                  type="button"
+                  data-axia-nao-respondeu
+                  onClick={() => setTurns((current) => current.map((item, i) => (i === index ? { ...item, notAnswered: true } : item)))}
+                  className="min-h-8 rounded-md border border-gray-400 px-2 py-1 text-xs text-[#000000] hover:bg-gray-100"
+                >
+                  {NOT_ANSWERED_LABEL}
+                </button>
+              ) : null}
             </div>
           </div>
         ))}
@@ -358,10 +388,29 @@ export function AssistantWidget({ projectId }: { projectId: string }) {
           </button>
         </form>
 
-        <Link href={`/${projectId}/ajuda`} className="inline-flex min-h-9 items-center gap-1 text-xs font-semibold text-[#ffd54f] hover:underline">
-          <BookOpen className="size-4" />
-          Abrir o tutorial completo (PDF e PowerPoint)
-        </Link>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <Link href={`/${projectId}/ajuda`} className="inline-flex min-h-9 items-center gap-1 text-xs font-semibold text-[#ffd54f] hover:underline">
+            <BookOpen className="size-4" />
+            Abrir o tutorial completo (PDF e PowerPoint)
+          </Link>
+          {needsAdmin && last ? (
+            last.answer.adminHandoff.mode === "link" && last.answer.adminHandoff.href ? (
+              // Link FIXO montado no servidor: não leva a pergunta nem o histórico, e o clique não faz nenhuma requisição ao ACC.
+              <a
+                data-axia-admin
+                href={last.answer.adminHandoff.href}
+                className="inline-flex min-h-9 items-center text-xs font-bold text-[#ffd54f] underline"
+              >
+                {last.answer.adminHandoff.label}
+                {last.answer.adminHandoff.test ? " (destino de teste)" : ""}
+              </a>
+            ) : (
+              <span data-axia-admin className="inline-flex min-h-9 items-center text-xs font-bold text-[#ffd54f]">
+                {last.answer.adminHandoff.label}: {last.answer.adminHandoff.note}
+              </span>
+            )
+          ) : null}
+        </div>
       </div>
     </section>
   );

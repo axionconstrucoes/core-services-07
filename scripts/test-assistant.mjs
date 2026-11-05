@@ -42,7 +42,7 @@ const CASES = [
   ["onde faço upload de um anexo do contrato", "documentos"],
   ["Como aprovar uma cláusula detectada?", "clausulas"],
   ["O que significa risco crítico?", "criterios-risco"],
-  ["quais são os graus de risco", "criterios-risco"],
+  ["quais são os graus de risco", "qa-R1"],
   ["de quantos em quantos dias o alerta crítico repete?", "cores-repeticao"],
   ["Como respondo ao lote de alertas? O que é resposta parcial", "alertas-resposta"],
   ["como funciona o CONSULTAR IA", "consultar-ia"],

@@ -2,6 +2,8 @@
 
 > Nada neste documento contém credenciais, dados de clientes, anexos ou caminhos pessoais. Nomes e números são exemplos.
 
+> **Atualização de 04/11/2026:** a Fase 1 foi **publicada e encerrada** (PR #129, `751fe2f`, deploy Ready em `acc.axion.com.br`, migration do histórico jurídico aplicada). Registro, checagens e pendências em `docs/fase-1-encerramento.md`. As seções abaixo descrevem o estado anterior e não foram reescritas.
+
 ## 1. Concluído (testado em ambiente descartável)
 - **AXIA (assistente)**: botão "Fale com a AXIA", ajuda contextual, cabeçalho nos e-mails enviados pelo ACC, voz via ElevenLabs
   **desativada por padrão** (fail-closed; reserva de crédito antes de cada leitura).

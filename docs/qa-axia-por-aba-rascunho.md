@@ -1,5 +1,7 @@
 # Q&A da AXIA por aba — rascunho para revisão
 
+> **Atualização de 04/11/2026:** o **primeiro lote** (Navegação, Riscos, Escalonamento, Especialistas) está em `docs/qa-axia-lote-1.md`, para aprovação. Este rascunho por aba continua válido para as demais abas; a aba "EVENTOS" passou a se chamar "Eventos" e é só para o Administrador (manual, Anexo F).
+>
 > **Estado:** RASCUNHO em revisão de Reynaldo. **A AXIA ainda NÃO consulta este arquivo** e **nada dele foi carregado na base de conhecimento da AXIA**; as respostas da AXIA continuam vindo da base fixa em `lib/assistant/knowledge.ts`.
 >
 > **Fonte:** cada resposta remete a uma seção de `docs/manual-referencia-acc.md` (a "fonte aprovada"). As respostas são curtas e só repetem o que o manual afirma; onde o manual registra divergência ou falta de prova, a resposta diz isso.
@@ -46,7 +48,7 @@ Formato de cada item: **Q** pergunta · **R** resposta curta · **Fonte** seçã
 |---|---|---|---|
 | | | | |
 
-## EVENTOS (4.4 a 4.6)
+## Eventos (4.4 a 4.6)
 
 **Q1. O que é um evento?** — **R:** Registro cronológico de algo da obra com possível implicação contratual. O detalhe mostra o achado de IA (com severidade e confiança), a evidência original, o confronto com cláusulas, anotações e o histórico de ações. **Fonte:** 4.4, 4.5. **Status:** RASCUNHO.
 
@@ -54,7 +56,7 @@ Formato de cada item: **Q** pergunta · **R** resposta curta · **Fonte** seçã
 
 **Q3. Como respondo a um lote de alertas?** — **R:** Pelo botão do e-mail você abre a tela do lote e define uma ação por alerta (Resolvido, Em andamento ou Enviado para outro colaborador); salva aos poucos e confirma quando todos tiverem ação. **Fonte:** 4.6. **Status:** RASCUNHO.
 
-| Perguntas do Reynaldo (EVENTOS) | Resposta pretendida | Seção | Status |
+| Perguntas do Reynaldo (Eventos) | Resposta pretendida | Seção | Status |
 |---|---|---|---|
 | | | | |
 
