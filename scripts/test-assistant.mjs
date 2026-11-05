@@ -178,7 +178,7 @@ await check("logs só registram o código do erro (nunca chave, texto ou respost
 
 await check("interface: caixa da AXIA com a imagem, Ouvir/Parar, seleção de voz, tutorial e aviso de falha", () => {
   const voiceControls = rd("apps/web/components/assistant/assistant-voice-controls.tsx");
-  for (const marker of ["/assistente/ajuda-acc.png", "AXIA — Assistente ACC", "/ajuda`", "A resposta em texto continua disponível", 'role="alert"']) {
+  for (const marker of ["/assistente/axia-avatar.png", "AXIA — Assistente ACC", "/ajuda`", "A resposta em texto continua disponível", 'role="alert"']) {
     ok(widget.includes(marker), `falta: ${marker}`);
   }
   // Os controles de voz moraram no widget; agora ficam em componente próprio (renderização testada em test-assistant-render.mjs).
@@ -209,7 +209,7 @@ await check("gatilho 'Fale com a AXIA' no topo das telas e no cabeçalho do PWA 
   const top = rd("apps/web/components/layout/top-bar.tsx");
   ok(top.includes("<VeraTrigger />"), "top bar sem gatilho");
   const trig = rd("apps/web/components/assistant/vera-trigger.tsx");
-  for (const m of ["Fale com a AXIA", "/assistente/ajuda-acc.png", "min-h-11", 'type="button"', "aria-label"]) ok(trig.includes(m), `gatilho sem ${m}`);
+  for (const m of ["Fale com a AXIA", "/assistente/axia-avatar.png", "min-h-11", 'type="button"', "aria-label"]) ok(trig.includes(m), `gatilho sem ${m}`);
   ok(rd("apps/web/components/ssma/ssma-chrome.tsx").includes("VeraTrigger"), "PWA sem gatilho");
   const chrome = rd("apps/web/components/ssma/ssma-chrome.tsx");
   ok(chrome.indexOf("</header>") < chrome.indexOf("<AssistantWidget"), "a caixa da AXIA não pode ficar dentro do cabeçalho (herdaria texto branco)");
@@ -219,7 +219,7 @@ await check("gatilho 'Fale com a AXIA' no topo das telas e no cabeçalho do PWA 
 
 await check("layout da obra monta a assistente e a imagem existe (PNG válido)", () => {
   ok(rd("apps/web/app/[projectId]/layout.tsx").includes("<AssistantWidget projectId={projectId} />"), "widget não montado");
-  const png = readFileSync(path.join(root, "apps/web/public/assistente/ajuda-acc.png"));
+  const png = readFileSync(path.join(root, "apps/web/public/assistente/axia-avatar.png"));
   eq(png.subarray(1, 4).toString(), "PNG", "assinatura");
 });
 

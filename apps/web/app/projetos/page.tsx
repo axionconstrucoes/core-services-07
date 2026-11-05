@@ -5,6 +5,8 @@ import { InstitutionalBackground } from "@/components/brand/institutional-backgr
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { AssistantWidget } from "@/components/assistant/assistant-widget";
+import { VeraTrigger } from "@/components/assistant/vera-trigger";
 import { getProjects } from "@/lib/data";
 import { formatDate } from "@/lib/labels";
 import { Pencil, Plus, Scale } from "lucide-react";
@@ -65,17 +67,18 @@ export default async function ProjetosPage() {
             />
 
             <div>
-              <h1 className="text-2xl font-semibold text-slate-950">
+              <h1 className="text-2xl font-semibold text-black">
                 Selecione um projeto
               </h1>
 
-              <p className="mt-1 text-base text-slate-600">
+              <p className="mt-1 text-base text-black">
                 Obras e projetos Axion com inteligência contratual ativa.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 text-black">
+            <VeraTrigger context="selecao" tone="onLight" alwaysShowText />
             {canCreateProject ? (
               <Link href="/projetos/novo" className={buttonVariants({ className: "gap-2" })}>
                 <Plus aria-hidden="true" />
@@ -105,7 +108,7 @@ export default async function ProjetosPage() {
                         {projectDisplayName(project.id, project.name)}
                       </CardTitle>
 
-                      <p className="pt-2 text-base text-white/85">
+                      <p className="pt-2 text-base text-white">
                         {project.client} · {project.location}
                       </p>
                     </div>
@@ -115,7 +118,7 @@ export default async function ProjetosPage() {
                     </Badge>
                   </CardHeader>
 
-                  <CardContent className={`pt-0 text-sm text-white/80${adminProjectIds.has(project.id) ? " pr-44" : ""}`}>
+                  <CardContent className={`pt-0 text-sm text-white${adminProjectIds.has(project.id) ? " pr-44" : ""}`}>
                     No. sistema UNO: {project.code} ·{" "}
                     {project.contractNumber && (
                       <>Contrato {project.contractNumber} · </>
@@ -156,7 +159,7 @@ export default async function ProjetosPage() {
                 </CardTitle>
               </CardHeader>
 
-              <CardContent className="pb-5 pt-0 text-base leading-relaxed text-white/90">
+              <CardContent className="pb-5 pt-0 text-base leading-relaxed text-white">
                 Análise prévia de minutas para apoiar a negociação contratual,
                 com consulta integrada aos especialistas do CEO IA.
               </CardContent>
@@ -164,6 +167,7 @@ export default async function ProjetosPage() {
           </Link>
         </div>
       </div>
+      <AssistantWidget projectId={null} />
     </div>
   );
 }

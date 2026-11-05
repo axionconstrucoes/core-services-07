@@ -3,7 +3,7 @@
 
 export const VERA_OPEN_EVENT = "vera:open";
 
-export type VeraContext = "geral" | "alerta" | "providencia" | "ssma" | "autorizacao";
+export type VeraContext = "geral" | "alerta" | "providencia" | "ssma" | "autorizacao" | "selecao";
 
 export interface VeraOpenDetail {
   context?: VeraContext;
@@ -11,7 +11,7 @@ export interface VeraOpenDetail {
   ask?: string;
 }
 
-export const VERA_CONTEXTS: readonly VeraContext[] = ["geral", "alerta", "providencia", "ssma", "autorizacao"];
+export const VERA_CONTEXTS: readonly VeraContext[] = ["geral", "alerta", "providencia", "ssma", "autorizacao", "selecao"];
 
 export function openVera(detail: VeraOpenDetail = {}) {
   window.dispatchEvent(new CustomEvent<VeraOpenDetail>(VERA_OPEN_EVENT, { detail }));
