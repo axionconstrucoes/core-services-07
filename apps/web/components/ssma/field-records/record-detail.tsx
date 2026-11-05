@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from "@axion/db/browser";
 import { Camera, CheckCircle2, Clock, Loader2 } from "lucide-react";
 import { computeFileSha256Hex } from "@/lib/documents/multi-upload/sha256";
 import { isActionOverdue, type FieldRecordView } from "@/lib/ssma/field-records/field-record-view";
+import type { NotificationLine } from "@/lib/ssma/field-notifications/view";
 import { uploadActionEvidencePhoto } from "@/lib/ssma/field-records/supabase-transport";
 import {
   ACCEPTED_PHOTO_MIME_TYPES,
@@ -32,6 +33,7 @@ const dateOnly = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString
 
 export function RecordDetail({
   record,
+  notice,
   userId,
   projectId,
   canManage,
@@ -40,6 +42,7 @@ export function RecordDetail({
   onChanged,
 }: {
   record: FieldRecordView;
+  notice?: NotificationLine[];
   userId: string;
   projectId: string;
   canManage: boolean;
@@ -130,6 +133,13 @@ export function RecordDetail({
           <dt className="font-bold text-slate-600">Registrado por</dt><dd>{record.reportedByName}</dd>
           <dt className="font-bold text-slate-600">Fotos</dt><dd>{record.photoCount}</dd>
         </dl>
+        {notice && notice.length > 0 ? (
+          <ul className="mt-2 space-y-1" aria-label="Avisos por e-mail" data-testid="notification-notice">
+            {notice.map((line) => (
+              <li key={line.text} role={line.tone === "ok" ? undefined : "alert"} className={line.tone === "error" ? "text-xs font-bold text-red-700" : line.tone === "warn" ? "text-xs font-bold text-amber-700" : "text-xs font-bold text-green-700"}>{line.text}</li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
       {action ? (

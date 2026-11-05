@@ -12,6 +12,7 @@ import { isActionOverdue, mapFieldRecordRow, type FieldRecordRow, type FieldReco
 import type { useFieldQueue } from "@/lib/ssma/field-records/use-field-queue";
 import { ACTION_STATUS_LABELS, PHOTO_STATE_LABELS, QUEUE_STATUS_LABELS, RISK_LABELS, photoSyncState, type PhotoSyncState, type QueuedRecord, type QueueStatus } from "@/lib/ssma/field-records/types";
 import { cn } from "@/lib/utils";
+import { describeNotification, groupNotificationRows, type NotificationLine, type NotificationSummaryRow } from "@/lib/ssma/field-notifications/view";
 
 export type FieldProject = OfflineContext["projects"][number];
 export type FieldQueueApi = ReturnType<typeof useFieldQueue>;
@@ -80,6 +81,7 @@ export function FieldRecordsApp({
   const [creating, setCreating] = useState(false);
   const [selected, setSelected] = useState<FieldRecordView | null>(null);
   const [serverRecords, setServerRecords] = useState<FieldRecordView[]>(initialServerRecords ?? []);
+  const [notifications, setNotifications] = useState<Map<string, NotificationSummaryRow[]>>(new Map());
   const [serverError, setServerError] = useState<string | null>(null);
   const [loadingServer, setLoadingServer] = useState(!offlineShell);
   const online = queue.reachable;
@@ -105,6 +107,11 @@ export function FieldRecordsApp({
       const views = ((data ?? []) as unknown as FieldRecordRow[]).map((row) => mapFieldRecordRow(row, names));
       setServerRecords(views);
       setServerError(null);
+      // Estado dos avisos por e-mail (sem e-mails de terceiros). Indisponível (migration ainda não aplicada, rede): sem aviso.
+      try {
+        const { data: summary, error: summaryError } = await supabase.rpc("ssma_notification_summary", { p_project_id: project.id });
+        if (!summaryError) setNotifications(groupNotificationRows((summary ?? []) as NotificationSummaryRow[]));
+      } catch { /* sem resumo agora */ }
       setSelected((current) => (current ? (views.find((view) => view.id === current.id) ?? current) : null));
     } catch {
       setServerError("Não foi possível carregar os registros do ACC agora.");
@@ -151,7 +158,7 @@ export function FieldRecordsApp({
       {creating ? (
         <NewRecordForm members={project.members} online={online} onSave={handleSave} onCancel={() => setCreating(false)} />
       ) : selected ? (
-        <RecordDetail record={selected} userId={userId} projectId={project.id} canManage={project.canManage} online={online} names={names} onChanged={() => void loadServer()} />
+        <RecordDetail record={selected} notice={describeNotification(notifications.get(selected.id) ?? [])} userId={userId} projectId={project.id} canManage={project.canManage} online={online} names={names} onChanged={() => void loadServer()} />
       ) : tab === "sync" ? (
         <SyncView items={queue.items} projectId={project.id} foreignPending={queue.foreignPending} syncing={queue.syncing} online={online} onRetry={() => void queue.runSync(true)} onDiscard={(id) => void queue.discard(id)} onPurge={() => void queue.purgeForeign()} />
       ) : tab === "perfil" ? (
@@ -185,7 +192,7 @@ export function FieldRecordsApp({
             {offlineShell ? <p className="rounded-lg bg-white p-3 text-sm text-slate-600">Os registros da obra são exibidos quando há conexão.</p> : null}
             {serverError ? <p role="alert" className="text-sm font-bold text-red-700">{serverError}</p> : null}
             {!offlineShell && !loadingServer && !serverError && serverRecords.length === 0 ? <p className="rounded-lg bg-white p-3 text-sm text-slate-600">Nenhum registro enviado ainda.</p> : null}
-            {serverRecords.map((record) => <ServerRow key={record.id} record={record} onOpen={() => setSelected(record)} />)}
+            {serverRecords.map((record) => <ServerRow key={record.id} record={record} notice={describeNotification(notifications.get(record.id) ?? [])} onOpen={() => setSelected(record)} />)}
           </section>
         </main>
       )}
@@ -226,7 +233,18 @@ function LocalRow({ item }: { item: QueuedRecord }) {
   );
 }
 
-function ServerRow({ record, onOpen }: { record: FieldRecordView; onOpen: () => void }) {
+function NotificationNotice({ lines }: { lines: NotificationLine[] }) {
+  if (lines.length === 0) return null;
+  return (
+    <span className="mt-1 block space-y-0.5" aria-label="Avisos por e-mail" data-testid="notification-notice">
+      {lines.map((line) => (
+        <span key={line.text} role={line.tone === "ok" ? undefined : "alert"} className={cn("block text-xs font-bold", line.tone === "error" ? "text-red-700" : line.tone === "warn" ? "text-amber-700" : "text-green-700")}>{line.text}</span>
+      ))}
+    </span>
+  );
+}
+
+function ServerRow({ record, notice, onOpen }: { record: FieldRecordView; notice: NotificationLine[]; onOpen: () => void }) {
   const today = new Date().toISOString().slice(0, 10);
   const overdue = isActionOverdue(record.action, today);
   return (
@@ -246,6 +264,7 @@ function ServerRow({ record, onOpen }: { record: FieldRecordView; onOpen: () => 
           {record.responsibleName ? ` · ${record.responsibleName}` : ""}
         </p>
       ) : null}
+      <NotificationNotice lines={notice} />
     </button>
   );
 }
