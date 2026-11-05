@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@axion/db/server";
 
 import { ASSISTANT_QUESTION_MAX_LENGTH, AssistantConfigError, resolveAssistantMode } from "@/lib/assistant/answer";
+import { isAxiaChatEligible, type MembershipReader } from "@/lib/assistant/chat-access";
 import { converse } from "@/lib/assistant/chat-orchestrator";
 import { allowRequest } from "@/lib/assistant/rate-limit";
 
@@ -33,7 +34,9 @@ export async function POST(request: Request) {
   try {
     resolveAssistantMode();
     // Limite de frequência da IA por usuário (mais baixo que o do endpoint): acima dele a AXIA segue só com a base aprovada.
-    const aiAllowed = allowRequest(`ai:${authData.user.id}`, 8);
+    // Piloto restrito (AXIA_CHAT_ACCESS=admins, padrão): só administradores usam a IA; os demais seguem no Q&A determinístico.
+    const eligible = await isAxiaChatEligible(supabase as unknown as MembershipReader, authData.user.id, null);
+    const aiAllowed = eligible && allowRequest(`ai:${authData.user.id}`, 8);
     const answer = await converse({ question, history, projectId: null, aiAllowed, userKey: authData.user.id });
     return NextResponse.json({ answer }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
