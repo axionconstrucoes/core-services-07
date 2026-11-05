@@ -23,7 +23,7 @@ t("com obra: links continuam apontando para a obra", withProject.links.every((l)
 t("padrão de dependência não pega perguntas gerais", !dependsOnSpecificProject("como funciona o escalonamento"));
 
 const route = rd("apps/web/app/projetos/assistente/route.ts");
-t("rota da seleção exige login, limita pedidos e não consulta obra", route.includes("auth.getUser()") && route.includes("allowRequest") && route.includes("answerQuestion(question, null)") && !route.includes("getProject"));
+t("rota da seleção exige login, limita pedidos e não consulta obra", route.includes("auth.getUser()") && route.includes("allowRequest") && route.includes("projectId: null") && !route.includes("getProject"));
 const page = rd("apps/web/app/projetos/page.tsx");
 t("seleção: AXIA montada sem obra e atalho 'Fale com a AXIA' no cabeçalho claro", page.includes("<AssistantWidget projectId={null} />") && page.includes('context="selecao" tone="onLight"'));
 t("seleção: título e subtítulo pretos; textos em fundo escuro brancos", page.includes("text-2xl font-semibold text-black") && page.includes("mt-1 text-base text-black") && !/text-white\/\d/.test(page.replace(/border-white\/40 bg-white\/10[^"]*/g, "")));

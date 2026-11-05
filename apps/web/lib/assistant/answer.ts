@@ -41,7 +41,17 @@ export interface AssistantAnswer {
   manualSection: string | null;
   /** Como encaminhar ao ADMIN (link fixo ou só texto). Nunca contém a pergunta nem o histórico. */
   adminHandoff: AdminHandoff;
+
+  /** Tipo da resposta: "social" (conversa, sem fonte nem ADMIN), "clarify" (pedido de esclarecimento) ou "acc" (padrão). */
+  kind?: "social" | "acc" | "clarify";
+  /** Saudação/abertura curta antes da resposta ("Bom dia!"). Nunca contém regra operacional. */
+  intro?: string | null;
+  /** "ia": a IA interpretou a pergunta; "base": caminho determinístico. O conteúdo operacional é sempre da base aprovada. */
+  via?: "ia" | "base";
+  /** Pergunta composta: um bloco por assunto aprovado, cada um com a sua seção do manual. */
+  sections?: Array<{ title: string; summary: string; steps: string[]; manualSection: string | null }>;
 }
+
 
 export class AssistantConfigError extends Error {
   constructor(message: string) {
@@ -174,22 +184,36 @@ export function answerQuestion(
   const heldForReview = PENDING_REVIEW_PATTERNS.some((pattern) => pattern.test(normalized));
 
   if (!best || best.score < MIN_SCORE || heldForReview) {
-    return {
-      mode: "BASE_CONHECIMENTO",
-      entryId: ASSISTANT_FALLBACK.id,
-      title: "Não encontrei esse assunto",
-      summary: ASSISTANT_FALLBACK.summary,
-      steps: [...ASSISTANT_FALLBACK.steps],
-      links: projectId ? [{ label: "Ajuda e tutorial", href: `/${projectId}/ajuda` }] : [],
-      tutorialSlide: null,
-      readOnlyNotice,
-      coverage: "ausente",
-      manualSection: null,
-      adminHandoff,
-    };
+    return buildFallbackAnswer(projectId, readOnlyNotice, adminHandoff);
   }
 
-  const { entry } = best;
+  return buildEntryAnswer(best.entry, projectId, readOnlyNotice, adminHandoff);
+}
+
+/** Encaminhamento quando não há resposta aprovada (Ajuda + orientação ao ADMIN em texto). */
+export function buildFallbackAnswer(projectId: string | null, readOnlyNotice: string | null, adminHandoff: AdminHandoff): AssistantAnswer {
+  return {
+    mode: "BASE_CONHECIMENTO",
+    entryId: ASSISTANT_FALLBACK.id,
+    title: "Não encontrei esse assunto",
+    summary: ASSISTANT_FALLBACK.summary,
+    steps: [...ASSISTANT_FALLBACK.steps],
+    links: projectId ? [{ label: "Ajuda e tutorial", href: `/${projectId}/ajuda` }] : [],
+    tutorialSlide: null,
+    readOnlyNotice,
+    coverage: "ausente",
+    manualSection: null,
+    adminHandoff,
+  };
+}
+
+/** Resposta montada SOMENTE com o texto aprovado da entrada (usada também pela camada de conversa com IA). */
+export function buildEntryAnswer(
+  entry: AssistantEntry,
+  projectId: string | null,
+  readOnlyNotice: string | null,
+  adminHandoff: AdminHandoff
+): AssistantAnswer {
   return {
     mode: "BASE_CONHECIMENTO",
     entryId: entry.id,
