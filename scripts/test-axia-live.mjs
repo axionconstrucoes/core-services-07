@@ -36,7 +36,9 @@ const budget = await import("../apps/web/lib/assistant/chat-budget");
 const { ASSISTANT_ENTRIES } = await import("../apps/web/lib/assistant/knowledge");
 
 const PRICE = budget.loadBudgetConfig({});
-const WORST_CASE = budget.costUsd(5000, 350, PRICE);
+const WORST_CASE = budget.costUsd(budget.WORST_CASE_INPUT_TOKENS, 350, PRICE);
+// O teto de gasto do TESTE é este medidor (US$ 0,20); o armazenamento do orçamento do produto (SQL) não é tocado: usa memória.
+const testStore = budget.createMemoryBudgetStore();
 let spent = 0;
 let calls = 0;
 let tokensIn = 0;
@@ -120,10 +122,10 @@ let failed = 0;
 for (const [id, question, history, check] of CASES) {
   current = { id, tokensIn: 0, tokensOut: 0, cost: 0 };
   resetChatCircuit();
-  budget.resetBudget();
+  testStore.reset();
   let answer;
   try {
-    answer = await converse({ question, projectId: P1, env: ENV, history, provider: metered, userKey: "teste-live" });
+    answer = await converse({ question, projectId: P1, env: ENV, history, provider: metered, userKey: "teste-live", budgetStore: testStore });
   } catch (error) {
     console.log(`ERRO ${id}: ${error instanceof Error ? error.message : "erro"}`);
     failed += 1;

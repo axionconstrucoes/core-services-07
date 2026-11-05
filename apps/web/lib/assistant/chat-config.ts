@@ -10,7 +10,14 @@ export type AxiaChatConfig =
   | { mode: "simulated"; reason: null }
   | { mode: "anthropic"; reason: null; apiKey: string; model: string };
 
+import { createHash } from "node:crypto";
+
 type Env = Record<string, string | undefined>;
+
+/** Impressão digital NÃO reversível da credencial (só para detectar troca/rotação na memória; nunca é registrada em log). */
+export function credentialFingerprint(secret: string): string {
+  return createHash("sha256").update(secret).digest("hex").slice(0, 16);
+}
 
 export function loadAxiaChatConfig(env: Env = process.env): AxiaChatConfig {
   const raw = (env.AXIA_CHAT_PROVIDER ?? "off").trim().toLowerCase();

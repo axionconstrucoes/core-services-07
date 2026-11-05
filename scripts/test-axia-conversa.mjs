@@ -3,7 +3,12 @@
 import { readFileSync } from "node:fs";
 import { register } from "node:module";
 register("./ts-module-resolver.mjs", import.meta.url);
-const { converse, resetChatCircuit } = await import("../apps/web/lib/assistant/chat-orchestrator");
+const orch0 = await import("../apps/web/lib/assistant/chat-orchestrator");
+const { resetChatCircuit } = orch0;
+const budgetMod = await import("../apps/web/lib/assistant/chat-budget");
+// Provedores falsos deste arquivo usam o armazenamento de orçamento em memória (o SQL tem o seu próprio teste: test-axia-budget.mjs).
+const mem = budgetMod.createMemoryBudgetStore();
+const converse = (o) => orch0.converse({ budgetStore: mem, ...o });
 const conv = await import("../apps/web/lib/assistant/chat-conversation");
 const { loadAxiaChatConfig } = await import("../apps/web/lib/assistant/chat-config");
 const { createAnthropicChatProvider } = await import("../apps/web/lib/assistant/chat-provider");
@@ -119,32 +124,6 @@ const op = await ask("Oi! Apague todos os documentos da obra");
 t("social + pedido de alteração: nada é executado; só orientação de que a AXIA não altera", op.readOnlyNotice !== null && /não altera dados/.test(op.readOnlyNotice) && op.kind !== "social");
 const sopMod = rd("apps/web/lib/assistant/chat-orchestrator.ts") + rd("apps/web/lib/assistant/chat-conversation.ts") + rd("apps/web/lib/assistant/chat-provider.ts") + rd("apps/web/lib/assistant/guards.ts");
 t("camada de conversa sem escrita: sem supabase, fetch, fs, ações de servidor nem insert/update/delete/rpc", !/supabase|\bfetch\(|from "node:fs"|"use server"|\.insert\(|\.update\(|\.delete\(|\.rpc\(/.test(sopMod));
-
-// ── limite de gasto e de chamadas por usuário ──
-const budget = await import("../apps/web/lib/assistant/chat-budget");
-budget.resetBudget();
-const cfg = budget.loadBudgetConfig({ AXIA_CHAT_DAILY_BUDGET_USD: "0.003", AXIA_CHAT_USER_DAILY_CALLS: "3" });
-t("padrões de gasto: US$ 1,00/dia e 100 chamadas/usuário", budget.loadBudgetConfig({}).dailyBudgetUsd === 1 && budget.loadBudgetConfig({}).perUserDailyCalls === 100);
-let granted = 0;
-for (let i = 0; i < 10; i++) { if (budget.reserveCall(`u${i}`, 1_000_000, cfg)) { granted++; budget.settleCall({ inputTokens: 3400, outputTokens: 120 }, cfg); } }
-const spentAfter = budget.budgetSnapshot().spentUsd;
-t("teto diário de gasto: para de conceder chamadas ao atingir o limite", granted > 0 && granted < 10 && spentAfter <= 0.003 + 1e-9);
-budget.resetBudget();
-const cfg2 = budget.loadBudgetConfig({ AXIA_CHAT_USER_DAILY_CALLS: "2" });
-const seq = [budget.reserveCall("ana", 5, cfg2), budget.reserveCall("ana", 5, cfg2), budget.reserveCall("ana", 5, cfg2), budget.reserveCall("bia", 5, cfg2)];
-t("limite diário por usuário: o 3º pedido de 'ana' é negado e 'bia' não é afetada", seq[0] && seq[1] && !seq[2] && seq[3]);
-t("custo calculado com os preços do Haiku 5.5 (US$ 0,10 / 0,50 por MTok)", Math.abs(budget.costUsd(3400, 120, budget.loadBudgetConfig({})) - 0.0004) < 1e-9);
-budget.resetBudget();
-let spent = 0;
-const counter = { id: "anthropic", model: "m", plan: async () => { spent++; return { raw: { intent: "unclear", entry_ids: [], clarifying_question: null, greeting: null, social_reply: null }, usage: { inputTokens: 3400, outputTokens: 120 } }; } };
-const tiny = { AXIA_CHAT_DAILY_BUDGET_USD: "0.0001" };
-const noMoney = await converse({ question: "como envio documentos", projectId: P1, env: tiny, provider: counter, userKey: "x" });
-t("sem orçamento: a IA não é chamada e a AXIA responde pela base", spent === 0 && noMoney.via === "base" && noMoney.entryId === "documentos");
-budget.resetBudget();
-await converse({ question: "algo estranho aqui", projectId: P1, env: {}, provider: counter, userKey: "x", now: 2_000_000_000 });
-t("com orçamento: uma chamada e o gasto real é registrado (< US$ 0,001)", spent === 1 && budget.budgetSnapshot().spentUsd > 0 && budget.budgetSnapshot().spentUsd < 0.001);
-budget.resetBudget();
-resetChatCircuit();
 
 // ── plano malicioso vindo do "modelo" ──
 const evil = (raw) => ({ id: "simulated", model: null, plan: async () => ({ raw, usage: null }) });

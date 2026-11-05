@@ -68,7 +68,7 @@ Cálculo do cenário base: 3 × 3.400 = 10.200 tokens × US$ 0,10/MTok = US$ 0,0
 
 ## Validação
 
-`scripts/test-axia-conversa.mjs` (98 verificações, sem rede): cumprimentos, idade, identidade, agradecimentos, brincadeira, erros de digitação, saudação + dúvida, pergunta composta, pedido de esclarecimento (e repetição → Ajuda/ADMIN), perguntas pendentes (com e sem IA, inclusive se o "modelo" escolher outra entrada), tentativas de induzir regra inventada, planos maliciosos do provedor, falha/limite/tempo do provedor, conteúdo das mensagens enviadas, formato da chamada Anthropic (cliente falso) e isolamento entre projetos. A validação com o **modelo real** depende de ativar a chave/modelo (não feita).
+`scripts/test-axia-conversa.mjs` (92 verificações, sem rede) e `scripts/test-axia-budget.mjs` (57, PGlite): cumprimentos, idade, identidade, agradecimentos, brincadeira, erros de digitação, saudação + dúvida, pergunta composta, pedido de esclarecimento (e repetição → Ajuda/ADMIN), perguntas pendentes (com e sem IA, inclusive se o "modelo" escolher outra entrada), tentativas de induzir regra inventada, planos maliciosos do provedor, falha/limite/tempo do provedor, conteúdo das mensagens enviadas, formato da chamada Anthropic (cliente falso) e isolamento entre projetos. A validação com o **modelo real** depende de ativar a chave/modelo (não feita).
 
 ## Guardas determinísticas (rodam antes da IA, com ou sem provedor) — `apps/web/lib/assistant/guards.ts`
 
@@ -87,13 +87,41 @@ Preservados: autenticação (as duas rotas exigem login), RLS e isolamento entre
 | Controle | Valor |
 |---|---|
 | Perguntas por usuário | 20/min (existente) |
-| Chamadas de IA por usuário | 8/min + **100/dia** (`AXIA_CHAT_USER_DAILY_CALLS`) |
+| Chamadas de IA por usuário | 8/min + **100/dia** (`AXIA_CHAT_USER_DAILY_CALLS`, global e concorrente) |
 | Entrada / saída por chamada | mensagem ≤ 500 caracteres + 2 turnos ≤ 200; `max_tokens` 350 |
 | Tempo | 8 s, sem nova tentativa |
-| **Gasto** | teto diário estimado por instância (`AXIA_CHAT_DAILY_BUDGET_USD`, padrão **US$ 1,00**); antes de cada chamada reserva o pior caso (5.000 tokens de entrada + 350 de saída) e troca pelo custo real; ao atingir o teto a IA desliga até o dia seguinte (UTC) e a AXIA segue com a base |
-| Falha do provedor | disjuntor de 60 s; Q&A aprovado e saudações básicas continuam |
+| **Gasto** | teto diário **GLOBAL** (`AXIA_CHAT_DAILY_BUDGET_USD`, padrão **US$ 1,00**) no Postgres do ACC, com reserva atômica (abaixo) |
+| Falha do provedor | disjuntor de 60 s por instância; Q&A aprovado e saudações básicas continuam |
 
-Limitação honesta: os contadores são **em memória por instância** (serverless). O teto real de custo continua sendo o limite de gasto da conta Anthropic; configure-o também lá.
+Os limites de 20/min e 8/min são em memória por instância (conter cliques e abuso); **o que garante o dinheiro é o orçamento global em SQL**. Configure também o limite de gasto e os alertas na conta Anthropic (camada independente).
+
+## Orçamento global e concorrente (PR #135, pendência 1)
+
+Infraestrutura já existente do ACC (Postgres/Supabase), **sem serviço novo**: migration `supabase/migrations/20261105150000_axia_chat_budget.sql` (**criada, NÃO aplicada em nenhum banco remoto**).
+
+- **Reserva atômica:** `axia_chat_reserve` incrementa o gasto diário e a chamada do usuário com `UPDATE … WHERE gasto + reserva <= teto` / `calls < limite` — a condição e o incremento acontecem na mesma instrução, sob o bloqueio da linha; pedidos simultâneos de qualquer instância se serializam e **nunca passam do teto**. Se o teto nega, a chamada do usuário é desfeita (compensação na mesma transação).
+- **Pior caso:** reserva de 8.000 tokens de entrada + 350 de saída (US$ 0,000975) antes de falar com o provedor; o custo real (tokens da API) substitui a reserva. Se a resposta vier sem `usage`, a reserva do pior caso permanece.
+- **Fail closed:** sem migration, sem `SUPABASE_SECRET_KEY` ou banco fora do ar, **a IA não é chamada** (a AXIA responde pela base). Nunca há queda para contador em memória em produção.
+- **Acesso:** só `service_role` (RLS forçada, sem política; funções `SECURITY DEFINER` com `search_path` vazio, `EXECUTE` revogado de `public/anon/authenticated`). Só guarda o uuid do usuário e valores: **nenhuma pergunta nem resposta**. O código usa o cliente de serviço apenas para essas seis funções (exceção deliberada à regra "admin client só em jobs": o RPC não toca dado de usuário, e o cliente é criado a cada chamada, sem cache de credencial).
+- **Expiração/recuperação:** o contador é por dia UTC (zera sozinho). `axia_chat_reconcile` (e a própria reserva, de forma oportunista) converte reservas "reserved" paradas há mais de 15 min em "uncertain" — o total já as conta no pior caso.
+
+## Timeout e resultado incerto (pendência 2)
+
+Contabilidade **conservadora**: só se devolve orçamento quando é certo que não houve cobrança.
+
+| Resultado | Quando | Contabilidade |
+|---|---|---|
+| sucesso | resposta recebida | reserva → custo real (`settle`, idempotente) |
+| `charged` | resposta truncada, recusa, sem ferramenta | cobra os tokens reais; **não devolve** |
+| `not_charged` | HTTP 400/401/403/404/413/422/429 (rejeitado antes de executar) | `release`: devolve reserva e chamada |
+| **`uncertain`** | **timeout**, queda de rede, 5xx/529, erro desconhecido | **a reserva do pior caso PERMANECE** (`mark_uncertain`); `release` é ignorado para incertas |
+| conclusão tardia | a chamada do timeout ainda termina | `late_settle` ajusta o total (para menos ou para mais) uma única vez |
+
+Consequência intencional: chamadas incertas consomem teto; duas incertas com teto de dois pior-casos bloqueiam a terceira.
+
+## Cache do provedor e rotação de credencial (pendência 3)
+
+A chave do cache é `modo:modelo:impressão-digital` (SHA-256 truncado da `ANTHROPIC_API_KEY`, só em memória, nunca em log ou erro). Trocar a chave ou o modelo no mesmo processo recria o cliente imediatamente; desligar (`off`) descarta o provedor e a credencial em memória. O cliente de serviço do orçamento é recriado a cada chamada ao banco. Teste: chave nova → provedor novo; chave antiga não é reaproveitada; nenhuma chave/fingerprint aparece em log.
 
 ## Teste real controlado (US$ 0,20)
 
@@ -106,8 +134,33 @@ Limitação honesta: os contadores são **em memória por instância** (serverle
 - O relatório imprime só id do caso, caminho (IA/base), tipo, entrada escolhida, tokens e custo — **nunca chave, prompt ou texto de resposta**.
 - `ACC_LIVE_DRYRUN=1` faz um ensaio sem rede e sem custo com o simulador.
 
-## Para ativar em produção (depois da aprovação)
+## Custos — estimativa × teste real
 
-1. Vercel: `AXIA_CHAT_PROVIDER=anthropic`, `AXIA_CHAT_MODEL=claude-haiku-5-5` (a `ANTHROPIC_API_KEY` dos especialistas é reutilizada).
-2. Conferir os logs de tokens nas primeiras conversas e comparar com a estimativa.
-3. Reverter: remover `AXIA_CHAT_PROVIDER` (ou `off`) — a AXIA volta ao modo determinístico sem novo deploy de código.
+Teste real controlado (registrado por Reynaldo no PR #135): `claude-haiku-5-5`, **28/28 casos OK, 21 chamadas, custo real US$ 0,011818** (teto do teste: US$ 0,20). Os 7 casos restantes foram resolvidos pelas guardas determinísticas, sem custo.
+
+| Medida | Valor |
+|---|---|
+| Custo médio por chamada de IA | **US$ 0,000563** (US$ 0,011818 ÷ 21) — maior que a estimativa inicial (US$ 0,000400): o prompt fixo real tem ≈ 5 mil tokens de entrada, não 3.400; por isso a reserva do pior caso subiu para 8.000 tokens |
+| Conversa curta (3 mensagens, 3 chamadas) | ≈ US$ 0,0017 |
+| **1.000 conversas curtas** | **≈ US$ 1,69** (teto da estimativa: sem descontar as perguntas resolvidas por guardas) |
+| Projeção mensal | 500 conversas ≈ US$ 0,85 · 2.000 ≈ US$ 3,40 · 10.000 ≈ US$ 17 |
+| Teto diário configurado | US$ 1,00 (≈ 1.700 chamadas/dia) — gasto máximo do mês ≈ US$ 30 se o teto fosse atingido todos os dias |
+
+Otimização possível (não implementada): cache de prompt (o prefixo fixo ≈ 5 mil tokens; leitura de cache a US$ 0,01/MTok) reduziria o custo de entrada em até ~90%.
+
+## Evidências de validação (PR #135, comentário de revisão)
+
+| Pendência | Evidência |
+|---|---|
+| 1. Orçamento global e concorrente | `scripts/test-axia-budget.mjs`: a migration roda em PostgreSQL de verdade (PGlite); 300 pedidos simultâneos de 30 usuários contra um teto de 40 reservas → **exatamente 40 concedidas**, nenhum usuário acima de 3, soma por usuário = total; 10 settles simultâneos aplicam **uma** vez; 200 conversas simultâneas ponta a ponta contra teto de 25 → **25 chamadas à IA**, 175 pela base; anon/authenticated negados (10/10); migration sem pergunta/resposta. *Limite honesto:* o PGlite serializa as consultas; a atomicidade sob concorrência real é a do `UPDATE … WHERE` condicional do PostgreSQL (READ COMMITTED reavalia o predicado após o bloqueio da linha). |
+| 2. Timeout / resultado incerto | Mesmo arquivo, em memória **e** SQL: timeout sem conclusão mantém o pior caso; conclusão tardia ajusta uma vez; `not_charged` devolve; `charged` cobra tokens reais; erro desconhecido = incerto; duas incertas esgotam o teto e a terceira não chama a IA; `release` em incerta é ignorado. Provedor real com cliente falso: timeout → `uncertain` com `late`; 429/400/401 → `not_charged`; 500/529/rede → `uncertain`; truncada/sem plano → `charged`. |
+| 3. Cache do provedor | Chave nova → provedor novo com a chave nova; chave antiga não é reaproveitada; troca de modelo invalida; `off` descarta; nenhuma chave ou impressão digital em log. |
+| 4. E2E autenticado | `scripts/e2e-axia-preview.mjs` na prévia, Chrome autenticado, **22/22 com IA simulada e 22/22 com IA desligada (fallback)**: seleção de projetos e obra; obra sem participação → 404 (RLS); id inválido → 404; entrada > 500 caracteres → 400; histórico malformado saneado; cada obra só devolve links da própria obra; 25 pedidos simultâneos do mesmo usuário → 20 × 200 (8 com IA, 12 pela base) e 5 × 429, nenhum 5xx; mobile 390×844 (atalho 54×48 px, conversa cabe na tela, sem rolagem horizontal). Autenticação sem sessão: as duas rotas exigem `auth.getUser()` (verificado por teste). |
+
+## Para ativar em produção (depois da aprovação — NÃO feito)
+
+1. **Aplicar a migration** `20261105150000_axia_chat_budget.sql` (decisão e execução suas; não foi aplicada em nenhum banco remoto). Sem ela a IA permanece desligada de fato (fail closed).
+2. Vercel: `AXIA_CHAT_PROVIDER=anthropic`, `AXIA_CHAT_MODEL=claude-haiku-5-5` (a `ANTHROPIC_API_KEY` dos especialistas é reutilizada); opcionalmente `AXIA_CHAT_DAILY_BUDGET_USD` e `AXIA_CHAT_USER_DAILY_CALLS`.
+3. Configurar limite de gasto e alertas na conta Anthropic (camada independente).
+4. Conferir `select * from axia_chat_budget_day` e os logs de tokens nas primeiras conversas.
+5. Reverter: remover `AXIA_CHAT_PROVIDER` (ou `off`) — a AXIA volta ao modo determinístico sem novo deploy de código.
