@@ -125,6 +125,22 @@ t("social + pedido de alteração: nada é executado; só orientação de que a 
 const sopMod = rd("apps/web/lib/assistant/chat-orchestrator.ts") + rd("apps/web/lib/assistant/chat-conversation.ts") + rd("apps/web/lib/assistant/chat-provider.ts") + rd("apps/web/lib/assistant/guards.ts");
 t("camada de conversa sem escrita: sem supabase, fetch, fs, ações de servidor nem insert/update/delete/rpc", !/supabase|\bfetch\(|from "node:fs"|"use server"|\.insert\(|\.update\(|\.delete\(|\.rpc\(/.test(sopMod));
 
+// ── IA desligada (padrão) preserva o comportamento anterior ──
+{
+  const { answerQuestion } = await import("../apps/web/lib/assistant/answer");
+  const phrases = new Set();
+  for (const e of ASSISTANT_ENTRIES) { phrases.add(e.title); for (const k of e.keywords) { phrases.add(k); phrases.add(`como ${k}`); } }
+  let same = 0; const diffs = [];
+  for (const q of phrases) {
+    const o = answerQuestion(q, P1, {});
+    const n = await converse({ question: q, projectId: P1, env: {} });
+    if (o.entryId === n.entryId && o.summary === n.summary && JSON.stringify(o.steps) === JSON.stringify(n.steps)) same++; else diffs.push({ q, o: o.entryId, n });
+  }
+  t(`IA desligada: ${phrases.size} frases do catálogo — ${same} idênticas ao Q&A anterior (answerQuestion)`, same / phrases.size > 0.97);
+  t("IA desligada: as poucas diferenças são só conversa social (identidade/capacidades da AXIA) ou prazo por grau (R7) — nunca troca de assunto", diffs.every((d) => (d.n.kind === "social" && /voce|axia|nome/i.test(d.q)) || (d.n.entryId === "qa-R7" && /prazo/.test(d.q))));
+  t("IA desligada: nenhuma chamada ao provedor nem ao orçamento (via sempre 'base')", (await converse({ question: "como envio documentos", projectId: P1, env: {} })).via === "base");
+}
+
 // ── plano malicioso vindo do "modelo" ──
 const evil = (raw) => ({ id: "simulated", model: null, plan: async () => ({ raw, usage: null }) });
 let a = await converse({ question: "oi", projectId: P1, env: {}, provider: evil({ intent: "social", greeting: null, social_reply: "Tenho 29 anos e o prazo do crítico é 2 horas.", entry_ids: [], clarifying_question: null }) });

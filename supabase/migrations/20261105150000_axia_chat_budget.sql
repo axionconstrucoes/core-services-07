@@ -2,7 +2,8 @@
 --
 -- O contador em memória por instância não garante teto global em serverless. Esta migration usa o próprio Postgres do ACC
 -- (sem serviço novo): reserva atômica com UPDATE condicional (o teto diário e o limite por usuário são checados na mesma
--- instrução que incrementa, sob o bloqueio da linha) e contabilidade CONSERVADORA:
+-- instrução que incrementa, sob o bloqueio da linha) e contabilidade CONSERVADORA (ordem de bloqueio fixa: linha do usuário
+-- e depois a linha global, em reserve e em release, para não haver deadlock):
 --
 --   reserve  : reserva o pior caso da chamada (em micro-dólares) antes de falar com o provedor; nega se estourar o teto.
 --   settle   : troca a reserva pelo custo real (tokens informados pela API). Idempotente.
@@ -42,12 +43,12 @@ create table if not exists public.axia_chat_reservations (
 );
 create index if not exists axia_chat_reservations_state_idx on public.axia_chat_reservations (state, created_at);
 
+-- RLS ligada e SEM política: anon/authenticated não têm nem privilégio (revoke abaixo) nem política. NÃO se usa FORCE: com FORCE
+-- o dono da função SECURITY DEFINER (que pode não ter BYPASSRLS) também seria barrado e as seis funções deixariam de funcionar
+-- (verificado em teste com dono sem BYPASSRLS). O service_role tem BYPASSRLS.
 alter table public.axia_chat_budget_day enable row level security;
-alter table public.axia_chat_budget_day force row level security;
 alter table public.axia_chat_budget_user_day enable row level security;
-alter table public.axia_chat_budget_user_day force row level security;
 alter table public.axia_chat_reservations enable row level security;
-alter table public.axia_chat_reservations force row level security;
 
 revoke all on public.axia_chat_budget_day from public, anon, authenticated;
 revoke all on public.axia_chat_budget_user_day from public, anon, authenticated;
@@ -161,12 +162,13 @@ begin
   if not found then
     return false;
   end if;
-  update public.axia_chat_budget_day
-     set spent_micros = greatest(0, spent_micros - r.reserved_micros), calls = greatest(0, calls - 1), updated_at = now()
-   where day = r.day;
+  -- mesma ordem de bloqueio de axia_chat_reserve: usuário primeiro, global depois (evita deadlock entre reserve e release)
   if r.user_id is not null then
     update public.axia_chat_budget_user_day set calls = greatest(0, calls - 1) where day = r.day and user_id = r.user_id;
   end if;
+  update public.axia_chat_budget_day
+     set spent_micros = greatest(0, spent_micros - r.reserved_micros), calls = greatest(0, calls - 1), updated_at = now()
+   where day = r.day;
   return true;
 end;
 $$;

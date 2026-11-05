@@ -45,7 +45,11 @@ const MIGRATION = "20261105150000_axia_chat_budget.sql";
 // A migration roda DEPOIS dos privilégios padrão do Supabase (que dão acesso a anon/authenticated a tabelas novas): é a ordem real
 // em produção, e a migration precisa revogar esse acesso.
 const db = await createLocalDb([]);
+// A migration roda como um DONO SEM BYPASSRLS (pior caso do Supabase): as funções SECURITY DEFINER precisam funcionar mesmo assim.
+await db.exec("create role mig_owner nologin; grant create, usage on schema public to mig_owner; grant usage on schema auth to mig_owner;");
+await db.exec("set role mig_owner");
 await db.exec(readFileSync(new URL(`../supabase/migrations/${MIGRATION}`, import.meta.url), "utf8"));
+await db.exec("reset role");
 await db.exec("set role service_role");
 const rpc = async (fn, args) => {
   const names = Object.keys(args);
@@ -147,7 +151,7 @@ await wipe();
   t("segurança: anon e authenticated NÃO leem as tabelas nem executam as funções (10/10 negados)", denied === 10);
   await db.exec("set role service_role");
   const mig = readFileSync(new URL(`../supabase/migrations/${MIGRATION}`, import.meta.url), "utf8");
-  t("migration: RLS forçada, SECURITY DEFINER com search_path vazio, sem alterar tabelas existentes", /force row level security/.test(mig) && (mig.match(/security definer/g) ?? []).length === 6 && (mig.match(/set search_path = ''/g) ?? []).length === 6 && !/alter table public\.(projects|profiles|project_memberships|contract)/.test(mig));
+  t("migration: RLS ligada (sem FORCE, que quebraria o dono sem BYPASSRLS), SECURITY DEFINER com search_path vazio, sem alterar tabelas existentes", (mig.match(/enable row level security/g) ?? []).length === 3 && !/force row level security;/.test(mig.replace(/--.*$/gm, "")) && (mig.match(/security definer/g) ?? []).length === 6 && (mig.match(/set search_path = ''/g) ?? []).length === 6 && !/alter table public\.(projects|profiles|project_memberships|contract)/.test(mig));
   t("migration: não guarda pergunta, resposta nem e-mail (só uuid do usuário e valores)", !/question|response|email|texto|message/i.test(mig.replace(/--.*$/gm, "").replace(/raise exception '[^']*'/g, "")));
 }
 

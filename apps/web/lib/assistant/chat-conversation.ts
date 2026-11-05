@@ -56,7 +56,7 @@ export const PENDING_TOPICS: readonly string[] = [
 
 // ───────────────────────── conversa social (determinística) ─────────────────────────
 
-const GREETING_PREFIX = /^(?:(?:oi+|ola+|opa|eae|e ai|hey|hello|salve|bom dia|boa tarde|boa noite|axia|ola axia|oi axia)\s+)+/;
+const GREETING_PREFIX = /^(?:(?:oi+|ola+|opa|eae|e ai|hey|hello|salve|bom dia|boa tarde|boa noite)(?:\s+axia)?\s+)+/;
 
 export function detectGreeting(normalized: string): { greeting: string; rest: string } | null {
   const padded = `${normalized} `;
@@ -72,8 +72,8 @@ type SocialKind = "greeting" | "thanks" | "age" | "identity" | "capabilities" | 
 const SOCIAL_PATTERNS: Array<[SocialKind, RegExp]> = [
   ["thanks", /\b(obrigad[oa]s?|brigad[oa]|valeu|agradeco|agradecido|agradecida|muito obrigad[oa])\b/],
   ["age", /\b(quantos anos|que idade|qual (e )?a sua idade|sua idade|tem quantos anos|quando (voce )?nasceu|ano de nascimento)\b/],
-  ["identity", /\b(quem (e )?voce|quem e vc|voce e (uma )?(pessoa|humana|humano|robo|real|ia|gente)|voce e de verdade|como (voce )?se chama|qual (e )?(o )?seu nome|seu nome|o que e a axia|quem e a axia)\b/],
-  ["capabilities", /\b(o que (voce )?(faz|sabe|pode fazer)|para que (voce )?serve|como (voce )?pode (me )?ajudar|no que (voce )?(pode )?ajudar|suas funcoes|o que voce consegue|o que da para perguntar)\b/],
+  ["identity", /\b(quem (e )?voce|quem e vc|voce e (uma )?(pessoa|humana|humano|robo|real|ia|gente)|voce e de verdade|como (voce )?se chama|qual (e )?(o )?seu nome|seu nome)\b|^(o que|quem) e a axia$/],
+  ["capabilities", /\b(o que (voce|vc|a axia) (faz|sabe|pode fazer|consegue)|para que (voce|vc|a axia) serve|como (voce|vc|a axia) pode (me )?ajudar|no que (voce|vc|a axia) (pode )?ajudar|suas funcoes|o que (da|posso) (para|pra) (te )?perguntar)\b/],
   ["howareyou", /\b(tudo bem|como (voce )?vai|como (voce )?esta|como esta voce|como (voce )?ta|tudo certo)\b/],
   ["joke", /\b(piada|me faz rir|conta uma graca|brincadeira)\b/],
   ["farewell", /\b(tchau|ate logo|ate mais|ate amanha|falou)\b/],

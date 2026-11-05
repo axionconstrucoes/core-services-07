@@ -68,7 +68,7 @@ Cálculo do cenário base: 3 × 3.400 = 10.200 tokens × US$ 0,10/MTok = US$ 0,0
 
 ## Validação
 
-`scripts/test-axia-conversa.mjs` (92 verificações, sem rede) e `scripts/test-axia-budget.mjs` (57, PGlite): cumprimentos, idade, identidade, agradecimentos, brincadeira, erros de digitação, saudação + dúvida, pergunta composta, pedido de esclarecimento (e repetição → Ajuda/ADMIN), perguntas pendentes (com e sem IA, inclusive se o "modelo" escolher outra entrada), tentativas de induzir regra inventada, planos maliciosos do provedor, falha/limite/tempo do provedor, conteúdo das mensagens enviadas, formato da chamada Anthropic (cliente falso) e isolamento entre projetos. A validação com o **modelo real** depende de ativar a chave/modelo (não feita).
+`scripts/test-axia-conversa.mjs` (95 verificações, sem rede), `scripts/test-axia-budget.mjs` (57, PGlite) e `scripts/test-axia-budget-replay.mjs` (18, schema completo): cumprimentos, idade, identidade, agradecimentos, brincadeira, erros de digitação, saudação + dúvida, pergunta composta, pedido de esclarecimento (e repetição → Ajuda/ADMIN), perguntas pendentes (com e sem IA, inclusive se o "modelo" escolher outra entrada), tentativas de induzir regra inventada, planos maliciosos do provedor, falha/limite/tempo do provedor, conteúdo das mensagens enviadas, formato da chamada Anthropic (cliente falso) e isolamento entre projetos. A validação com o **modelo real** depende de ativar a chave/modelo (não feita).
 
 ## Guardas determinísticas (rodam antes da IA, com ou sem provedor) — `apps/web/lib/assistant/guards.ts`
 
@@ -102,7 +102,7 @@ Infraestrutura já existente do ACC (Postgres/Supabase), **sem serviço novo**: 
 - **Reserva atômica:** `axia_chat_reserve` incrementa o gasto diário e a chamada do usuário com `UPDATE … WHERE gasto + reserva <= teto` / `calls < limite` — a condição e o incremento acontecem na mesma instrução, sob o bloqueio da linha; pedidos simultâneos de qualquer instância se serializam e **nunca passam do teto**. Se o teto nega, a chamada do usuário é desfeita (compensação na mesma transação).
 - **Pior caso:** reserva de 8.000 tokens de entrada + 350 de saída (US$ 0,000975) antes de falar com o provedor; o custo real (tokens da API) substitui a reserva. Se a resposta vier sem `usage`, a reserva do pior caso permanece.
 - **Fail closed:** sem migration, sem `SUPABASE_SECRET_KEY` ou banco fora do ar, **a IA não é chamada** (a AXIA responde pela base). Nunca há queda para contador em memória em produção.
-- **Acesso:** só `service_role` (RLS forçada, sem política; funções `SECURITY DEFINER` com `search_path` vazio, `EXECUTE` revogado de `public/anon/authenticated`). Só guarda o uuid do usuário e valores: **nenhuma pergunta nem resposta**. O código usa o cliente de serviço apenas para essas seis funções (exceção deliberada à regra "admin client só em jobs": o RPC não toca dado de usuário, e o cliente é criado a cada chamada, sem cache de credencial).
+- **Acesso:** só `service_role` (RLS ligada e sem política, **sem `FORCE`**: com `FORCE` o dono das funções `SECURITY DEFINER`, se não tiver `BYPASSRLS`, também seria barrado e as funções deixariam de funcionar — achado da auditoria, reproduzido em teste; anon/authenticated não têm privilégio algum; funções `SECURITY DEFINER` com `search_path` vazio, `EXECUTE` revogado de `public/anon/authenticated`). Só guarda o uuid do usuário e valores: **nenhuma pergunta nem resposta**. O código usa o cliente de serviço apenas para essas seis funções (exceção deliberada à regra "admin client só em jobs": o RPC não toca dado de usuário, e o cliente é criado a cada chamada, sem cache de credencial).
 - **Expiração/recuperação:** o contador é por dia UTC (zera sozinho). `axia_chat_reconcile` (e a própria reserva, de forma oportunista) converte reservas "reserved" paradas há mais de 15 min em "uncertain" — o total já as conta no pior caso.
 
 ## Timeout e resultado incerto (pendência 2)
@@ -156,6 +156,23 @@ Otimização possível (não implementada): cache de prompt (o prefixo fixo ≈ 
 | 2. Timeout / resultado incerto | Mesmo arquivo, em memória **e** SQL: timeout sem conclusão mantém o pior caso; conclusão tardia ajusta uma vez; `not_charged` devolve; `charged` cobra tokens reais; erro desconhecido = incerto; duas incertas esgotam o teto e a terceira não chama a IA; `release` em incerta é ignorado. Provedor real com cliente falso: timeout → `uncertain` com `late`; 429/400/401 → `not_charged`; 500/529/rede → `uncertain`; truncada/sem plano → `charged`. |
 | 3. Cache do provedor | Chave nova → provedor novo com a chave nova; chave antiga não é reaproveitada; troca de modelo invalida; `off` descarta; nenhuma chave ou impressão digital em log. |
 | 4. E2E autenticado | `scripts/e2e-axia-preview.mjs` na prévia, Chrome autenticado, **22/22 com IA simulada e 22/22 com IA desligada (fallback)**: seleção de projetos e obra; obra sem participação → 404 (RLS); id inválido → 404; entrada > 500 caracteres → 400; histórico malformado saneado; cada obra só devolve links da própria obra; 25 pedidos simultâneos do mesmo usuário → 20 × 200 (8 com IA, 12 pela base) e 5 × 429, nenhum 5xx; mobile 390×844 (atalho 54×48 px, conversa cabe na tela, sem rolagem horizontal). Autenticação sem sessão: as duas rotas exigem `auth.getUser()` (verificado por teste). |
+
+## Auditoria final e validação em PostgreSQL descartável (implantação controlada)
+
+**Auditoria da migration** (`20261105150000_axia_chat_budget.sql`) — dois achados corrigidos antes do merge:
+
+1. **`FORCE ROW LEVEL SECURITY` quebraria as funções:** com um dono sem `BYPASSRLS` (possível no Supabase), as seis funções `SECURITY DEFINER` falhavam com "new row violates row-level security policy". Removido o `FORCE` (RLS segue ligada, sem política, e anon/authenticated nem têm privilégio).
+2. **Ordem de bloqueio:** `axia_chat_release` bloqueava global → usuário, enquanto `axia_chat_reserve` bloqueia usuário → global (risco de deadlock). Agora ambas bloqueiam usuário primeiro.
+
+**`scripts/test-axia-budget-replay.mjs`** (Docker indisponível neste computador — sem WSL; usado PostgreSQL 17 real via PGlite, em memória): reaplica as **127 migrations anteriores em ordem** (stubs mínimos de auth/storage; `pgcrypto` removido, `gen_random_uuid` é nativo) e aplica a nova como dono **sem BYPASSRLS**. Resultado: 18/18 —
+- impressão digital do schema **idêntica antes × depois** (1.789 colunas, 575 tabelas/objetos, 159 políticas, 3.222 privilégios, 211 funções, 69 gatilhos, 447 índices, 125 contagens de linhas): a migration **não altera nenhuma estrutura nem dado existente**; cria somente 3 tabelas `axia_chat_*` e 6 funções;
+- 6 funções `SECURITY DEFINER` com `search_path` vazio; `EXECUTE` negado a PUBLIC/anon/authenticated e concedido só ao `service_role`; tabelas com RLS ligada e sem privilégio para anon/authenticated;
+- **16/16 tentativas de anon e authenticated (tabela + 6 funções) negadas**;
+- concorrência com schema completo (400 pedidos, 40 usuários, limite 4/usuário, teto de 100 reservas → exatamente 100 concedidas, nenhum usuário acima de 4), liquidação idempotente (2 settles simultâneos por reserva), incerta não devolvida, conclusão tardia uma vez, release de não cobrada, reconcile e parâmetros inválidos.
+
+Limites do substituto: não é o Supabase real (auth/storage simplificados) e o PGlite serializa as consultas; a atomicidade sob concorrência real é a do `UPDATE` condicional do PostgreSQL. **Recomenda-se repetir no banco descartável Docker/Supabase em um computador com Docker antes de aplicar em produção** (`scripts/sql/replay-pending-migrations-disposable.sh`).
+
+**Regressão com a IA desligada** (`AXIA_CHAT_PROVIDER` ausente): 1.179 perguntas geradas do catálogo comparadas ao Q&A da `main` (`4077ce0`) — 1.165 idênticas; as 14 diferenças são intencionais: 11 de identidade/capacidades da AXIA ("quem é você", "o que você faz", "seu nome" → resposta social em vez do texto antigo "vera") e 3 de prazo por grau (R7 no lugar do encaminhamento). O teste da suíte mantém essa garantia.
 
 ## Para ativar em produção (depois da aprovação — NÃO feito)
 
