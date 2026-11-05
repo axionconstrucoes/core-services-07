@@ -10,7 +10,7 @@ import { register } from "node:module";
 
 register("./ts-module-resolver.mjs", import.meta.url);
 const { createFieldQueue, TransportError } = await import("../apps/web/lib/ssma/field-records/queue-core.ts");
-const { validateFieldRecordDraft, QUEUE_STATUS_LABELS } = await import("../apps/web/lib/ssma/field-records/types.ts");
+const { validateFieldRecordDraft, QUEUE_STATUS_LABELS, photoSyncState, PHOTO_STATE_LABELS } = await import("../apps/web/lib/ssma/field-records/types.ts");
 
 let passed = 0;
 let failed = 0;
@@ -55,7 +55,8 @@ function fakeServer() {
     records: new Map(),
     photos: new Map(),
     objects: new Set(),
-    calls: { submit: 0, upload: 0, register: 0 },
+    calls: { submit: 0, upload: 0, register: 0, confirm: 0 },
+    hashes: new Map(),
     failNext: null, // { step, error }
     denyProjects: new Set(),
   };
@@ -88,6 +89,12 @@ function fakeServer() {
       s.calls.register += 1;
       guard("register");
       s.photos.set(photo.id, item.clientId);
+      s.hashes.set(`${item.clientId}:${photo.sha256}`, photo.size);
+    },
+    confirmPhoto: async (item, photo) => {
+      s.calls.confirm += 1;
+      guard("confirm");
+      if (s.hashes.get(`${item.clientId}:${photo.sha256}`) !== photo.size) throw new TransportError("SERVER", "x", "PHOTO_NOT_CONFIRMED");
     },
   };
   return s;
@@ -324,6 +331,89 @@ await check("arquivo local desaparecido: falha permanente com orientação, sem 
   assert.equal(failed.permanentError, true);
   assert.equal(server.photos.size, 0);
   assert.ok(item.clientId);
+});
+
+await check("estados da foto: pendente no aparelho → (sem sinal continua pendente) → sincronizada só após confirmação", async () => {
+  const { queue, server, store } = setup({ online: false });
+  const item = await queue.save({ userId: ANA, projectId: P1, draft: draft(), photos: [photo("f1"), photo("f2")] });
+  const states = (it) => it.photos.map((p) => photoSyncState(it, p));
+  assert.deepEqual(states(item), ["PENDING", "PENDING"]);
+  assert.equal(PHOTO_STATE_LABELS.PENDING, "Pendente no aparelho");
+  await queue.sync(ANA); // offline: nada muda
+  let [now] = await queue.listForUser(ANA);
+  assert.deepEqual(states(now), ["PENDING", "PENDING"], "sem conexão a foto continua identificada como pendente");
+  assert.equal(store.blobs.size, 2, "os arquivos continuam no aparelho");
+  server.online = true;
+  await queue.sync(ANA);
+  [now] = await queue.listForUser(ANA);
+  assert.deepEqual(states(now), ["SYNCED", "SYNCED"]);
+  assert.ok(now.photos.every((p) => p.confirmed === true));
+  assert.equal(server.calls.confirm, 2);
+});
+
+await check("recebimento NÃO confirmado: foto não vira sincronizada, o arquivo fica no aparelho e a nova tentativa confirma", async () => {
+  const { queue, server, store } = setup();
+  server.failNext = { step: "confirm", error: new TransportError("SERVER", "x", "PHOTO_NOT_CONFIRMED") };
+  await queue.save({ userId: ANA, projectId: P1, draft: draft(), photos: [photo("só-uma")] });
+  const first = await queue.sync(ANA);
+  assert.equal(first.failed, 1);
+  let [it] = await queue.listForUser(ANA);
+  assert.equal(it.status, "FAILED");
+  assert.equal(it.permanentError, false, "falha de confirmação é tentada de novo sozinha");
+  assert.equal(photoSyncState(it, it.photos[0]), "FAILED");
+  assert.equal(it.photos[0].confirmed ?? false, false);
+  assert.equal(store.blobs.size, 1, "o arquivo só sai do aparelho depois da confirmação");
+  const submitBefore = server.calls.submit, uploadBefore = server.calls.upload, registerBefore = server.calls.register;
+  const second = await queue.sync(ANA);
+  assert.equal(second.synced, 1);
+  [it] = await queue.listForUser(ANA);
+  assert.equal(it.status, "SYNCED");
+  assert.equal(photoSyncState(it, it.photos[0]), "SYNCED");
+  assert.equal(store.blobs.size, 0);
+  assert.equal(server.records.size, 1);
+  assert.equal(server.photos.size, 1);
+  assert.equal(server.calls.submit, submitBefore, "o registro já recebido não é reenviado");
+  assert.equal(server.calls.upload, uploadBefore, "a foto já enviada ao Storage não é reenviada");
+  assert.equal(server.calls.register, registerBefore, "a foto já registrada não é registrada de novo");
+});
+
+await check("perda de conexão no meio das fotos: retoma, confirma cada foto e não duplica", async () => {
+  const { queue, server } = setup();
+  let uploads = 0;
+  const original = server.transport.uploadPhoto;
+  server.transport.uploadPhoto = async (...args) => {
+    uploads += 1;
+    if (uploads === 2) { server.online = false; throw new TransportError("NETWORK", "offline"); }
+    return original(...args);
+  };
+  await queue.save({ userId: ANA, projectId: P1, draft: draft(), photos: [photo("a1"), photo("a2"), photo("a3")] });
+  const r1 = await queue.sync(ANA);
+  assert.equal(r1.outcome, "OFFLINE");
+  let [it] = await queue.listForUser(ANA);
+  assert.equal(it.status, "SAVED_ON_DEVICE");
+  assert.deepEqual(it.photos.map((p) => photoSyncState(it, p)), ["SYNCED", "PENDING", "PENDING"].map((s, i) => (i === 0 && it.photos[0].confirmed ? "SYNCED" : "PENDING")));
+  assert.equal(it.photos[0].confirmed, true, "a primeira foto já tinha sido confirmada e isso foi guardado");
+  server.online = true;
+  server.transport.uploadPhoto = original;
+  await queue.sync(ANA);
+  [it] = await queue.listForUser(ANA);
+  assert.equal(it.status, "SYNCED");
+  assert.equal(server.photos.size, 3);
+  assert.equal(server.records.size, 1);
+  assert.equal(server.calls.submit, 1, "o registro foi enviado uma única vez");
+});
+
+await check("item antigo (sem o campo 'confirmed') é confirmado no próximo envio antes de sair do aparelho", async () => {
+  const { queue, server, store } = setup();
+  const item = await queue.save({ userId: ANA, projectId: P1, draft: draft(), photos: [photo("legado")] });
+  const legacy = { ...item, recordSubmitted: true, photos: item.photos.map((p) => ({ ...p, uploaded: true, registered: true })) };
+  server.records.set(item.clientId, {}); server.photos.set(item.photos[0].id, item.clientId);
+  server.hashes.set(`${item.clientId}:${item.photos[0].sha256}`, item.photos[0].size);
+  await store.put(legacy);
+  await queue.sync(ANA);
+  const [it] = await queue.listForUser(ANA);
+  assert.equal(it.status, "SYNCED");
+  assert.equal(it.photos[0].confirmed, true);
 });
 
 console.log(`\n${passed} OK, ${failed} falha(s)`);

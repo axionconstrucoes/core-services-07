@@ -16,6 +16,8 @@ import { createSupabaseServerClient } from "@axion/db/server";
 import { getDashboardVisualData } from "@/lib/dashboard-visual/get-dashboard-visual-data";
 import { getEvents } from "@/lib/data";
 import { formatCurrency, formatDateTime } from "@/lib/labels";
+import type { FieldRecordRow } from "@/lib/ssma/field-records/field-record-view";
+import { computeSsmaDashboardMetrics, type SsmaFormMetricsRow } from "@/lib/ssma/dashboard-metrics";
 import { resolveSystemStatus } from "@/lib/ui/resolve-system-status";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -226,15 +228,6 @@ function inclusiveDaysBetween(
   }
 
   return Math.floor((end - start) / 86400000) + 1;
-}
-
-// Dias inteiros desde um instante, calculados a cada renderização da página
-// (rota dinâmica): o contador "dias sem acidente" acompanha o relógio.
-function elapsedDaysSince(timestamp: number): number {
-  return Math.max(
-    0,
-    Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24))
-  );
 }
 
 function isImpraticavel(value: unknown): boolean {
@@ -586,100 +579,35 @@ export default async function DashboardPage({
 
 
   // ----------------------------------------------------------
-  // SSMA — fonte oficial: formulários SSMA
+  // SSMA — indicadores ESTRUTURADOS (sem regex sobre texto livre):
+  //   trilha A = formulários enviados (acidente = checklist "ocorrencia-acidente", campo "afastamento");
+  //   trilha B = registros de campo + ações corretivas. Zero verdadeiro ≠ sem dado (lib/ssma/dashboard-metrics.ts).
   // ----------------------------------------------------------
 
-  const { data: dashboardSsmaForms } = await supabase
-    .from("ssma_form_submissions")
-    .select(
-      "id,checklist_slug,checklist_title,occurred_at,field_values,checklist_values,risk_level,status"
-    )
-    .eq("project_id", projectId)
-    .eq("status", "SUBMITTED")
-    .order("occurred_at", { ascending: false });
+  const [{ data: dashboardSsmaForms }, { data: dashboardSsmaFieldRecords }] = await Promise.all([
+    supabase
+      .from("ssma_form_submissions")
+      .select("checklist_slug,occurred_at,field_values")
+      .eq("project_id", projectId)
+      .eq("status", "SUBMITTED"),
+    supabase
+      .from("ssma_field_records")
+      .select(
+        "id,kind,category,description,location,occurred_at,client_created_at,received_at,risk_level,responsible_user_id,due_date,reported_by_user_id,ssma_corrective_actions(id,status,due_date,concluded_at,responsible_user_id)"
+      )
+      .eq("project_id", projectId),
+  ]);
 
-  const submittedSsmaForms = dashboardSsmaForms ?? [];
-
-  const ssmaFormText = (
-    row: (typeof submittedSsmaForms)[number]
-  ): string =>
-    [
-      row.checklist_slug,
-      row.checklist_title,
-      JSON.stringify(row.field_values ?? {}),
-      JSON.stringify(row.checklist_values ?? {}),
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLocaleLowerCase("pt-BR");
-
-  const accidentWithLeaveRows = submittedSsmaForms.filter((row) => {
-    const text = ssmaFormText(row);
-
-    return (
-      /acidente/.test(text) &&
-      !/quase[\s-]*acidente/.test(text) &&
-      /com[\s-]*afastamento|afastamento[\s-]*sim/.test(text)
-    );
+  const ssmaDash = computeSsmaDashboardMetrics({
+    forms: (dashboardSsmaForms ?? []) as SsmaFormMetricsRow[],
+    fieldRecords: (dashboardSsmaFieldRecords ?? []) as unknown as FieldRecordRow[],
+    today: new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }),
   });
 
-  const accidentWithoutLeaveRows = submittedSsmaForms.filter((row) => {
-    const text = ssmaFormText(row);
-
-    return (
-      /acidente/.test(text) &&
-      !/quase[\s-]*acidente/.test(text) &&
-      /sem[\s-]*afastamento|afastamento[\s-]*(não|nao)/.test(text)
-    );
-  });
-
-  const safetyOccurrenceRows = submittedSsmaForms.filter((row) => {
-    const text = ssmaFormText(row);
-
-    return (
-      /ocorr[eê]ncia/.test(text) ||
-      /incidente/.test(text) ||
-      /quase[\s-]*acidente/.test(text) ||
-      /desvio[\s-]*(de[\s-]*)?seguran/.test(text)
-    );
-  });
-
-  const accidentRows = submittedSsmaForms.filter((row) => {
-    const text = ssmaFormText(row);
-
-    return (
-      /acidente/.test(text) &&
-      !/quase[\s-]*acidente/.test(text)
-    );
-  });
-
-  const dashboardAccidentsWithLeave =
-    accidentWithLeaveRows.length > 0
-      ? accidentWithLeaveRows.length
-      : null;
-
-  const dashboardAccidentsWithoutLeave =
-    accidentWithoutLeaveRows.length > 0
-      ? accidentWithoutLeaveRows.length
-      : null;
-
-  const dashboardSafetyOccurrences =
-    safetyOccurrenceRows.length > 0
-      ? safetyOccurrenceRows.length
-      : null;
-
-  const latestAccidentTimestamp =
-    accidentRows
-      .map((row) => row.occurred_at)
-      .filter((value): value is string => Boolean(value))
-      .map((value) => new Date(value).getTime())
-      .filter((value) => Number.isFinite(value))
-      .sort((a, b) => b - a)[0] ?? null;
-
-  const dashboardDaysWithoutAccident =
-    latestAccidentTimestamp !== null
-      ? elapsedDaysSince(latestAccidentTimestamp)
-      : null;
+  const dashboardAccidentsWithLeave = ssmaDash.accidentsWithLeave;
+  const dashboardAccidentsWithoutLeave = ssmaDash.accidentsWithoutLeave;
+  const dashboardSafetyOccurrences = ssmaDash.occurrences;
+  const dashboardDaysWithoutAccident = ssmaDash.daysWithoutAccident;
 
   const activeIntegrations =
     data.integrationStatusGroups.find(
@@ -900,7 +828,7 @@ export default async function DashboardPage({
               </p>
             </Panel>
 
-            <Panel title="SSMA — Segurança">
+            <Panel title="SSMA / ESG — Segurança">
               <StatusLine
                 label="Acidentes com afastamento"
                 value={dashboardAccidentsWithLeave !== null ? dashboardAccidentsWithLeave : "—"}
@@ -931,7 +859,26 @@ export default async function DashboardPage({
                 value={dashboardDaysWithoutAccident !== null ? dashboardDaysWithoutAccident : "—"}
                 status={dashboardDaysWithoutAccident !== null ? "ok" : "neutral"}
               />
-              <p className="pt-1 text-[10px] leading-tight text-[#b8c7dc]">Fonte: formulários SSMA registrados no ACC.</p>
+              <StatusLine
+                label="Ações corretivas em aberto"
+                value={ssmaDash.openCorrectiveActions !== null ? ssmaDash.openCorrectiveActions : "—"}
+                status={ssmaDash.openCorrectiveActions !== null ? (ssmaDash.openCorrectiveActions > 0 ? "warning" : "ok") : "neutral"}
+              />
+              <StatusLine
+                label="Ações corretivas em atraso"
+                value={ssmaDash.overdueCorrectiveActions !== null ? ssmaDash.overdueCorrectiveActions : "—"}
+                status={ssmaDash.overdueCorrectiveActions !== null ? (ssmaDash.overdueCorrectiveActions > 0 ? "error" : "ok") : "neutral"}
+              />
+              <StatusLine
+                label="Obrigações ESG em aberto"
+                value={data.esgSummary.occurrences > 0 ? `${data.esgSummary.open} de ${data.esgSummary.occurrences}` : "—"}
+                status={data.esgSummary.occurrences > 0 ? (data.esgSummary.open > 0 ? "warning" : "ok") : "neutral"}
+              />
+              <p className="pt-1 text-[10px] leading-tight text-[#b8c7dc]">
+                {ssmaDash.hasData
+                  ? `Fonte: ${ssmaDash.sources.forms} formulário(s) e ${ssmaDash.sources.fieldRecords} registro(s) de campo SSMA; obrigações ESG cadastradas. Zero = nenhum registrado.`
+                  : "Sem registros SSMA nesta obra ainda: “—” significa sem dado, não zero."}
+              </p>
             </Panel>
           </div>
 

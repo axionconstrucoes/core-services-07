@@ -53,6 +53,11 @@ export interface SyncTransport {
   /** Idempotente: arquivo já existente no caminho conta como sucesso. */
   uploadPhoto(item: QueuedRecord, photo: QueuedPhoto, blob: Blob): Promise<void>;
   registerPhoto(item: QueuedRecord, photo: QueuedPhoto): Promise<void>;
+  /**
+   * Confirmação de recebimento: lê de volta no servidor a foto deste registro (mesmo hash). Só depois disso a foto
+   * conta como sincronizada e o arquivo local pode sair do aparelho. Lança TransportError se não encontrar.
+   */
+  confirmPhoto(item: QueuedRecord, photo: QueuedPhoto): Promise<void>;
 }
 
 export interface QueueDeps {
@@ -207,10 +212,16 @@ export function createFieldQueue(deps: QueueDeps) {
           item = { ...item, photos: item.photos.map((p) => (p.id === photo.id ? { ...p, registered: true } : p)) };
           await persist(item);
         }
+        const registered = item.photos.find((p) => p.id === photo.id) as QueuedPhoto;
+        if (!registered.confirmed) {
+          await deps.transport.confirmPhoto(item, registered);
+          item = { ...item, photos: item.photos.map((p) => (p.id === photo.id ? { ...p, confirmed: true } : p)) };
+          await persist(item);
+        }
       }
       item = { ...item, status: "SYNCED", syncedAt: now().toISOString(), lastError: null };
       await persist(item);
-      // Arquivos locais só saem do aparelho depois de TUDO registrado no servidor.
+      // Arquivos locais só saem do aparelho depois de TUDO registrado E confirmado no servidor.
       for (const photo of item.photos) await deps.store.deleteBlob(blobKey(item.clientId, photo.id)).catch(() => undefined);
       return "SYNCED";
     } catch (error) {

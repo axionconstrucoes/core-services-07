@@ -91,7 +91,29 @@ export interface QueuedPhoto {
   uploaded: boolean;
   /** Já registrada no servidor (RPC). */
   registered: boolean;
+  /** Recebimento CONFIRMADO: o servidor devolveu a linha da foto com o mesmo hash. Ausente em itens antigos. */
+  confirmed?: boolean;
 }
+
+/** Estado da foto mostrado ao usuário. Uma foto só é "sincronizada" depois da confirmação de recebimento. */
+export type PhotoSyncState = "PENDING" | "SENDING" | "SYNCED" | "FAILED";
+
+export const PHOTO_STATE_LABELS: Record<PhotoSyncState, string> = {
+  PENDING: "Pendente no aparelho",
+  SENDING: "Enviando",
+  SYNCED: "Sincronizada",
+  FAILED: "Falha no envio",
+};
+
+export function photoSyncState(item: Pick<QueuedRecordLike, "status">, photo: Pick<QueuedPhoto, "confirmed" | "registered" | "uploaded">): PhotoSyncState {
+  // Itens sincronizados antes da confirmação existir (sem o campo) já tinham passado pelo registro no servidor.
+  if (photo.confirmed || (item.status === "SYNCED" && photo.registered)) return "SYNCED";
+  if (item.status === "FAILED") return "FAILED";
+  if (item.status === "WAITING_SEND") return "SENDING";
+  return "PENDING";
+}
+
+type QueuedRecordLike = { status: QueueStatus };
 
 export interface QueuedRecord {
   /** UUID gerado no aparelho — também é o id do registro no servidor (idempotência). */
@@ -133,6 +155,7 @@ export const SERVER_ERROR_MESSAGES: Record<string, string> = {
   NOTE_REQUIRED: "Descreva o andamento.",
   EVIDENCE_REQUIRED: "A conclusão exige uma foto de evidência.",
   EVIDENCE_NOT_FOUND: "A foto de evidência não foi encontrada neste registro.",
+  PHOTO_NOT_CONFIRMED: "O servidor ainda não confirmou o recebimento da foto. Vamos tentar de novo; ela continua no aparelho.",
   JUSTIFICATION_REQUIRED: "Informe a justificativa (mínimo de 10 caracteres).",
 };
 

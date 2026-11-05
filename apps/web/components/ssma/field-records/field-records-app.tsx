@@ -10,7 +10,7 @@ import { SsmaOfflineCapabilities } from "@/components/ssma/ssma-offline-capabili
 import type { OfflineContext } from "@/lib/ssma/field-records/idb-store";
 import { isActionOverdue, mapFieldRecordRow, type FieldRecordRow, type FieldRecordView } from "@/lib/ssma/field-records/field-record-view";
 import type { useFieldQueue } from "@/lib/ssma/field-records/use-field-queue";
-import { ACTION_STATUS_LABELS, QUEUE_STATUS_LABELS, RISK_LABELS, type QueuedRecord, type QueueStatus } from "@/lib/ssma/field-records/types";
+import { ACTION_STATUS_LABELS, PHOTO_STATE_LABELS, QUEUE_STATUS_LABELS, RISK_LABELS, photoSyncState, type PhotoSyncState, type QueuedRecord, type QueueStatus } from "@/lib/ssma/field-records/types";
 import { cn } from "@/lib/utils";
 
 export type FieldProject = OfflineContext["projects"][number];
@@ -27,6 +27,29 @@ const dateTime = (iso: string) => new Date(iso).toLocaleString("pt-BR", { dateSt
 
 function StatusPill({ status }: { status: QueueStatus }) {
   return <span className={cn("rounded px-2 py-1 text-[11px] font-bold", STATUS_STYLES[status])}>{QUEUE_STATUS_LABELS[status]}</span>;
+}
+
+const PHOTO_STATE_STYLES: Record<PhotoSyncState, string> = {
+  PENDING: "bg-slate-200 text-slate-900",
+  SENDING: "bg-amber-100 text-amber-900",
+  SYNCED: "bg-green-100 text-green-800",
+  FAILED: "bg-red-100 text-red-800",
+};
+
+/** Estado de cada foto do registro: pendente no aparelho, enviando, sincronizada (recebimento confirmado) ou falha. */
+function PhotoStates({ item }: { item: QueuedRecord }) {
+  if (item.photos.length === 0) return null;
+  const counts: Record<PhotoSyncState, number> = { PENDING: 0, SENDING: 0, SYNCED: 0, FAILED: 0 };
+  for (const photo of item.photos) counts[photoSyncState(item, photo)] += 1;
+  return (
+    <ul className="mt-1 flex flex-wrap gap-1" aria-label="Estado das fotos" data-testid="photo-states">
+      {(Object.keys(counts) as PhotoSyncState[]).filter((state) => counts[state] > 0).map((state) => (
+        <li key={state} data-photo-state={state} className={cn("rounded px-2 py-1 text-[11px] font-bold", PHOTO_STATE_STYLES[state])}>
+          {counts[state]} {counts[state] === 1 ? "foto" : "fotos"}: {PHOTO_STATE_LABELS[state]}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 export function FieldRecordsApp({
@@ -197,6 +220,7 @@ function LocalRow({ item }: { item: QueuedRecord }) {
         <span className={cn("mr-1 inline-block size-2 rounded-full", RISK_DOT[item.draft.risk])} />
         Risco {RISK_LABELS[item.draft.risk]} · criado em {dateTime(item.clientCreatedAt)} · {item.photos.length} foto(s)
       </p>
+      <PhotoStates item={item} />
       {item.lastError ? <p role="alert" className="mt-1 text-xs font-bold text-red-700">{item.lastError}</p> : null}
     </article>
   );
@@ -272,6 +296,7 @@ function SyncView({
               <StatusPill status={item.status} />
             </div>
             <p className="mt-1 text-xs text-slate-500">Criado em {dateTime(item.clientCreatedAt)} · {item.photos.length} foto(s) · {item.attempts} tentativa(s){item.syncedAt ? ` · enviado em ${dateTime(item.syncedAt)}` : ""}</p>
+            <PhotoStates item={item} />
             {item.lastError ? (
               <p role="alert" className="mt-1 flex items-start gap-1 text-xs font-bold text-red-700"><AlertTriangle className="mt-0.5 size-4 shrink-0" /> {item.lastError}</p>
             ) : null}
