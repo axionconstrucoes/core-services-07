@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     resolveAssistantMode();
     // Limite de frequência da IA por usuário (mais baixo que o do endpoint): acima dele a AXIA segue só com a base aprovada.
     const aiAllowed = allowRequest(`ai:${authData.user.id}`, 8);
-    const answer = await converse({ question, history, projectId: null, aiAllowed });
+    const answer = await converse({ question, history, projectId: null, aiAllowed, userKey: authData.user.id });
     return NextResponse.json({ answer }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     if (error instanceof AssistantConfigError) {

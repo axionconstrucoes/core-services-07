@@ -9,8 +9,10 @@
 import {
   ASSISTANT_QUESTION_MAX_LENGTH,
   asksToChangeData,
-  buildEntryAnswer,
+  buildBoundaryAnswer,
+  buildEntriesAnswer,
   buildFallbackAnswer,
+  withCaseNotice,
   answerQuestion,
   dependsOnSpecificProject,
   normalizeText,
@@ -19,6 +21,8 @@ import {
 import { ASSISTANT_ENTRIES, ASSISTANT_READ_ONLY_NOTICE, getAssistantEntry } from "./knowledge";
 import { PENDING_REVIEW_PATTERNS } from "./approved-batch-1";
 import { resolveAdminHandoff } from "./qa-handoff";
+import { gradeDeadlineEntryIds, isCaseAdvice, isPermissionBypass } from "./guards";
+import { loadBudgetConfig, releaseCall, reserveCall, settleCall } from "./chat-budget";
 import { loadAxiaChatConfig } from "./chat-config";
 import { createChatProvider, type ChatProvider } from "./chat-provider";
 import {
@@ -49,6 +53,8 @@ export interface ConverseInput {
   env?: Env;
   /** false quando o limite de frequência da IA do usuário foi atingido: segue sem IA. */
   aiAllowed?: boolean;
+  /** Identifica o usuário só para o limite diário de chamadas (em memória; nunca vai ao provedor). */
+  userKey?: string | null;
   /** Injeção para testes. */
   provider?: ChatProvider | null;
   now?: number;
@@ -126,28 +132,6 @@ function clarifyAnswer(
   };
 }
 
-function composeFromEntries(ids: string[], projectId: string | null, readOnlyNotice: string | null, adminHandoff: AssistantAnswer["adminHandoff"]): AssistantAnswer | null {
-  const entries = ids.map((id) => ASSISTANT_ENTRIES.find((entry) => entry.id === id)).filter((entry): entry is NonNullable<typeof entry> => !!entry);
-  if (entries.length === 0) return null;
-  if (entries.length === 1) return buildEntryAnswer(entries[0], projectId, readOnlyNotice, adminHandoff);
-  const first = buildEntryAnswer(entries[0], projectId, readOnlyNotice, adminHandoff);
-  const links = new Map<string, { label: string; href: string }>();
-  for (const entry of entries) for (const link of buildEntryAnswer(entry, projectId, null, adminHandoff).links) links.set(link.href, link);
-  const citations = entries.map((entry) => entry.manualSection).filter((section): section is string => !!section);
-  return {
-    ...first,
-    entryId: entries[0].id,
-    title: entries.map((entry) => entry.title).join(" + "),
-    summary: "Respondo por partes, cada uma com a sua fonte:",
-    steps: [],
-    links: [...links.values()],
-    tutorialSlide: null,
-    manualSection: citations.length > 0 ? citations.join(" | ") : null,
-    coverage: entries.every((entry) => (entry.coverage ?? "completa") === "completa") ? "completa" : "parcial",
-    sections: entries.map((entry) => ({ title: entry.title, summary: entry.summary, steps: entry.steps, manualSection: entry.manualSection ?? null })),
-  };
-}
-
 /** Nunca lança: qualquer falha cai no caminho determinístico. */
 export async function converse(input: ConverseInput): Promise<AssistantAnswer> {
   const env = input.env ?? process.env;
@@ -169,11 +153,26 @@ export async function converse(input: ConverseInput): Promise<AssistantAnswer> {
   const heldForReview = PENDING_REVIEW_PATTERNS.some((pattern) => pattern.test(rest));
   const needsProject = projectId === null && dependsOnSpecificProject(rest);
 
+  // 1b) Guardas determinísticas (nunca chamam a IA): tentativa de contornar permissões ou obter dados; prazos por grau.
+  if (isPermissionBypass(normalized)) {
+    return withMeta(buildBoundaryAnswer(projectId, readOnlyNotice, adminHandoff), greeting, "base");
+  }
+  if (projectId && isCaseAdvice(normalized)) {
+    return withMeta(withCaseNotice(buildFallbackAnswer(projectId, readOnlyNotice, adminHandoff), rest), greeting, "base");
+  }
+  const gradeIds = isNotWhatIAsked(normalized) ? null : gradeDeadlineEntryIds(rest);
+  if (gradeIds && !needsProject) {
+    const composed = buildEntriesAnswer(gradeIds, projectId, readOnlyNotice, adminHandoff);
+    if (composed) return withMeta(withCaseNotice(composed, rest), greeting, "base");
+  }
+
   // 2) Plano da IA (se disponível).
   let plan: ChatPlan | null = null;
   const provider = input.provider !== undefined ? input.provider : resolveProvider(env);
   const aiUsable = !!provider && input.aiAllowed !== false && now - providerFailedAt > FAILURE_COOLDOWN_MS && !heldForReview && !needsProject && question !== "";
-  if (aiUsable && provider) {
+  const budget = loadBudgetConfig(env);
+  const reserved = aiUsable && provider ? reserveCall(input.userKey ?? null, now, budget) : false;
+  if (aiUsable && provider && reserved) {
     try {
       const result = await provider.plan({
         system: buildSystemPrompt(),
@@ -182,12 +181,14 @@ export async function converse(input: ConverseInput): Promise<AssistantAnswer> {
         history,
       });
       plan = validatePlan(result.raw, allowed);
+      const real = settleCall(result.usage, budget);
       if (result.usage) {
-        // Só contagem de tokens, nunca conteúdo.
-        console.info(`[axia-conversa] provedor=${provider.id} entrada=${result.usage.inputTokens ?? "?"} saida=${result.usage.outputTokens ?? "?"}`);
+        // Só contagem de tokens e custo estimado, nunca conteúdo.
+        console.info(`[axia-conversa] provedor=${provider.id} entrada=${result.usage.inputTokens ?? "?"} saida=${result.usage.outputTokens ?? "?"} custo_usd=${real === null ? "?" : real.toFixed(6)}`);
       }
     } catch (error) {
       providerFailedAt = now;
+      releaseCall(budget);
       console.warn(`[axia-conversa] provedor indisponível; usando a base aprovada (${error instanceof Error ? error.name : "erro"})`);
     }
   }
@@ -206,13 +207,13 @@ export async function converse(input: ConverseInput): Promise<AssistantAnswer> {
       return clarifyAnswer(text, repeatedUnresolved, projectId, adminHandoff, via);
     }
     if (plan.intent === "acc") {
-      const composed = composeFromEntries(plan.entry_ids, projectId, readOnlyNotice, adminHandoff);
-      if (composed) return withMeta(composed, plan.greeting ?? greeting, via);
+      const composed = buildEntriesAnswer(plan.entry_ids, projectId, readOnlyNotice, adminHandoff);
+      if (composed) return withMeta(withCaseNotice(composed, rest), plan.greeting ?? greeting, via);
     }
     // pending / unclear / acc sem entrada utilizável: encaminhamento (Ajuda + ADMIN), nunca resposta inventada.
     const fallback = buildFallbackAnswer(projectId, readOnlyNotice, adminHandoff);
     if (plan.intent === "unclear" && plan.clarifying_question) fallback.steps = [plan.clarifying_question, ...fallback.steps];
-    return withMeta(fallback, plan.greeting ?? greeting, via);
+    return withMeta(withCaseNotice(fallback, rest), plan.greeting ?? greeting, via);
   }
 
   // 4) Caminho determinístico (IA desligada, limite atingido, lenta, com falha ou plano inválido).
