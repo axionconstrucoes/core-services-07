@@ -65,7 +65,6 @@ export async function TopBar({
             currentProjectId={projectId}
             className="min-w-24 flex-1 sm:max-w-[7rem] sm:flex-initial lg:max-w-[10rem] xl:max-w-[16rem]"
           />
-          {currentProject?.code && <span className="shrink-0 text-xs text-muted-foreground">{currentProject.code}</span>}
           {currentProject?.contractNumber && (
             <span className="shrink-0 text-xs text-muted-foreground">Contrato {currentProject.contractNumber}</span>
           )}
