@@ -62,6 +62,25 @@ check("ações corretivas: abertas, em atraso (prazo < hoje) e críticas em aber
   const m = computeSsmaDashboardMetrics({ forms: [], fieldRecords: records, today: TODAY });
   assert.deepEqual([m.openCorrectiveActions, m.overdueCorrectiveActions, m.criticalOpen], [2, 1, 1]);
 });
+check("mesmo fato nas duas trilhas (acidente no formulário + registro de campo OCORRÊNCIA em até 24 h) conta UMA vez e é informado", () => {
+  const forms = [form("ocorrencia-acidente", "Sem afastamento", "2026-10-20T12:00:00Z")];
+  const m = computeSsmaDashboardMetrics({ forms, fieldRecords: [rec({ kind: "OCORRENCIA", occurred_at: "2026-10-20T15:00:00Z" })], today: TODAY });
+  assert.equal(m.occurrences, 1);
+  assert.deepEqual(m.occurrenceSources, { forms: 1, fieldRecords: 1, duplicatesDiscounted: 1 });
+});
+check("fatos distintos (mais de 24 h) e cada acidente consome no máximo um registro de campo", () => {
+  const forms = [form("ocorrencia-acidente", "Sem afastamento", "2026-10-20T12:00:00Z")];
+  const far = computeSsmaDashboardMetrics({ forms, fieldRecords: [rec({ kind: "OCORRENCIA", occurred_at: "2026-10-23T12:00:00Z" })], today: TODAY });
+  assert.deepEqual([far.occurrences, far.occurrenceSources.duplicatesDiscounted], [2, 0]);
+  const two = computeSsmaDashboardMetrics({ forms, fieldRecords: [rec({ id: "1", kind: "OCORRENCIA", occurred_at: "2026-10-20T13:00:00Z" }), rec({ id: "2", kind: "OCORRENCIA", occurred_at: "2026-10-20T14:00:00Z" })], today: TODAY });
+  assert.deepEqual([two.occurrences, two.occurrenceSources.duplicatesDiscounted], [2, 1], "o 2º registro de campo é outro fato");
+});
+check("inspeção não é desconhecida como duplicata de acidente; período dos dados identificado (primeiro e último fato)", () => {
+  const m = computeSsmaDashboardMetrics({ forms: [form("ocorrencia-acidente", "Sem afastamento", "2026-10-20T12:00:00Z")], fieldRecords: [rec({ kind: "INSPECAO", occurred_at: "2026-10-20T13:00:00Z" })], today: TODAY });
+  assert.equal(m.occurrences, 1);
+  assert.deepEqual(m.period, { firstAt: "2026-10-20T12:00:00.000Z", lastAt: "2026-10-20T13:00:00.000Z" });
+  assert.equal(computeSsmaDashboardMetrics({ forms: [], fieldRecords: [], today: TODAY }).period, null);
+});
 check("o Dashboard usa o módulo estruturado e não a heurística por regex de texto livre", () => {
   const page = readFileSync(new URL("../apps/web/app/[projectId]/dashboard/page.tsx", import.meta.url), "utf8");
   assert.ok(page.includes("computeSsmaDashboardMetrics"));
