@@ -11,15 +11,16 @@ $ErrorActionPreference = 'Stop'
 function Git([string[]]$ArgsList) {
   $result = & git @ArgsList 2>&1
   if ($LASTEXITCODE -ne 0) { throw "git $($ArgsList -join ' ') falhou: $($result -join ' ')" }
-  return @($result)
+  if ($null -eq $result) { return }
+  return $result
 }
 try {
-  $root = (Git @('rev-parse','--show-toplevel'))[0]
+  $root = (Git -ArgsList @('rev-parse','--show-toplevel'))[0]
   Set-Location $root
-  $branch = (Git @('branch','--show-current'))[0]
-  $head = (Git @('rev-parse','--short','HEAD'))[0]
-  $origin = (Git @('remote','get-url','origin'))[0]
-  $porcelain = @(Git @('status','--porcelain=v1','--untracked-files=all'))
+  $branch = (Git -ArgsList @('branch','--show-current'))[0]
+  $head = (Git -ArgsList @('rev-parse','--short','HEAD'))[0]
+  $origin = (Git -ArgsList @('remote','get-url','origin'))[0]
+  $porcelain = @(Git -ArgsList @('status','--porcelain=v1','--untracked-files=all'))
   $dirty = $porcelain.Count -gt 0
   Write-Host "ACC | Acao: $Acao | Pasta: $root | Branch: $branch | SHA: $head"
   Write-Host "Origin: $origin"
@@ -28,21 +29,21 @@ try {
     $safeOrigin = $false
   } else { $safeOrigin = $true }
   Write-Host 'Worktrees:'
-  Git @('worktree','list') | ForEach-Object { Write-Host "  $_" }
+  Git -ArgsList @('worktree','list') | ForEach-Object { Write-Host "  $_" }
   Write-Host 'Stashes (apenas listagem):'
-  Git @('stash','list','--format=%gd %s') | ForEach-Object { Write-Host "  $_" }
+  Git -ArgsList @('stash','list','--format=%gd %s') | ForEach-Object { Write-Host "  $_" }
   if ($dirty) {
     Write-Warning "Existem $($porcelain.Count) alteracoes locais (incluindo arquivos nao rastreados). Nao serao descartadas."
     $porcelain | ForEach-Object { Write-Host "  $_" }
   } else { Write-Host 'Worktree limpo.' }
   if ($Acao -eq 'inicio' -and $safeOrigin) {
-    Git @('fetch','--prune','origin') | Out-Null
+    Git -ArgsList @('fetch','--prune','origin') | Out-Null
     Write-Host 'Fetch concluido; nenhuma alteracao local foi sobrescrita.'
   }
   $upstream = (& git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>$null)
   $hasUpstream = $LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace(($upstream -join ''))
   if ($hasUpstream) {
-    $counts = ((Git @('rev-list','--left-right','--count','HEAD...@{upstream}'))[0] -split '\s+')
+    $counts = ((Git -ArgsList @('rev-list','--left-right','--count','HEAD...@{upstream}'))[0] -split '\s+')
     $ahead = [int]$counts[0]; $behind = [int]$counts[1]
     Write-Host "Upstream: $upstream | Ahead: $ahead | Behind: $behind"
   } else {
@@ -53,7 +54,7 @@ try {
     if ($Acao -ne 'inicio' -or -not $safeOrigin -or $dirty -or -not $hasUpstream -or $ahead -ne 0 -or $behind -le 0) {
       throw 'Atualizacao negada: requer -Acao inicio, origin correto, worktree limpo, upstream, ahead=0 e behind>0.'
     }
-    Git @('merge','--ff-only','@{upstream}') | ForEach-Object { Write-Host $_ }
+    Git -ArgsList @('merge','--ff-only','@{upstream}') | ForEach-Object { Write-Host $_ }
     Write-Host 'Atualizacao fast-forward concluida.'
   }
   if ($Publicar) {
@@ -64,8 +65,8 @@ try {
       throw 'Publicacao direta de branch protegida proibida; use PR.'
     }
     Write-Warning 'Revise commits para garantir que nao contenham segredos ou dados privados.'
-    Git @('log','--oneline','@{upstream}..HEAD') | ForEach-Object { Write-Host "  $_" }
-    Git @('push','origin','HEAD') | ForEach-Object { Write-Host $_ }
+    Git -ArgsList @('log','--oneline','@{upstream}..HEAD') | ForEach-Object { Write-Host "  $_" }
+    Git -ArgsList @('push','origin','HEAD') | ForEach-Object { Write-Host $_ }
     Write-Host 'Push concluido. Abra PR para incorporar o trabalho; este script nunca faz merge/deploy.'
   }
   if ($Acao -eq 'encerrar' -and -not $Publicar) {
