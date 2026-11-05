@@ -328,6 +328,6 @@ export const PENDING_REVIEW_PATTERNS: RegExp[] = [
   /(reclassificar|reclassifica|reclassificado)/, // R2, R10
   /(prazo|sla).*(feriado|fim de semana|sabado|domingo)|(feriado|fim de semana).*(prazo|sla)/, // E6, R6
   /(como|quando) .*(alerta|aviso) .*(e enviado|enviado|chega)/, // R8, R9, E5
-  /\bprazo\b.*\b(agir|assumir|cada grau|por grau)\b|\bsla\b|matriz de prazos/, // R6, E10
+  /\bsla\b|matriz de prazos/, // E10 (configuração da matriz); prazos por grau são respondidos por E2/R7 (guards.ts)
   /(quais|quantos) (sao )?(os )?perfis|\bperfis\b.*\b(pode|podem|diferenca)\b|diferenca entre (gerente|gestor|colaborador|administrador|leitura)/, // N4
 ];

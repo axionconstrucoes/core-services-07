@@ -68,6 +68,9 @@ export function AssistantWidget({ projectId }: { projectId: string | null }) {
   const [context, setContext] = useState<VeraContext>("geral");
   const [input, setInput] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
+  useEffect(() => {
+    turnsRef.current = turns;
+  }, [turns]);
   const [loading, setLoading] = useState(false);
   const [askError, setAskError] = useState<string | null>(null);
 
@@ -84,6 +87,9 @@ export function AssistantWidget({ projectId }: { projectId: string | null }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const busyRef = useRef(false);
+  // Contexto recente enviado ao servidor: no máximo as 2 últimas perguntas desta conversa + o assunto respondido (id).
+  // Fica só neste navegador (estado do componente, desta obra); nada é guardado no servidor.
+  const turnsRef = useRef<Turn[]>([]);
   const base = projectId ? `/${projectId}/ajuda/assistente` : "/projetos/assistente";
 
   const stopAudio = useCallback(() => {
@@ -116,7 +122,10 @@ export function AssistantWidget({ projectId }: { projectId: string | null }) {
         const response = await fetch(base, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ question: trimmed }),
+          body: JSON.stringify({
+            question: trimmed,
+            history: turnsRef.current.slice(-2).map((turn) => ({ question: turn.question, entryId: turn.answer.entryId })),
+          }),
         });
         const data = (await response.json().catch(() => ({}))) as { answer?: AssistantAnswer; error?: string };
         if (!response.ok || !data.answer) {
@@ -242,7 +251,7 @@ export function AssistantWidget({ projectId }: { projectId: string | null }) {
 
   const last = turns[turns.length - 1];
   // "Falar com o ADMIN": resposta parcial, ausência de resposta aprovada ou clique em "Isso não respondeu à minha pergunta".
-  const needsAdmin = Boolean(last && (last.answer.coverage !== "completa" || last.notAnswered));
+  const needsAdmin = Boolean(last && last.answer.kind !== "social" && (last.answer.coverage !== "completa" || last.notAnswered));
 
   return (
     <section
@@ -287,51 +296,77 @@ export function AssistantWidget({ projectId }: { projectId: string | null }) {
           <div key={index} className="space-y-2">
             <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-gray-100 px-3 py-2 text-gray-900">{turn.question}</p>
             <div data-axia-resposta className="space-y-2 rounded-2xl rounded-bl-sm border border-gray-300 bg-[#ffffff] px-3 py-2 text-[#000000]">
+              {turn.answer.intro ? <p>{turn.answer.intro}</p> : null}
+              {turn.answer.caseNotice ? (
+                <p data-axia-caso className="rounded-md bg-[#fff3cd] px-2 py-1 text-xs text-[#000000]">
+                  {turn.answer.caseNotice}
+                </p>
+              ) : null}
               {turn.answer.readOnlyNotice ? <p className="rounded-md bg-[#fff3cd] px-2 py-1 text-xs text-[#000000]">{turn.answer.readOnlyNotice}</p> : null}
-              <p className="font-bold text-[#000000]">{turn.answer.title}</p>
-              <p>{turn.answer.summary}</p>
-              {turn.answer.steps.length > 0 ? (
-                <ol className="list-decimal space-y-1 pl-5">
-                  {turn.answer.steps.map((step) => (
-                    <li key={step}>{step}</li>
+              {turn.answer.kind === "social" ? (
+                <p>{turn.answer.summary}</p>
+              ) : (
+                <>
+                  <p className="font-bold text-[#000000]">{turn.answer.title}</p>
+                  <p>{turn.answer.summary}</p>
+                  {turn.answer.sections?.map((section) => (
+                    <div key={section.title} className="space-y-1 border-t border-gray-200 pt-2">
+                      <p className="font-bold text-[#000000]">{section.title}</p>
+                      <p>{section.summary}</p>
+                      {section.steps.length > 0 ? (
+                        <ol className="list-decimal space-y-1 pl-5">
+                          {section.steps.map((step) => (
+                            <li key={step}>{step}</li>
+                          ))}
+                        </ol>
+                      ) : null}
+                      {section.manualSection ? <p data-axia-citacao className="text-xs text-[#000000]">Fonte no manual: seção {section.manualSection}</p> : null}
+                    </div>
                   ))}
-                </ol>
-              ) : null}
-              {turn.answer.links.length > 0 || turn.answer.tutorialSlide ? (
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  {turn.answer.links.map((link) => (
-                    <Link key={link.href} href={link.href} className="rounded-md bg-brand-sidebar px-2 py-1.5 text-xs font-semibold text-white hover:opacity-90">
-                      {link.label}
-                    </Link>
-                  ))}
-                  {turn.answer.tutorialSlide ? <span className="px-1 py-1 text-xs text-[#000000]">Tutorial: slide {turn.answer.tutorialSlide}</span> : null}
-                </div>
-              ) : null}
-              {turn.answer.manualSection ? (
-                <p data-axia-citacao className="text-xs text-[#000000]">
-                  Fonte no manual: seção {turn.answer.manualSection}
-                </p>
-              ) : null}
-              {turn.answer.coverage === "parcial" ? (
-                <p data-axia-cobertura="parcial" className="rounded-md bg-[#fff3cd] px-2 py-1 text-xs text-[#000000]">
-                  Resposta parcial: pode não cobrir o seu caso.
-                </p>
-              ) : null}
-              {turn.answer.coverage === "ausente" ? (
-                <p data-axia-cobertura="ausente" className="rounded-md bg-[#fff3cd] px-2 py-1 text-xs text-[#000000]">
-                  Ainda não tenho uma resposta aprovada para isso.
-                </p>
-              ) : null}
-              {turn.answer.coverage === "completa" && !turn.notAnswered ? (
-                <button
-                  type="button"
-                  data-axia-nao-respondeu
-                  onClick={() => setTurns((current) => current.map((item, i) => (i === index ? { ...item, notAnswered: true } : item)))}
-                  className="min-h-8 rounded-md border border-gray-400 px-2 py-1 text-xs text-[#000000] hover:bg-gray-100"
-                >
-                  {NOT_ANSWERED_LABEL}
-                </button>
-              ) : null}
+                  {turn.answer.steps.length > 0 ? (
+                    <ol className="list-decimal space-y-1 pl-5">
+                      {turn.answer.steps.map((step) => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                  ) : null}
+                  {turn.answer.links.length > 0 || turn.answer.tutorialSlide ? (
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      {turn.answer.links.map((link) => (
+                        <Link key={link.href} href={link.href} className="rounded-md bg-brand-sidebar px-2 py-1.5 text-xs font-semibold text-white hover:opacity-90">
+                          {link.label}
+                        </Link>
+                      ))}
+                      {turn.answer.tutorialSlide ? <span className="px-1 py-1 text-xs text-[#000000]">Tutorial: slide {turn.answer.tutorialSlide}</span> : null}
+                    </div>
+                  ) : null}
+                  {turn.answer.manualSection && !turn.answer.sections ? (
+                    <p data-axia-citacao className="text-xs text-[#000000]">
+                      Fonte no manual: seção {turn.answer.manualSection}
+                    </p>
+                  ) : null}
+                  {turn.answer.coverage === "parcial" ? (
+                    <p data-axia-cobertura="parcial" className="rounded-md bg-[#fff3cd] px-2 py-1 text-xs text-[#000000]">
+                      Resposta parcial: pode não cobrir o seu caso.
+                    </p>
+                  ) : null}
+                  {turn.answer.coverage === "ausente" ? (
+                    <p data-axia-cobertura="ausente" className="rounded-md bg-[#fff3cd] px-2 py-1 text-xs text-[#000000]">
+                      Ainda não tenho uma resposta aprovada para isso.
+                    </p>
+                  ) : null}
+                  {turn.answer.coverage === "completa" && !turn.notAnswered && turn.answer.kind !== "clarify" ? (
+                    <button
+                      type="button"
+                      data-axia-nao-respondeu
+                      onClick={() => setTurns((current) => current.map((item, i) => (i === index ? { ...item, notAnswered: true } : item)))}
+                      className="min-h-8 rounded-md border border-gray-400 px-2 py-1 text-xs text-[#000000] hover:bg-gray-100"
+                    >
+                      {NOT_ANSWERED_LABEL}
+                    </button>
+                  ) : null}
+                </>
+              )}
             </div>
           </div>
         ))}

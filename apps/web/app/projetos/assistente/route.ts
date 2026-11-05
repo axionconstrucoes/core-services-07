@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@axion/db/server";
 
-import { ASSISTANT_QUESTION_MAX_LENGTH, AssistantConfigError, answerQuestion } from "@/lib/assistant/answer";
+import { ASSISTANT_QUESTION_MAX_LENGTH, AssistantConfigError, resolveAssistantMode } from "@/lib/assistant/answer";
+import { converse } from "@/lib/assistant/chat-orchestrator";
 import { allowRequest } from "@/lib/assistant/rate-limit";
 
 // AXIA — Assistente ACC na tela "Selecione um projeto" (ainda sem obra escolhida). Mesma base de conhecimento e mesma regra
@@ -17,9 +18,11 @@ export async function POST(request: Request) {
   }
 
   let question = "";
+  let history: unknown = [];
   try {
-    const body = (await request.json()) as { question?: unknown };
+    const body = (await request.json()) as { question?: unknown; history?: unknown };
     question = typeof body.question === "string" ? body.question.trim() : "";
+    history = body.history;
   } catch {
     return NextResponse.json({ error: "Pedido inválido" }, { status: 400 });
   }
@@ -28,7 +31,11 @@ export async function POST(request: Request) {
   }
 
   try {
-    return NextResponse.json({ answer: answerQuestion(question, null) }, { headers: { "cache-control": "no-store" } });
+    resolveAssistantMode();
+    // Limite de frequência da IA por usuário (mais baixo que o do endpoint): acima dele a AXIA segue só com a base aprovada.
+    const aiAllowed = allowRequest(`ai:${authData.user.id}`, 8);
+    const answer = await converse({ question, history, projectId: null, aiAllowed, userKey: authData.user.id });
+    return NextResponse.json({ answer }, { headers: { "cache-control": "no-store" } });
   } catch (error) {
     if (error instanceof AssistantConfigError) {
       console.warn("[assistente-acc] configuração do modo da assistente inválida");

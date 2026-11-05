@@ -41,7 +41,7 @@ for (const id of APPROVED_BATCH_1_IDS) {
 }
 // Entradas em revisão: não podem ser respondidas por entrada do lote
 const REVIEW = ["Quais são os perfis e o que cada um pode fazer?", "Por que não vejo uma aba do menu?", "Quem define o grau de risco?",
-  "Qual o prazo para agir em cada grau?", "Quanto tempo depois do vencimento chega o aviso?", "O que são os lembretes Repete a cada N dias?",
+  "Quanto tempo depois do vencimento chega o aviso?", "O que são os lembretes Repete a cada N dias?",
   "Onde se configura a Matriz de SLA?", "O que o Consultor Jurídico consegue ler?", "As consultas jurídicas ficam guardadas?",
   "O que mostra o Dashboard?", "Como encontro um evento na Timeline?"];
 for (const q of REVIEW) {
@@ -49,9 +49,15 @@ for (const q of REVIEW) {
   t(`em revisão não é respondida por entrada do lote: "${q}" (obteve ${a.entryId})`, !a.entryId.startsWith("qa-"));
 }
 // Pendentes que o texto genérico antigo respondia errado ou fora do tema: agora vão ao encaminhamento
-for (const q of ["Qual o prazo para agir em cada grau?", "Como configuro a matriz de SLA?", "Quais são os perfis e o que cada um pode fazer?", "Qual a diferença entre Gerente e Colaborador?"]) {
+for (const q of ["Como configuro a matriz de SLA?", "Quais são os perfis e o que cada um pode fazer?", "Qual a diferença entre Gerente e Colaborador?"]) {
   const a = answerQuestion(q, P, ENV);
   t(`pendente vai ao encaminhamento: "${q}" (obteve ${a.entryId})`, a.entryId === "fallback" && a.coverage === "ausente");
+}
+// Prazos por grau: consultam as regras APROVADAS (E2 e R7), com a seção do manual
+for (const [q, ids] of [["Qual o prazo para agir em cada grau?", ["qa-E2", "qa-R7"]], ["Qual o prazo do alerta crítico?", ["qa-E2"]], ["Qual o prazo do alerta médio?", ["qa-R7", "qa-E2"]]]) {
+  const a = answerQuestion(q, P, ENV);
+  const got = a.sections ? a.sections.map((x) => x.title) : [a.title];
+  t(`prazo por grau: "${q}" → regras aprovadas ${ids.join("+")} com fonte (${a.entryId})`, a.entryId === ids[0] && !!a.manualSection && a.coverage === "completa" && got.length === ids.length);
 }
 const cno = answerQuestion("Como funciona o prazo do CNO?", P, ENV);
 t("pergunta fora das pendentes continua respondida (prazo do CNO)", cno.entryId !== "fallback");

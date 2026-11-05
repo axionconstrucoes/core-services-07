@@ -16,6 +16,17 @@ import {
   type AssistantEntry,
 } from "./knowledge";
 import { PENDING_REVIEW_PATTERNS } from "./approved-batch-1";
+import {
+  BOUNDARY_ENTRY_ID,
+  BOUNDARY_SECTION,
+  BOUNDARY_SUMMARY,
+  BOUNDARY_TITLE,
+  CASE_NOTICE,
+  gradeDeadlineEntryIds,
+  isCaseAdvice,
+  isCaseSpecific,
+  isPermissionBypass,
+} from "./guards";
 import { QA_FIXTURE_ENTRIES } from "./qa-fixtures";
 import { qaFixturesEnabled, resolveAdminHandoff, type AdminHandoff, type AnswerCoverage } from "./qa-handoff";
 
@@ -41,7 +52,19 @@ export interface AssistantAnswer {
   manualSection: string | null;
   /** Como encaminhar ao ADMIN (link fixo ou só texto). Nunca contém a pergunta nem o histórico. */
   adminHandoff: AdminHandoff;
+
+  /** Tipo da resposta: "social" (conversa, sem fonte nem ADMIN), "clarify" (pedido de esclarecimento) ou "acc" (padrão). */
+  kind?: "social" | "acc" | "clarify";
+  /** Saudação/abertura curta antes da resposta ("Bom dia!"). Nunca contém regra operacional. */
+  intro?: string | null;
+  /** "ia": a IA interpretou a pergunta; "base": caminho determinístico. O conteúdo operacional é sempre da base aprovada. */
+  via?: "ia" | "base";
+  /** Pergunta composta: um bloco por assunto aprovado, cada um com a sua seção do manual. */
+  sections?: Array<{ title: string; summary: string; steps: string[]; manualSection: string | null }>;
+  /** Pergunta sobre caso específico: aviso de que a AXIA explica só a regra geral e não lê dados nem analisa o caso. */
+  caseNotice?: string | null;
 }
+
 
 export class AssistantConfigError extends Error {
   constructor(message: string) {
@@ -142,12 +165,39 @@ export function answerQuestion(
   projectId: string | null,
   env: Record<string, string | undefined> = process.env
 ): AssistantAnswer {
+  const answer = answerCore(question, projectId, env);
+  return withCaseNotice(answer, normalizeText(question.slice(0, ASSISTANT_QUESTION_MAX_LENGTH)));
+}
+
+/** Caso específico: acrescenta o aviso (e o link dos especialistas) sem alterar o texto aprovado. */
+export function withCaseNotice(answer: AssistantAnswer, normalizedQuestion: string): AssistantAnswer {
+  if (!isCaseSpecific(normalizedQuestion) || answer.entryId === PROJECT_SELECTION_ENTRY_ID || answer.entryId === BOUNDARY_ENTRY_ID) return answer;
+  const hasExperts = answer.links.some((link) => link.href.endsWith("/experts-ia"));
+  const base = answer.links.length > 0 ? answer.links[0].href.split("/").slice(0, 2).join("/") : null;
+  return {
+    ...answer,
+    caseNotice: CASE_NOTICE,
+    links: hasExperts || !base ? answer.links : [...answer.links, { label: "Experts IA", href: `${base}/experts-ia` }],
+  };
+}
+
+function answerCore(
+  question: string,
+  projectId: string | null,
+  env: Record<string, string | undefined>
+): AssistantAnswer {
   resolveAssistantMode();
   const adminHandoff = resolveAdminHandoff(env);
   const entries = qaFixturesEnabled(env) ? [...ASSISTANT_ENTRIES, ...QA_FIXTURE_ENTRIES] : ASSISTANT_ENTRIES;
   const normalized = normalizeText(question.slice(0, ASSISTANT_QUESTION_MAX_LENGTH));
   const questionTokens = tokens(normalized);
   const readOnlyNotice = asksToChangeData(normalized) ? ASSISTANT_READ_ONLY_NOTICE : null;
+
+  // Tentativa de contornar permissões ou obter dados: resposta fixa de limite, antes de qualquer outra coisa.
+  if (isPermissionBypass(normalized)) return buildBoundaryAnswer(projectId, readOnlyNotice, adminHandoff);
+
+  // Decisão sobre caso concreto (ex.: "no meu contrato posso rescindir…?"): sem regra aprovada, encaminha (o aviso de caso é acrescentado).
+  if (projectId && isCaseAdvice(normalized)) return buildFallbackAnswer(projectId, readOnlyNotice, adminHandoff);
 
   // Tela "Selecione um projeto": a pergunta que depende de uma obra específica pede a escolha da obra antes.
   if (!projectId && dependsOnSpecificProject(normalized)) {
@@ -166,6 +216,13 @@ export function answerQuestion(
     };
   }
 
+  // Prazos por grau de alerta: consultam as regras aprovadas (E2 e R7), não as entradas em revisão.
+  const gradeIds = gradeDeadlineEntryIds(normalized);
+  if (gradeIds) {
+    const composed = buildEntriesAnswer(gradeIds, projectId, readOnlyNotice, adminHandoff);
+    if (composed) return composed;
+  }
+
   const ranked = entries.map((entry) => ({ entry, score: scoreEntry(entry, normalized, questionTokens) })).sort(
     (a, b) => b.score - a.score
   );
@@ -174,22 +231,81 @@ export function answerQuestion(
   const heldForReview = PENDING_REVIEW_PATTERNS.some((pattern) => pattern.test(normalized));
 
   if (!best || best.score < MIN_SCORE || heldForReview) {
-    return {
-      mode: "BASE_CONHECIMENTO",
-      entryId: ASSISTANT_FALLBACK.id,
-      title: "Não encontrei esse assunto",
-      summary: ASSISTANT_FALLBACK.summary,
-      steps: [...ASSISTANT_FALLBACK.steps],
-      links: projectId ? [{ label: "Ajuda e tutorial", href: `/${projectId}/ajuda` }] : [],
-      tutorialSlide: null,
-      readOnlyNotice,
-      coverage: "ausente",
-      manualSection: null,
-      adminHandoff,
-    };
+    return buildFallbackAnswer(projectId, readOnlyNotice, adminHandoff);
   }
 
-  const { entry } = best;
+  return buildEntryAnswer(best.entry, projectId, readOnlyNotice, adminHandoff);
+}
+
+/** Resposta fixa quando a pessoa tenta contornar permissões ou obter dados que a AXIA não lê. Nunca chama a IA. */
+export function buildBoundaryAnswer(projectId: string | null, readOnlyNotice: string | null, adminHandoff: AdminHandoff): AssistantAnswer {
+  return {
+    mode: "BASE_CONHECIMENTO",
+    entryId: BOUNDARY_ENTRY_ID,
+    title: BOUNDARY_TITLE,
+    summary: BOUNDARY_SUMMARY,
+    steps: [],
+    links: projectId ? [{ label: "Usuários e permissões", href: `/${projectId}/usuarios` }] : [],
+    tutorialSlide: null,
+    readOnlyNotice,
+    coverage: "completa",
+    manualSection: BOUNDARY_SECTION,
+    adminHandoff,
+  };
+}
+
+/** Uma ou mais entradas aprovadas: texto aprovado palavra por palavra, um bloco por assunto quando há mais de uma. */
+export function buildEntriesAnswer(
+  ids: string[],
+  projectId: string | null,
+  readOnlyNotice: string | null,
+  adminHandoff: AdminHandoff
+): AssistantAnswer | null {
+  const entries = ids.map((id) => ASSISTANT_ENTRIES.find((entry) => entry.id === id)).filter((entry): entry is AssistantEntry => !!entry);
+  if (entries.length === 0) return null;
+  if (entries.length === 1) return buildEntryAnswer(entries[0], projectId, readOnlyNotice, adminHandoff);
+  const first = buildEntryAnswer(entries[0], projectId, readOnlyNotice, adminHandoff);
+  const links = new Map<string, { label: string; href: string }>();
+  for (const entry of entries) for (const link of buildEntryAnswer(entry, projectId, null, adminHandoff).links) links.set(link.href, link);
+  const citations = entries.map((entry) => entry.manualSection).filter((section): section is string => !!section);
+  return {
+    ...first,
+    entryId: entries[0].id,
+    title: entries.map((entry) => entry.title).join(" + "),
+    summary: "Respondo por partes, cada uma com a sua fonte:",
+    steps: [],
+    links: [...links.values()],
+    tutorialSlide: null,
+    manualSection: citations.length > 0 ? citations.join(" | ") : null,
+    coverage: entries.every((entry) => (entry.coverage ?? "completa") === "completa") ? "completa" : "parcial",
+    sections: entries.map((entry) => ({ title: entry.title, summary: entry.summary, steps: entry.steps, manualSection: entry.manualSection ?? null })),
+  };
+}
+
+/** Encaminhamento quando não há resposta aprovada (Ajuda + orientação ao ADMIN em texto). */
+export function buildFallbackAnswer(projectId: string | null, readOnlyNotice: string | null, adminHandoff: AdminHandoff): AssistantAnswer {
+  return {
+    mode: "BASE_CONHECIMENTO",
+    entryId: ASSISTANT_FALLBACK.id,
+    title: "Não encontrei esse assunto",
+    summary: ASSISTANT_FALLBACK.summary,
+    steps: [...ASSISTANT_FALLBACK.steps],
+    links: projectId ? [{ label: "Ajuda e tutorial", href: `/${projectId}/ajuda` }] : [],
+    tutorialSlide: null,
+    readOnlyNotice,
+    coverage: "ausente",
+    manualSection: null,
+    adminHandoff,
+  };
+}
+
+/** Resposta montada SOMENTE com o texto aprovado da entrada (usada também pela camada de conversa com IA). */
+export function buildEntryAnswer(
+  entry: AssistantEntry,
+  projectId: string | null,
+  readOnlyNotice: string | null,
+  adminHandoff: AdminHandoff
+): AssistantAnswer {
   return {
     mode: "BASE_CONHECIMENTO",
     entryId: entry.id,
