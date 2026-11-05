@@ -96,7 +96,7 @@ export interface MailContent {
 }
 
 export interface Mailer {
-  send(input: { to: string; name: string | null; content: MailContent; projectId: string; correlationId: string }): Promise<{ providerMessageId: string | null; sentAt: string }>;
+  deliver(input: { to: string; name: string | null; content: MailContent; projectId: string; correlationId: string }): Promise<{ providerMessageId: string | null; sentAt: string }>;
 }
 
 export interface NotifyDeps {
@@ -151,7 +151,7 @@ export async function notifyEvent(
     if (row.status === "SUPPRESSED" || row.attemptCount >= MAX_ATTEMPTS) { summary.skipped += 1; continue; }
     if (!(await deps.store.claim(row.id))) { summary.skipped += 1; continue; }
     try {
-      const result = await deps.mailer.send({ to: recipient.email, name: recipient.name, content: input.content(recipient), projectId: input.key.projectId, correlationId: newId() });
+      const result = await deps.mailer.deliver({ to: recipient.email, name: recipient.name, content: input.content(recipient), projectId: input.key.projectId, correlationId: newId() });
       await deps.store.markSent(row.id, result);
       summary.sent += 1;
     } catch (error) {

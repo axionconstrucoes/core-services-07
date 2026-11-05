@@ -71,7 +71,7 @@ export function createSupabaseDeliveryStore(admin: Admin): DeliveryStore {
 /** Envio pelo provedor do ACC. As travas do piloto (modo piloto, destinatário único, perfil do projeto) rodam no provedor. */
 export function createProviderMailer(admin: Admin, provider: EmailProvider = getEmailProvider()): Mailer {
   return {
-    async send({ to, content, projectId, correlationId }) {
+    async deliver({ to, content, projectId, correlationId }) {
       const inlineLogo = loadAccLogoInlineImage();
       const signed = appendAccEmailSignature({ text: content.text, html: content.html }, inlineLogo !== null);
       let result;
