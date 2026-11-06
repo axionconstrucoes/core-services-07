@@ -17,7 +17,7 @@ import {
 } from "@/lib/ssma/technician-evaluation";
 import { createSupabaseServerClient } from "@axion/db/server";
 
-export const metadata: Metadata = { title: "Avaliação do técnico SSMA (prévia)" };
+export const metadata: Metadata = { title: "Avaliação do técnico SSMA — PRÉVIA, critérios em revisão" };
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -128,12 +128,12 @@ export default async function TechnicianEvaluationPreviewPage({
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Avaliação do técnico SSMA (prévia)"
+        title="Avaliação do técnico SSMA — PRÉVIA, critérios em revisão"
         description={`PRÉVIA das regras ${EVALUATION_RULES_VERSION}: cálculo de leitura, sem nota gravada e sem efeito sobre ninguém, até as regras detalhadas serem aprovadas.`}
         actions={<Link href={`/${projectId}/ssma-registros`} className="rounded-md border border-[#7f1d1d] px-3 py-2 text-sm font-semibold text-red-700">Registros de campo</Link>}
       />
-      <p role="note" className="rounded-lg border-2 border-amber-600 p-3 text-sm font-semibold">
-        Prévia, não oficial. Sem dados não é nota zero. A quantidade de Near Misses ou de acidentes não reduz a nota; avaliam-se comunicação, tratamento e reincidência.
+      <p role="note" className="rounded-lg border-2 border-amber-600 p-3 text-sm font-semibold" data-testid="preview-notice">
+        PRÉVIA — critérios em revisão. Não é avaliação oficial. Ainda NÃO estão aprovados: a redistribuição de pesos quando falta dado, a cobertura mínima de 60% e o desconto por reincidência. Sem dados não é nota zero. A quantidade de Near Misses ou de acidentes não reduz a nota; avaliam-se comunicação, tratamento e reincidência.
       </p>
 
       <form method="get" className="flex flex-wrap items-end gap-2 text-sm">

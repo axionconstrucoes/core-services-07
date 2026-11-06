@@ -110,7 +110,7 @@ await check("fluxo: gerente envia, técnico manifesta, gerente (que não é o t�
 });
 await check("a página é prévia: não grava nada e restringe a ficha de quem não é gerente", () => {
   const page = read("../apps/web/app/[projectId]/ssma-avaliacao/page.tsx");
-  assert.ok(page.includes("PRÉVIA") && !/\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(/.test(page), "somente leitura");
+  assert.ok(page.includes("PRÉVIA — critérios em revisão") && page.includes("cobertura mínima de 60%") && page.includes("desconto por reincidência") && !/\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(/.test(page), "somente leitura");
   assert.ok(page.includes("viewerIsManager ? requested : viewerId"), "não-gerente só vê a própria ficha");
 });
 await check("formulário 12: nome 'Ocorrências: Acidentes e Near Misses'; identidade gravada do acidente intacta", () => {

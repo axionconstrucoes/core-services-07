@@ -1658,7 +1658,7 @@ Conteúdo, identidades, escopo e limites dos especialistas: ver CAP69 cap. 8 (n�
 
 #### 4.29.2 Formulário 12 (Acidentes e Near Misses) e prévia da avaliação do técnico
 - **Formulário 12** — "Ocorrências: Acidentes e Near Misses": escolha o tipo antes de preencher. Acidente: fluxo e avisos de sempre. Near Miss: campos próprios, sem funcionário/remoção, fotos opcionais; não conta como acidente e alimenta o indicador "Near Misses (quase-acidentes)" do Dashboard (com período e link para os registros, em `/{obra}/ssma-registros#near-misses`, com filtro De/Até).
-- **Avaliação do técnico (PRÉVIA)** — `/{obra}/ssma-avaliacao`: ficha mensal e acumulada com memória de cálculo e evidências; pesos propostos 20/25/15/20/10/10; sem dado ≠ zero; quantidade de Near Misses/acidentes não penaliza; dependências da gerência separadas. Manifestação e validação são demonstrativas até a migration `20261106130000` (não aplicada) e as regras serem aprovadas.
+- **Avaliação do técnico (PRÉVIA — critérios em revisão)** — `/{obra}/ssma-avaliacao`: ficha mensal e acumulada com memória de cálculo e evidências; pesos propostos 20/25/15/20/10/10; sem dado ≠ zero; quantidade de Near Misses/acidentes não penaliza; dependências da gerência separadas. Manifestação e validação são demonstrativas até a migration `20261106130000` (não aplicada) e as regras serem aprovadas.
 
 ### 4.30 Usuários — rota `/{obra}/usuarios`
 
