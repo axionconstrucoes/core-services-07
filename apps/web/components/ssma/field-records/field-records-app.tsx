@@ -10,7 +10,7 @@ import { SsmaOfflineCapabilities } from "@/components/ssma/ssma-offline-capabili
 import type { OfflineContext } from "@/lib/ssma/field-records/idb-store";
 import { isActionOverdue, mapFieldRecordRow, type FieldRecordRow, type FieldRecordView } from "@/lib/ssma/field-records/field-record-view";
 import type { useFieldQueue } from "@/lib/ssma/field-records/use-field-queue";
-import { ACTION_STATUS_LABELS, PHOTO_STATE_LABELS, QUEUE_STATUS_LABELS, RISK_LABELS, photoSyncState, type PhotoSyncState, type QueuedRecord, type QueueStatus } from "@/lib/ssma/field-records/types";
+import { ACTION_STATUS_LABELS, FIELD_RECORD_CATEGORIES, FIELD_RECORD_KINDS, FIELD_RECORD_RISKS, PHOTO_STATE_LABELS, QUEUE_STATUS_LABELS, RISK_LABELS, photoSyncState, type PhotoSyncState, type QueuedRecord, type QueueStatus } from "@/lib/ssma/field-records/types";
 import { cn } from "@/lib/utils";
 import { describeNotification, groupNotificationRows, type NotificationLine, type NotificationSummaryRow } from "@/lib/ssma/field-notifications/view";
 
@@ -84,6 +84,11 @@ export function FieldRecordsApp({
   const [notifications, setNotifications] = useState<Map<string, NotificationSummaryRow[]>>(new Map());
   const [serverError, setServerError] = useState<string | null>(null);
   const [loadingServer, setLoadingServer] = useState(!offlineShell);
+  const [fCategory, setFCategory] = useState("");
+  const [fKind, setFKind] = useState("");
+  const [fRisk, setFRisk] = useState("");
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
   const online = queue.reachable;
   const names = useMemo(() => new Map(project.members.map((member) => [member.userId, member.name])), [project.members]);
 
@@ -128,6 +133,9 @@ export function FieldRecordsApp({
     return () => window.clearTimeout(timer);
   }, [loadServer, offlineShell, syncedCount, online]);
 
+  const filteredServer = serverRecords.filter((r) =>
+    (!fCategory || r.category === fCategory) && (!fKind || r.kind === fKind) && (!fRisk || r.risk === fRisk) &&
+    (!fFrom || r.occurredAt.slice(0, 10) >= fFrom) && (!fTo || r.occurredAt.slice(0, 10) <= fTo));
   const projectItems = queue.items.filter((item) => item.projectId === project.id);
   const serverIds = new Set(serverRecords.map((record) => record.id));
   // O que já está no servidor aparece pela versão do servidor; a fila mostra só o que ainda não está.
@@ -192,7 +200,31 @@ export function FieldRecordsApp({
             {offlineShell ? <p className="rounded-lg bg-white p-3 text-sm text-slate-600">Os registros da obra são exibidos quando há conexão.</p> : null}
             {serverError ? <p role="alert" className="text-sm font-bold text-red-700">{serverError}</p> : null}
             {!offlineShell && !loadingServer && !serverError && serverRecords.length === 0 ? <p className="rounded-lg bg-white p-3 text-sm text-slate-600">Nenhum registro enviado ainda.</p> : null}
-            {serverRecords.map((record) => <ServerRow key={record.id} record={record} notice={describeNotification(notifications.get(record.id) ?? [])} onOpen={() => setSelected(record)} />)}
+            {!offlineShell && serverRecords.length > 0 ? (
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-white p-3 shadow-sm" aria-label="Filtros dos registros">
+                <select aria-label="Categoria" value={fCategory} onChange={(e) => setFCategory(e.target.value)} className="min-h-11 rounded border border-slate-400 px-2 text-sm">
+                  <option value="">Todas as categorias</option>
+                  {FIELD_RECORD_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select aria-label="Tipo" value={fKind} onChange={(e) => setFKind(e.target.value)} className="min-h-11 rounded border border-slate-400 px-2 text-sm">
+                  <option value="">Ocorrência e inspeção</option>
+                  {FIELD_RECORD_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
+                </select>
+                <select aria-label="Risco" value={fRisk} onChange={(e) => setFRisk(e.target.value)} className="min-h-11 rounded border border-slate-400 px-2 text-sm">
+                  <option value="">Todos os riscos</option>
+                  {FIELD_RECORD_RISKS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+                <div className="flex gap-1">
+                  <input aria-label="De" type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} className="min-h-11 w-1/2 rounded border border-slate-400 px-1 text-xs" />
+                  <input aria-label="Até" type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} className="min-h-11 w-1/2 rounded border border-slate-400 px-1 text-xs" />
+                </div>
+                <p className="col-span-2 text-xs text-slate-600">
+                  {filteredServer.length} de {serverRecords.length} registro(s) carregados (até 100 mais recentes)
+                  {fCategory === "Quase-acidente" ? ` · quase-acidentes no filtro: ${filteredServer.length}` : ""}
+                </p>
+              </div>
+            ) : null}
+            {filteredServer.map((record) => <ServerRow key={record.id} record={record} notice={describeNotification(notifications.get(record.id) ?? [])} onOpen={() => setSelected(record)} />)}
           </section>
         </main>
       )}
