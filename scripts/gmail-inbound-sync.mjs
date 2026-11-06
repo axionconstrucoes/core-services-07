@@ -1,6 +1,8 @@
 import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
 import { extractGmailBody } from "./lib/gmail-message-body.mjs";
+import { createDelegatedGmailAuth } from "./lib/gmail-delegated-auth.mjs";
+import { evaluateMailboxCollection, resolveMailboxWindowStart } from "./lib/gmail-mailbox-gate.mjs";
 
 const args = process.argv.slice(2);
 
@@ -12,6 +14,14 @@ if (!args.includes("--apply")) {
   console.error("ERRO: use --apply para autorizar gravação.");
   process.exit(1);
 }
+
+// Modo de autenticação. PADRÃO = OAUTH_USUARIO (comportamento histórico, inalterado). DOMAIN_DELEGATION é opt-in explícito,
+// somente leitura, uma caixa por execução, e só roda com autorização corporativa + permissão técnica + coleta habilitada
+// registradas em email_mailbox_collection_controls (ver scripts/lib/gmail-mailbox-gate.mjs).
+const DELEGATION =
+  (process.env.ACC_GMAIL_AUTH_MODE ?? "OAUTH_USUARIO").trim().toUpperCase() === "DOMAIN_DELEGATION";
+const MAX_MESSAGES = Number(process.env.ACC_GMAIL_MAX_MESSAGES ?? "") || null; // amostra controlada (só no modo delegação)
+const TECHNICAL_CHECK_ONLY = process.env.ACC_GMAIL_TECHNICAL_CHECK_ONLY === "true";
 
 function required(name) {
   const value = process.env[name]?.trim();
@@ -243,7 +253,7 @@ if (!config.enabled) {
   process.exit(0);
 }
 
-if (!config.last_sync_at) {
+if (!config.last_sync_at && !DELEGATION) {
   throw new Error(
     "last_sync_at inexistente. O backfill precisa ser executado primeiro."
   );
@@ -284,6 +294,35 @@ if (
   throw new Error(
     `Mailbox ${mailbox} não autorizada para o projeto.`
   );
+}
+
+let mailboxControl = null;
+if (DELEGATION) {
+  const { data: controlRow, error: controlError } = await supabase
+    .from("email_mailbox_collection_controls")
+    .select("*")
+    .eq("project_id", PROJECT_ID)
+    .eq("mailbox_address", mailbox)
+    .maybeSingle();
+  if (controlError) throw new Error(`Controle da caixa indisponível: ${controlError.message}`);
+  mailboxControl = controlRow;
+  // O teste técnico precisa rodar ANTES de a coleta estar habilitada: nesse modo só autorização corporativa é exigida.
+  const gate = evaluateMailboxCollection(
+    TECHNICAL_CHECK_ONLY && mailboxControl
+      ? { ...mailboxControl, technical_permission_status: "CONFIRMADA", collection_enabled: true }
+      : mailboxControl,
+    { allowlisted: true }
+  );
+  if (!gate.canCollect) {
+    console.log(`Coleta da caixa ${mailbox} BLOQUEADA: ${gate.blockers.join(", ")}`);
+    console.log("Nenhuma mensagem foi lida.");
+    if (mailboxControl) {
+      await supabase.rpc("record_mailbox_sync_result", {
+        p_project_id: PROJECT_ID, p_mailbox: mailbox, p_status: "BLOQUEADA", p_detail: gate.blockers.join(",").slice(0, 280), p_imported: 0, p_synced_through: null,
+      });
+    }
+    process.exit(0);
+  }
 }
 
 const allowedDomains =
@@ -328,8 +367,12 @@ const requireProjectScopeMatch =
  * O índice único de provider_message_id protege
  * contra duplicação.
  */
+const delegatedWindowStart = DELEGATION ? resolveMailboxWindowStart(mailboxControl, null) : null;
+if (DELEGATION && !delegatedWindowStart && !TECHNICAL_CHECK_ONLY) {
+  throw new Error("Caixa sem período inicial (period_start) nem última sincronização: defina o período autorizado.");
+}
 const lastSyncAt =
-  new Date(config.last_sync_at);
+  DELEGATION ? (delegatedWindowStart ?? new Date()) : new Date(config.last_sync_at);
 
 const overlapStart =
   new Date(
@@ -362,19 +405,26 @@ const senderFilter =
 const query =
   `after:${afterEpoch} before:${beforeEpoch} {${senderFilter}}`;
 
-const credentialNames =
-  gmailCredentialNames(mailbox);
+let auth;
+if (DELEGATION) {
+  const delegated = await createDelegatedGmailAuth({ mailbox });
+  auth = delegated.auth;
+  console.log(`Autenticação: delegação em todo o domínio (${delegated.mode}), somente leitura, caixa ${mailbox}.`);
+} else {
+  const credentialNames =
+    gmailCredentialNames(mailbox);
 
-const auth =
-  new google.auth.OAuth2(
-    required(credentialNames.clientId),
-    required(credentialNames.clientSecret)
-  );
+  auth =
+    new google.auth.OAuth2(
+      required(credentialNames.clientId),
+      required(credentialNames.clientSecret)
+    );
 
-auth.setCredentials({
-  refresh_token:
-    required(credentialNames.refreshToken),
-});
+  auth.setCredentials({
+    refresh_token:
+      required(credentialNames.refreshToken),
+  });
+}
 
 const gmail =
   google.gmail({
@@ -393,6 +443,15 @@ if (
   throw new Error(
     "A mailbox autenticada no Gmail não coincide com a mailbox configurada."
   );
+}
+
+if (DELEGATION && TECHNICAL_CHECK_ONLY) {
+  // Teste técnico: o perfil abaixo já provou a delegação (e a caixa). Registra e encerra SEM ler mensagens.
+  await supabase.rpc("record_mailbox_technical_check", {
+    p_project_id: PROJECT_ID, p_mailbox: mailbox, p_ok: true, p_detail: "getProfile ok; escopo gmail.readonly",
+  });
+  console.log(`Teste técnico OK para ${mailbox}. Nenhuma mensagem lida.`);
+  process.exit(0);
 }
 
 console.log("");
@@ -443,6 +502,10 @@ do {
     undefined;
 
 } while (pageToken);
+
+if (DELEGATION && MAX_MESSAGES && ids.length > MAX_MESSAGES) {
+  ids.length = MAX_MESSAGES; // amostra: o ponteiro de leitura NÃO avança (ver persistência no fim)
+}
 
 console.log(
   "Mensagens candidatas:",
@@ -691,8 +754,23 @@ for (
 const completedAt =
   new Date().toISOString();
 
-const { error: updateError } =
-  await supabase
+if (DELEGATION) {
+  // Modo delegação: estado POR CAIXA (o last_sync_at compartilhado da configuração não é tocado).
+  const sampleRun = Boolean(MAX_MESSAGES);
+  const { error: recordError } = await supabase.rpc("record_mailbox_sync_result", {
+    p_project_id: PROJECT_ID,
+    p_mailbox: mailbox,
+    p_status: "SUCESSO",
+    p_detail: `${inserted} novas; ${duplicates} duplicadas; ${rejected} rejeitadas pelo perímetro${sampleRun ? " (AMOSTRA: ponteiro não avançou)" : ""}.`,
+    p_imported: inserted,
+    p_synced_through: sampleRun ? null : completedAt,
+  });
+  if (recordError) throw new Error(recordError.message);
+}
+
+const { error: updateError } = DELEGATION
+  ? { error: null }
+  : await supabase
     .from(
       "project_email_ingestion_configs"
     )
@@ -711,8 +789,9 @@ if (updateError) {
   );
 }
 
-const { error: integrationError } =
-  await supabase
+const { error: integrationError } = DELEGATION
+  ? { error: null }
+  : await supabase
     .from("project_integrations")
     .update({
       status:
