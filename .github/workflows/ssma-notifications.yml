@@ -6,8 +6,9 @@ name: SSMA Notifications
 # ação/prazo e nunca se repete, então um atraso do agendador apenas adia o aviso.
 
 on:
-  schedule:
-    - cron: "15 * * * *"
+  # DESATIVADO NO PILOTO: sem gatilho `schedule`. Notificações SSMA automáticas só serão religadas com
+  # autorização explícita (reinserir `schedule: - cron: "15 * * * *"` junto com ACC_SSMA_NOTIFICATIONS_ENABLED=true
+  # na Vercel). Coleta e processamento dos registros seguem independentes deste workflow.
   workflow_dispatch:
 
 concurrency:
