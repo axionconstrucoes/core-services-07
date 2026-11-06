@@ -52,6 +52,11 @@ await check("M1 a migration NÃO habilita nada: tabela vazia (sem seed), nada de
   assert(Number((await db.query("select count(*)::int n from public.email_mailbox_collection_controls")).rows[0].n) === 0, "tabela deveria nascer vazia");
   assert(Number((await db.query("select count(*)::int n from public.email_access_authorizations")).rows[0].n) === 0, "não pode criar aceites");
 });
+await check("M0 pré-cadastro PENDENTE e papel ADMINISTRADOR na obra NÃO criam controle nem autorizam: nenhuma caixa da lista tem registro", async () => {
+  await db.query("insert into public.project_member_invitations (project_id, email, name, permission, created_by) values ($1,'corazza@axion.com.br','Corazza','ADMINISTRADOR',$2)", [P1, ADM1]);
+  assert(Number((await db.query("select count(*)::int n from public.email_mailbox_collection_controls")).rows[0].n) === 0, "convite/papel não podem gerar autorização");
+  assert((await ctl(P1, "corazza@axion.com.br")) === undefined && (await ctl(P1, "reynaldo@axion.com.br")) === undefined, "sem registro por caixa");
+});
 await check("M2 só Administrador da obra registra; colaborador e administrador de OUTRA obra são recusados", async () => {
   await asRole("authenticated", COLAB, () => fails(() => rpc(REG, [P1, "reynaldo@axion.com.br", "Admin Console 07/11"]), /FORBIDDEN/));
   await asRole("authenticated", ADM2, () => fails(() => rpc(REG, [P1, "reynaldo@axion.com.br", "Admin Console 07/11"]), /FORBIDDEN/));
@@ -73,9 +78,9 @@ await check("M4 registrar autoriza a caixa mas NÃO liga a coleta nem confirma a
   assert(a.length === 1 && a[0].actor_type === "USER" && a[0].actor_user_id === ADM1, JSON.stringify(a));
 });
 await check("M5 não habilita a coleta sem permissão técnica; a outra caixa da lista (sem autorização) segue sem controle", async () => {
-  await asRole("authenticated", ADM1, () => fails(() => rpc(SET, [P1, "reynaldo@axion.com.br", true, "2026-08-20T00:00:00Z", null]), /TECHNICAL_PERMISSION_REQUIRED/));
+  await asRole("authenticated", ADM1, () => fails(() => rpc(SET, [P1, "reynaldo@axion.com.br", true, "2026-08-20T00:00:00Z", "2026-12-31T00:00:00Z"]), /TECHNICAL_PERMISSION_REQUIRED/));
   assert((await ctl(P1, "corazza@axion.com.br")) === undefined, "corazza não pode ter sido habilitada");
-  await asRole("authenticated", ADM1, () => fails(() => rpc(SET, [P1, "corazza@axion.com.br", true, "2026-08-20T00:00:00Z", null]), /CONTROL_NOT_FOUND/));
+  await asRole("authenticated", ADM1, () => fails(() => rpc(SET, [P1, "corazza@axion.com.br", true, "2026-08-20T00:00:00Z", "2026-12-31T00:00:00Z"]), /CONTROL_NOT_FOUND/));
 });
 await check("M6 privilégios: administrador NÃO executa o registro técnico/sincronização; só service_role", async () => {
   await asRole("authenticated", ADM1, async () => {
@@ -95,7 +100,9 @@ await check("M8 teste técnico (service_role) confirma a permissão sem ligar a 
   let c = await ctl(P1, "reynaldo@axion.com.br");
   assert(c.technical_permission_status === "CONFIRMADA" && c.collection_enabled === false && c.technical_checked_at, JSON.stringify(c));
   await asRole("authenticated", ADM1, () => fails(() => rpc(SET, [P1, "reynaldo@axion.com.br", true, null, null]), /PERIOD_START_REQUIRED/));
-  await asRole("authenticated", ADM1, () => rpc(SET, [P1, "reynaldo@axion.com.br", true, "2026-08-20T00:00:00Z", null]));
+  await asRole("authenticated", ADM1, () => fails(() => rpc(SET, [P1, "reynaldo@axion.com.br", true, "2026-08-20T00:00:00Z", null]), /PERIOD_END_REQUIRED/));
+  await asRole("authenticated", ADM1, () => fails(() => rpc(SET, [P1, "reynaldo@axion.com.br", true, "2026-08-20T00:00:00Z", "2026-08-01T00:00:00Z"]), /PERIOD_INVALID/));
+  await asRole("authenticated", ADM1, () => rpc(SET, [P1, "reynaldo@axion.com.br", true, "2026-08-20T00:00:00Z", "2026-12-31T00:00:00Z"]));
   c = await ctl(P1, "reynaldo@axion.com.br");
   assert(c.collection_enabled === true && new Date(c.period_start).toISOString() === "2026-08-20T00:00:00.000Z", JSON.stringify(c));
 });
@@ -125,7 +132,7 @@ await check("M11 revogação: desliga na hora, exige motivo, preserva a linha e 
   let c = await ctl(P1, "reynaldo@axion.com.br");
   assert(c && c.collection_enabled === false && c.corporate_authorization_status === "REVOGADA" && c.revoked_by_user_id === ADM1 && c.revoked_reason, JSON.stringify(c));
   await asRole("authenticated", ADM1, () => fails(() => rpc(REV, [P1, "reynaldo@axion.com.br", "outra vez"]), /ALREADY_REVOKED/));
-  await asRole("authenticated", ADM1, () => fails(() => rpc(SET, [P1, "reynaldo@axion.com.br", true, "2026-08-20T00:00:00Z", null]), /REVOKED/));
+  await asRole("authenticated", ADM1, () => fails(() => rpc(SET, [P1, "reynaldo@axion.com.br", true, "2026-08-20T00:00:00Z", "2026-12-31T00:00:00Z"]), /REVOKED/));
   await asRole("service_role", null, () => fails(() => rpc(TECH, [P1, "reynaldo@axion.com.br", true, "x"]), /REVOKED/));
   await asRole("authenticated", ADM1, () => rpc(REG, [P1, "reynaldo@axion.com.br", "Nova decisão 08/11"]));
   c = await ctl(P1, "reynaldo@axion.com.br");

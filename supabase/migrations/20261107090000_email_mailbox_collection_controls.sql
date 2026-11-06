@@ -68,7 +68,9 @@ create table if not exists public.email_mailbox_collection_controls (
   check (corporate_authorization_status <> 'AUTORIZADA' or (corporate_authorized_by_user_id is not null and corporate_authorized_at is not null and corporate_authorization_ref is not null)),
   check ((revoked_at is null) = (revoked_by_user_id is null) and (revoked_at is null) = (revoked_reason is null)),
   -- Coleta ligada exige autorização corporativa + permissão técnica confirmada + não revogada.
-  check (not collection_enabled or (corporate_authorization_status = 'AUTORIZADA' and technical_permission_status = 'CONFIRMADA' and revoked_at is null))
+  check (not collection_enabled or (corporate_authorization_status = 'AUTORIZADA' and technical_permission_status = 'CONFIRMADA' and revoked_at is null)),
+  -- Período EXPLÍCITO (início e fim): coleta sem período definido não existe.
+  check (not collection_enabled or (period_start is not null and period_end is not null))
 );
 
 create index if not exists email_mailbox_collection_controls_project_idx on public.email_mailbox_collection_controls (project_id);
@@ -160,6 +162,8 @@ begin
     if v_row.corporate_authorization_status <> 'AUTORIZADA' then raise exception 'CORPORATE_AUTHORIZATION_REQUIRED'; end if;
     if v_row.technical_permission_status <> 'CONFIRMADA' then raise exception 'TECHNICAL_PERMISSION_REQUIRED'; end if;
     if p_period_start is null then raise exception 'PERIOD_START_REQUIRED'; end if;
+    if p_period_end is null then raise exception 'PERIOD_END_REQUIRED'; end if;
+    if p_period_end <= p_period_start then raise exception 'PERIOD_INVALID'; end if;
   end if;
 
   update public.email_mailbox_collection_controls
@@ -173,7 +177,7 @@ begin
   values (p_project_id, 'USER', v_user, null, case when p_enabled then 'MAILBOX_COLLECTION_ENABLED' else 'MAILBOX_COLLECTION_DISABLED' end,
           'EMAIL_MAILBOX_COLLECTION_CONTROL', v_row.id::text,
           format('Coleta da caixa %s %s%s.', v_mailbox, case when p_enabled then 'habilitada' else 'desabilitada' end,
-                 case when p_enabled then format(' (período %s a %s)', p_period_start, coalesce(p_period_end::text, 'em aberto')) else '' end));
+                 case when p_enabled then format(' (período %s a %s)', p_period_start, p_period_end) else '' end));
   return v_row.id;
 end;
 $$;

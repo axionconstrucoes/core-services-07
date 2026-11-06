@@ -2,7 +2,7 @@ import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
 import { extractGmailBody } from "./lib/gmail-message-body.mjs";
 import { createDelegatedGmailAuth } from "./lib/gmail-delegated-auth.mjs";
-import { evaluateMailboxCollection, resolveMailboxWindowStart } from "./lib/gmail-mailbox-gate.mjs";
+import { evaluateMailboxCollection, resolveMailboxWindowEnd, resolveMailboxWindowStart } from "./lib/gmail-mailbox-gate.mjs";
 
 const args = process.argv.slice(2);
 
@@ -381,7 +381,7 @@ const overlapStart =
   );
 
 const syncStartedAt =
-  new Date();
+  DELEGATION ? resolveMailboxWindowEnd(mailboxControl) : new Date(); // delegação: nunca lê além do fim do período autorizado
 
 /*
  * Gmail API aceita epoch seconds em after:/before:.
@@ -763,7 +763,7 @@ if (DELEGATION) {
     p_status: "SUCESSO",
     p_detail: `${inserted} novas; ${duplicates} duplicadas; ${rejected} rejeitadas pelo perímetro${sampleRun ? " (AMOSTRA: ponteiro não avançou)" : ""}.`,
     p_imported: inserted,
-    p_synced_through: sampleRun ? null : completedAt,
+    p_synced_through: sampleRun ? null : syncStartedAt.toISOString(), // início da janela lida (mensagens chegadas durante a leitura não são puladas)
   });
   if (recordError) throw new Error(recordError.message);
 }

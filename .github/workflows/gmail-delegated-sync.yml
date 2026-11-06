@@ -6,7 +6,8 @@ name: Gmail Delegated Sync (manual)
 # habilitada registradas no ACC (tabela email_mailbox_collection_controls).
 #
 # Autenticação SEM CHAVE privada: GitHub OIDC -> Workload Identity Federation -> conta de serviço (variáveis do repositório,
-# não são segredos): GOOGLE_WIF_PROVIDER e GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT. Veja docs/gmail-delegacao-dominio-passo-a-passo.md.
+# não são segredos): GOOGLE_WIF_PROVIDER (PENDENTE: o pool/provedor de federação ainda não existe) e, opcionalmente,
+# GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT (padrão: a conta confirmada ACC Gmail Reader). Veja docs/gmail-delegacao-dominio-passo-a-passo.md.
 
 on:
   workflow_dispatch:
@@ -62,7 +63,7 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GOOGLE_WIF_PROVIDER }}
-          service_account: ${{ vars.GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT }}
+          service_account: ${{ vars.GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT || 'acc-gmail-reader@axion-contract-intelligence.iam.gserviceaccount.com' }}
 
       - name: Gmail por delegação (${{ inputs.mode }})
         run: node scripts/gmail-inbound-sync.mjs --apply
@@ -70,7 +71,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           ACC_GMAIL_AUTH_MODE: DOMAIN_DELEGATION
-          GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT: ${{ vars.GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT }}
+          GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT: ${{ vars.GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT || 'acc-gmail-reader@axion-contract-intelligence.iam.gserviceaccount.com' }}
           GOOGLE_GMAIL_INBOUND_MAILBOX: ${{ inputs.mailbox }}
           ACC_GMAIL_TECHNICAL_CHECK_ONLY: ${{ inputs.mode == 'technical_check' && 'true' || 'false' }}
           ACC_GMAIL_MAX_MESSAGES: ${{ inputs.mode == 'sample' && inputs.max_messages || '' }}

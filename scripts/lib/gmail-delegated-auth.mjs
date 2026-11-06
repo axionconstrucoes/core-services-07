@@ -9,6 +9,7 @@
 
 import { google } from "googleapis";
 import { GMAIL_READONLY_SCOPE, isCorporateMailbox, normalizeMailbox } from "./gmail-mailbox-gate.mjs";
+import { GMAIL_READER_SERVICE_ACCOUNT_EMAIL } from "./gmail-delegation-config.mjs";
 
 const TOKEN_URI = "https://oauth2.googleapis.com/token";
 const SA_EMAIL_PATTERN = /^[a-z0-9-]+@[a-z0-9-]+\.iam\.gserviceaccount\.com$/;
@@ -46,7 +47,7 @@ export async function createDelegatedGmailAuth({ mailbox, env = process.env, fet
   if (!isCorporateMailbox(sub)) throw new Error("Caixa a personificar precisa ser uma caixa corporativa explícita.");
 
   const keyJson = env.GOOGLE_GMAIL_DWD_KEY_JSON?.trim();
-  const serviceAccountEmail = env.GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT?.trim();
+  const serviceAccountEmail = env.GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT?.trim() || GMAIL_READER_SERVICE_ACCOUNT_EMAIL;
 
   if (!keyJson) {
     // Modo sem chave: ADC do executor (Workload Identity Federation) + signJwt na conta de serviço.

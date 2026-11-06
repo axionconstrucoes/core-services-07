@@ -1,53 +1,78 @@
-# Gmail corporativo por delegação em todo o domínio — passo a passo
+# Gmail corporativo por delegação em todo o domínio
 
-Estado: **PREPARADO. Nada criado no Google Cloud/Admin, nada aplicado no banco, coletor existente intacto.**
-Quem executa os passos 1 e 2 é um humano com acesso ao Google Cloud e Superadministrador do Workspace.
+Estado: **código pronto e testado; configuração Google PENDENTE; nenhuma delegação autorizada; nenhuma coleta ativa; nada aplicado no banco; coletor atual (refresh token) intacto.**
 
-## Arquitetura atual (conferida)
-- Coletor: `scripts/gmail-inbound-sync.mjs`, no GitHub Actions (`ubuntu-latest`), a cada 15 min, **uma caixa** (`reynaldo@axion.com.br`) por **OAuth de usuário com refresh token** (segredos `GOOGLE_GMAIL_REYNALDO_*`). Não depende do PC do escritório.
-- Já existem: lista explícita de caixas por obra (`project_email_ingestion_mailboxes`), filtros (`scope_keywords`, `scope_exact_subjects`, domínios), janela por obra, isolamento por `project_id`, dedupe por `provider_message_id`, auditoria (`audit_log_entries`).
-- **Lacunas que a delegação exige tratar** (a delegação do Google não limita obra nem caixa): autorização corporativa por caixa, permissão técnica comprovada, coleta habilitada caixa a caixa, estado por caixa. Resolvido pela migration em revisão `20261107090000_email_mailbox_collection_controls.sql`.
-- Atenção: `project_email_ingestion_configs.last_sync_at` é **único por obra**, não por caixa. Com várias caixas, uma sincronização adiantaria o ponteiro das outras. No modo delegação o ponteiro passa a ser **por caixa** e o compartilhado não é tocado.
-- Não existe conta de serviço do ACC no Google Cloud que eu pudesse confirmar (sem acesso ao Google Cloud nesta sessão). O OAuth do login web do ACC **não é alterado** e não é reaproveitado.
+## Identificadores confirmados (não secretos)
+Confirmados nas telas do Google Cloud. Fonte única no código: `scripts/lib/gmail-delegation-config.mjs`.
 
-## 1. Google Cloud (quem tem acesso ao projeto)
-Use o **mesmo projeto Google Cloud** que já abriga o OAuth do Gmail/Drive do ACC (para não duplicar integração), ou um projeto dedicado `acc-gmail-leitura` se preferir isolar.
+| Item | Valor |
+|---|---|
+| Projeto Google Cloud (nome) | Axion-Contract-Intelligence |
+| **ID do projeto** | `axion-contract-intelligence` |
+| Conta de serviço (nome) | ACC Gmail Reader |
+| **E-mail da conta de serviço** | `acc-gmail-reader@axion-contract-intelligence.iam.gserviceaccount.com` |
+| **ID OAuth 2 do cliente da conta de serviço** (Advanced settings → Domain-wide Delegation) | `101242849785015243815` |
+| **Escopo único** | `https://www.googleapis.com/auth/gmail.readonly` |
 
-1. **APIs e serviços → Biblioteca**: ative **Gmail API** e **IAM Service Account Credentials API**.
-2. **IAM e administrador → Contas de serviço → Criar conta de serviço**
-   - Nome: `acc-gmail-reader`; ID: `acc-gmail-reader`; descrição: "Leitura corporativa do Gmail pelo ACC (somente leitura, delegação em todo o domínio)".
-   - **Não conceda nenhum papel de projeto** (nada de Owner/Editor) na etapa "Conceder acesso". Concluir.
-3. Abra a conta de serviço → **Detalhes** → anote:
-   - **E-mail:** `acc-gmail-reader@<ID_DO_PROJETO>.iam.gserviceaccount.com`
-   - **ID exclusivo (ID numérico do cliente OAuth):** número de ~21 dígitos. **É este** que vai no Admin do Google (passo 2). Não é o ID do projeto, nem o e-mail, nem o ID do cliente OAuth do login web (`…apps.googleusercontent.com`).
-4. **Sem chave privada (recomendado) — Workload Identity Federation com o GitHub:**
-   - **IAM e administrador → Federação de identidade da carga de trabalho → Criar pool** (`acc-github`), **Adicionar provedor → OIDC**, emissor `https://token.actions.githubusercontent.com`, mapeamento `google.subject = assertion.sub`, `attribute.repository = assertion.repository`, **condição de atributo** `assertion.repository == "axionconstrucoes/core-services-07"`.
-   - Conta de serviço `acc-gmail-reader` → **Permissões → Conceder acesso**: principal `principalSet://iam.googleapis.com/projects/<NÚMERO_DO_PROJETO>/locations/global/workloadIdentityPools/acc-github/attribute.repository/axionconstrucoes/core-services-07` com o papel **Usuário de identidade de carga de trabalho** (`roles/iam.workloadIdentityUser`).
-   - Na **mesma** conta de serviço, conceda a ela mesma (principal = o e-mail da conta) o papel **Criador de token da conta de serviço** (`roles/iam.serviceAccountTokenCreator`) — necessário para ela assinar o JWT de delegação via API IAM.
-   - No GitHub (Settings → Secrets and variables → Actions → **Variables**, não são segredos): `GOOGLE_WIF_PROVIDER` = `projects/<NÚMERO_DO_PROJETO>/locations/global/workloadIdentityPools/acc-github/providers/<ID_DO_PROVEDOR>` e `GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT` = e-mail da conta de serviço.
-5. **Só se o passo 4 não for possível:** criar uma chave JSON da conta de serviço e guardá-la **apenas** como segredo do GitHub `GOOGLE_GMAIL_DWD_KEY_JSON` (nunca no chat, Git ou frontend). Chave de longa duração é pior: prefira o passo 4.
+Não confundir: o ID numérico acima é da **conta de serviço**. Não é o ID do projeto, nem o e-mail, nem o cliente OAuth do login web do ACC (`…apps.googleusercontent.com`), que **não é alterado**. A conta Firebase existente **não é alterada** e a conta de serviço **não deve ser recriada**.
 
-## 2. Google Admin (Superadministrador)
-Entre em **admin.google.com** com a conta de **Superadministrador**:
-**Segurança → Acesso e controle de dados → Controles de API → Gerenciar delegação em todo o domínio → Adicionar novo**
-- **ID do cliente:** o **ID exclusivo numérico** da conta de serviço (passo 1.3).
-- **Escopos OAuth (separados por vírgula):** exatamente `https://www.googleapis.com/auth/gmail.readonly` — **nenhum outro**.
+## Estado atual
+| Frente | Estado |
+|---|---|
+| Código do modo de delegação (opt-in), gate por caixa, migration em revisão, testes | **Pronto** |
+| Conta de serviço criada no Google Cloud | Feita (confirmada) |
+| **Autorização da delegação no Google Admin** | **PENDENTE** — o Google Admin negou acesso ao gerenciamento de Delegação em todo o domínio. Exige conta **Superadministrador** do Workspace (ou a TI). Delegação **não** autorizada. |
+| Federação de identidade GitHub → Google (executor sem chave) | **PENDENTE** — pool/provedor ainda não criados; exige o **número** do projeto |
+| Teste técnico remoto no executor | **PENDENTE** (depende das duas linhas acima e da migration aprovada) |
+| Migration `20261107090000` | Em revisão; **NÃO aplicada** |
+| Chave privada da conta de serviço | **Não gerada** (e não deve ser, salvo decisão expressa) |
+
+## Autorização explícita por caixa, obra e período
+A delegação do Google **não** limita o acesso a uma obra nem a uma caixa: quem limita é o ACC. **Pré-cadastro, papel ADMINISTRADOR, cadastro na lista da obra ou a própria delegação do Google não autorizam coleta.** Uma caixa só é lida quando existe um registro em `email_mailbox_collection_controls` para **(obra, caixa)** com, ao mesmo tempo:
+1. a caixa na **lista explícita da obra** (`project_email_ingestion_mailboxes`, habilitada);
+2. **autorização corporativa** registrada por um Administrador da obra, com referência da decisão;
+3. **permissão técnica confirmada** (o teste real de delegação funcionou; só o coletor registra);
+4. **coleta habilitada** explicitamente, caixa a caixa;
+5. **período explícito** (início **e** fim), e o instante atual dentro dele. A leitura nunca passa do fim do período.
+O **aceite individual** é um estado à parte (NAO_REGISTRADO / NAO_APLICAVEL / ACEITE_REGISTRADO / RECUSADO / REVOGADO): nunca é preenchido por padrão nem fictício; RECUSADO/REVOGADO bloqueia. Revogar desliga na hora e preserva o histórico (também em auditoria). Consultas jurídicas privadas **não** são tocadas.
+
+## Autenticação no executor remoto (funciona com o PC do escritório desligado)
+O executor é o **GitHub Actions** (`ubuntu-latest`), workflow **manual** `Gmail Delegated Sync (manual)` (`.github/workflows/gmail-delegated-sync.yml`, sem `schedule`). Nada depende do PC do escritório: não há runner `self-hosted`, nem arquivo ou processo local.
+
+Credenciais necessárias **no executor** (nada no chat, no Git nem no frontend):
+- **Google, sem chave privada (recomendado):** GitHub OIDC → **Workload Identity Federation** → a conta `ACC Gmail Reader` (via ação `google-github-actions/auth`). A conta assina o JWT de delegação pela API IAM Credentials (`signJwt`). Variáveis do repositório (**não são segredos**): `GOOGLE_WIF_PROVIDER` (**pendente**: criar pool/provedor) e, opcionalmente, `GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT` (padrão: a conta confirmada).
+- **Supabase (segredos do repositório, já existentes):** `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SECRET_KEY`.
+- **Chave JSON** (`GOOGLE_GMAIL_DWD_KEY_JSON`) só como **último recurso**, se a federação não for possível, guardada apenas como segredo do GitHub. **Não foi gerada nesta etapa.**
+
+### O que ainda precisa ser criado no Google Cloud (projeto `axion-contract-intelligence`)
+1. APIs: **Gmail API** e **IAM Service Account Credentials API** habilitadas.
+2. **IAM e administrador → Federação de identidade da carga de trabalho → Criar pool** (`acc-github`) → **Adicionar provedor → OIDC**: emissor `https://token.actions.githubusercontent.com`; mapeamento `google.subject = assertion.sub` e `attribute.repository = assertion.repository`; **condição** `assertion.repository == "axionconstrucoes/core-services-07"`.
+3. Na conta `ACC Gmail Reader` → **Permissões → Conceder acesso**:
+   - principal `principalSet://iam.googleapis.com/projects/<NÚMERO_DO_PROJETO>/locations/global/workloadIdentityPools/acc-github/attribute.repository/axionconstrucoes/core-services-07` com **Usuário de identidade de carga de trabalho** (`roles/iam.workloadIdentityUser`);
+   - a própria conta de serviço com **Criador de token da conta de serviço** (`roles/iam.serviceAccountTokenCreator`), para assinar o JWT de delegação. **Nenhum papel de projeto** (nada de Owner/Editor).
+4. No GitHub (Settings → Secrets and variables → Actions → **Variables**): `GOOGLE_WIF_PROVIDER` = `projects/<NÚMERO_DO_PROJETO>/locations/global/workloadIdentityPools/acc-github/providers/<ID_DO_PROVEDOR>`.
+
+## Google Admin — autorização da delegação (Superadministrador ou TI)
+**admin.google.com** com **Superadministrador**: **Segurança → Acesso e controle de dados → Controles de API → Gerenciar delegação em todo o domínio → Adicionar novo**
+- **ID do cliente:** `101242849785015243815`
+- **Escopos OAuth:** `https://www.googleapis.com/auth/gmail.readonly` (somente este)
 - **Autorizar**.
-Não altere papéis de administrador do Workspace. (O Carlos permanece ADMINISTRADOR **somente** na DEV WEG dentro do ACC.)
+Não altere papéis de administrador do Workspace. (O Carlos permanece ADMINISTRADOR **somente** na DEV WEG dentro do ACC.) Se a TI executar, entregue a ela exatamente estes dois valores.
 
-## 3. Habilitar UMA caixa no ACC (depois de a migration ser aprovada e aplicada)
-Em cada etapa o ACC registra e audita; **nada é habilitado em massa** e as caixas já listadas na obra **não** passam a ser lidas sozinhas.
-1. Administrador da obra registra a **autorização corporativa** da caixa (RPC `register_mailbox_corporate_authorization`, com a referência da decisão). A caixa precisa já estar na lista explícita da obra.
-2. **Teste técnico** — Actions → **Gmail Delegated Sync (manual)** → `mailbox` = a caixa, `mode` = `technical_check` (só prova a delegação; não lê mensagens).
-3. Administrador **habilita a coleta** da caixa com o **período autorizado** (RPC `set_mailbox_collection`).
-4. `mode` = `sample` (ex.: 20 mensagens; o ponteiro de leitura **não** avança) → conferir corpo, anexos, origem e datas → repetir e conferir **0 duplicadas**.
-5. `mode` = `sync` para ampliar dentro do período.
+## Sequência de habilitação de UMA caixa (depois da migration aprovada e aplicada)
+1. Administrador da obra registra a **autorização corporativa** da caixa (`register_mailbox_corporate_authorization`).
+2. Actions → **Gmail Delegated Sync (manual)** → `mailbox` = a caixa, `mode` = `technical_check` (só prova a delegação; **não lê mensagens**).
+3. Administrador **habilita a coleta** com **período** início+fim (`set_mailbox_collection`).
+4. `mode` = `sample` (ex.: 20; o ponteiro **não** avança) → conferir corpo, anexos, origem e datas → repetir e conferir **0 duplicadas** (índice único de `provider_message_id`).
+5. `mode` = `sync` para ampliar, dentro do período autorizado.
 6. Só depois de validado o novo caminho, avaliar desativar o coletor por refresh token (**não** antes).
 
-## Estados mostrados por caixa (separados)
-autorização corporativa (NAO_REGISTRADA/AUTORIZADA/REVOGADA) · aceite individual (NAO_REGISTRADO/NAO_APLICAVEL/ACEITE_REGISTRADO/RECUSADO/REVOGADO — nunca fictício) · permissão técnica (NAO_VERIFICADA/CONFIRMADA/FALHA) · coleta ativa (+período) · última sincronização (status, quantidade, horário). Revogar desliga na hora e preserva o histórico.
+## Arquitetura atual (conferida)
+- Coletor: `scripts/gmail-inbound-sync.mjs`, no GitHub Actions a cada 15 min, **uma caixa** (`reynaldo@axion.com.br`) por OAuth de usuário (refresh token). Já existem lista de caixas por obra, filtros, janela, isolamento por `project_id`, dedupe por `provider_message_id` e auditoria.
+- No modo delegação o ponteiro de leitura é **por caixa** (o `last_sync_at` da configuração é único por obra e **não** é tocado), evitando que uma caixa adiante a outra.
+- Achado: a obra DEV WEG tem `corazza@axion.com.br` na lista de caixas, sem credencial e sem e-mails; `email_accounts` mostra `corazza@` e `marcio.felix@` como "CONNECTED" sem autorização registrada. Com o gate, **continuam bloqueadas** até haver autorização explícita.
 
 ## Pendências desta entrega
-- Tela do Administrador para ver/alterar esses estados (hoje só RPC + leitura por RLS).
-- Aprovação do conteúdo da migration; decisão sobre o predicado de Administrador (hoje: Administrador **da obra**).
-- Privacidade das consultas jurídicas por autor: **não tocada**.
+- Autorização no Google Admin (Superadministrador/TI); federação GitHub → Google; teste técnico remoto.
+- Tela do Administrador para ver/alterar os estados por caixa (hoje: RPC + leitura por RLS).
+- Aprovação do conteúdo da migration e decisão sobre o predicado de Administrador (hoje: Administrador **da obra**).

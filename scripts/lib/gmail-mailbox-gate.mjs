@@ -6,7 +6,8 @@
 //   2. autorização corporativa REGISTRADA para a caixa (AUTORIZADA, não revogada);
 //   3. permissão técnica CONFIRMADA (o teste real de delegação funcionou);
 //   4. coleta explicitamente habilitada (collection_enabled) — nunca ligada em massa;
-//   5. dentro do período autorizado da obra (period_start/period_end, quando definido).
+//   5. período EXPLÍCITO (period_start E period_end definidos) e o instante atual dentro dele.
+// Pré-cadastro, papel ADMINISTRADOR e cadastro na lista da obra NÃO autorizam nada por si: só o registro de controle desta caixa.
 // O aceite individual é um estado À PARTE: NAO_APLICAVEL | NAO_REGISTRADO | ACEITE_REGISTRADO | RECUSADO | REVOGADO.
 // Não bloqueia quando inexistente, mas RECUSADO/REVOGADO bloqueia. Nunca é inferido nem preenchido por padrão.
 
@@ -51,8 +52,15 @@ export function evaluateMailboxCollection(control, { now = new Date(), allowlist
   if (control.collection_enabled !== true) blockers.push("COLETA_NAO_HABILITADA");
   const start = control.period_start ? new Date(control.period_start) : null;
   const end = control.period_end ? new Date(control.period_end) : null;
-  if ((start && now < start) || (end && now > end)) blockers.push("FORA_DO_PERIODO_AUTORIZADO");
+  if (!start || !end) blockers.push("PERIODO_NAO_DEFINIDO");
+  else if (now < start || now > end) blockers.push("FORA_DO_PERIODO_AUTORIZADO");
   return { canCollect: blockers.length === 0, blockers, states };
+}
+
+/** Fim da janela: nunca depois do fim do período autorizado. */
+export function resolveMailboxWindowEnd(control, now = new Date()) {
+  const end = control?.period_end ? new Date(control.period_end) : null;
+  return end && end < now ? end : now;
 }
 
 /** Início da janela de leitura desta caixa: nunca antes do início do período autorizado. */
