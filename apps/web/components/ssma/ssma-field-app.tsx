@@ -27,7 +27,11 @@ import {
   type SsmaChecklistDefinition,
   type SsmaChecklistState,
   type SsmaFieldDefinition,
+  checklistCheckLabel,
+  checklistShortTitle,
+  checklistTitle,
 } from "@/lib/ssma/checklist-definitions";
+import { OFFLINE_FORM_MESSAGE, accidentNotificationWarning, friendlySubmitError } from "@/lib/ssma/form-feedback";
 import { computeFileSha256Hex } from "@/lib/documents/multi-upload/sha256";
 import { sanitizeFileName } from "@/lib/documents/multi-upload/queue-core";
 import { cn } from "@/lib/utils";
@@ -124,6 +128,11 @@ function PhotoUploadPanel({
         action: selectedActionRef.current,
       }));
 
+    if (additions.length === 0 && incoming.length > 0) {
+      setError("Este arquivo já está na lista (mesmo nome, tamanho e data). Escolha outra foto para este tipo.");
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
     const next = [...photos, ...additions];
     photosRef.current = next;
     setPhotos(next);
@@ -167,9 +176,9 @@ function PhotoUploadPanel({
             type="button"
             disabled={disabled}
             onClick={() => openPhotoPicker(action)}
-            className="flex min-h-14 items-center justify-center gap-2 rounded-lg bg-slate-800 px-4 font-bold uppercase text-white disabled:opacity-50"
+            className="flex min-h-14 items-center justify-center gap-2 rounded-lg border-2 border-black bg-[#f7f3ea] px-4 font-bold uppercase text-black hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:border-[#475569] disabled:bg-[#cbd5e1] disabled:text-[#1e293b]"
           >
-            <Camera className="size-6" /> {action}
+            <Camera className="size-6 text-black" aria-hidden="true" /> {action}
           </button>
         ))}
       </div>
@@ -178,9 +187,9 @@ function PhotoUploadPanel({
         type="button"
         disabled={disabled}
         onClick={() => openPhotoPicker(actions[0] ?? "Foto")}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-[#7f1d1d] bg-white px-4 text-sm font-bold uppercase text-[#7f1d1d] disabled:opacity-50"
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#7f1d1d] px-4 text-sm font-bold uppercase text-white hover:bg-[#6b1717] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:bg-[#475569] disabled:text-white"
       >
-        <CloudUpload className="size-5" /> Selecionar fotos do computador
+        <CloudUpload className="size-5 text-white" aria-hidden="true" /> Selecionar fotos do computador
       </button>
 
       <p className="text-xs font-medium text-slate-600">JPG ou PNG · até 15 MB por foto · máximo de 20 fotos</p>
@@ -199,7 +208,7 @@ function PhotoUploadPanel({
                 </div>
                 <div className="p-2 pr-9">
                   <p className="truncate text-xs font-bold text-slate-900" title={photo.file.name}>{photo.file.name}</p>
-                  <p className="truncate text-[11px] font-semibold text-[#7f1d1d]">{photo.action}</p>
+                  <p className="truncate text-[11px] font-semibold text-red-700">{photo.action}</p>
                   <p className="text-[11px] text-slate-500">{formatBytes(photo.file.size)}</p>
                 </div>
                 <button
@@ -299,6 +308,8 @@ function ChecklistForm({
   onBack: () => void;
   onComplete: (slug: string) => void;
 }) {
+  // Confirmação: só existe depois de o servidor confirmar a finalização. Evita reenvio (duplicidade).
+  const [confirmation, setConfirmation] = useState<{ warning: string | null } | null>(null);
   // Obra: a atual quando há contexto; a única autorizada quando só há uma; senão exige escolha.
   const [projectId, setProjectId] = useState<string | null>(() => resolveInitialProject(projects, contextProjectId).projectId);
   const [checks, setChecks] = useState<CheckState>({});
@@ -318,9 +329,28 @@ function ChecklistForm({
   );
   const showRisk = definition.slug === "fotos-diarias" || definition.slug === "riscos-apontados" || definition.slug === "outros";
 
+  if (confirmation) {
+    return (
+      <div className="min-h-dvh bg-slate-100">
+        <SsmaHeader title={checklistTitle(definition)} onBack={() => onComplete(definition.slug)} />
+        <main className="mx-auto max-w-2xl space-y-4 bg-white p-6 text-center sm:my-4 sm:rounded-xl sm:border" data-testid="form-confirmation">
+          <Image src="/ssma/done-icon.png" alt="Enviado" width={64} height={64} className="mx-auto size-16" />
+          <h2 className="text-xl font-bold text-slate-900">Enviado e confirmado no ACC</h2>
+          <p className="text-sm text-slate-700">O servidor confirmou o recebimento do formulário e dos arquivos. Este envio é online: não há cópia pendente neste aparelho.</p>
+          {confirmation.warning ? (
+            <p role="alert" className="rounded-lg border-2 border-amber-700 bg-amber-50 p-3 text-left text-sm font-bold text-amber-950">{confirmation.warning}</p>
+          ) : null}
+          <button type="button" onClick={() => onComplete(definition.slug)} className="flex min-h-14 w-full items-center justify-center rounded-lg bg-[#7f1d1d] px-4 text-base font-bold uppercase text-white">
+            Voltar ao início
+          </button>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-dvh bg-slate-100">
-      <SsmaHeader title={definition.title} onBack={onBack} />
+      <SsmaHeader title={checklistTitle(definition)} onBack={onBack} />
       <form
         className="mx-auto max-w-2xl space-y-5 bg-white p-4 pb-28 sm:my-4 sm:rounded-xl sm:border sm:p-6"
         onSubmit={async (event) => {
@@ -328,6 +358,11 @@ function ChecklistForm({
           if (!allChecksAnswered || !allRequiredPhotosSelected || submitting) return;
           if (!isAuthorizedProject(projects, projectId)) {
             setSubmitError("Selecione uma obra em que você está autorizado a registrar.");
+            return;
+          }
+
+          if (typeof navigator !== "undefined" && navigator.onLine === false) {
+            setSubmitError(OFFLINE_FORM_MESSAGE);
             return;
           }
 
@@ -422,28 +457,36 @@ function ChecklistForm({
               p_submission_id: submissionId,
             });
             if (finalizeError) throw new Error("Os arquivos foram enviados, mas o formulário não pôde ser finalizado.");
+            // A partir daqui o formulário está CONFIRMADO no ACC. A comunicação do acidente é uma etapa à parte:
+            // se falhar, o aviso é separado e nunca convida a reenviar (duplicaria o acidente).
+            let warning: string | null = null;
             if (definition.slug === "ocorrencia-acidente") {
-              const notificationResponse = await fetch("/api/ssma/accident-notifications", {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ submissionId }),
-              });
-              if (!notificationResponse.ok) {
-                throw new Error(
-                  "O acidente foi registrado, mas a comunicação imediata não foi concluída. A Auditoria foi sinalizada."
-                );
+              let response: Response | null = null;
+              let serverError: string | null = null;
+              try {
+                response = await fetch("/api/ssma/accident-notifications", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ submissionId }),
+                });
+                if (!response.ok) serverError = ((await response.json().catch(() => ({}))) as { error?: string }).error ?? null;
+              } catch {
+                response = null;
               }
+              warning = accidentNotificationWarning(response ? { ok: response.ok, status: response.status } : null, serverError);
             }
-            onComplete(definition.slug);
+            setConfirmation({ warning });
+            return;
+
           } catch (error) {
-            setSubmitError(error instanceof Error ? error.message : "Não foi possível enviar os dados.");
+            setSubmitError(friendlySubmitError(error));
           } finally {
             setSubmitting(false);
           }
         }}
       >
         {definition.independent ? (
-          <p className="rounded-md bg-[#7f1d1d]/10 px-3 py-2 text-center text-sm font-bold text-[#7f1d1d]">
+          <p className="rounded-md bg-[#7f1d1d] px-3 py-2 text-center text-sm font-bold text-white">
             Tarefa independente — pode ser preenchida a qualquer momento
           </p>
         ) : null}
@@ -489,7 +532,7 @@ function ChecklistForm({
           <div className="bg-slate-200 px-3 py-2 text-sm font-bold uppercase text-slate-900">Checklist</div>
           {definition.checks.map((check) => (
             <div key={check} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-t border-slate-300 px-3 py-3 first:border-t-0">
-              <span className="text-sm font-semibold text-slate-900">{check}</span>
+              <span className="text-sm font-semibold text-slate-900">{checklistCheckLabel(definition, check)}</span>
               {(["FEITO", "NA"] as const).map((value) => (
                 <label key={value} className="flex min-h-11 cursor-pointer items-center gap-2 px-1 text-sm font-bold">
                   <input
@@ -531,7 +574,7 @@ function ChecklistForm({
         <button
           type="submit"
           disabled={!allChecksAnswered || !allRequiredPhotosSelected || submitting || !isAuthorizedProject(projects, projectId)}
-          className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-[#7f1d1d] px-4 text-base font-bold uppercase text-white disabled:cursor-not-allowed disabled:opacity-40"
+          className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-[#7f1d1d] px-4 text-base font-bold uppercase text-white disabled:cursor-not-allowed disabled:bg-[#475569] disabled:text-white"
         >
           <Send className="size-6" /> {submitting ? "Enviando…" : "Enviar dados"}
         </button>
@@ -541,6 +584,15 @@ function ChecklistForm({
         </p>
       </form>
     </div>
+  );
+}
+
+/** Indicador de conclusão (imagem fornecida, sem alterações). Só aparece quando o envio foi CONFIRMADO pelo servidor. */
+function DoneIcon() {
+  return (
+    <span className="ml-auto flex shrink-0 items-center" title="Concluído">
+      <Image src="/ssma/done-icon.png" alt="Concluído" title="Concluído" width={28} height={28} className="size-7" />
+    </span>
   );
 }
 
@@ -626,7 +678,7 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
 
         <section className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <ClipboardCheck className="size-9 text-[#7f1d1d]" />
+            <ClipboardCheck className="size-9 text-red-700" />
             <div className="flex-1">
               <p className="font-bold text-slate-900">Checklist de hoje</p>
               <p className="text-sm text-slate-600">{completedRoutine} de 10 concluídos</p>
@@ -642,58 +694,66 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
           onClick={() => { setFieldTab("registros"); setView("field"); }}
           className="flex min-h-20 w-full items-center gap-3 rounded-xl border-2 border-[#7f1d1d] bg-white p-4 text-left shadow-sm"
         >
-          <Plus className="size-7 shrink-0 text-[#7f1d1d]" />
+          <Plus className="size-7 shrink-0 text-red-700" />
           <span className="min-w-0 flex-1">
             <span className="block font-bold text-slate-900">Registrar ocorrência / inspeção</span>
             <span className="block text-xs text-slate-600">Funciona sem sinal · fotos, responsável e prazo</span>
           </span>
-          <ChevronRight className="size-5 shrink-0 text-[#7f1d1d]" />
+          <ChevronRight className="size-5 shrink-0 text-red-700" />
         </button>
 
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {routine.map((definition) => (
-            <button
-              key={definition.slug}
-              type="button"
-              onClick={() => setActiveSlug(definition.slug)}
-              className="flex min-h-24 items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-[#7f1d1d]"
-            >
-              {definition.slug === "riscos-apontados" ? (
-                <ShieldAlert className="size-7 shrink-0 text-slate-800" />
-              ) : (
-                <FileText className="size-7 shrink-0 text-slate-800" />
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="block font-bold text-slate-900">
-                  {String(definition.number).padStart(2, "0")} {definition.shortTitle}
+          {routine.map((definition) => {
+            const done = completed.has(definition.slug);
+            return (
+              <button
+                key={definition.slug}
+                type="button"
+                onClick={() => setActiveSlug(definition.slug)}
+                className="flex min-h-24 items-center gap-3 rounded-xl border border-slate-300 bg-white p-4 text-left text-slate-900 shadow-sm transition hover:border-[#7f1d1d] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7f1d1d]"
+              >
+                {definition.slug === "riscos-apontados" ? (
+                  <ShieldAlert className="size-7 shrink-0 text-slate-900" aria-hidden="true" />
+                ) : (
+                  <FileText className="size-7 shrink-0 text-slate-900" aria-hidden="true" />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block font-bold text-slate-900">
+                    {String(definition.number).padStart(2, "0")} {checklistShortTitle(definition)}
+                  </span>
+                  {done ? null : <span className="mt-1 block text-xs font-bold text-amber-800">Pendente</span>}
                 </span>
-                <span className={cn("mt-1 block text-xs font-bold", completed.has(definition.slug) ? "text-green-700" : "text-amber-600")}>
-                  {completed.has(definition.slug) ? "Concluído" : "Pendente"}
-                </span>
-              </span>
-              <ChevronRight className="size-5 shrink-0 text-slate-500" />
-            </button>
-          ))}
+                {done ? <DoneIcon /> : null}
+                <ChevronRight className="size-5 shrink-0 text-slate-600" aria-hidden="true" />
+              </button>
+            );
+          })}
         </section>
 
         {independent.map((definition) => {
-          const Icon = definition.slug === "ocorrencia-acidente" ? Siren : Truck;
+          const isAccident = definition.slug === "ocorrencia-acidente";
+          const Icon = isAccident ? Siren : Truck;
+          const done = completed.has(definition.slug);
           return (
             <button
               key={definition.slug}
               type="button"
               onClick={() => setActiveSlug(definition.slug)}
-              className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm hover:border-[#7f1d1d]"
+              className={cn(
+                "flex min-h-20 w-full items-center gap-3 rounded-xl border-2 p-4 text-left text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+                isAccident ? "border-[#7f1d1d] bg-[#b91c1c] hover:bg-[#991b1b]" : "border-[#052e16] bg-[#14532d] hover:bg-[#0f3f22]"
+              )}
             >
-              <Icon className="size-7 shrink-0 text-[#7f1d1d]" />
+              <Icon className="size-7 shrink-0 text-white" aria-hidden="true" />
               <span className="min-w-0 flex-1">
-                <span className="block font-bold text-slate-900">
-                  {String(definition.number).padStart(2, "0")} {definition.shortTitle}
+                <span className="block font-bold text-white">
+                  {String(definition.number).padStart(2, "0")} {checklistShortTitle(definition)}
                 </span>
-                <span className="block text-xs text-slate-600">Tarefa independente</span>
+                <span className="block text-xs font-semibold text-white">Tarefa independente</span>
               </span>
-              <span className="text-sm font-bold text-[#7f1d1d]">Registrar</span>
-              <ChevronRight className="size-5 shrink-0 text-[#7f1d1d]" />
+              {done ? <DoneIcon /> : null}
+              <span className="text-sm font-bold text-white">Registrar</span>
+              <ChevronRight className="size-5 shrink-0 text-white" aria-hidden="true" />
             </button>
           );
         })}

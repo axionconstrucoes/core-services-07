@@ -59,7 +59,7 @@ export function SsmaBottomNav({ active, onChange, pendingCount = 0 }: { active: 
           type="button"
           onClick={() => onChange(tab)}
           aria-current={active === tab ? "page" : undefined}
-          className={cn("relative flex min-h-12 flex-col items-center gap-1", active === tab && "text-[#7f1d1d]")}
+          className={cn("relative flex min-h-12 flex-col items-center gap-1", active === tab && "text-red-700")}
         >
           <Icon className="size-5" />
           {label}

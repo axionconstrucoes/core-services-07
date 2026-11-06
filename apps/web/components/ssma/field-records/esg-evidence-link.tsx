@@ -8,6 +8,7 @@ interface Reference {
   id: string;
   submission_id: string;
   created_at: string;
+  created_by_user_id: string;
 }
 interface Submission {
   id: string;
@@ -24,12 +25,15 @@ export function EsgEvidenceLink({
   recordId,
   userId,
   isAdmin,
+  canLink = true,
   online,
 }: {
   projectId: string;
   recordId: string;
   userId: string;
   isAdmin: boolean;
+  /** Perfil que pode vincular (não é somente leitura). Quem não pode só enxerga os vínculos existentes. */
+  canLink?: boolean;
   online: boolean;
 }) {
   const [refs, setRefs] = useState<Reference[]>([]);
@@ -47,7 +51,7 @@ export function EsgEvidenceLink({
     const supabase = createSupabaseBrowserClient();
     const { data, error: refError } = await supabase
       .from("esg_ssma_record_references")
-      .select("id, submission_id, created_at")
+      .select("id, submission_id, created_at, created_by_user_id")
       .eq("field_record_id", recordId)
       .is("revoked_at", null);
     if (refError) {
@@ -105,20 +109,20 @@ export function EsgEvidenceLink({
                 <p className="text-xs text-slate-600">
                   Vinculado em {new Date(ref.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} · situação da obrigação: {sub?.status ?? "—"} (inalterada)
                 </p>
-                {unlinking === ref.id ? (
+                {!canLink || !(isAdmin || ref.created_by_user_id === userId) ? null : unlinking === ref.id ? (
                   <div className="mt-2 space-y-2">
                     <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Motivo (mín. 3 caracteres)" aria-label="Motivo" className="block min-h-11 w-full rounded border-2 border-slate-300 px-2 text-sm" />
                     <button
                       type="button"
                       disabled={busy || !online}
                       onClick={() => void run(() => createSupabaseBrowserClient().rpc("esg_unlink_ssma_record", { p_reference_id: ref.id, p_reason: reason }), "Vínculo desfeito (histórico preservado).")}
-                      className="min-h-11 rounded bg-slate-800 px-3 text-xs font-bold uppercase text-white disabled:opacity-50"
+                      className="min-h-11 rounded bg-[#7f1d1d] px-3 text-xs font-bold uppercase text-white disabled:opacity-50"
                     >
                       Confirmar desvínculo
                     </button>
                   </div>
                 ) : (
-                  <button type="button" onClick={() => setUnlinking(ref.id)} className="mt-1 min-h-11 text-xs font-bold text-[#7f1d1d] underline">Desfazer vínculo</button>
+                  <button type="button" onClick={() => setUnlinking(ref.id)} className="mt-1 min-h-11 text-xs font-bold text-red-700 underline">Desfazer vínculo</button>
                 )}
               </li>
             );
@@ -127,7 +131,9 @@ export function EsgEvidenceLink({
       ) : (
         <p className="text-sm text-slate-600">Nenhuma comprovação ESG vinculada a este registro.</p>
       )}
-      {options.length > 0 ? (
+      {!canLink ? (
+        <p className="text-xs text-slate-600">Seu perfil nesta obra é somente leitura: você vê os vínculos, mas não pode criar nem desfazer.</p>
+      ) : options.length > 0 ? (
         <div className="space-y-2">
           <select aria-label="Comprovação ESG" value={choice} onChange={(e) => setChoice(e.target.value)} className="block min-h-12 w-full rounded-lg border-2 border-slate-300 bg-white px-3 text-sm">
             <option value="">Selecione a comprovação ESG</option>
@@ -139,7 +145,7 @@ export function EsgEvidenceLink({
             type="button"
             disabled={!choice || busy || !online}
             onClick={() => void run(() => createSupabaseBrowserClient().rpc("esg_link_ssma_record", { p_submission_id: choice, p_field_record_id: recordId }), "Registro vinculado como evidência. A obrigação não foi alterada.")}
-            className="min-h-12 w-full rounded-lg border-2 border-[#7f1d1d] px-3 text-sm font-bold uppercase text-[#7f1d1d] disabled:opacity-50"
+            className="min-h-12 w-full rounded-lg border-2 border-[#7f1d1d] px-3 text-sm font-bold uppercase text-red-700 disabled:opacity-50"
           >
             Usar como evidência ESG
           </button>

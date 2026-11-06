@@ -16,6 +16,11 @@ export type SsmaChecklistDefinition = {
   shortTitle: string;
   driveFolder: string;
   independent?: boolean;
+  /** Nome exibido ao usuário. `title`/`shortTitle`/`checks` continuam sendo os valores GRAVADOS e validados pelo banco. */
+  displayTitle?: string;
+  displayShortTitle?: string;
+  /** Rótulo exibido de cada item do checklist (chave = valor gravado). */
+  checkLabels?: Readonly<Record<string, string>>;
   requiredPhotoActions?: readonly string[];
   fields: readonly SsmaFieldDefinition[];
   checks: readonly string[];
@@ -28,6 +33,10 @@ export const SSMA_CHECKLISTS: readonly SsmaChecklistDefinition[] = [
     slug: "dda",
     title: "DDA",
     shortTitle: "DDA — Fotos",
+    // Padronização: este é o Diálogo DIÁRIO de Segurança (DDS). A sigla DDA só permanece nos valores gravados.
+    displayTitle: "DDS — Diálogo Diário de Segurança",
+    displayShortTitle: "DDS — Fotos",
+    checkLabels: { "DDA realizado": "DDS realizado" },
     driveFolder: "01 - DIÁLOGO DIÁRIO DE SEGURANÇA - DDA (FOTOS)",
     fields: [
       { id: "tema", label: "Tema do diálogo", type: "text", placeholder: "Informe o tema do diálogo" },
@@ -42,6 +51,10 @@ export const SSMA_CHECKLISTS: readonly SsmaChecklistDefinition[] = [
     slug: "dds",
     title: "DDS",
     shortTitle: "DDS — Fotos",
+    // Padronização: este é o Diálogo SEMANAL de Segurança (DSS). A sigla DDS só permanece nos valores gravados.
+    displayTitle: "DSS — Diálogo Semanal de Segurança",
+    displayShortTitle: "DSS — Fotos",
+    checkLabels: { "DDS realizado": "DSS realizado" },
     driveFolder: "02 - DIÁLOGO SEMANAL DE SEGURANÇA - DDS (FOTOS)",
     fields: [
       { id: "tema", label: "Tema do diálogo semanal", type: "text", placeholder: "Informe o tema do diálogo" },
@@ -262,3 +275,10 @@ export const SSMA_RISK_LEVELS = [
   { value: "ALTA", label: "Alto", className: "bg-[#FFD600] text-black" },
   { value: "CRITICA", label: "Crítico", className: "bg-[#DC2626] text-white" },
 ] as const;
+
+/** Título completo exibido (cabeçalho do formulário). */
+export const checklistTitle = (definition: SsmaChecklistDefinition): string => definition.displayTitle ?? definition.title;
+/** Título curto exibido (cartões, listas). */
+export const checklistShortTitle = (definition: SsmaChecklistDefinition): string => definition.displayShortTitle ?? definition.shortTitle;
+/** Rótulo exibido de um item do checklist (o valor gravado não muda). */
+export const checklistCheckLabel = (definition: SsmaChecklistDefinition, check: string): string => definition.checkLabels?.[check] ?? check;

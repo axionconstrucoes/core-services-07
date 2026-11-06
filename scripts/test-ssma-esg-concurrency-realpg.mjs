@@ -5,6 +5,7 @@
 //   C) vínculo SSMA↔SLA criado por N conexões (backfill/RPC)    => exatamente 1 ação SLA;
 //   D) andamento pelo SSMA × reatribuição pelo módulo de Ações, em paralelo e repetido => sem deadlock, estados iguais;
 //   E) reserva (claim) das notificações por N conexões          => cada destinatário recebe UM e-mail; falha reenvia só uma vez por claim;
+//   G) vínculo registro SSMA -> comprovação ESG concorrente (idempotente; vincular x desvincular; sem permissão)
 //   F) decisão humana de duplicidade (vínculo explícito) concorrente => no máximo um SAME_FACT por formulário/registro.
 // NÃO roda no CI (exige um servidor PostgreSQL). Uso:
 //   ACC_REALPG_URL=postgres://postgres:postgres@127.0.0.1:55434/postgres ACC_REALPG_PKG_DIR=<pasta com node_modules/pg> \
@@ -59,7 +60,7 @@ for (const f of files) {
   const sql = readFileSync(path.join(dir, f), "utf8").replace(/^﻿/, "");
   try { await setup.query(sql); } catch (e) { console.log(`FAIL replay ${f}: ${e.message.split("\n")[0]}`); process.exit(1); }
 }
-console.log(`PostgreSQL ${version}: ${files.length} migrations (inclui 20261106100000) aplicadas em ${((Date.now() - t0) / 1000).toFixed(1)} s — base ${dbName}`);
+console.log(`PostgreSQL ${version}: ${files.length} migrations (inclui 20261106100000 e 20261106110000) aplicadas em ${((Date.now() - t0) / 1000).toFixed(1)} s — base ${dbName}`);
 
 const id = (n) => `00000000-0000-4000-8000-0000000000${String(n).padStart(2, "0")}`;
 const uuid = (p, n) => `${p}0000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -168,6 +169,50 @@ await check("F) decisão humana de duplicidade concorrente: no máximo UM 'mesmo
   eq(unexpected.map((r) => r.reason.message), [], "só ALREADY_LINKED é aceitável");
   eq(await count("select count(*)::int n from public.ssma_incident_links where form_submission_id=$1 and decision='SAME_FACT'", [form]), 1, "um único SAME_FACT");
   eq(results.filter((r) => r.status === "fulfilled").length, 1, "uma decisão vence");
+});
+
+// ───── G) vínculo registro SSMA -> comprovação ESG (migration 20261106110000) ─────
+const catC = (await setup.query("select pg_get_constraintdef(oid) d from pg_constraint where conname = 'esg_obligations_category_check'")).rows[0].d.match(/'([A-Z_]+)'/)[1];
+const perC = (await setup.query("select pg_get_constraintdef(oid) d from pg_constraint where conname = 'esg_obligations_periodicity_check'")).rows[0].d.match(/'([A-Z_]+)'/)[1];
+const OBL1 = uuid(8, 1), SUB1 = uuid(9, 1), SUB2 = uuid(9, 2), GREC = uuid(2, 1);
+await setup.query("insert into public.esg_obligations (id,project_id,title,category,periodicity,created_by_user_id) values ($1,$2,'Obrigação G',$3,$4,$5)", [OBL1, P1, catC, perC, id(ADM)]);
+await setup.query("insert into public.esg_obligation_submissions (id,project_id,obligation_id,reference_date,status,filled_by_user_id) values ($1,$2,$3,'2026-10-01','PENDENTE',$4),($5,$2,$3,'2026-10-02','PENDENTE',$4)", [SUB1, P1, OBL1, id(ADM), SUB2]);
+const esgState = async () => JSON.stringify((await setup.query("select to_jsonb(s) r from public.esg_obligation_submissions s order by id")).rows) + JSON.stringify((await setup.query("select to_jsonb(o) r from public.esg_obligations o order by id")).rows);
+
+await check("G1) vínculo ESG criado por 12 conexões ao mesmo tempo (mesma comprovação e mesmo registro): UMA referência ativa, mesmo id para todas, uma auditoria, obrigação NÃO cumprida", async () => {
+  const before = await esgState();
+  const clients = await Promise.all(Array.from({ length: 12 }, () => client(id(ADM))));
+  const results = await Promise.allSettled(clients.map((c) => c.query("select public.esg_link_ssma_record($1::uuid,$2::uuid,null) as id", [SUB1, GREC])));
+  await Promise.all(clients.map((c) => c.end()));
+  eq(results.filter((r) => r.status === "rejected").map((r) => r.reason.message), [], "nenhuma conexão pode falhar (idempotente)");
+  eq([...new Set(results.map((r) => r.value.rows[0].id))].length, 1, "todas devolvem a mesma referência");
+  eq(await count("select count(*)::int n from public.esg_ssma_record_references where submission_id=$1 and field_record_id=$2 and revoked_at is null", [SUB1, GREC]), 1, "referências ativas");
+  eq(await count("select count(*)::int n from public.audit_log_entries where action='ESG_SSMA_RECORD_LINKED' and detail like $1", [`%${SUB1}%`]), 1, "auditorias do vínculo");
+  eq(await esgState(), before, "estado das obrigações/comprovações não pode mudar");
+});
+await check("G2) vincular e desvincular ao mesmo tempo (6 vínculos + 6 desvínculos): no máximo UMA referência ativa, histórico preservado, nenhum erro inesperado, obrigação intacta", async () => {
+  const before = await esgState();
+  const ref = (await setup.query("select id from public.esg_ssma_record_references where submission_id=$1 and field_record_id=$2 and revoked_at is null", [SUB1, GREC])).rows[0].id;
+  const links = await Promise.all(Array.from({ length: 6 }, () => client(id(ADM))));
+  const unlinks = await Promise.all(Array.from({ length: 6 }, () => client(id(ADM))));
+  const results = await Promise.allSettled([
+    ...links.map((c) => c.query("select public.esg_link_ssma_record($1::uuid,$2::uuid,null)", [SUB1, GREC])),
+    ...unlinks.map((c) => c.query("select public.esg_unlink_ssma_record($1::uuid,'motivo do teste de concorrência')", [ref])),
+  ]);
+  await Promise.all([...links, ...unlinks].map((c) => c.end()));
+  const unexpected = results.filter((r) => r.status === "rejected" && !/ALREADY_REVOKED/.test(r.reason.message)).map((r) => r.reason.message);
+  eq(unexpected, [], "só ALREADY_REVOKED é aceitável");
+  ok((await count("select count(*)::int n from public.esg_ssma_record_references where submission_id=$1 and field_record_id=$2 and revoked_at is null", [SUB1, GREC])) <= 1, "mais de uma referência ativa");
+  eq(await count("select count(*)::int n from public.esg_ssma_record_references where id=$1 and revoked_at is not null", [ref]), 1, "a referência original ficou revogada (histórico preservado)");
+  eq(await count("select count(*)::int n from public.esg_ssma_record_references where id=$1", [ref]), 1, "a linha original nunca é apagada");
+  eq(await esgState(), before, "estado das obrigações/comprovações não pode mudar");
+});
+await check("G3) quem NÃO pode vincular, mesmo em paralelo: Colaborador na comprovação alheia => FORBIDDEN em todas; nenhuma referência criada", async () => {
+  const clients = await Promise.all(Array.from({ length: 6 }, () => client(id(RESP))));
+  const results = await Promise.allSettled(clients.map((c) => c.query("select public.esg_link_ssma_record($1::uuid,$2::uuid,null)", [SUB2, GREC])));
+  await Promise.all(clients.map((c) => c.end()));
+  eq(results.map((r) => (r.status === "rejected" ? (/FORBIDDEN/.test(r.reason.message) ? "FORBIDDEN" : r.reason.message) : "ok")), Array(6).fill("FORBIDDEN"), "todas recusadas");
+  eq(await count("select count(*)::int n from public.esg_ssma_record_references where submission_id=$1", [SUB2]), 0, "nenhuma referência");
 });
 
 // ───── E) reserva das notificações: o MESMO núcleo (core.ts), cada execução com a sua conexão ─────

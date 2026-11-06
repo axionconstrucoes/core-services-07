@@ -173,7 +173,7 @@ export function FieldRecordsApp({
       {creating ? (
         <NewRecordForm projects={registrable} contextProjectId={project.id} online={online} onSave={handleSave} onCancel={() => setCreating(false)} />
       ) : selected ? (
-        <RecordDetail record={selected} notice={describeNotification(notifications.get(selected.id) ?? [])} userId={userId} projectId={project.id} canManage={project.canManage} online={online} names={names} onChanged={() => void loadServer()} />
+        <RecordDetail record={selected} notice={describeNotification(notifications.get(selected.id) ?? [])} userId={userId} projectId={project.id} canManage={project.canManage} isAdmin={project.isAdmin} canRegisterEsg={project.canRegisterEsg} online={online} names={names} onChanged={() => void loadServer()} />
       ) : tab === "sync" ? (
         <SyncView items={queue.items} projectId={project.id} foreignPending={queue.foreignPending} syncing={queue.syncing} online={online} onRetry={() => void queue.runSync(true)} onDiscard={(id) => void queue.discard(id)} onPurge={() => void queue.purgeForeign()} />
       ) : tab === "perfil" ? (
@@ -199,7 +199,7 @@ export function FieldRecordsApp({
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase text-slate-600">Registros da obra</h2>
               {!offlineShell ? (
-                <button type="button" onClick={() => { setLoadingServer(true); void loadServer(); }} className="flex min-h-11 items-center gap-1 px-2 text-xs font-bold text-[#7f1d1d]" disabled={loadingServer || !online}>
+                <button type="button" onClick={() => { setLoadingServer(true); void loadServer(); }} className="flex min-h-11 items-center gap-1 px-2 text-xs font-bold text-red-700" disabled={loadingServer || !online}>
                   <RefreshCw className={cn("size-4", loadingServer && "animate-spin")} /> Atualizar
                 </button>
               ) : null}
@@ -434,7 +434,7 @@ function ProfileView({
             </div>
           </div>
         ) : (
-          <button type="button" onClick={() => setConfirmSignOut(true)} className="min-h-12 w-full rounded-lg bg-slate-800 px-3 font-bold uppercase text-white">Sair da conta</button>
+          <button type="button" onClick={() => setConfirmSignOut(true)} className="min-h-12 w-full rounded-lg bg-[#7f1d1d] px-3 font-bold uppercase text-white">Sair da conta</button>
         )
       ) : (
         <p className="text-xs text-slate-500">Sem conexão: para trocar de conta, abra o app com internet.</p>

@@ -15,7 +15,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { askEsgDirectorAction } from "@/lib/ai/esg-query-action";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
-import { getClauses } from "@/lib/data";
+import { getClauses, getProjects } from "@/lib/data";
+import { createSupabaseServerClient } from "@axion/db/server";
+import { EsgProjectSwitch } from "@/components/esg/esg-project-switch";
 import { computeEsgSummary } from "@/lib/dashboard-visual/compute-esg-summary";
 import { ESG_FILTROS, parseEsgFiltro } from "@/lib/esg/esg-filtro";
 import { computeObligationRisk } from "@/lib/esg/compute-obligation-risk";
@@ -54,6 +56,17 @@ export default async function EsgObligationsPage({
     getCurrentProjectPermission(projectId),
     getClauses(projectId),
   ]);
+
+  // Campo Obra: só obras em que o usuário é membro ativo e pode registrar (não é somente leitura).
+  const switchSupabase = await createSupabaseServerClient();
+  const { data: switchAuth } = await switchSupabase.auth.getUser();
+  const { data: switchMemberships } = switchAuth.user
+    ? await switchSupabase.from("project_memberships").select("project_id, permission").eq("user_id", switchAuth.user.id).eq("status", "ACTIVE")
+    : { data: [] as Array<{ project_id: string; permission: string }> };
+  const switchIds = new Set((switchMemberships ?? []).filter((row) => row.permission !== "LEITURA").map((row) => row.project_id as string));
+  const switchProjects = (await getProjects())
+    .filter((candidate) => candidate.workspaceType === "OBRA" && switchIds.has(candidate.id))
+    .map((candidate) => ({ id: candidate.id, label: `${candidate.code} ${candidate.name}`.trim() }));
 
   const canFill = canRegisterEsgCompliance(permission);
   const canConfigure = canConfigureEsg(permission);
@@ -142,6 +155,8 @@ export default async function EsgObligationsPage({
         />
       </div>
 
+      <EsgProjectSwitch currentId={projectId} projects={switchProjects} />
+
       <Card className="border-[#7f1d1d]/30">
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -153,7 +168,7 @@ export default async function EsgObligationsPage({
           <div className="flex shrink-0 flex-wrap gap-2">
             <Link
               href={`/${projectId}/ssma-registros`}
-              className="inline-flex min-h-11 items-center justify-center rounded-md border border-[#7f1d1d] px-4 text-sm font-bold text-[#7f1d1d]"
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-[#7f1d1d] px-4 text-sm font-bold text-white hover:bg-[#6b1717]"
             >
               Registros de campo
             </Link>

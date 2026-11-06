@@ -36,7 +36,7 @@ export function PossibleDuplicatesPanel({
               <input type="hidden" name="formSubmissionId" value={pair.formSubmissionId} />
               <input type="hidden" name="fieldRecordId" value={pair.fieldRecordId} />
               <input name="note" maxLength={500} placeholder="Observação (opcional)" className="min-w-48 flex-1 rounded-md border px-2 py-1 text-sm" />
-              <button type="submit" name="decision" value="SAME_FACT" className="rounded-md border border-[#7f1d1d] px-3 py-1.5 text-sm font-semibold text-[#7f1d1d]">Mesmo fato</button>
+              <button type="submit" name="decision" value="SAME_FACT" className="rounded-md border border-[#7f1d1d] px-3 py-1.5 text-sm font-semibold text-red-700">Mesmo fato</button>
               <button type="submit" name="decision" value="DISTINCT_FACTS" className="rounded-md border px-3 py-1.5 text-sm font-semibold">Fatos distintos</button>
             </form>
           </div>

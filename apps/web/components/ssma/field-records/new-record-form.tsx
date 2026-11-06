@@ -250,11 +250,11 @@ export function NewRecordForm({
         <input ref={cameraRef} type="file" accept="image/jpeg,image/png" capture="environment" onChange={(event) => addFiles(event.target.files)} className="sr-only" aria-label="Tirar foto" />
         <input ref={galleryRef} type="file" multiple accept="image/jpeg,image/png,.jpg,.jpeg,.png" onChange={(event) => addFiles(event.target.files)} className="sr-only" aria-label="Escolher fotos" />
         <div className="grid gap-2 sm:grid-cols-2">
-          <button type="button" onClick={() => cameraRef.current?.click()} className="flex min-h-14 items-center justify-center gap-2 rounded-lg bg-slate-800 px-4 font-bold uppercase text-white">
-            <Camera className="size-6" /> Tirar foto
+          <button type="button" onClick={() => cameraRef.current?.click()} className="flex min-h-14 items-center justify-center gap-2 rounded-lg border-2 border-black bg-[#f7f3ea] px-4 font-bold uppercase text-black hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            <Camera className="size-6 text-black" aria-hidden="true" /> Tirar foto
           </button>
-          <button type="button" onClick={() => galleryRef.current?.click()} className="flex min-h-14 items-center justify-center gap-2 rounded-lg border-2 border-[#7f1d1d] bg-white px-4 font-bold uppercase text-[#7f1d1d]">
-            <CloudUpload className="size-5" /> Da galeria
+          <button type="button" onClick={() => galleryRef.current?.click()} className="flex min-h-14 items-center justify-center gap-2 rounded-lg bg-[#7f1d1d] px-4 font-bold uppercase text-white hover:bg-[#6b1717] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            <CloudUpload className="size-5 text-white" aria-hidden="true" /> Da galeria
           </button>
         </div>
         <p className="text-xs font-medium text-slate-600">Fotos são opcionais · JPG ou PNG · até 15 MB · máximo de {MAX_PHOTOS_PER_RECORD}</p>

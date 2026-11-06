@@ -112,6 +112,10 @@ export interface OfflineContext {
     label: string;
     /** Só para ajustar a tela; a permissão real é sempre imposta pelo servidor. */
     canManage: boolean;
+    /** Só para ajustar a tela (vínculo com evidência ESG); o banco impõe: Administrador em qualquer comprovação, demais perfis só na própria. */
+    isAdmin?: boolean;
+    /** Perfil que registra conformidade ESG (não é somente leitura). */
+    canRegisterEsg?: boolean;
     /** Membros ativos da obra — só id e nome, para escolher o responsável. */
     members: Array<{ userId: string; name: string }>;
   }>;

@@ -1587,7 +1587,7 @@ Conteúdo, identidades, escopo e limites dos especialistas: ver CAP69 cap. 8 (n�
 
 - **Fluxo principal**
   1. Abrir `/ssma` (QR Code ou ícone instalado). Escolher a obra em "Selecione a obra" (`app/ssma/page.tsx:30`).
-  2. Aba **Início** (barra inferior: Início, Registros, Sincronização, Perfil — `ssma-chrome.tsx:174-179`): vê a obra, o cumprimento "Checklist de hoje — n de 10 concluídos", o botão **Registrar ocorrência / inspeção** ("Funciona sem sinal · fotos, responsável e prazo") e a lista de checklists (`ssma-field-app.tsx:611-628`, numeração de linha aproximada a partir do trecho lido; checklists em `lib/ssma/checklist-definitions.ts`: 12 definições, de "DDA" a "Ocorrência / acidente").
+  2. Aba **Início** (barra inferior: Início, Registros, Sincronização, Perfil — `ssma-chrome.tsx:174-179`): vê a obra, o cumprimento "Checklist de hoje — n de 10 concluídos", o botão **Registrar ocorrência / inspeção** ("Funciona sem sinal · fotos, responsável e prazo") e a lista de checklists (`ssma-field-app.tsx:611-628`, numeração de linha aproximada a partir do trecho lido; checklists em `lib/ssma/checklist-definitions.ts`: 12 definições, de "DDS" a "Ocorrência / acidente").
   3. **Novo registro** (`field-records-app.tsx:142-145`): escolher Tipo de registro (Ocorrência/Inspeção), Categoria, Descrição ("Descreva o que foi observado, sem diagnósticos"), Local ("Ex.: Bloco B, pavimento 2"), data/hora do fato, **Risco** (Baixo/Médio/Alto/Crítico), Ação corretiva opcional (responsável + prazo), fotos (câmera ou galeria) e **Salvar registro** (`components/ssma/field-records/new-record-form.tsx:141-262`).
   4. O registro passa por **Salvo no aparelho → Aguardando envio → Sincronizado** (ou **Falha no envio**) (`lib/ssma/field-records/types.ts:74-79`). Aba **Sincronização**: contadores por estado e botão **Enviar agora / tentar de novo** (`field-records-app.tsx:252-263`).
   5. Aba **Registros**: "Neste aparelho" e "Registros da obra" (a lista do servidor só aparece online) (`field-records-app.tsx:147-164`). Abrir um registro mostra **Ação corretiva** e o formulário **Registrar andamento** / **Concluir ação** (`record-detail.tsx:136-210`).
@@ -1640,6 +1640,14 @@ Conteúdo, identidades, escopo e limites dos especialistas: ver CAP69 cap. 8 (n�
   `app/ssma/{page,layout,consult-actions}.ts*`; `app/ssma/[projectId]/page.tsx`; `app/ssma/offline/page.tsx`; `components/ssma/*.tsx`; `components/ssma/field-records/*.tsx`; `lib/ssma/field-records/*`; `lib/ssma/checklist-definitions.ts`; `docs/modulo-seguranca-pwa.md`; `supabase/migrations/20261028130000_ssma_field_records.sql`.
 
 ---
+
+#### 4.29.0 Formulários 1 a 12 — nomes, envio, confirmação e cores (comportamento implementado)
+
+- **Nomes:** formulário 01 = **DDS — Diálogo Diário de Segurança**; formulário 02 = **DSS — Diálogo Semanal de Segurança**. Os identificadores e valores gravados continuam os antigos (`dda`/`dds`, "DDA"/"DDS" no banco e nas pastas do Drive) para não quebrar registros existentes; só o texto exibido mudou. A sigla DDS do módulo ESG (obrigações) segue como está.
+- **Envio (1 a 12) é online.** Não há cópia pendente no aparelho: sem internet o formulário avisa e **mantém os dados na tela**. Quem precisa registrar sem sinal usa **Registrar ocorrência / inspeção**, que salva "no aparelho" e envia depois ("Salvo no aparelho" → "Sincronizado").
+- **Confirmação:** depois que o servidor finaliza o formulário e os arquivos aparece **"Enviado e confirmado no ACC"**; só então o cartão recebe o **ícone de conclusão** (imagem `done-icon.png`, à direita, com dica "Concluído"). O ícone indica envio confirmado, não sincronização de rascunho.
+- **Erros:** mensagem em português com o motivo (sem acesso à obra, sessão expirada, campos obrigatórios, conexão); nada é apresentado como enviado antes da confirmação e os dados continuam na tela. Se a **comunicação do acidente (formulário 12)** falhar (ex.: nenhum destinatário de Engenharia/Comercial configurado na obra), a confirmação mostra um **aviso separado**: o acidente está registrado, mas ninguém foi avisado por e-mail — avise a Engenharia diretamente e **não registre de novo**.
+- **Cores:** cartão 11 (Remessa) verde-escuro forte e cartão 12 (Ocorrência/acidente) vermelho forte, texto e ícone brancos. O app usa tema escuro; botões "Tirar foto/Anexar" são claros com texto preto, e "Da galeria/Selecionar fotos do computador" escuros com texto branco.
 
 #### 4.29.1 Campo "Obra", quase-acidente e evidência ESG (comportamento implementado)
 

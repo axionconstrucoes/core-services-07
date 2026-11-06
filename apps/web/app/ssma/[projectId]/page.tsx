@@ -57,7 +57,7 @@ export default async function SsmaAppPage({ params }: { params: Promise<{ projec
 
   // Obras em que o usuário pode registrar (membro ATIVO que não é somente leitura) + a atual. É a lista do
   // campo "Obra"; nunca se aceita obra fora dela (o servidor revalida na gravação e na sincronização).
-  const currentProject = { id: projectId, label, canManage, members: assignable };
+  const currentProject = { id: projectId, label, canManage, isAdmin: currentMember.permission === "ADMINISTRADOR", canRegisterEsg: currentMember.permission !== "LEITURA", members: assignable };
   const { data: memberships } = await supabase
     .from("project_memberships")
     .select("project_id, permission")
@@ -73,6 +73,8 @@ export default async function SsmaAppPage({ params }: { params: Promise<{ projec
         id: candidate.id,
         label: projectLabel(candidate),
         canManage: !!mine && ["ADMINISTRADOR", "GERENTE", "GESTOR"].includes(mine.permission),
+        isAdmin: mine?.permission === "ADMINISTRADOR",
+        canRegisterEsg: !!mine && mine.permission !== "LEITURA",
         members: candidateMembers.filter((member) => member.status === "ACTIVE" && member.permission !== "LEITURA").map((member) => ({ userId: member.userId, name: member.user.name })),
       };
     })
