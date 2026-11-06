@@ -39,7 +39,7 @@ export default async function SsmaProjectPickerPage() {
                     <span className="block font-bold text-slate-900">{project.name}</span>
                     <span className="block text-xs text-slate-600">{project.code}{project.client ? ` · ${project.client}` : ""}</span>
                   </span>
-                  <ChevronRight className="size-5 shrink-0 text-[#7f1d1d]" />
+                  <ChevronRight className="size-5 shrink-0 text-red-700" />
                 </Link>
               </li>
             ))}

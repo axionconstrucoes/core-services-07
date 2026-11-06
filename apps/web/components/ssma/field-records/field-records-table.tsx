@@ -38,7 +38,7 @@ export function FieldRecordsTable({ records, today }: { records: FieldRecordView
               {record.photos.length === 0 ? "0" : (
                 <span className="flex flex-wrap gap-1">
                   {record.photos.map((photo, index) => (
-                    <a key={photo.id} href={`/api/ssma/records/photos/${photo.id}`} target="_blank" rel="noreferrer" className="text-xs font-semibold text-[#7f1d1d] underline">
+                    <a key={photo.id} href={`/api/ssma/records/photos/${photo.id}`} target="_blank" rel="noreferrer" className="text-xs font-semibold text-red-700 underline">
                       {photo.purpose === "EVIDENCIA_ACAO" ? "evid." : "foto"} {index + 1}
                     </a>
                   ))}

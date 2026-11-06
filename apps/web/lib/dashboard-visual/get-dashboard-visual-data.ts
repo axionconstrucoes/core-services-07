@@ -120,8 +120,8 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
     contractChanges
   );
 
-  const esgSubmissionsInRange = esgSubmissions.filter((s) => isWithinTimeRange(s.referenceDate, range));
-  const esgSummary = computeEsgSummary(esgObligations, esgSubmissionsInRange, esgEvidence);
+  // ESG = posição atual das obrigações: não filtrar pelo período do dashboard.
+  const esgSummary = computeEsgSummary(esgObligations, esgSubmissions, esgEvidence, new Date().toISOString().slice(0, 10));
 
   const slaSummary = computeSlaActionsSummary(slaActions, new Date()); // posição atual — nunca filtrada pelo período
 

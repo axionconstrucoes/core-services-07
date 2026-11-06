@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import {
   Activity,
   AlertTriangle,
@@ -13,11 +14,12 @@ import {
 } from "lucide-react";
 
 import { createSupabaseServerClient } from "@axion/db/server";
+import type { EsgSummary } from "@/lib/dashboard-visual/compute-esg-summary";
 import { getDashboardVisualData } from "@/lib/dashboard-visual/get-dashboard-visual-data";
 import { getEvents } from "@/lib/data";
 import { formatCurrency, formatDateTime } from "@/lib/labels";
 import type { FieldRecordRow } from "@/lib/ssma/field-records/field-record-view";
-import { computeSsmaDashboardMetrics, type SsmaFormMetricsRow } from "@/lib/ssma/dashboard-metrics";
+import { computeSsmaDashboardMetrics, type SsmaFormMetricsRow, type SsmaIncidentLinkRow } from "@/lib/ssma/dashboard-metrics";
 import { resolveSystemStatus } from "@/lib/ui/resolve-system-status";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -97,6 +99,44 @@ function StatusLine({
       </div>
 
       <span className="shrink-0 whitespace-nowrap text-right text-[13px] font-normal text-white">{compactStatus(value)}</span>
+    </div>
+  );
+}
+
+function EsgObligationsBlock({ projectId, summary }: { projectId: string; summary: EsgSummary }) {
+  const hasObligations = summary.occurrences > 0;
+  const cells: Array<{ label: string; filtro: string; value: number; tone: "ok" | "warning" | "error" | "neutral" }> = [
+    { label: "Cumpridas", filtro: "cumpridas", value: summary.cumprida, tone: "ok" },
+    { label: "Pendentes", filtro: "pendentes", value: summary.pendente, tone: summary.pendente > 0 ? "warning" : "ok" },
+    { label: "Vencidas", filtro: "vencidas", value: summary.vencida, tone: summary.vencida > 0 ? "error" : "ok" },
+    { label: "Ag. revisão", filtro: "revisao", value: summary.aguardandoRevisao, tone: summary.aguardandoRevisao > 0 ? "warning" : "ok" },
+    { label: "Evid. pend.", filtro: "evidencias", value: summary.evidenciaPendente, tone: summary.evidenciaPendente > 0 ? "warning" : "ok" },
+  ];
+  const color = { ok: "text-emerald-300", warning: "text-amber-300", error: "text-red-300", neutral: "text-slate-300" };
+  return (
+    <div className="border-b border-white/[0.07] py-px">
+      <div className="text-[12px] leading-[18px] text-white">Obrigações ESG (posição atual)</div>
+      <div className="grid grid-cols-5 gap-1">
+        {cells.map((cell) => (
+          <Link
+            key={cell.filtro}
+            href={`/${projectId}/esg?filtro=${cell.filtro}`}
+            className="flex flex-col items-center rounded px-0.5 text-center hover:bg-white/10"
+            title={`Ver as obrigações: ${cell.label}`}
+          >
+            <span className={`text-[14px] leading-4 ${color[hasObligations ? cell.tone : "neutral"]}`}>
+              {hasObligations ? cell.value : "—"}
+            </span>
+            <span className="text-[9px] leading-3 text-[#b8c7dc]">{cell.label}</span>
+          </Link>
+        ))}
+      </div>
+      {hasObligations && summary.dispensada > 0 ? (
+        <div className="text-[9px] leading-3 text-[#b8c7dc]">
+          {summary.dispensada} dispensada(s)/não aplicável(is), fora das pendências. Total: {summary.occurrences}.
+        </div>
+      ) : null}
+      {!hasObligations ? <div className="text-[9px] leading-3 text-[#b8c7dc]">Sem obrigações cadastradas.</div> : null}
     </div>
   );
 }
@@ -584,10 +624,10 @@ export default async function DashboardPage({
   //   trilha B = registros de campo + ações corretivas. Zero verdadeiro ≠ sem dado (lib/ssma/dashboard-metrics.ts).
   // ----------------------------------------------------------
 
-  const [{ data: dashboardSsmaForms }, { data: dashboardSsmaFieldRecords }] = await Promise.all([
+  const [{ data: dashboardSsmaForms }, { data: dashboardSsmaFieldRecords }, dashboardIncidentLinks] = await Promise.all([
     supabase
       .from("ssma_form_submissions")
-      .select("checklist_slug,occurred_at,field_values")
+      .select("id,checklist_slug,occurred_at,field_values")
       .eq("project_id", projectId)
       .eq("status", "SUBMITTED"),
     supabase
@@ -596,9 +636,13 @@ export default async function DashboardPage({
         "id,kind,category,description,location,occurred_at,client_created_at,received_at,risk_level,responsible_user_id,due_date,reported_by_user_id,ssma_corrective_actions(id,status,due_date,concluded_at,responsible_user_id)"
       )
       .eq("project_id", projectId),
+    // Decisões humanas sobre duplicidade acidente × ocorrência de campo. Tabela ausente (migration pendente) ou erro:
+    // sem vínculos => nada é descontado (comportamento seguro).
+    supabase.from("ssma_incident_links").select("form_submission_id,field_record_id,decision").eq("project_id", projectId),
   ]);
 
   const ssmaDash = computeSsmaDashboardMetrics({
+    links: dashboardIncidentLinks.error ? [] : ((dashboardIncidentLinks.data ?? []) as SsmaIncidentLinkRow[]),
     forms: (dashboardSsmaForms ?? []) as SsmaFormMetricsRow[],
     fieldRecords: (dashboardSsmaFieldRecords ?? []) as unknown as FieldRecordRow[],
     today: new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }),
@@ -855,6 +899,17 @@ export default async function DashboardPage({
                 }
               />
               <StatusLine
+                label="Near Misses (quase-acidentes)"
+                value={ssmaDash.nearMisses !== null ? ssmaDash.nearMisses : "—"}
+                status={ssmaDash.nearMisses !== null ? (ssmaDash.nearMisses > 0 ? "warning" : "ok") : "neutral"}
+              />
+              <p className="text-[10px] leading-tight text-[#b8c7dc]" data-testid="near-miss-period">
+                {ssmaDash.nearMissSource?.period
+                  ? `Período: ${new Date(ssmaDash.nearMissSource.period.firstAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} a ${new Date(ssmaDash.nearMissSource.period.lastAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} · `
+                  : ssmaDash.nearMisses === 0 ? "Nenhum Near Miss registrado · " : ""}
+                <Link href={`/${projectId}/ssma-registros#near-misses`} className="font-bold text-[#ffd0c7] underline">Ver registros</Link>
+              </p>
+              <StatusLine
                 label="Dias sem acidente"
                 value={dashboardDaysWithoutAccident !== null ? dashboardDaysWithoutAccident : "—"}
                 status={dashboardDaysWithoutAccident !== null ? "ok" : "neutral"}
@@ -869,14 +924,10 @@ export default async function DashboardPage({
                 value={ssmaDash.overdueCorrectiveActions !== null ? ssmaDash.overdueCorrectiveActions : "—"}
                 status={ssmaDash.overdueCorrectiveActions !== null ? (ssmaDash.overdueCorrectiveActions > 0 ? "error" : "ok") : "neutral"}
               />
-              <StatusLine
-                label="Obrigações ESG em aberto"
-                value={data.esgSummary.occurrences > 0 ? `${data.esgSummary.open} de ${data.esgSummary.occurrences}` : "—"}
-                status={data.esgSummary.occurrences > 0 ? (data.esgSummary.open > 0 ? "warning" : "ok") : "neutral"}
-              />
+              <EsgObligationsBlock projectId={projectId} summary={data.esgSummary} />
               <p className="pt-1 text-[10px] leading-tight text-[#b8c7dc]">
                 {ssmaDash.hasData
-                  ? `Fonte: ${ssmaDash.sources.forms} formulário(s) e ${ssmaDash.sources.fieldRecords} registro(s) de campo SSMA; obrigações ESG cadastradas. Zero = nenhum registrado.`
+                  ? `Fonte: ${ssmaDash.sources.forms} formulário(s) e ${ssmaDash.sources.fieldRecords} registro(s) de campo SSMA${ssmaDash.period ? `, de ${new Date(ssmaDash.period.firstAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} a ${new Date(ssmaDash.period.lastAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}${ssmaDash.occurrenceSources && ssmaDash.occurrenceSources.confirmedSameFact > 0 ? `; ${ssmaDash.occurrenceSources.confirmedSameFact} mesmo(s) fato(s) confirmado(s) por humano contado(s) uma vez` : ""}${ssmaDash.occurrenceSources && ssmaDash.occurrenceSources.possibleDuplicates > 0 ? `; ${ssmaDash.occurrenceSources.possibleDuplicates} possível(is) duplicidade(s) aguardando confirmação (não descontada(s))` : ""}${ssmaDash.nearMissSource && ssmaDash.nearMissSource.period ? `; quase-acidentes (${ssmaDash.nearMissSource ? `${ssmaDash.nearMissSource.fieldRecords} de registros de campo, ${ssmaDash.nearMissSource.forms} de formulários` : ""}): classificação "Quase-acidente" de ${new Date(ssmaDash.nearMissSource.period.firstAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} a ${new Date(ssmaDash.nearMissSource.period.lastAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })}` : ""}. Zero = nenhum registrado.`
                   : "Sem registros SSMA nesta obra ainda: “—” significa sem dado, não zero."}
               </p>
             </Panel>

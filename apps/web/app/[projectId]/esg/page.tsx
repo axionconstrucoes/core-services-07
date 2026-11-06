@@ -1,3 +1,4 @@
+import { canConfigureEsg, canRegisterEsgCompliance, canReviewEsg } from "@/lib/esg/esg-permissions";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ExpertQueryPanel } from "@/components/ai/expert-query-panel";
@@ -14,7 +15,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { askEsgDirectorAction } from "@/lib/ai/esg-query-action";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
-import { getClauses } from "@/lib/data";
+import { getClauses, getProjects } from "@/lib/data";
+import { createSupabaseServerClient } from "@axion/db/server";
+import { EsgProjectSwitch } from "@/components/esg/esg-project-switch";
+import { computeEsgSummary } from "@/lib/dashboard-visual/compute-esg-summary";
+import { ESG_FILTROS, parseEsgFiltro } from "@/lib/esg/esg-filtro";
 import { computeObligationRisk } from "@/lib/esg/compute-obligation-risk";
 import {
   getEsgObligationEvidenceForProject,
@@ -34,8 +39,15 @@ import {
 
 export const metadata: Metadata = { title: "ESG / SSMA" };
 
-export default async function EsgObligationsPage({ params }: { params: Promise<{ projectId: string }> }) {
+export default async function EsgObligationsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ filtro?: string | string[] }>;
+}) {
   const { projectId } = await params;
+  const filtro = parseEsgFiltro((await searchParams).filtro);
 
   const [obligations, submissions, evidence, permission, clauses] = await Promise.all([
     getEsgObligations(projectId),
@@ -45,9 +57,20 @@ export default async function EsgObligationsPage({ params }: { params: Promise<{
     getClauses(projectId),
   ]);
 
-  const canFill = permission === "ADMINISTRADOR";
-  const canConfigure = permission === "ADMINISTRADOR";
-  const canReview = permission === "ADMINISTRADOR";
+  // Campo Obra: só obras em que o usuário é membro ativo e pode registrar (não é somente leitura).
+  const switchSupabase = await createSupabaseServerClient();
+  const { data: switchAuth } = await switchSupabase.auth.getUser();
+  const { data: switchMemberships } = switchAuth.user
+    ? await switchSupabase.from("project_memberships").select("project_id, permission").eq("user_id", switchAuth.user.id).eq("status", "ACTIVE")
+    : { data: [] as Array<{ project_id: string; permission: string }> };
+  const switchIds = new Set((switchMemberships ?? []).filter((row) => row.permission !== "LEITURA").map((row) => row.project_id as string));
+  const switchProjects = (await getProjects())
+    .filter((candidate) => candidate.workspaceType === "OBRA" && switchIds.has(candidate.id))
+    .map((candidate) => ({ id: candidate.id, label: `${candidate.code} ${candidate.name}`.trim() }));
+
+  const canFill = canRegisterEsgCompliance(permission);
+  const canConfigure = canConfigureEsg(permission);
+  const canReview = canReviewEsg(permission);
 
   const submissionsByObligationId = new Map<string, EsgObligationSubmission[]>();
   for (const submission of submissions) {
@@ -114,6 +137,10 @@ export default async function EsgObligationsPage({ params }: { params: Promise<{
     }
   }
 
+  const filtroItems = filtro
+    ? computeEsgSummary(obligations, submissions, evidence, today).items[ESG_FILTROS[filtro].bucket]
+    : [];
+
   const clauseOptions = clauses.map((c) => ({
     id: c.id,
     label: `Cláusula ${c.clauseNumber} — ${c.title}`,
@@ -128,6 +155,8 @@ export default async function EsgObligationsPage({ params }: { params: Promise<{
         />
       </div>
 
+      <EsgProjectSwitch currentId={projectId} projects={switchProjects} />
+
       <Card className="border-[#7f1d1d]/30">
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -139,7 +168,7 @@ export default async function EsgObligationsPage({ params }: { params: Promise<{
           <div className="flex shrink-0 flex-wrap gap-2">
             <Link
               href={`/${projectId}/ssma-registros`}
-              className="inline-flex min-h-11 items-center justify-center rounded-md border border-[#7f1d1d] px-4 text-sm font-bold text-[#7f1d1d]"
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-[#7f1d1d] px-4 text-sm font-bold text-white hover:bg-[#6b1717]"
             >
               Registros de campo
             </Link>
@@ -153,7 +182,47 @@ export default async function EsgObligationsPage({ params }: { params: Promise<{
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="pendencias">
+      {filtro ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">
+              {ESG_FILTROS[filtro].label} — Obrigações que compõem: {filtroItems.length}
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Posição atual das obrigações ativas (comprovação mais recente de cada uma).{" "}
+              <Link href={`/${projectId}/esg`} className="underline">
+                Limpar filtro
+              </Link>
+            </p>
+          </CardHeader>
+          <CardContent>
+            {filtroItems.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma obrigação neste grupo.</p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {filtroItems.map((item) => (
+                  <li key={item.obligationId} className="rounded-md border bg-muted/30 p-3 text-sm">
+                    <Link href={`/${projectId}/esg?filtro=${filtro}#obrigacao-${item.obligationId}`} className="font-medium underline">
+                      {item.title}
+                    </Link>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <span>{esgObligationCategoryLabels[item.category]}</span>
+                      <span>Responsável: {item.responsibleLabel ?? "não informado"}</span>
+                      <span>Status: {item.status ? esgObligationStatusLabels[item.status] : "Sem comprovação"}</span>
+                      <span>Prazo: {item.dueDate ? formatDate(item.dueDate) : "sem prazo"}</span>
+                      <span>Evidências: {item.evidenceCount}</span>
+                      <span>Revisão: {item.reviewedAt ? `revisado em ${formatDateTime(item.reviewedAt)}` : "aguardando revisão"}</span>
+                      {item.riskLevel ? <SeverityBadge severity={confrontationSeverityToAlertSeverity[item.riskLevel]} /> : null}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <Tabs defaultValue={filtro ? "checklist" : "pendencias"}>
         <TabsList>
           <span className="inline-flex items-center gap-1">
             <TabsTrigger value="pendencias">Minhas pendências</TabsTrigger>
@@ -199,7 +268,7 @@ export default async function EsgObligationsPage({ params }: { params: Promise<{
             obligations.map((obligation) => {
               const obligationSubmissions = submissionsByObligationId.get(obligation.id) ?? [];
               return (
-                <Card key={obligation.id}>
+                <Card key={obligation.id} id={`obrigacao-${obligation.id}`}>
                   <CardHeader className="gap-2">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>

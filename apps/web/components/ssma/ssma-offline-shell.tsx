@@ -11,7 +11,7 @@ import { useFieldQueue } from "@/lib/ssma/field-records/use-field-queue";
 import { FieldRecordsApp, type FieldProject } from "@/components/ssma/field-records/field-records-app";
 import { SsmaHeader } from "@/components/ssma/ssma-chrome";
 
-type Bootstrap = { userId: string; userLabel: string; project: FieldProject } | "EMPTY" | null;
+type Bootstrap = { userId: string; userLabel: string; project: FieldProject; projects: FieldProject[] } | "EMPTY" | null;
 
 export function SsmaOfflineShell() {
   const [boot, setBoot] = useState<Bootstrap>(null);
@@ -25,7 +25,7 @@ export function SsmaOfflineShell() {
         const context = last ? await store.getMeta<OfflineContext>(contextKey(last.userId)) : null;
         const lastProjectId = last ? await store.getMeta<string>(lastProjectKey(last.userId)) : null;
         const project = context?.projects.find((entry) => entry.id === lastProjectId) ?? context?.projects[0];
-        if (!cancelled) setBoot(last && context && project ? { userId: last.userId, userLabel: context.userLabel, project } : "EMPTY");
+        if (!cancelled) setBoot(last && context && project ? { userId: last.userId, userLabel: context.userLabel, project, projects: context.projects } : "EMPTY");
       } catch {
         if (!cancelled) setBoot("EMPTY");
       }
@@ -47,10 +47,10 @@ export function SsmaOfflineShell() {
       </div>
     );
   }
-  return <OfflineApp userId={boot.userId} userLabel={boot.userLabel} project={boot.project} />;
+  return <OfflineApp userId={boot.userId} userLabel={boot.userLabel} project={boot.project} projects={boot.projects} />;
 }
 
-function OfflineApp(props: { userId: string; userLabel: string; project: FieldProject }) {
+function OfflineApp(props: { userId: string; userLabel: string; project: FieldProject; projects: FieldProject[] }) {
   const queue = useFieldQueue(props.userId);
   return <FieldRecordsApp queue={queue} offlineShell {...props} />;
 }

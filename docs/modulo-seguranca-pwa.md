@@ -152,3 +152,21 @@ sincronização exibem este mesmo resumo (`components/ssma/ssma-offline-capabili
 - Estratégia de versionamento/atualização do service worker em produção (hoje: `VERSION` em `public/sw.js`).
 - Identificação do dispositivo e política para aparelhos compartilhados em obra (hoje: isolamento por conta).
 - Fila offline para andamento/conclusão de ações; cache de leitura dos registros da obra.
+
+## Indicadores do Dashboard (duas trilhas, sem dupla contagem)
+
+O painel "SSMA / ESG — Segurança" lê **campos estruturados**: acidentes do formulário `ocorrencia-acidente`
+(campo `afastamento`), registros de campo (trilha B) e ações corretivas. Cada número vem com **origem** (nº de
+formulários e de registros de campo) e **período** (primeiro e último fato). Um acidente do formulário e uma
+ocorrência de campo até 24 h um do outro são apenas **possível duplicidade** (sugestão); **só a decisão humana do
+Administrador** ("mesmo fato", vínculo explícito 1:1 e auditado) desconta um relato do total — dois acidentes distintos
+no mesmo intervalo contam 2. **Quase-acidentes** = categoria estruturada "Quase-acidente" dos registros de campo,
+com origem e período. **Zero registrado (0) ≠ ausência de dados (—)**. Detalhes e limite da regra: `docs/ssma-esg-fechamento-2026-11-06.md`.
+
+## Ação corretiva ↔ Ações e Escalonamentos, avisos e perfis ESG (migration pendente)
+
+Ver `docs/ssma-esg-migration-20261106100000.md` (SQL, pré-condições, fonte oficial por campo, ordem de aplicação,
+reversão) e `docs/ssma-esg-fechamento-2026-11-06.md` (decisões × implementação, lacunas e critérios de encerramento).
+Notificações: `apps/web/lib/ssma/field-notifications/` — dedupe por (registro, evento, dia/prazo, destinatário),
+claim atômico, falha com nova tentativa (até 5), ausência de destinatário registrada e visível, travas do piloto no provedor.
+Teste em aparelho real: `docs/ssma-roteiro-aparelho-real.md` (**pendente**).

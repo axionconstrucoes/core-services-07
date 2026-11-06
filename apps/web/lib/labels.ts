@@ -327,6 +327,7 @@ export const slaActionOriginLabels: Record<SlaActionOrigin, string> = {
   EVENT: "Evento do Ledger",
   ACTION_REQUEST: "Solicitação (ActionRequest)",
   AI_FINDING: "Rejeição de recomendação/finding de IA",
+  SSMA_CORRECTIVE_ACTION: "Ação corretiva SSMA (registro de campo)",
   OTHER: "Outra",
 };
 

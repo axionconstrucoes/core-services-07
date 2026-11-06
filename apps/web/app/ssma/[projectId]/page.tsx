@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@axion/db/server";
 import { SsmaFieldApp } from "@/components/ssma/ssma-field-app";
-import { getProject, getProjectMembers } from "@/lib/data";
+import { getProject, getProjectMembers, getProjects } from "@/lib/data";
 import { buildEsgSsmaProjectFolderName } from "@/lib/integrations/esg-ssma/drive-source-policy";
 
 export const metadata: Metadata = { title: "Aplicativo SSMA/ESG" };
@@ -55,10 +55,36 @@ export default async function SsmaAppPage({ params }: { params: Promise<{ projec
     .filter((member) => member.status === "ACTIVE" && member.permission !== "LEITURA")
     .map((member) => ({ userId: member.userId, name: member.user.name }));
 
+  // Obras em que o usuário pode registrar (membro ATIVO que não é somente leitura) + a atual. É a lista do
+  // campo "Obra"; nunca se aceita obra fora dela (o servidor revalida na gravação e na sincronização).
+  const currentProject = { id: projectId, label, canManage, isAdmin: currentMember.permission === "ADMINISTRADOR", canRegisterEsg: currentMember.permission !== "LEITURA", members: assignable };
+  const { data: memberships } = await supabase
+    .from("project_memberships")
+    .select("project_id, permission")
+    .eq("user_id", authData.user.id)
+    .eq("status", "ACTIVE");
+  const registrableIds = new Set((memberships ?? []).filter((row) => row.permission !== "LEITURA").map((row) => row.project_id as string));
+  const others = (await getProjects()).filter((candidate) => candidate.workspaceType === "OBRA" && candidate.id !== projectId && registrableIds.has(candidate.id));
+  const otherProjects = await Promise.all(
+    others.map(async (candidate) => {
+      const candidateMembers = await getProjectMembers(candidate.id);
+      const mine = candidateMembers.find((member) => member.userId === authData.user.id);
+      return {
+        id: candidate.id,
+        label: projectLabel(candidate),
+        canManage: !!mine && ["ADMINISTRADOR", "GERENTE", "GESTOR"].includes(mine.permission),
+        isAdmin: mine?.permission === "ADMINISTRADOR",
+        canRegisterEsg: !!mine && mine.permission !== "LEITURA",
+        members: candidateMembers.filter((member) => member.status === "ACTIVE" && member.permission !== "LEITURA").map((member) => ({ userId: member.userId, name: member.user.name })),
+      };
+    })
+  );
+
   return (
     <SsmaFieldApp
       userId={authData.user.id}
-      project={{ id: projectId, label, canManage, members: assignable }}
+      project={currentProject}
+      projects={[currentProject, ...otherProjects]}
       projectId={projectId}
       projectLabel={projectLabel(project)}
       technicianLabel={technicianLabel}

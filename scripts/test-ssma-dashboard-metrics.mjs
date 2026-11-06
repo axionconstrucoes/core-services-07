@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { register } from "node:module";
 
 register("./ts-module-resolver.mjs", import.meta.url);
-const { computeSsmaDashboardMetrics } = await import("../apps/web/lib/ssma/dashboard-metrics.ts");
+const { computeSsmaDashboardMetrics, findPossibleDuplicates } = await import("../apps/web/lib/ssma/dashboard-metrics.ts");
 
 let passed = 0;
 let failed = 0;
@@ -61,6 +61,73 @@ check("ações corretivas: abertas, em atraso (prazo < hoje) e críticas em aber
   ];
   const m = computeSsmaDashboardMetrics({ forms: [], fieldRecords: records, today: TODAY });
   assert.deepEqual([m.openCorrectiveActions, m.overdueCorrectiveActions, m.criticalOpen], [2, 1, 1]);
+});
+const fid = (n, slug = "ocorrencia-acidente", af = "Sem afastamento", at = "2026-10-20T12:00:00Z") => ({ id: `f${n}`, checklist_slug: slug, occurred_at: at, field_values: { afastamento: af } });
+const rid = (n, over = {}) => rec({ id: `r${n}`, kind: "OCORRENCIA", ...over });
+check("proximidade (até 24 h) é só SUGESTÃO: NADA é descontado, o total conta os dois e a possível duplicidade é informada", () => {
+  const m = computeSsmaDashboardMetrics({ forms: [fid(1)], fieldRecords: [rid(1, { occurred_at: "2026-10-20T15:00:00Z" })], today: TODAY });
+  assert.equal(m.occurrences, 2, "sem vínculo humano, 2 relatos = 2");
+  assert.deepEqual(m.occurrenceSources, { forms: 1, fieldRecords: 1, confirmedSameFact: 0, possibleDuplicates: 1 });
+  const sug = findPossibleDuplicates({ forms: [fid(1)], fieldRecords: [rid(1, { occurred_at: "2026-10-20T15:00:00Z" })] });
+  assert.deepEqual(sug.map((p) => [p.formSubmissionId, p.fieldRecordId, p.gapMinutes]), [["f1", "r1", 180]]);
+});
+check("DOIS ACIDENTES DISTINTOS no mesmo intervalo: contam 2 (sem vínculo explícito nada é descontado)", () => {
+  const forms = [fid(1, "ocorrencia-acidente", "Com afastamento", "2026-10-20T12:00:00Z"), fid(2, "ocorrencia-acidente", "Sem afastamento", "2026-10-20T18:00:00Z")];
+  const m = computeSsmaDashboardMetrics({ forms, fieldRecords: [], today: TODAY });
+  assert.deepEqual([m.occurrences, m.accidentsWithLeave, m.accidentsWithoutLeave, m.occurrenceSources.possibleDuplicates], [2, 1, 1, 0]);
+  const withField = computeSsmaDashboardMetrics({ forms, fieldRecords: [rid(1, { occurred_at: "2026-10-20T13:00:00Z" })], today: TODAY });
+  assert.equal(withField.occurrences, 3, "dois acidentes + uma ocorrência de campo = 3 até alguém confirmar");
+});
+check("vínculo EXPLÍCITO confirmado (SAME_FACT) desconta exatamente um relato; os registros originais permanecem", () => {
+  const forms = [fid(1)], records = [rid(1, { occurred_at: "2026-10-20T15:00:00Z" })];
+  const m = computeSsmaDashboardMetrics({ forms, fieldRecords: records, links: [{ form_submission_id: "f1", field_record_id: "r1", decision: "SAME_FACT" }], today: TODAY });
+  assert.deepEqual([m.occurrences, m.occurrenceSources.confirmedSameFact, m.occurrenceSources.possibleDuplicates, m.sources], [1, 1, 0, { forms: 1, fieldRecords: 1 }]);
+  assert.equal(findPossibleDuplicates({ forms, fieldRecords: records, links: [{ form_submission_id: "f1", field_record_id: "r1", decision: "SAME_FACT" }] }).length, 0);
+});
+check("decisão DISTINCT_FACTS: continua contando 2 e para de sugerir; vínculo para registro inexistente/de outro tipo não desconta; 1:1", () => {
+  const forms = [fid(1)], records = [rid(1, { occurred_at: "2026-10-20T15:00:00Z" })];
+  const distinct = computeSsmaDashboardMetrics({ forms, fieldRecords: records, links: [{ form_submission_id: "f1", field_record_id: "r1", decision: "DISTINCT_FACTS" }], today: TODAY });
+  assert.deepEqual([distinct.occurrences, distinct.occurrenceSources.possibleDuplicates], [2, 0]);
+  const ghost = computeSsmaDashboardMetrics({ forms, fieldRecords: records, links: [{ form_submission_id: "f1", field_record_id: "naoexiste", decision: "SAME_FACT" }, { form_submission_id: "fx", field_record_id: "r1", decision: "SAME_FACT" }], today: TODAY });
+  assert.equal(ghost.occurrences, 2, "vínculo órfão não desconta");
+  const insp = computeSsmaDashboardMetrics({ forms, fieldRecords: [rec({ id: "i1", kind: "INSPECAO", occurred_at: "2026-10-20T13:00:00Z" })], links: [{ form_submission_id: "f1", field_record_id: "i1", decision: "SAME_FACT" }], today: TODAY });
+  assert.equal(insp.occurrences, 1, "inspeção não é ocorrência: vínculo ignorado");
+  const dupLink = computeSsmaDashboardMetrics({ forms: [fid(1), fid(2, "ocorrencia-acidente", "Sem afastamento", "2026-10-20T13:00:00Z")], fieldRecords: records, links: [{ form_submission_id: "f1", field_record_id: "r1", decision: "SAME_FACT" }, { form_submission_id: "f2", field_record_id: "r1", decision: "SAME_FACT" }], today: TODAY });
+  assert.equal(dupLink.occurrenceSources.confirmedSameFact, 1, "o mesmo registro de campo não é descontado duas vezes");
+});
+check("sugestões: 1 para 1 (mais próximo primeiro), fora de 24 h não sugere, sem id não sugere; links ausentes (tabela indisponível) não descontam", () => {
+  const forms = [fid(1, "ocorrencia-acidente", "Sem afastamento", "2026-10-20T12:00:00Z"), fid(2, "ocorrencia-acidente", "Sem afastamento", "2026-10-20T20:00:00Z")];
+  const records = [rid(1, { occurred_at: "2026-10-20T19:00:00Z" }), rid(2, { occurred_at: "2026-10-22T12:00:00Z" })];
+  const sug = findPossibleDuplicates({ forms, fieldRecords: records });
+  assert.deepEqual(sug.map((p) => `${p.formSubmissionId}-${p.fieldRecordId}`), ["f2-r1"], "só o par mais próximo e dentro de 24 h");
+  assert.equal(computeSsmaDashboardMetrics({ forms, fieldRecords: records, today: TODAY }).occurrences, 4);
+  assert.equal(findPossibleDuplicates({ forms: [{ checklist_slug: "ocorrencia-acidente", occurred_at: "2026-10-20T12:00:00Z", field_values: {} }], fieldRecords: records }).length, 0);
+});
+check("quase-acidente: categoria ESTRUTURADA 'Quase-acidente', com origem e período próprios; zero ≠ sem dado; só trilha B", () => {
+  const records = [rec({ id: "q1", category: "Quase-acidente", occurred_at: "2026-10-10T10:00:00Z" }), rec({ id: "q2", category: "Quase-acidente", kind: "OCORRENCIA", occurred_at: "2026-10-25T10:00:00Z" }), rec({ id: "x", category: "EPI" }), rec({ id: "y", category: "quase acidente" })];
+  const m = computeSsmaDashboardMetrics({ forms: [fid(1, "riscos-apontados")], fieldRecords: records, today: TODAY });
+  assert.equal(m.nearMisses, 2, "só a categoria exata da lista fechada");
+  assert.deepEqual(m.nearMissSource, { fieldRecords: 2, forms: 0, period: { firstAt: "2026-10-10T10:00:00.000Z", lastAt: "2026-10-25T10:00:00.000Z" } });
+  const none = computeSsmaDashboardMetrics({ forms: [], fieldRecords: [rec({ category: "EPI" })], today: TODAY });
+  assert.deepEqual([none.nearMisses, none.nearMissSource], [0, { fieldRecords: 0, forms: 0, period: null }], "zero registrado (há dados), sem período");
+  const empty = computeSsmaDashboardMetrics({ forms: [], fieldRecords: [], today: TODAY });
+  assert.deepEqual([empty.nearMisses, empty.nearMissSource], [null, null], "sem dado");
+});
+check("quase-acidente na trilha A: formulário 'Riscos apontados' com classificação estruturada; antigos sem classificação não são reclassificados", () => {
+  const mk = (n, cls, slug = "riscos-apontados") => ({ id: `fq${n}`, checklist_slug: slug, occurred_at: `2026-10-0${n}T10:00:00Z`, field_values: cls === undefined ? { local: "x" } : { classificacao: cls } });
+  const forms = [mk(1, "Quase-acidente"), mk(2, "Condição insegura"), mk(3, undefined), mk(4, "Quase-acidente", "limpeza")];
+  const m = computeSsmaDashboardMetrics({ forms, fieldRecords: [rec({ id: "q1", category: "Quase-acidente", occurred_at: "2026-10-09T10:00:00Z" })], today: TODAY });
+  assert.equal(m.nearMisses, 2, "1 de formulário + 1 de campo; sem classificação (antigo), outra classificação ou outro formulário não contam");
+  assert.deepEqual(m.nearMissSource, { fieldRecords: 1, forms: 1, period: { firstAt: "2026-10-01T10:00:00.000Z", lastAt: "2026-10-09T10:00:00.000Z" } });
+  const onlyForm = computeSsmaDashboardMetrics({ forms: [mk(1, "Quase-acidente")], fieldRecords: [], today: TODAY });
+  assert.equal(onlyForm.nearMisses, 1);
+  assert.equal(onlyForm.occurrences, 0, "quase-acidente não é acidente nem ocorrência");
+});
+check("período dos dados identificado (primeiro e último fato); inspeção não conta como ocorrência", () => {
+  const m = computeSsmaDashboardMetrics({ forms: [fid(1)], fieldRecords: [rec({ kind: "INSPECAO", occurred_at: "2026-10-20T13:00:00Z" })], today: TODAY });
+  assert.equal(m.occurrences, 1);
+  assert.deepEqual(m.period, { firstAt: "2026-10-20T12:00:00.000Z", lastAt: "2026-10-20T13:00:00.000Z" });
+  assert.equal(computeSsmaDashboardMetrics({ forms: [], fieldRecords: [], today: TODAY }).period, null);
 });
 check("o Dashboard usa o módulo estruturado e não a heurística por regex de texto livre", () => {
   const page = readFileSync(new URL("../apps/web/app/[projectId]/dashboard/page.tsx", import.meta.url), "utf8");
