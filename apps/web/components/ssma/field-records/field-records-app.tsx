@@ -7,6 +7,7 @@ import { SsmaBottomNav, SsmaHeader, type SsmaTab } from "@/components/ssma/ssma-
 import { NewRecordForm } from "@/components/ssma/field-records/new-record-form";
 import { RecordDetail } from "@/components/ssma/field-records/record-detail";
 import { SsmaOfflineCapabilities } from "@/components/ssma/ssma-offline-capabilities";
+import { filterRecords } from "@/lib/ssma/field-records/filters";
 import type { OfflineContext } from "@/lib/ssma/field-records/idb-store";
 import { isActionOverdue, mapFieldRecordRow, type FieldRecordRow, type FieldRecordView } from "@/lib/ssma/field-records/field-record-view";
 import type { useFieldQueue } from "@/lib/ssma/field-records/use-field-queue";
@@ -58,6 +59,7 @@ export function FieldRecordsApp({
   userId,
   userLabel,
   project,
+  projects: authorizedProjects,
   offlineShell = false,
   initialTab = "registros",
   onHome,
@@ -69,6 +71,8 @@ export function FieldRecordsApp({
   userId: string;
   userLabel: string;
   project: FieldProject;
+  /** Obras em que o usuário pode registrar (padrão: só a atual). */
+  projects?: FieldProject[];
   /** true quando aberto pela casca offline (dados vêm do aparelho, não do servidor). */
   offlineShell?: boolean;
   initialTab?: SsmaTab;
@@ -133,17 +137,20 @@ export function FieldRecordsApp({
     return () => window.clearTimeout(timer);
   }, [loadServer, offlineShell, syncedCount, online]);
 
-  const filteredServer = serverRecords.filter((r) =>
-    (!fCategory || r.category === fCategory) && (!fKind || r.kind === fKind) && (!fRisk || r.risk === fRisk) &&
-    (!fFrom || r.occurredAt.slice(0, 10) >= fFrom) && (!fTo || r.occurredAt.slice(0, 10) <= fTo));
-  const projectItems = queue.items.filter((item) => item.projectId === project.id);
+  const filteredServer = filterRecords(serverRecords, { category: fCategory, kind: fKind, risk: fRisk, from: fFrom, to: fTo });
+  const registrable = authorizedProjects && authorizedProjects.length > 0 ? authorizedProjects : [project];
+  const labelOf = (id: string) => registrable.find((entry) => entry.id === id)?.label ?? "outra obra";
+  // Pendentes no aparelho de QUALQUER obra do usuário: a obra escolhida no registro é a que vale (não a da navegação).
+  const projectItems = queue.items;
   const serverIds = new Set(serverRecords.map((record) => record.id));
   // O que já está no servidor aparece pela versão do servidor; a fila mostra só o que ainda não está.
   const localOnly = projectItems.filter((item) => !(item.status === "SYNCED" && serverIds.has(item.clientId)));
   const pending = queue.items.filter((item) => item.status !== "SYNCED");
 
-  async function handleSave(draft: Parameters<typeof queue.save>[1], photos: Parameters<typeof queue.save>[2]) {
-    await queue.save(project.id, draft, photos);
+  async function handleSave(chosenProjectId: string, draft: Parameters<typeof queue.save>[1], photos: Parameters<typeof queue.save>[2]) {
+    // Segunda barreira local: só obras autorizadas; o servidor revalida na sincronização.
+    if (!registrable.some((entry) => entry.id === chosenProjectId)) throw new Error("Obra não autorizada para este usuário.");
+    await queue.save(chosenProjectId, draft, photos);
     setCreating(false);
     setTab("registros");
   }
@@ -164,7 +171,7 @@ export function FieldRecordsApp({
       {queue.message ? <p role="status" className="bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-800">{queue.message}</p> : null}
 
       {creating ? (
-        <NewRecordForm members={project.members} online={online} onSave={handleSave} onCancel={() => setCreating(false)} />
+        <NewRecordForm projects={registrable} contextProjectId={project.id} online={online} onSave={handleSave} onCancel={() => setCreating(false)} />
       ) : selected ? (
         <RecordDetail record={selected} notice={describeNotification(notifications.get(selected.id) ?? [])} userId={userId} projectId={project.id} canManage={project.canManage} online={online} names={names} onChanged={() => void loadServer()} />
       ) : tab === "sync" ? (
@@ -184,7 +191,7 @@ export function FieldRecordsApp({
           {localOnly.length > 0 ? (
             <section aria-label="Neste aparelho" className="space-y-2">
               <h2 className="text-xs font-bold uppercase text-slate-600">Neste aparelho</h2>
-              {localOnly.map((item) => <LocalRow key={item.clientId} item={item} />)}
+              {localOnly.map((item) => <LocalRow key={item.clientId} item={item} projectLabel={item.projectId !== project.id ? labelOf(item.projectId) : null} />)}
             </section>
           ) : null}
 
@@ -247,7 +254,7 @@ export function FieldRecordsApp({
   );
 }
 
-function LocalRow({ item }: { item: QueuedRecord }) {
+function LocalRow({ item, projectLabel }: { item: QueuedRecord; projectLabel?: string | null }) {
   return (
     <article className="rounded-xl bg-white p-3 shadow-sm">
       <div className="flex items-start justify-between gap-2">
@@ -257,7 +264,7 @@ function LocalRow({ item }: { item: QueuedRecord }) {
       <p className="mt-1 line-clamp-2 text-sm text-slate-700">{item.draft.description}</p>
       <p className="mt-1 text-xs text-slate-500">
         <span className={cn("mr-1 inline-block size-2 rounded-full", RISK_DOT[item.draft.risk])} />
-        Risco {RISK_LABELS[item.draft.risk]} · criado em {dateTime(item.clientCreatedAt)} · {item.photos.length} foto(s)
+        Risco {RISK_LABELS[item.draft.risk]} · criado em {dateTime(item.clientCreatedAt)} · {item.photos.length} foto(s){projectLabel ? ` · Obra: ${projectLabel}` : ""}
       </p>
       <PhotoStates item={item} />
       {item.lastError ? <p role="alert" className="mt-1 text-xs font-bold text-red-700">{item.lastError}</p> : null}

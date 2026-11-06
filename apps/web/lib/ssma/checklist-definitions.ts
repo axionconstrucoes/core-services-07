@@ -144,6 +144,13 @@ export const SSMA_CHECKLISTS: readonly SsmaChecklistDefinition[] = [
     shortTitle: "Riscos apontados",
     driveFolder: "09 - RISCOS APONTADOS",
     fields: [
+      {
+        id: "classificacao",
+        label: "Classificação",
+        type: "select",
+        options: ["Condição insegura", "Ato inseguro", "Quase-acidente", "Outra"],
+        required: true,
+      },
       { id: "local", label: "Local do risco", type: "text", placeholder: "Informe o local" },
       { id: "descricao", label: "Descrição do risco", type: "textarea", placeholder: "Descreva o risco" },
       { id: "acao", label: "Ação imediata adotada", type: "textarea", placeholder: "Informe a ação adotada" },

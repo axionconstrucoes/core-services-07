@@ -15,6 +15,7 @@ import {
   extractServerErrorCode,
   messageForServerError,
 } from "@/lib/ssma/field-records/types";
+import { EsgEvidenceLink } from "@/components/ssma/field-records/esg-evidence-link";
 import { RecordConsult } from "@/components/ssma/field-records/record-consult";
 import { cn } from "@/lib/utils";
 
@@ -223,6 +224,8 @@ export function RecordDetail({
       ) : (
         <p className="rounded-xl bg-white p-4 text-sm text-slate-600 shadow-sm">Este registro não tem ação corretiva.</p>
       )}
+
+      <EsgEvidenceLink projectId={projectId} recordId={record.id} userId={userId} isAdmin={canManage} online={online} />
 
       <RecordConsult projectId={projectId} recordId={record.id} online={online} />
     </article>

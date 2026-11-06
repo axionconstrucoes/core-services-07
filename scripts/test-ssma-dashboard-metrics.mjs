@@ -107,11 +107,21 @@ check("quase-acidente: categoria ESTRUTURADA 'Quase-acidente', com origem e per�
   const records = [rec({ id: "q1", category: "Quase-acidente", occurred_at: "2026-10-10T10:00:00Z" }), rec({ id: "q2", category: "Quase-acidente", kind: "OCORRENCIA", occurred_at: "2026-10-25T10:00:00Z" }), rec({ id: "x", category: "EPI" }), rec({ id: "y", category: "quase acidente" })];
   const m = computeSsmaDashboardMetrics({ forms: [fid(1, "riscos-apontados")], fieldRecords: records, today: TODAY });
   assert.equal(m.nearMisses, 2, "só a categoria exata da lista fechada");
-  assert.deepEqual(m.nearMissSource, { fieldRecords: 2, period: { firstAt: "2026-10-10T10:00:00.000Z", lastAt: "2026-10-25T10:00:00.000Z" } });
+  assert.deepEqual(m.nearMissSource, { fieldRecords: 2, forms: 0, period: { firstAt: "2026-10-10T10:00:00.000Z", lastAt: "2026-10-25T10:00:00.000Z" } });
   const none = computeSsmaDashboardMetrics({ forms: [], fieldRecords: [rec({ category: "EPI" })], today: TODAY });
-  assert.deepEqual([none.nearMisses, none.nearMissSource], [0, { fieldRecords: 0, period: null }], "zero registrado (há dados), sem período");
+  assert.deepEqual([none.nearMisses, none.nearMissSource], [0, { fieldRecords: 0, forms: 0, period: null }], "zero registrado (há dados), sem período");
   const empty = computeSsmaDashboardMetrics({ forms: [], fieldRecords: [], today: TODAY });
   assert.deepEqual([empty.nearMisses, empty.nearMissSource], [null, null], "sem dado");
+});
+check("quase-acidente na trilha A: formulário 'Riscos apontados' com classificação estruturada; antigos sem classificação não são reclassificados", () => {
+  const mk = (n, cls, slug = "riscos-apontados") => ({ id: `fq${n}`, checklist_slug: slug, occurred_at: `2026-10-0${n}T10:00:00Z`, field_values: cls === undefined ? { local: "x" } : { classificacao: cls } });
+  const forms = [mk(1, "Quase-acidente"), mk(2, "Condição insegura"), mk(3, undefined), mk(4, "Quase-acidente", "limpeza")];
+  const m = computeSsmaDashboardMetrics({ forms, fieldRecords: [rec({ id: "q1", category: "Quase-acidente", occurred_at: "2026-10-09T10:00:00Z" })], today: TODAY });
+  assert.equal(m.nearMisses, 2, "1 de formulário + 1 de campo; sem classificação (antigo), outra classificação ou outro formulário não contam");
+  assert.deepEqual(m.nearMissSource, { fieldRecords: 1, forms: 1, period: { firstAt: "2026-10-01T10:00:00.000Z", lastAt: "2026-10-09T10:00:00.000Z" } });
+  const onlyForm = computeSsmaDashboardMetrics({ forms: [mk(1, "Quase-acidente")], fieldRecords: [], today: TODAY });
+  assert.equal(onlyForm.nearMisses, 1);
+  assert.equal(onlyForm.occurrences, 0, "quase-acidente não é acidente nem ocorrência");
 });
 check("período dos dados identificado (primeiro e último fato); inspeção não conta como ocorrência", () => {
   const m = computeSsmaDashboardMetrics({ forms: [fid(1)], fieldRecords: [rec({ kind: "INSPECAO", occurred_at: "2026-10-20T13:00:00Z" })], today: TODAY });

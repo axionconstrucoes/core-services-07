@@ -31,6 +31,8 @@ import {
 import { computeFileSha256Hex } from "@/lib/documents/multi-upload/sha256";
 import { sanitizeFileName } from "@/lib/documents/multi-upload/queue-core";
 import { cn } from "@/lib/utils";
+import { ProjectSelect } from "@/components/ssma/project-select";
+import { isAuthorizedProject, resolveInitialProject } from "@/lib/ssma/project-selection";
 
 type SsmaFieldAppProps = {
   projectId: string;
@@ -44,6 +46,8 @@ type SsmaFieldAppRootProps = SsmaFieldAppProps & {
   userId: string;
   /** Obra autorizada, com os membros ativos (para escolher responsável) e a permissão de gestão. */
   project: FieldProject;
+  /** Obras em que o usuário pode registrar (inclui a atual). Editável no campo "Obra". */
+  projects: FieldProject[];
 };
 
 type CheckState = Record<string, SsmaChecklistState | undefined>;
@@ -216,18 +220,24 @@ function PhotoUploadPanel({
   );
 }
 
-function SavedContext({ projectLabel, technicianLabel, initialDateTime }: SsmaFieldAppProps) {
+function SavedContext({
+  projects,
+  projectId,
+  onProjectChange,
+  disabled,
+  technicianLabel,
+  initialDateTime,
+}: {
+  projects: FieldProject[];
+  projectId: string | null;
+  onProjectChange: (id: string) => void;
+  disabled?: boolean;
+  technicianLabel: string;
+  initialDateTime: string;
+}) {
   return (
     <section className="space-y-3">
-      <label className="block text-sm font-bold text-slate-900">
-        Obra / Local de trabalho
-        <span className="mt-1 block rounded-lg border-2 border-slate-400 bg-white px-3 py-3 text-base font-semibold text-slate-900">
-          {projectLabel}
-        </span>
-      </label>
-      <p className="flex items-center gap-2 text-xs font-semibold text-green-700">
-        <CheckCircle2 className="size-5 fill-green-700 text-white" /> Obra salva para os próximos envios
-      </p>
+      <ProjectSelect projects={projects} value={projectId} onChange={onProjectChange} disabled={disabled} />
       <label className="block text-sm font-bold text-slate-900">
         Técnico responsável
         <span className="mt-1 block rounded-lg border-2 border-slate-300 bg-slate-50 px-3 py-3 text-base font-semibold text-slate-900">
@@ -277,17 +287,20 @@ function DynamicField({ field }: { field: SsmaFieldDefinition }) {
 
 function ChecklistForm({
   definition,
-  projectId,
-  projectLabel,
+  projectId: contextProjectId,
+  projects,
   technicianLabel,
   initialDateTime,
   onBack,
   onComplete,
-}: SsmaFieldAppProps & {
+}: Omit<SsmaFieldAppProps, "projectLabel"> & {
+  projects: FieldProject[];
   definition: SsmaChecklistDefinition;
   onBack: () => void;
   onComplete: (slug: string) => void;
 }) {
+  // Obra: a atual quando há contexto; a única autorizada quando só há uma; senão exige escolha.
+  const [projectId, setProjectId] = useState<string | null>(() => resolveInitialProject(projects, contextProjectId).projectId);
   const [checks, setChecks] = useState<CheckState>({});
   const [risk, setRisk] = useState<string>("BAIXA");
   const [photos, setPhotos] = useState<SelectedPhoto[]>([]);
@@ -313,6 +326,10 @@ function ChecklistForm({
         onSubmit={async (event) => {
           event.preventDefault();
           if (!allChecksAnswered || !allRequiredPhotosSelected || submitting) return;
+          if (!isAuthorizedProject(projects, projectId)) {
+            setSubmitError("Selecione uma obra em que você está autorizado a registrar.");
+            return;
+          }
 
           const formData = new FormData(event.currentTarget);
           const occurredAtValue = String(formData.get("occurredAt") ?? "");
@@ -431,7 +448,7 @@ function ChecklistForm({
           </p>
         ) : null}
 
-        <SavedContext projectId={projectId} projectLabel={projectLabel} technicianLabel={technicianLabel} initialDateTime={initialDateTime} />
+        <SavedContext projects={projects} projectId={projectId} onProjectChange={setProjectId} disabled={submitting} technicianLabel={technicianLabel} initialDateTime={initialDateTime} />
 
         <div className="h-px bg-slate-300" />
 
@@ -513,7 +530,7 @@ function ChecklistForm({
 
         <button
           type="submit"
-          disabled={!allChecksAnswered || !allRequiredPhotosSelected || submitting}
+          disabled={!allChecksAnswered || !allRequiredPhotosSelected || submitting || !isAuthorizedProject(projects, projectId)}
           className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-[#7f1d1d] px-4 text-base font-bold uppercase text-white disabled:cursor-not-allowed disabled:opacity-40"
         >
           <Send className="size-6" /> {submitting ? "Enviando…" : "Enviar dados"}
@@ -527,7 +544,7 @@ function ChecklistForm({
   );
 }
 
-export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initialDateTime, userId, project }: SsmaFieldAppRootProps) {
+export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initialDateTime, userId, project, projects }: SsmaFieldAppRootProps) {
   const router = useRouter();
   const queue = useFieldQueue(userId);
   const [view, setView] = useState<"home" | "field">("home");
@@ -537,8 +554,10 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
 
   // Guarda, neste aparelho e para esta conta, o mínimo para abrir o formulário sem rede.
   useEffect(() => {
-    if (ready) void rememberContext(technicianLabel, project);
-  }, [ready, rememberContext, technicianLabel, project]);
+    if (!ready) return;
+    for (const entry of projects) if (entry.id !== project.id) void rememberContext(technicianLabel, entry);
+    void rememberContext(technicianLabel, project);
+  }, [ready, rememberContext, technicianLabel, project, projects]);
 
   const signOut = async () => {
     await createSupabaseBrowserClient().auth.signOut();
@@ -559,6 +578,7 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
         userId={userId}
         userLabel={technicianLabel}
         project={project}
+        projects={projects}
         initialTab={fieldTab}
         onHome={() => setView("home")}
         onSignOut={signOut}
@@ -571,7 +591,7 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
       <ChecklistForm
         definition={active}
         projectId={projectId}
-        projectLabel={projectLabel}
+        projects={projects}
         technicianLabel={technicianLabel}
         initialDateTime={initialDateTime}
         onBack={() => setActiveSlug(null)}

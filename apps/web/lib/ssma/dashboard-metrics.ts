@@ -20,6 +20,9 @@ export const WITH_LEAVE = "Com afastamento";
 export const WITHOUT_LEAVE = "Sem afastamento";
 /** Categoria estruturada (lista fechada de FIELD_RECORD_CATEGORIES) que define quase-acidente. */
 export const NEAR_MISS_CATEGORY = "Quase-acidente";
+/** Formulários (trilha A) com o campo estruturado de classificação: slug "riscos-apontados", campo `classificacao`. */
+export const FORM_CLASSIFICATION_FIELD_ID = "classificacao";
+export const FORM_NEAR_MISS_SLUGS: readonly string[] = ["riscos-apontados"];
 
 /** Dois relatos feitos até 24 h um do outro são SUGERIDOS como possível mesmo fato (nunca descontados sozinhos). */
 export const POSSIBLE_DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -60,9 +63,13 @@ export interface SsmaDashboardMetrics {
   accidentsUnclassified: number | null;
   /** Ocorrências de segurança = acidentes (trilha A) + registros de campo OCORRÊNCIA (trilha B) − vínculos CONFIRMADOS. */
   occurrences: number | null;
-  /** Quase-acidentes = registros de campo com a categoria estruturada "Quase-acidente"; origem e período próprios. */
+  /**
+   * Quase-acidentes = registros de campo com a categoria estruturada "Quase-acidente" + formulários "Riscos apontados" com
+   * classificação "Quase-acidente"; origem (por trilha) e período próprios. Registros antigos sem classificação NÃO entram.
+   * Atenção: o mesmo fato registrado nas duas trilhas não é descontado (não há vínculo para quase-acidente).
+   */
   nearMisses: number | null;
-  nearMissSource: { fieldRecords: number; period: { firstAt: string; lastAt: string } | null } | null;
+  nearMissSource: { fieldRecords: number; forms: number; period: { firstAt: string; lastAt: string } | null } | null;
   /** Dias desde o último acidente registrado; null se nunca houve acidente registrado (não há base para contar). */
   daysWithoutAccident: number | null;
   /** Ações corretivas ainda não concluídas / em atraso / registros críticos em aberto (trilha B). */
@@ -175,6 +182,13 @@ export function computeSsmaDashboardMetrics(input: {
     .filter((value): value is string => Boolean(value))
     .map((value) => new Date(value).getTime());
   const nearMissRows = fieldRecords.filter((row) => row.category === NEAR_MISS_CATEGORY);
+  const nearMissForms = forms.filter(
+    (row) => row.checklist_slug && FORM_NEAR_MISS_SLUGS.includes(row.checklist_slug) && String(row.field_values?.[FORM_CLASSIFICATION_FIELD_ID] ?? "").trim() === NEAR_MISS_CATEGORY
+  );
+  const nearMissTimes = [
+    ...nearMissRows.map((row) => new Date(row.occurred_at).getTime()),
+    ...nearMissForms.map((row) => (row.occurred_at ? new Date(row.occurred_at).getTime() : Number.NaN)),
+  ];
 
   return {
     hasData: true,
@@ -185,8 +199,8 @@ export function computeSsmaDashboardMetrics(input: {
     accidentsWithoutLeave: withoutLeave,
     accidentsUnclassified: accidents.length - withLeave - withoutLeave,
     occurrences: accidents.length + fieldOccurrenceViews.length - confirmedSameFact,
-    nearMisses: nearMissRows.length,
-    nearMissSource: { fieldRecords: nearMissRows.length, period: span(nearMissRows.map((row) => new Date(row.occurred_at).getTime())) },
+    nearMisses: nearMissRows.length + nearMissForms.length,
+    nearMissSource: { fieldRecords: nearMissRows.length, forms: nearMissForms.length, period: span(nearMissTimes) },
     daysWithoutAccident: latestAccidentDay === undefined ? null : Math.max(0, todayDay - latestAccidentDay),
     openCorrectiveActions: summary.openActions,
     overdueCorrectiveActions: summary.overdueActions,

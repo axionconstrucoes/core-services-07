@@ -1641,6 +1641,13 @@ Conteúdo, identidades, escopo e limites dos especialistas: ver CAP69 cap. 8 (n�
 
 ---
 
+#### 4.29.1 Campo "Obra", quase-acidente e evidência ESG (comportamento implementado)
+
+- **Campo Obra** (formulários da trilha A e novo registro de campo): dentro de `/ssma/{obra}` vem preenchido com a obra atual; fora de uma obra, quem tem **um só** projeto ativo cai direto nele; com vários projetos o seletor de `/ssma` pede a escolha. O campo continua **editável**, mas só lista obras em que o usuário é membro ativo e **não** é somente leitura — não aceita texto livre. Trocar a obra limpa só o que depende dela (responsável e prazo da ação corretiva, se o responsável não for membro da nova obra); descrição, local, categoria, risco e fotos são mantidos. O registro pendente no aparelho **guarda a obra escolhida** e é enviado a ela, mesmo que você navegue para outra obra depois (a lista mostra "Obra: …" quando é diferente da atual). O servidor revalida a autorização na gravação e na sincronização; sem autorização o envio fica "Falhou" com o motivo e **nunca** é redirecionado a outra obra.
+- **Quase-acidente:** trilha B = categoria "Quase-acidente" (lista fechada); trilha A = formulário **Riscos apontados**, campo obrigatório **Classificação** (Condição insegura, Ato inseguro, Quase-acidente, Outra). Registros e formulários **antigos não são reclassificados**. A consulta de registros filtra por categoria, tipo, risco e período. O Dashboard mostra o total com a origem (registros de campo × formulários) e o período. Um quase-acidente **não** é acidente nem ocorrência. O mesmo fato lançado nas duas trilhas **não** é descontado automaticamente.
+- **Evidência ESG:** no detalhe do registro, "Usar como evidência ESG" cria uma **referência** a uma comprovação ESG da mesma obra (Administrador em qualquer uma; demais perfis só na própria). **A obrigação não é marcada como cumprida** e a revisão continua do Administrador. Desfazer exige motivo e preserva o histórico. (Disponível após a migration `20261106110000`.)
+- **Acidentes:** proximidade de 24 h só **sugere** possível duplicidade; dois fatos distintos contam dois; só decisão explícita do Administrador (auditada e revisável) desconta.
+
 ### 4.30 Usuários — rota `/{obra}/usuarios`
 
 > **Atualização pós-PR #129.** A aba Usuários é **só para o Administrador** (menu e página; 404 para os demais). O texto abaixo que descreve a visão de leitura para outros perfis refere-se ao comportamento anterior. As ações do servidor continuam protegidas pelas funções do banco (F2).
