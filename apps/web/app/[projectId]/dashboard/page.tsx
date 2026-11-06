@@ -899,10 +899,16 @@ export default async function DashboardPage({
                 }
               />
               <StatusLine
-                label="Quase-acidentes (campo)"
+                label="Near Misses (quase-acidentes)"
                 value={ssmaDash.nearMisses !== null ? ssmaDash.nearMisses : "—"}
                 status={ssmaDash.nearMisses !== null ? (ssmaDash.nearMisses > 0 ? "warning" : "ok") : "neutral"}
               />
+              <p className="text-[10px] leading-tight text-[#b8c7dc]" data-testid="near-miss-period">
+                {ssmaDash.nearMissSource?.period
+                  ? `Período: ${new Date(ssmaDash.nearMissSource.period.firstAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} a ${new Date(ssmaDash.nearMissSource.period.lastAt).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" })} · `
+                  : ssmaDash.nearMisses === 0 ? "Nenhum Near Miss registrado · " : ""}
+                <Link href={`/${projectId}/ssma-registros#near-misses`} className="font-bold text-[#ffd0c7] underline">Ver registros</Link>
+              </p>
               <StatusLine
                 label="Dias sem acidente"
                 value={dashboardDaysWithoutAccident !== null ? dashboardDaysWithoutAccident : "—"}

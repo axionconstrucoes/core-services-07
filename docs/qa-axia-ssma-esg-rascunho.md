@@ -31,3 +31,9 @@ Respostas alinhadas ao comportamento implementado (ver `docs/manual-referencia-a
 
 ### S10 — O que significa "Salvo no aparelho" e "Sincronizado"?
 **Resposta proposta:** Vale só para **registros de campo** (Registrar ocorrência / inspeção). "Salvo no aparelho" = guardado só neste celular/computador, ainda não está no ACC; "Sincronizado" = o ACC confirmou o recebimento. Os formulários 1 a 12 são enviados online e confirmados na hora.
+
+### S11 — Como registro um Near Miss (quase-acidente)? Ele conta como acidente?
+No app de campo, abra o cartão 12 "Ocorrências: Acidentes e Near Misses", escolha **Near Miss (quase-acidente)** e preencha local e o que aconteceu. Não conta como acidente: entra no indicador "Near Misses (quase-acidentes)" do Dashboard, que mostra o período e leva à lista de registros (com filtro por data).
+
+### S12 — A nota de avaliação do técnico já vale?
+Não. É uma **prévia** (regras `previa-1`) para discussão: não grava nota e não afeta ninguém. Sem dados não é nota zero, a quantidade de Near Misses ou acidentes não reduz a nota, e ações de outro responsável não entram na nota do técnico. Manifestação do técnico e validação do gerente ainda são demonstrativas.

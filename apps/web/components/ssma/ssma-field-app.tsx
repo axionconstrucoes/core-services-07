@@ -22,6 +22,7 @@ import { FieldRecordsApp, type FieldProject } from "@/components/ssma/field-reco
 import { SsmaBottomNav, SsmaHeader, type SsmaTab } from "@/components/ssma/ssma-chrome";
 import { useFieldQueue } from "@/lib/ssma/field-records/use-field-queue";
 import {
+  OCCURRENCE_TYPES,
   SSMA_CHECKLISTS,
   SSMA_RISK_LEVELS,
   type SsmaChecklistDefinition,
@@ -323,8 +324,18 @@ function ChecklistForm({
     setChecks((current) => ({ ...current, [check]: value }));
   }
 
-  const allChecksAnswered = definition.checks.every((check) => checks[check]);
-  const allRequiredPhotosSelected = (definition.requiredPhotoActions ?? []).every((action) =>
+  // Formulário 12: o primeiro passo é o TIPO (Acidente ou Near Miss). Near Miss usa campos próprios e é gravado como
+  // "Riscos apontados" com classificação estruturada "Quase-acidente" (entra no indicador de Near Misses; nunca conta como acidente).
+  const variant = definition.nearMissVariant;
+  const [occurrenceType, setOccurrenceType] = useState<string>("");
+  const isNearMiss = Boolean(variant) && occurrenceType === OCCURRENCE_TYPES[1];
+  const typeChosen = !variant || occurrenceType !== "";
+  const formFields = isNearMiss && variant ? variant.fields : definition.fields;
+  const formChecks = isNearMiss && variant ? variant.checks : definition.checks;
+  const formPhotoActions = isNearMiss && variant ? variant.photoActions : definition.photoActions;
+  const formRequiredPhotos = isNearMiss ? [] : (definition.requiredPhotoActions ?? []);
+  const allChecksAnswered = typeChosen && formChecks.every((check) => checks[check]);
+  const allRequiredPhotosSelected = formRequiredPhotos.every((action) =>
     photos.some((photo) => photo.action === action)
   );
   const showRisk = definition.slug === "fotos-diarias" || definition.slug === "riscos-apontados" || definition.slug === "outros";
@@ -381,13 +392,25 @@ function ChecklistForm({
           try {
             const supabase = createSupabaseBrowserClient();
             const fieldValues = Object.fromEntries(
-              definition.fields.map((field) => [field.id, String(formData.get(field.id) ?? "").trim()])
+              formFields.map((field) => [field.id, String(formData.get(field.id) ?? "").trim()])
             );
             const checklistValues = Object.fromEntries(
-              definition.checks.map((check) => [check, checks[check]])
+              formChecks.map((check) => [check, checks[check]])
             );
 
-            const submissionRequest = definition.slug === "ocorrencia-acidente"
+            const submissionRequest = isNearMiss && variant
+              ? await supabase.rpc("create_ssma_form_submission", {
+                  p_project_id: projectId,
+                  p_checklist_slug: variant.submitAs.slug,
+                  p_checklist_number: variant.submitAs.number,
+                  p_checklist_title: variant.submitAs.title,
+                  p_drive_folder_name: variant.submitAs.driveFolder,
+                  p_occurred_at: occurredAt.toISOString(),
+                  p_field_values: { ...fieldValues, ...variant.fixedValues },
+                  p_checklist_values: checklistValues,
+                  p_risk_level: risk,
+                })
+              : definition.slug === "ocorrencia-acidente"
               ? await supabase.rpc("create_ssma_accident_submission", {
                   p_project_id: projectId,
                   p_occurred_at: occurredAt.toISOString(),
@@ -460,7 +483,7 @@ function ChecklistForm({
             // A partir daqui o formulário está CONFIRMADO no ACC. A comunicação do acidente é uma etapa à parte:
             // se falhar, o aviso é separado e nunca convida a reenviar (duplicaria o acidente).
             let warning: string | null = null;
-            if (definition.slug === "ocorrencia-acidente") {
+            if (definition.slug === "ocorrencia-acidente" && !isNearMiss) {
               let response: Response | null = null;
               let serverError: string | null = null;
               try {
@@ -495,8 +518,36 @@ function ChecklistForm({
 
         <div className="h-px bg-slate-300" />
 
+        {variant ? (
+          <fieldset className="space-y-2" data-testid="occurrence-type">
+            <legend className="mb-1 text-sm font-bold text-slate-900">Tipo de ocorrência *</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {OCCURRENCE_TYPES.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  aria-pressed={occurrenceType === type}
+                  disabled={submitting}
+                  onClick={() => { setOccurrenceType(type); setChecks({}); setPhotos([]); setSubmitError(null); }}
+                  className={cn(
+                    "min-h-14 rounded-lg border-2 px-2 text-sm font-bold",
+                    type === OCCURRENCE_TYPES[0] ? "border-[#7f1d1d] bg-[#b91c1c] text-white" : "border-[#78350f] bg-[#b45309] text-white",
+                    occurrenceType === type ? "ring-4 ring-white" : "opacity-80"
+                  )}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+            {!typeChosen ? <p className="text-center text-sm font-semibold text-amber-700">Escolha o tipo de ocorrência para continuar.</p> : null}
+            {isNearMiss ? <p className="text-xs font-medium text-slate-700">Near Miss: evento que poderia ter causado lesão ou dano e não causou. Não é contado como acidente.</p> : null}
+          </fieldset>
+        ) : null}
+
+        {typeChosen ? (
+        <>
         <section className="space-y-4">
-          {definition.fields.map((field) => (
+          {formFields.map((field) => (
             <label key={field.id} className="block text-sm font-bold text-slate-900">
               {field.label}
               {field.required ? <span aria-hidden="true"> *</span> : null}
@@ -505,7 +556,7 @@ function ChecklistForm({
           ))}
         </section>
 
-        {showRisk ? (
+        {showRisk || isNearMiss ? (
           <fieldset>
             <legend className="mb-2 text-sm font-bold text-slate-900">Classificação do risco</legend>
             <div className="grid grid-cols-4 gap-2">
@@ -530,7 +581,7 @@ function ChecklistForm({
         <fieldset className="overflow-hidden rounded-lg border-2 border-slate-300">
           <legend className="sr-only">Checklist</legend>
           <div className="bg-slate-200 px-3 py-2 text-sm font-bold uppercase text-slate-900">Checklist</div>
-          {definition.checks.map((check) => (
+          {formChecks.map((check) => (
             <div key={check} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-t border-slate-300 px-3 py-3 first:border-t-0">
               <span className="text-sm font-semibold text-slate-900">{checklistCheckLabel(definition, check)}</span>
               {(["FEITO", "NA"] as const).map((value) => (
@@ -548,7 +599,7 @@ function ChecklistForm({
           ))}
         </fieldset>
 
-        <PhotoUploadPanel actions={definition.photoActions} onPhotosChange={setPhotos} disabled={submitting} />
+        <PhotoUploadPanel key={isNearMiss ? "nm" : "std"} actions={formPhotoActions} onPhotosChange={setPhotos} disabled={submitting} />
 
         {submitting && photos.length > 0 ? (
           <div className="space-y-1" aria-live="polite">
@@ -578,6 +629,9 @@ function ChecklistForm({
         >
           <Send className="size-6" /> {submitting ? "Enviando…" : "Enviar dados"}
         </button>
+
+        </>
+        ) : null}
 
         <p className="text-center text-xs font-medium text-slate-500">
           Tela {definition.number} de 12 · Registro protegido e auditável

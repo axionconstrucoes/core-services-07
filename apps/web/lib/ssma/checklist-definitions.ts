@@ -9,6 +9,17 @@ export type SsmaFieldDefinition = {
   required?: boolean;
 };
 
+export type SsmaNearMissVariant = {
+  submitAs: { slug: string; number: number; title: string; driveFolder: string };
+  fields: readonly SsmaFieldDefinition[];
+  checks: readonly string[];
+  photoActions: readonly string[];
+  /** Valores fixos gravados junto (classificação estruturada + tipo + origem). */
+  fixedValues: Readonly<Record<string, string>>;
+};
+
+export const OCCURRENCE_TYPES = ["Acidente", "Near Miss (quase-acidente)"] as const;
+
 export type SsmaChecklistDefinition = {
   number: number;
   slug: string;
@@ -19,6 +30,8 @@ export type SsmaChecklistDefinition = {
   /** Nome exibido ao usuário. `title`/`shortTitle`/`checks` continuam sendo os valores GRAVADOS e validados pelo banco. */
   displayTitle?: string;
   displayShortTitle?: string;
+  /** Variante do formulário com o mesmo cartão: Near Miss é gravado com a identidade (já validada pelo banco) de "Riscos apontados". */
+  nearMissVariant?: SsmaNearMissVariant;
   /** Rótulo exibido de cada item do checklist (chave = valor gravado). */
   checkLabels?: Readonly<Record<string, string>>;
   requiredPhotoActions?: readonly string[];
@@ -232,6 +245,22 @@ export const SSMA_CHECKLISTS: readonly SsmaChecklistDefinition[] = [
     slug: "ocorrencia-acidente",
     title: "Ocorrência / acidente",
     shortTitle: "Ocorrência / acidente",
+    // O identificador e o título GRAVADOS não mudam (validados pelo banco); só o nome exibido.
+    displayTitle: "Ocorrências: Acidentes e Near Misses",
+    displayShortTitle: "Ocorrências: Acidentes e Near Misses",
+    nearMissVariant: {
+      submitAs: { slug: "riscos-apontados", number: 8, title: "Riscos apontados", driveFolder: "09 - RISCOS APONTADOS" },
+      fixedValues: { classificacao: "Quase-acidente", tipoOcorrencia: "Near Miss", origem: "formulario-12" },
+      fields: [
+        { id: "local", label: "Local do Near Miss", type: "text", placeholder: "Informe o local", required: true },
+        { id: "descricao", label: "O que aconteceu (fatos conhecidos)", type: "textarea", placeholder: "Descreva o que quase aconteceu; sem diagnóstico", required: true },
+        { id: "acao", label: "Ação imediata adotada", type: "textarea", placeholder: "Informe a ação adotada" },
+        { id: "responsavel", label: "Responsável pelo tratamento", type: "text", placeholder: "Informe o responsável" },
+        { id: "prazo", label: "Prazo", type: "date" },
+      ],
+      checks: ["Área sinalizada"],
+      photoActions: ["Tirar foto"],
+    },
     driveFolder: "12 - OCORRÊNCIAS E ACIDENTES",
     independent: true,
     fields: [

@@ -68,7 +68,7 @@ assert(chrome.includes('src="/branding/acc-logo.png"'), "Deve usar o logo ACC of
 assert(chrome.includes("items-center") && chrome.includes("min-h-24") && chrome.includes("text-center"), "Logo deve ficar centralizado verticalmente e o título centralizado no cabeçalho");
 assert(chrome.includes('bg-[#7f1d1d]'), "Cabeçalho deve usar bordô institucional");
 assert(app.includes('checked={checks[check] === value}'), "Feito e NA devem ser mutuamente exclusivos");
-assert(app.includes("definition.checks.every"), "Todos os itens devem ser respondidos antes do envio");
+assert(app.includes("formChecks.every"), "Todos os itens devem ser respondidos antes do envio");
 assert(app.includes("!allChecksAnswered"), "Envio deve ficar bloqueado com checklist incompleto");
 assert(app.includes("Carregado automaticamente do cadastro da obra"), "Técnico deve ser automático");
 assert(page.includes("getProjectMembers(projectId)"), "Técnico deve vir do cadastro real do projeto");

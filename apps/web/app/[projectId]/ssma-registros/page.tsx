@@ -10,15 +10,26 @@ import { FieldRecordsTable } from "@/components/ssma/field-records/field-records
 import { summarizeFieldRecords } from "@/lib/ssma/field-records/field-record-view";
 import { PossibleDuplicatesPanel } from "@/components/ssma/field-records/possible-duplicates-panel";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
-import { findPossibleDuplicates, type SsmaFormMetricsRow, type SsmaIncidentLinkRow } from "@/lib/ssma/dashboard-metrics";
+import { findPossibleDuplicates, listNearMisses, type SsmaFormMetricsRow, type SsmaIncidentLinkRow } from "@/lib/ssma/dashboard-metrics";
 import type { FieldRecordRow } from "@/lib/ssma/field-records/field-record-view";
 import { createSupabaseServerClient } from "@axion/db/server";
 
 export const metadata: Metadata = { title: "Registros de campo SSMA" };
 
 
-export default async function SsmaFieldRecordsPage({ params }: { params: Promise<{ projectId: string }> }) {
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+export default async function SsmaFieldRecordsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ de?: string; ate?: string }>;
+}) {
   const { projectId } = await params;
+  const query = await searchParams;
+  const from = query.de && ISO_DAY.test(query.de) ? query.de : null;
+  const to = query.ate && ISO_DAY.test(query.ate) ? query.ate : null;
   const [project, members] = await Promise.all([getProject(projectId), getProjectMembers(projectId)]);
   if (!project) notFound();
 
@@ -52,6 +63,19 @@ export default async function SsmaFieldRecordsPage({ params }: { params: Promise
     }
   }
 
+  // Near Misses (mesmo critério do Dashboard): formulários "Riscos apontados" com classificação "Quase-acidente" + registros de campo.
+  let nearMisses: ReturnType<typeof listNearMisses> = [];
+  if (available) {
+    const supabase = await createSupabaseServerClient();
+    const [nmForms, nmRecords] = await Promise.all([
+      supabase.from("ssma_form_submissions").select("id,checklist_slug,occurred_at,field_values").eq("project_id", projectId).eq("status", "SUBMITTED").eq("checklist_slug", "riscos-apontados"),
+      supabase.from("ssma_field_records").select("id,category,location,description,occurred_at").eq("project_id", projectId).eq("category", "Quase-acidente"),
+    ]);
+    if (!nmForms.error && !nmRecords.error) {
+      nearMisses = listNearMisses((nmForms.data ?? []) as SsmaFormMetricsRow[], (nmRecords.data ?? []) as never[], { from, to });
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -80,6 +104,30 @@ export default async function SsmaFieldRecordsPage({ params }: { params: Promise
           </section>
 
           <PossibleDuplicatesPanel projectId={projectId} pairs={duplicatePairs} labels={duplicateLabels} />
+
+          <Card id="near-misses">
+            <CardHeader><CardTitle className="text-base">Near Misses (quase-acidentes): {nearMisses.length}</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <form method="get" className="flex flex-wrap items-end gap-2 text-sm">
+                <label className="flex flex-col gap-1">De<input type="date" name="de" defaultValue={from ?? ""} className="min-h-10 rounded border px-2" /></label>
+                <label className="flex flex-col gap-1">Até<input type="date" name="ate" defaultValue={to ?? ""} className="min-h-10 rounded border px-2" /></label>
+                <button type="submit" className="min-h-10 rounded border border-[#7f1d1d] px-3 font-semibold text-red-700">Filtrar período</button>
+                {from || to ? <Link href={`/${projectId}/ssma-registros#near-misses`} className="min-h-10 px-2 py-2 text-red-700 underline">Limpar</Link> : null}
+              </form>
+              {nearMisses.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhum Near Miss no período{from || to ? " filtrado" : ""}. Zero aqui significa nenhum registrado, não falta de dado.</p>
+              ) : (
+                <ul className="divide-y text-sm">
+                  {nearMisses.map((item) => (
+                    <li key={`${item.source}-${item.id}`} className="py-2">
+                      <p className="font-semibold">{new Date(item.occurredAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })} · {item.place || "local não informado"}</p>
+                      <p className="text-muted-foreground">{item.description || "sem descrição"} · origem: {item.source === "FORMULARIO" ? "formulário" : "registro de campo"}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader><CardTitle className="text-base">Registros</CardTitle></CardHeader>

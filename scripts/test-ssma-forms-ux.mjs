@@ -34,7 +34,7 @@ await check("identificadores e valores GRAVADOS não mudam (compatibilidade com 
   assert.equal(by("dds").driveFolder, "02 - DIÁLOGO SEMANAL DE SEGURANÇA - DDS (FOTOS)");
 });
 await check("demais formulários e siglas sem relação NÃO foram alterados (sem substituição indiscriminada)", () => {
-  for (const d of defs.SSMA_CHECKLISTS.filter((x) => !["dda", "dds"].includes(x.slug))) {
+  for (const d of defs.SSMA_CHECKLISTS.filter((x) => !["dda", "dds", "ocorrencia-acidente"].includes(x.slug))) {
     assert.equal(defs.checklistTitle(d), d.title);
     assert.equal(defs.checklistShortTitle(d), d.shortTitle);
     for (const c of d.checks) assert.equal(defs.checklistCheckLabel(d, c), c);

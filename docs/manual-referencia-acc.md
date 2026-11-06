@@ -1656,6 +1656,10 @@ Conteúdo, identidades, escopo e limites dos especialistas: ver CAP69 cap. 8 (n�
 - **Evidência ESG:** no detalhe do registro, "Usar como evidência ESG" cria uma **referência** a uma comprovação ESG da mesma obra (Administrador em qualquer uma; demais perfis só na própria). **A obrigação não é marcada como cumprida** e a revisão continua do Administrador. Desfazer exige motivo e preserva o histórico. (Disponível após a migration `20261106110000`.)
 - **Acidentes:** proximidade de 24 h só **sugere** possível duplicidade; dois fatos distintos contam dois; só decisão explícita do Administrador (auditada e revisável) desconta.
 
+#### 4.29.2 Formulário 12 (Acidentes e Near Misses) e prévia da avaliação do técnico
+- **Formulário 12** — "Ocorrências: Acidentes e Near Misses": escolha o tipo antes de preencher. Acidente: fluxo e avisos de sempre. Near Miss: campos próprios, sem funcionário/remoção, fotos opcionais; não conta como acidente e alimenta o indicador "Near Misses (quase-acidentes)" do Dashboard (com período e link para os registros, em `/{obra}/ssma-registros#near-misses`, com filtro De/Até).
+- **Avaliação do técnico (PRÉVIA)** — `/{obra}/ssma-avaliacao`: ficha mensal e acumulada com memória de cálculo e evidências; pesos propostos 20/25/15/20/10/10; sem dado ≠ zero; quantidade de Near Misses/acidentes não penaliza; dependências da gerência separadas. Manifestação e validação são demonstrativas até a migration `20261106130000` (não aplicada) e as regras serem aprovadas.
+
 ### 4.30 Usuários — rota `/{obra}/usuarios`
 
 > **Atualização pós-PR #129.** A aba Usuários é **só para o Administrador** (menu e página; 404 para os demais). O texto abaixo que descreve a visão de leitura para outros perfis refere-se ao comportamento anterior. As ações do servidor continuam protegidas pelas funções do banco (F2).

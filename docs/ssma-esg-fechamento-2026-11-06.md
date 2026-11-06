@@ -63,3 +63,15 @@ Atendidos **no código e nos testes automatizados** (branch): decisões 1–7 ac
 **PUBLICADO / COMPROVADO EM PRODUÇÃO**: nada deste bloco ainda (depende de aplicar migrations e do merge).
 
 **PENDENTE**: aplicar `20261106100000` (autorizada) e `20261106110000` (aguarda aprovação do SQL); `20261106120000` só se aprovada; merge, Vercel, validação em produção em duas sessões; circuito fechado de e-mail (piloto); iPhone/Safari e Android/Chrome reais; Drive (conector não autenticado); conta Leitura/não-membro reais.
+
+## 6. Atualização (06/11/2026, noite) — formulário 12, Near Misses e prévia da avaliação do técnico
+
+**Formulário 12 "Ocorrências: Acidentes e Near Misses".** O primeiro passo é o tipo (Acidente ou Near Miss). Acidente segue o fluxo de antes (RPC de acidente, fotos obrigatórias, aviso por e-mail separado). Near Miss tem campos próprios (local, o que aconteceu, ação imediata, responsável, prazo), não exige funcionário nem fotos e **não conta como acidente**. Sem alteração de banco: o Near Miss é gravado com a identidade já validada de "Riscos apontados" e a classificação estruturada "Quase-acidente" (mais `tipoOcorrencia = Near Miss` e `origem = formulario-12`), e entra no mesmo indicador do Dashboard. Identificadores e título gravados do formulário 12 não mudaram.
+
+**Dashboard.** O indicador agora se chama "Near Misses (quase-acidentes)", mostra o período coberto e tem o link "Ver registros", que leva à seção "Near Misses" de `/{obra}/ssma-registros` (lista, mais recentes primeiro, filtro por período De/Até; mesmo critério do indicador).
+
+**Avaliação do técnico — PRÉVIA.** Tela `/{obra}/ssma-avaliacao` (somente leitura; gerente escolhe o técnico, os demais veem só a própria). Ficha mensal e acumulada com memória de cálculo e evidências por dimensão. Pesos propostos: Prevenção e inspeções 20%, Ações corretivas 25%, Capacitação/DDS/DSS 15%, Gestão ambiental 20%, Qualidade e transparência 10%, Resultados e melhoria contínua 10%. Regras da prévia (versão `previa-1`, **não aprovadas**): ver `apps/web/lib/ssma/technician-evaluation.ts`.
+- Sem dado não é zero: dimensão sem base fica "SEM DADOS" e o peso é redistribuído; cobertura abaixo de 60% marca a nota como indicativa; técnico sem nenhum registro no período fica sem nota.
+- Near Miss e acidente não reduzem a nota por quantidade. Entram tratamento (ação criada) e reincidência (desconto de até 30%). Comunicação do acidente e eficácia das ações ainda não têm dado gravado.
+- Ações de outro responsável aparecem como dependência da gerência e ficam fora da nota do técnico.
+- Manifestação do técnico e validação do gerente: fluxo **demonstrativo** (nada é gravado). Persistência preparada em `supabase/migrations/20261106130000_ssma_technician_evaluation.sql`, **não aplicada e não submetida a aprovação** (depende das regras detalhadas).

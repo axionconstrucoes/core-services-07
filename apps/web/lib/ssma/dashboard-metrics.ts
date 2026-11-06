@@ -207,3 +207,42 @@ export function computeSsmaDashboardMetrics(input: {
     criticalOpen: summary.critical,
   };
 }
+
+export interface NearMissItem {
+  id: string;
+  source: "FORMULARIO" | "REGISTRO_DE_CAMPO";
+  occurredAt: string;
+  place: string;
+  description: string;
+}
+
+/**
+ * Lista de Near Misses (quase-acidentes) com o MESMO critério do indicador do Dashboard (categoria/classificação estruturada),
+ * com filtro de período opcional (datas YYYY-MM-DD, inclusive, fuso de Brasília). Mais recentes primeiro.
+ */
+export function listNearMisses(
+  forms: SsmaFormMetricsRow[],
+  fieldRecords: Array<Pick<FieldRecordRow, "id" | "category" | "location" | "description" | "occurred_at">>,
+  period: { from?: string | null; to?: string | null } = {}
+): NearMissItem[] {
+  const day = (iso: string) => new Date(new Date(iso).getTime() - 3 * 3600_000).toISOString().slice(0, 10);
+  const within = (iso: string) => (!period.from || day(iso) >= period.from) && (!period.to || day(iso) <= period.to);
+  const items: NearMissItem[] = [];
+  for (const row of forms) {
+    if (!row.occurred_at || !row.checklist_slug || !FORM_NEAR_MISS_SLUGS.includes(row.checklist_slug)) continue;
+    if (String(row.field_values?.[FORM_CLASSIFICATION_FIELD_ID] ?? "").trim() !== NEAR_MISS_CATEGORY) continue;
+    if (!within(row.occurred_at)) continue;
+    items.push({
+      id: row.id ?? `${row.occurred_at}`,
+      source: "FORMULARIO",
+      occurredAt: row.occurred_at,
+      place: String(row.field_values?.local ?? ""),
+      description: String(row.field_values?.descricao ?? ""),
+    });
+  }
+  for (const row of fieldRecords) {
+    if (row.category !== NEAR_MISS_CATEGORY || !within(row.occurred_at)) continue;
+    items.push({ id: row.id, source: "REGISTRO_DE_CAMPO", occurredAt: row.occurred_at, place: row.location, description: row.description });
+  }
+  return items.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+}
