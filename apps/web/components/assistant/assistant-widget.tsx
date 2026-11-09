@@ -7,8 +7,8 @@ import { BookOpen, Send, X } from "lucide-react";
 
 import type { AssistantAnswer } from "@/lib/assistant/answer";
 import { ASSISTANT_QUESTION_MAX_LENGTH } from "@/lib/assistant/limits";
-import { NOT_ANSWERED_LABEL } from "@/lib/assistant/qa-handoff";
 import { AssistantVoiceControls } from "./assistant-voice-controls";
+import { AxiaAnswerBody } from "./axia-answer-body";
 import { VERA_CONTEXTS, VERA_OPEN_EVENT, type VeraContext, type VeraOpenDetail } from "./vera-events";
 
 // AXIA — Assistente ACC (piloto): caixa de conversa aberta pelos gatilhos "Fale com a AXIA".
@@ -295,81 +295,12 @@ export function AssistantWidget({ projectId }: { projectId: string | null }) {
         {turns.map((turn, index) => (
           <div key={index} className="space-y-2">
             <p className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-gray-100 px-3 py-2 text-gray-900">{turn.question}</p>
-            <div data-axia-resposta className="space-y-2 rounded-2xl rounded-bl-sm border border-gray-300 bg-[#ffffff] px-3 py-2 text-[#000000]">
-              {turn.answer.intro ? <p>{turn.answer.intro}</p> : null}
-              {turn.answer.caseNotice ? (
-                <p data-axia-caso className="rounded-md bg-[#fff3cd] px-2 py-1 text-xs text-[#000000]">
-                  {turn.answer.caseNotice}
-                </p>
-              ) : null}
-              {turn.answer.readOnlyNotice ? <p className="rounded-md bg-[#fff3cd] px-2 py-1 text-xs text-[#000000]">{turn.answer.readOnlyNotice}</p> : null}
-              {turn.answer.kind === "social" || turn.answer.kind === "scope" ? (
-                <>
-                  {turn.answer.kind === "scope" ? <p className="font-bold text-[#000000]">{turn.answer.title}</p> : null}
-                  <p data-axia-escopo={turn.answer.kind === "scope" ? "" : undefined}>{turn.answer.summary}</p>
-                </>
-              ) : (
-                <>
-                  <p className="font-bold text-[#000000]">{turn.answer.title}</p>
-                  <p>{turn.answer.summary}</p>
-                  {turn.answer.sections?.map((section) => (
-                    <div key={section.title} className="space-y-1 border-t border-gray-200 pt-2">
-                      <p className="font-bold text-[#000000]">{section.title}</p>
-                      <p>{section.summary}</p>
-                      {section.steps.length > 0 ? (
-                        <ol className="list-decimal space-y-1 pl-5">
-                          {section.steps.map((step) => (
-                            <li key={step}>{step}</li>
-                          ))}
-                        </ol>
-                      ) : null}
-                      {section.manualSection ? <p data-axia-citacao className="text-xs text-[#000000]">Fonte no manual: seção {section.manualSection}</p> : null}
-                    </div>
-                  ))}
-                  {turn.answer.steps.length > 0 ? (
-                    <ol className="list-decimal space-y-1 pl-5">
-                      {turn.answer.steps.map((step) => (
-                        <li key={step}>{step}</li>
-                      ))}
-                    </ol>
-                  ) : null}
-                  {turn.answer.links.length > 0 || turn.answer.tutorialSlide ? (
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      {turn.answer.links.map((link) => (
-                        <Link key={link.href} href={link.href} className="rounded-md bg-brand-sidebar px-2 py-1.5 text-xs font-semibold text-white hover:opacity-90">
-                          {link.label}
-                        </Link>
-                      ))}
-                      {turn.answer.tutorialSlide ? <span className="px-1 py-1 text-xs text-[#000000]">Tutorial: slide {turn.answer.tutorialSlide}</span> : null}
-                    </div>
-                  ) : null}
-                  {turn.answer.manualSection && !turn.answer.sections ? (
-                    <p data-axia-citacao className="text-xs text-[#000000]">
-                      Fonte no manual: seção {turn.answer.manualSection}
-                    </p>
-                  ) : null}
-                  {turn.answer.coverage === "parcial" ? (
-                    <p data-axia-cobertura="parcial" className="rounded-md bg-[#fff3cd] px-2 py-1 text-xs text-[#000000]">
-                      Resposta parcial: pode não cobrir o seu caso.
-                    </p>
-                  ) : null}
-                  {turn.answer.coverage === "ausente" ? (
-                    <p data-axia-cobertura="ausente" className="rounded-md bg-[#fff3cd] px-2 py-1 text-xs text-[#000000]">
-                      Ainda não tenho uma resposta aprovada para isso.
-                    </p>
-                  ) : null}
-                  {turn.answer.coverage === "completa" && !turn.notAnswered && turn.answer.kind !== "clarify" ? (
-                    <button
-                      type="button"
-                      data-axia-nao-respondeu
-                      onClick={() => setTurns((current) => current.map((item, i) => (i === index ? { ...item, notAnswered: true } : item)))}
-                      className="min-h-8 rounded-md border border-gray-400 px-2 py-1 text-xs text-[#000000] hover:bg-gray-100"
-                    >
-                      {NOT_ANSWERED_LABEL}
-                    </button>
-                  ) : null}
-                </>
-              )}
+            <div data-axia-resposta className="min-w-0 space-y-3 break-words [overflow-wrap:anywhere] rounded-2xl rounded-bl-sm border border-gray-300 bg-[#ffffff] px-3 py-2 text-[#000000]">
+              <AxiaAnswerBody
+                answer={turn.answer}
+                notAnswered={turn.notAnswered}
+                onNotAnswered={() => setTurns((current) => current.map((item, i) => (i === index ? { ...item, notAnswered: true } : item)))}
+              />
             </div>
           </div>
         ))}
