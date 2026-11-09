@@ -11,7 +11,6 @@ import {
   ClipboardCheck,
   CloudUpload,
   FileText,
-  Plus,
   Send,
   ShieldAlert,
   Siren,
@@ -37,6 +36,7 @@ type SsmaFieldAppProps = {
   projectLabel: string;
   technicianLabel: string;
   initialDateTime: string;
+  initialCompleted?: string[];
 };
 
 type SsmaFieldAppRootProps = SsmaFieldAppProps & {
@@ -286,7 +286,7 @@ function ChecklistForm({
 }: SsmaFieldAppProps & {
   definition: SsmaChecklistDefinition;
   onBack: () => void;
-  onComplete: (slug: string) => void;
+  onComplete: (slug: string, day?: string) => void;
 }) {
   const [checks, setChecks] = useState<CheckState>({});
   const [risk, setRisk] = useState<string>("BAIXA");
@@ -417,7 +417,7 @@ function ChecklistForm({
                 );
               }
             }
-            onComplete(definition.slug);
+            onComplete(definition.slug, occurredAtValue.slice(0, 10));
           } catch (error) {
             setSubmitError(error instanceof Error ? error.message : "Não foi possível enviar os dados.");
           } finally {
@@ -527,7 +527,7 @@ function ChecklistForm({
   );
 }
 
-export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initialDateTime, userId, project }: SsmaFieldAppRootProps) {
+export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initialDateTime, initialCompleted = [], userId, project }: SsmaFieldAppRootProps) {
   const router = useRouter();
   const queue = useFieldQueue(userId);
   const [view, setView] = useState<"home" | "field">("home");
@@ -545,7 +545,7 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
     router.push("/login");
     router.refresh();
   };
-  const [completed, setCompleted] = useState<Set<string>>(() => new Set());
+  const [completed, setCompleted] = useState<Set<string>>(() => new Set(initialCompleted));
 
   const active = useMemo(
     () => SSMA_CHECKLISTS.find((definition) => definition.slug === activeSlug) ?? null,
@@ -575,16 +575,20 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
         technicianLabel={technicianLabel}
         initialDateTime={initialDateTime}
         onBack={() => setActiveSlug(null)}
-        onComplete={(slug) => {
-          setCompleted((current) => new Set(current).add(slug));
+        onComplete={(slug, day) => {
+          // Só conta o envio confirmado pelo servidor para a data de hoje; a obra é sempre a atual.
+          if (day === initialDateTime.slice(0, 10)) setCompleted((current) => new Set(current).add(slug));
           setActiveSlug(null);
+          router.refresh();
         }}
       />
     );
   }
 
-  const routine = SSMA_CHECKLISTS.filter((definition) => !definition.independent);
-  const independent = SSMA_CHECKLISTS.filter((definition) => definition.independent);
+  // Apenas os quatro relatórios fixos entram no checklist diário.
+  const dailySlugs = new Set(["dda", "fotos-diarias", "almoxarifado", "limpeza"]);
+  const routine = SSMA_CHECKLISTS.filter((definition) => dailySlugs.has(definition.slug));
+  const occasional = SSMA_CHECKLISTS.filter((definition) => !dailySlugs.has(definition.slug));
   const completedRoutine = routine.filter((definition) => completed.has(definition.slug)).length;
 
   return (
@@ -609,27 +613,15 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
             <ClipboardCheck className="size-9 text-[#7f1d1d]" />
             <div className="flex-1">
               <p className="font-bold text-slate-900">Checklist de hoje</p>
-              <p className="text-sm text-slate-600">{completedRoutine} de 10 concluídos</p>
+              <p className="text-sm text-slate-600">{completedRoutine} de {routine.length} enviados</p>
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
-                <div className="h-full bg-[#7f1d1d]" style={{ width: `${completedRoutine * 10}%` }} />
+                <div className="h-full bg-sky-400 transition-all" style={{ width: `${(completedRoutine / routine.length) * 100}%` }} />
               </div>
             </div>
           </div>
         </section>
 
-        <button
-          type="button"
-          onClick={() => { setFieldTab("registros"); setView("field"); }}
-          className="flex min-h-20 w-full items-center gap-3 rounded-xl border-2 border-[#7f1d1d] bg-white p-4 text-left shadow-sm"
-        >
-          <Plus className="size-7 shrink-0 text-[#7f1d1d]" />
-          <span className="min-w-0 flex-1">
-            <span className="block font-bold text-slate-900">Registrar ocorrência / inspeção</span>
-            <span className="block text-xs text-slate-600">Funciona sem sinal · fotos, responsável e prazo</span>
-          </span>
-          <ChevronRight className="size-5 shrink-0 text-[#7f1d1d]" />
-        </button>
-
+        <h2 className="text-base font-bold text-slate-900">1. Relatórios diários — obrigatórios</h2>
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {routine.map((definition) => (
             <button
@@ -656,8 +648,10 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
           ))}
         </section>
 
-        {independent.map((definition) => {
-          const Icon = definition.slug === "ocorrencia-acidente" ? Siren : Truck;
+        <h2 className="text-base font-bold text-slate-900">2. Relatórios avulsos — conforme necessidade</h2>
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {occasional.map((definition) => {
+          const Icon = definition.slug === "ocorrencia-acidente" ? Siren : definition.slug === "remessa-bota-fora" ? Truck : FileText;
           return (
             <button
               key={definition.slug}
@@ -670,13 +664,14 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
                 <span className="block font-bold text-slate-900">
                   {String(definition.number).padStart(2, "0")} {definition.shortTitle}
                 </span>
-                <span className="block text-xs text-slate-600">Tarefa independente</span>
+                <span className="block text-xs text-slate-600">Avulso · conforme necessidade</span>
               </span>
               <span className="text-sm font-bold text-[#7f1d1d]">Registrar</span>
               <ChevronRight className="size-5 shrink-0 text-[#7f1d1d]" />
             </button>
           );
         })}
+        </section>
       </main>
 
       <SsmaBottomNav
