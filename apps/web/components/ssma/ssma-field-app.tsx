@@ -583,8 +583,10 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
     );
   }
 
-  const routine = SSMA_CHECKLISTS.filter((definition) => !definition.independent);
-  const independent = SSMA_CHECKLISTS.filter((definition) => definition.independent);
+  // Apenas os quatro relatórios fixos entram no checklist diário.
+  const dailySlugs = new Set(["dda", "fotos-diarias", "almoxarifado", "limpeza"]);
+  const routine = SSMA_CHECKLISTS.filter((definition) => dailySlugs.has(definition.slug));
+  const occasional = SSMA_CHECKLISTS.filter((definition) => !dailySlugs.has(definition.slug));
   const completedRoutine = routine.filter((definition) => completed.has(definition.slug)).length;
 
   return (
@@ -609,9 +611,9 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
             <ClipboardCheck className="size-9 text-[#7f1d1d]" />
             <div className="flex-1">
               <p className="font-bold text-slate-900">Checklist de hoje</p>
-              <p className="text-sm text-slate-600">{completedRoutine} de 10 concluídos</p>
+              <p className="text-sm text-slate-600">{completedRoutine} de {routine.length} enviados</p>
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
-                <div className="h-full bg-[#7f1d1d]" style={{ width: `${completedRoutine * 10}%` }} />
+                <div className="h-full bg-[#7f1d1d]" style={{ width: `${(completedRoutine / routine.length) * 100}%` }} />
               </div>
             </div>
           </div>
@@ -630,6 +632,7 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
           <ChevronRight className="size-5 shrink-0 text-[#7f1d1d]" />
         </button>
 
+        <h2 className="text-base font-bold text-slate-900">1. Relatórios diários — obrigatórios</h2>
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {routine.map((definition) => (
             <button
@@ -656,8 +659,10 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
           ))}
         </section>
 
-        {independent.map((definition) => {
-          const Icon = definition.slug === "ocorrencia-acidente" ? Siren : Truck;
+        <h2 className="text-base font-bold text-slate-900">2. Relatórios avulsos — conforme necessidade</h2>
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {occasional.map((definition) => {
+          const Icon = definition.slug === "ocorrencia-acidente" ? Siren : definition.slug === "remessa-bota-fora" ? Truck : FileText;
           return (
             <button
               key={definition.slug}
@@ -670,13 +675,14 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
                 <span className="block font-bold text-slate-900">
                   {String(definition.number).padStart(2, "0")} {definition.shortTitle}
                 </span>
-                <span className="block text-xs text-slate-600">Tarefa independente</span>
+                <span className="block text-xs text-slate-600">Avulso · conforme necessidade</span>
               </span>
               <span className="text-sm font-bold text-[#7f1d1d]">Registrar</span>
               <ChevronRight className="size-5 shrink-0 text-[#7f1d1d]" />
             </button>
           );
         })}
+        </section>
       </main>
 
       <SsmaBottomNav
