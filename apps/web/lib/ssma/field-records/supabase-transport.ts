@@ -55,6 +55,13 @@ export function createSupabaseTransport(supabase: SupabaseClient): SyncTransport
         p_due_date: item.draft.dueDate,
       });
       if (error) throw toTransportError(error);
+      // Registro CRÍTICO: pede o aviso por e-mail ao servidor. Idempotente (reenvio não duplica) e "melhor esforço":
+      // falhar aqui nunca falha o envio do registro; a varredura do servidor cobre o que ficar para trás.
+      if (item.draft.risk === "CRITICA") {
+        try {
+          await fetch("/api/ssma/field-records/notifications", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ recordId: item.clientId }) });
+        } catch { /* sem conexão agora: a varredura do servidor avisa depois */ }
+      }
     },
 
     async uploadPhoto(item, photo, blob) {

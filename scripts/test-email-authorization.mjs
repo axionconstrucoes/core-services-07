@@ -203,7 +203,7 @@ await check("TODO ponto de envio passa por provider.send (que aplica a guarda e 
   const web = path.join(root, "apps/web");
   const files = walk(web).filter((f) => /\.(getEmailProvider\(\)|provider|sender)?send\(\{/.test("") || /(getEmailProvider\(\)|provider|ctx\.provider|mailer)\.send\(\{/.test(readFileSync(f, "utf8")));
   const rel = files.map((f) => path.relative(root, f).replaceAll("\\", "/"));
-  // Pontos de envio esperados (11) — um novo remetente precisa entrar aqui de propósito.
+  // Pontos de envio esperados (13) — um novo remetente precisa entrar aqui de propósito.
   const expected = [
     "apps/web/lib/alerts/delivery-item-reminder-mailer.ts",
     "apps/web/lib/alerts/followup-engine.ts",
@@ -217,6 +217,7 @@ await check("TODO ponto de envio passa por provider.send (que aplica a guarda e 
     "apps/web/lib/email/send-weekly-alert-digest-email.ts",
     "apps/web/lib/email-authorization/request.ts",
     "apps/web/lib/risk-alerts/run-risk-alert-cycle.ts",
+    "apps/web/lib/ssma/field-notifications/server.ts",
   ].sort();
   eq(JSON.stringify(rel.sort()), JSON.stringify(expected), "remetentes encontrados");
   // Sem obra no contexto (a AXIA abre a ajuda geral): saúde do sistema e revisão de impacto de versão.

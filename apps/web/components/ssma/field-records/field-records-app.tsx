@@ -7,11 +7,13 @@ import { SsmaBottomNav, SsmaHeader, type SsmaTab } from "@/components/ssma/ssma-
 import { NewRecordForm } from "@/components/ssma/field-records/new-record-form";
 import { RecordDetail } from "@/components/ssma/field-records/record-detail";
 import { SsmaOfflineCapabilities } from "@/components/ssma/ssma-offline-capabilities";
+import { filterRecords } from "@/lib/ssma/field-records/filters";
 import type { OfflineContext } from "@/lib/ssma/field-records/idb-store";
 import { isActionOverdue, mapFieldRecordRow, type FieldRecordRow, type FieldRecordView } from "@/lib/ssma/field-records/field-record-view";
 import type { useFieldQueue } from "@/lib/ssma/field-records/use-field-queue";
-import { ACTION_STATUS_LABELS, PHOTO_STATE_LABELS, QUEUE_STATUS_LABELS, RISK_LABELS, photoSyncState, type PhotoSyncState, type QueuedRecord, type QueueStatus } from "@/lib/ssma/field-records/types";
+import { ACTION_STATUS_LABELS, FIELD_RECORD_CATEGORIES, FIELD_RECORD_KINDS, FIELD_RECORD_RISKS, PHOTO_STATE_LABELS, QUEUE_STATUS_LABELS, RISK_LABELS, photoSyncState, type PhotoSyncState, type QueuedRecord, type QueueStatus } from "@/lib/ssma/field-records/types";
 import { cn } from "@/lib/utils";
+import { describeNotification, groupNotificationRows, type NotificationLine, type NotificationSummaryRow } from "@/lib/ssma/field-notifications/view";
 
 export type FieldProject = OfflineContext["projects"][number];
 export type FieldQueueApi = ReturnType<typeof useFieldQueue>;
@@ -57,6 +59,7 @@ export function FieldRecordsApp({
   userId,
   userLabel,
   project,
+  projects: authorizedProjects,
   offlineShell = false,
   initialTab = "registros",
   onHome,
@@ -68,6 +71,8 @@ export function FieldRecordsApp({
   userId: string;
   userLabel: string;
   project: FieldProject;
+  /** Obras em que o usuário pode registrar (padrão: só a atual). */
+  projects?: FieldProject[];
   /** true quando aberto pela casca offline (dados vêm do aparelho, não do servidor). */
   offlineShell?: boolean;
   initialTab?: SsmaTab;
@@ -80,8 +85,14 @@ export function FieldRecordsApp({
   const [creating, setCreating] = useState(false);
   const [selected, setSelected] = useState<FieldRecordView | null>(null);
   const [serverRecords, setServerRecords] = useState<FieldRecordView[]>(initialServerRecords ?? []);
+  const [notifications, setNotifications] = useState<Map<string, NotificationSummaryRow[]>>(new Map());
   const [serverError, setServerError] = useState<string | null>(null);
   const [loadingServer, setLoadingServer] = useState(!offlineShell);
+  const [fCategory, setFCategory] = useState("");
+  const [fKind, setFKind] = useState("");
+  const [fRisk, setFRisk] = useState("");
+  const [fFrom, setFFrom] = useState("");
+  const [fTo, setFTo] = useState("");
   const online = queue.reachable;
   const names = useMemo(() => new Map(project.members.map((member) => [member.userId, member.name])), [project.members]);
 
@@ -105,6 +116,11 @@ export function FieldRecordsApp({
       const views = ((data ?? []) as unknown as FieldRecordRow[]).map((row) => mapFieldRecordRow(row, names));
       setServerRecords(views);
       setServerError(null);
+      // Estado dos avisos por e-mail (sem e-mails de terceiros). Indisponível (migration ainda não aplicada, rede): sem aviso.
+      try {
+        const { data: summary, error: summaryError } = await supabase.rpc("ssma_notification_summary", { p_project_id: project.id });
+        if (!summaryError) setNotifications(groupNotificationRows((summary ?? []) as NotificationSummaryRow[]));
+      } catch { /* sem resumo agora */ }
       setSelected((current) => (current ? (views.find((view) => view.id === current.id) ?? current) : null));
     } catch {
       setServerError("Não foi possível carregar os registros do ACC agora.");
@@ -121,14 +137,20 @@ export function FieldRecordsApp({
     return () => window.clearTimeout(timer);
   }, [loadServer, offlineShell, syncedCount, online]);
 
-  const projectItems = queue.items.filter((item) => item.projectId === project.id);
+  const filteredServer = filterRecords(serverRecords, { category: fCategory, kind: fKind, risk: fRisk, from: fFrom, to: fTo });
+  const registrable = authorizedProjects && authorizedProjects.length > 0 ? authorizedProjects : [project];
+  const labelOf = (id: string) => registrable.find((entry) => entry.id === id)?.label ?? "outra obra";
+  // Pendentes no aparelho de QUALQUER obra do usuário: a obra escolhida no registro é a que vale (não a da navegação).
+  const projectItems = queue.items;
   const serverIds = new Set(serverRecords.map((record) => record.id));
   // O que já está no servidor aparece pela versão do servidor; a fila mostra só o que ainda não está.
   const localOnly = projectItems.filter((item) => !(item.status === "SYNCED" && serverIds.has(item.clientId)));
   const pending = queue.items.filter((item) => item.status !== "SYNCED");
 
-  async function handleSave(draft: Parameters<typeof queue.save>[1], photos: Parameters<typeof queue.save>[2]) {
-    await queue.save(project.id, draft, photos);
+  async function handleSave(chosenProjectId: string, draft: Parameters<typeof queue.save>[1], photos: Parameters<typeof queue.save>[2]) {
+    // Segunda barreira local: só obras autorizadas; o servidor revalida na sincronização.
+    if (!registrable.some((entry) => entry.id === chosenProjectId)) throw new Error("Obra não autorizada para este usuário.");
+    await queue.save(chosenProjectId, draft, photos);
     setCreating(false);
     setTab("registros");
   }
@@ -149,9 +171,9 @@ export function FieldRecordsApp({
       {queue.message ? <p role="status" className="bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-800">{queue.message}</p> : null}
 
       {creating ? (
-        <NewRecordForm members={project.members} online={online} onSave={handleSave} onCancel={() => setCreating(false)} />
+        <NewRecordForm projects={registrable} contextProjectId={project.id} online={online} onSave={handleSave} onCancel={() => setCreating(false)} />
       ) : selected ? (
-        <RecordDetail record={selected} userId={userId} projectId={project.id} canManage={project.canManage} online={online} names={names} onChanged={() => void loadServer()} />
+        <RecordDetail record={selected} notice={describeNotification(notifications.get(selected.id) ?? [])} userId={userId} projectId={project.id} canManage={project.canManage} isAdmin={project.isAdmin} canRegisterEsg={project.canRegisterEsg} online={online} names={names} onChanged={() => void loadServer()} />
       ) : tab === "sync" ? (
         <SyncView items={queue.items} projectId={project.id} foreignPending={queue.foreignPending} syncing={queue.syncing} online={online} onRetry={() => void queue.runSync(true)} onDiscard={(id) => void queue.discard(id)} onPurge={() => void queue.purgeForeign()} />
       ) : tab === "perfil" ? (
@@ -169,7 +191,7 @@ export function FieldRecordsApp({
           {localOnly.length > 0 ? (
             <section aria-label="Neste aparelho" className="space-y-2">
               <h2 className="text-xs font-bold uppercase text-slate-600">Neste aparelho</h2>
-              {localOnly.map((item) => <LocalRow key={item.clientId} item={item} />)}
+              {localOnly.map((item) => <LocalRow key={item.clientId} item={item} projectLabel={item.projectId !== project.id ? labelOf(item.projectId) : null} />)}
             </section>
           ) : null}
 
@@ -177,7 +199,7 @@ export function FieldRecordsApp({
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase text-slate-600">Registros da obra</h2>
               {!offlineShell ? (
-                <button type="button" onClick={() => { setLoadingServer(true); void loadServer(); }} className="flex min-h-11 items-center gap-1 px-2 text-xs font-bold text-[#7f1d1d]" disabled={loadingServer || !online}>
+                <button type="button" onClick={() => { setLoadingServer(true); void loadServer(); }} className="flex min-h-11 items-center gap-1 px-2 text-xs font-bold text-red-700" disabled={loadingServer || !online}>
                   <RefreshCw className={cn("size-4", loadingServer && "animate-spin")} /> Atualizar
                 </button>
               ) : null}
@@ -185,7 +207,31 @@ export function FieldRecordsApp({
             {offlineShell ? <p className="rounded-lg bg-white p-3 text-sm text-slate-600">Os registros da obra são exibidos quando há conexão.</p> : null}
             {serverError ? <p role="alert" className="text-sm font-bold text-red-700">{serverError}</p> : null}
             {!offlineShell && !loadingServer && !serverError && serverRecords.length === 0 ? <p className="rounded-lg bg-white p-3 text-sm text-slate-600">Nenhum registro enviado ainda.</p> : null}
-            {serverRecords.map((record) => <ServerRow key={record.id} record={record} onOpen={() => setSelected(record)} />)}
+            {!offlineShell && serverRecords.length > 0 ? (
+              <div className="grid grid-cols-2 gap-2 rounded-xl bg-white p-3 shadow-sm" aria-label="Filtros dos registros">
+                <select aria-label="Categoria" value={fCategory} onChange={(e) => setFCategory(e.target.value)} className="min-h-11 rounded border border-slate-400 px-2 text-sm">
+                  <option value="">Todas as categorias</option>
+                  {FIELD_RECORD_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+                <select aria-label="Tipo" value={fKind} onChange={(e) => setFKind(e.target.value)} className="min-h-11 rounded border border-slate-400 px-2 text-sm">
+                  <option value="">Ocorrência e inspeção</option>
+                  {FIELD_RECORD_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
+                </select>
+                <select aria-label="Risco" value={fRisk} onChange={(e) => setFRisk(e.target.value)} className="min-h-11 rounded border border-slate-400 px-2 text-sm">
+                  <option value="">Todos os riscos</option>
+                  {FIELD_RECORD_RISKS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+                <div className="flex gap-1">
+                  <input aria-label="De" type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} className="min-h-11 w-1/2 rounded border border-slate-400 px-1 text-xs" />
+                  <input aria-label="Até" type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} className="min-h-11 w-1/2 rounded border border-slate-400 px-1 text-xs" />
+                </div>
+                <p className="col-span-2 text-xs text-slate-600">
+                  {filteredServer.length} de {serverRecords.length} registro(s) carregados (até 100 mais recentes)
+                  {fCategory === "Quase-acidente" ? ` · quase-acidentes no filtro: ${filteredServer.length}` : ""}
+                </p>
+              </div>
+            ) : null}
+            {filteredServer.map((record) => <ServerRow key={record.id} record={record} notice={describeNotification(notifications.get(record.id) ?? [])} onOpen={() => setSelected(record)} />)}
           </section>
         </main>
       )}
@@ -208,7 +254,7 @@ export function FieldRecordsApp({
   );
 }
 
-function LocalRow({ item }: { item: QueuedRecord }) {
+function LocalRow({ item, projectLabel }: { item: QueuedRecord; projectLabel?: string | null }) {
   return (
     <article className="rounded-xl bg-white p-3 shadow-sm">
       <div className="flex items-start justify-between gap-2">
@@ -218,7 +264,7 @@ function LocalRow({ item }: { item: QueuedRecord }) {
       <p className="mt-1 line-clamp-2 text-sm text-slate-700">{item.draft.description}</p>
       <p className="mt-1 text-xs text-slate-500">
         <span className={cn("mr-1 inline-block size-2 rounded-full", RISK_DOT[item.draft.risk])} />
-        Risco {RISK_LABELS[item.draft.risk]} · criado em {dateTime(item.clientCreatedAt)} · {item.photos.length} foto(s)
+        Risco {RISK_LABELS[item.draft.risk]} · criado em {dateTime(item.clientCreatedAt)} · {item.photos.length} foto(s){projectLabel ? ` · Obra: ${projectLabel}` : ""}
       </p>
       <PhotoStates item={item} />
       {item.lastError ? <p role="alert" className="mt-1 text-xs font-bold text-red-700">{item.lastError}</p> : null}
@@ -226,7 +272,18 @@ function LocalRow({ item }: { item: QueuedRecord }) {
   );
 }
 
-function ServerRow({ record, onOpen }: { record: FieldRecordView; onOpen: () => void }) {
+function NotificationNotice({ lines }: { lines: NotificationLine[] }) {
+  if (lines.length === 0) return null;
+  return (
+    <span className="mt-1 block space-y-0.5" aria-label="Avisos por e-mail" data-testid="notification-notice">
+      {lines.map((line) => (
+        <span key={line.text} role={line.tone === "ok" ? undefined : "alert"} className={cn("block text-xs font-bold", line.tone === "error" ? "text-red-700" : line.tone === "warn" ? "text-amber-700" : "text-green-700")}>{line.text}</span>
+      ))}
+    </span>
+  );
+}
+
+function ServerRow({ record, notice, onOpen }: { record: FieldRecordView; notice: NotificationLine[]; onOpen: () => void }) {
   const today = new Date().toISOString().slice(0, 10);
   const overdue = isActionOverdue(record.action, today);
   return (
@@ -246,6 +303,7 @@ function ServerRow({ record, onOpen }: { record: FieldRecordView; onOpen: () => 
           {record.responsibleName ? ` · ${record.responsibleName}` : ""}
         </p>
       ) : null}
+      <NotificationNotice lines={notice} />
     </button>
   );
 }
@@ -376,7 +434,7 @@ function ProfileView({
             </div>
           </div>
         ) : (
-          <button type="button" onClick={() => setConfirmSignOut(true)} className="min-h-12 w-full rounded-lg bg-slate-800 px-3 font-bold uppercase text-white">Sair da conta</button>
+          <button type="button" onClick={() => setConfirmSignOut(true)} className="min-h-12 w-full rounded-lg bg-[#7f1d1d] px-3 font-bold uppercase text-white">Sair da conta</button>
         )
       ) : (
         <p className="text-xs text-slate-500">Sem conexão: para trocar de conta, abra o app com internet.</p>

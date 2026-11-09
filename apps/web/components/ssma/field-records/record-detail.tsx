@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from "@axion/db/browser";
 import { Camera, CheckCircle2, Clock, Loader2 } from "lucide-react";
 import { computeFileSha256Hex } from "@/lib/documents/multi-upload/sha256";
 import { isActionOverdue, type FieldRecordView } from "@/lib/ssma/field-records/field-record-view";
+import type { NotificationLine } from "@/lib/ssma/field-notifications/view";
 import { uploadActionEvidencePhoto } from "@/lib/ssma/field-records/supabase-transport";
 import {
   ACCEPTED_PHOTO_MIME_TYPES,
@@ -14,6 +15,7 @@ import {
   extractServerErrorCode,
   messageForServerError,
 } from "@/lib/ssma/field-records/types";
+import { EsgEvidenceLink } from "@/components/ssma/field-records/esg-evidence-link";
 import { RecordConsult } from "@/components/ssma/field-records/record-consult";
 import { cn } from "@/lib/utils";
 
@@ -32,17 +34,23 @@ const dateOnly = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString
 
 export function RecordDetail({
   record,
+  notice,
   userId,
   projectId,
   canManage,
+  isAdmin = false,
+  canRegisterEsg = true,
   online,
   names,
   onChanged,
 }: {
   record: FieldRecordView;
+  notice?: NotificationLine[];
   userId: string;
   projectId: string;
   canManage: boolean;
+  isAdmin?: boolean;
+  canRegisterEsg?: boolean;
   online: boolean;
   names: ReadonlyMap<string, string>;
   onChanged: () => void;
@@ -117,7 +125,7 @@ export function RecordDetail({
     <article className="mx-auto max-w-2xl space-y-4 p-4 pb-28">
       <section className="space-y-2 rounded-xl bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
-          <span className="rounded bg-slate-800 px-2 py-1 text-white">{record.kind === "OCORRENCIA" ? "Ocorrência" : "Inspeção"}</span>
+          <span className="rounded bg-[#7f1d1d] px-2 py-1 text-white">{record.kind === "OCORRENCIA" ? "Ocorrência" : "Inspeção"}</span>
           <span className="rounded bg-slate-200 px-2 py-1 text-slate-800">{record.category}</span>
           <span className="rounded bg-slate-200 px-2 py-1 text-slate-800">Risco {RISK_LABELS[record.risk]}</span>
         </div>
@@ -130,6 +138,13 @@ export function RecordDetail({
           <dt className="font-bold text-slate-600">Registrado por</dt><dd>{record.reportedByName}</dd>
           <dt className="font-bold text-slate-600">Fotos</dt><dd>{record.photoCount}</dd>
         </dl>
+        {notice && notice.length > 0 ? (
+          <ul className="mt-2 space-y-1" aria-label="Avisos por e-mail" data-testid="notification-notice">
+            {notice.map((line) => (
+              <li key={line.text} role={line.tone === "ok" ? undefined : "alert"} className={line.tone === "error" ? "text-xs font-bold text-red-700" : line.tone === "warn" ? "text-xs font-bold text-amber-700" : "text-xs font-bold text-green-700"}>{line.text}</li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
       {action ? (
@@ -158,7 +173,7 @@ export function RecordDetail({
                 </p>
                 {item.note ? <p className="whitespace-pre-wrap text-slate-700">{item.note}</p> : null}
                 {item.evidence_photo_id ? (
-                  <a href={`/api/ssma/records/photos/${item.evidence_photo_id}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-xs font-bold text-[#7f1d1d] underline">
+                  <a href={`/api/ssma/records/photos/${item.evidence_photo_id}`} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center text-xs font-bold text-red-700 underline">
                     Ver foto de evidência
                   </a>
                 ) : null}
@@ -187,7 +202,7 @@ export function RecordDetail({
                 <textarea value={note} onChange={(item) => setNote(item.target.value)} rows={3} className="mt-1 block w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-2 text-base outline-none focus:border-[#7f1d1d]" />
               </label>
               {event === "CONCLUIDA" ? (
-                <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-[#7f1d1d] bg-white px-3 text-sm font-bold uppercase text-[#7f1d1d]">
+                <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-[#7f1d1d] bg-white px-3 text-sm font-bold uppercase text-red-700">
                   <Camera className="size-5" /> {file ? file.name : "Foto de evidência"}
                   <input type="file" accept="image/jpeg,image/png" capture="environment" className="sr-only" onChange={(item) => setFile(item.target.files?.[0] ?? null)} />
                 </label>
@@ -213,6 +228,8 @@ export function RecordDetail({
       ) : (
         <p className="rounded-xl bg-white p-4 text-sm text-slate-600 shadow-sm">Este registro não tem ação corretiva.</p>
       )}
+
+      <EsgEvidenceLink projectId={projectId} recordId={record.id} userId={userId} isAdmin={isAdmin} canLink={canRegisterEsg} online={online} />
 
       <RecordConsult projectId={projectId} recordId={record.id} online={online} />
     </article>

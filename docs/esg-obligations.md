@@ -89,11 +89,15 @@ Reaproveita integralmente `is_project_member`/`has_project_permission`
 (nenhuma tabela/role nova). Mapeamento de papéis do requisito para os
 níveis reais do sistema (`VIEWER`/`EDITOR`/`ADMIN`):
 
-- **Técnico de Segurança / responsável autorizado** = `EDITOR` no
-  projeto — pode configurar o checklist, preencher comprovações e
-  anexar evidências (sempre autoautoria: `filled_by_user_id`/
-  `uploaded_by_user_id` = `auth.uid()`, impersonação bloqueada pela RLS).
-- **Revisão/ajuste de status** = `ADMIN` — via a RPC
+- **Registrar comprovação e anexar evidência** (desde a migration `20261106100000`, ainda não aplicada em
+  produção): **Administrador, Gerente, Gestor e Colaborador ATIVOS**; **Leitura** só consulta; membro inativo ou
+  de outra obra não acessa. Sempre autoautoria (`filled_by_user_id`/`uploaded_by_user_id` = `auth.uid()`;
+  impersonação bloqueada pela RLS). O **Colaborador só anexa evidência na própria comprovação**; o Administrador
+  em qualquer uma. Upload no Storage em `<obra>/esg-evidence/…` liberado ao mesmo grupo
+  (`can_upload_esg_evidence_object`). Antes da migration valia só o Administrador (o nível "EDITOR" do
+  `has_project_permission` é, na prática, Administrador).
+- **Configurar o checklist** (criar/alterar obrigações) = somente **Administrador** (inalterado).
+- **Revisão/ajuste de status** = **Administrador ativo** (`ADMIN`) — via a RPC
   `review_esg_obligation_submission` (`SECURITY DEFINER`), nunca por
   UPDATE direto do usuário comum (não há policy UPDATE para
   `esg_obligation_submissions` fora da RPC).
@@ -246,11 +250,29 @@ bloqueia a criação/consulta de uma obrigação.
    informação (`EsgTechnicianPendingList`).
 2. **Visão gerencial** — totais por status/risco + filtros por período,
    status, risco, categoria e responsável (`EsgManagerialSummary`).
-3. **Checklist do projeto** — configurar obrigações (EDITOR/ADMIN),
+3. **Checklist do projeto** — configurar obrigações (somente Administrador),
    histórico de comprovações por obrigação, registrar nova comprovação
-   com upload de evidências (`EsgObligationForm`, `EsgSubmissionForm`),
-   revisão (ADMIN, `EsgReviewForm`).
+   com upload de evidências (Administrador/Gerente/Gestor/Colaborador;
+   `EsgObligationForm`, `EsgSubmissionForm`), revisão (somente Administrador, `EsgReviewForm`).
+   Abre com `?filtro=cumpridas|pendentes|vencidas|revisao|evidencias` listando as obrigações
+   que compõem cada total do Dashboard.
 4. **Diretor de ESG IA** — consulta conversacional (`ExpertQueryPanel`).
+
+## 11.1 Status no Dashboard (posição atual)
+
+`computeEsgSummary(obrigações, comprovações, evidências, hoje)` — puro. Para cada obrigação **ativa**, vale a
+comprovação mais recente (maior `reference_date`; desempate por `created_at`, `updated_at`, `id`):
+- **Cumprida**: `CUMPRIDO`. **Dispensada/não aplicável**: `NAO_APLICAVEL` ou `DISPENSADO` (contada à parte).
+- **Vencida**: `PENDENTE`, `CUMPRIDO_PARCIALMENTE` ou `NAO_CUMPRIDO` com `due_date` **anterior a hoje**.
+- **Pendente**: sem comprovação, ou os mesmos status em aberto com prazo vazio, hoje ou futuro.
+- Cumprida + pendente + vencida + dispensada = total de obrigações ativas (partição).
+- **Aguardando revisão** (sobreposição): há comprovação e `reviewed_at` é nulo. **Evidência pendente**
+  (sobreposição): a obrigação exige evidência, a última comprovação está `CUMPRIDO`/`CUMPRIDO_PARCIALMENTE` e
+  não há anexo. Sem obrigações cadastradas o painel mostra "—" (não zero).
+Cada total do Dashboard leva a `/{obra}/esg?filtro=…`, que lista as obrigações que o compõem.
+
+**Indicadores quantitativos (kg de resíduo, horas de treinamento, taxa de frequência)**: **evolução posterior**
+(decisão de 06/11/2026) — exigem formulários e fontes próprios; hoje só o **status** das obrigações existe.
 
 ## 12. Limitações conhecidas
 
