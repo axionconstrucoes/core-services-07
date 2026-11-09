@@ -67,8 +67,15 @@ await check("aviso do acidente: registrado ≠ comunicado; 409/502/rede explicam
 await check("o formulário só mostra confirmação DEPOIS de finalizar; falha de aviso não é falha de envio (sem duplicar)", () => {
   const app = read("../apps/web/components/ssma/ssma-field-app.tsx");
   const iFinalize = app.indexOf('rpc("finalize_ssma_form_submission"');
-  const iConfirm = app.indexOf("setConfirmation({ warning");
+  // A confirmação nasce numa única chamada, depois do finalize, e só carrega o dia quando a obra enviada é a atual.
+  const confirmCalls = [...app.matchAll(/setConfirmation\(\{ warning, day: projectId === contextProjectId \? occurredAtValue\.slice\(0, 10\) : undefined \}\)/g)];
+  assert.equal(confirmCalls.length, 1, "uma única chamada de confirmação, com o dia condicionado à obra atual");
+  const iConfirm = confirmCalls[0]?.index ?? -1;
   assert.ok(iFinalize > 0 && iConfirm > iFinalize, "confirmação só após finalize");
+  assert.equal((app.match(/setConfirmation\(/g) ?? []).length, 1, "nenhum outro caminho exibe a confirmação");
+  assert.equal((app.match(/onComplete\(definition\.slug, confirmation\.day\)/g) ?? []).length, 2, "os dois botões da confirmação repassam o dia confirmado");
+  assert.ok(/if \(day === initialDateTime\.slice\(0, 10\)\) setCompleted/.test(app), "só conta no checklist de hoje o envio confirmado do dia corrente");
+  assert.ok(!/Avulso · conforme necessidade/.test(app), "cartões avulsos sem subtítulo repetitivo (o título da seção já informa)");
   assert.ok(!/O acidente foi registrado, mas a comunicação imediata não foi concluída/.test(app), "mensagem antiga (que parecia erro) removida");
   assert.ok(app.includes("OFFLINE_FORM_MESSAGE") && app.includes("navigator.onLine"));
 });

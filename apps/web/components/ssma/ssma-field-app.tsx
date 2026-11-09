@@ -802,7 +802,6 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
                 <span className="block font-bold text-white">
                   {String(definition.number).padStart(2, "0")} {definition.slug === "ocorrencia-acidente" ? "Ocorrências / Near Misses" : definition.shortTitle}
                 </span>
-                <span className="block text-xs font-semibold text-white">Avulso · conforme necessidade</span>
               </span>
               <span className="text-sm font-bold text-white">Registrar</span>
               <ChevronRight className="size-5 shrink-0 text-white" aria-hidden="true" />
