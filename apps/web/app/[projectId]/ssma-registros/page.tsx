@@ -28,7 +28,7 @@ export default async function SsmaFieldRecordsPage({ params }: { params: Promise
         title="Registros de campo SSMA"
         description="Ocorrências e inspeções registradas pelo app de campo, com as ações corretivas e o andamento. Registros criados sem sinal aparecem aqui depois de sincronizados."
         actions={
-          <Link href={`/ssma/${projectId}`} className="rounded-md border border-[#7f1d1d] px-3 py-2 text-sm font-semibold text-[#7f1d1d]">
+          <Link href={`/ssma/${projectId}`} className="rounded-md border border-white/40 px-3 py-2 text-sm font-semibold bg-[#7f1d1d] text-white hover:bg-[#9b2424] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
             Abrir app de campo
           </Link>
         }
