@@ -652,22 +652,32 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {occasional.map((definition) => {
           const Icon = definition.slug === "ocorrencia-acidente" ? Siren : definition.slug === "remessa-bota-fora" ? Truck : FileText;
+          // Tons conforme a referência visual: avulsos verdes, 11 Remessa marrom médio #795548, 12 Ocorrências vermelho. Texto/ícones brancos.
+          const tone =
+            definition.slug === "ocorrencia-acidente"
+              ? "border-[#7f1d1d] bg-[#b91c1c] hover:bg-[#991b1b]"
+              : definition.slug === "remessa-bota-fora"
+                ? "border-[#5d4037] bg-[#795548] hover:bg-[#6b4a3f]"
+                : "border-[#052e16] bg-[#14532d] hover:bg-[#0f3f22]";
           return (
             <button
               key={definition.slug}
               type="button"
               onClick={() => setActiveSlug(definition.slug)}
-              className="flex min-h-20 w-full items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm hover:border-[#7f1d1d]"
+              className={cn(
+                "flex min-h-20 w-full items-center gap-3 rounded-xl border-2 p-4 text-left text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white",
+                tone
+              )}
             >
-              <Icon className="size-7 shrink-0 text-[#7f1d1d]" />
+              <Icon className="size-7 shrink-0 text-white" aria-hidden="true" />
               <span className="min-w-0 flex-1">
-                <span className="block font-bold text-slate-900">
+                <span className="block font-bold text-white">
                   {String(definition.number).padStart(2, "0")} {definition.shortTitle}
                 </span>
-                <span className="block text-xs text-slate-600">Avulso · conforme necessidade</span>
+                <span className="block text-xs font-semibold text-white">Avulso · conforme necessidade</span>
               </span>
-              <span className="text-sm font-bold text-[#7f1d1d]">Registrar</span>
-              <ChevronRight className="size-5 shrink-0 text-[#7f1d1d]" />
+              <span className="text-sm font-bold text-white">Registrar</span>
+              <ChevronRight className="size-5 shrink-0 text-white" aria-hidden="true" />
             </button>
           );
         })}
