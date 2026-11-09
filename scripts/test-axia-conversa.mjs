@@ -228,8 +228,6 @@ for (const f of ["apps/web/app/[projectId]/ajuda/assistente/route.ts", "apps/web
 }
 t("rota por obra mantém a verificação de participação (getProject)", rd("apps/web/app/[projectId]/ajuda/assistente/route.ts").includes("getProject(projectId)"));
 const w = rd("apps/web/components/assistant/assistant-widget.tsx");
-// O corpo da resposta (botão "Isso não respondeu", citação etc.) fica em axia-answer-body.tsx; o comportamento é testado por renderização em test-axia-formatacao.mjs.
-const wBody = rd("apps/web/components/assistant/axia-answer-body.tsx");
-t("widget envia só as 2 últimas perguntas + id do assunto; mantém 'Isso não respondeu', Ajuda e ADMIN", w.includes("slice(-2)") && wBody.includes("NOT_ANSWERED_LABEL") && w.includes("/ajuda`") && w.includes("data-axia-admin") && w.includes('kind !== "social"'));
+t("widget envia só as 2 últimas perguntas + id do assunto; mantém 'Isso não respondeu', Ajuda e ADMIN", w.includes("slice(-2)") && w.includes("NOT_ANSWERED_LABEL") && w.includes("/ajuda`") && w.includes("data-axia-admin") && w.includes('kind !== "social"'));
 console.log(`\n${ok} OK, ${bad} FAIL`);
 process.exit(bad ? 1 : 0);

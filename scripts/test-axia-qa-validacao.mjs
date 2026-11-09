@@ -43,10 +43,7 @@ t("o destino é o mesmo para qualquer pergunta (URL fixa)", full.adminHandoff.hr
 t("resolveAdminHandoff() fora do teste não devolve href", resolveAdminHandoff({}).href === null);
 
 // 6. interface (código-fonte do componente)
-const wShell = readFileSync(new URL("../apps/web/components/assistant/assistant-widget.tsx", import.meta.url), "utf8");
-// O corpo da resposta (botão "Isso não respondeu", citação do manual) foi extraído para axia-answer-body.tsx.
-const wBody = readFileSync(new URL("../apps/web/components/assistant/axia-answer-body.tsx", import.meta.url), "utf8");
-const w = wShell + String.fromCharCode(10) + wBody;
+const w = readFileSync(new URL("../apps/web/components/assistant/assistant-widget.tsx", import.meta.url), "utf8");
 t("botão 'Isso não respondeu à minha pergunta' existe", /NOT_ANSWERED_LABEL/.test(w) && /data-axia-nao-respondeu/.test(w));
 const adminBlock = w.slice(w.indexOf("data-axia-admin"), w.indexOf("data-axia-admin") + 400);
 t("ADMIN em amarelo #ffd54f e negrito", /text-\[#ffd54f\]/.test(adminBlock) && /font-bold/.test(adminBlock));
