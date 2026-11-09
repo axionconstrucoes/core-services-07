@@ -55,8 +55,23 @@ export default async function SsmaAppPage({ params }: { params: Promise<{ projec
     .filter((member) => member.status === "ACTIVE" && member.permission !== "LEITURA")
     .map((member) => ({ userId: member.userId, name: member.user.name }));
 
+  // Checklist diário: só conta envio CONFIRMADO pelo servidor (status SUBMITTED) desta obra no dia de hoje (America/Sao_Paulo).
+  const today = currentDateTimeInSaoPaulo().slice(0, 10);
+  const dayStart = new Date(`${today}T00:00:00-03:00`);
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+  const { data: todaySubmissions } = await supabase
+    .from("ssma_form_submissions")
+    .select("checklist_slug")
+    .eq("project_id", projectId)
+    .eq("status", "SUBMITTED")
+    .in("checklist_slug", ["dda", "fotos-diarias", "almoxarifado", "limpeza"])
+    .gte("occurred_at", dayStart.toISOString())
+    .lt("occurred_at", dayEnd.toISOString());
+  const initialCompleted = Array.from(new Set((todaySubmissions ?? []).map((row) => row.checklist_slug as string)));
+
   return (
     <SsmaFieldApp
+      initialCompleted={initialCompleted}
       userId={authData.user.id}
       project={{ id: projectId, label, canManage, members: assignable }}
       projectId={projectId}

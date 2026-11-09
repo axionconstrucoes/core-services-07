@@ -15,7 +15,7 @@ export function SsmaHeader({ title, onBack }: { title: string; onBack?: () => vo
   const veraProjectId = pathname?.match(/^\/ssma\/([0-9a-fA-F-]{36})(?:\/|$)/)?.[1] ?? null;
   return (
     <>
-    <header className="flex min-h-24 items-center gap-2 bg-[#7f1d1d] px-2 text-white shadow-sm sm:px-4">
+    <header className="flex min-h-24 items-center gap-2 bg-[#740820] px-2 text-white shadow-sm sm:px-4">
       {onBack ? (
         <button
           type="button"
