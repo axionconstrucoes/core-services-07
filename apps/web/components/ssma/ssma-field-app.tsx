@@ -776,7 +776,7 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
           })}
         </section>
 
-        <h2 className="text-base font-bold text-slate-900">2. Relatórios avulsos — conforme necessidade</h2>
+        <h2 className="text-base font-bold text-slate-900">2. Relatórios avulsos</h2>
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {occasional.map((definition) => {
           const Icon = definition.slug === "ocorrencia-acidente" ? Siren : definition.slug === "remessa-bota-fora" ? Truck : FileText;

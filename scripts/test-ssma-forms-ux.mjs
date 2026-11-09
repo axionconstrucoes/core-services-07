@@ -75,7 +75,8 @@ await check("o formulário só mostra confirmação DEPOIS de finalizar; falha d
   assert.equal((app.match(/setConfirmation\(/g) ?? []).length, 1, "nenhum outro caminho exibe a confirmação");
   assert.equal((app.match(/onComplete\(definition\.slug, confirmation\.day\)/g) ?? []).length, 2, "os dois botões da confirmação repassam o dia confirmado");
   assert.ok(/if \(day === initialDateTime\.slice\(0, 10\)\) setCompleted/.test(app), "só conta no checklist de hoje o envio confirmado do dia corrente");
-  assert.ok(!/Avulso · conforme necessidade/.test(app), "cartões avulsos sem subtítulo repetitivo (o título da seção já informa)");
+  assert.ok(!/conforme necessidade/i.test(app), "o texto 'conforme necessidade' não aparece no app de campo (cartões avulsos e título da seção)");
+  assert.ok(app.includes("2. Relatórios avulsos"), "a seção de avulsos continua identificada pelo título");
   assert.ok(!/O acidente foi registrado, mas a comunicação imediata não foi concluída/.test(app), "mensagem antiga (que parecia erro) removida");
   assert.ok(app.includes("OFFLINE_FORM_MESSAGE") && app.includes("navigator.onLine"));
 });
