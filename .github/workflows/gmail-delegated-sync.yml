@@ -1,0 +1,77 @@
+name: Gmail Delegated Sync (manual)
+
+# Coleta do Gmail por DELEGAÇÃO EM TODO O DOMÍNIO — SOMENTE MANUAL (workflow_dispatch). Sem `schedule`: nada roda sozinho.
+# NÃO substitui nem desativa o "Gmail Inbound Sync" existente (refresh token). Uma caixa por execução, somente leitura
+# (gmail.readonly). O script recusa a execução se a caixa não tiver autorização corporativa + permissão técnica + coleta
+# habilitada registradas no ACC (tabela email_mailbox_collection_controls).
+#
+# Autenticação SEM CHAVE privada: GitHub OIDC -> Workload Identity Federation -> conta de serviço (variáveis do repositório,
+# não são segredos): GOOGLE_WIF_PROVIDER (PENDENTE: o pool/provedor de federação ainda não existe) e, opcionalmente,
+# GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT (padrão: a conta confirmada ACC Gmail Reader). Veja docs/gmail-delegacao-dominio-passo-a-passo.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mailbox:
+        description: "Caixa corporativa EXPLÍCITA a ler (ex.: reynaldo@axion.com.br)"
+        required: true
+        type: string
+      mode:
+        description: "technical_check = só prova a delegação (não lê mensagens) | sample = amostra | sync = incremental do período"
+        required: true
+        type: choice
+        default: technical_check
+        options:
+          - technical_check
+          - sample
+          - sync
+      max_messages:
+        description: "Tamanho da amostra (só no modo sample)"
+        required: false
+        type: string
+        default: "20"
+
+concurrency:
+  group: gmail-delegated-sync-${{ inputs.mailbox }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Autenticar no Google Cloud (sem chave privada)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GOOGLE_WIF_PROVIDER }}
+          service_account: ${{ vars.GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT || 'acc-gmail-reader@axion-contract-intelligence.iam.gserviceaccount.com' }}
+
+      - name: Gmail por delegação (${{ inputs.mode }})
+        run: node scripts/gmail-inbound-sync.mjs --apply
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          ACC_GMAIL_AUTH_MODE: DOMAIN_DELEGATION
+          GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT: ${{ vars.GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT || 'acc-gmail-reader@axion-contract-intelligence.iam.gserviceaccount.com' }}
+          GOOGLE_GMAIL_INBOUND_MAILBOX: ${{ inputs.mailbox }}
+          ACC_GMAIL_TECHNICAL_CHECK_ONLY: ${{ inputs.mode == 'technical_check' && 'true' || 'false' }}
+          ACC_GMAIL_MAX_MESSAGES: ${{ inputs.mode == 'sample' && inputs.max_messages || '' }}
