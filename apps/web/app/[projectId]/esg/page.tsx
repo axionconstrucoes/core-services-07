@@ -139,7 +139,7 @@ export default async function EsgObligationsPage({ params }: { params: Promise<{
           <div className="flex shrink-0 flex-wrap gap-2">
             <Link
               href={`/${projectId}/ssma-registros`}
-              className="inline-flex min-h-11 items-center justify-center rounded-md border border-[#7f1d1d] px-4 text-sm font-bold text-[#7f1d1d]"
+              className="inline-flex min-h-11 items-center justify-center rounded-md border border-white/40 px-4 text-sm font-bold bg-[#7f1d1d] text-white hover:bg-[#9b2424] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
               Registros de campo
             </Link>

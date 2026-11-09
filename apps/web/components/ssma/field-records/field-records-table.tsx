@@ -33,12 +33,12 @@ export function FieldRecordsTable({ records, today }: { records: FieldRecordView
             <td className="px-3 py-2">{record.reportedByName}</td>
             <td className="px-3 py-2">{record.responsibleName ?? "—"}</td>
             <td className="px-3 py-2 whitespace-nowrap">{record.action ? dateOnly(record.action.dueDate) : "—"}</td>
-            <td className={`px-3 py-2 font-semibold ${overdue ? "text-red-700" : ""}`}>{record.action ? (overdue ? "Em atraso" : ACTION_STATUS_LABELS[record.action.status]) : "Sem ação"}{record.evidenceCount > 0 ? <span className="block text-xs font-normal text-muted-foreground">{record.evidenceCount} evidência(s)</span> : null}</td>
+            <td className={`px-3 py-2 font-semibold ${overdue ? "text-red-300" : ""}`}>{record.action ? (overdue ? "Em atraso" : ACTION_STATUS_LABELS[record.action.status]) : "Sem ação"}{record.evidenceCount > 0 ? <span className="block text-xs font-normal text-muted-foreground">{record.evidenceCount} evidência(s)</span> : null}</td>
             <td className="px-3 py-2">
               {record.photos.length === 0 ? "0" : (
                 <span className="flex flex-wrap gap-1">
                   {record.photos.map((photo, index) => (
-                    <a key={photo.id} href={`/api/ssma/records/photos/${photo.id}`} target="_blank" rel="noreferrer" className="text-xs font-semibold text-[#7f1d1d] underline">
+                    <a key={photo.id} href={`/api/ssma/records/photos/${photo.id}`} target="_blank" rel="noreferrer" className="text-xs font-semibold text-red-300 underline">
                       {photo.purpose === "EVIDENCIA_ACAO" ? "evid." : "foto"} {index + 1}
                     </a>
                   ))}
