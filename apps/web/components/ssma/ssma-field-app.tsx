@@ -619,19 +619,6 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
           </div>
         </section>
 
-        <button
-          type="button"
-          onClick={() => { setFieldTab("registros"); setView("field"); }}
-          className="flex min-h-20 w-full items-center gap-3 rounded-xl border-2 border-[#7f1d1d] bg-white p-4 text-left shadow-sm"
-        >
-          <Plus className="size-7 shrink-0 text-[#7f1d1d]" />
-          <span className="min-w-0 flex-1">
-            <span className="block font-bold text-slate-900">Registrar ocorrência / inspeção</span>
-            <span className="block text-xs text-slate-600">Funciona sem sinal · fotos, responsável e prazo</span>
-          </span>
-          <ChevronRight className="size-5 shrink-0 text-[#7f1d1d]" />
-        </button>
-
         <h2 className="text-base font-bold text-slate-900">1. Relatórios diários — obrigatórios</h2>
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {routine.map((definition) => (
@@ -661,6 +648,18 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
 
         <h2 className="text-base font-bold text-slate-900">2. Relatórios avulsos — conforme necessidade</h2>
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => { setFieldTab("registros"); setView("field"); }}
+          className="flex min-h-20 w-full items-center gap-3 rounded-xl border-2 border-[#7f1d1d] bg-white p-4 text-left shadow-sm"
+        >
+          <Plus className="size-7 shrink-0 text-[#7f1d1d]" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-bold text-slate-900">Registrar ocorrência / inspeção</span>
+            <span className="block text-xs text-slate-600">Funciona sem sinal · fotos, responsável e prazo</span>
+          </span>
+          <ChevronRight className="size-5 shrink-0 text-[#7f1d1d]" />
+        </button>
           {occasional.map((definition) => {
           const Icon = definition.slug === "ocorrencia-acidente" ? Siren : definition.slug === "remessa-bota-fora" ? Truck : FileText;
           return (
