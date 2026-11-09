@@ -104,8 +104,8 @@ export const SSMA_CHECKLISTS: readonly SsmaChecklistDefinition[] = [
   {
     number: 6,
     slug: "integracao",
-    title: "Lista de integração",
-    shortTitle: "Lista de integração",
+    title: "Integração",
+    shortTitle: "Integração",
     driveFolder: "06 - LISTA DE INTEGRAÇÃO",
     fields: [
       { id: "empresa", label: "Empresa do trabalhador", type: "text", placeholder: "Informe a empresa" },
