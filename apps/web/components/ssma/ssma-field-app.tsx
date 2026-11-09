@@ -652,12 +652,12 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {occasional.map((definition) => {
           const Icon = definition.slug === "ocorrencia-acidente" ? Siren : definition.slug === "remessa-bota-fora" ? Truck : FileText;
-          // Tons conforme a referência visual: avulsos verdes, 11 Remessa marrom médio #795548, 12 Ocorrências vermelho. Texto/ícones brancos.
+          // Tons conforme a referência visual: avulsos verdes, 11 Remessa marrom bem escuro #4E342E, 12 Ocorrências vermelho. Texto/ícones brancos.
           const tone =
             definition.slug === "ocorrencia-acidente"
               ? "border-[#7f1d1d] bg-[#b91c1c] hover:bg-[#991b1b]"
               : definition.slug === "remessa-bota-fora"
-                ? "border-[#5d4037] bg-[#795548] hover:bg-[#6b4a3f]"
+                ? "border-[#3e2723] bg-[#4E342E] hover:bg-[#3e2723]"
                 : "border-[#052e16] bg-[#14532d] hover:bg-[#0f3f22]";
           return (
             <button
@@ -672,7 +672,7 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
               <Icon className="size-7 shrink-0 text-white" aria-hidden="true" />
               <span className="min-w-0 flex-1">
                 <span className="block font-bold text-white">
-                  {String(definition.number).padStart(2, "0")} {definition.shortTitle}
+                  {String(definition.number).padStart(2, "0")} {definition.slug === "ocorrencia-acidente" ? "Ocorrências / Near Misses" : definition.shortTitle}
                 </span>
                 <span className="block text-xs font-semibold text-white">Avulso · conforme necessidade</span>
               </span>
