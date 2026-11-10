@@ -353,6 +353,12 @@ begin
   if new.related_ssma_corrective_action_id is null then return new; end if;
   if coalesce(current_setting('acc.ssma_sync', true), '') = 'on' then return new; end if;
 
+  -- O vínculo SSMA↔SLA nasce só em ssma_link_sla_action (INSERT) e NÃO pode ser trocado por UPDATE
+  -- (impede apontar a ação SLA de uma obra para a ação SSMA de outra).
+  if new.related_ssma_corrective_action_id is distinct from old.related_ssma_corrective_action_id then
+    raise exception 'SSMA_LINK_IMMUTABLE: o vínculo com a ação corretiva SSMA não pode ser alterado.';
+  end if;
+
   if new.status = 'COMPLETED' and old.status is distinct from 'COMPLETED' then
     raise exception 'SSMA_ACTION_COMPLETE_VIA_SSMA: a conclusão de ação corretiva SSMA exige a evidência registrada no app SSMA.';
   end if;
@@ -362,6 +368,10 @@ begin
 
   select * into v_ssma from public.ssma_corrective_actions where id = new.related_ssma_corrective_action_id for update;
   if not found then return new; end if;
+  -- Defesa em profundidade: as duas pontas do vínculo precisam ser da MESMA obra.
+  if v_ssma.project_id is distinct from new.project_id then
+    raise exception 'SSMA_LINK_PROJECT_MISMATCH: a ação corretiva SSMA pertence a outra obra.';
+  end if;
 
   if new.responsible_user_id is not null and new.responsible_user_id is distinct from old.responsible_user_id then
     update public.ssma_corrective_actions set responsible_user_id = new.responsible_user_id where id = v_ssma.id;
@@ -442,6 +452,7 @@ revoke all on function public.can_register_esg_compliance(uuid) from public, ano
 grant execute on function public.can_register_esg_compliance(uuid) to authenticated, service_role;
 
 drop policy if exists "esg_obligation_submissions_insert_editor_self_authored" on public.esg_obligation_submissions;
+drop policy if exists "esg_obligation_submissions_insert_registrars_self_authored" on public.esg_obligation_submissions;
 create policy "esg_obligation_submissions_insert_registrars_self_authored"
   on public.esg_obligation_submissions
   for insert
@@ -449,6 +460,7 @@ create policy "esg_obligation_submissions_insert_registrars_self_authored"
   with check (filled_by_user_id = auth.uid() and public.can_register_esg_compliance(project_id));
 
 drop policy if exists "esg_obligation_evidence_insert_editor_self_authored" on public.esg_obligation_evidence;
+drop policy if exists "esg_obligation_evidence_insert_registrars_self_authored" on public.esg_obligation_evidence;
 create policy "esg_obligation_evidence_insert_registrars_self_authored"
   on public.esg_obligation_evidence
   for insert
@@ -525,6 +537,7 @@ alter table public.ssma_field_notification_deliveries enable row level security;
 revoke all on public.ssma_field_notification_deliveries from anon, authenticated;
 grant select on public.ssma_field_notification_deliveries to authenticated;
 grant all on public.ssma_field_notification_deliveries to service_role;
+drop policy if exists "ssma_field_notification_deliveries_select_admin" on public.ssma_field_notification_deliveries;
 create policy "ssma_field_notification_deliveries_select_admin" on public.ssma_field_notification_deliveries
   for select to authenticated using (public.has_project_permission(project_id, 'ADMINISTRADOR'));
 
@@ -575,6 +588,7 @@ alter table public.ssma_incident_links enable row level security;
 revoke all on public.ssma_incident_links from anon, authenticated;
 grant select on public.ssma_incident_links to authenticated;
 grant all on public.ssma_incident_links to service_role;
+drop policy if exists "ssma_incident_links_select_members" on public.ssma_incident_links;
 create policy "ssma_incident_links_select_members" on public.ssma_incident_links
   for select to authenticated using (public.is_project_member(project_id));
 
@@ -600,9 +614,14 @@ begin
 
   select f.project_id into v_form_project from public.ssma_form_submissions f
    where f.id = p_form_submission_id and f.checklist_slug = 'ocorrencia-acidente' and f.status = 'SUBMITTED';
-  if v_form_project is null then raise exception 'FORM_NOT_FOUND'; end if;
+  -- Anti-oráculo: quem não é membro da obra do formulário recebe o mesmo erro de um formulário inexistente.
+  if v_form_project is null or not coalesce(public.is_project_member(v_form_project), false) then raise exception 'FORM_NOT_FOUND'; end if;
   select r.project_id into v_record_project from public.ssma_field_records r where r.id = p_field_record_id and r.kind = 'OCORRENCIA';
-  if v_record_project is null then raise exception 'RECORD_NOT_FOUND'; end if;
+  -- Registro de outra obra só é revelado a quem também é membro dessa obra.
+  if v_record_project is null
+     or (v_record_project <> v_form_project and not coalesce(public.is_project_member(v_record_project), false)) then
+    raise exception 'RECORD_NOT_FOUND';
+  end if;
   if v_form_project <> v_record_project then raise exception 'PROJECT_MISMATCH'; end if;
   if not coalesce(public.has_project_permission(v_form_project, 'ADMINISTRADOR'), false) then raise exception 'ADMIN_REQUIRED'; end if;
 

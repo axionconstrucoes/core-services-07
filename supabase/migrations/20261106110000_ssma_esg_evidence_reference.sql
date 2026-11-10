@@ -72,9 +72,16 @@ begin
 
   select s.project_id, s.obligation_id, s.filled_by_user_id into v_sub
     from public.esg_obligation_submissions s where s.id = p_submission_id;
-  if v_sub.project_id is null then raise exception 'OBLIGATION_NOT_FOUND'; end if;
+  -- Anti-oráculo: quem não é membro da obra da comprovação recebe o mesmo erro de uma comprovação inexistente.
+  if v_sub.project_id is null or not coalesce(public.is_project_member(v_sub.project_id), false) then
+    raise exception 'OBLIGATION_NOT_FOUND';
+  end if;
   select r.project_id into v_record_project from public.ssma_field_records r where r.id = p_field_record_id;
-  if v_record_project is null then raise exception 'RECORD_NOT_FOUND'; end if;
+  -- Registro de outra obra só é revelado a quem também é membro dessa obra.
+  if v_record_project is null
+     or (v_record_project <> v_sub.project_id and not coalesce(public.is_project_member(v_record_project), false)) then
+    raise exception 'RECORD_NOT_FOUND';
+  end if;
   if v_record_project <> v_sub.project_id then raise exception 'PROJECT_MISMATCH'; end if;
 
   -- membro ATIVO que registra conformidade ESG, e que enxerga o registro SSMA (membro da obra)
@@ -124,7 +131,8 @@ declare
 begin
   if v_user is null then raise exception 'AUTH_REQUIRED'; end if;
   select * into v_ref from public.esg_ssma_record_references where id = p_reference_id for update;
-  if v_ref.id is null then raise exception 'REFERENCE_NOT_FOUND'; end if;
+  -- Anti-oráculo: quem não é membro da obra da referência recebe o mesmo erro de uma referência inexistente.
+  if v_ref.id is null or not coalesce(public.is_project_member(v_ref.project_id), false) then raise exception 'REFERENCE_NOT_FOUND'; end if;
   if not coalesce(public.can_register_esg_compliance(v_ref.project_id), false) then raise exception 'FORBIDDEN'; end if;
   if not coalesce(public.has_project_permission(v_ref.project_id, 'ADMINISTRADOR'), false)
      and v_ref.created_by_user_id <> v_user then

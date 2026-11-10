@@ -81,3 +81,14 @@ Também: **backup/ponto de recuperação** do projeto Supabase confirmado antes 
 ## 5. Reversão
 
 Migração aditiva. Reversão controlada (se necessária): remover o trigger `sla_actions_ssma_guard`; restaurar as definições anteriores das duas RPCs (arquivo `20261028130000`); recriar as policies ESG antigas (`has_project_permission(project_id,'EDITOR')`); manter colunas/tabelas (inofensivas) ou removê-las. **Não** apagar `sla_actions` criadas pelo backfill sem decisão (carregam auditoria).
+
+## Revisão de segurança (PR #149) — correções incorporadas antes de qualquer aplicação
+
+Auditoria em PostgreSQL descartável (PGlite), com papéis reais e dados sintéticos, antes de aplicar em qualquer ambiente:
+
+1. **Isolamento entre obras (trigger `sla_action_ssma_guard`)**: o vínculo SSMA↔SLA agora é imutável por `UPDATE` (`SSMA_LINK_IMMUTABLE`) e as duas pontas precisam ser da mesma obra (`SSMA_LINK_PROJECT_MISMATCH`). Sem isso, um Administrador de uma obra poderia apontar a ação SLA dele para uma ação SSMA ainda sem vínculo de outra obra e alterar responsável e prazo dela.
+2. **Idempotência**: as policies novas passaram a ter `drop policy if exists` antes do `create policy`; as duas migrations podem ser reaplicadas sem erro e sem duplicar dados.
+3. **Anti-oráculo de existência** (`esg_link_ssma_record`, `esg_unlink_ssma_record`, `ssma_incident_link_set`): quem não é membro da obra recebe o mesmo erro para um ID real e para um inexistente. Para membros do próprio projeto nada muda (`FORBIDDEN`, `ADMIN_REQUIRED`, `PROJECT_MISMATCH` para quem integra as duas obras).
+
+Regressão: `scripts/test-ssma-esg-security-regression-sql.mjs` (roda em `npm run test:sql`; 14 verificações; falha 7 vezes contra a versão anterior das migrations).
+Limite conhecido, fora deste PR: `ssma_field_record_submit` e `ssma_corrective_action_update` mantêm o comportamento anterior de códigos de erro (`RECORD_ID_CONFLICT`, `ACTION_NOT_FOUND`/`PROJECT_ACCESS_DENIED`).

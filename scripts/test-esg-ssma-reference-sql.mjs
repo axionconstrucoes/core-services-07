@@ -104,16 +104,17 @@ await check("Gerente/Gestor só na própria comprovação (FORBIDDEN na alheia);
 
 await check("Leitura, membro inativo, não-membro e anônimo são recusados", async () => {
   eq(await code(link(id(U.lei), 1, 4)), "FORBIDDEN", "leitura");
-  eq(await code(link(id(U.inat), 2, 4)), "FORBIDDEN", "inativo");
-  eq(await code(link(id(U.fora), 1, 4)), "FORBIDDEN", "não-membro");
+  // Anti-oráculo: quem não é membro ATIVO da obra recebe o mesmo erro de comprovação inexistente.
+  eq(await code(link(id(U.inat), 2, 4)), "OBLIGATION_NOT_FOUND", "inativo (não é membro ativo)");
+  eq(await code(link(id(U.fora), 1, 4)), "OBLIGATION_NOT_FOUND", "não-membro (indistinguível de inexistente)");
   eq(await code(link(null, 1, 4)), "AUTH_REQUIRED", "anônimo");
 });
 
 await check("Códigos de erro: RECORD_NOT_FOUND, OBLIGATION_NOT_FOUND e PROJECT_MISMATCH (obra diferente)", async () => {
   eq(await code(as(id(U.adm), () => q("select public.esg_link_ssma_record($1,$2)", [SUB(1), "20000000-0000-4000-8000-0000000000ff"]))), "RECORD_NOT_FOUND", "registro");
   eq(await code(as(id(U.adm), () => q("select public.esg_link_ssma_record($1,$2)", ["70000000-0000-4000-8000-0000000000ff", REC(1)]))), "OBLIGATION_NOT_FOUND", "comprovação");
-  eq(await code(link(id(U.adm), 1, 3)), "PROJECT_MISMATCH", "registro de outra obra");
-  eq(await code(link(id(U.fora), 3, 1)), "PROJECT_MISMATCH", "admin da obra 2 com registro da obra 1");
+  eq(await code(link(id(U.adm), 1, 3)), "RECORD_NOT_FOUND", "registro de outra obra que o chamador não integra (não revela que existe)");
+  eq(await code(link(id(U.fora), 3, 1)), "RECORD_NOT_FOUND", "admin da obra 2 com registro da obra 1 (não é membro da obra 1)");
   eq((await q("select count(*)::int n from public.esg_ssma_record_references where field_record_id=$1", [REC(3)]))[0].n, 0, "nada gravado");
 });
 
@@ -170,7 +171,7 @@ await check("Desvinculação: motivo obrigatório, só administrador ou autor, m
   eq(await code(unlink(id(U.adm), refAdm, "  ")), "REASON_REQUIRED", "motivo");
   eq(await code(unlink(id(U.col2), refCol, "engano")), "FORBIDDEN", "colaborador que não criou");
   eq(await code(unlink(id(U.lei), refCol, "engano")), "FORBIDDEN", "leitura");
-  eq(await code(unlink(id(U.fora), refCol, "engano")), "FORBIDDEN", "não-membro");
+  eq(await code(unlink(id(U.fora), refCol, "engano")), "REFERENCE_NOT_FOUND", "não-membro (indistinguível de inexistente)");
   eq(await code(unlink(null, refCol, "engano")), "AUTH_REQUIRED", "anônimo");
   eq(await code(unlink(id(U.adm), "80000000-0000-4000-8000-0000000000ff", "engano")), "REFERENCE_NOT_FOUND", "inexistente");
   await unlink(id(U.col), refCol, "Registro anexado por engano");   // autor
