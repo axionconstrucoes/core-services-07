@@ -49,7 +49,9 @@ export default async function SsmaAppPage({ params }: { params: Promise<{ projec
     : currentMember.user.name;
 
   const label = projectLabel(project);
-  const canManage = ["ADMINISTRADOR", "GERENTE", "GESTOR"].includes(currentMember.permission);
+  // Gestão de ações corretivas (concluir ação alheia com justificativa): só ADMINISTRADOR — é o que o RPC ssma_corrective_action_update aceita
+  // (has_project_permission(obra, 'GESTOR') exige nível administrativo). A interface não pode oferecer o que o servidor recusa.
+  const canManage = ["ADMINISTRADOR"].includes(currentMember.permission);
   // Quem pode ser responsável por uma ação corretiva: membros ativos que não são somente leitura.
   const assignable = members
     .filter((member) => member.status === "ACTIVE" && member.permission !== "LEITURA")
@@ -85,7 +87,7 @@ export default async function SsmaAppPage({ params }: { params: Promise<{ projec
       return {
         id: candidate.id,
         label: projectLabel(candidate),
-        canManage: !!mine && ["ADMINISTRADOR", "GERENTE", "GESTOR"].includes(mine.permission),
+        canManage: !!mine && ["ADMINISTRADOR"].includes(mine.permission),
         isAdmin: mine?.permission === "ADMINISTRADOR",
         canRegisterEsg: !!mine && mine.permission !== "LEITURA",
         members: candidateMembers.filter((member) => member.status === "ACTIVE" && member.permission !== "LEITURA").map((member) => ({ userId: member.userId, name: member.user.name })),

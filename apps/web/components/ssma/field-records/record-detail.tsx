@@ -209,7 +209,7 @@ export function RecordDetail({
               ) : null}
               {event === "CONCLUIDA" ? (
                 <p className="text-xs font-medium text-slate-600">
-                  A conclusão exige foto de evidência{canManage ? " ou justificativa de pelo menos 10 caracteres (gestor)" : ""}. Nada é concluído sem esse registro.
+                  A conclusão exige foto de evidência{canManage ? " ou justificativa de pelo menos 10 caracteres (Administrador)" : ""}. Nada é concluído sem esse registro.
                 </p>
               ) : null}
               {error ? <p role="alert" className="text-sm font-bold text-red-700">{error}</p> : null}
