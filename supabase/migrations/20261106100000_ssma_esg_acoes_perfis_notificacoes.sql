@@ -23,8 +23,9 @@
 -- 3. NOTIFICAÇÕES de campo: tabela de entregas (dedupe, falha, ausência de destinatário).
 -- 4. VÍNCULO EXPLÍCITO entre acidente de formulário e ocorrência de campo (dupla contagem): só um vínculo CONFIRMADO por
 --    Administrador (RPC ssma_incident_link_set, com auditoria) desconta um relato do total; proximidade de datas apenas SUGERE.
--- 5. CLASSIFICAÇÃO ESTRUTURADA do registro de campo (categoria de lista fechada, constraint NOT VALID: vale para registros
---    novos; os anteriores não são reescritos nem revalidados) — base do indicador de quase-acidentes.
+-- 5. CLASSIFICAÇÃO ESTRUTURADA do registro de campo (categoria de lista fechada, validada por TRIGGER só em registros novos ou
+--    quando a categoria muda; os anteriores não são reescritos, revalidados nem impedidos de receber UPDATE de outras colunas)
+--    — base do indicador de quase-acidentes.
 --
 -- Nada é apagado: só ADD COLUMN/INDEX/TABLE, troca de constraints/policies e CREATE OR REPLACE de funções.
 -- ============================================================
@@ -648,8 +649,30 @@ grant execute on function public.ssma_incident_link_set(uuid, uuid, text, text) 
 -- ------------------------------------------------------------
 -- 5. Classificação estruturada do registro de campo (base do indicador de quase-acidentes)
 -- ------------------------------------------------------------
+-- Validação da categoria só em registros NOVOS ou quando a categoria MUDA. Uma CHECK ... NOT VALID não serve aqui: o PostgreSQL
+-- reavalia a CHECK em QUALQUER UPDATE da linha, e registros históricos com categoria livre não poderiam mais ser atualizados
+-- (inclusive pela propagação de responsável/prazo do módulo Ações). O erro mantém o nome da constraint (compatibilidade).
 alter table public.ssma_field_records drop constraint if exists ssma_field_records_category_structured_check;
-alter table public.ssma_field_records
-  add constraint ssma_field_records_category_structured_check
-  check (category in ('Condição insegura', 'Ato inseguro', 'Quase-acidente', 'EPI', 'Sinalização', 'Organização e limpeza', 'Meio ambiente', 'Inspeção de rotina', 'Outra'))
-  not valid;
+
+create or replace function public.ssma_field_record_category_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if (tg_op = 'INSERT' or new.category is distinct from old.category)
+     and new.category not in ('Condição insegura', 'Ato inseguro', 'Quase-acidente', 'EPI', 'Sinalização', 'Organização e limpeza', 'Meio ambiente', 'Inspeção de rotina', 'Outra') then
+    raise exception 'new row for relation "ssma_field_records" violates check constraint "ssma_field_records_category_structured_check"'
+      using errcode = '23514', constraint = 'ssma_field_records_category_structured_check';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.ssma_field_record_category_guard() from public, anon, authenticated;
+
+drop trigger if exists ssma_field_records_category_guard on public.ssma_field_records;
+create trigger ssma_field_records_category_guard
+before insert or update of category on public.ssma_field_records
+for each row execute function public.ssma_field_record_category_guard();
+-- Sem isto, session_replication_role = replica (superusuário: restore/replicação lógica) contornaria o trigger, o que uma CHECK não permitiria.
+alter table public.ssma_field_records enable always trigger ssma_field_records_category_guard;

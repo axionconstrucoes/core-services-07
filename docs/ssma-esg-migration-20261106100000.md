@@ -15,7 +15,7 @@
 | Backfill | `DO $$` que chama `ssma_link_sla_action` para toda `ssma_corrective_actions` sem vínculo (idempotente; `RAISE NOTICE` com totais) |
 | ESG | `can_register_esg_compliance` (membro **ATIVO** com `ADMINISTRADOR/GERENTE/GESTOR/COLABORADOR`); policies de INSERT de `esg_obligation_submissions` e `esg_obligation_evidence` trocadas (autoria = `auth.uid()`; **colaborador só anexa evidência na própria comprovação**); `can_upload_esg_evidence_object` + policy de Storage `esg_evidence_storage_insert` para `<obra>/esg-evidence/…`. **Não altera** configuração de obrigações (`esg_obligations`, só Administrador) nem a RPC de revisão (só Administrador) |
 | Duplicidade de acidente | `ssma_incident_links` (decisão **humana** `SAME_FACT`/`DISTINCT_FACTS`, 1:1 por índices únicos parciais, RLS de leitura para membros, sem escrita direta) e RPC `ssma_incident_link_set` (**somente Administrador**, valida formulário de acidente enviado × ocorrência da mesma obra, auditada em `audit_log_entries`) |
-| Classificação estruturada | constraint `ssma_field_records_category_structured_check` (lista fechada de categorias, `NOT VALID`: vale para registros novos; os anteriores não são reescritos nem revalidados) — base do indicador de quase-acidentes |
+| Classificação estruturada | trigger `ssma_field_records_category_guard` (lista fechada de categorias, validada só em registros novos ou quando a categoria muda; o erro mantém o nome `ssma_field_records_category_structured_check`). Os registros anteriores não são reescritos, revalidados nem impedidos de receber UPDATE — uma `CHECK ... NOT VALID` os impediria, porque o PostgreSQL a reavalia em qualquer UPDATE da linha — base do indicador de quase-acidentes |
 | Notificações | tabela `ssma_field_notification_deliveries` (RLS; leitura só de Administrador; escrita só `service_role`) com `unique(record_id,event,event_date,recipient_email)`; função `ssma_notification_summary` (resumo **sem e-mails** para membros da obra) |
 
 ### Fonte oficial de cada campo (ação corretiva)
@@ -44,8 +44,8 @@ select count(*) from public.ssma_corrective_actions a
    where m.project_id=a.project_id and m.user_id in (a.concluded_by_user_id, a.responsible_user_id));        -- esperado 0
 -- 4) definição vigente de permissões (a migration NÃO a altera; só a usa)
 select prosrc like '%''ADMINISTRADOR'' then 3%' as has_project_permission_ok from pg_proc where proname='has_project_permission';
--- 5a) categorias anteriores fora da lista fechada (a constraint é NOT VALID, não bloqueia o que já existe; mas um UPDATE
---     futuro desses registros — ex.: reatribuição propagada pelo SLA — seria recusado se houver algum)
+-- 5a) categorias anteriores fora da lista fechada (informativo: o guard só valida registros novos ou troca de categoria, então
+--     esses registros continuam atualizáveis — ex.: reatribuição propagada pelo SLA; podem existir sem bloquear nada)
 select count(*) from public.ssma_field_records
  where category not in ('Condição insegura','Ato inseguro','Quase-acidente','EPI','Sinalização','Organização e limpeza','Meio ambiente','Inspeção de rotina','Outra');   -- esperado 0
 -- 5b) tabelas de que a migration depende
