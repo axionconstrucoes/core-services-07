@@ -77,6 +77,10 @@ await check("o formulário só mostra confirmação DEPOIS de finalizar; falha d
   assert.ok(/if \(day === initialDateTime\.slice\(0, 10\)\) setCompleted/.test(app), "só conta no checklist de hoje o envio confirmado do dia corrente");
   assert.ok(!/conforme necessidade/i.test(app), "o texto 'conforme necessidade' não aparece no app de campo (cartões avulsos e título da seção)");
   assert.ok(app.includes("2. Relatórios avulsos"), "a seção de avulsos continua identificada pelo título");
+  // Acessibilidade (WCAG 1.4.11): o foco por teclado dos cartões diários usa contorno claro (o vinho #7f1d1d dava ~1,8:1 sobre o fundo escuro).
+  assert.ok(!/focus-visible:outline-[#7f1d1d]/.test(app), "nenhum cartão usa contorno de foco vinho sobre o fundo escuro");
+  const dailyCard = app.match(/className="flex min-h-24 items-center gap-3 rounded-xl border border-slate-300 bg-white[^"]*"/);
+  assert.ok(dailyCard && /focus-visible:outline-white/.test(dailyCard[0]) && /focus-visible:outline-2/.test(dailyCard[0]), "cartões diários: contorno de foco branco de 2px");
   assert.ok(!/O acidente foi registrado, mas a comunicação imediata não foi concluída/.test(app), "mensagem antiga (que parecia erro) removida");
   assert.ok(app.includes("OFFLINE_FORM_MESSAGE") && app.includes("navigator.onLine"));
 });

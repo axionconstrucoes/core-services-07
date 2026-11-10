@@ -756,7 +756,7 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
                 key={definition.slug}
                 type="button"
                 onClick={() => setActiveSlug(definition.slug)}
-                className="flex min-h-24 items-center gap-3 rounded-xl border border-slate-300 bg-white p-4 text-left text-slate-900 shadow-sm transition hover:border-[#7f1d1d] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7f1d1d]"
+                className="flex min-h-24 items-center gap-3 rounded-xl border border-slate-300 bg-white p-4 text-left text-slate-900 shadow-sm transition hover:border-[#7f1d1d] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
               >
                 {definition.slug === "riscos-apontados" ? (
                   <ShieldAlert className="size-7 shrink-0 text-slate-900" aria-hidden="true" />
