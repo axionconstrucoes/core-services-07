@@ -56,13 +56,13 @@ Atendidos **no código e nos testes automatizados** (branch): decisões 1–7 ac
 - Ícone de conclusão `done-icon.png` (hash preservado) em `public/ssma/`, só após envio confirmado.
 - Campo Obra (formulários 1–12, novo registro, tela ESG): obra atual / única autorizada / escolha; só obras autorizadas; limpeza de dependentes; pendências conservam a obra.
 - Quase-acidente nas duas trilhas, filtros, vínculo de evidência ESG (interface alinhada às permissões: Administrador em qualquer comprovação, demais perfis só na própria; Leitura só vê), contagem de acidentes por vínculo humano.
-- Preparo (NÃO aplicado/ativado): autorização individual de acesso ao e-mail (`docs/autorizacao-acesso-email-*.md`, lib pura, migration `20261106120000`).
+- Autorização individual de acesso ao e-mail (migration `20261106120000`, lib e docs): **fora deste PR**; permanece apenas na branch `feat/ssma-esg-limpa` (NÃO aplicada/ativada) e deve seguir em PR próprio, com decisão do Administrador.
 
 **TESTADO LOCALMENTE**: tsc, lint (0 erros), `npm test`, `test:scripts`, `test:email`, `test:sql`, `test:ssma`, build; PostgreSQL 18.6 real com conexões independentes: 13/13 (inclui vínculo ESG concorrente G1–G3); navegador (build local contra o projeto TESTE de produção): formulários 11 e 12 enviados, confirmados e gravados; campo Obra com 3 obras autorizadas; contraste.
 
 **PUBLICADO / COMPROVADO EM PRODUÇÃO**: nada deste bloco ainda (depende de aplicar migrations e do merge).
 
-**PENDENTE**: aplicar `20261106100000` (autorizada) e `20261106110000` (aguarda aprovação do SQL); `20261106120000` só se aprovada; merge, Vercel, validação em produção em duas sessões; circuito fechado de e-mail (piloto); iPhone/Safari e Android/Chrome reais; Drive (conector não autenticado); conta Leitura/não-membro reais.
+**PENDENTE**: aplicar `20261106100000` (autorizada) e `20261106110000` (aguarda aprovação do SQL); `20261106120000` não faz parte deste PR (decisão e PR próprios); merge, Vercel, validação em produção em duas sessões; circuito fechado de e-mail (piloto); iPhone/Safari e Android/Chrome reais; Drive (conector não autenticado); conta Leitura/não-membro reais.
 
 ## 6. Atualização (06/11/2026, noite) — formulário 12, Near Misses e prévia da avaliação do técnico
 
