@@ -116,12 +116,12 @@ export default async function ProjetosPage() {
                       </p>
                     </div>
 
-                    <Badge className="border-0 bg-[#319B3F] px-4 py-1.5 font-semibold text-white hover:bg-[#319B3F]">
+                    <Badge className="border-0 bg-[#25803A] px-4 py-1.5 font-semibold text-white hover:bg-[#25803A]">
                       {project.status}
                     </Badge>
                   </CardHeader>
 
-                  <CardContent className={`pt-0 text-sm text-white${adminProjectIds.has(project.id) ? " pr-72" : ""}`}>
+                  <CardContent className={`pt-0 text-sm text-white${adminProjectIds.has(project.id) ? " pb-24 sm:pb-6 sm:pr-72" : ""}`}>
                     No. sistema UNO: {project.code} ·{" "}
                     {project.contractNumber && (
                       <>Contrato {project.contractNumber} · </>
@@ -133,7 +133,7 @@ export default async function ProjetosPage() {
               </Link>
               {/* Fora do <Link> do card: âncoras aninhadas são HTML inválido. */}
               {adminProjectIds.has(project.id) ? (
-                <div className="absolute bottom-4 right-4 flex gap-2">
+                <div className="absolute inset-x-4 bottom-4 flex flex-wrap justify-end gap-2 sm:inset-x-auto sm:right-4">
                   <Link
                     href={`/projetos/${project.id}/copiar-estrutura`}
                     className={buttonVariants({
