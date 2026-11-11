@@ -117,7 +117,7 @@ function TransitionRow({ item, projectId, budgetUsers }: {
       </span>
       </div>
       {item.impactReview ? (
-        <div className="mt-2 rounded border border-green-300 bg-green-50 p-2 text-xs text-black">
+        <div className="mt-2 rounded border border-green-300 bg-green-50 p-2 text-xs text-white">
           <p className="font-bold">ANÁLISE REGISTRADA · {item.impactReview.status === "PENDENTE_ORCAMENTO" ? "Aguardando Orçamento" : "Concluída"}</p>
           <p>Prazo: {item.impactReview.scheduleImpact} · Preço: {item.impactReview.priceImpact}</p>
           <p>{item.impactReview.planningResponse}</p>

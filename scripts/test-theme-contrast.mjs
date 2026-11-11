@@ -68,4 +68,11 @@ check("texto colorido 200/300 e azul 400-600: >= 4,5:1 sobre o cartão e o fundo
   const b = css.match(/\.text-blue-400, [^{]*\{ color: (#[0-9a-fA-F]{6}); \}/);
   ok(b && ratio(b[1], CARD) >= 4.5, "azul 400-600 sobre o cartão");
 });
+check("texto de severidade baixa/crítica: >= 4,5:1 sobre o cartão e o fundo (selos translúcidos)", () => {
+  for (const n of ["baixa", "critica"]) {
+    const m = css.match(new RegExp("\.text-severity-" + n + " \{ color: (#[0-9a-fA-F]{6}); \}"));
+    ok(m, "regra text-severity-" + n + " ausente");
+    ok(ratio(m[1], CARD) >= 4.5 && ratio(m[1], BG) >= 4.5, "text-severity-" + n + " " + m[1]);
+  }
+});
 console.log(`\n${passed} OK, ${failed} falha(s)`); process.exit(failed ? 1 : 0);

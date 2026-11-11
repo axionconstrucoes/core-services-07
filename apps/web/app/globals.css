@@ -409,3 +409,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .text-violet-200, .text-violet-300 { color: #c9bbf5; }
 /* Azul de texto 400-600 (#3d8fe0 = 4,3:1 sobre o cartão) sobe levemente. */
 .text-blue-400, .text-blue-500, .text-blue-600, .text-sky-400, .text-sky-500, .text-sky-600 { color: #5aa0ea; }
+
+/* Texto de severidade "baixa" (verde-azulado) e "crítica" (vermelho) em selos translúcidos: 3,1-3,9:1 -> >= 6,6:1. Alta e média já passam. */
+.text-severity-baixa { color: #78dac0; }
+.text-severity-critica { color: #ff8e86; }
