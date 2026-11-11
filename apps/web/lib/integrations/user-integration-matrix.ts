@@ -15,7 +15,7 @@ export type MailboxEvidence = {
 };
 export type SharedEvidence = {
   diario: { reports: number; lastRunStatus: string | null; lastRunAt: string | null; lastRunErrors: number | null; lastRunCreated: number | null; integrationStatus: string | null } | null;
-  weekly: { workbooks: number; workbooksPendingReview: number; sheets: number; sheetsExtracted: number; sheetsMissing: number; sheetsPendingReview: number } | null;
+  weekly: { workbooks: number; workbooksExtracted: number; workbooksPartial: number; workbooksPendingReview: number; sheets: number; sheetsExtracted: number; sheetsMissing: number; sheetsPendingReview: number } | null;
   construmanager: { integrationStatus: string | null; lastRunStatus: string | null; lastRunAt: string | null; stored: number; pending: number; humanDecision: number; other: number } | null;
   ssma: { integrationStatus: string | null; lastSyncAt: string | null } | null;
 };
@@ -125,9 +125,9 @@ export function buildSharedSourceRows(evidence: MatrixEvidence): SharedSourceRow
       key: "semanal", label: "Relatórios semanais e cronogramas",
       connection: weekly.workbooks > 0 ? ok("Recebendo", "Pacotes recebidos por e-mail e registrados.") : bad("Nada recebido", "Nenhum pacote semanal registrado."),
       collection: weekly.workbooks > 0 ? ok("Registrado", `${weekly.workbooks} pacotes e ${weekly.sheets} planilhas registrados.`) : bad("Nada registrado", "Sem pacotes."),
-      availability: weekly.sheetsPendingReview === 0 && weekly.sheetsMissing === 0 && weekly.workbooksPendingReview === 0
+      availability: weekly.sheetsPendingReview === 0 && weekly.sheetsMissing === 0 && weekly.workbooksPendingReview === 0 && weekly.workbooksPartial === 0
         ? ok("Disponível", `${weekly.sheetsExtracted} planilhas extraídas.`)
-        : bad("Parcial", `${weekly.sheetsExtracted} de ${weekly.sheets} planilhas extraídas; ${weekly.sheetsPendingReview} aguardam revisão humana e ${weekly.sheetsMissing} ausentes. ${weekly.workbooksPendingReview} de ${weekly.workbooks} pacotes aguardam revisão.`),
+        : bad("Parcial", `Pacotes: ${weekly.workbooks} (${weekly.workbooksExtracted} extraídos, ${weekly.workbooksPartial} parciais, ${weekly.workbooksPendingReview} em revisão humana). Planilhas: ${weekly.sheets} (${weekly.sheetsExtracted} extraídas, ${weekly.sheetsMissing} ausentes, ${weekly.sheetsPendingReview} em revisão humana).`),
       facts: ["O cursor de uma mensagem não é a data da última execução do coletor.", personal],
     });
   }

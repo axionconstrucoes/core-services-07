@@ -66,14 +66,14 @@ check("consultas indisponíveis (null) jamais geram verde", () => {
 check("fontes compartilhadas: valores medidos de 11/11 mantêm disponibilidade vermelha onde há pendências", () => {
   const shared = {
     diario: { reports: 187, lastRunStatus: "SUCESSO", lastRunAt: "2026-11-11T07:05:20Z", lastRunErrors: 0, lastRunCreated: 0, integrationStatus: "CONECTADO" },
-    weekly: { workbooks: 56, workbooksPendingReview: 50, sheets: 280, sheetsExtracted: 106, sheetsMissing: 92, sheetsPendingReview: 82 },
+    weekly: { workbooks: 56, workbooksExtracted: 4, workbooksPartial: 2, workbooksPendingReview: 50, sheets: 280, sheetsExtracted: 106, sheetsMissing: 92, sheetsPendingReview: 82 },
     construmanager: { integrationStatus: "CONECTADO", lastRunStatus: "SUCESSO", lastRunAt: "2026-11-11T19:35:58Z", stored: 2, pending: 201, humanDecision: 0, other: 0 },
     ssma: { integrationStatus: "PENDENTE", lastSyncAt: null },
   };
   const rows = buildSharedSourceRows(evidence({ shared }));
   const by = Object.fromEntries(rows.map((r) => [r.key, r]));
   ok(by.diario.availability.ok && by.diario.collection.ok, "diário comprovado deve ser verde (zero novos não é falha)");
-  ok(!by.semanal.availability.ok && /106 de 280/.test(by.semanal.availability.reason), "semanal parcial");
+  ok(!by.semanal.availability.ok && /56 \(4 extraídos, 2 parciais, 50 em revisão humana\)/.test(by.semanal.availability.reason) && /280 \(106 extraídas, 92 ausentes, 82 em revisão humana\)/.test(by.semanal.availability.reason), "semanal parcial discriminado");
   ok(!by.construmanager.availability.ok && /201 conteúdos pendentes/.test(by.construmanager.availability.reason), "construmanager pendente");
   ok(!by.ssma.connection.ok && !by.ssma.availability.ok, "SSMA pendente");
   ok(rows.every((r) => r.facts.some((f) => /não prova conta individual/.test(f))), "aviso de fonte compartilhada ausente");

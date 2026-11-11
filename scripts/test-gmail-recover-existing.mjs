@@ -47,3 +47,17 @@ test('limite impede leituras adicionais',async()=>{const f=fixture([row('a'),row
 test('paginação estável inclui mensagens depois da primeira página',async()=>{const f=fixture(Array.from({length:501},(_,i)=>row(String(i))));const s=await f.run(false,'bodies',501);assert.equal(s.analisadas,501);});
 test('argumentos inválidos e repetidos falham',()=>{for(const args of [[],['--kind=bodies','--limit=0'],['--kind=bodies','--limit=1001'],['--kind=bodies','--kind=attachments'],['--kind=bodies','--project=outro']])assert.throws(()=>recoveryOptions(args));assert.equal(recoveryOptions(['--kind=attachments']).apply,false);});
 test('aceite mais recente prevalece sobre autorização antiga',()=>{assert.throws(()=>assertRecoveryAuthorization({project_id:R.projectId,enabled:true},[{mailbox_address:R.mailbox,enabled:true}],[authRow,{...authRow,status:'REVOGADO',requested_at:'2026-11-11T14:00:00Z'}]));assert.equal(isRecoveryRow(row('x',{from_address:'x@weg.net.exemplo'})),false);});
+test('diagnóstico de falha: etapa, id técnico e código sanitizado, sem conteúdo',async()=>{
+ const f=fixture(undefined,{messageFrom:'Bruna <bmancino@weg.net> <outra@weg.net>'});
+ const s=await f.run(false,'attachments');
+ assert.equal(s.falhas,1);
+ assert.deepEqual(s.falhas_detalhe,[{etapa:'validar_remetente',email_id:'e1',codigo:'REMETENTE_COM_2_ENDERECOS'}]);
+ assert.ok(!JSON.stringify(s).match(/weg\.net|Bruna|outra@/i));
+});
+test('classificador nunca devolve mensagem bruta do provedor',async()=>{
+ const { safeFailureCode } = await import('./lib/gmail-recovery-diagnostics.mjs');
+ assert.equal(safeFailureCode({response:{status:404},message:'assunto secreto'}),'HTTP_404');
+ assert.equal(safeFailureCode({message:'Mensagem fora da obra, caixa ou período congelado.'}),'FORA_DO_ESCOPO_CONGELADO');
+ assert.equal(safeFailureCode(new Error('texto livre com corpo do e-mail')),'ERRO_ERROR');
+ assert.equal(safeFailureCode({code:'ECONNRESET'}),'CODIGO_ECONNRESET');
+});

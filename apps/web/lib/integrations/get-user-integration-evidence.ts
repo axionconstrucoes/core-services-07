@@ -94,7 +94,7 @@ async function getSharedEvidence(supabase: SupabaseClient, projectId: string, wa
       integrationStatus: (integ("DIARIO_OBRA")?.status as string) ?? null,
     },
     weekly: workbooks === null || sheets === null ? null : {
-      workbooks: sum(wb), workbooksPendingReview: wb.get("PENDING_HUMAN_REVIEW") ?? 0,
+      workbooks: sum(wb), workbooksExtracted: wb.get("EXTRACTED") ?? 0, workbooksPartial: wb.get("PARTIAL") ?? 0, workbooksPendingReview: wb.get("PENDING_HUMAN_REVIEW") ?? 0,
       sheets: sum(sh), sheetsExtracted: sh.get("EXTRACTED") ?? 0, sheetsMissing: sh.get("MISSING_SHEET") ?? 0, sheetsPendingReview: sh.get("PENDING_HUMAN_REVIEW") ?? 0,
     },
     construmanager: integrations.error || cmLinks === null || cmRuns.error ? null : {
