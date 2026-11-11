@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@axion/db/server";
 import { InstitutionalBackground } from "@/components/brand/institutional-background";
@@ -41,6 +42,11 @@ export default async function EditarProjetoPage({
       <InstitutionalBackground />
       <div className="relative w-full max-w-3xl">
         <EditProjectForm project={project} origin={origin} />
+        <p className="mt-3 text-center text-sm">
+          <Link href={`/projetos/${project.id}/copiar-estrutura`} className="font-medium underline underline-offset-2">
+            Copiar estrutura de outro projeto (equipe e perfis de acesso)
+          </Link>
+        </p>
       </div>
     </main>
   );
