@@ -34,9 +34,12 @@
 select to_regclass('public.ssma_corrective_actions') is not null as ssma_ok,
        to_regclass('public.sla_actions') is not null            as sla_ok,
        to_regclass('public.esg_obligation_submissions') is not null as esg_ok;
--- 2) o vínculo ainda não existe (re-execução segura, mas confirme o estado)
+-- 2) o vínculo ainda não existe (re-execução segura, mas confirme o estado). Filtra schema, TABELA e coluna:
+--    `sla_action_id` existe também em risk_alert_cases e risk_alert_outbox (outro assunto); sem filtrar a tabela a contagem nunca dá 0.
 select count(*) from information_schema.columns
- where table_schema='public' and column_name in ('sla_action_id','related_ssma_corrective_action_id');       -- esperado 0
+ where table_schema='public'
+   and ((table_name='ssma_corrective_actions' and column_name='sla_action_id')
+     or (table_name='sla_actions'             and column_name='related_ssma_corrective_action_id'));      -- esperado 0 ANTES; 2 DEPOIS da migration
 -- 3) volume do backfill e casos que ficarão só no SSMA (concluída por quem saiu da obra)
 select status, count(*) from public.ssma_corrective_actions group by 1;                                       -- produção em 05/11/2026: 0 linhas
 select count(*) from public.ssma_corrective_actions a
