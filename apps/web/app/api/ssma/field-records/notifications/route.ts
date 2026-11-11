@@ -1,15 +1,20 @@
 import { createSupabaseAdminClient } from "@axion/db/admin";
 import { createSupabaseServerClient } from "@axion/db/server";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
+import { NOTIFICATIONS_DISABLED, ssmaNotificationsEnabled } from "@/lib/ssma/field-notifications/enabled";
 import { notifyCriticalRecord } from "@/lib/ssma/field-notifications/server";
 
 // Aviso por e-mail de registro CRÍTICO de campo. Chamado pelo app logo depois que o registro chega ao servidor.
 // Idempotente: repetir a chamada (fila offline, duas abas, reenvio) nunca envia o mesmo aviso duas vezes ao mesmo
 // destinatário. Só o autor do registro ou um Administrador da obra pode acioná-lo.
+// FAIL CLOSED: sem ACC_SSMA_NOTIFICATIONS_ENABLED=true (valor exato) NADA é enviado, nenhum provedor de e-mail é chamado e nenhuma entrega é
+// gravada; a resposta é um estado explícito de "desativadas" (200), que não impede o salvamento nem a sincronização do registro.
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
   const { data: authData } = await supabase.auth.getUser();
   if (!authData.user) return Response.json({ error: "Sessão expirada." }, { status: 401 });
+
+  if (!ssmaNotificationsEnabled()) return Response.json({ skipped: NOTIFICATIONS_DISABLED, notificationsEnabled: false }, { status: 200 });
 
   let recordId = "";
   try {
