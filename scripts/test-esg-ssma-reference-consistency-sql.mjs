@@ -1,6 +1,8 @@
 // Consistência obra/obrigação/comprovação/registro da referência ESG<->SSMA depois do INSERT (PostgreSQL 17 DESCARTÁVEL em PGlite;
 // dados sintéticos; nenhum banco real é tocado). Demonstra a lacuna ANTES da migration 20261106115000 (proposta, aditiva) e a trava
-// DEPOIS, sem regressão para linhas sem referência. Uso: node scripts/test-esg-ssma-reference-consistency-sql.mjs
+// DEPOIS (chaves estrangeiras compostas), sem regressão para linhas sem referência. A corrida vincular x mover só é provável em um
+// servidor real (scripts do relatório de validação); aqui ficam as garantias declarativas.
+// Uso: node scripts/test-esg-ssma-reference-consistency-sql.mjs
 
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync, readdirSync } from "node:fs";
@@ -21,6 +23,7 @@ async function check(name, fn) {
 }
 const ok = (c, m) => { if (!c) throw new Error(m); };
 const eq = (a, b, m) => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${m}: esperado ${JSON.stringify(b)}, obtido ${JSON.stringify(a)}`); };
+const FK = /foreign key/i;
 
 const db = new PGlite();
 await db.exec(PLATFORM);
@@ -78,23 +81,23 @@ await db.exec(clean(GUARD));
 
 await check("DEPOIS: obrigação referenciada não muda de obra (Administrador das duas obras e superusuário), nada é alterado", async () => {
   const e1 = await as(id(U.adm2), () => err(db.query("update public.esg_obligations set project_id=$1 where id=$2", [P2, OBL(1)])));
-  ok(/ESG_SSMA_REFERENCE_LOCKED/.test(e1 ?? ""), `authenticated recusado: ${e1}`);
+  ok(FK.test(e1 ?? ""), `authenticated recusado: ${e1}`);
   const e2 = await err(db.query("update public.esg_obligations set project_id=$1 where id=$2", [P2, OBL(1)]));
-  ok(/ESG_SSMA_REFERENCE_LOCKED/.test(e2 ?? ""), `superusuário recusado: ${e2}`);
+  ok(FK.test(e2 ?? ""), `superusuário recusado: ${e2}`);
   eq((await q("select project_id from public.esg_obligations where id=$1", [OBL(1)]))[0].project_id, P1, "obrigação intacta");
   eq(await inconsistent(), 0, "sem inconsistência");
 });
 await check("DEPOIS: registro de campo referenciado (ativa) e o de referência REVOGADA não mudam de obra", async () => {
   for (const r of [1, 3]) {
     const e = await err(db.query("update public.ssma_field_records set project_id=$1 where id=$2", [P2, REC(r)]));
-    ok(/ESG_SSMA_REFERENCE_LOCKED/.test(e ?? ""), `registro ${r}: ${e}`);
+    ok(FK.test(e ?? ""), `registro ${r}: ${e}`);
   }
   eq(await inconsistent(), 0, "sem inconsistência");
 });
-await check("DEPOIS: comprovação referenciada não troca de obra nem de obrigação (também a de referência revogada)", async () => {
+await check("DEPOIS: comprovação referenciada não troca de obrigação (também a de referência revogada)", async () => {
   for (const s of [1, 2]) {
     const e1 = await err(db.query("update public.esg_obligation_submissions set obligation_id=$1 where id=$2", [OBL(2), SUB(s)]));
-    ok(e1 && /ESG_SSMA_REFERENCE_LOCKED/.test(e1), `obrigação da comprovação ${s}: ${e1}`);
+    ok(e1 && FK.test(e1), `obrigação da comprovação ${s}: ${e1}`);
   }
   eq(await inconsistent(), 0, "sem inconsistência");
 });
@@ -114,18 +117,29 @@ await check("SEM REGRESSÃO: vincular e desvincular seguem funcionando (históri
   await as(id(U.adm2), () => db.query("select public.esg_unlink_ssma_record($1,'motivo válido')", [x.rows[0].id]));
   eq((await q("select count(*)::int n from public.esg_ssma_record_references"))[0].n, n0 + 1, "linha nova; nada apagado");
 });
-await check("DEPOIS: a trava vale com session_replication_role = replica (ENABLE ALWAYS) e o gatilho é SECURITY DEFINER (não depende da RLS de quem atualiza)", async () => {
-  await db.exec("set session_replication_role = replica");
-  const e = await err(db.query("update public.esg_obligations set project_id=$1 where id=$2", [P2, OBL(1)]));
-  await db.exec("set session_replication_role = origin");
-  ok(/ESG_SSMA_REFERENCE_LOCKED/.test(e ?? ""), `replica: ${e}`);
-  const f = (await q("select prosecdef, array_to_string(proconfig,',') c from pg_proc where proname='esg_ssma_reference_parent_guard'"))[0];
-  ok(f.prosecdef && /search_path/.test(f.c), "security definer com search_path fixo");
-  eq((await q("select count(*)::int n from pg_trigger where tgname='esg_ssma_reference_guard' and tgenabled='A'"))[0].n, 3, "3 gatilhos ENABLE ALWAYS");
+await check("INSERT: vínculo contra cadeia JÁ inconsistente (obrigação movida antes de existir referência) é recusado, e a cadeia consistente continua aceita", async () => {
+  await sub(3, 2); // comprovação da obrigação 2 (obra 1), ainda sem referência
+  await db.query("update public.esg_obligations set project_id=$1 where id=$2", [P2, OBL(2)]); // permitido: sem referência
+  const e = await as(id(U.adm2), () => err(db.query("select public.esg_link_ssma_record($1,$2,null)", [SUB(3), REC(2)])));
+  ok(FK.test(e ?? ""), `vínculo recusado: ${e}`);
+  eq((await q("select count(*)::int n from public.esg_ssma_record_references where submission_id=$1", [SUB(3)]))[0].n, 0, "nenhuma referência criada");
+  await db.query("update public.esg_obligations set project_id=$1 where id=$2", [P1, OBL(2)]); // restaura a cadeia
+  const x = await as(id(U.adm2), () => db.query("select public.esg_link_ssma_record($1,$2,null) as id", [SUB(3), REC(2)]));
+  ok(x.rows[0].id, "cadeia consistente aceita");
+  eq(await inconsistent(), 0, "sem inconsistência");
 });
-await check("idempotência: reaplicar a migration não dá erro nem duplica gatilhos", async () => {
+await check("INSERT direto (service/superusuário) fora da RPC com obra divergente também é recusado", async () => {
+  const e = await err(db.query("insert into public.esg_ssma_record_references (project_id,obligation_id,submission_id,field_record_id,created_by_user_id) values ($1,$2,$3,$4,$5)", [P2, OBL(1), SUB(1), REC(2), id(U.adm2)]));
+  ok(FK.test(e ?? ""), `INSERT direto recusado: ${e}`);
+});
+await check("contrato da 20261106110000 preservado: nenhum gatilho de USUÁRIO na tabela de referências; 3 UNIQUE e 3 FK compostas, uma vez cada", async () => {
+  eq((await q("select count(*)::int n from pg_trigger t join pg_class c on c.oid=t.tgrelid where c.relname='esg_ssma_record_references' and not t.tgisinternal"))[0].n, 0, "sem gatilho de usuário");
+  const names = (await q("select conname from pg_constraint where conname in ('esg_obligations_id_project_uk','esg_obligation_submissions_chain_uk','ssma_field_records_id_project_uk','esg_ssma_record_references_submission_chain_fk','esg_ssma_record_references_obligation_project_fk','esg_ssma_record_references_record_project_fk') order by 1")).map((r) => r.conname);
+  eq(names.length, 6, `constraints: ${names.join(",")}`);
+});
+await check("idempotência: reaplicar a migration duas vezes não dá erro nem duplica constraints", async () => {
   await db.exec(clean(GUARD)); await db.exec(clean(GUARD));
-  eq((await q("select count(*)::int n from pg_trigger where tgname='esg_ssma_reference_guard'"))[0].n, 3, "3 gatilhos");
+  eq((await q("select count(*)::int n from pg_constraint where conname like 'esg_ssma_record_references\\_%\\_fk' or conname in ('esg_obligations_id_project_uk','esg_obligation_submissions_chain_uk','ssma_field_records_id_project_uk')"))[0].n, 6, "3 UNIQUE + 3 FK compostas (as FKs simples originais terminam em _fkey e não entram na conta)");
 });
 
 console.log(`\n${passed} OK, ${failed} falha(s)`);

@@ -5,70 +5,57 @@
 -- 20261106110000_ssma_esg_evidence_reference.sql (esg_ssma_record_references).
 -- Não altera nem substitui o SQL de 20261106100000 / 20261106110000: é uma migration NOVA e aditiva.
 --
--- PROBLEMA COMPROVADO (PostgreSQL 17.6 local, papel authenticated, RLS real): a consistência
--- obra = obrigação = comprovação = registro de uma referência só é verificada no INSERT, dentro de
--- esg_link_ssma_record. Depois disso, quem pode atualizar a tabela-mãe consegue deixar a referência
--- inconsistente. Exemplo reproduzido: Administrador das DUAS obras faz UPDATE em esg_obligations.project_id
--- (policy esg_obligations_update_editor + grant de coluna) e a referência continua na obra 1 enquanto a
--- obrigação passa à obra 2. O papel service_role/superusuário faz o mesmo em ssma_field_records.project_id.
--- Não abre acesso entre obras (a leitura da referência segue o project_id gravado), mas quebra a garantia
--- documentada ("mesma obra obrigatória").
+-- PROBLEMA COMPROVADO (PostgreSQL 17.6 local, papel authenticated, RLS real):
+--  1) A consistência obra = obrigação = comprovação = registro de uma referência só é verificada no INSERT, dentro de
+--     esg_link_ssma_record, e mesmo ali a obra da OBRIGAÇÃO não é comparada com a da comprovação. Depois do INSERT, quem pode
+--     atualizar a tabela-mãe deixa a referência inconsistente: Administrador das DUAS obras faz UPDATE em esg_obligations.project_id
+--     (policy esg_obligations_update_editor + grant de coluna); service_role/superusuário faz o mesmo em ssma_field_records.project_id.
+--  2) Corrida vincular x mover a obrigação de obra: em 98 de 120 rodadas ambos tiveram sucesso e a referência ficou inconsistente.
+-- Não abre acesso entre obras (a leitura da referência segue o project_id gravado), mas quebra a garantia documentada
+-- ("mesma obra obrigatória").
 --
--- CORREÇÃO: trava a mudança de project_id (e de obligation_id na comprovação) de qualquer linha que tenha
--- referência, ATIVA OU REVOGADA — o histórico revogado também ancora a rastreabilidade. As demais colunas
--- continuam atualizáveis; linhas sem referência não são afetadas.
---   - SECURITY DEFINER: o gatilho precisa enxergar as referências de qualquer obra (a RLS da tabela de
---     referências só mostra as da obra do usuário; sem isso, quem não é membro dela burlaria a trava).
---   - ENABLE ALWAYS: vale também com session_replication_role = replica (como uma CHECK valeria).
--- Aditiva e idempotente; não apaga nem reescreve dados.
+-- CORREÇÃO DECLARATIVA: chaves estrangeiras COMPOSTAS da referência para cada pai, incluindo a obra (e, na comprovação, a obrigação).
+--   - O INSERT só passa se a cadeia inteira for da mesma obra (vale também para vínculo contra cadeia que já estava inconsistente).
+--   - Enquanto existir QUALQUER referência (ativa ou revogada), project_id (e obligation_id, na comprovação) do pai não mudam.
+--   - Concorrência: o FK trava o pai (FOR KEY SHARE) no INSERT e o UPDATE da chave exige trava incompatível; os dois se serializam
+--     sem gatilho e sem janela.
+--   - Nenhum gatilho de usuário na tabela de referências (contrato de 20261106110000 preservado); as FKs usam só os gatilhos internos.
+--   - Efeito colateral: UNIQUE adicionais (id, project_id[, obligation_id]) nos três pais (redundantes com a PK, necessárias como alvo
+--     da FK composta). Tabelas pequenas; ALTER TABLE usa trava breve. Linhas sem referência não são afetadas e as demais colunas
+--     continuam atualizáveis.
+--   - Limite: como toda FK, é contornada por session_replication_role = replica (superusuário), igual às FKs que já existem.
+-- Aditiva e idempotente; não apaga nem reescreve dados. Se houver referência já inconsistente, a migration FALHA (não esconde).
 -- ============================================================
 
-create or replace function public.esg_ssma_reference_parent_guard()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
+do $$
 begin
-  if tg_table_name = 'ssma_field_records' then
-    if new.project_id is distinct from old.project_id
-       and exists (select 1 from public.esg_ssma_record_references x where x.field_record_id = old.id) then
-      raise exception 'ESG_SSMA_REFERENCE_LOCKED: o registro de campo SSMA % tem referência ESG; a obra não pode ser alterada.', old.id
-        using errcode = '23514';
-    end if;
-  elsif tg_table_name = 'esg_obligation_submissions' then
-    if (new.project_id is distinct from old.project_id or new.obligation_id is distinct from old.obligation_id)
-       and exists (select 1 from public.esg_ssma_record_references x where x.submission_id = old.id) then
-      raise exception 'ESG_SSMA_REFERENCE_LOCKED: a comprovação ESG % tem referência de registro SSMA; obra e obrigação não podem ser alteradas.', old.id
-        using errcode = '23514';
-    end if;
-  elsif tg_table_name = 'esg_obligations' then
-    if new.project_id is distinct from old.project_id
-       and exists (select 1 from public.esg_ssma_record_references x where x.obligation_id = old.id) then
-      raise exception 'ESG_SSMA_REFERENCE_LOCKED: a obrigação ESG % tem comprovação com referência de registro SSMA; a obra não pode ser alterada.', old.id
-        using errcode = '23514';
-    end if;
+  if not exists (select 1 from pg_constraint where conname = 'esg_obligations_id_project_uk' and conrelid = 'public.esg_obligations'::regclass) then
+    alter table public.esg_obligations add constraint esg_obligations_id_project_uk unique (id, project_id);
   end if;
-  return new;
+  if not exists (select 1 from pg_constraint where conname = 'esg_obligation_submissions_chain_uk' and conrelid = 'public.esg_obligation_submissions'::regclass) then
+    alter table public.esg_obligation_submissions add constraint esg_obligation_submissions_chain_uk unique (id, project_id, obligation_id);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'ssma_field_records_id_project_uk' and conrelid = 'public.ssma_field_records'::regclass) then
+    alter table public.ssma_field_records add constraint ssma_field_records_id_project_uk unique (id, project_id);
+  end if;
+
+  if not exists (select 1 from pg_constraint where conname = 'esg_ssma_record_references_submission_chain_fk' and conrelid = 'public.esg_ssma_record_references'::regclass) then
+    alter table public.esg_ssma_record_references
+      add constraint esg_ssma_record_references_submission_chain_fk
+      foreign key (submission_id, project_id, obligation_id)
+      references public.esg_obligation_submissions (id, project_id, obligation_id);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'esg_ssma_record_references_obligation_project_fk' and conrelid = 'public.esg_ssma_record_references'::regclass) then
+    alter table public.esg_ssma_record_references
+      add constraint esg_ssma_record_references_obligation_project_fk
+      foreign key (obligation_id, project_id)
+      references public.esg_obligations (id, project_id);
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'esg_ssma_record_references_record_project_fk' and conrelid = 'public.esg_ssma_record_references'::regclass) then
+    alter table public.esg_ssma_record_references
+      add constraint esg_ssma_record_references_record_project_fk
+      foreign key (field_record_id, project_id)
+      references public.ssma_field_records (id, project_id);
+  end if;
 end;
 $$;
-revoke all on function public.esg_ssma_reference_parent_guard() from public, anon, authenticated;
-
-drop trigger if exists esg_ssma_reference_guard on public.ssma_field_records;
-create trigger esg_ssma_reference_guard
-before update of project_id on public.ssma_field_records
-for each row execute function public.esg_ssma_reference_parent_guard();
-
-drop trigger if exists esg_ssma_reference_guard on public.esg_obligation_submissions;
-create trigger esg_ssma_reference_guard
-before update of project_id, obligation_id on public.esg_obligation_submissions
-for each row execute function public.esg_ssma_reference_parent_guard();
-
-drop trigger if exists esg_ssma_reference_guard on public.esg_obligations;
-create trigger esg_ssma_reference_guard
-before update of project_id on public.esg_obligations
-for each row execute function public.esg_ssma_reference_parent_guard();
-
-alter table public.ssma_field_records enable always trigger esg_ssma_reference_guard;
-alter table public.esg_obligation_submissions enable always trigger esg_ssma_reference_guard;
-alter table public.esg_obligations enable always trigger esg_ssma_reference_guard;
