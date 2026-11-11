@@ -32,7 +32,7 @@ export function EvaluationWorkflowDemo({ viewerIsTechnician, viewerIsManager }: 
   return (
     <section className="space-y-3 rounded-lg border-2 border-amber-600 p-4" aria-label="Manifestação e validação (demonstrativo)" data-testid="evaluation-workflow">
       <h2 className="text-base font-bold">Manifestação do técnico e validação do gerente</h2>
-      <p className="text-sm font-semibold text-amber-300">
+      <p className="text-sm font-semibold text-amber-700">
         DEMONSTRATIVO: nada é gravado nesta prévia. Estado atual: <span data-testid="workflow-status">{STATUS_LABEL[status]}</span>
       </p>
       <label className="block text-sm font-semibold">

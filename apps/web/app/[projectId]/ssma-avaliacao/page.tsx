@@ -34,7 +34,7 @@ function SheetView({ title, sheet }: { title: string; sheet: EvaluationSheet }) 
       <CardContent className="space-y-4">
         <p className="text-2xl font-bold" data-testid="eval-total">
           {sheet.total === null ? "Sem dados" : `${sheet.total} / 100`}
-          {sheet.indicative && sheet.total !== null ? <span className="ml-2 text-sm font-semibold text-amber-300">(indicativa: cobertura {Math.round(sheet.coverage * 100)}%)</span> : null}
+          {sheet.indicative && sheet.total !== null ? <span className="ml-2 text-sm font-semibold text-amber-700">(indicativa: cobertura {Math.round(sheet.coverage * 100)}%)</span> : null}
         </p>
         <p className="text-xs">{sheet.totalMemory}</p>
         <div className="space-y-3">

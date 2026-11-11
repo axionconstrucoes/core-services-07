@@ -63,7 +63,7 @@ export function FeatureInfo({
         aria-haspopup="dialog"
         aria-describedby={open ? popoverId : undefined}
         className={cn(
-          "inline-flex size-4 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 outline-none transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+          "-m-1 inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 outline-none transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
           iconClassName
         )}
         onClick={(event) => {

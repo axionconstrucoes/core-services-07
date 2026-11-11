@@ -122,6 +122,7 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
             <Link
               key={item.href}
               href={href}
+              aria-label={item.label}
               title={itemTitle}
               // Sem prefetch automático: os ~16 itens deste menu, todos
               // visíveis ao mesmo tempo, disparavam uma rajada de
@@ -154,6 +155,7 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
           title={collapsed ? "Expandir menu" : "Recolher menu"}
           className={cn(
             "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white",
+            "max-md:justify-center max-md:px-0",
             collapsed && "justify-center px-0"
           )}
         >
@@ -162,7 +164,7 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
           ) : (
             <PanelLeftClose className="size-4 shrink-0" />
           )}
-          {!collapsed && "Recolher"}
+          {!collapsed && <span className="max-md:hidden">Recolher</span>}
         </button>
       </div>
     </aside>
