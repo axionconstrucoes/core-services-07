@@ -20,24 +20,39 @@ async function count(query: PromiseLike<{ count: number | null; error: unknown }
   return error ? null : value ?? 0;
 }
 
+const tally = (rows: Row[] | null, field: string) => {
+  const map = new Map<string, number>();
+  for (const row of rows ?? []) map.set(String(row[field]), (map.get(String(row[field])) ?? 0) + 1);
+  return map;
+};
+const sum = (map: Map<string, number>) => [...map.values()].reduce((a, b) => a + b, 0);
+
 export async function getUserIntegrationEvidence(supabase: SupabaseClient, projectId: string): Promise<MatrixEvidence> {
   const warnings: string[] = [];
-  const [auth, controls, emailRows, attachmentRows, unassigned] = await Promise.all([
+  const [auth, controls, emailRows, attachmentRows, unassigned, ingestionConfig] = await Promise.all([
     supabase.from("email_access_authorizations").select("user_id,account_email,status,requested_at").eq("project_id", projectId).order("requested_at", { ascending: false }),
     supabase.from("email_mailbox_collection_controls").select("mailbox_address,technical_permission_status,collection_enabled,individual_consent_status,corporate_authorization_status,period_start,period_end,revoked_at,last_sync_at,last_sync_status").eq("project_id", projectId),
     pages((from, to) => supabase.from("emails").select("mailbox_address,sent_at").eq("project_id", projectId).eq("provider", "GMAIL").not("mailbox_address", "is", null).order("id").range(from, to)),
-    pages((from, to) => supabase.from("email_attachments").select("processing_status,emails!inner(mailbox_address)").eq("project_id", projectId).order("id").range(from, to)),
+    pages((from, to) => supabase.from("email_attachments").select("processing_status,storage_path,emails!inner(mailbox_address)").eq("project_id", projectId).order("id").range(from, to)),
     count(supabase.from("emails").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("provider", "GMAIL").is("mailbox_address", null)),
+    supabase.from("project_email_ingestion_configs").select("id,enabled").eq("project_id", projectId).maybeSingle(),
   ]);
   if (auth.error) warnings.push("Não foi possível conferir os aceites individuais.");
-  if (controls.error) warnings.push("O controle técnico de coleta por caixa não está disponível em produção (tabela ausente ou ilegível). A conexão técnica atual aparece como NÃO COMPROVADA; as importações já feitas continuam como histórico.");
+  if (controls.error) warnings.push("O controle técnico de coleta por caixa não está disponível em produção (tabela ausente ou ilegível). A conexão técnica e a coleta atual aparecem como NÃO COMPROVADAS; as importações já feitas valem apenas como histórico.");
   if (emailRows === null) warnings.push("Não foi possível conferir as mensagens importadas por caixa.");
   if (attachmentRows === null) warnings.push("Não foi possível conferir os anexos por caixa.");
+
+  let ingestion: MatrixEvidence["ingestion"] = null;
+  if (!ingestionConfig.error && ingestionConfig.data) {
+    const mailboxRows = await supabase.from("project_email_ingestion_mailboxes").select("mailbox_address,enabled").eq("config_id", ingestionConfig.data.id);
+    if (!mailboxRows.error) ingestion = { projectEnabled: ingestionConfig.data.enabled === true, mailboxes: (mailboxRows.data ?? []).map((r) => ({ mailbox: String(r.mailbox_address), enabled: r.enabled === true })) };
+  }
+  if (!ingestion) warnings.push("Não foi possível conferir a habilitação das caixas na configuração de ingestão.");
 
   let mailboxes: MailboxEvidence[] | null = null;
   if (emailRows !== null) {
     const map = new Map<string, MailboxEvidence>();
-    const get = (mailbox: string) => map.get(mailbox) ?? (map.set(mailbox, { mailbox, emails: 0, lastMessageAt: null, attachments: 0, attachmentsProcessed: 0, attachmentsPending: 0 }), map.get(mailbox)!);
+    const get = (mailbox: string) => map.get(mailbox) ?? (map.set(mailbox, { mailbox, emails: 0, bodiesAvailable: null, lastMessageAt: null, attachments: 0, attachmentsStored: 0, attachmentsProcessed: 0, attachmentsPending: 0, attachmentsError: 0 }), map.get(mailbox)!);
     for (const row of emailRows) {
       const item = get(String(row.mailbox_address).trim().toLowerCase());
       item.emails++;
@@ -49,9 +64,15 @@ export async function getUserIntegrationEvidence(supabase: SupabaseClient, proje
       if (!owner?.mailbox_address) continue;
       const item = get(owner.mailbox_address.trim().toLowerCase());
       item.attachments++;
+      if (row.storage_path) item.attachmentsStored++;
       if (row.processing_status === "PROCESSED") item.attachmentsProcessed++;
-      else item.attachmentsPending++;
+      else if (row.processing_status === "PENDING") item.attachmentsPending++;
+      else item.attachmentsError++;
     }
+    // Disponibilidade do corpo: contagem no servidor (sem trazer o conteúdo).
+    await Promise.all([...map.values()].map(async (item) => {
+      item.bodiesAvailable = await count(supabase.from("emails").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("provider", "GMAIL").eq("mailbox_address", item.mailbox).or("body_text.neq.,body_html.neq."));
+    }));
     mailboxes = [...map.values()];
   }
 
@@ -60,7 +81,8 @@ export async function getUserIntegrationEvidence(supabase: SupabaseClient, proje
     measuredAt: new Date().toISOString(),
     authorizations: auth.error ? null : (auth.data as MatrixEvidence["authorizations"]),
     controls: controls.error ? null : (controls.data as MatrixEvidence["controls"]),
-    mailboxes: emailRows === null ? null : attachmentRows === null ? mailboxes?.map((m) => ({ ...m, attachments: 0, attachmentsProcessed: 0, attachmentsPending: 0 })) ?? null : mailboxes,
+    ingestion,
+    mailboxes: emailRows === null ? null : mailboxes,
     unassignedEmails: unassigned,
     shared,
     warnings,
@@ -68,25 +90,29 @@ export async function getUserIntegrationEvidence(supabase: SupabaseClient, proje
 }
 
 async function getSharedEvidence(supabase: SupabaseClient, projectId: string, warnings: string[]): Promise<SharedEvidence> {
-  const [integrations, diarioRuns, diarioCount, cmRuns, cmLinks, workbooks, sheets] = await Promise.all([
-    supabase.from("project_integrations").select("source_type,status,last_sync_at").eq("project_id", projectId),
+  const [integrations, diarioRuns, diarioCount, cmRuns, cmLinks, workbooks, sheets, ssmaSubmissions, ssmaPhotos] = await Promise.all([
+    supabase.from("project_integrations").select("source_type,status,last_sync_at,last_connection_check_at,last_connection_error").eq("project_id", projectId),
     supabase.from("diario_de_obra_sync_runs").select("status,completed_at,error_count,created_count").eq("project_id", projectId).order("started_at", { ascending: false }).limit(1),
     count(supabase.from("diario_de_obra_reports").select("id", { count: "exact", head: true }).eq("project_id", projectId)),
     supabase.from("construmanager_sync_runs").select("status,completed_at").eq("project_id", projectId).order("started_at", { ascending: false }).limit(1),
     pages((from, to) => supabase.from("construmanager_content_links").select("download_status,requires_human_decision").eq("project_id", projectId).order("id").range(from, to)),
-    pages((from, to) => supabase.from("weekly_report_workbooks").select("status").eq("project_id", projectId).order("id").range(from, to)),
+    pages((from, to) => supabase.from("weekly_report_workbooks").select("status,created_at").eq("project_id", projectId).order("id").range(from, to)),
     pages((from, to) => supabase.from("weekly_report_sheets").select("status").eq("project_id", projectId).order("id").range(from, to)),
+    count(supabase.from("ssma_form_submissions").select("id", { count: "exact", head: true }).eq("project_id", projectId)),
+    pages((from, to) => supabase.from("ssma_submission_photos").select("drive_sync_status,drive_file_id").eq("project_id", projectId).order("id").range(from, to)),
   ]);
   const integ = (type: string) => (integrations.data as Row[] | null)?.find((row) => row.source_type === type) ?? null;
   const run = (diarioRuns.data as Row[] | null)?.[0] ?? null;
   const cmRun = (cmRuns.data as Row[] | null)?.[0] ?? null;
   if (integrations.error) warnings.push("Não foi possível conferir o estado das integrações da obra.");
-  const ssma = integ("ESG_SSMA");
-  const tally = (rows: Row[] | null, field: string) => { const m = new Map<string, number>(); for (const r of rows ?? []) m.set(String(r[field]), (m.get(String(r[field])) ?? 0) + 1); return m; };
   const cm = tally(cmLinks, "download_status");
   const wb = tally(workbooks, "status");
   const sh = tally(sheets, "status");
-  const sum = (m: Map<string, number>) => [...m.values()].reduce((a, b) => a + b, 0);
+  const ph = tally(ssmaPhotos, "drive_sync_status");
+  // SINCRONIZADA só conta com identificador do arquivo no Drive (status isolado não prova acesso ao material).
+  const syncedWithFile = (ssmaPhotos ?? []).filter((r) => r.drive_sync_status === "SYNCED" && r.drive_file_id).length;
+  const ssma = integ("ESG_SSMA");
+  const wbDates = (workbooks ?? []).map((r) => String(r.created_at)).sort();
   return {
     diario: integrations.error || diarioCount === null || diarioRuns.error ? null : {
       reports: diarioCount, lastRunStatus: (run?.status as string) ?? null, lastRunAt: (run?.completed_at as string) ?? null,
@@ -95,14 +121,22 @@ async function getSharedEvidence(supabase: SupabaseClient, projectId: string, wa
     },
     weekly: workbooks === null || sheets === null ? null : {
       workbooks: sum(wb), workbooksExtracted: wb.get("EXTRACTED") ?? 0, workbooksPartial: wb.get("PARTIAL") ?? 0, workbooksPendingReview: wb.get("PENDING_HUMAN_REVIEW") ?? 0,
-      sheets: sum(sh), sheetsExtracted: sh.get("EXTRACTED") ?? 0, sheetsMissing: sh.get("MISSING_SHEET") ?? 0, sheetsPendingReview: sh.get("PENDING_HUMAN_REVIEW") ?? 0,
+      workbooksOther: sum(wb) - (wb.get("EXTRACTED") ?? 0) - (wb.get("PARTIAL") ?? 0) - (wb.get("PENDING_HUMAN_REVIEW") ?? 0),
+      sheets: sum(sh), sheetsExtracted: sh.get("EXTRACTED") ?? 0, sheetsPartial: sh.get("PARTIAL") ?? 0, sheetsMissing: sh.get("MISSING_SHEET") ?? 0, sheetsPendingReview: sh.get("PENDING_HUMAN_REVIEW") ?? 0,
+      sheetsOther: sum(sh) - (sh.get("EXTRACTED") ?? 0) - (sh.get("PARTIAL") ?? 0) - (sh.get("MISSING_SHEET") ?? 0) - (sh.get("PENDING_HUMAN_REVIEW") ?? 0),
+      lastAt: wbDates.length ? wbDates[wbDates.length - 1] : null,
     },
     construmanager: integrations.error || cmLinks === null || cmRuns.error ? null : {
       integrationStatus: (integ("CONSTRUMANAGER")?.status as string) ?? null, lastRunStatus: (cmRun?.status as string) ?? null, lastRunAt: (cmRun?.completed_at as string) ?? null,
       stored: cm.get("ARMAZENADO") ?? 0, pending: cm.get("PENDENTE") ?? 0,
-      humanDecision: (cmLinks ?? []).filter((r) => r.requires_human_decision === true).length,
+      humanDecision: cmLinks.filter((r) => r.requires_human_decision === true).length,
       other: sum(cm) - (cm.get("ARMAZENADO") ?? 0) - (cm.get("PENDENTE") ?? 0),
     },
-    ssma: integrations.error ? null : { integrationStatus: (ssma?.status as string) ?? null, lastSyncAt: (ssma?.last_sync_at as string) ?? null },
+    ssma: integrations.error || ssmaSubmissions === null || ssmaPhotos === null ? null : {
+      integrationStatus: (ssma?.status as string) ?? null, lastSyncAt: (ssma?.last_sync_at as string) ?? null,
+      lastCheckAt: (ssma?.last_connection_check_at as string) ?? null, lastCheckError: Boolean(ssma?.last_connection_error),
+      submissions: ssmaSubmissions, photos: sum(ph), photosSynced: syncedWithFile,
+      photosFailed: ph.get("FAILED") ?? 0, photosPending: sum(ph) - syncedWithFile - (ph.get("FAILED") ?? 0),
+    },
   };
 }

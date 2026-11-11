@@ -4,7 +4,7 @@ import { recoverExisting } from './gmail-recover-existing.mjs';
 import { RECOVERY as R, recoveryOptions, assertRecoveryAuthorization, isRecoveryRow } from './lib/gmail-recovery-policy.mjs';
 const authRow = {project_id:R.projectId,account_email:R.mailbox,user_id:'titular',decided_by_user_id:'titular',decided_at:'2026-11-11T13:50:01Z',requested_at:'2026-11-11T13:40:00Z',status:'AUTORIZADO'};
 const row = (id='e1', extra={}) => ({id,project_id:R.projectId,mailbox_address:R.mailbox,provider:'GMAIL',provider_message_id:id,from_address:'bmancino@weg.net',sent_at:'2026-10-01T12:00:00Z',body_text:null,body_html:null,...extra});
-function fixture(rows=[row()], {profile=R.mailbox, status='AUTORIZADO', failRead=false, revokeAfterRead=false, messageFrom='Bruna <bmancino@weg.net>'}={}) {
+function fixture(rows=[row()], {profile=R.mailbox, status='AUTORIZADO', failRead=false, revokeAfterRead=false, messageFrom='Bruna <bmancino@weg.net>', gmailFailure=null, failAttachmentsQuery=false, ingestStatus='INGESTED', internalDateOverride=null}={}) {
  const calls={reads:0,writes:0,ingest:0};
  const tables={project_email_ingestion_configs:[{id:'c',project_id:R.projectId,enabled:true}],project_email_ingestion_mailboxes:[{config_id:'c',mailbox_address:R.mailbox,enabled:true}],email_access_authorizations:[{...authRow,status}],emails:rows,email_attachments:[]};
  class Query {
@@ -21,6 +21,7 @@ function fixture(rows=[row()], {profile=R.mailbox, status='AUTORIZADO', failRead
   single(){this.one=true;return this;}
   update(payload){this.payload=payload;return this;}
   then(resolve,reject){try {
+   if(failAttachmentsQuery && this.table==='email_attachments') return Promise.resolve({error:{code:'42501',message:'permission denied para conteudo secreto'},data:null}).then(resolve,reject);
    if(failRead && this.table==='project_email_ingestion_configs') return Promise.resolve({error:{message:'blocked'},data:null}).then(resolve,reject);
    let data=tables[this.table].filter(r=>this.filters.every(f=>f(r)));
    const count=data.length;
@@ -30,8 +31,8 @@ function fixture(rows=[row()], {profile=R.mailbox, status='AUTORIZADO', failRead
   }catch(e){return Promise.reject(e).then(resolve,reject);}}
  }
  const supabase={from:t=>new Query(t)};
- const gmail={users:{getProfile:async()=>({data:{emailAddress:profile}}),messages:{get:async({id})=>{calls.reads++;if(revokeAfterRead)tables.email_access_authorizations[0].status='REVOGADO';return {data:{id,internalDate:String(Date.parse('2026-10-01T12:00:00Z')),payload:{mimeType:'text/plain',headers:[{name:'From',value:messageFrom}],body:{data:Buffer.from('corpo completo').toString('base64url')},parts:[{filename:'arquivo.pdf',body:{attachmentId:'a',size:3},mimeType:'application/pdf'}]}}};}}}};
- const ingestAttachments=async()=>{calls.ingest++;tables.email_attachments.push({email_id:'e1',project_id:R.projectId,gmail_attachment_id:'a'});return [{status:'INGESTED'}];};
+ const gmail={users:{getProfile:async()=>({data:{emailAddress:profile}}),messages:{get:async({id})=>{calls.reads++;if(gmailFailure)throw gmailFailure;if(revokeAfterRead)tables.email_access_authorizations[0].status='REVOGADO';return {data:{id,internalDate:String(Date.parse('2026-10-01T12:00:00Z')),payload:{mimeType:'text/plain',headers:[{name:'From',value:messageFrom}],body:{data:Buffer.from('corpo completo').toString('base64url')},parts:[{filename:'arquivo.pdf',body:{attachmentId:'a',size:3},mimeType:'application/pdf'}]}}};}}}};
+ const ingestAttachments=async()=>{calls.ingest++;tables.email_attachments.push({email_id:'e1',project_id:R.projectId,gmail_attachment_id:'a'});return [{status:ingestStatus}];};
  const run=(apply=false,kind='bodies',limit=10)=>recoverExisting({supabase,gmail,ingestAttachments,options:{apply,kind,limit}});
  return {run,calls,tables};
 }
@@ -60,4 +61,25 @@ test('classificador nunca devolve mensagem bruta do provedor',async()=>{
  assert.equal(safeFailureCode({message:'Mensagem fora da obra, caixa ou período congelado.'}),'FORA_DO_ESCOPO_CONGELADO');
  assert.equal(safeFailureCode(new Error('texto livre com corpo do e-mail')),'ERRO_ERROR');
  assert.equal(safeFailureCode({code:'ECONNRESET'}),'CODIGO_ECONNRESET');
+});
+test('etapas distinguidas: leitura do Gmail x consulta de anexos x gravação, sem expor conteúdo',async()=>{
+ const gmailErr=Object.assign(new Error('assunto secreto do provedor'),{response:{status:404}});
+ let f=fixture(undefined,{gmailFailure:gmailErr});
+ let s=await f.run(false,'attachments');
+ assert.deepEqual(s.falhas_detalhe,[{etapa:'gmail_get',email_id:'e1',codigo:'HTTP_404'}]);
+ f=fixture(undefined,{failAttachmentsQuery:true});
+ s=await f.run(false,'attachments');
+ assert.deepEqual(s.falhas_detalhe,[{etapa:'consultar_anexos',email_id:'e1',codigo:'DB_42501'}]);
+ f=fixture(undefined,{ingestStatus:'FAILED'});
+ s=await f.run(true,'attachments');
+ assert.deepEqual(s.falhas_detalhe,[{etapa:'recuperar_gravar_anexos',email_id:'e1',codigo:'RESULTADO_FAILED'}]);
+ for(const out of [JSON.stringify(s)]) assert.ok(!/secreto|permission|weg\.net|Bruna/i.test(out));
+});
+test('falha de consulta de anexos não derruba a execução inteira, mas autorização revogada derruba',async()=>{
+ const f=fixture(undefined,{failAttachmentsQuery:true});
+ const s=await f.run(false,'attachments');
+ assert.equal(s.falhas,1);
+ const g=fixture(undefined,{status:'REVOGADO'});
+ await assert.rejects(g.run(false,'attachments'));
+ assert.equal(g.calls.reads,0);
 });

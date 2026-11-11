@@ -18,6 +18,7 @@ export function safeFailureCode(error) {
   if (error instanceof RecoveryStageError) return error.recoveryCode;
   const own = OWN_MESSAGES.get(String(error?.message ?? ""));
   if (own) return own;
+  if (error?.recoveryDb === true && /^DB_[A-Za-z0-9_.-]{1,16}$/.test(String(error.code))) return error.code;
   const status = Number(error?.response?.status ?? error?.status);
   if (Number.isInteger(status) && status >= 100 && status < 600) return `HTTP_${status}`;
   const code = typeof error?.code === "string" ? error.code : typeof error?.code === "number" ? String(error.code) : "";

@@ -26,6 +26,7 @@ export function MemberSourceBeacons({ row, projectId }: { row: UserSourceRow | u
         ))}
       </ul>
       <p className="max-w-56 text-xs text-muted-foreground">{row.overall.reason}</p>
+      <p className="text-xs text-muted-foreground">Resumo derivado das evidências; não editável.</p>
       <Link href={`/${projectId}/integracoes`} className="text-xs font-semibold text-brand-sidebar underline underline-offset-2">Ver detalhes</Link>
     </div>
   );

@@ -35,6 +35,12 @@ import { getSlaAreaResponsibles, getSlaMatrixRules, getSlaProjectSettings } from
 import type { SlaArea, SlaRiskLevel } from "@/lib/sla/types";
 
 const RISK_LEVELS: SlaRiskLevel[] = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
+async function getAdministeredProjects() {
+  const all = await getProjects().catch(() => []);
+  const checked = await Promise.all(all.map(async (item) => ((await getCurrentProjectPermission(item.id).catch(() => null)) === "ADMINISTRADOR" ? item : null)));
+  return checked.filter((item): item is NonNullable<typeof item> => item !== null);
+}
+
 const SLA_AREAS = Object.keys(slaAreaLabels) as SlaArea[];
 
 export const metadata: Metadata = { title: "Usuários" };
@@ -53,7 +59,7 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
     getSlaMatrixRules(projectId),
     getSlaAreaResponsibles(projectId),
     getSlaProjectSettings(projectId),
-    getProjects().catch(() => []),
+    getAdministeredProjects(),
     getUserIntegrationEvidence(supabase, projectId),
   ]);
   const sourceRows = new Map(buildUserSourceRows(members, sourceEvidence).map((row) => [row.userId, row]));
@@ -112,7 +118,7 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
               <TableHead>Área</TableHead>
               <TableHead>Permissão</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Fontes que alimentam o ACC neste projeto</TableHead>
+              <TableHead className="hidden md:table-cell">Fontes que alimentam o ACC neste projeto</TableHead>
               {canManage ? <TableHead>WhatsApp (alerta crítico na Diretoria)</TableHead> : null}
               <TableHead>Ações</TableHead>
             </TableRow>
@@ -126,6 +132,7 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
                     <div>
                       <p className="font-medium">{m.user.name}</p>
                       <p className="text-xs text-muted-foreground">{m.user.email}</p>
+                      <div className="mt-2 md:hidden"><MemberSourceBeacons row={sourceRows.get(m.userId)} projectId={projectId} /></div>
                     </div>
                   </div>
                 </TableCell>
@@ -144,7 +151,7 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
                     {membershipStatusLabels[m.status]}
                   </Badge>
                 </TableCell>
-                <TableCell><MemberSourceBeacons row={sourceRows.get(m.userId)} projectId={projectId} /></TableCell>
+                <TableCell className="hidden md:table-cell"><MemberSourceBeacons row={sourceRows.get(m.userId)} projectId={projectId} /></TableCell>
                 {canManage ? (
                   <TableCell>
                     {m.status === "ACTIVE" ? (
@@ -199,7 +206,7 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
                 <TableCell>
                   <Badge variant="outline">{memberInvitationStatusLabels[invitation.status]}</Badge>
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">Sem dados até o primeiro login</TableCell>
+                <TableCell className="hidden text-xs text-muted-foreground md:table-cell">Sem dados até o primeiro login</TableCell>
                 {canManage ? <TableCell /> : null}
                 <TableCell />
               </TableRow>

@@ -1,4 +1,5 @@
 import type { Beacon } from "@/lib/integrations/user-integration-matrix";
+import { formatDateTime } from "@/lib/labels";
 
 // Farol com ícone e texto (nunca só cor). VERDE = comprovado; VERMELHO = bloqueio, falha, pendência ou falta de comprovação.
 const styles = {
@@ -18,6 +19,7 @@ export function SourceBeacon({ beacon, showReason = true }: { beacon: Beacon; sh
         {beacon.ok ? "✓" : "✕"} {beacon.label}
       </span>
       {showReason ? <span className="max-w-64 text-xs text-muted-foreground">{beacon.reason}</span> : null}
+      {showReason ? <span className="text-xs text-muted-foreground">{beacon.at ? `Evidência de ${formatDateTime(beacon.at)}` : "Sem data de evidência"}</span> : null}
     </div>
   );
 }

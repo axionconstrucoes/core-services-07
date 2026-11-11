@@ -25,6 +25,7 @@ export function UserIntegrationMatrix({ rows, shared, warnings, measuredAt, unas
 
         <section aria-labelledby="fontes-pessoais" className="space-y-2">
           <h3 id="fontes-pessoais" className="text-base font-semibold">1. Fontes pessoais — caixa de e-mail de cada usuário</h3>
+          <p className="text-xs font-semibold text-muted-foreground md:hidden" aria-hidden="true">↔ Role a tabela para o lado para ver todas as etapas.</p>
           {rows.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum usuário vinculado a esta obra.</p> : (
             <div role="region" aria-label="Fontes pessoais por usuário; role horizontalmente para ver todas as etapas" tabIndex={0} className="max-w-full overflow-x-auto rounded border border-border focus-visible:outline-2 focus-visible:outline-offset-2">
               <table className="w-full min-w-[1000px] text-left text-sm">
@@ -72,6 +73,7 @@ export function UserIntegrationMatrix({ rows, shared, warnings, measuredAt, unas
 
         <section aria-labelledby="fontes-compartilhadas" className="space-y-2">
           <h3 id="fontes-compartilhadas" className="text-base font-semibold">3. Fontes compartilhadas da obra</h3>
+          <p className="text-xs font-semibold text-muted-foreground md:hidden" aria-hidden="true">↔ Role a tabela para o lado para ver todas as etapas.</p>
           <div role="region" aria-label="Fontes compartilhadas da obra; role horizontalmente para ver todas as etapas" tabIndex={0} className="max-w-full overflow-x-auto rounded border border-border focus-visible:outline-2 focus-visible:outline-offset-2">
             <table className="w-full min-w-[900px] text-left text-sm">
               <caption className="sr-only">Etapas de comprovação das fontes compartilhadas da obra.</caption>

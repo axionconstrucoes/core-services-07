@@ -9,7 +9,11 @@ import { RecoveryStageError, failureRecord } from "./lib/gmail-recovery-diagnost
 import { RECOVERY, recoveryOptions, assertRecoveryAuthorization, isRecoveryRow, assertRecoveryMessage, collectRecoveryAttachments } from "./lib/gmail-recovery-policy.mjs";
 
 export async function recoverExisting({ supabase, gmail, options, ingestAttachments }) {
-  const checked = async (query) => { const { data, error } = await query; if (error) throw new Error(error.message); return data; };
+  const checked = async (query) => {
+    const { data, error } = await query;
+    if (error) { const failure = new Error("Falha de consulta ao banco."); failure.recoveryDb = true; failure.code = /^[A-Za-z0-9_.-]{1,16}$/.test(String(error.code ?? "")) ? `DB_${error.code}` : "DB_ERRO"; throw failure; }
+    return data;
+  };
 
   async function assertAuthorized() {
     const config = await checked(supabase.from("project_email_ingestion_configs").select("id,project_id,enabled").eq("project_id", RECOVERY.projectId).single());
@@ -72,11 +76,12 @@ export async function recoverExisting({ supabase, gmail, options, ingestAttachme
           stats.corpos += changed.length;
         } else stats.corpos++;
       } else {
+        stage = "consultar_anexos";
         const parts = collectRecoveryAttachments(message.payload);
         const existing = await checked(supabase.from("email_attachments").select("gmail_attachment_id").eq("project_id", RECOVERY.projectId).eq("email_id", row.id));
         const ids = new Set(existing.map((item) => item.gmail_attachment_id));
         const pending = parts.filter((part) => !ids.has(part.gmailAttachmentId));
-        stage = "baixar_gravar_anexos";
+        stage = "recuperar_gravar_anexos";
         stats.anexos_existentes += parts.length - pending.length;
         stats.anexos_pendentes += pending.length;
         if (options.apply && pending.length) {
@@ -93,7 +98,11 @@ export async function recoverExisting({ supabase, gmail, options, ingestAttachme
           for (const result of results) {
             if (result.status === "INGESTED") stats.anexos_gravados++;
             else if (result.status === "ALREADY_INGESTED") stats.anexos_existentes++;
-            else stats.falhas++;
+            else {
+              stats.falhas++;
+              const code = /^[A-Z_]{1,40}$/.test(String(result.status)) ? `RESULTADO_${result.status}` : "RESULTADO_NAO_CLASSIFICADO";
+              stats.falhas_detalhe.push({ etapa: stage, email_id: String(row.id), codigo: code });
+            }
           }
         }
       }
