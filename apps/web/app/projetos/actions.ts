@@ -60,6 +60,9 @@ export async function createProjectAction(
     if (!projectId) return { error: "O ACC não retornou o projeto criado. Tente novamente." };
 
     revalidatePath("/projetos");
+    // Opcional: o Administrador pediu para copiar a equipe de outro projeto logo após o cadastro. O destino do
+    // redirecionamento é fixo e o projeto vem da RPC; o assistente reautoriza tudo no servidor.
+    if (formData.get("copyStructure") === "on") redirect(`/projetos/${projectId}/copiar-estrutura?origem=cadastro`);
     redirect(`/${projectId}/startup`);
   } catch (error) {
     if (error && typeof error === "object" && "digest" in error) throw error;

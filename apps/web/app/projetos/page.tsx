@@ -10,7 +10,7 @@ import { VeraTrigger } from "@/components/assistant/vera-trigger";
 import { isActiveAdminAnywhere } from "@/lib/legal/access";
 import { getProjects } from "@/lib/data";
 import { formatDate } from "@/lib/labels";
-import { Pencil, Plus, Scale } from "lucide-react";
+import { Copy, Pencil, Plus, Scale } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "Projetos" };
@@ -121,7 +121,7 @@ export default async function ProjetosPage() {
                     </Badge>
                   </CardHeader>
 
-                  <CardContent className={`pt-0 text-sm text-white${adminProjectIds.has(project.id) ? " pr-44" : ""}`}>
+                  <CardContent className={`pt-0 text-sm text-white${adminProjectIds.has(project.id) ? " pr-72" : ""}`}>
                     No. sistema UNO: {project.code} ·{" "}
                     {project.contractNumber && (
                       <>Contrato {project.contractNumber} · </>
@@ -133,17 +133,30 @@ export default async function ProjetosPage() {
               </Link>
               {/* Fora do <Link> do card: âncoras aninhadas são HTML inválido. */}
               {adminProjectIds.has(project.id) ? (
-                <Link
-                  href={`/projetos/${project.id}/editar?origem=selecao`}
-                  className={buttonVariants({
-                    variant: "outline",
-                    size: "sm",
-                    className: "absolute bottom-4 right-4 gap-1.5 border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white",
-                  })}
-                >
-                  <Pencil aria-hidden="true" />
-                  Editar projeto
-                </Link>
+                <div className="absolute bottom-4 right-4 flex gap-2">
+                  <Link
+                    href={`/projetos/${project.id}/copiar-estrutura`}
+                    className={buttonVariants({
+                      variant: "outline",
+                      size: "sm",
+                      className: "gap-1.5 border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white",
+                    })}
+                  >
+                    <Copy aria-hidden="true" />
+                    Copiar estrutura
+                  </Link>
+                  <Link
+                    href={`/projetos/${project.id}/editar?origem=selecao`}
+                    className={buttonVariants({
+                      variant: "outline",
+                      size: "sm",
+                      className: "gap-1.5 border-white/40 bg-white/10 text-white hover:bg-white/20 hover:text-white",
+                    })}
+                  >
+                    <Pencil aria-hidden="true" />
+                    Editar projeto
+                  </Link>
+                </div>
               ) : null}
               </div>
             ))}

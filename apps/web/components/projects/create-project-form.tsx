@@ -52,6 +52,13 @@ export function CreateProjectForm() {
             </label>
           </div>
 
+          <label className="flex items-start gap-2 text-sm">
+            <input type="checkbox" name="copyStructure" className="mt-1" />
+            <span>
+              Copiar equipe e perfis de acesso de outro projeto logo após criar (você revisa pessoas e perfis antes de confirmar; nenhum convite é enviado).
+            </span>
+          </label>
+
           {state.error ? <p role="alert" className="text-sm text-destructive">{state.error}</p> : null}
 
           <div className="flex flex-wrap items-center justify-between gap-3">
