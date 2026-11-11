@@ -87,7 +87,9 @@ check("estático: nenhuma chamada paga de IA nem envio de e-mail no script e no 
 });
 check("reexecução sem duplicidade: checagem prévia dos já existentes + conflito 23505 tratado como duplicada + dry-run sem escrita", () => {
   ok(/existingIds\.has\(message\.id\)/.test(src), "checagem prévia");
-  ok(/result\.error\.code === "23505"/.test(src), "conflito do índice único tratado como duplicada");
-  ok(/!\(EXPLICIT && RUN\.dryRun\) && index < rowsToInsert\.length/.test(src), "dry-run não insere");
+  const lib = readFileSync(new URL("./lib/gmail-insert-idempotent.mjs", import.meta.url), "utf8");
+  ok(src.includes("insertEmailsIdempotent(supabase, rowsToInsert)"), "o script usa a inserção idempotente");
+  ok(lib.includes('result.error.code === "23505"') && lib.includes("else throw new Error"), "23505 = duplicada; outro erro aborta");
+  ok(src.includes("if (!(EXPLICIT && RUN.dryRun)) {"), "dry-run não insere");
 });
 console.log(`\n${passed} OK, ${failed} falha(s)`); process.exit(failed ? 1 : 0);

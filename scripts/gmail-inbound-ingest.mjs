@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
 import { extractGmailBody } from "./lib/gmail-message-body.mjs";
+import { insertEmailsIdempotent } from "./lib/gmail-insert-idempotent.mjs";
 import { findFrozenEndConflict, parseBackfillArgs, monthKey, buildWindowQuery, withinWindow, emptyMonthStats } from "./lib/gmail-backfill-window.mjs";
 
 const PROJECT_ID =
@@ -742,51 +743,11 @@ for (
 console.log("");
 console.log("");
 
-for (
-  let index = 0;
-  !(EXPLICIT && RUN.dryRun) && index < rowsToInsert.length;
-  index += 100
-) {
-  const batch =
-    rowsToInsert.slice(
-      index,
-      index + 100
-    );
-
-  const { error } =
-    await supabase
-      .from("emails")
-      .insert(batch);
-
-  if (error) {
-    /*
-     * Se algum outro processo inseriu
-     * uma mensagem entre a leitura e
-     * este INSERT, cai para inserção
-     * individual protegida pelo índice
-     * único do Gmail Message ID.
-     */
-    for (const row of batch) {
-      const result =
-        await supabase
-          .from("emails")
-          .insert(row);
-
-      if (!result.error) {
-        inserted += 1;
-      } else if (
-        result.error.code === "23505"
-      ) {
-        duplicates += 1;
-      } else {
-        throw new Error(
-          result.error.message
-        );
-      }
-    }
-  } else {
-    inserted += batch.length;
-  }
+if (!(EXPLICIT && RUN.dryRun)) {
+  // Inserção idempotente (lote; em conflito, linha a linha). Falha NÃO engolida: qualquer erro diferente de 23505 aborta.
+  const outcome = await insertEmailsIdempotent(supabase, rowsToInsert);
+  inserted += outcome.inserted;
+  duplicates += outcome.duplicates;
 }
 
 const completedAt =
