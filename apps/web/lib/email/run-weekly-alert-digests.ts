@@ -60,6 +60,8 @@ export async function runWeeklyAlertDigests(now: Date = new Date()): Promise<Wee
     .in("risk_level", ["MEDIUM", "LOW"])
     .not("responsible_user_id", "is", null)
     .is("related_event_id", null)
+    // Ações de origem SSMA têm canal e conclusão próprios (evidência no app SSMA): "Resolvido" aqui seria recusado pelo guard e reverteria o resumo.
+    .neq("origin", "SSMA_CORRECTIVE_ACTION")
     .not("status", "in", "(COMPLETED,CANCELLED)")
     .order("risk_level", { ascending: false })
     .order("title", { ascending: true });

@@ -1,5 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
+import { register } from "node:module";
+
+register("./ts-module-resolver.mjs", import.meta.url);
+const { SSMA_CHECKLISTS } = await import("../apps/web/lib/ssma/checklist-definitions.ts");
 
 const root = path.resolve(import.meta.dirname, "..");
 const read = (relativePath) => fs.readFileSync(path.join(root, relativePath), "utf8");
@@ -11,6 +15,7 @@ const esgPage = read("apps/web/app/[projectId]/esg/page.tsx");
 const rootLayout = read("apps/web/app/layout.tsx");
 const pwaRegistration = read("apps/web/components/pwa-registration.tsx");
 const serviceWorker = read("apps/web/public/sw.js");
+const chrome = read("apps/web/components/ssma/ssma-chrome.tsx");
 
 let checks = 0;
 function assert(condition, message) {
@@ -18,17 +23,52 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-assert((definitions.match(/number: \d+,/g) ?? []).length === 11, "Devem existir exatamente 11 telas");
-assert(definitions.includes('slug: "remessa-bota-fora"'), "Remessa deve existir");
-assert(definitions.includes("number: 11") && definitions.includes("independent: true"), "Remessa deve ser a tela 11 independente");
-assert(definitions.includes('driveFolder: "07 - REMESSAS PARA BOTA-FORA"'), "Remessa deve preservar a pasta real do Drive");
+// Comportamento das definições reais (sem contagem fixa de telas: novas telas não quebram o teste).
+const N = SSMA_CHECKLISTS.length;
+assert(N >= 11, "Devem existir ao menos as 11 telas originais");
+assert(SSMA_CHECKLISTS.every((d, i) => d.number === i + 1), "Numeração das telas deve ser única e consecutiva de 1 a N");
+assert(new Set(SSMA_CHECKLISTS.map((d) => d.slug)).size === N, "Slugs devem ser únicos");
+assert(SSMA_CHECKLISTS.every((d) => typeof d.driveFolder === "string" && d.driveFolder.trim().length > 0), "Toda tela deve ter pasta do Drive");
+assert(new Set(SSMA_CHECKLISTS.map((d) => d.driveFolder)).size === N, "Pastas do Drive devem ser únicas");
+assert(
+  SSMA_CHECKLISTS.every((d) => d.title && d.shortTitle && d.checks.length > 0 && d.photoActions.length > 0 && Array.isArray(d.fields)),
+  "Toda tela deve ter título, itens de checklist, ações de foto e campos"
+);
+assert(
+  SSMA_CHECKLISTS.every((d) => new Set(d.fields.map((f) => f.id)).size === d.fields.length && new Set(d.checks).size === d.checks.length),
+  "Campos e itens de checklist não podem se repetir dentro da tela"
+);
+assert(
+  SSMA_CHECKLISTS.every((d) => d.fields.every((f) => f.type !== "select" || (f.options?.length ?? 0) > 0)),
+  "Todo campo select deve ter opções"
+);
+assert(
+  SSMA_CHECKLISTS.every((d) => (d.requiredPhotoActions ?? []).every((a) => d.photoActions.includes(a))),
+  "Ações de foto obrigatórias devem existir entre as ações da tela"
+);
+const remessa = SSMA_CHECKLISTS.find((d) => d.slug === "remessa-bota-fora");
+assert(remessa, "Remessa deve existir");
+assert(remessa.independent === true, "Remessa deve ser independente");
+assert(remessa.driveFolder === "07 - REMESSAS PARA BOTA-FORA", "Remessa deve preservar a pasta real do Drive");
+const ocorrencia = SSMA_CHECKLISTS.find((d) => d.slug === "ocorrencia-acidente");
+assert(ocorrencia && ocorrencia.independent === true, "Ocorrência / acidente deve existir e ser independente");
+const afastamento = ocorrencia.fields.find((f) => f.id === "afastamento");
+assert(
+  afastamento?.type === "select" && afastamento.required === true && JSON.stringify(afastamento.options) === JSON.stringify(["Sem afastamento", "Com afastamento"]),
+  "Ocorrência deve ter o campo obrigatório de afastamento com exatamente Sem/Com afastamento"
+);
+assert(
+  JSON.stringify(ocorrencia.requiredPhotoActions) === JSON.stringify(["Foto do local", "Foto da remoção"]),
+  "Ocorrência deve exigir foto do local e da remoção"
+);
 assert(definitions.includes('type SsmaChecklistState = "FEITO" | "NA"'), "Estados devem ser somente Feito e NA");
 assert(!definitions.toLowerCase().includes("justificativa"), "NA não deve exigir justificativa");
-assert(app.includes('src="/branding/acc-logo.png"'), "Deve usar o logo ACC oficial");
-assert(app.includes('top-1/2') && app.includes('-translate-y-1/2'), "Logo deve ser centralizado verticalmente no cabeçalho");
-assert(app.includes('bg-[#7f1d1d]'), "Cabeçalho deve usar bordô institucional");
+// O cabeçalho (logo, centralização, bordô) vive em ssma-chrome.tsx (SsmaHeader).
+assert(chrome.includes('src="/branding/acc-logo.png"'), "Deve usar o logo ACC oficial");
+assert(chrome.includes("items-center") && chrome.includes("min-h-24") && chrome.includes("text-center"), "Logo deve ficar centralizado verticalmente e o título centralizado no cabeçalho");
+assert(chrome.includes('bg-[#7f1d1d]'), "Cabeçalho deve usar bordô institucional");
 assert(app.includes('checked={checks[check] === value}'), "Feito e NA devem ser mutuamente exclusivos");
-assert(app.includes("definition.checks.every"), "Todos os itens devem ser respondidos antes do envio");
+assert(app.includes("formChecks.every"), "Todos os itens devem ser respondidos antes do envio");
 assert(app.includes("!allChecksAnswered"), "Envio deve ficar bloqueado com checklist incompleto");
 assert(app.includes("Carregado automaticamente do cadastro da obra"), "Técnico deve ser automático");
 assert(page.includes("getProjectMembers(projectId)"), "Técnico deve vir do cadastro real do projeto");
@@ -38,7 +78,11 @@ assert(manifest.includes('display: "standalone"'), "Aplicativo deve ser instalá
 assert(manifest.includes('theme_color: "#7f1d1d"'), "Manifest deve usar a cor institucional");
 assert(rootLayout.includes("<PwaRegistration />"), "Layout deve registrar o aplicativo instalável");
 assert(pwaRegistration.includes('register("/sw.js")'), "Service worker deve ser registrado");
-assert(!serviceWorker.includes('addEventListener("fetch"'), "Dados autenticados não devem ser armazenados em cache nesta fase");
+// O fetch handler existe só para a casca offline e estáticos versionados (comportamento real: test-ssma-service-worker.mjs).
+assert(serviceWorker.includes('addEventListener("fetch"'), "Service worker deve tratar a casca offline");
+assert(!/\/api\//.test(serviceWorker.replace(/\/\*[\s\S]*?\*\//, "").replace(/\/\/.*$/gm, "")) && !serviceWorker.includes("supabase"), "Service worker não deve referenciar rotas de API nem Supabase");
+assert(serviceWorker.includes('request.method !== "GET"') && serviceWorker.includes("/_next/static/") && serviceWorker.includes("SHELL_URL"), "Cache restrito a GET de estáticos versionados e à casca offline");
+assert(!/cache\.(?:put|add)\([^)]*\/ssma\/(?!offline)/.test(serviceWorker), "Páginas autenticadas com dados não devem ser guardadas em cache");
 assert(esgPage.includes("/ssma/${projectId}"), "Módulo ESG deve oferecer acesso ao aplicativo");
 assert(definitions.includes('value: "MEDIA", label: "Médio", className: "bg-[#2563EB] text-white"'), "Médio deve ser azul");
 assert(definitions.includes('value: "ALTA", label: "Alto", className: "bg-[#FFD600] text-black"'), "Alto deve ser amarelo");

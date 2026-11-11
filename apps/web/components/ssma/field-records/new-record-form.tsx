@@ -17,6 +17,8 @@ import {
 } from "@/lib/ssma/field-records/types";
 import type { NewPhotoInput } from "@/lib/ssma/field-records/queue-core";
 import { cn } from "@/lib/utils";
+import { ProjectSelect } from "@/components/ssma/project-select";
+import { findProject, reconcileDependentFields, resolveInitialProject, type SelectableProject } from "@/lib/ssma/project-selection";
 
 const RISK_STYLES: Record<FieldRecordRisk, string> = {
   BAIXA: "bg-[#166534] text-white",
@@ -40,16 +42,22 @@ interface Photo {
 const fieldClass = "mt-1 block min-h-12 w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-3 text-base outline-none focus:border-[#7f1d1d]";
 
 export function NewRecordForm({
-  members,
+  projects,
+  contextProjectId,
   online,
   onSave,
   onCancel,
 }: {
-  members: Array<{ userId: string; name: string }>;
+  projects: SelectableProject[];
+  /** Obra da navegação atual (preenche o campo Obra); null/ausente = depende do número de obras. */
+  contextProjectId?: string | null;
   online: boolean;
-  onSave: (draft: FieldRecordDraft, photos: NewPhotoInput[]) => Promise<void>;
+  onSave: (projectId: string, draft: FieldRecordDraft, photos: NewPhotoInput[]) => Promise<void>;
   onCancel: () => void;
 }) {
+  const [projectId, setProjectId] = useState<string | null>(() => resolveInitialProject(projects, contextProjectId).projectId);
+  const [projectNotice, setProjectNotice] = useState<string | null>(null);
+  const members = findProject(projects, projectId)?.members ?? [];
   const [kind, setKind] = useState<FieldRecordKind>("OCORRENCIA");
   const [category, setCategory] = useState("");
   const [description, setDescription] = useState("");
@@ -95,6 +103,21 @@ export function NewRecordForm({
     if (galleryRef.current) galleryRef.current.value = "";
   }
 
+  /** Trocar a obra limpa só o que depende dela (responsável/prazo se não for membro); o resto é preservado. */
+  function changeProject(nextId: string) {
+    const next = findProject(projects, nextId);
+    if (!next) return;
+    const result = reconcileDependentFields({ responsibleUserId: responsible, dueDate }, next);
+    setProjectId(nextId);
+    if (result.cleared.length > 0) {
+      setResponsible(result.fields.responsibleUserId);
+      setDueDate(result.fields.dueDate);
+      setProjectNotice("Responsável e prazo foram limpos: o responsável escolhido não pertence a esta obra. Os demais dados foram mantidos.");
+    } else {
+      setProjectNotice(null);
+    }
+  }
+
   function removePhoto(id: string) {
     const target = photos.find((photo) => photo.id === id);
     if (target) URL.revokeObjectURL(target.previewUrl);
@@ -106,6 +129,10 @@ export function NewRecordForm({
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (saving) return;
+    if (!findProject(projects, projectId)) {
+      setErrors(["Selecione uma obra em que você está autorizado a registrar."]);
+      return;
+    }
     const occurred = new Date(occurredAt);
     const draft: FieldRecordDraft = {
       kind,
@@ -126,6 +153,7 @@ export function NewRecordForm({
     setErrors([]);
     try {
       await onSave(
+        projectId as string,
         draft,
         photos.map((photo) => ({ name: photo.file.name, mimeType: photo.file.type, blob: photo.file }))
       );
@@ -137,6 +165,8 @@ export function NewRecordForm({
 
   return (
     <form onSubmit={submit} className="mx-auto max-w-2xl space-y-5 bg-white p-4 pb-28 sm:my-4 sm:rounded-xl sm:border sm:p-6">
+      <ProjectSelect projects={projects} value={projectId} onChange={changeProject} disabled={saving} hint={projectNotice} />
+
       <fieldset>
         <legend className="mb-2 text-sm font-bold text-slate-900">Tipo de registro</legend>
         <div className="grid grid-cols-2 gap-2">
@@ -220,11 +250,11 @@ export function NewRecordForm({
         <input ref={cameraRef} type="file" accept="image/jpeg,image/png" capture="environment" onChange={(event) => addFiles(event.target.files)} className="sr-only" aria-label="Tirar foto" />
         <input ref={galleryRef} type="file" multiple accept="image/jpeg,image/png,.jpg,.jpeg,.png" onChange={(event) => addFiles(event.target.files)} className="sr-only" aria-label="Escolher fotos" />
         <div className="grid gap-2 sm:grid-cols-2">
-          <button type="button" onClick={() => cameraRef.current?.click()} className="flex min-h-14 items-center justify-center gap-2 rounded-lg bg-slate-800 px-4 font-bold uppercase text-white">
-            <Camera className="size-6" /> Tirar foto
+          <button type="button" onClick={() => cameraRef.current?.click()} className="flex min-h-14 items-center justify-center gap-2 rounded-lg border-2 border-black bg-[#f7f3ea] px-4 font-bold uppercase text-black hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            <Camera className="size-6 text-black" aria-hidden="true" /> Tirar foto
           </button>
-          <button type="button" onClick={() => galleryRef.current?.click()} className="flex min-h-14 items-center justify-center gap-2 rounded-lg border-2 border-[#7f1d1d] bg-white px-4 font-bold uppercase text-[#7f1d1d]">
-            <CloudUpload className="size-5" /> Da galeria
+          <button type="button" onClick={() => galleryRef.current?.click()} className="flex min-h-14 items-center justify-center gap-2 rounded-lg bg-[#7f1d1d] px-4 font-bold uppercase text-white hover:bg-[#6b1717] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+            <CloudUpload className="size-5 text-white" aria-hidden="true" /> Da galeria
           </button>
         </div>
         <p className="text-xs font-medium text-slate-600">Fotos são opcionais · JPG ou PNG · até 15 MB · máximo de {MAX_PHOTOS_PER_RECORD}</p>

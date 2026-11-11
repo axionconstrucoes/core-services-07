@@ -21,15 +21,22 @@ import { FieldRecordsApp, type FieldProject } from "@/components/ssma/field-reco
 import { SsmaBottomNav, SsmaHeader, type SsmaTab } from "@/components/ssma/ssma-chrome";
 import { useFieldQueue } from "@/lib/ssma/field-records/use-field-queue";
 import {
+  OCCURRENCE_TYPES,
   SSMA_CHECKLISTS,
   SSMA_RISK_LEVELS,
   type SsmaChecklistDefinition,
   type SsmaChecklistState,
   type SsmaFieldDefinition,
+  checklistCheckLabel,
+  checklistShortTitle,
+  checklistTitle,
 } from "@/lib/ssma/checklist-definitions";
+import { OFFLINE_FORM_MESSAGE, accidentNotificationWarning, friendlySubmitError } from "@/lib/ssma/form-feedback";
 import { computeFileSha256Hex } from "@/lib/documents/multi-upload/sha256";
 import { sanitizeFileName } from "@/lib/documents/multi-upload/queue-core";
 import { cn } from "@/lib/utils";
+import { ProjectSelect } from "@/components/ssma/project-select";
+import { isAuthorizedProject, resolveInitialProject } from "@/lib/ssma/project-selection";
 
 type SsmaFieldAppProps = {
   projectId: string;
@@ -44,6 +51,8 @@ type SsmaFieldAppRootProps = SsmaFieldAppProps & {
   userId: string;
   /** Obra autorizada, com os membros ativos (para escolher responsável) e a permissão de gestão. */
   project: FieldProject;
+  /** Obras em que o usuário pode registrar (inclui a atual). Editável no campo "Obra". */
+  projects: FieldProject[];
 };
 
 type CheckState = Record<string, SsmaChecklistState | undefined>;
@@ -120,6 +129,11 @@ function PhotoUploadPanel({
         action: selectedActionRef.current,
       }));
 
+    if (additions.length === 0 && incoming.length > 0) {
+      setError("Este arquivo já está na lista (mesmo nome, tamanho e data). Escolha outra foto para este tipo.");
+      if (inputRef.current) inputRef.current.value = "";
+      return;
+    }
     const next = [...photos, ...additions];
     photosRef.current = next;
     setPhotos(next);
@@ -163,9 +177,9 @@ function PhotoUploadPanel({
             type="button"
             disabled={disabled}
             onClick={() => openPhotoPicker(action)}
-            className="flex min-h-14 items-center justify-center gap-2 rounded-lg bg-slate-800 px-4 font-bold uppercase text-white disabled:opacity-50"
+            className="flex min-h-14 items-center justify-center gap-2 rounded-lg border-2 border-black bg-[#f7f3ea] px-4 font-bold uppercase text-black hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:border-[#475569] disabled:bg-[#cbd5e1] disabled:text-[#1e293b]"
           >
-            <Camera className="size-6" /> {action}
+            <Camera className="size-6 text-black" aria-hidden="true" /> {action}
           </button>
         ))}
       </div>
@@ -174,9 +188,9 @@ function PhotoUploadPanel({
         type="button"
         disabled={disabled}
         onClick={() => openPhotoPicker(actions[0] ?? "Foto")}
-        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-[#7f1d1d] bg-white px-4 text-sm font-bold uppercase text-[#7f1d1d] disabled:opacity-50"
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#7f1d1d] px-4 text-sm font-bold uppercase text-white hover:bg-[#6b1717] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white disabled:cursor-not-allowed disabled:bg-[#475569] disabled:text-white"
       >
-        <CloudUpload className="size-5" /> Selecionar fotos do computador
+        <CloudUpload className="size-5 text-white" aria-hidden="true" /> Selecionar fotos do computador
       </button>
 
       <p className="text-xs font-medium text-slate-600">JPG ou PNG · até 15 MB por foto · máximo de 20 fotos</p>
@@ -195,7 +209,7 @@ function PhotoUploadPanel({
                 </div>
                 <div className="p-2 pr-9">
                   <p className="truncate text-xs font-bold text-slate-900" title={photo.file.name}>{photo.file.name}</p>
-                  <p className="truncate text-[11px] font-semibold text-[#7f1d1d]">{photo.action}</p>
+                  <p className="truncate text-[11px] font-semibold text-red-700">{photo.action}</p>
                   <p className="text-[11px] text-slate-500">{formatBytes(photo.file.size)}</p>
                 </div>
                 <button
@@ -216,18 +230,24 @@ function PhotoUploadPanel({
   );
 }
 
-function SavedContext({ projectLabel, technicianLabel, initialDateTime }: SsmaFieldAppProps) {
+function SavedContext({
+  projects,
+  projectId,
+  onProjectChange,
+  disabled,
+  technicianLabel,
+  initialDateTime,
+}: {
+  projects: FieldProject[];
+  projectId: string | null;
+  onProjectChange: (id: string) => void;
+  disabled?: boolean;
+  technicianLabel: string;
+  initialDateTime: string;
+}) {
   return (
     <section className="space-y-3">
-      <label className="block text-sm font-bold text-slate-900">
-        Obra / Local de trabalho
-        <span className="mt-1 block rounded-lg border-2 border-slate-400 bg-white px-3 py-3 text-base font-semibold text-slate-900">
-          {projectLabel}
-        </span>
-      </label>
-      <p className="flex items-center gap-2 text-xs font-semibold text-green-700">
-        <CheckCircle2 className="size-5 fill-green-700 text-white" /> Obra salva para os próximos envios
-      </p>
+      <ProjectSelect projects={projects} value={projectId} onChange={onProjectChange} disabled={disabled} />
       <label className="block text-sm font-bold text-slate-900">
         Técnico responsável
         <span className="mt-1 block rounded-lg border-2 border-slate-300 bg-slate-50 px-3 py-3 text-base font-semibold text-slate-900">
@@ -277,17 +297,22 @@ function DynamicField({ field }: { field: SsmaFieldDefinition }) {
 
 function ChecklistForm({
   definition,
-  projectId,
-  projectLabel,
+  projectId: contextProjectId,
+  projects,
   technicianLabel,
   initialDateTime,
   onBack,
   onComplete,
-}: SsmaFieldAppProps & {
+}: Omit<SsmaFieldAppProps, "projectLabel"> & {
+  projects: FieldProject[];
   definition: SsmaChecklistDefinition;
   onBack: () => void;
   onComplete: (slug: string, day?: string) => void;
 }) {
+  // Confirmação: só existe depois de o servidor confirmar a finalização. Evita reenvio (duplicidade).
+  const [confirmation, setConfirmation] = useState<{ warning: string | null; day?: string } | null>(null);
+  // Obra: a atual quando há contexto; a única autorizada quando só há uma; senão exige escolha.
+  const [projectId, setProjectId] = useState<string | null>(() => resolveInitialProject(projects, contextProjectId).projectId);
   const [checks, setChecks] = useState<CheckState>({});
   const [risk, setRisk] = useState<string>("BAIXA");
   const [photos, setPhotos] = useState<SelectedPhoto[]>([]);
@@ -299,20 +324,58 @@ function ChecklistForm({
     setChecks((current) => ({ ...current, [check]: value }));
   }
 
-  const allChecksAnswered = definition.checks.every((check) => checks[check]);
-  const allRequiredPhotosSelected = (definition.requiredPhotoActions ?? []).every((action) =>
+  // Formulário 12: o primeiro passo é o TIPO (Acidente ou Near Miss). Near Miss usa campos próprios e é gravado como
+  // "Riscos apontados" com classificação estruturada "Quase-acidente" (entra no indicador de Near Misses; nunca conta como acidente).
+  const variant = definition.nearMissVariant;
+  const [occurrenceType, setOccurrenceType] = useState<string>("");
+  const isNearMiss = Boolean(variant) && occurrenceType === OCCURRENCE_TYPES[1];
+  const typeChosen = !variant || occurrenceType !== "";
+  const formFields = isNearMiss && variant ? variant.fields : definition.fields;
+  const formChecks = isNearMiss && variant ? variant.checks : definition.checks;
+  const formPhotoActions = isNearMiss && variant ? variant.photoActions : definition.photoActions;
+  const formRequiredPhotos = isNearMiss ? [] : (definition.requiredPhotoActions ?? []);
+  const allChecksAnswered = typeChosen && formChecks.every((check) => checks[check]);
+  const allRequiredPhotosSelected = formRequiredPhotos.every((action) =>
     photos.some((photo) => photo.action === action)
   );
   const showRisk = definition.slug === "fotos-diarias" || definition.slug === "riscos-apontados" || definition.slug === "outros";
 
+  if (confirmation) {
+    return (
+      <div className="min-h-dvh bg-slate-100">
+        <SsmaHeader title={checklistTitle(definition)} onBack={() => onComplete(definition.slug, confirmation.day)} />
+        <main className="mx-auto max-w-2xl space-y-4 bg-white p-6 text-center sm:my-4 sm:rounded-xl sm:border" data-testid="form-confirmation">
+          <Image src="/ssma/done-icon.png" alt="Enviado" width={64} height={64} className="mx-auto size-16" />
+          <h2 className="text-xl font-bold text-slate-900">Enviado e confirmado no ACC</h2>
+          <p className="text-sm text-slate-700">O servidor confirmou o recebimento do formulário e dos arquivos. Este envio é online: não há cópia pendente neste aparelho.</p>
+          {confirmation.warning ? (
+            <p role="alert" className="rounded-lg border-2 border-amber-700 bg-amber-50 p-3 text-left text-sm font-bold text-amber-950">{confirmation.warning}</p>
+          ) : null}
+          <button type="button" onClick={() => onComplete(definition.slug, confirmation.day)} className="flex min-h-14 w-full items-center justify-center rounded-lg bg-[#7f1d1d] px-4 text-base font-bold uppercase text-white">
+            Voltar ao início
+          </button>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-dvh bg-slate-100">
-      <SsmaHeader title={definition.title} onBack={onBack} />
+      <SsmaHeader title={checklistTitle(definition)} onBack={onBack} />
       <form
         className="mx-auto max-w-2xl space-y-5 bg-white p-4 pb-28 sm:my-4 sm:rounded-xl sm:border sm:p-6"
         onSubmit={async (event) => {
           event.preventDefault();
           if (!allChecksAnswered || !allRequiredPhotosSelected || submitting) return;
+          if (!isAuthorizedProject(projects, projectId)) {
+            setSubmitError("Selecione uma obra em que você está autorizado a registrar.");
+            return;
+          }
+
+          if (typeof navigator !== "undefined" && navigator.onLine === false) {
+            setSubmitError(OFFLINE_FORM_MESSAGE);
+            return;
+          }
 
           const formData = new FormData(event.currentTarget);
           const occurredAtValue = String(formData.get("occurredAt") ?? "");
@@ -329,13 +392,25 @@ function ChecklistForm({
           try {
             const supabase = createSupabaseBrowserClient();
             const fieldValues = Object.fromEntries(
-              definition.fields.map((field) => [field.id, String(formData.get(field.id) ?? "").trim()])
+              formFields.map((field) => [field.id, String(formData.get(field.id) ?? "").trim()])
             );
             const checklistValues = Object.fromEntries(
-              definition.checks.map((check) => [check, checks[check]])
+              formChecks.map((check) => [check, checks[check]])
             );
 
-            const submissionRequest = definition.slug === "ocorrencia-acidente"
+            const submissionRequest = isNearMiss && variant
+              ? await supabase.rpc("create_ssma_form_submission", {
+                  p_project_id: projectId,
+                  p_checklist_slug: variant.submitAs.slug,
+                  p_checklist_number: variant.submitAs.number,
+                  p_checklist_title: variant.submitAs.title,
+                  p_drive_folder_name: variant.submitAs.driveFolder,
+                  p_occurred_at: occurredAt.toISOString(),
+                  p_field_values: { ...fieldValues, ...variant.fixedValues },
+                  p_checklist_values: checklistValues,
+                  p_risk_level: risk,
+                })
+              : definition.slug === "ocorrencia-acidente"
               ? await supabase.rpc("create_ssma_accident_submission", {
                   p_project_id: projectId,
                   p_occurred_at: occurredAt.toISOString(),
@@ -405,38 +480,74 @@ function ChecklistForm({
               p_submission_id: submissionId,
             });
             if (finalizeError) throw new Error("Os arquivos foram enviados, mas o formulário não pôde ser finalizado.");
-            if (definition.slug === "ocorrencia-acidente") {
-              const notificationResponse = await fetch("/api/ssma/accident-notifications", {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ submissionId }),
-              });
-              if (!notificationResponse.ok) {
-                throw new Error(
-                  "O acidente foi registrado, mas a comunicação imediata não foi concluída. A Auditoria foi sinalizada."
-                );
+            // A partir daqui o formulário está CONFIRMADO no ACC. A comunicação do acidente é uma etapa à parte:
+            // se falhar, o aviso é separado e nunca convida a reenviar (duplicaria o acidente).
+            let warning: string | null = null;
+            if (definition.slug === "ocorrencia-acidente" && !isNearMiss) {
+              let response: Response | null = null;
+              let serverError: string | null = null;
+              try {
+                response = await fetch("/api/ssma/accident-notifications", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: JSON.stringify({ submissionId }),
+                });
+                if (!response.ok) serverError = ((await response.json().catch(() => ({}))) as { error?: string }).error ?? null;
+              } catch {
+                response = null;
               }
+              warning = accidentNotificationWarning(response ? { ok: response.ok, status: response.status } : null, serverError);
             }
-            onComplete(definition.slug, occurredAtValue.slice(0, 10));
+            setConfirmation({ warning, day: projectId === contextProjectId ? occurredAtValue.slice(0, 10) : undefined }); // só conta para a obra atual e o dia de hoje
+            return;
+
           } catch (error) {
-            setSubmitError(error instanceof Error ? error.message : "Não foi possível enviar os dados.");
+            setSubmitError(friendlySubmitError(error));
           } finally {
             setSubmitting(false);
           }
         }}
       >
         {definition.independent ? (
-          <p className="rounded-md bg-[#7f1d1d]/10 px-3 py-2 text-center text-sm font-bold text-[#7f1d1d]">
+          <p className="rounded-md bg-[#7f1d1d] px-3 py-2 text-center text-sm font-bold text-white">
             Tarefa independente — pode ser preenchida a qualquer momento
           </p>
         ) : null}
 
-        <SavedContext projectId={projectId} projectLabel={projectLabel} technicianLabel={technicianLabel} initialDateTime={initialDateTime} />
+        <SavedContext projects={projects} projectId={projectId} onProjectChange={setProjectId} disabled={submitting} technicianLabel={technicianLabel} initialDateTime={initialDateTime} />
 
         <div className="h-px bg-slate-300" />
 
+        {variant ? (
+          <fieldset className="space-y-2" data-testid="occurrence-type">
+            <legend className="mb-1 text-sm font-bold text-slate-900">Tipo de ocorrência *</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {OCCURRENCE_TYPES.map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  aria-pressed={occurrenceType === type}
+                  disabled={submitting}
+                  onClick={() => { setOccurrenceType(type); setChecks({}); setPhotos([]); setSubmitError(null); }}
+                  className={cn(
+                    "min-h-14 rounded-lg border-2 px-2 text-sm font-bold",
+                    type === OCCURRENCE_TYPES[0] ? "border-[#7f1d1d] bg-[#b91c1c] text-white" : "border-[#78350f] bg-[#b45309] text-white",
+                    occurrenceType === type ? "ring-4 ring-white" : "opacity-80"
+                  )}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+            {!typeChosen ? <p className="text-center text-sm font-semibold text-amber-700">Escolha o tipo de ocorrência para continuar.</p> : null}
+            {isNearMiss ? <p className="text-xs font-medium text-slate-700">Near Miss: evento que poderia ter causado lesão ou dano e não causou. Não é contado como acidente.</p> : null}
+          </fieldset>
+        ) : null}
+
+        {typeChosen ? (
+        <>
         <section className="space-y-4">
-          {definition.fields.map((field) => (
+          {formFields.map((field) => (
             <label key={field.id} className="block text-sm font-bold text-slate-900">
               {field.label}
               {field.required ? <span aria-hidden="true"> *</span> : null}
@@ -445,7 +556,7 @@ function ChecklistForm({
           ))}
         </section>
 
-        {showRisk ? (
+        {showRisk || isNearMiss ? (
           <fieldset>
             <legend className="mb-2 text-sm font-bold text-slate-900">Classificação do risco</legend>
             <div className="grid grid-cols-4 gap-2">
@@ -470,9 +581,9 @@ function ChecklistForm({
         <fieldset className="overflow-hidden rounded-lg border-2 border-slate-300">
           <legend className="sr-only">Checklist</legend>
           <div className="bg-slate-200 px-3 py-2 text-sm font-bold uppercase text-slate-900">Checklist</div>
-          {definition.checks.map((check) => (
+          {formChecks.map((check) => (
             <div key={check} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-t border-slate-300 px-3 py-3 first:border-t-0">
-              <span className="text-sm font-semibold text-slate-900">{check}</span>
+              <span className="text-sm font-semibold text-slate-900">{checklistCheckLabel(definition, check)}</span>
               {(["FEITO", "NA"] as const).map((value) => (
                 <label key={value} className="flex min-h-11 cursor-pointer items-center gap-2 px-1 text-sm font-bold">
                   <input
@@ -488,7 +599,7 @@ function ChecklistForm({
           ))}
         </fieldset>
 
-        <PhotoUploadPanel actions={definition.photoActions} onPhotosChange={setPhotos} disabled={submitting} />
+        <PhotoUploadPanel key={isNearMiss ? "nm" : "std"} actions={formPhotoActions} onPhotosChange={setPhotos} disabled={submitting} />
 
         {submitting && photos.length > 0 ? (
           <div className="space-y-1" aria-live="polite">
@@ -513,11 +624,14 @@ function ChecklistForm({
 
         <button
           type="submit"
-          disabled={!allChecksAnswered || !allRequiredPhotosSelected || submitting}
-          className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-[#7f1d1d] px-4 text-base font-bold uppercase text-white disabled:cursor-not-allowed disabled:opacity-40"
+          disabled={!allChecksAnswered || !allRequiredPhotosSelected || submitting || !isAuthorizedProject(projects, projectId)}
+          className="flex min-h-14 w-full items-center justify-center gap-2 rounded-lg bg-[#7f1d1d] px-4 text-base font-bold uppercase text-white disabled:cursor-not-allowed disabled:bg-[#475569] disabled:text-white"
         >
           <Send className="size-6" /> {submitting ? "Enviando…" : "Enviar dados"}
         </button>
+
+        </>
+        ) : null}
 
         <p className="text-center text-xs font-medium text-slate-500">
           Tela {definition.number} de 12 · Registro protegido e auditável
@@ -527,7 +641,16 @@ function ChecklistForm({
   );
 }
 
-export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initialDateTime, initialCompleted = [], userId, project }: SsmaFieldAppRootProps) {
+/** Indicador de conclusão (imagem fornecida, sem alterações). Só aparece quando o envio foi CONFIRMADO pelo servidor. */
+function DoneIcon() {
+  return (
+    <span className="ml-auto flex shrink-0 items-center" title="Concluído">
+      <Image src="/ssma/done-icon.png" alt="Concluído" title="Concluído" width={28} height={28} className="size-7" />
+    </span>
+  );
+}
+
+export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initialDateTime, initialCompleted = [], userId, project, projects }: SsmaFieldAppRootProps) {
   const router = useRouter();
   const queue = useFieldQueue(userId);
   const [view, setView] = useState<"home" | "field">("home");
@@ -537,8 +660,10 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
 
   // Guarda, neste aparelho e para esta conta, o mínimo para abrir o formulário sem rede.
   useEffect(() => {
-    if (ready) void rememberContext(technicianLabel, project);
-  }, [ready, rememberContext, technicianLabel, project]);
+    if (!ready) return;
+    for (const entry of projects) if (entry.id !== project.id) void rememberContext(technicianLabel, entry);
+    void rememberContext(technicianLabel, project);
+  }, [ready, rememberContext, technicianLabel, project, projects]);
 
   const signOut = async () => {
     await createSupabaseBrowserClient().auth.signOut();
@@ -559,6 +684,7 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
         userId={userId}
         userLabel={technicianLabel}
         project={project}
+        projects={projects}
         initialTab={fieldTab}
         onHome={() => setView("home")}
         onSignOut={signOut}
@@ -571,7 +697,7 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
       <ChecklistForm
         definition={active}
         projectId={projectId}
-        projectLabel={projectLabel}
+        projects={projects}
         technicianLabel={technicianLabel}
         initialDateTime={initialDateTime}
         onBack={() => setActiveSlug(null)}
@@ -610,7 +736,7 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
 
         <section className="rounded-xl bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <ClipboardCheck className="size-9 text-[#7f1d1d]" />
+            <ClipboardCheck className="size-9 text-red-700" />
             <div className="flex-1">
               <p className="font-bold text-slate-900">Checklist de hoje</p>
               <p className="text-sm text-slate-600">{completedRoutine} de {routine.length} enviados</p>
@@ -623,32 +749,34 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
 
         <h2 className="text-base font-bold text-slate-900">1. Relatórios diários — obrigatórios</h2>
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {routine.map((definition) => (
-            <button
-              key={definition.slug}
-              type="button"
-              onClick={() => setActiveSlug(definition.slug)}
-              className="flex min-h-24 items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-[#7f1d1d]"
-            >
-              {definition.slug === "riscos-apontados" ? (
-                <ShieldAlert className="size-7 shrink-0 text-slate-800" />
-              ) : (
-                <FileText className="size-7 shrink-0 text-slate-800" />
-              )}
-              <span className="min-w-0 flex-1">
-                <span className="block font-bold text-slate-900">
-                  {String(definition.number).padStart(2, "0")} {definition.shortTitle}
+          {routine.map((definition) => {
+            const done = completed.has(definition.slug);
+            return (
+              <button
+                key={definition.slug}
+                type="button"
+                onClick={() => setActiveSlug(definition.slug)}
+                className="flex min-h-24 items-center gap-3 rounded-xl border border-slate-300 bg-white p-4 text-left text-slate-900 shadow-sm transition hover:border-[#7f1d1d] hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              >
+                {definition.slug === "riscos-apontados" ? (
+                  <ShieldAlert className="size-7 shrink-0 text-slate-900" aria-hidden="true" />
+                ) : (
+                  <FileText className="size-7 shrink-0 text-slate-900" aria-hidden="true" />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className="block font-bold text-slate-900">
+                    {String(definition.number).padStart(2, "0")} {checklistShortTitle(definition)}
+                  </span>
+                  {done ? null : <span className="mt-1 block text-xs font-bold text-amber-800">Pendente</span>}
                 </span>
-                <span className={cn("mt-1 block text-xs font-bold", completed.has(definition.slug) ? "text-green-700" : "text-amber-600")}>
-                  {completed.has(definition.slug) ? "Concluído" : "Pendente"}
-                </span>
-              </span>
-              <ChevronRight className="size-5 shrink-0 text-slate-500" />
-            </button>
-          ))}
+                {done ? <DoneIcon /> : null}
+                <ChevronRight className="size-5 shrink-0 text-slate-600" aria-hidden="true" />
+              </button>
+            );
+          })}
         </section>
 
-        <h2 className="text-base font-bold text-slate-900">2. Relatórios avulsos — conforme necessidade</h2>
+        <h2 className="text-base font-bold text-slate-900">2. Relatórios avulsos</h2>
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {occasional.map((definition) => {
           const Icon = definition.slug === "ocorrencia-acidente" ? Siren : definition.slug === "remessa-bota-fora" ? Truck : FileText;
@@ -674,7 +802,6 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
                 <span className="block font-bold text-white">
                   {String(definition.number).padStart(2, "0")} {definition.slug === "ocorrencia-acidente" ? "Ocorrências / Near Misses" : definition.shortTitle}
                 </span>
-                <span className="block text-xs font-semibold text-white">Avulso · conforme necessidade</span>
               </span>
               <span className="text-sm font-bold text-white">Registrar</span>
               <ChevronRight className="size-5 shrink-0 text-white" aria-hidden="true" />
