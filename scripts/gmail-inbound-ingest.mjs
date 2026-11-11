@@ -1,15 +1,22 @@
 import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
 import { extractGmailBody } from "./lib/gmail-message-body.mjs";
+import { findFrozenEndConflict, parseBackfillArgs, monthKey, buildWindowQuery, withinWindow, emptyMonthStats } from "./lib/gmail-backfill-window.mjs";
 
 const PROJECT_ID =
-  process.argv[2] ??
+  process.argv.slice(2).find((arg) => !arg.startsWith("--")) ??
   "00000000-0000-4000-8000-000000000001";
 
-if (!process.argv.includes("--apply")) {
-  console.error("ERRO: use --apply para autorizar gravação real.");
+// Sem --start: comportamento LEGADO (janela da configuração; exige --apply). Com --start/--end: janela histórica
+// EXPLÍCITA e FIXA, sem tocar no cursor da coleta incremental (last_sync_at) nem no status da integração.
+let RUN;
+try {
+  RUN = parseBackfillArgs(process.argv.slice(2));
+} catch (error) {
+  console.error(error.message);
   process.exit(1);
 }
+const EXPLICIT = RUN.mode === "EXPLICIT";
 
 function required(name) {
   const value = process.env[name]?.trim();
@@ -173,6 +180,8 @@ function evaluate(headers, mailbox, allowedDomains) {
     return {
       eligible: false,
       direction: mailboxIsSender ? "OUTBOUND" : "INBOUND",
+      directionUndetermined: !mailboxIsSender && !recipients.includes(mailbox),
+      rejectedDomains,
       from,
       recipients,
     };
@@ -181,6 +190,8 @@ function evaluate(headers, mailbox, allowedDomains) {
   return {
     eligible: true,
     direction: mailboxIsSender ? "OUTBOUND" : "INBOUND",
+    directionUndetermined: !mailboxIsSender && !recipients.includes(mailbox),
+    rejectedDomains: [],
     from,
     recipients,
   };
@@ -322,7 +333,9 @@ const requireProjectScopeMatch =
 
 let startAt;
 
-if (config.window_mode === "CUSTOM") {
+if (EXPLICIT) {
+  startAt = RUN.startAt;
+} else if (config.window_mode === "CUSTOM") {
   startAt = new Date(config.custom_start_at);
 } else if (config.window_mode === "FROM_NOW") {
   startAt = new Date(
@@ -352,7 +365,9 @@ if (config.window_mode === "CUSTOM") {
 const now = new Date();
 let effectiveEndAt = now;
 
-if (config.custom_end_at) {
+if (EXPLICIT) {
+  effectiveEndAt = RUN.endAt;
+} else if (config.custom_end_at) {
   const configuredEnd =
     new Date(config.custom_end_at);
 
@@ -371,10 +386,12 @@ const senderQuery =
     .map((domain) => `from:${domain}`)
     .join(" ");
 
-const queryParts = [
-  `after:${gmailDate(queryStart)}`,
-  `{${senderQuery}}`,
-];
+const queryParts = EXPLICIT
+  ? buildWindowQuery({ startAt, endAt: effectiveEndAt, senderQuery })
+  : [
+      `after:${gmailDate(queryStart)}`,
+      `{${senderQuery}}`,
+    ];
 
 const credentialNames =
   gmailCredentialNames(mailbox);
@@ -414,6 +431,24 @@ console.log("AXION Gmail Inbound - BACKFILL REAL");
 console.log("===================================");
 
 console.log("Projeto:", PROJECT_ID);
+if (EXPLICIT) {
+  console.log("Janela explícita:", startAt.toISOString(), "->", effectiveEndAt.toISOString(), "(limite final fixo)");
+  console.log("Modo:", RUN.dryRun ? "DRY-RUN (nada é gravado)" : "APPLY", RUN.limit ? `| lote de ${RUN.limit} mensagens` : "");
+}
+if (EXPLICIT) {
+  // Fim CONGELADO: qualquer execução anterior (dry-run ou apply) com o mesmo início precisa ter o mesmo fim.
+  const { data: previousRuns, error: previousRunsError } = await supabase
+    .from("audit_log_entries")
+    .select("detail")
+    .eq("project_id", PROJECT_ID)
+    .eq("entity_type", "EmailIngestionRun")
+    .in("action", ["Backfill Gmail com janela explícita", "Backfill Gmail dry-run com janela explícita"]);
+  if (previousRunsError) throw new Error(previousRunsError.message);
+  const conflict = findFrozenEndConflict(previousRuns ?? [], startAt, effectiveEndAt);
+  if (conflict) {
+    throw new Error(`Fim congelado: já existe execução com o mesmo início e fim ${conflict}. Use o mesmo --end.`);
+  }
+}
 console.log("Mailbox:", mailbox);
 console.log(
   "Domínios:",
@@ -453,10 +488,22 @@ do {
 
 } while (pageToken);
 
+const totalCandidatesInGmail = messageIds.length;
+if (EXPLICIT && RUN.limit && messageIds.length > RUN.limit) {
+  messageIds.length = RUN.limit;
+}
 console.log(
   "Mensagens candidatas:",
-  messageIds.length
+  messageIds.length,
+  EXPLICIT && RUN.limit ? `(de ${totalCandidatesInGmail} no Gmail; lote limitado)` : ""
 );
+const monthStats = new Map();
+const rejectedByDomain = new Map();
+const statsFor = (date) => {
+  const key = monthKey(date);
+  if (!monthStats.has(key)) monthStats.set(key, emptyMonthStats());
+  return monthStats.get(key);
+};
 
 const existingIds = new Set();
 
@@ -542,11 +589,12 @@ for (
       );
 
     if (
-      occurredAt < startAt ||
-      occurredAt > effectiveEndAt
+      !withinWindow(occurredAt, startAt, effectiveEndAt)
     ) {
       continue;
     }
+    const stats = statsFor(occurredAt);
+    stats.candidatas += 1;
 
     const headers =
       message.payload?.headers ?? [];
@@ -589,15 +637,27 @@ for (
       !projectMatch
     ) {
       rejected += 1;
+      stats.rejeitadas += 1;
+      if (!policy.eligible) {
+        stats.rejeitadas_por_dominio += 1;
+        for (const domain of policy.rejectedDomains) {
+          rejectedByDomain.set(domain, (rejectedByDomain.get(domain) ?? 0) + 1);
+        }
+      } else {
+        stats.rejeitadas_por_escopo += 1;
+      }
       continue;
     }
 
     eligible += 1;
+    stats.pertinentes += 1;
+    if (policy.directionUndetermined) stats.direcao_indeterminada += 1;
 
     if (
       existingIds.has(message.id)
     ) {
       duplicates += 1;
+      stats.ja_existentes += 1;
       continue;
     }
 
@@ -605,8 +665,10 @@ for (
       policy.direction === "INBOUND"
     ) {
       inbound += 1;
+      stats.novas_recebidas += 1;
     } else {
       outbound += 1;
+      stats.novas_enviadas += 1;
     }
 
     rowsToInsert.push({
@@ -682,7 +744,7 @@ console.log("");
 
 for (
   let index = 0;
-  index < rowsToInsert.length;
+  !(EXPLICIT && RUN.dryRun) && index < rowsToInsert.length;
   index += 100
 ) {
   const batch =
@@ -729,6 +791,61 @@ for (
 
 const completedAt =
   new Date().toISOString();
+
+if (EXPLICIT) {
+  // Janela explícita: NÃO atualiza last_sync_at (cursor da coleta incremental) nem o status da integração.
+  console.log("");
+  console.log("POR MÊS (janela explícita)");
+  console.table(
+    Object.fromEntries(
+      Array.from(monthStats.entries()).sort(([a], [b]) => a.localeCompare(b))
+    )
+  );
+  console.log({
+    modo: RUN.dryRun ? "DRY-RUN" : "APPLY",
+    janela: `${startAt.toISOString()} -> ${effectiveEndAt.toISOString()}`,
+    candidatas_no_gmail: totalCandidatesInGmail,
+    analisadas: messageIds.length,
+    elegiveis: eligible,
+    ja_existentes: duplicates,
+    novas: inbound + outbound,
+    gravadas: inserted,
+    rejeitadas_pelo_perimetro: rejected,
+    paginacao_concluida: true,
+    execucao_incompleta: messageIds.length < totalCandidatesInGmail,
+    candidatas_nao_analisadas: totalCandidatesInGmail - messageIds.length,
+    falhas: 0,
+    cursor_incremental_alterado: false,
+  });
+  console.log("DOMÍNIOS EXCLUÍDOS PELO PERÍMETRO (mensagens que citam o domínio):");
+  console.table(
+    Object.fromEntries(
+      Array.from(rejectedByDomain.entries()).sort((a, b) => b[1] - a[1]).slice(0, 40)
+    )
+  );
+  {
+    const { error: explicitAuditError } = await supabase
+      .from("audit_log_entries")
+      .insert({
+        project_id: PROJECT_ID,
+        actor_type: "SYSTEM",
+        actor_user_id: null,
+        actor_label: null,
+        action: RUN.dryRun ? "Backfill Gmail dry-run com janela explícita" : "Backfill Gmail com janela explícita",
+        entity_type: "EmailIngestionRun",
+        entity_id: `GMAIL-WINDOW:${completedAt}`,
+        detail:
+          `Executor técnico: workflow GitHub Actions (coletor OAuth, somente leitura). Caixa ${mailbox}. ` +
+          `Janela ${startAt.toISOString()} -> ${effectiveEndAt.toISOString()}. ` +
+          `Modo ${RUN.dryRun ? "DRY-RUN (nada importado)" : "APPLY"}${RUN.limit ? `, lote ${RUN.limit}` : ""}. ` +
+          `${totalCandidatesInGmail} candidatas no Gmail; ${messageIds.length} analisadas; ${inserted} inseridas; ${duplicates} já existentes; ${rejected} rejeitadas pelo perímetro. ` +
+          `Cursor da coleta incremental e status da integração NÃO foram alterados.`,
+      });
+    if (explicitAuditError) throw new Error(explicitAuditError.message);
+  }
+  console.log("BACKFILL com janela explícita concluído.");
+  process.exit(0);
+}
 
 const { error: configUpdateError } =
   await supabase
