@@ -1,0 +1,63 @@
+name: Gmail recovery of existing WEG messages (manual)
+
+# Preparado para revisão. Nunca disparar antes da aprovação do diff.
+# Obra, caixa e janela congelada são fixas no script. Sem novos e-mails e sem Drive.
+on:
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: Conteúdo a recuperar
+        required: true
+        type: choice
+        options: [bodies, attachments]
+      mode:
+        description: Diagnóstico ou gravação explicitamente autorizada
+        required: true
+        default: dry-run
+        type: choice
+        options: [dry-run, apply]
+      limit:
+        description: Máximo de mensagens (1 a 1000)
+        required: true
+        default: "10"
+        type: string
+
+permissions:
+  contents: read
+concurrency:
+  group: gmail-recover-existing-weg
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Recuperação limitada à caixa autorizada
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          GOOGLE_GMAIL_REYNALDO_CLIENT_ID: ${{ secrets.GOOGLE_GMAIL_REYNALDO_CLIENT_ID }}
+          GOOGLE_GMAIL_REYNALDO_CLIENT_SECRET: ${{ secrets.GOOGLE_GMAIL_REYNALDO_CLIENT_SECRET }}
+          GOOGLE_GMAIL_REYNALDO_REFRESH_TOKEN: ${{ secrets.GOOGLE_GMAIL_REYNALDO_REFRESH_TOKEN }}
+          RECOVERY_KIND: ${{ inputs.kind }}
+          RECOVERY_MODE: ${{ inputs.mode }}
+          RECOVERY_LIMIT: ${{ inputs.limit }}
+        run: |
+          set -euo pipefail
+          ARGS=("--kind=${RECOVERY_KIND}" "--limit=${RECOVERY_LIMIT}")
+          case "${RECOVERY_MODE}" in
+            apply) ARGS+=("--apply");;
+            dry-run) ;;
+            *) exit 1;;
+          esac
+          node scripts/gmail-recover-existing.mjs "${ARGS[@]}"
