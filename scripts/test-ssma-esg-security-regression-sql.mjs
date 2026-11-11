@@ -101,6 +101,25 @@ await check("o vínculo de uma ação SLA JÁ vinculada também não pode ser tr
   ok(/SSMA_LINK_IMMUTABLE|duplicate key|unique/i.test(e ?? ""), `trocar vínculo deveria falhar: ${e}`);
   eq((await q("select related_ssma_corrective_action_id r from public.sla_actions where id=$1", [linked]))[0].r, ACT(1), "vínculo original mantido");
 });
+await check("REMOVER o vínculo (related = NULL) por usuário autorizado (Administrador, RLS real) é recusado; vínculo e as duas pontas ficam como estavam", async () => {
+  const linked = (await q("select sla_action_id s from public.ssma_corrective_actions where id=$1", [ACT(1)]))[0].s;
+  const e = await err(as(id(U.adm), () => q("update public.sla_actions set related_ssma_corrective_action_id=null where id=$1", [linked])));
+  ok(/SSMA_LINK_IMMUTABLE/.test(e ?? ""), `esperado SSMA_LINK_IMMUTABLE, obtido ${e}`);
+  eq((await q("select related_ssma_corrective_action_id r from public.sla_actions where id=$1", [linked]))[0].r, ACT(1), "vínculo mantido");
+  eq((await q("select sla_action_id s from public.ssma_corrective_actions where id=$1", [ACT(1)]))[0].s, linked, "ponta SSMA mantida");
+});
+await check("REMOVER o vínculo E concluir na MESMA atualização é recusado: a ação SLA não fica COMPLETED e a ação SSMA segue sem conclusão", async () => {
+  const linked = (await q("select sla_action_id s from public.ssma_corrective_actions where id=$1", [ACT(1)]))[0].s;
+  const before = (await q("select s.status ss, c.status cs from public.sla_actions s join public.ssma_corrective_actions c on c.sla_action_id=s.id where s.id=$1", [linked]))[0];
+  const e = await err(as(id(U.adm), () => q("update public.sla_actions set related_ssma_corrective_action_id=null, status='COMPLETED', completed_at=now(), completed_by_user_id=$2, completion_note='sem evidência', acknowledged_at=coalesce(acknowledged_at,now()), acknowledged_by_user_id=coalesce(acknowledged_by_user_id,$2) where id=$1", [linked, id(U.adm)])));
+  ok(/SSMA_LINK_IMMUTABLE/.test(e ?? ""), `esperado SSMA_LINK_IMMUTABLE, obtido ${e}`);
+  const after = (await q("select s.status ss, c.status cs, s.related_ssma_corrective_action_id r from public.sla_actions s join public.ssma_corrective_actions c on c.sla_action_id=s.id where s.id=$1", [linked]))[0];
+  eq([after.ss, after.cs, after.r], [before.ss, before.cs, ACT(1)], "estado idêntico ao anterior");
+});
+await check("ação SLA que NUNCA teve vínculo SSMA continua atualizável normalmente (o gatilho só protege vínculos existentes)", async () => {
+  await as(id(U.adm), () => q("update public.sla_actions set title='Título revisado' where id=$1", [ownSla]));
+  eq((await q("select title t from public.sla_actions where id=$1", [ownSla]))[0].t, "Título revisado", "update comum");
+});
 await check("defesa em profundidade: vínculo criado por service_role apontando para outra obra NÃO propaga alteração (SSMA_LINK_PROJECT_MISMATCH)", async () => {
   const bad = (await q("insert into public.sla_actions (project_id,origin,title,risk_level,area,responsible_user_id,assume_due_at,complete_due_at,related_ssma_corrective_action_id,created_by_type,created_by_user_id) values ($1,'SSMA_CORRECTIVE_ACTION','Vínculo cruzado','LOW','ESG_SSMA',$2,now()+interval '1 day',now()+interval '5 days',$3,'USER',$2) returning id", [P1, id(U.adm), ACT(9)]))[0].id;
   const v0 = await victim();

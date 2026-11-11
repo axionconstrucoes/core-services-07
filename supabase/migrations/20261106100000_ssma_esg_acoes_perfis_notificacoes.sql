@@ -16,6 +16,7 @@
 --    Ordem de bloqueio única (evita deadlock): sla_actions primeiro, depois ssma_corrective_actions.
 --    Idempotência: unique parcial nas duas pontas + RPC de envio tolerante a envio concorrente.
 --    Backfill idempotente das ações existentes, sem apagar nem alterar histórico/evidências/fotos.
+--    Prazo para ASSUMIR da ação SLA: regra oficial da obra (horas/dias úteis da matriz SLA), via sla_ssma_assume_due_at.
 -- 2. PERFIS ESG: Administrador, Gerente, Gestor e Colaborador ATIVOS registram comprovação e anexam
 --    evidência (Colaborador só na própria comprovação); Leitura apenas consulta; a REVISÃO continua só
 --    do Administrador (RPC review_esg_obligation_submission, inalterada); configuração de obrigações
@@ -63,6 +64,125 @@ create or replace function public.ssma_due_date_to_timestamptz(p_due date)
 returns timestamptz language sql immutable set search_path = ''
 as $$ select (((p_due + 1)::timestamp) at time zone 'America/Sao_Paulo') - interval '1 second' $$;
 
+-- Prazo OFICIAL do SLA em SQL: espelho de apps/web/lib/sla/time-units.ts (addTimeUnits), para a ação SLA nascida no SSMA ter o mesmo
+-- "prazo para assumir" de uma ação criada pelo módulo de Ações. CLOCK_HOURS e CALENDAR_DAYS são corridos; BUSINESS_HOURS conta só o
+-- expediente da obra (dias úteis, p_start_hour..p_end_hour, na timezone da obra); BUSINESS_DAYS soma dias úteis mantendo o horário de
+-- parede. Sábado e domingo não são úteis; feriados NÃO são descontados (mesma limitação documentada do motor oficial).
+-- INTERNA: só funções SECURITY DEFINER do SSMA a chamam.
+create or replace function public.sla_add_time_units(
+  p_start timestamptz,
+  p_value numeric,
+  p_unit text,
+  p_tz text default 'America/Sao_Paulo',
+  p_start_hour integer default 8,
+  p_end_hour integer default 18
+)
+returns timestamptz
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  v_cursor timestamptz;
+  v_day date;
+  v_remaining numeric;
+  v_left numeric;
+  v_orig timestamp;
+  v_whole integer;
+  v_frac numeric;
+  v_hours numeric;
+begin
+  if p_unit = 'CLOCK_HOURS' then return p_start + (p_value * 3600) * interval '1 second'; end if;
+  if p_unit = 'CALENDAR_DAYS' then return p_start + (p_value * 86400) * interval '1 second'; end if;
+  if p_unit not in ('BUSINESS_HOURS', 'BUSINESS_DAYS') then raise exception 'SLA_UNIT_INVALID: %', p_unit; end if;
+
+  if p_unit = 'BUSINESS_DAYS' then
+    v_whole := trunc(p_value)::integer;
+    v_frac := p_value - v_whole;
+    v_orig := date_trunc('second', p_start at time zone p_tz);
+    v_day := v_orig::date;
+    while v_whole > 0 loop
+      v_day := v_day + 1;
+      if extract(isodow from v_day) < 6 then v_whole := v_whole - 1; end if;
+    end loop;
+    v_cursor := (v_day + (v_orig - date_trunc('day', v_orig))) at time zone p_tz;
+    if v_frac <= 0 then return v_cursor; end if;
+    v_hours := v_frac * (p_end_hour - p_start_hour);
+  else
+    v_cursor := p_start;
+    v_hours := p_value;
+  end if;
+
+  -- horas úteis a partir de v_cursor (primeiro encaixa o instante no expediente)
+  v_day := (v_cursor at time zone p_tz)::date;
+  if extract(isodow from v_day) >= 6 then
+    while extract(isodow from v_day) >= 6 loop v_day := v_day + 1; end loop;
+    v_cursor := ((v_day + make_interval(hours => p_start_hour)) at time zone p_tz);
+  elsif v_cursor < ((v_day + make_interval(hours => p_start_hour)) at time zone p_tz) then
+    v_cursor := ((v_day + make_interval(hours => p_start_hour)) at time zone p_tz);
+  elsif v_cursor >= ((v_day + make_interval(hours => p_end_hour)) at time zone p_tz) then
+    v_day := v_day + 1;
+    while extract(isodow from v_day) >= 6 loop v_day := v_day + 1; end loop;
+    v_cursor := ((v_day + make_interval(hours => p_start_hour)) at time zone p_tz);
+  end if;
+
+  v_remaining := v_hours * 60;
+  while v_remaining > 0 loop
+    v_day := (v_cursor at time zone p_tz)::date;
+    v_left := extract(epoch from (((v_day + make_interval(hours => p_end_hour)) at time zone p_tz) - v_cursor)) / 60;
+    if v_remaining <= v_left then
+      v_cursor := v_cursor + (v_remaining * 60) * interval '1 second';
+      v_remaining := 0;
+    else
+      v_remaining := v_remaining - v_left;
+      v_day := v_day + 1;
+      while extract(isodow from v_day) >= 6 loop v_day := v_day + 1; end loop;
+      v_cursor := ((v_day + make_interval(hours => p_start_hour)) at time zone p_tz);
+    end if;
+  end loop;
+  return v_cursor;
+end;
+$$;
+
+-- Prazo para assumir de uma ação SSMA: regra da OBRA para o risco (área ESG_SSMA > geral > padrão institucional de
+-- apps/web/lib/sla/default-matrix.ts: BAIXO 3 dias úteis, MÉDIO 1 dia útil, ALTO 4 horas úteis, CRÍTICO 1 hora corrida) e expediente/
+-- timezone da obra (sla_project_settings; padrão America/Sao_Paulo 08–18). Mesma resolução de resolveMatrixRule/resolveBusinessHoursConfig.
+create or replace function public.sla_ssma_assume_due_at(p_project_id uuid, p_risk text, p_start timestamptz)
+returns timestamptz
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_unit text;
+  v_value numeric;
+  v_tz text;
+  v_start_hour integer;
+  v_end_hour integer;
+begin
+  select r.time_unit, r.assume_deadline_value into v_unit, v_value
+    from public.sla_matrix_rules r
+   where r.project_id = p_project_id and r.active and r.risk_level = p_risk and (r.area = 'ESG_SSMA' or r.area is null)
+   order by (r.area is not null) desc, r.created_at
+   limit 1;
+  if v_unit is null then
+    select d.u, d.v into v_unit, v_value
+      from (values ('LOW', 'BUSINESS_DAYS', 3::numeric), ('MEDIUM', 'BUSINESS_DAYS', 1::numeric),
+                   ('HIGH', 'BUSINESS_HOURS', 4::numeric), ('CRITICAL', 'CLOCK_HOURS', 1::numeric)) as d(k, u, v)
+     where d.k = p_risk;
+  end if;
+  if v_unit is null then raise exception 'SLA_RISK_INVALID: %', p_risk; end if;
+  select s.timezone, s.business_day_start_hour, s.business_day_end_hour into v_tz, v_start_hour, v_end_hour
+    from public.sla_project_settings s where s.project_id = p_project_id;
+  return public.sla_add_time_units(p_start, v_value, v_unit,
+                                   coalesce(v_tz, 'America/Sao_Paulo'), coalesce(v_start_hour, 8), coalesce(v_end_hour, 18));
+end;
+$$;
+
+revoke all on function public.sla_add_time_units(timestamptz, numeric, text, text, integer, integer) from public, anon, authenticated;
+revoke all on function public.sla_ssma_assume_due_at(uuid, text, timestamptz) from public, anon, authenticated;
+
 -- Cria (ou devolve) a ação do módulo SLA vinculada a uma ação corretiva SSMA. INTERNA: só funções
 -- SECURITY DEFINER do próprio SSMA e o backfill a chamam. Idempotente.
 create or replace function public.ssma_link_sla_action(p_action_id uuid)
@@ -102,9 +222,10 @@ begin
   from public.ssma_corrective_action_events e where e.action_id = v_action.id and e.kind = 'CONCLUIDA' order by e.created_at desc limit 1;
 
   v_due := public.ssma_due_date_to_timestamptz(v_action.due_date);
+  -- Prazo para assumir pela regra OFICIAL do SLA da obra (horas/dias ÚTEIS conforme a matriz), nunca por intervalo corrido; o prazo para
+  -- concluir segue sendo o informado no registro (fim do dia no fuso da obra).
   v_assume := least(
-    v_action.created_at + case v_record.risk_level when 'CRITICA' then interval '1 hour' when 'ALTA' then interval '4 hours'
-      when 'MEDIA' then interval '1 day' else interval '3 days' end,
+    public.sla_ssma_assume_due_at(v_action.project_id, public.ssma_risk_to_sla_risk(v_record.risk_level), v_action.created_at),
     v_due
   );
   v_status := case v_action.status when 'ABERTA' then 'PENDING' when 'EM_ANDAMENTO' then 'IN_PROGRESS' else 'COMPLETED' end;
@@ -351,8 +472,15 @@ declare
   v_ssma public.ssma_corrective_actions%rowtype;
   v_actor uuid := auth.uid();
 begin
-  if new.related_ssma_corrective_action_id is null then return new; end if;
   if coalesce(current_setting('acc.ssma_sync', true), '') = 'on' then return new; end if;
+  if new.related_ssma_corrective_action_id is null then
+    -- Ação SLA que nunca teve vínculo SSMA: não é da alçada deste gatilho.
+    if old.related_ssma_corrective_action_id is null then return new; end if;
+    -- Zerar um vínculo EXISTENTE só é legítimo quando é a própria FK (ON DELETE SET NULL) que o faz, isto é, quando a ação SSMA
+    -- referenciada já não existe. Qualquer outro UPDATE (inclusive remover o vínculo e concluir na mesma atualização) é recusado.
+    if not exists (select 1 from public.ssma_corrective_actions c where c.id = old.related_ssma_corrective_action_id) then return new; end if;
+    raise exception 'SSMA_LINK_IMMUTABLE: o vínculo com a ação corretiva SSMA não pode ser removido.';
+  end if;
 
   -- O vínculo SSMA↔SLA nasce só em ssma_link_sla_action (INSERT) e NÃO pode ser trocado por UPDATE
   -- (impede apontar a ação SLA de uma obra para a ação SSMA de outra).
