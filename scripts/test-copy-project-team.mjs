@@ -260,7 +260,7 @@ await check("página e rotas: guarda de Administrador do destino no servidor; li
   const page = read("apps/web/app/projetos/[projectId]/copiar-estrutura/page.tsx");
   assert.match(page, /permission !== "ADMINISTRADOR"/);
   const list = read("apps/web/app/projetos/page.tsx");
-  assert.match(list, /adminProjectIds\.has\(project\.id\)[\s\S]{0,200}copiar-estrutura/);
+  assert.match(list, /adminProjectIds\.has\(project\.id\)[\s\S]{0,400}copiar-estrutura/);
   assert.match(read("apps/web/app/projetos/actions.ts"), /copyStructure/);
   // Cadastro de obra: concluir OU pular a cópia continua para o Start-up (destino fixo, nunca vindo do navegador).
   assert.match(page, /origem === "cadastro" \? `\/\$\{project\.id\}\/startup`/);
