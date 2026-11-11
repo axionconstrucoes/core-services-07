@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { pilotSenderMatches, pilotSenderQuery } from "./lib/gmail-weg-pilot-sender.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { extractGmailBody } from "./lib/gmail-message-body.mjs";
 import { createDelegatedGmailAuth } from "./lib/gmail-delegated-auth.mjs";
@@ -403,7 +404,7 @@ const senderFilter =
     .join(" ");
 
 const query =
-  `after:${afterEpoch} before:${beforeEpoch} {${senderFilter}}`;
+  `after:${afterEpoch} before:${beforeEpoch} {${senderFilter}} ${pilotSenderQuery(PROJECT_ID)}`.trim();
 
 let auth;
 if (DELEGATION) {
@@ -623,7 +624,8 @@ for (
 
     if (
       !policy.eligible ||
-      !projectMatch
+      !projectMatch ||
+      !pilotSenderMatches(PROJECT_ID, policy.from)
     ) {
       rejected += 1;
       continue;

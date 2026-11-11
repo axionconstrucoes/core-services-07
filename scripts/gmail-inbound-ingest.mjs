@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { pilotSenderMatches, pilotSenderQuery } from "./lib/gmail-weg-pilot-sender.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { extractGmailBody } from "./lib/gmail-message-body.mjs";
 import { insertEmailsIdempotent } from "./lib/gmail-insert-idempotent.mjs";
@@ -397,6 +398,9 @@ const queryParts = EXPLICIT
 const credentialNames =
   gmailCredentialNames(mailbox);
 
+// Consulta reduzida + conferência do From na resposta: o Gmail pode ampliar correspondências.
+queryParts.push(pilotSenderQuery(PROJECT_ID));
+
 const auth =
   new google.auth.OAuth2(
     required(credentialNames.clientId),
@@ -635,7 +639,8 @@ for (
 
     if (
       !policy.eligible ||
-      !projectMatch
+      !projectMatch ||
+      !pilotSenderMatches(PROJECT_ID, policy.from)
     ) {
       rejected += 1;
       stats.rejeitadas += 1;
