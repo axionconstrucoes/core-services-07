@@ -23,7 +23,7 @@ import { getConstrumanagerVersionTransitions } from "@/lib/integrations/construm
 import { getDiarioDeObraMonitoringOverview } from "@/lib/integrations/diario-de-obra/get-monitoring-overview";
 import { getDiarioDeObraClimateKpiOverview } from "@/lib/integrations/diario-de-obra/get-climate-kpi-overview";
 import { getUserIntegrationEvidence } from "@/lib/integrations/get-user-integration-evidence";
-import { buildUserIntegrationRows } from "@/lib/integrations/user-integration-matrix";
+import { buildSharedSourceRows, buildUserSourceRows } from "@/lib/integrations/user-integration-matrix";
 
 export const metadata: Metadata = { title: "Integrações" };
 
@@ -67,13 +67,14 @@ export default async function IntegracoesPage({
   const budgetUsers = members
     .filter((member) => member.status === "ACTIVE" && member.area === "ORÇAMENTO")
     .map((member) => ({ id: member.userId, name: member.user.name }));
-  const userIntegrationRows = buildUserIntegrationRows(members, accounts, ingestionConfig, userIntegrationEvidence);
+  const userSourceRows = buildUserSourceRows(members, userIntegrationEvidence);
+  const sharedSourceRows = buildSharedSourceRows(userIntegrationEvidence);
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Administração de Integrações" description="Status operacional das fontes configuradas para este projeto." />
 
-      <UserIntegrationMatrix projectId={projectId} rows={userIntegrationRows} warnings={userIntegrationEvidence.warnings} sources={sources} configs={configs} />
+      <UserIntegrationMatrix rows={userSourceRows} shared={sharedSourceRows} warnings={userIntegrationEvidence.warnings} measuredAt={userIntegrationEvidence.measuredAt} unassignedEmails={userIntegrationEvidence.unassignedEmails} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {sources.map((source) => {

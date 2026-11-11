@@ -9,13 +9,17 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { ManageMembersPanel } from "@/components/users/manage-members-panel";
 import { MemberRowActions } from "@/components/users/member-row-actions";
 import { MemberWhatsappForm } from "@/components/users/member-whatsapp-form";
+import { MemberSourceBeacons } from "@/components/users/member-source-beacons";
+import { ProjectSourceSelector } from "@/components/users/project-source-selector";
+import { getUserIntegrationEvidence } from "@/lib/integrations/get-user-integration-evidence";
+import { buildUserSourceRows } from "@/lib/integrations/user-integration-matrix";
 import { SlaAreaResponsiblesForm } from "@/components/sla/sla-area-responsibles-form";
 import { SlaMatrixConfigForm } from "@/components/sla/sla-matrix-config-form";
 import { SlaProjectSettingsForm } from "@/components/sla/sla-project-settings-form";
 import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
-import { getProject, getProjectMemberInvitations, getProjectMembers } from "@/lib/data";
+import { getProject, getProjectMemberInvitations, getProjectMembers, getProjects } from "@/lib/data";
 import {
   memberInvitationStatusLabels,
   membershipAreaLabels,
@@ -40,7 +44,7 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
   await requireProjectAdminPage(projectId); // aba só para administradores (o menu também a oculta)
   const supabase = await createSupabaseServerClient();
 
-  const [members, invitations, permission, project, authData, matrixRules, areaResponsibles, projectSettings] = await Promise.all([
+  const [members, invitations, permission, project, authData, matrixRules, areaResponsibles, projectSettings, allProjects, sourceEvidence] = await Promise.all([
     getProjectMembers(projectId),
     getProjectMemberInvitations(projectId),
     getCurrentProjectPermission(projectId),
@@ -49,7 +53,10 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
     getSlaMatrixRules(projectId),
     getSlaAreaResponsibles(projectId),
     getSlaProjectSettings(projectId),
+    getProjects().catch(() => []),
+    getUserIntegrationEvidence(supabase, projectId),
   ]);
+  const sourceRows = new Map(buildUserSourceRows(members, sourceEvidence).map((row) => [row.userId, row]));
 
   // "ADMINISTRADOR ativo" — getCurrentProjectPermission já filtra por
   // status=ACTIVE na origem, então este valor só é ADMINISTRADOR quando
@@ -89,6 +96,8 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
     <div className="flex flex-col gap-6">
       <PageHeader title="Usuários & Permissões" description="Usuários internos Axion e terceiros com acesso a este projeto." />
 
+      {allProjects.length > 1 ? <ProjectSourceSelector currentProjectId={projectId} projects={allProjects.map((item) => ({ id: item.id, label: `${item.code} — ${item.name}` }))} /> : null}
+
       {canManage ? <ManageMembersPanel projectId={projectId} projectLabel={projectLabel} /> : null}
 
       {members.length === 0 && pendingInvitations.length === 0 ? (
@@ -103,6 +112,7 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
               <TableHead>Área</TableHead>
               <TableHead>Permissão</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Fontes que alimentam o ACC neste projeto</TableHead>
               {canManage ? <TableHead>WhatsApp (alerta crítico na Diretoria)</TableHead> : null}
               <TableHead>Ações</TableHead>
             </TableRow>
@@ -134,6 +144,7 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
                     {membershipStatusLabels[m.status]}
                   </Badge>
                 </TableCell>
+                <TableCell><MemberSourceBeacons row={sourceRows.get(m.userId)} projectId={projectId} /></TableCell>
                 {canManage ? (
                   <TableCell>
                     {m.status === "ACTIVE" ? (
@@ -188,6 +199,7 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
                 <TableCell>
                   <Badge variant="outline">{memberInvitationStatusLabels[invitation.status]}</Badge>
                 </TableCell>
+                <TableCell className="text-xs text-muted-foreground">Sem dados até o primeiro login</TableCell>
                 {canManage ? <TableCell /> : null}
                 <TableCell />
               </TableRow>

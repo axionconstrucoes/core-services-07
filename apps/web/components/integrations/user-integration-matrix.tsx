@@ -1,71 +1,99 @@
-import type { IntegrationConfig, SourceDefinition } from "@axion/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatDateTime, integrationStatusLabels, membershipStatusLabels } from "@/lib/labels";
-import type { MatrixFact, UserIntegrationRow } from "@/lib/integrations/user-integration-matrix";
+import { formatDateTime, membershipStatusLabels } from "@/lib/labels";
+import type { SharedSourceRow, UserSourceRow } from "@/lib/integrations/user-integration-matrix";
+import { SourceBeacon } from "./source-beacon";
 
-const tones = {
-  ok: "border-emerald-500/60 bg-emerald-950 text-emerald-100",
-  warning: "border-amber-500/60 bg-amber-950 text-amber-100",
-  error: "border-red-400/60 bg-red-950 text-red-100",
-  neutral: "border-border bg-muted text-foreground",
-};
-function Fact({ value }: { value: MatrixFact }) {
-  return <span className={`inline-flex w-fit rounded border px-2 py-1 text-xs font-semibold ${tones[value.tone]}`}>{value.label}</span>;
-}
-const date = (value: string | null) => value ? formatDateTime(value) : "Sem registro";
+const date = (value: string | null) => (value ? formatDateTime(value) : "Sem registro");
 
-export function UserIntegrationMatrix({ projectId, rows, warnings, sources, configs }: {
-  projectId: string; rows: UserIntegrationRow[]; warnings: string[]; sources: SourceDefinition[]; configs: IntegrationConfig[];
+export function UserIntegrationMatrix({ rows, shared, warnings, measuredAt, unassignedEmails }: {
+  rows: UserSourceRow[]; shared: SharedSourceRow[]; warnings: string[]; measuredAt: string; unassignedEmails: number | null;
 }) {
-  const sharedSources = sources.filter((source) => source.type !== "EMAIL");
   return (
     <Card className="min-w-0">
       <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <CardTitle>Matriz de integração por usuário</CardTitle>
-          <a href={`/${projectId}/integracoes`} className="rounded border border-border px-3 py-2 text-sm font-semibold text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300">Atualizar painel</a>
-        </div>
-        <p className="text-sm text-muted-foreground">Confira cada etapa da caixa pessoal. As demais fontes são compartilhadas pela obra e aparecem identificadas nas colunas.</p>
+        <CardTitle>Quem alimenta o ACC neste projeto</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Verde só aparece com prova da etapa. Cadastro, vínculo ativo, aceite ou “conectado” isolados não tornam nada verde. Medido em {date(measuredAt)}.
+        </p>
       </CardHeader>
-      <CardContent className="min-w-0 space-y-3">
-        {warnings.length ? <div role="status" className="rounded border border-amber-500/60 bg-amber-950 p-3 text-sm text-amber-100">{warnings.map((warning) => <p key={warning}>{warning}</p>)}</div> : null}
-        {rows.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum usuário vinculado a esta obra.</p> : (
-          <div role="region" aria-label="Matriz de integração dos usuários; role horizontalmente para ver todas as fontes" tabIndex={0} className="max-w-full overflow-x-auto rounded border border-border focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-300">
-            <table className="w-full min-w-[1100px] text-left text-sm">
-              <caption className="sr-only">Situação individual do e-mail e estado das fontes compartilhadas da obra.</caption>
+      <CardContent className="min-w-0 space-y-6">
+        {warnings.length ? (
+          <div role="status" className="rounded border border-amber-300 bg-amber-800 p-3 text-sm text-white">
+            {warnings.map((warning) => <p key={warning}>{warning}</p>)}
+          </div>
+        ) : null}
+
+        <section aria-labelledby="fontes-pessoais" className="space-y-2">
+          <h3 id="fontes-pessoais" className="text-base font-semibold">1. Fontes pessoais — caixa de e-mail de cada usuário</h3>
+          {rows.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum usuário vinculado a esta obra.</p> : (
+            <div role="region" aria-label="Fontes pessoais por usuário; role horizontalmente para ver todas as etapas" tabIndex={0} className="max-w-full overflow-x-auto rounded border border-border focus-visible:outline-2 focus-visible:outline-offset-2">
+              <table className="w-full min-w-[1000px] text-left text-sm">
+                <caption className="sr-only">Etapas de comprovação da caixa pessoal de cada usuário vinculado ao projeto.</caption>
+                <thead className="border-b border-border bg-muted">
+                  <tr>
+                    {["Usuário", "Aceite", "Conexão técnica", "Coleta", "Material processado"].map((label) => <th key={label} scope="col" className="p-3 align-top font-semibold">{label}</th>)}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.userId} className="border-b border-border align-top last:border-0">
+                      <th scope="row" className="min-w-52 p-3 font-normal">
+                        <p className="font-semibold">{row.name}</p>
+                        <p className="break-all text-xs text-muted-foreground">{row.email}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">Vínculo: {membershipStatusLabels[row.membership as keyof typeof membershipStatusLabels] ?? row.membership}{row.area ? ` · ${row.area}` : ""} (não comprova coleta)</p>
+                      </th>
+                      <td className="p-3"><SourceBeacon beacon={row.authorization} /></td>
+                      <td className="p-3"><SourceBeacon beacon={row.technical} /></td>
+                      <td className="p-3">
+                        <SourceBeacon beacon={row.collection} />
+                        <p className="mt-1 text-xs text-muted-foreground">{row.emails === null ? "Contagem indisponível" : `${row.emails} e-mails`} · última mensagem: {date(row.lastMessageAt)}</p>
+                      </td>
+                      <td className="p-3">
+                        <SourceBeacon beacon={row.material} />
+                        <p className="mt-1 text-xs text-muted-foreground">{row.attachments === null ? "Anexos indisponíveis" : `${row.attachmentsProcessed} de ${row.attachments} anexos processados`}</p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Mensagens sem caixa identificada: <strong>{unassignedEmails === null ? "indisponível" : unassignedEmails}</strong> — não atribuíveis a nenhum usuário (a identidade não é inferida pelo nome). Quem recebe os e-mails do piloto não é, por isso, fonte de informações.
+          </p>
+        </section>
+
+        <section aria-labelledby="contribuicoes" className="space-y-1">
+          <h3 id="contribuicoes" className="text-base font-semibold">2. Contribuições identificáveis por autor</h3>
+          <p className="text-sm text-muted-foreground">
+            Só aparecem aqui documentos, relatórios ou registros com autor ou remetente associado de forma comprovada. Hoje as contribuições existentes (diários, planilhas semanais, Construmanager) não carregam um autor individual vinculado a usuário do ACC: <strong>não atribuível</strong>.
+          </p>
+        </section>
+
+        <section aria-labelledby="fontes-compartilhadas" className="space-y-2">
+          <h3 id="fontes-compartilhadas" className="text-base font-semibold">3. Fontes compartilhadas da obra</h3>
+          <div role="region" aria-label="Fontes compartilhadas da obra; role horizontalmente para ver todas as etapas" tabIndex={0} className="max-w-full overflow-x-auto rounded border border-border focus-visible:outline-2 focus-visible:outline-offset-2">
+            <table className="w-full min-w-[900px] text-left text-sm">
+              <caption className="sr-only">Etapas de comprovação das fontes compartilhadas da obra.</caption>
               <thead className="border-b border-border bg-muted">
-                <tr>
-                  {["Usuário", "Conta / técnica", "Aceite da obra", "Coleta pessoal", "Evidências do e-mail"].map((label) => <th key={label} scope="col" className="p-3 align-top font-semibold">{label}</th>)}
-                  {sharedSources.map((source) => <th key={source.type} scope="col" className="p-3 align-top font-semibold">{source.label}<span className="block text-xs font-normal text-muted-foreground">Compartilhada na obra</span></th>)}
-                </tr>
+                <tr>{["Fonte", "Conexão", "Coleta", "Disponível para análise"].map((label) => <th key={label} scope="col" className="p-3 align-top font-semibold">{label}</th>)}</tr>
               </thead>
               <tbody>
-                {rows.map((row) => (
-                  <tr key={row.userId} className="border-b border-border align-top last:border-0 hover:bg-muted/40">
-                    <th scope="row" className="min-w-52 p-3 font-normal">
-                      <p className="font-semibold">{row.name}</p><p className="break-all text-xs text-muted-foreground">{row.email}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">{membershipStatusLabels[row.membership as keyof typeof membershipStatusLabels] ?? row.membership}{row.area ? ` · ${row.area}` : ""}</p>
+                {shared.map((row) => (
+                  <tr key={row.key} className="border-b border-border align-top last:border-0">
+                    <th scope="row" className="min-w-44 p-3 font-normal">
+                      <p className="font-semibold">{row.label}</p>
+                      {row.facts.map((fact) => <p key={fact} className="mt-1 max-w-56 text-xs text-muted-foreground">{fact}</p>)}
                     </th>
-                    <td className="p-3"><div className="flex flex-col gap-2"><Fact value={row.registration} /><span className="text-xs text-muted-foreground">Credencial: <Fact value={row.technical} /></span></div></td>
-                    <td className="p-3"><Fact value={row.consent} /></td>
-                    <td className="p-3"><Fact value={row.collection} /></td>
-                    <td className="min-w-48 p-3">
-                      <p className="font-semibold">{row.imported === null ? "Contagem indisponível" : `${row.imported} e-mails importados`}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Sincronização registrada: {date(row.lastSyncAt)}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Última mensagem importada: {date(row.lastMessageAt)}</p>
-                    </td>
-                    {sharedSources.map((source) => {
-                      const config = configs.find((item) => item.sourceType === source.type);
-                      const label = config ? integrationStatusLabels[config.status] ?? config.status : "Não configurada";
-                      return <td key={source.type} className="min-w-40 p-3"><Fact value={{ label, tone: config?.status === "ERRO" ? "error" : "neutral" }} /><p className="mt-1 text-xs text-muted-foreground">Estado da fonte da obra</p><p className="mt-1 text-xs text-muted-foreground">Sincronização: {date(config?.lastSyncAt ?? null)}</p></td>;
-                    })}
+                    <td className="p-3"><SourceBeacon beacon={row.connection} /></td>
+                    <td className="p-3"><SourceBeacon beacon={row.collection} /></td>
+                    <td className="p-3"><SourceBeacon beacon={row.availability} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        )}
-        <p className="text-xs text-muted-foreground">Conta registrada, aceite e credencial técnica são etapas distintas. E-mails importados comprovam histórico; a confirmação da coleta atual depende dos controles e do período autorizado. O estado das fontes compartilhadas não comprova conexão individual nem leitura integral do acervo.</p>
+        </section>
       </CardContent>
     </Card>
   );
