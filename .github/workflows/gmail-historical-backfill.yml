@@ -1,0 +1,76 @@
+name: Gmail Historical Backfill (manual)
+
+# Backfill HISTÓRICO do Gmail com janela EXPLÍCITA e FIXA — SOMENTE MANUAL (workflow_dispatch). Sem `schedule`.
+# Caixa e obra fixas neste arquivo (reynaldo@axion.com.br -> WEG, projeto histórico ...0001): não há entrada para trocá-las.
+# Somente leitura no Gmail (gmail.readonly); não envia nada. NÃO altera o cursor da coleta incremental (last_sync_at)
+# nem o status da integração; usa um grupo de concorrência PRÓPRIO: não cancela nem é cancelado pelo "Gmail Inbound Sync" (um grupo compartilhado faria execuções enfileiradas se cancelarem). A sobreposição de janelas com o incremental PODE ocorrer e é segura: índice único por mensagem + inserção idempotente (ver scripts/test-gmail-backfill-concurrency-sql.mjs).
+# Idempotente: índice único por mensagem (projeto, provedor, caixa, id), checagem prévia e inserção idempotente. O dry-run NÃO importa mensagens, mas registra a execução (janela, modo e contagens) em audit_log_entries; não altera cursor nem status da integração.
+
+on:
+  workflow_dispatch:
+    inputs:
+      start:
+        description: "Início (ISO com fuso), ex.: 2025-05-11T00:00:00-03:00"
+        required: true
+        type: string
+      end:
+        description: "Fim FIXO (ISO com fuso, não pode estar no futuro), ex.: 2026-11-11T15:00:00Z"
+        required: true
+        type: string
+      mode:
+        description: "dry-run = só conta (nada é gravado) | apply = grava mensagens pertinentes"
+        required: true
+        type: choice
+        default: dry-run
+        options:
+          - dry-run
+          - apply
+      limit:
+        description: "Lote: máximo de mensagens analisadas (vazio = todas)"
+        required: false
+        type: string
+
+concurrency:
+  group: gmail-historical-backfill
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Backfill com janela explícita
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          GOOGLE_GMAIL_REYNALDO_CLIENT_ID: ${{ secrets.GOOGLE_GMAIL_REYNALDO_CLIENT_ID }}
+          GOOGLE_GMAIL_REYNALDO_CLIENT_SECRET: ${{ secrets.GOOGLE_GMAIL_REYNALDO_CLIENT_SECRET }}
+          GOOGLE_GMAIL_REYNALDO_REFRESH_TOKEN: ${{ secrets.GOOGLE_GMAIL_REYNALDO_REFRESH_TOKEN }}
+          GOOGLE_GMAIL_INBOUND_MAILBOX: reynaldo@axion.com.br
+          INPUT_START: ${{ inputs.start }}
+          INPUT_END: ${{ inputs.end }}
+          INPUT_MODE: ${{ inputs.mode }}
+          INPUT_LIMIT: ${{ inputs.limit }}
+        run: |
+          set -euo pipefail
+          ARGS=("00000000-0000-4000-8000-000000000001" "--start=${INPUT_START}" "--end=${INPUT_END}")
+          if [ "${INPUT_MODE}" = "apply" ]; then ARGS+=("--apply"); else ARGS+=("--dry-run"); fi
+          if [ -n "${INPUT_LIMIT}" ]; then ARGS+=("--limit=${INPUT_LIMIT}"); fi
+          node scripts/gmail-inbound-ingest.mjs "${ARGS[@]}"
