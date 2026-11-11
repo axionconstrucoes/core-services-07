@@ -40,6 +40,8 @@ interface RowState {
   includeExcluded: boolean;
 }
 
+const PRIMARY = "bg-[#7f1d1d] text-white hover:bg-[#681717] disabled:opacity-50";
+
 const STEPS = ["Origem", "Pessoas", "Perfis", "Prévia", "Executar"] as const;
 
 const STATUS_LABELS: Record<CopyItemStatus, string> = {
@@ -171,19 +173,19 @@ export function CopyStructureWizard({
   });
 
   return (
-    <Card className="border-black/10 bg-white/95 shadow-xl">
+    <Card className="border-black/10 bg-white/95 text-[#0f172a] shadow-xl">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-slate-950">
+        <CardTitle className="flex items-center gap-2 text-[#0f172a]">
           <Users aria-hidden="true" className="size-5 text-[#7f1d1d]" />
           Copiar estrutura de outro projeto
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-[#475569]">
           Destino: <strong>{projectLabel(destination)}</strong>. Nada é enviado: nenhum convite nem e-mail. Pessoas já vinculadas ao destino nunca têm o acesso alterado.
         </CardDescription>
         <ol className="mt-2 flex flex-wrap gap-2 text-xs" aria-label="Etapas">
           {STEPS.map((label, index) => (
             <li key={label} aria-current={step === index + 1 ? "step" : undefined}>
-              <Badge variant={step === index + 1 ? "default" : "outline"}>
+              <Badge variant={step === index + 1 ? "default" : "outline"} className={step === index + 1 ? PRIMARY : "border-[#94a3b8] text-[#0f172a]"}>
                 {index + 1}. {label}
               </Badge>
             </li>
@@ -204,7 +206,7 @@ export function CopyStructureWizard({
             {categories.length > 1 ? (
               <label className="flex flex-col gap-1.5 text-sm font-medium">
                 O que copiar
-                <Select value={categoryId} onChange={(event) => setCategoryId(event.target.value as typeof categoryId)}>
+                <Select className="border-[#94a3b8] text-[#0f172a]" value={categoryId} onChange={(event) => setCategoryId(event.target.value as typeof categoryId)}>
                   {categories.map((item) => (
                     <option key={item.id} value={item.id}>{item.label}</option>
                   ))}
@@ -213,13 +215,13 @@ export function CopyStructureWizard({
             ) : (
               <p className="text-sm"><strong>O que copiar:</strong> {category?.label}</p>
             )}
-            <p className="text-sm text-muted-foreground">{category?.description}</p>
+            <p className="text-sm text-[#475569]">{category?.description}</p>
             {sources.length === 0 ? (
               <p className="text-sm">Você não é Administrador ativo de nenhum outro projeto, então não há origem disponível.</p>
             ) : (
               <label className="flex max-w-xl flex-col gap-1.5 text-sm font-medium">
                 Projeto de origem (somente projetos em que você é Administrador)
-                <Select value={sourceId} onChange={(event) => setSourceId(event.target.value)}>
+                <Select className="border-[#94a3b8] text-[#0f172a]" value={sourceId} onChange={(event) => setSourceId(event.target.value)}>
                   <option value="">Selecione…</option>
                   {sources.map((item) => (
                     <option key={item.id} value={item.id}>{projectLabel(item)}</option>
@@ -228,7 +230,7 @@ export function CopyStructureWizard({
               </label>
             )}
             <div>
-              <Button type="button" disabled={!sourceId || pending} onClick={loadSource}>
+              <Button type="button" className={PRIMARY} disabled={!sourceId || pending} onClick={loadSource}>
                 {pending ? "Carregando equipe…" : "Carregar equipe da origem"}
               </Button>
             </div>
@@ -239,17 +241,17 @@ export function CopyStructureWizard({
           <section className="flex flex-col gap-3" aria-labelledby="copy-step-2">
             <h2 id="copy-step-2" className="text-base font-semibold">2. Pessoas de {source ? projectLabel(source) : "origem"}</h2>
             <div className="flex flex-wrap gap-2">
-              <Button type="button" size="sm" variant="outline" onClick={() => setRows((current) => Object.fromEntries(candidates.map((c) => [c.userId, { ...current[c.userId], selected: c.defaultSelected }])))}>
+              <Button type="button" size="sm" variant="outline" className="border-[#94a3b8] text-[#0f172a] hover:bg-[#e2e8f0] hover:text-[#0f172a]" onClick={() => setRows((current) => Object.fromEntries(candidates.map((c) => [c.userId, { ...current[c.userId], selected: c.defaultSelected }])))}>
                 Selecionar sugeridos
               </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => setRows((current) => Object.fromEntries(candidates.map((c) => [c.userId, { ...current[c.userId], selected: false }])))}>
+              <Button type="button" size="sm" variant="outline" className="border-[#94a3b8] text-[#0f172a] hover:bg-[#e2e8f0] hover:text-[#0f172a]" onClick={() => setRows((current) => Object.fromEntries(candidates.map((c) => [c.userId, { ...current[c.userId], selected: false }])))}>
                 Limpar seleção
               </Button>
-              <span className="self-center text-sm text-muted-foreground">{selectedRows.length} selecionada(s)</span>
+              <span className="self-center text-sm text-[#475569]">{selectedRows.length} selecionada(s)</span>
             </div>
-            <div className="overflow-x-auto rounded-md border">
+            <div className="overflow-x-auto rounded-md border border-[#cbd5e1]">
               <table className="w-full text-sm">
-                <thead className="bg-muted/50 text-left">
+                <thead className="bg-[#f1f5f9] text-[#0f172a] text-left">
                   <tr>
                     <th className="p-2"><span className="sr-only">Selecionar</span></th>
                     <th className="p-2">Pessoa</th>
@@ -264,7 +266,7 @@ export function CopyStructureWizard({
                     const blockedSelf = candidate.state === "SELF" || candidate.exclusion === "INACTIVE_IN_SOURCE";
                     const needsOverride = candidate.exclusion !== null && candidate.exclusion !== "INACTIVE_IN_SOURCE" && candidate.state === "NEW";
                     return (
-                      <tr key={candidate.userId} className="border-t align-top">
+                      <tr key={candidate.userId} className="border-t border-[#cbd5e1] align-top">
                         <td className="p-2">
                           <input
                             type="checkbox"
@@ -276,7 +278,7 @@ export function CopyStructureWizard({
                         </td>
                         <td className="p-2">
                           <p className="font-medium">{candidate.name}</p>
-                          <p className="text-xs text-muted-foreground">{candidate.email ?? "sem e-mail"}{candidate.title ? ` · ${candidate.title}` : ""}</p>
+                          <p className="text-xs text-[#475569]">{candidate.email ?? "sem e-mail"}{candidate.title ? ` · ${candidate.title}` : ""}</p>
                           {needsOverride ? (
                             <label className="mt-1 flex items-center gap-1.5 text-xs">
                               <input
@@ -291,13 +293,13 @@ export function CopyStructureWizard({
                         <td className="p-2">{permissionLabel(candidate.sourcePermission)}</td>
                         <td className="p-2">{areaLabel(candidate.sourceArea)}</td>
                         <td className="p-2">
-                          {candidate.state === "SELF" ? <Badge variant="outline">Você</Badge> : null}
+                          {candidate.state === "SELF" ? <Badge variant="outline" className="border-[#94a3b8] text-[#0f172a]">Você</Badge> : null}
                           {candidate.state === "ALREADY_MEMBER" ? (
-                            <Badge variant="secondary">
+                            <Badge variant="secondary" className="bg-[#e2e8f0] text-[#0f172a]">
                               Já no destino ({permissionLabel(candidate.destination?.permission ?? "")}, {candidate.destination?.status === "ACTIVE" ? "ativo" : "inativo"})
                             </Badge>
                           ) : null}
-                          {candidate.state === "NEW" && !candidate.exclusion ? <Badge>Novo</Badge> : null}
+                          {candidate.state === "NEW" && !candidate.exclusion ? <Badge className={PRIMARY}>Novo</Badge> : null}
                           {candidate.exclusion ? <Badge variant="destructive">{EXCLUSION_LABELS[candidate.exclusion]}</Badge> : null}
                         </td>
                       </tr>
@@ -307,8 +309,8 @@ export function CopyStructureWizard({
               </table>
             </div>
             <div className="flex justify-between gap-2">
-              <Button type="button" variant="outline" onClick={() => setStep(1)}>Voltar</Button>
-              <Button type="button" disabled={selectedRows.length === 0} onClick={() => setStep(3)}>Revisar perfis</Button>
+              <Button type="button" variant="outline" className="border-[#94a3b8] text-[#0f172a] hover:bg-[#e2e8f0] hover:text-[#0f172a]" onClick={() => setStep(1)}>Voltar</Button>
+              <Button type="button" className={PRIMARY} disabled={selectedRows.length === 0} onClick={() => setStep(3)}>Revisar perfis</Button>
             </div>
           </section>
         ) : null}
@@ -316,17 +318,17 @@ export function CopyStructureWizard({
         {step === 3 ? (
           <section className="flex flex-col gap-3" aria-labelledby="copy-step-3">
             <h2 id="copy-step-3" className="text-base font-semibold">3. Perfis propostos no destino</h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-[#475569]">
               O perfil proposto copia o da origem, exceto Administrador: ele vira Gerente e só se torna Administrador com a sua confirmação explícita, pessoa a pessoa.
             </p>
             <div className="flex flex-col gap-3">
               {selectedRows.map((candidate) => {
                 const row = rows[candidate.userId];
                 return (
-                  <div key={candidate.userId} className="grid gap-3 rounded-md border p-3 md:grid-cols-[1.2fr_1fr_1fr]">
+                  <div key={candidate.userId} className="grid gap-3 rounded-md border border-[#cbd5e1] p-3 md:grid-cols-[1.2fr_1fr_1fr]">
                     <div>
                       <p className="text-sm font-medium">{candidate.name}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-[#475569]">
                         Origem: {permissionLabel(candidate.sourcePermission)} · {areaLabel(candidate.sourceArea)}
                       </p>
                       {candidate.adminNeedsExplicitDecision ? (
@@ -335,7 +337,7 @@ export function CopyStructureWizard({
                     </div>
                     <label className="flex flex-col gap-1 text-sm font-medium">
                       Perfil no destino
-                      <Select value={row.permission} onChange={(event) => updateRow(candidate.userId, { permission: event.target.value as TeamPermission, explicitAdmin: false })}>
+                      <Select className="border-[#94a3b8] text-[#0f172a]" value={row.permission} onChange={(event) => updateRow(candidate.userId, { permission: event.target.value as TeamPermission, explicitAdmin: false })}>
                         {TEAM_PERMISSIONS.map((permission) => (
                           <option key={permission} value={permission}>{permissionLabel(permission)}</option>
                         ))}
@@ -349,7 +351,7 @@ export function CopyStructureWizard({
                     </label>
                     <label className="flex flex-col gap-1 text-sm font-medium">
                       Área no destino
-                      <Select value={row.area} onChange={(event) => updateRow(candidate.userId, { area: event.target.value })}>
+                      <Select className="border-[#94a3b8] text-[#0f172a]" value={row.area} onChange={(event) => updateRow(candidate.userId, { area: event.target.value })}>
                         <option value="">Selecione…</option>
                         {TEAM_AREAS.map((area) => (
                           <option key={area} value={area}>{areaLabel(area)}</option>
@@ -361,12 +363,12 @@ export function CopyStructureWizard({
               })}
             </div>
             <div className="flex justify-between gap-2">
-              <Button type="button" variant="outline" onClick={() => setStep(2)}>Voltar</Button>
-              <Button type="button" disabled={missingProfile || pending} onClick={runPreview}>
+              <Button type="button" variant="outline" className="border-[#94a3b8] text-[#0f172a] hover:bg-[#e2e8f0] hover:text-[#0f172a]" onClick={() => setStep(2)}>Voltar</Button>
+              <Button type="button" className={PRIMARY} disabled={missingProfile || pending} onClick={runPreview}>
                 {pending ? "Gerando prévia…" : "Gerar prévia"}
               </Button>
             </div>
-            {missingProfile ? <p className="text-xs text-muted-foreground">Defina a área de todas as pessoas (e confirme cada Administrador) para continuar.</p> : null}
+            {missingProfile ? <p className="text-xs text-[#475569]">Defina a área de todas as pessoas (e confirme cada Administrador) para continuar.</p> : null}
           </section>
         ) : null}
 
@@ -383,8 +385,8 @@ export function CopyStructureWizard({
               </p>
             ) : null}
             <div className="flex justify-between gap-2">
-              <Button type="button" variant="outline" onClick={() => setStep(3)}>Voltar</Button>
-              <Button type="button" disabled={preview.preview.executable.length === 0} onClick={() => setStep(5)}>Continuar para confirmação</Button>
+              <Button type="button" variant="outline" className="border-[#94a3b8] text-[#0f172a] hover:bg-[#e2e8f0] hover:text-[#0f172a]" onClick={() => setStep(3)}>Voltar</Button>
+              <Button type="button" className={PRIMARY} disabled={preview.preview.executable.length === 0} onClick={() => setStep(5)}>Continuar para confirmação</Button>
             </div>
           </section>
         ) : null}
@@ -401,8 +403,8 @@ export function CopyStructureWizard({
               Revisei a prévia e confirmo a criação destes vínculos.
             </label>
             <div className="flex justify-between gap-2">
-              <Button type="button" variant="outline" onClick={() => setStep(4)}>Voltar à prévia</Button>
-              <Button type="button" disabled={!confirmed || pending} onClick={runExecute}>
+              <Button type="button" variant="outline" className="border-[#94a3b8] text-[#0f172a] hover:bg-[#e2e8f0] hover:text-[#0f172a]" onClick={() => setStep(4)}>Voltar à prévia</Button>
+              <Button type="button" className={PRIMARY} disabled={!confirmed || pending} onClick={runExecute}>
                 {pending ? "Copiando…" : `Copiar ${preview.preview.executable.length} pessoa(s)`}
               </Button>
             </div>
@@ -420,23 +422,23 @@ export function CopyStructureWizard({
                 const person = candidates.find((candidate) => candidate.userId === item.userId);
                 return (
                   <li key={item.userId} className="flex flex-wrap items-center gap-2">
-                    <Badge variant={item.status === "ADDED" ? "default" : item.status === "ERROR" ? "destructive" : "secondary"}>{STATUS_LABELS[item.status]}</Badge>
+                    <Badge variant={item.status === "ADDED" ? "default" : item.status === "ERROR" ? "destructive" : "secondary"} className={item.status === "ADDED" ? PRIMARY : item.status === "ERROR" ? undefined : "bg-[#e2e8f0] text-[#0f172a]"}>{STATUS_LABELS[item.status]}</Badge>
                     <span>{person?.name ?? item.userId}</span>
-                    {item.message && item.status !== "ADDED" ? <span className="text-xs text-muted-foreground">{item.message}</span> : null}
+                    {item.message && item.status !== "ADDED" ? <span className="text-xs text-[#475569]">{item.message}</span> : null}
                   </li>
                 );
               })}
             </ul>
             <div className="flex flex-wrap gap-2">
-              <Link href={`/${destination.id}/usuarios`} className={buttonVariants({})}>Ver Usuários do destino</Link>
-              <Link href={backHref} className={buttonVariants({ variant: "outline" })}>{fromRegistration ? "Continuar para o Start-up" : "Concluir"}</Link>
+              <Link href={`/${destination.id}/usuarios`} className={buttonVariants({ className: PRIMARY })}>Ver Usuários do destino</Link>
+              <Link href={backHref} className={buttonVariants({ variant: "outline", className: "border-[#94a3b8] text-[#0f172a] hover:bg-[#e2e8f0] hover:text-[#0f172a]" })}>{fromRegistration ? "Continuar para o Start-up" : "Concluir"}</Link>
             </div>
           </section>
         ) : null}
 
         {!(step === 5 && result) ? (
           <div>
-            <Link href={backHref} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+            <Link href={backHref} className={buttonVariants({ variant: "ghost", size: "sm", className: "text-[#0f172a] hover:bg-[#e2e8f0] hover:text-[#0f172a]" })}>
               <ArrowLeft aria-hidden="true" />
               {fromRegistration ? "Pular a cópia e continuar para o Start-up" : "Sair sem copiar"}
             </Link>
@@ -465,17 +467,17 @@ function PreviewGroup({
   return (
     <div>
       <h3 className="mb-1 flex items-center gap-2 text-sm font-semibold">
-        {title} <Badge variant={tone}>{items.length}</Badge>
+        {title} <Badge variant={tone} className={tone === "secondary" ? "bg-[#e2e8f0] text-[#0f172a]" : tone === "default" ? PRIMARY : undefined}>{items.length}</Badge>
       </h3>
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{empty}</p>
+        <p className="text-sm text-[#475569]">{empty}</p>
       ) : (
         <ul className="flex flex-col gap-1 text-sm">
           {items.map((item) => (
             <li key={item.userId}>
               <strong>{item.name}</strong> — {permissionLabel(item.permission)} · {areaLabel(item.area)}
               {showExisting ? (
-                <span className="text-muted-foreground">
+                <span className="text-[#475569]">
                   {" "}
                   (hoje no destino: {permissionLabel(item.existingPermission ?? "")} · {areaLabel(item.existingArea)} · {item.existingStatus === "ACTIVE" ? "ativo" : "inativo"})
                 </span>
