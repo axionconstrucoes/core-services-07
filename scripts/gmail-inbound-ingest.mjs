@@ -1,5 +1,5 @@
 import { google } from "googleapis";
-import { pilotSenderMatches, pilotSenderQuery } from "./lib/gmail-weg-pilot-sender.mjs";
+import { pilotMessageEligible, pilotSenderQuery } from "./lib/gmail-weg-pilot-sender.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { extractGmailBody } from "./lib/gmail-message-body.mjs";
 import { insertEmailsIdempotent } from "./lib/gmail-insert-idempotent.mjs";
@@ -638,9 +638,8 @@ for (
       });
 
     if (
-      !policy.eligible ||
-      !projectMatch ||
-      !pilotSenderMatches(PROJECT_ID, policy.from)
+      !pilotMessageEligible(PROJECT_ID, policy) ||
+      !projectMatch
     ) {
       rejected += 1;
       stats.rejeitadas += 1;
