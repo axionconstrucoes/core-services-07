@@ -31,6 +31,7 @@ import {
   getSlaMatrixRules,
   getSlaProjectSettings,
 } from "@/lib/sla/sla-actions-data";
+import { isPilotTestCase } from "@/lib/risk-alerts/pilot-test-case";
 import type { SlaArea, SlaEscalationLevel, SlaRiskLevel } from "@/lib/sla/types";
 import type {
   AssumeSlaActionState,
@@ -580,10 +581,11 @@ export async function processSlaEscalationsAction(
     if (isWeeklyReportsEnabled() && openActions.length > 0) {
       const { data: linked } = await supabase
         .from("risk_alert_cases")
-        .select("id,sla_action_id")
+        .select("id,sla_action_id,title,reference")
         .eq("project_id", projectId)
         .in("sla_action_id", openActions.map((a) => a.id));
-      for (const row of linked ?? []) if (row.sla_action_id) riskCaseByActionId.set(row.sla_action_id as string, row.id as string);
+      // Caso de TESTE do piloto nunca entra no escalonamento manual por e-mail.
+      for (const row of linked ?? []) if (row.sla_action_id && !isPilotTestCase({ title: row.title as string | null, reference: row.reference as string | null })) riskCaseByActionId.set(row.sla_action_id as string, row.id as string);
     }
 
     for (const action of openActions) {

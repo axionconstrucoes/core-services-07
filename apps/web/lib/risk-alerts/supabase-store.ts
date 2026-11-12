@@ -21,6 +21,7 @@ import {
   type SheetSourceRow,
 } from "./collect-risk-cases";
 import type { ActiveForward, AlertCaseSnapshot } from "./alert-state-machine";
+import { isPilotTestCase } from "./pilot-test-case";
 import { hashReplyToken, type InboundHeaders } from "./replies/reply-pipeline";
 import type { PersistedOutboxEntry, RiskAlertStore } from "./store";
 import type { ExpertId, IngestionAlertSeverityMap, LinkedSlaActionState, RecipientProfile, RiskCaseRecord } from "./types";
@@ -146,7 +147,10 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
       });
       const alertRows = (alerts ?? []) as unknown as IngestionAlertSourceRow[];
 
-      const existingCases: RiskCaseRecord[] = (existing ?? []).map((row) => ({
+      // Caso de TESTE do piloto fica fora do planejamento do ciclo (não é fechado, escalado, contado nem entra em consolidado).
+      const existingCases: RiskCaseRecord[] = (existing ?? [])
+        .filter((row) => !isPilotTestCase({ title: row.title as string | null, reference: row.reference as string | null }))
+        .map((row) => ({
         id: row.id as string,
         sourceType: row.source_type as RiskCaseRecord["sourceType"],
         sourceId: row.source_id as string,

@@ -9,6 +9,9 @@ import { createHash } from "node:crypto";
 // Mesmo helper PURO usado pelo store real (supabase-store.ts) — a simulação não reimplementa a regra.
 const { buildCorrelationIndex } = await import("../../../apps/web/lib/risk-alerts/replies/build-correlation-index");
 
+// Mesmo helper do store real: caso de TESTE do piloto fica fora do planejamento do ciclo.
+const { isPilotTestCase } = await import("../../../apps/web/lib/risk-alerts/pilot-test-case");
+
 const MAX_SEND_ATTEMPTS = 3;
 const LEASE_MS = 10 * 60 * 1000; // = CLAIM_LEASE_MS de apps/web/lib/risk-alerts/types.ts
 
@@ -52,7 +55,7 @@ export function createInMemoryRiskAlertStore(world) {
         areaResponsibles: world.areaResponsibles,
         settings: world.settings ?? null,
         cases: world.sourceCases.map((c) => ({ ...c })),
-        existingCases: [...state.cases.values()].map((c) => ({ ...c })),
+        existingCases: [...state.cases.values()].filter((c) => !isPilotTestCase(c)).map((c) => ({ ...c })),
         linkedActions: new Map([...state.actions.values()].map((a) => [a.id, { ...a }])),
         recipients: world.recipients,
         existingIdempotencyKeys: new Set(state.outbox.map((o) => o.idempotencyKey)),
