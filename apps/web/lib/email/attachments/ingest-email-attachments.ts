@@ -112,12 +112,14 @@ async function writeAttachmentAudit(
 
 async function findExistingAttachment(
   supabase: SupabaseClient,
+  projectId: string,
   emailId: string,
   gmailAttachmentId: string
 ): Promise<EmailAttachment | null> {
   const { data, error } = await supabase
     .from("email_attachments")
     .select("*")
+    .eq("project_id", projectId)
     .eq("email_id", emailId)
     .eq("gmail_attachment_id", gmailAttachmentId)
     .maybeSingle();
@@ -131,6 +133,7 @@ async function findExistingAttachment(
 
 async function findExistingAttachmentByHash(
   supabase: SupabaseClient,
+  projectId: string,
   emailId: string,
   sha256Hash: string
 ): Promise<EmailAttachment | null> {
@@ -140,6 +143,7 @@ async function findExistingAttachmentByHash(
   const { data, error } = await supabase
     .from("email_attachments")
     .select("*")
+    .eq("project_id", projectId)
     .eq("email_id", emailId)
     .eq("sha256_hash", sha256Hash)
     .order("created_at", { ascending: true })
@@ -163,7 +167,7 @@ async function ingestSinglePart(
   try {
     // Idempotência: nunca reingerir/sobrescrever silenciosamente. Se já
     // existe, devolve a linha existente sem baixar de novo.
-    const existing = await findExistingAttachment(supabase, emailId, part.gmailAttachmentId);
+    const existing = await findExistingAttachment(supabase, projectId, emailId, part.gmailAttachmentId);
     if (existing) {
       return { status: "ALREADY_INGESTED", attachment: existing };
     }
@@ -174,7 +178,7 @@ async function ingestSinglePart(
     // Segunda barreira de idempotência: attachmentId do Gmail não é uma
     // identidade estável entre leituras. Se o mesmo conteúdo já existe no
     // mesmo e-mail, reutiliza a linha canônica e não cria novo objeto/registro.
-    const existingByHash = await findExistingAttachmentByHash(supabase, emailId, sha256Hash);
+    const existingByHash = await findExistingAttachmentByHash(supabase, projectId, emailId, sha256Hash);
     if (existingByHash) {
       return { status: "ALREADY_INGESTED", attachment: existingByHash };
     }
@@ -219,7 +223,7 @@ async function ingestSinglePart(
       // Corrida concorrente: outra execução já inseriu entre a checagem
       // e este insert — nunca duplica, devolve a linha real.
       if (insertError.code === "23505") {
-        const raceExisting = await findExistingAttachment(supabase, emailId, part.gmailAttachmentId);
+        const raceExisting = await findExistingAttachment(supabase, projectId, emailId, part.gmailAttachmentId);
         if (raceExisting) {
           return { status: "ALREADY_INGESTED", attachment: raceExisting };
         }
