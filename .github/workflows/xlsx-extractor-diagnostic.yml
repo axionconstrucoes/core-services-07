@@ -5,6 +5,12 @@ name: XLSX extractor diagnostic (manual, WEG, somente leitura)
 
 on:
   workflow_dispatch:
+    inputs:
+      modo:
+        description: "diagnose = falhas; compare = fidelidade antigo x novo (contagens e posições, sem conteúdo)"
+        type: choice
+        default: diagnose
+        options: [diagnose, compare]
 
 permissions:
   contents: read
@@ -27,4 +33,5 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
-        run: node scripts/diagnose-xlsx-versions.mjs
+        run: |
+          if [ "${{ inputs.modo }}" = "compare" ]; then node scripts/compare-xlsx-extractors.mjs; else node scripts/diagnose-xlsx-versions.mjs; fi
