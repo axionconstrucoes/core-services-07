@@ -12,6 +12,7 @@ import type { SlaArea, SlaRiskLevel } from "@/lib/sla/types";
 
 import { describeNextDigest } from "./digest-window";
 import { describeSuppression } from "./plan-risk-alerts";
+import { isPilotTestCase } from "./pilot-test-case";
 import type { RiskSuppressionReason } from "./types";
 import { DEFAULT_PROJECT_TIMEZONE } from "./types";
 
@@ -46,8 +47,12 @@ export interface PilotRiskAlertsView {
     scheduledFor: string;
     sentAt: string | null;
     attemptCount: number;
+    /** Linha da outbox de um caso de TESTE do piloto (rótulo "TESTE"; fora dos indicadores). */
+    isTest: boolean;
   }>;
   suppressedCount: number;
+  /** Casos de TESTE abertos: listados à parte e EXCLUÍDOS de openCases e de suppressedCount. */
+  testCasesOpen: number;
   openCases: { high: number; critical: number; medium: number; low: number; reviewRequired: number };
 }
 
@@ -104,7 +109,7 @@ export async function getPilotRiskAlertsView(projectId: string, nowIso: string =
   const [{ data: outbox }, { data: lastDigest }, { data: cases }] = await Promise.all([
     supabase
       .from("risk_alert_outbox")
-      .select("id,notification_type,escalation_level,risk_level,status,suppression_reason,recipient_user_id,scheduled_for,sent_at,attempt_count")
+      .select("id,case_id,notification_type,escalation_level,risk_level,status,suppression_reason,recipient_user_id,scheduled_for,sent_at,attempt_count")
       .eq("project_id", projectId)
       .order("scheduled_for", { ascending: false })
       .limit(20),
@@ -116,21 +121,31 @@ export async function getPilotRiskAlertsView(projectId: string, nowIso: string =
       .order("scheduled_for", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    supabase.from("risk_alert_cases").select("risk_level,status").eq("project_id", projectId).eq("status", "OPEN"),
+    supabase.from("risk_alert_cases").select("id,risk_level,status,title,reference").eq("project_id", projectId),
   ]);
   const recipientIds = Array.from(new Set((outbox ?? []).map((row) => row.recipient_user_id as string).filter((id) => !profileById.has(id))));
   if (recipientIds.length) {
     const { data: extra } = await supabase.from("profiles").select("id,name,email").in("id", recipientIds);
     for (const p of extra ?? []) profileById.set(p.id as string, p);
   }
-  const { count: suppressedCount } = await supabase
+  // Casos de TESTE do piloto: rotulados e fora dos indicadores.
+  const testCaseIds = new Set((cases ?? []).filter((row) => isPilotTestCase({ title: row.title as string | null, reference: row.reference as string | null })).map((row) => row.id as string));
+  let suppressedQuery = supabase
     .from("risk_alert_outbox")
     .select("id", { count: "exact", head: true })
     .eq("project_id", projectId)
     .eq("status", "SUPPRESSED");
+  if (testCaseIds.size > 0) suppressedQuery = suppressedQuery.not("case_id", "in", `(${Array.from(testCaseIds).join(",")})`);
+  const { count: suppressedCount } = await suppressedQuery;
 
   const openCases = { high: 0, critical: 0, medium: 0, low: 0, reviewRequired: 0 };
+  let testCasesOpen = 0;
   for (const row of cases ?? []) {
+    if (row.status !== "OPEN") continue;
+    if (testCaseIds.has(row.id as string)) {
+      testCasesOpen += 1;
+      continue;
+    }
     const level = row.risk_level as string;
     if (level === "HIGH") openCases.high += 1;
     else if (level === "CRITICAL") openCases.critical += 1;
@@ -161,8 +176,10 @@ export async function getPilotRiskAlertsView(projectId: string, nowIso: string =
       scheduledFor: row.scheduled_for as string,
       sentAt: (row.sent_at as string | null) ?? null,
       attemptCount: Number(row.attempt_count ?? 0),
+      isTest: testCaseIds.has((row.case_id as string | null) ?? ""),
     })),
     suppressedCount: suppressedCount ?? 0,
+    testCasesOpen,
     openCases,
   };
 }

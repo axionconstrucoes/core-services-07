@@ -47,6 +47,7 @@ export function PilotRiskAlertsPanel({ view }: { view: PilotRiskAlertsView }) {
           </p>
           <p>
             <span className="text-muted-foreground">Casos em aberto:</span> {view.openCases.critical} crítico(s), {view.openCases.high} alto(s), {view.openCases.medium} médio(s), {view.openCases.low} baixo(s), {view.openCases.reviewRequired} em revisão
+            {view.testCasesOpen > 0 ? <span data-testid="test-cases-open"> · {view.testCasesOpen} caso(s) de TESTE não contado(s) acima</span> : null}
           </p>
         </div>
 
@@ -125,7 +126,7 @@ export function PilotRiskAlertsPanel({ view }: { view: PilotRiskAlertsView }) {
                 {view.recentOutbox.map((row) => (
                   <TableRow key={row.id}>
                     <TableCell>{formatDateTime(row.sentAt ?? row.scheduledFor, view.timeZone)}</TableCell>
-                    <TableCell>{row.type}{row.escalationLevel ? ` · ${slaEscalationLevelLabels[row.escalationLevel as keyof typeof slaEscalationLevelLabels] ?? row.escalationLevel}` : ""}</TableCell>
+                    <TableCell>{row.isTest ? <Badge variant="outline" data-testid="test-badge">TESTE</Badge> : null} {row.type}{row.escalationLevel ? ` · ${slaEscalationLevelLabels[row.escalationLevel as keyof typeof slaEscalationLevelLabels] ?? row.escalationLevel}` : ""}</TableCell>
                     <TableCell>{row.riskLevel}</TableCell>
                     <TableCell>{row.recipientName ?? "—"}</TableCell>
                     <TableCell>

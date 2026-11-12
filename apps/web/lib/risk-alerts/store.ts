@@ -32,6 +32,8 @@ export interface RiskAlertProjectSnapshot {
   settings: SlaProjectSettings | null;
   cases: RiskCaseInput[];
   existingCases: RiskCaseRecord[];
+  /** Casos de TESTE do piloto (fora de existingCases/ciclo): visíveis só ao envio único armado. */
+  testCases?: RiskCaseRecord[];
   linkedActions: Map<string, LinkedSlaActionState>;
   recipients: Map<string, RecipientProfile>;
   existingIdempotencyKeys: Set<string>;

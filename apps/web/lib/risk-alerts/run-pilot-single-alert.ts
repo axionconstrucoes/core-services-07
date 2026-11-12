@@ -100,7 +100,7 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
   if (!config || !config.enabled) return blocked(caseId, "PROJECT_CONFIG_MISSING_OR_DISABLED", { projectId, deliveryGroup: group });
   const base = { projectId, deliveryGroup: group, riskAlertsEnabledInDatabase: Boolean(config.riskAlertsEnabled) };
 
-  const record = snapshot.existingCases.find((c) => c.id === caseId) ?? null;
+  const record = [...snapshot.existingCases, ...(snapshot.testCases ?? [])].find((c) => c.id === caseId) ?? null;
   if (!record) return blocked(caseId, "CASE_NOT_IN_PROJECT", base);
   if (record.status !== "OPEN") return blocked(caseId, "CASE_NOT_OPEN", base);
   if (record.riskLevel !== "HIGH" && record.riskLevel !== "CRITICAL") return blocked(caseId, "CASE_NOT_HIGH_OR_CRITICAL", base);
@@ -217,6 +217,8 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
     policyFor,
     deliveredKeys: new Set(),
     readinessBlockers: [],
+    // Execução ÚNICA armada: só estas chaves (PILOT_SINGLE) de caso de teste podem sair por aqui.
+    pilotSingleArmedKeys: new Set(persisted.map((item) => item.entry.idempotencyKey)),
   };
   for (const item of persisted) {
     const outcome = await sendPlanned(item.id, item.caseId, item.entry, ctx);

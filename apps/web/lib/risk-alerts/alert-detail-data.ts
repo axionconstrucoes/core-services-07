@@ -19,6 +19,7 @@ import { hashActionToken, isActionTokenValid } from "./action-links";
 import { ACTIONS_BY_STATE, nextHierarchyLevel } from "./alert-state-machine";
 import { ALERT_EXPERT_OPTIONS, suggestExpertForArea } from "./experts/route-alert-expert";
 import { describeSuppression } from "./plan-risk-alerts";
+import { isPilotTestCase } from "./pilot-test-case";
 import type { AlertActionType, AlertState, RiskSuppressionReason } from "./types";
 import { ALERT_STATE_LABELS, DEFAULT_PROJECT_TIMEZONE } from "./types";
 
@@ -36,6 +37,8 @@ export interface AlertDetailView {
   id: string;
   projectId: string;
   title: string;
+  /** Caso de TESTE do piloto (rótulo visível; fora de indicadores e do ciclo). */
+  isTestCase: boolean;
   reference: string;
   riskLevel: string;
   area: string;
@@ -145,6 +148,7 @@ export async function getAlertDetailView(projectId: string, caseId: string, opti
     id: row.id,
     projectId,
     title: row.title,
+    isTestCase: isPilotTestCase({ title: row.title, reference: row.reference }),
     reference: row.reference ?? "",
     riskLevel: row.risk_level,
     area: row.area,
