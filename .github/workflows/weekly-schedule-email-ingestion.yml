@@ -107,6 +107,8 @@ jobs:
           ACC_PROJECT_PILOT_PROJECT_ID: ${{ vars.ACC_PROJECT_PILOT_PROJECT_ID }}
           ACC_PROJECT_PILOT_DESTINATION: ${{ vars.ACC_PROJECT_PILOT_DESTINATION }}
           ACC_PROJECT_PILOT_SENDER: ${{ vars.ACC_PROJECT_PILOT_SENDER }}
+          # Grupo de entrega do piloto WEG (vazio => roteamento anterior). Deve ser idêntico ao configurado no servidor.
+          ACC_PROJECT_PILOT_TEST_GROUP: ${{ vars.ACC_PROJECT_PILOT_TEST_GROUP }}
 
   risk-alerts:
     # Só agendado ou manual com fase "all" — nunca em execuções manuais de

@@ -34,3 +34,27 @@ Não liberar o piloto enquanto houver pendência que comprometa o cenário a tes
 - Alertas de risco WEG desabilitados no banco e allowlist dos três usuários atualizada.
 - Roteamento atual de produção ainda usa o perfil institucional anterior; a entrega às quatro caixas está preparada neste PR e não foi ativada.
 - Nenhum envio real faz parte desta preparação.
+
+## Caminhos de envio e travas (prova)
+
+- Há um único transporte real: `users.messages.send` em `GmailEmailProvider`. Todos os remetentes de aplicação (alertas de risco, resumo semanal, SLA/escalonamento, SSMA, saúde do sistema, impacto de versão, lembretes de entrega, autorização de caixa, lotes de alerta) passam por `getEmailProvider()`; o WhatsApp é simulado.
+- Ordem fixa no provider (Gmail e Fake): guarda global do piloto → perfil do projeto piloto → trava de destino único → MIME → conferência do MIME final (To exato nas quatro caixas, From = crm@, sem Cc/Bcc/Resent-*).
+- Só mensagens com contexto do projeto WEG usam o grupo. Mensagem de outro projeto ou sem projeto continua no destinatário institucional (crm@) em modo piloto.
+- Cobertura: `scripts/test-project-pilot-four-recipients.mjs` e `scripts/test-pilot-send-paths-convergence.mjs` (inclui MIME, injeção de cabeçalho, Reply-To externo e `ACC_OUTBOUND_MODE=production`).
+
+## Limites conhecidos (decisão necessária antes de ativar)
+
+1. Respostas por e-mail: com o grupo, a caixa de resposta do piloto passa a ser o remetente (`crm@`). Respostas escritas por reynaldo@, jaime.ramos@ ou carlos.evandro@ NÃO são atribuídas ao participante simulado (fail-closed); só botões/links e respostas de crm@ funcionam. Decidir se isto basta para o cenário a testar.
+2. Em `ACC_OUTBOUND_MODE=production`, mensagens SEM contexto de projeto não passam pela guarda global e seguem aos destinatários originais (comportamento anterior, fora deste PR). Confirmar que a variável não está em `production` nos executores antes de ativar.
+3. A variável `ACC_PROJECT_PILOT_TEST_GROUP` precisa existir igual no servidor (Vercel) e no workflow `weekly-schedule-email-ingestion` (variável de repositório). Este PR apenas repassa a variável ao job; não a define.
+
+## Plano de publicação e ativação (para aprovação final)
+
+Pré-condições: CI verde no HEAD final; backup/estado registrado; `risk_alerts_enabled=false` na WEG; fontes validadas (ver acima).
+
+1. Merge do PR (com autorização explícita). Confirmar deploy READY.
+2. Sem enviar nada: no Vercel, conferir `ACC_PROJECT_PILOT_PROJECT_ID` = id da WEG, `ACC_PROJECT_PILOT_SENDER=crm@axion.com.br`, `ACC_OUTBOUND_MODE` diferente de `production`, `ACC_PILOT_RECIPIENT=crm@axion.com.br`.
+3. Definir `ACC_PROJECT_PILOT_TEST_GROUP=WEG_INTERNAL_FOUR` no Vercel e como variável de repositório (mesmo valor). Redeploy.
+4. Verificação sem envio: executar a suíte `test:email` na main e uma simulação com `FakeEmailProvider` confirmando To exato, ausência de Cc/Bcc e `[PILOTO]`.
+5. Somente com aprovação final: habilitar `risk_alerts_enabled=true` na WEG e disparar UM ciclo controlado; conferir os cabeçalhos da mensagem recebida (To, ausência de Cc/Bcc, assunto `[PILOTO]`, remetente) nas quatro caixas.
+6. Rollback imediato: `risk_alerts_enabled=false` (para o envio), remover `ACC_PROJECT_PILOT_TEST_GROUP` (volta ao destino institucional), redeploy. Nenhuma migration envolvida.
