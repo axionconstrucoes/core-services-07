@@ -29,13 +29,14 @@ const sum = (map: Map<string, number>) => [...map.values()].reduce((a, b) => a +
 
 export async function getUserIntegrationEvidence(supabase: SupabaseClient, projectId: string): Promise<MatrixEvidence> {
   const warnings: string[] = [];
-  const [auth, controls, emailRows, attachmentRows, unassigned, ingestionConfig] = await Promise.all([
+  const [auth, controls, emailRows, attachmentRows, unassigned, ingestionConfig, recipientConfig] = await Promise.all([
     supabase.from("email_access_authorizations").select("user_id,account_email,status,requested_at").eq("project_id", projectId).order("requested_at", { ascending: false }),
     supabase.from("email_mailbox_collection_controls").select("mailbox_address,technical_permission_status,collection_enabled,individual_consent_status,corporate_authorization_status,period_start,period_end,revoked_at,last_sync_at,last_sync_status").eq("project_id", projectId),
     pages((from, to) => supabase.from("emails").select("mailbox_address,sent_at").eq("project_id", projectId).eq("provider", "GMAIL").not("mailbox_address", "is", null).order("id").range(from, to)),
     pages((from, to) => supabase.from("email_attachments").select("processing_status,storage_path,emails!inner(mailbox_address)").eq("project_id", projectId).order("id").range(from, to)),
     count(supabase.from("emails").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("provider", "GMAIL").is("mailbox_address", null)),
     supabase.from("project_email_ingestion_configs").select("id,enabled").eq("project_id", projectId).maybeSingle(),
+    supabase.from("project_weekly_schedule_ingestion_configs").select("pilot_recipient_allowlist_user_ids").eq("project_id", projectId).maybeSingle(),
   ]);
   if (auth.error) warnings.push("Não foi possível conferir os aceites individuais.");
   if (controls.error) warnings.push("O controle técnico de coleta por caixa não está disponível em produção (tabela ausente ou ilegível). A conexão técnica e a coleta atual aparecem como NÃO COMPROVADAS; as importações já feitas valem apenas como histórico.");
@@ -79,6 +80,7 @@ export async function getUserIntegrationEvidence(supabase: SupabaseClient, proje
   const shared = await getSharedEvidence(supabase, projectId, warnings);
   return {
     measuredAt: new Date().toISOString(),
+    alertRecipientUserIds: recipientConfig.error ? null : ((recipientConfig.data?.pilot_recipient_allowlist_user_ids as string[] | null) ?? []),
     authorizations: auth.error ? null : (auth.data as MatrixEvidence["authorizations"]),
     controls: controls.error ? null : (controls.data as MatrixEvidence["controls"]),
     ingestion,

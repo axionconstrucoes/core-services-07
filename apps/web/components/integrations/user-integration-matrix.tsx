@@ -42,6 +42,10 @@ export function UserIntegrationMatrix({ rows, shared, warnings, measuredAt, unas
                         <p className="font-semibold">{row.name}</p>
                         <p className="break-all text-xs text-muted-foreground">{row.email}</p>
                         <p className="mt-1 text-xs text-muted-foreground">Vínculo: {membershipStatusLabels[row.membership as keyof typeof membershipStatusLabels] ?? row.membership}{row.area ? ` · ${row.area}` : ""} (não comprova coleta)</p>
+                        <p className="mt-1 flex flex-wrap gap-1 text-xs">
+                          <span className="rounded border border-slate-500 px-1.5 py-0.5">Fornece informação: {row.providesInformation ? "sim (histórico importado)" : "não comprovado"}</span>
+                          <span className="rounded border border-slate-500 px-1.5 py-0.5">Recebe alertas: {row.receivesAlerts === null ? "não conferido" : row.receivesAlerts ? "sim" : "não"}</span>
+                        </p>
                       </th>
                       <td className="p-3"><SourceBeacon beacon={row.authorization} /></td>
                       <td className="p-3"><SourceBeacon beacon={row.technical} /></td>

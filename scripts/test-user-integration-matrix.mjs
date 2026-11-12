@@ -17,7 +17,7 @@ const authz = (status = "AUTORIZADO") => [{ user_id: "u1", account_email: MAIL, 
 const control = (extra = {}) => ({ mailbox_address: MAIL, technical_permission_status: "CONFIRMADA", collection_enabled: true, individual_consent_status: "AUTORIZADO", corporate_authorization_status: "AUTORIZADA", period_start: "2026-01-01T00:00:00Z", period_end: "2027-01-01T00:00:00Z", revoked_at: null, last_sync_at: "2026-11-11T21:00:00Z", last_sync_status: "SUCESSO", ...extra });
 const ingestion = { projectEnabled: true, mailboxes: [{ mailbox: MAIL, enabled: true }] };
 const evidence = (over = {}) => ({
-  measuredAt: NOW.toISOString(), authorizations: authz(), controls: [control()], ingestion, mailboxes: [mailbox()], unassignedEmails: 23, warnings: [],
+  measuredAt: NOW.toISOString(), alertRecipientUserIds: [], authorizations: authz(), controls: [control()], ingestion, mailboxes: [mailbox()], unassignedEmails: 23, warnings: [],
   shared: { diario: null, weekly: null, construmanager: null, ssma: null }, ...over,
 });
 const one = (over = {}, m = member()) => buildUserSourceRows([m], evidence(over), NOW)[0];
@@ -154,5 +154,15 @@ check("fontes compartilhadas nunca são atribuídas individualmente: aviso prese
 check("consultas compartilhadas indisponíveis (null) => vermelho 'Sem comprovação'", () => {
   const all = Object.values(rows({ diario: null, weekly: null, construmanager: null, ssma: null }));
   ok(all.every((r) => !r.connection.ok && !r.collection.ok && !r.availability.ok), "verde sem consulta");
+});
+check("papéis independentes: receber alerta não torna ninguém fonte, e fornecer não implica receber", () => {
+  const members = [{ userId: "u1", status: "ACTIVE", area: null, user: { name: "A", email: "a@axion.com.br" } }, { userId: "u2", status: "ACTIVE", area: null, user: { name: "B", email: "b@axion.com.br" } }];
+  const ev = { ...evidence(), alertRecipientUserIds: ["u2"], mailboxes: [{ ...mailbox(), mailbox: "a@axion.com.br" }] };
+  const rows = Object.fromEntries(buildUserSourceRows(members, ev, NOW).map((r) => [r.userId, r]));
+  ok(rows.u1.providesInformation === true && rows.u1.receivesAlerts === false, "u1");
+  ok(rows.u2.providesInformation === false && rows.u2.receivesAlerts === true, "u2");
+  ok(rows.u2.overall.ok === false, "overall");
+  const unknown = buildUserSourceRows(members, { ...ev, alertRecipientUserIds: null }, NOW);
+  ok(unknown.every((r) => r.receivesAlerts === null), "null");
 });
 console.log(`\n${passed} OK, ${failed} falha(s)`); process.exit(failed ? 1 : 0);

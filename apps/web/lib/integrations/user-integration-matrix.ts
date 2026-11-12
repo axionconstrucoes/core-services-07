@@ -32,6 +32,8 @@ export type SharedEvidence = {
 };
 export type MatrixEvidence = {
   measuredAt: string;
+  /** Usuários habilitados a receber alertas do piloto (lista de destinatários). null = não conferido. */
+  alertRecipientUserIds: string[] | null;
   authorizations: MatrixAuthorization[] | null;
   controls: MatrixControl[] | null; // null = tabela ausente/ilegível: conexão técnica e coleta atual NÃO comprovadas
   ingestion: { projectEnabled: boolean; mailboxes: { mailbox: string; enabled: boolean }[] } | null;
@@ -47,6 +49,9 @@ export type UserSourceRow = {
   emails: number | null; lastMessageAt: string | null; attachments: number | null; attachmentsProcessed: number | null;
   /** Resumo para a aba Usuários: verde somente se as quatro etapas estão verdes. */
   overall: Beacon;
+  /** Papéis independentes: receber alerta NÃO é fornecer informação e vice-versa. */
+  providesInformation: boolean;
+  receivesAlerts: boolean | null;
 };
 export type SharedSourceRow = {
   key: string; label: string; connection: Beacon; collection: Beacon; availability: Beacon; facts: string[];
@@ -132,6 +137,8 @@ export function buildUserSourceRows(members: MatrixMember[], evidence: MatrixEvi
       attachments: evidence.mailboxes === null ? null : mailbox?.attachments ?? 0,
       attachmentsProcessed: evidence.mailboxes === null ? null : mailbox?.attachmentsProcessed ?? 0,
       overall: firstBad ? bad("Pendente", `${firstBad.label}: ${firstBad.reason}`) : ok("Comprovado", "Autorização, conexão, coleta atual e conteúdo processado comprovados."),
+      providesInformation: (emails ?? 0) > 0,
+      receivesAlerts: evidence.alertRecipientUserIds === null ? null : evidence.alertRecipientUserIds.includes(member.userId),
     };
   }).sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 }
