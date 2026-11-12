@@ -63,10 +63,10 @@ test('classificador nunca devolve mensagem bruta do provedor',async()=>{
  assert.equal(safeFailureCode({code:'ECONNRESET'}),'CODIGO_ECONNRESET');
 });
 test('etapas distinguidas: leitura do Gmail x consulta de anexos x gravação, sem expor conteúdo',async()=>{
- const gmailErr=Object.assign(new Error('assunto secreto do provedor'),{response:{status:404}});
+ const gmailErr=Object.assign(new Error('assunto secreto do provedor'),{response:{status:403}});
  let f=fixture(undefined,{gmailFailure:gmailErr});
  let s=await f.run(false,'attachments');
- assert.deepEqual(s.falhas_detalhe,[{etapa:'gmail_get',email_id:'e1',codigo:'HTTP_404'}]);
+ assert.deepEqual(s.falhas_detalhe,[{etapa:'gmail_get',email_id:'e1',codigo:'HTTP_403'}]);
  f=fixture(undefined,{failAttachmentsQuery:true});
  s=await f.run(false,'attachments');
  assert.deepEqual(s.falhas_detalhe,[{etapa:'consultar_anexos',email_id:'e1',codigo:'DB_42501'}]);
@@ -82,4 +82,43 @@ test('falha de consulta de anexos não derruba a execução inteira, mas autoriz
  const g=fixture(undefined,{status:'REVOGADO'});
  await assert.rejects(g.run(false,'attachments'));
  assert.equal(g.calls.reads,0);
+});
+
+const notFound=()=>Object.assign(new Error('assunto secreto do provedor'),{response:{status:404}});
+test('404 na leitura do Gmail: pendência, não falha; conclusão com pendência e registro preservado',async()=>{
+ const f=fixture([row('a'),row('b')],{gmailFailure:notFound()});
+ const s=await f.run(true,'attachments');
+ assert.equal(s.falhas,0);assert.equal(s.indisponiveis_no_provedor,2);
+ assert.deepEqual(s.indisponiveis_detalhe[0],{etapa:'gmail_get',email_id:'a',codigo:'HTTP_404'});
+ assert.equal(s.conclusao,'CONCLUIDO_COM_PENDENCIA');
+ assert.equal(f.calls.writes,0);assert.equal(f.calls.ingest,0);assert.equal(f.tables.emails.length,2);
+ assert.ok(!/secreto|weg\.net|Bruna/i.test(JSON.stringify(s)));
+});
+test('404 só vale na leitura do Gmail: nas demais etapas continua falha',async()=>{
+ const { isProviderMessageUnavailable } = await import('./lib/gmail-recovery-diagnostics.mjs');
+ const e=notFound();
+ assert.equal(isProviderMessageUnavailable('gmail_get',e),true);
+ for(const stage of ['validar_mensagem','validar_remetente','consultar_anexos','recuperar_gravar_anexos','extrair_corpo'])assert.equal(isProviderMessageUnavailable(stage,e),false);
+ for(const status of [400,401,403,429,500,503])assert.equal(isProviderMessageUnavailable('gmail_get',Object.assign(new Error('x'),{response:{status}})),false);
+ assert.equal(isProviderMessageUnavailable('gmail_get',Object.assign(new Error('x'),{recoveryDb:true,code:'DB_404'})),false);
+ assert.equal(isProviderMessageUnavailable('gmail_get',new Error('Mensagem fora da obra, caixa ou período congelado.')),false);
+});
+test('um 404 não mascara as demais mensagens: restantes seguem e falhas reais continuam falhas',async()=>{
+ const f=fixture([row('a'),row('b')],{gmailFailure:null});
+ const original=f.run;
+ const s=await original(false,'attachments');
+ assert.equal(s.conclusao,'CONCLUIDO');assert.equal(s.indisponiveis_no_provedor,0);
+ const g=fixture(undefined,{failAttachmentsQuery:true});
+ assert.equal((await g.run(false,'attachments')).conclusao,'FALHA');
+});
+test('autenticação, permissão e revogação não são tratadas como mensagem indisponível',async()=>{
+ for(const status of [401,403]){
+  const f=fixture(undefined,{gmailFailure:Object.assign(new Error('x'),{response:{status}})});
+  const s=await f.run(false,'attachments');
+  assert.equal(s.indisponiveis_no_provedor,0);assert.equal(s.falhas,1);assert.equal(s.conclusao,'FALHA');
+ }
+ const g=fixture(undefined,{status:'REVOGADO',gmailFailure:notFound()});
+ await assert.rejects(g.run(false,'attachments'));assert.equal(g.calls.reads,0);
+ const h=fixture(undefined,{revokeAfterRead:true});
+ assert.equal((await h.run(true)).conclusao,'FALHA');
 });

@@ -5,7 +5,7 @@ import { register } from "node:module";
 import { pathToFileURL } from "node:url";
 import { pilotSenderMatches } from "./lib/gmail-weg-pilot-sender.mjs";
 import { extractGmailBody } from "./lib/gmail-message-body.mjs";
-import { RecoveryStageError, failureRecord } from "./lib/gmail-recovery-diagnostics.mjs";
+import { RecoveryStageError, failureRecord, isProviderMessageUnavailable } from "./lib/gmail-recovery-diagnostics.mjs";
 import { RECOVERY, recoveryOptions, assertRecoveryAuthorization, isRecoveryRow, assertRecoveryMessage, collectRecoveryAttachments } from "./lib/gmail-recovery-policy.mjs";
 
 export async function recoverExisting({ supabase, gmail, options, ingestAttachments }) {
@@ -42,7 +42,7 @@ export async function recoverExisting({ supabase, gmail, options, ingestAttachme
   if (missingMailbox.error) throw new Error(missingMailbox.error.message);
   const candidates = rows.filter(isRecoveryRow).filter((row) => options.kind !== "bodies" || (!row.body_text && !row.body_html));
   const batch = candidates.slice(0, options.limit);
-  const stats = { modo: options.apply ? "APPLY" : "DRY_RUN", tipo: options.kind, candidatas: candidates.length, analisadas: 0, restantes: candidates.length - batch.length, sem_caixa_excluidas: missingMailbox.count, corpos: 0, anexos_pendentes: 0, anexos_gravados: 0, anexos_existentes: 0, falhas: 0, falhas_detalhe: [] };
+  const stats = { modo: options.apply ? "APPLY" : "DRY_RUN", tipo: options.kind, candidatas: candidates.length, analisadas: 0, restantes: candidates.length - batch.length, sem_caixa_excluidas: missingMailbox.count, corpos: 0, anexos_pendentes: 0, anexos_gravados: 0, anexos_existentes: 0, falhas: 0, falhas_detalhe: [], indisponiveis_no_provedor: 0, indisponiveis_detalhe: [] };
   let ingest = ingestAttachments;
   if (options.kind === "attachments" && options.apply && !ingest) {
     register("./ts-module-resolver.mjs", import.meta.url);
@@ -108,12 +108,20 @@ export async function recoverExisting({ supabase, gmail, options, ingestAttachme
       }
     } catch (error) {
       // Não publica assunto, corpo, nome de anexo nem resposta de provedor em logs públicos.
+      if (isProviderMessageUnavailable(stage, error)) {
+        // Pendência registrada, não falha: o registro e o histórico no ACC permanecem intactos e nada é alterado.
+        stats.indisponiveis_no_provedor++;
+        stats.indisponiveis_detalhe.push({ etapa: stage, email_id: String(row.id), codigo: "HTTP_404" });
+        console.error(`Mensagem indisponível no provedor: etapa=${stage} email_id=${row.id} codigo=HTTP_404; causa não determinada; registro preservado.`);
+        continue;
+      }
       stats.falhas++;
       const detail = failureRecord(stage, row.id, error);
       stats.falhas_detalhe.push(detail);
       console.error(`Falha na recuperação: etapa=${detail.etapa} email_id=${detail.email_id} codigo=${detail.codigo}; conteúdo omitido.`);
     }
   }
+  stats.conclusao = stats.falhas ? "FALHA" : stats.indisponiveis_no_provedor ? "CONCLUIDO_COM_PENDENCIA" : "CONCLUIDO";
   return stats;
 }
 
@@ -127,6 +135,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     const gmail = google.gmail({ version: "v1", auth });
     const stats = await recoverExisting({ supabase, gmail, options });
     console.log(JSON.stringify(stats, null, 2));
+    if (stats.conclusao === "CONCLUIDO_COM_PENDENCIA") {
+      console.log(`::warning title=Conclusão com pendência::${stats.indisponiveis_no_provedor} mensagem(ns) indisponível(is) no provedor (HTTP 404 na leitura). Recuperação NÃO está completa; causa não determinada.`);
+    }
     if (stats.falhas) process.exitCode = 1;
   } catch {
     console.error("Recuperação bloqueada ou interrompida; verificar autorização, caixa e configuração. Conteúdo omitido.");
