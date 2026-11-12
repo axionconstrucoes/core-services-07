@@ -37,6 +37,7 @@ async function oldCells(buffer) {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer);
   const rows = []; // [key, { all, own, si }]
+  const domPresent = []; // ["aba|linha|coluna", tipo]
   const throws = []; // { kind, sheet, row, col }
   const sheets = [];
   wb.eachSheet((ws) => {
@@ -48,13 +49,14 @@ async function oldCells(buffer) {
         let text;
         try { text = cell.text; } catch { throws.push({ kind: kindOf(cell), sheet: si, row: number, col }); text = ""; }
         const t = normalize(text);
+        if (t) domPresent.push([ws.name + "|" + number + "|" + col, kindOf(cell)]);
         all.push(t);
         if (!(cell.isMerged && cell.master !== cell)) own.push(t);
       });
       rows.push([`${ws.name}|${number}`, { all, own, si }]);
     });
   });
-  return { rows, throws, sheets: sheets.length, sheetNames: sheets };
+  return { rows, throws, sheets: sheets.length, sheetNames: sheets, domPresent };
 }
 
 async function newLines(buffer) {
@@ -69,12 +71,12 @@ async function newLines(buffer) {
 async function streamCellsPresence(buffer) {
   const { Readable } = await import("node:stream");
   const reader = new ExcelJS.stream.xlsx.WorkbookReader(Readable.from([buffer]), { entries: "emit", sharedStrings: "cache", styles: "cache", hyperlinks: "ignore", worksheets: "emit" });
-  const present = new Set();
+  const present = new Map();
   for await (const ws of reader) {
     for await (const row of ws) {
       row.eachCell({ includeEmpty: false }, (cell, col) => {
         let t = ""; try { t = normalize(cell.text); } catch { t = ""; }
-        if (t) present.add(ws.name + "|" + row.number + "|" + col);
+        if (t) present.set(ws.name + "|" + row.number + "|" + col, kindOf(cell));
       });
     }
   }
@@ -94,7 +96,7 @@ function oldIsolated(buffer) {
     const r = spawnSync("node", [fileURLToPath(import.meta.url), "--old", join(dir, "in.xlsx"), join(dir, "out.json")], { encoding: "utf8", timeout: 240000, maxBuffer: 1 << 24 });
     if (r.status !== 0) return { falhou: true, sinal: r.signal, estouroMemoria: /heap out of memory|FATAL ERROR/i.test(String(r.stderr)) };
     const j = JSON.parse(readFileSync(join(dir, "out.json"), "utf8"));
-    return { rows: new Map(j.rows), throws: j.throws, sheets: j.sheets, sheetNames: j.sheetNames };
+    return { rows: new Map(j.rows), throws: j.throws, sheets: j.sheets, sheetNames: j.sheetNames, domPresent: j.domPresent };
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
@@ -162,10 +164,18 @@ for (const v of versions) {
     for (const k of rowsOfNewOnly) {
       newOnlyRows += 1;
       const sh = k.slice(0, k.lastIndexOf("|")), rn = k.split("|").pop();
-      const cells = [...present].filter((p) => p.startsWith(sh + "|" + rn + "|"));
+      const cells = [...present.keys()].filter((p) => p.startsWith(sh + "|" + rn + "|"));
       if (cells.length && cells.every((c) => throwKeys.has(c))) newOnlyAllInThrows += 1;
     }
     console.log("verificação da hipótese (mesclagem no DOM): posições ilegíveis no antigo=" + throwKeys.size + "; dessas, com valor gravado no arquivo (visto pelo fluxo)=" + throwWithValue + "; linhas só no novo=" + newOnlyRows + ", das quais com TODAS as células em posições ilegíveis do antigo=" + newOnlyAllInThrows);
+      {
+      const dom = new Map(o.domPresent);
+      const onlyStream = [...present].filter(([k]) => !dom.has(k)), onlyDom = [...dom].filter(([k]) => !present.has(k));
+      const bucket = (arr) => { const m = {}; for (const [, kd] of arr) m[kd] = (m[kd] ?? 0) + 1; return JSON.stringify(m); };
+      const rowsOf = (arr) => { const r = new Set(arr.map(([k]) => Number(k.split("|")[1]))); return r.size ? `${r.size} linhas distintas, de ${Math.min(...r)} a ${Math.max(...r)}` : "nenhuma"; };
+      const maxDom = Math.max(0, ...[...dom.keys()].map((k) => Number(k.split("|")[1]))), maxStream = Math.max(0, ...[...present.keys()].map((k) => Number(k.split("|")[1])));
+      console.log(`células com texto: DOM=${dom.size}, fluxo=${present.size}; só no fluxo=${onlyStream.length} [${bucket(onlyStream)}] (${rowsOf(onlyStream)}); só no DOM=${onlyDom.length} [${bucket(onlyDom)}] (${rowsOf(onlyDom)}); maior linha com texto: DOM=${maxDom}, fluxo=${maxStream}`);
+    }
   } catch (e) { console.log("verificação da hipótese: falhou (" + String(e.message).slice(0, 60) + ")"); }
 
   // Alinhamento por CONTEÚDO, ignorando o número da linha: separa "mesmo conteúdo em outra linha" de perda/ganho real.
