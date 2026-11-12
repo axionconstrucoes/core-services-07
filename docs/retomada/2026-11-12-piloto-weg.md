@@ -55,6 +55,6 @@ Documento SANITIZADO (repositório público): sem nomes, e-mails, ids de usuári
 Nenhum processo local necessário. Nenhum workflow agendado novo foi criado. Crons existentes inalterados.
 
 ## Onde está o resto
-- Pacote privado (Google Drive do dono, pasta `ACC-transferencia-2026-11-12`): evidências completas, relatórios, propostas, patch do stash, bundle de commits locais, inventário de alterações não commitadas, manifesto com repositório/branch/commit-base.
+- Google Drive do dono, pasta restrita `ACC-transferencia-2026-11-12`: manifesto com os códigos dos destinatários e cópia do resumo (somente texto). **As evidências completas (relatórios, logs, 146 imagens, patch do stash, bundle git) NÃO estão no Drive**: o upload de binários grandes não foi possível. Estão neste PC de origem em `C:\VIBE\PROJETOS\acc-pr149-evidencias\` (e `2026-11-12\transferencia\*.zip`, 3 partes com SHA256SUMS.txt) e precisam ser copiadas manualmente (disco externo ou rede) antes de desligar o PC de origem.
 - Branches de backup (não mesclar): `backup/menu-eventos-admin-only-2026-11-12`, `backup/gmail-ata-404-2026-11-12`.
-- Para retomar: `git fetch --all`, `git checkout main`, ler este arquivo e o manifesto do pacote privado.
+- Para retomar: `git fetch --all`, `git checkout main`, ler este arquivo e o manifesto no Drive.
