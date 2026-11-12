@@ -8,13 +8,15 @@ export const RECOVERY = Object.freeze({
 });
 
 export function recoveryOptions(args) {
-  const allowed = /^(--apply|--kind=(bodies|attachments)|--limit=\d+)$/;
+  const allowed = /^(--apply|--probe|--kind=(bodies|attachments)|--limit=\d+)$/;
   if (args.some((arg) => !allowed.test(arg))) throw new Error("Argumento de recuperação inválido.");
   if (new Set(args.map((arg) => arg.split("=")[0])).size !== args.length) throw new Error("Argumento repetido.");
   const kind = args.find((arg) => arg.startsWith("--kind="))?.split("=")[1];
   const limit = Number(args.find((arg) => arg.startsWith("--limit="))?.split("=")[1] ?? 10);
   if (!kind || !Number.isInteger(limit) || limit < 1 || limit > 1000) throw new Error("Informe --kind e limite de 1 a 1000.");
-  return { kind, limit, apply: args.includes("--apply") };
+  const apply = args.includes("--apply"), probe = args.includes("--probe");
+  if (probe && (apply || kind !== "attachments")) throw new Error("--probe vale apenas para anexos em dry-run.");
+  return { kind, limit, apply, probe };
 }
 
 export function assertRecoveryAuthorization(config, mailboxes, authorizations) {

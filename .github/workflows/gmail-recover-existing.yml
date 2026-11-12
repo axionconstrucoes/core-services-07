@@ -16,6 +16,11 @@ on:
         default: dry-run
         type: choice
         options: [dry-run, apply]
+      probe:
+        description: Sondagem de anexos (somente dry-run; baixa bytes em memória, sem gravar)
+        required: false
+        default: false
+        type: boolean
       limit:
         description: Máximo de mensagens (1 a 1000)
         required: true
@@ -52,12 +57,13 @@ jobs:
           RECOVERY_KIND: ${{ inputs.kind }}
           RECOVERY_MODE: ${{ inputs.mode }}
           RECOVERY_LIMIT: ${{ inputs.limit }}
+          RECOVERY_PROBE: ${{ inputs.probe }}
         run: |
           set -euo pipefail
           ARGS=("--kind=${RECOVERY_KIND}" "--limit=${RECOVERY_LIMIT}")
           case "${RECOVERY_MODE}" in
             apply) ARGS+=("--apply");;
-            dry-run) ;;
+            dry-run) if [ "${RECOVERY_PROBE:-false}" = "true" ]; then ARGS+=("--probe"); fi;;
             *) exit 1;;
           esac
           node scripts/gmail-recover-existing.mjs "${ARGS[@]}"
