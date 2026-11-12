@@ -17,7 +17,7 @@ const authz = (status = "AUTORIZADO") => [{ user_id: "u1", account_email: MAIL, 
 const control = (extra = {}) => ({ mailbox_address: MAIL, technical_permission_status: "CONFIRMADA", collection_enabled: true, individual_consent_status: "AUTORIZADO", corporate_authorization_status: "AUTORIZADA", period_start: "2026-01-01T00:00:00Z", period_end: "2027-01-01T00:00:00Z", revoked_at: null, last_sync_at: "2026-11-11T21:00:00Z", last_sync_status: "SUCESSO", ...extra });
 const ingestion = { projectEnabled: true, mailboxes: [{ mailbox: MAIL, enabled: true }] };
 const evidence = (over = {}) => ({
-  measuredAt: NOW.toISOString(), authorizations: authz(), controls: [control()], ingestion, mailboxes: [mailbox()], unassignedEmails: 23, warnings: [],
+  measuredAt: NOW.toISOString(), alertRecipientUserIds: [], authorizations: authz(), controls: [control()], ingestion, mailboxes: [mailbox()], unassignedEmails: 23, warnings: [],
   shared: { diario: null, weekly: null, construmanager: null, ssma: null }, ...over,
 });
 const one = (over = {}, m = member()) => buildUserSourceRows([m], evidence(over), NOW)[0];
@@ -155,4 +155,65 @@ check("consultas compartilhadas indisponíveis (null) => vermelho 'Sem comprova�
   const all = Object.values(rows({ diario: null, weekly: null, construmanager: null, ssma: null }));
   ok(all.every((r) => !r.connection.ok && !r.collection.ok && !r.availability.ok), "verde sem consulta");
 });
+check("papéis independentes: receber alerta não torna ninguém fonte, e fornecer não implica receber", () => {
+  const members = [{ userId: "u1", status: "ACTIVE", area: null, user: { name: "A", email: "a@axion.com.br" } }, { userId: "u2", status: "ACTIVE", area: null, user: { name: "B", email: "b@axion.com.br" } }];
+  const ev = { ...evidence(), alertRecipientUserIds: ["u2"], mailboxes: [{ ...mailbox(), mailbox: "a@axion.com.br" }] };
+  const rows = Object.fromEntries(buildUserSourceRows(members, ev, NOW).map((r) => [r.userId, r]));
+  ok(rows.u1.providesInformation === true && rows.u1.receivesAlerts === false, "u1");
+  ok(rows.u2.providesInformation === false && rows.u2.receivesAlerts === true, "u2");
+  ok(rows.u2.overall.ok === false, "overall");
+  const unknown = buildUserSourceRows(members, { ...ev, alertRecipientUserIds: null }, NOW);
+  ok(unknown.every((r) => r.receivesAlerts === null), "null");
+});
+// ---------- Modo OAuth (sem tabela de controles) ----------
+const COL = "reynaldo@axion.com.br";
+const oauth = (over = {}) => ({ enabled: true, windowMode: "FROM_NOW", customStartAt: null, customEndAt: null, monitoringStartedAt: "2026-08-20T15:13:58Z", lastSyncAt: "2026-11-11T21:30:00Z", integrationStatus: "CONECTADO", ...over });
+const oauthEv = (over = {}) => ({ controls: null, oauth: oauth(), ingestion: { projectEnabled: true, mailboxes: [{ mailbox: COL, enabled: true }, { mailbox: "corazza@axion.com.br", enabled: true }] }, mailboxes: [mailbox({ mailbox: COL })], authorizations: [{ user_id: "u1", account_email: COL, status: "AUTORIZADO", requested_at: "2026-11-11T13:34:00Z" }, { user_id: "u2", account_email: "corazza@axion.com.br", status: "AUTORIZADO", requested_at: "2026-11-11T13:34:00Z" }], ...over });
+const oneO = (over = {}, m = member("u1", COL)) => buildUserSourceRows([m], evidence(oauthEv(over)), NOW)[0];
+check("OAuth: caixa autenticada pelo coletor com execução recente => coleta 'Execução recente comprovada' e conexão 'Inferida', nunca 'Confirmada'", () => {
+  const r = oneO();
+  ok(r.collection.ok && r.collection.label === "Execução recente comprovada", label(r.collection));
+  ok(r.technical.ok && /Inferida/.test(r.technical.label) && !/Confirmada/.test(r.technical.label + r.technical.reason), label(r.technical));
+});
+check("OAuth: last_sync_at do projeto NÃO comprova outra caixa habilitada (corazza)", () => {
+  const r = buildUserSourceRows([member("u2", "corazza@axion.com.br")], evidence(oauthEv({ mailboxes: [] })), NOW)[0];
+  ok(!r.collection.ok && !r.technical.ok, label(r.collection) + label(r.technical));
+  ok(/não atribuível|Nada coletado/i.test(r.collection.label + r.collection.reason) || r.collection.label === "Execução não atribuível", r.collection.label);
+});
+check("OAuth: aceite revogado, config ou caixa desabilitada => vermelho", () => {
+  ok(!oneO({ authorizations: [{ user_id: "u1", account_email: COL, status: "REVOGADO", requested_at: "2026-11-11T14:00:00Z" }] }).collection.ok, "revogado");
+  ok(!oneO({ oauth: oauth({ enabled: false }) }).collection.ok, "config desligada");
+  ok(!oneO({ ingestion: { projectEnabled: true, mailboxes: [{ mailbox: COL, enabled: false }] } }).collection.ok, "caixa desabilitada");
+  ok(!oneO({ ingestion: null }).collection.ok, "habilitação indisponível");
+});
+check("OAuth: execução antiga, ausente, janela futura ou vencida => vermelho", () => {
+  ok(oneO({ oauth: oauth({ lastSyncAt: "2026-11-01T00:00:00Z" }) }).collection.label === "Coleta desatualizada", "antiga");
+  ok(!oneO({ oauth: oauth({ lastSyncAt: null }) }).collection.ok, "sem execução");
+  ok(oneO({ oauth: oauth({ windowMode: "FROM_NOW", monitoringStartedAt: "2026-12-01T00:00:00Z" }) }).collection.label === "Período futuro", "futuro");
+  ok(oneO({ oauth: oauth({ windowMode: "CUSTOM", customStartAt: "2026-01-01T00:00:00Z", customEndAt: "2026-10-01T00:00:00Z" }) }).collection.label === "Período vencido", "vencido");
+  ok(oneO({ oauth: oauth({ windowMode: "CUSTOM", customStartAt: null }) }).collection.label === "Período inválido", "custom sem início");
+  ok(oneO({ oauth: oauth({ windowMode: "FROM_PROJECT_START", monitoringStartedAt: null }) }).collection.ok, "desde o início do projeto vale");
+});
+check("OAuth: sem evidência do coletor (null/consulta falhou) mantém o comportamento anterior: histórico, nunca verde", () => {
+  const r = oneO({ oauth: null });
+  ok(!r.collection.ok && r.collection.label === "Histórico importado" && !r.technical.ok, label(r.collection));
+});
+check("tabela de controles presente prevalece sobre a evidência OAuth (sem mistura)", () => {
+  const r = buildUserSourceRows([member()], evidence({ oauth: oauth() }), NOW)[0];
+  ok(r.collection.label === "Coleta atual" && r.technical.label === "Confirmada", label(r.collection) + label(r.technical));
+});
+check("OAuth: verde geral continua exigindo corpos e anexos (execução recente não basta)", () => {
+  const r = oneO({ mailboxes: [mailbox({ mailbox: COL, bodiesAvailable: 5 })] });
+  ok(r.collection.ok && !r.material.ok && !r.overall.ok, label(r.material));
+});
+check("constante do coletor OAuth confere com o workflow e com a trava de identidade do script", () => {
+  const wf = readFileSync(new URL("../.github/workflows/gmail-inbound-sync.yml", import.meta.url), "utf8");
+  const sc = readFileSync(new URL("./gmail-inbound-sync.mjs", import.meta.url), "utf8");
+  const mailboxes = [...wf.matchAll(/GOOGLE_GMAIL_INBOUND_MAILBOX:\s*(\S+)/g)].map((m) => m[1].toLowerCase());
+  ok(mailboxes.length > 0 && mailboxes.every((m) => m === COL), "workflow usa outra caixa: " + mailboxes.join(","));
+  ok(/profile\.data\.emailAddress\?\.toLowerCase\(\)\s*!==\s*mailbox/.test(sc), "trava getProfile ausente no script");
+  const model = readFileSync(new URL("../apps/web/lib/integrations/user-integration-matrix.ts", import.meta.url), "utf8");
+  ok(model.includes(`OAUTH_COLLECTOR_MAILBOX = "${COL}"`), "constante divergente");
+});
+
 console.log(`\n${passed} OK, ${failed} falha(s)`); process.exit(failed ? 1 : 0);

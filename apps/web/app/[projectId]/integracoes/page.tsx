@@ -74,7 +74,7 @@ export default async function IntegracoesPage({
     <div className="flex flex-col gap-6">
       <PageHeader title="Administração de Integrações" description="Status operacional das fontes configuradas para este projeto." />
 
-      <UserIntegrationMatrix rows={userSourceRows} shared={sharedSourceRows} warnings={userIntegrationEvidence.warnings} measuredAt={userIntegrationEvidence.measuredAt} unassignedEmails={userIntegrationEvidence.unassignedEmails} />
+      <UserIntegrationMatrix rows={userSourceRows} shared={sharedSourceRows} warnings={userIntegrationEvidence.warnings} measuredAt={userIntegrationEvidence.measuredAt} unassignedEmails={userIntegrationEvidence.unassignedEmails} systemOutputEmails={userIntegrationEvidence.systemOutputEmails} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {sources.map((source) => {

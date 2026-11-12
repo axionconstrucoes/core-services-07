@@ -5,8 +5,8 @@ import { SourceBeacon } from "./source-beacon";
 
 const date = (value: string | null) => (value ? formatDateTime(value) : "Sem registro");
 
-export function UserIntegrationMatrix({ rows, shared, warnings, measuredAt, unassignedEmails }: {
-  rows: UserSourceRow[]; shared: SharedSourceRow[]; warnings: string[]; measuredAt: string; unassignedEmails: number | null;
+export function UserIntegrationMatrix({ rows, shared, warnings, measuredAt, unassignedEmails, systemOutputEmails }: {
+  rows: UserSourceRow[]; shared: SharedSourceRow[]; warnings: string[]; measuredAt: string; unassignedEmails: number | null; systemOutputEmails?: number | null;
 }) {
   return (
     <Card className="min-w-0">
@@ -42,6 +42,10 @@ export function UserIntegrationMatrix({ rows, shared, warnings, measuredAt, unas
                         <p className="font-semibold">{row.name}</p>
                         <p className="break-all text-xs text-muted-foreground">{row.email}</p>
                         <p className="mt-1 text-xs text-muted-foreground">Vínculo: {membershipStatusLabels[row.membership as keyof typeof membershipStatusLabels] ?? row.membership}{row.area ? ` · ${row.area}` : ""} (não comprova coleta)</p>
+                        <p className="mt-1 flex flex-wrap gap-1 text-xs">
+                          <span className="rounded border border-slate-500 px-1.5 py-0.5">Fornece informação: {row.providesInformation ? "sim (histórico importado)" : "não comprovado"}</span>
+                          <span className="rounded border border-slate-500 px-1.5 py-0.5">Recebe alertas: {row.receivesAlerts === null ? "não conferido" : row.receivesAlerts ? "sim" : "não"}</span>
+                        </p>
                       </th>
                       <td className="p-3"><SourceBeacon beacon={row.authorization} /></td>
                       <td className="p-3"><SourceBeacon beacon={row.technical} /></td>
@@ -61,6 +65,9 @@ export function UserIntegrationMatrix({ rows, shared, warnings, measuredAt, unas
           )}
           <p className="text-xs text-muted-foreground">
             Mensagens sem caixa identificada: <strong>{unassignedEmails === null ? "indisponível" : unassignedEmails}</strong> — não atribuíveis a nenhum usuário (a identidade não é inferida pelo nome). Quem recebe os e-mails do piloto não é, por isso, fonte de informações.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Saída do sistema: <strong>{systemOutputEmails === null || systemOutputEmails === undefined ? "indisponível" : systemOutputEmails}</strong> registros sem provedor e sem caixa são alertas e resumos gerados pelo próprio ACC. Não são fonte externa nem falha de caixa.
           </p>
         </section>
 

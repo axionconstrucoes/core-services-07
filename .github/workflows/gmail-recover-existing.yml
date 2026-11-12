@@ -16,6 +16,11 @@ on:
         default: dry-run
         type: choice
         options: [dry-run, apply]
+      reconcile:
+        description: Reconciliação por hash das partes (somente dry-run; baixa bytes em memória, sem gravar)
+        required: false
+        default: false
+        type: boolean
       probe:
         description: Sondagem de anexos (somente dry-run; baixa bytes em memória, sem gravar)
         required: false
@@ -58,12 +63,13 @@ jobs:
           RECOVERY_MODE: ${{ inputs.mode }}
           RECOVERY_LIMIT: ${{ inputs.limit }}
           RECOVERY_PROBE: ${{ inputs.probe }}
+          RECOVERY_RECONCILE: ${{ inputs.reconcile }}
         run: |
           set -euo pipefail
           ARGS=("--kind=${RECOVERY_KIND}" "--limit=${RECOVERY_LIMIT}")
           case "${RECOVERY_MODE}" in
             apply) ARGS+=("--apply");;
-            dry-run) if [ "${RECOVERY_PROBE:-false}" = "true" ]; then ARGS+=("--probe"); fi;;
+            dry-run) if [ "${RECOVERY_PROBE:-false}" = "true" ]; then ARGS+=("--probe"); fi; if [ "${RECOVERY_RECONCILE:-false}" = "true" ]; then ARGS+=("--reconcile"); fi;;
             *) exit 1;;
           esac
           node scripts/gmail-recover-existing.mjs "${ARGS[@]}"

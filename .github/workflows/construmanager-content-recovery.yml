@@ -1,0 +1,75 @@
+# Recuperacao MANUAL e limitada do conteudo do Construmanager (obra WEG).
+#
+# NAO ATIVADO: sem `schedule`, somente workflow_dispatch, somente na main.
+# Nenhum cron e nenhum outro workflow foram alterados; o monitoramento de
+# metadados continua sem baixar conteudo.
+#
+# Seguranca: projeto fixo (WEG), dry-run por padrao, teto de itens e de
+# tamanho por arquivo, arquivos acima do teto ficam como referencia externa
+# (nao sao baixados). O destino e o bucket privado `construmanager-content`,
+# no caminho sha256/<aa>/<bb>/<hash>. Nada e extraido aqui: armazenar nao e
+# extrair; a analise de texto depende de promocao a documento (fora deste fluxo).
+name: Construmanager content recovery (manual, WEG)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: dry-run (somente leitura) ou apply (baixa e grava)
+        required: true
+        default: dry-run
+        type: choice
+        options: [dry-run, apply]
+      max_items:
+        description: Maximo de arquivos por rodada (1 a 50)
+        required: true
+        default: "10"
+        type: string
+      max_file_mb:
+        description: Teto por arquivo em MB (1 a 100); acima disso vira referencia externa
+        required: true
+        default: "50"
+        type: string
+
+concurrency:
+  group: construmanager-content-recovery
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Validar entradas
+        env:
+          MAX_ITEMS: ${{ inputs.max_items }}
+          MAX_FILE_MB: ${{ inputs.max_file_mb }}
+        run: |
+          [[ "$MAX_ITEMS" =~ ^[0-9]+$ ]] && [ "$MAX_ITEMS" -ge 1 ] && [ "$MAX_ITEMS" -le 50 ] || { echo "max_items invalido"; exit 1; }
+          [[ "$MAX_FILE_MB" =~ ^[0-9]+$ ]] && [ "$MAX_FILE_MB" -ge 1 ] && [ "$MAX_FILE_MB" -le 100 ] || { echo "max_file_mb invalido"; exit 1; }
+      - name: Recuperar conteudo (projeto WEG)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          CONSTRUMANAGER_LOGIN: ${{ secrets.CONSTRUMANAGER_LOGIN }}
+          CONSTRUMANAGER_PASSWORD: ${{ secrets.CONSTRUMANAGER_PASSWORD }}
+          CONSTRUMANAGER_BASE_URL: ${{ secrets.CONSTRUMANAGER_BASE_URL }}
+          CONSTRUMANAGER_AUTO_KILL_SWITCH: ${{ vars.CONSTRUMANAGER_AUTO_KILL_SWITCH }}
+          CONSTRUMANAGER_AUTO_DOWNLOAD_ENABLED: "true"
+          CONSTRUMANAGER_AUTO_DRY_RUN: ${{ inputs.mode == 'apply' && 'false' || 'true' }}
+          CONSTRUMANAGER_AUTO_MAX_ITEMS: ${{ inputs.max_items }}
+          CONSTRUMANAGER_AUTO_MAX_FILE_BYTES: ${{ format('{0}000000', inputs.max_file_mb) }}
+          CONSTRUMANAGER_AUTO_TIME_BUDGET_MS: "6600000"
+        run: node scripts/construmanager-content-worker.mjs 00000000-0000-4000-8000-000000000001

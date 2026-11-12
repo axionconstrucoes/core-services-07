@@ -31,9 +31,9 @@ function fixture(rows=[row()], {profile=R.mailbox, status='AUTORIZADO', failRead
   }catch(e){return Promise.reject(e).then(resolve,reject);}}
  }
  const supabase={from:t=>new Query(t),storage:{getBucket:async()=>({data:bucket,error:null})}};
- const gmail={users:{getProfile:async()=>({data:{emailAddress:profile}}),messages:{get:async({id})=>{calls.reads++;if(gmailFailure)throw gmailFailure;if(revokeAfterRead)tables.email_access_authorizations[0].status='REVOGADO';return {data:{id,internalDate:String(Date.parse('2026-10-01T12:00:00Z')),payload:{mimeType:'text/plain',headers:[{name:'From',value:messageFrom}],body:{data:Buffer.from('corpo completo').toString('base64url')},parts:parts.map((p)=>({filename:p.filename,body:{attachmentId:idsPerRead?p.attachmentId+'-'+calls.reads:p.attachmentId,size:p.size},mimeType:p.mimeType}))}}};},attachments:{get:async()=>({data:{data:Buffer.from(attachmentBytes).toString('base64url')}})}}}};
+ const gmail={users:{getProfile:async()=>({data:{emailAddress:profile}}),messages:{get:async({id})=>{calls.reads++;if(gmailFailure)throw gmailFailure;if(revokeAfterRead)tables.email_access_authorizations[0].status='REVOGADO';return {data:{id,internalDate:String(Date.parse('2026-10-01T12:00:00Z')),payload:{mimeType:'text/plain',headers:[{name:'From',value:messageFrom}],body:{data:Buffer.from('corpo completo').toString('base64url')},parts:parts.map((p)=>({filename:p.filename,body:{attachmentId:idsPerRead?p.attachmentId+'-'+calls.reads:p.attachmentId,size:p.size},mimeType:p.mimeType}))}}};},attachments:{get:async({id})=>({data:{data:Buffer.from(typeof attachmentBytes==='object'?(attachmentBytes[id]??'x'):attachmentBytes).toString('base64url')}})}}}};
  const ingestAttachments=async()=>{calls.ingest++;tables.email_attachments.push({email_id:'e1',project_id:R.projectId,gmail_attachment_id:'a'});return [{status:ingestStatus,error:ingestError}];};
- const run=(apply=false,kind='bodies',limit=10,probe=false)=>recoverExisting({supabase,gmail,ingestAttachments,options:{apply,kind,limit,probe}});
+ const run=(apply=false,kind='bodies',limit=10,probe=false)=>recoverExisting({supabase,gmail,ingestAttachments,options:{apply,kind,limit,probe,reconcile:probe==='reconcile'}});
  return {run,calls,tables};
 }
 test('dry-run: corpo verificado sem gravação',async()=>{const f=fixture();const s=await f.run();assert.equal(s.corpos,1);assert.equal(f.calls.writes,0);assert.equal(f.calls.ingest,0);});
@@ -204,4 +204,45 @@ test('mesmo conteúdo já gravado no e-mail é reconhecido na sondagem como dupl
  const f=fixture([row('e1'),row('e2')],{seedAttachments:[seed({email_id:'e1',gmail_attachment_id:'z',original_file_name:'outro.pdf',sha256_hash:hash})]});
  const s=await f.run(false,'attachments',10,true);
  assert.equal(s.probe.classes.DUPLICADO_NO_MESMO_EMAIL,1);assert.equal(s.probe.classes.GRAVAVEL,1);
+});
+
+const sha=async(t)=>(await import('node:crypto')).createHash('sha256').update(t).digest('hex');
+test('reconciliação: confirmação por hash x só metadados, sem gravar e sem nomes',async()=>{
+ const f=fixture(undefined,{seedAttachments:[seed({sha256_hash:await sha('abc')})]});
+ let s=await f.run(false,'attachments',10,'reconcile');
+ assert.equal(s.reconciliacao.classes.JA_RECUPERADA_METADADOS_CONFIRMADA_HASH,1);
+ assert.equal(f.calls.writes,0);assert.equal(f.calls.ingest,0);
+ const g=fixture(undefined,{seedAttachments:[seed({sha256_hash:await sha('outro')})]});
+ s=await g.run(false,'attachments',10,'reconcile');
+ assert.equal(s.reconciliacao.classes.JA_RECUPERADA_METADADOS_SEM_CONFIRMACAO_HASH,1);
+ assert.ok(!/arquivo\.pdf|weg\.net|Bruna/i.test(JSON.stringify(s)));
+});
+test('reconciliação: parte bloqueada por MIME cujo conteúdo já está gravado no mesmo e-mail é identificada',async()=>{
+ const parts=[{filename:'a.ics',attachmentId:'1',size:3,mimeType:'text/calendar'},{filename:'b.ics',attachmentId:'2',size:4,mimeType:'text/calendar'},{filename:'c.ics',attachmentId:'3',size:4,mimeType:'text/calendar'},{filename:'d.pdf',attachmentId:'4',size:3,mimeType:'application/pdf'}];
+ const f=fixture(undefined,{parts,attachmentBytes:{'1':'abc','2':'novo1','3':'novo1','4':'novo2'},seedAttachments:[seed({gmail_attachment_id:'z',original_file_name:'zz.pdf',file_size_bytes:3,sha256_hash:await sha('abc')})]});
+ const s=await f.run(false,'attachments',10,'reconcile');
+ const c=s.reconciliacao.classes;
+ assert.equal(c.CONTEUDO_JA_GRAVADO_NO_EMAIL_SEM_PAREAMENTO,1);
+ assert.equal(c.BLOQUEADA_MIME,1);assert.equal(c.DUPLICADA_ENTRE_PARTES_DO_EMAIL,1);assert.equal(c.GRAVAVEL,1);
+ assert.equal(s.reconciliacao.mime_bloqueado_e_conteudo_ja_gravado,1);
+ assert.deepEqual(s.reconciliacao.mime_bloqueados,{'text/calendar':3});
+ assert.equal(f.calls.writes,0);assert.equal(f.calls.ingest,0);
+});
+test('reconciliação: arquivo igual em outro e-mail não é duplicado e fica preservado',async()=>{
+ const f=fixture([row('e1'),row('e2')],{seedAttachments:[seed({email_id:'e2',gmail_attachment_id:'q',original_file_name:'q.pdf',sha256_hash:await sha('abc')})]});
+ const s=await f.run(false,'attachments',10,'reconcile');
+ assert.equal(s.reconciliacao.classes.GRAVAVEL,1);assert.equal(s.reconciliacao.classes.CONTEUDO_JA_GRAVADO_NO_EMAIL_SEM_PAREAMENTO,1);assert.equal(s.reconciliacao.mesmo_hash_em_outro_email,1);
+});
+test('reconciliação: não existe com apply; 404 e revogação continuam como antes',async()=>{
+ assert.throws(()=>recoveryOptions(['--kind=attachments','--apply','--reconcile']));
+ assert.throws(()=>recoveryOptions(['--kind=attachments','--probe','--reconcile']));
+ assert.throws(()=>recoveryOptions(['--kind=bodies','--reconcile']));
+ assert.equal(recoveryOptions(['--kind=attachments','--reconcile']).reconcile,true);
+ const g=fixture(undefined,{status:'REVOGADO'});
+ await assert.rejects(g.run(false,'attachments',10,'reconcile'));assert.equal(g.calls.reads,0);
+ const n=fixture(undefined,{gmailFailure:Object.assign(new Error('x'),{response:{status:404}})});
+ const s=await n.run(false,'attachments',10,'reconcile');
+ assert.equal(s.indisponiveis_no_provedor,1);assert.equal(s.conclusao,'CONCLUIDO_COM_PENDENCIA');
+ const h=fixture(undefined,{gmailFailure:Object.assign(new Error('x'),{response:{status:403}})});
+ assert.equal((await h.run(false,'attachments',10,'reconcile')).conclusao,'FALHA');
 });
