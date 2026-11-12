@@ -5,6 +5,11 @@
 // (valor ilegível => vazio) apenas para conseguir terminar; as ilegíveis são contadas e classificadas.
 import { createClient } from "@supabase/supabase-js";
 import ExcelJS from "exceljs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { readXlsxLines } from "./lib/xlsx-extract.mjs";
 
 const WEG = "00000000-0000-4000-8000-000000000001";
@@ -55,6 +60,23 @@ async function newLines(buffer) {
   return { rows, stats, sheets: order.length };
 }
 
+// Processo filho: lê com o extrator ANTIGO isolado (ele estoura a memória em arquivos grandes e mataria o processo principal).
+if (process.argv[2] === "--old") {
+  const { rows, throws } = await oldCells(readFileSync(process.argv[3]));
+  writeFileSync(process.argv[4], JSON.stringify({ rows: [...rows], throws }));
+  process.exit(0);
+}
+function oldIsolated(buffer) {
+  const dir = mkdtempSync(join(tmpdir(), "acc-xlsx-cmp-"));
+  try {
+    writeFileSync(join(dir, "in.xlsx"), buffer);
+    const r = spawnSync("node", [fileURLToPath(import.meta.url), "--old", join(dir, "in.xlsx"), join(dir, "out.json")], { encoding: "utf8", timeout: 240000, maxBuffer: 1 << 24 });
+    if (r.status !== 0) return { falhou: true, sinal: r.signal, estouroMemoria: /heap out of memory|FATAL ERROR/i.test(String(r.stderr)) };
+    const j = JSON.parse(readFileSync(join(dir, "out.json"), "utf8"));
+    return { rows: new Map(j.rows), throws: j.throws };
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
 // Modo local (teste): node scripts/compare-xlsx-extractors.mjs arquivo.xlsx
 const localFile = process.argv[2];
 let versions, supabase;
@@ -79,7 +101,7 @@ for (const v of versions) {
   }
   console.log(`\n== ${tag} bytes=${buffer.length}`);
   let o, n;
-  try { o = await oldCells(buffer); } catch (e) { console.log(`antigo: NÃO LEU (${String(e.message).slice(0, 80)})`); }
+  { const r = oldIsolated(buffer); if (r.falhou) console.log(`antigo: NÃO LEU (processo terminou sem resultado; estouro de memória=${r.estouroMemoria}; sinal=${r.sinal})`); else o = r; }
   try { n = await newLines(buffer); } catch (e) { console.log(`novo: NÃO LEU (${String(e.message).slice(0, 80)})`); }
   if (!n) continue;
   console.log(`novo: rota=${n.stats.rota} abas=${n.sheets} linhas=${n.rows.size} celulasIlegiveis=${n.stats.celulasIlegiveis}`);
