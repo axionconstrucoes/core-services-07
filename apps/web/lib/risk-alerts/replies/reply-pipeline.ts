@@ -329,3 +329,35 @@ export function authorizePilotMailboxReply(ctx: PilotMailboxReplyContext): Pilot
   if (!ctx.allowlistUserIds.includes(ctx.participantUserId)) return { authorized: false, reason: "NOT_ALLOWLISTED" };
   return { authorized: true, userId: ctx.participantUserId, note: "Resposta pela caixa do piloto, atribuída ao participante simulado da mensagem respondida." };
 }
+
+// ------------------------------------------------------------------
+// 3c. Resposta de TESTADOR do grupo interno do piloto (WEG_INTERNAL_FOUR)
+// ------------------------------------------------------------------
+// No grupo cada pessoa responde com a PRÓPRIA identidade (From real, profile e vínculo do projeto). Nunca se atribui a resposta de
+// uma pessoa a outra, nem a identidade do CRM ao participante simulado. Quem é destinatário lógico do alerta e está na allowlist é
+// autorizado por `authorizeReply` (identidade própria). Quem está no grupo mas NÃO é destinatário lógico só tem a resposta REGISTRADA,
+// sob a própria identidade, para revisão humana: nenhuma transição do alerta é aplicada.
+export interface PilotGroupReplyContext {
+  senderEmail: string;
+  group: string[];
+  correlationMethod: ReplyCorrelationMethod;
+  profile: { userId: string; email: string; active: boolean } | null;
+  membershipStatus: string | null;
+  authenticationResults: string | null;
+}
+
+export type PilotGroupReplyVerdict =
+  | { observer: true; userId: string }
+  | { observer: false; reason: "NOT_GROUP_MEMBER" | "WEAK_CORRELATION" | "UNKNOWN_SENDER" | "PROFILE_INACTIVE" | "MEMBERSHIP_INACTIVE" | "AUTH_FAILED" };
+
+export function classifyPilotGroupReply(ctx: PilotGroupReplyContext): PilotGroupReplyVerdict {
+  const sender = ctx.senderEmail.trim().toLowerCase();
+  if (!ctx.group.map((a) => a.toLowerCase()).includes(sender)) return { observer: false, reason: "NOT_GROUP_MEMBER" };
+  if (ctx.correlationMethod !== "REPLY_TO_TOKEN" && ctx.correlationMethod !== "IN_REPLY_TO") return { observer: false, reason: "WEAK_CORRELATION" };
+  if (!ctx.profile || ctx.profile.email.trim().toLowerCase() !== sender) return { observer: false, reason: "UNKNOWN_SENDER" };
+  if (!ctx.profile.active) return { observer: false, reason: "PROFILE_INACTIVE" };
+  if (ctx.membershipStatus !== "ACTIVE") return { observer: false, reason: "MEMBERSHIP_INACTIVE" };
+  const auth = parseAuthenticationResults(ctx.authenticationResults);
+  if ([auth.spf, auth.dkim, auth.dmarc].some((v) => v === "fail" || v === "permerror")) return { observer: false, reason: "AUTH_FAILED" };
+  return { observer: true, userId: ctx.profile.userId };
+}
