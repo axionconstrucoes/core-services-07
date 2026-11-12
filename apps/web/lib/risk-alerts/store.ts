@@ -65,6 +65,21 @@ export interface PendingOutboxRow {
   attemptCount: number;
 }
 
+/** Estado de uma linha da outbox já existente, para decidir se o envio único pode RETENTAR a mesma linha (bloqueio pré-rede). */
+export interface OutboxRetryInfo {
+  id: string;
+  idempotencyKey: string;
+  projectId: string;
+  caseId: string | null;
+  recipientUserId: string;
+  status: string;
+  providerMessageId: string | null;
+  sentAt: string | null;
+  emailId: string | null;
+  lastError: string | null;
+  attemptCount: number;
+}
+
 export interface OutboundMessageRecord {
   projectId: string;
   caseId: string | null;
@@ -108,6 +123,8 @@ export interface RiskAlertStore {
   createSlaActions(projectId: string, creates: PlannedSlaActionCreate[], caseIds: Map<string, string>): Promise<Map<string, string>>;
   applyEscalations(projectId: string, escalations: PlannedEscalation[]): Promise<{ applied: number; skipped: number }>;
   enqueue(projectId: string, entries: PlannedOutboxEntry[], caseIds: Map<string, string>, slaActionIds: Map<string, string>): Promise<PersistedOutboxEntry[]>;
+  /** Somente leitura. Opcional: sem ele o envio único nunca retenta (fail closed). */
+  loadOutboxRetryInfo?(projectId: string, idempotencyKeys: string[]): Promise<OutboxRetryInfo[]>;
   /** PENDING com tentativas restantes que NÃO foram planejadas neste ciclo (manual, ação, retry órfão). */
   listPendingRows(projectId: string): Promise<PendingOutboxRow[]>;
   loadCaseRecord(caseId: string): Promise<RiskCaseRecord | null>;

@@ -13,7 +13,8 @@
 //   - o caso precisa existir no projeto, estar ABERTO e ser HIGH/CRITICAL; o id do caso é informado explicitamente;
 //   - destinatários lógicos = membros da allowlist do piloto com vínculo ativo (evaluateRecipient) — nunca outros;
 //   - teto: 1 caso e no máximo MAX_PILOT_SINGLE_RECIPIENTS e-mails;
-//   - idempotência por chave fixa `${caseId}:PILOT_SINGLE:${userId}`: se a chave já existe (qualquer status) NÃO reenvia;
+//   - idempotência por chave fixa `${caseId}:PILOT_SINGLE:${userId}`: se a chave já existe NÃO reenvia — única exceção,
+//     estreita: a MESMA linha bloqueada antes de qualquer chamada de rede (isPreNetworkRetryable) pode ser retentada;
 //   - dryRun: nenhuma escrita e nenhum envio.
 
 import "server-only";
@@ -34,10 +35,10 @@ import type { SlaArea, SlaRiskLevel } from "@/lib/sla/types";
 import { blockerToSuppressionReason, evaluatePilotReadiness, isSeverityMapComplete } from "./pilot-readiness";
 import { evaluateRecipient } from "./plan-risk-alerts";
 import { sendPlanned, type SendContext } from "./run-risk-alert-cycle";
-import type { RiskAlertStore } from "./store";
+import type { OutboxRetryInfo, RiskAlertStore } from "./store";
 import { createSupabaseRiskAlertStore } from "./supabase-store";
 import type { ImmediateAlertContent, PlannedOutboxEntry } from "./types";
-import { DEFAULT_PROJECT_TIMEZONE } from "./types";
+import { DEFAULT_PROJECT_TIMEZONE, MAX_SEND_ATTEMPTS } from "./types";
 
 export const MAX_PILOT_SINGLE_RECIPIENTS = 3;
 export const PILOT_SINGLE_CASE_ENV = "ACC_PILOT_SINGLE_ALERT_CASE_ID";
@@ -50,7 +51,33 @@ export interface PilotSingleAlertRecipientResult {
   eligibility: "PENDING" | "SUPPRESSED";
   suppressionReason: string | null;
   idempotencyKey: string;
-  outcome: "WOULD_SEND" | "SENT" | "FAILED" | "SKIPPED" | "JA_EXISTE" | "NAO_ELEGIVEL";
+  outcome: "WOULD_SEND" | "WOULD_RETRY" | "SENT" | "FAILED" | "SKIPPED" | "JA_EXISTE" | "NAO_ELEGIVEL";
+  /** true quando a MESMA linha da outbox (bloqueada antes de qualquer chamada de rede) foi retentada. */
+  retry: boolean;
+}
+
+/**
+ * Marcador gravado em last_error quando o envio foi bloqueado ANTES de qualquer chamada de rede (guardas do provider). Só uma
+ * linha com este marcador — e sem nenhum indício de entrega — pode ser retentada pelo envio único.
+ */
+export const PILOT_SINGLE_PRE_NETWORK_MARKER = "antes de qualquer chamada de rede";
+
+/**
+ * Reentrada ESTREITA e fail-closed: a chave já existe, mas a linha comprovadamente nunca chegou à rede.
+ * Exige mesmo projeto/caso/destinatário, status PENDING com tentativas restantes, nenhum indício de entrega
+ * (provider_message_id, sent_at, email_id nulos) e o marcador de bloqueio pré-rede em last_error.
+ * FAILED (tentativas esgotadas), SENT, SUPPRESSED/SKIPPED ou qualquer dúvida => não retenta (JA_EXISTE).
+ */
+export function isPreNetworkRetryable(
+  row: OutboxRetryInfo | undefined,
+  expected: { projectId: string; caseId: string; recipientUserId: string; idempotencyKey: string }
+): boolean {
+  if (!row) return false;
+  if (row.idempotencyKey !== expected.idempotencyKey) return false;
+  if (row.projectId !== expected.projectId || row.caseId !== expected.caseId || row.recipientUserId !== expected.recipientUserId) return false;
+  if (row.status !== "PENDING" || row.attemptCount >= MAX_SEND_ATTEMPTS) return false;
+  if (row.providerMessageId || row.sentAt || row.emailId) return false;
+  return typeof row.lastError === "string" && row.lastError.includes(PILOT_SINGLE_PRE_NETWORK_MARKER);
 }
 
 export interface PilotSingleAlertResult {
@@ -65,6 +92,8 @@ export interface PilotSingleAlertResult {
   sent: number;
   failed: number;
   skipped: number;
+  /** Linhas pré-rede retentadas (dry-run: que SERIAM retentadas). */
+  retried: number;
 }
 
 export interface RunPilotSingleAlertOptions {
@@ -78,7 +107,7 @@ export interface RunPilotSingleAlertOptions {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function blocked(caseId: string, reason: string, extra: Partial<PilotSingleAlertResult> = {}): PilotSingleAlertResult {
-  return { status: "BLOCKED", blockedReason: reason, readinessBlockers: [], projectId: null, caseId, riskAlertsEnabledInDatabase: null, deliveryGroup: null, recipients: [], sent: 0, failed: 0, skipped: 0, ...extra };
+  return { status: "BLOCKED", blockedReason: reason, readinessBlockers: [], projectId: null, caseId, riskAlertsEnabledInDatabase: null, deliveryGroup: null, recipients: [], sent: 0, failed: 0, skipped: 0, retried: 0, ...extra };
 }
 
 export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): Promise<PilotSingleAlertResult> {
@@ -161,17 +190,29 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
 
   const recipients: PilotSingleAlertRecipientResult[] = [];
   const entries: PlannedOutboxEntry[] = [];
+  // Estado das chaves que JÁ existem (somente leitura): base da reentrada estreita pré-rede.
+  const existingKeys = allowlist.map((userId) => `${caseId}:PILOT_SINGLE:${userId}`).filter((key) => snapshot.existingIdempotencyKeys.has(key));
+  const retryInfo = new Map<string, OutboxRetryInfo>();
+  if (existingKeys.length > 0 && store.loadOutboxRetryInfo) {
+    for (const info of await store.loadOutboxRetryInfo(projectId, existingKeys)) retryInfo.set(info.idempotencyKey, info);
+  }
+  let retried = 0;
   for (const userId of allowlist) {
     const recipient = evaluateRecipient(userId, config, snapshot.recipients);
     const idempotencyKey = `${caseId}:PILOT_SINGLE:${userId}`;
-    const row: PilotSingleAlertRecipientResult = { userId, name: recipient.name, eligibility: recipient.status, suppressionReason: recipient.suppressionReason, idempotencyKey, outcome: "NAO_ELEGIVEL" };
+    const row: PilotSingleAlertRecipientResult = { userId, name: recipient.name, eligibility: recipient.status, suppressionReason: recipient.suppressionReason, idempotencyKey, outcome: "NAO_ELEGIVEL", retry: false };
     recipients.push(row);
     if (recipient.status !== "PENDING") continue;
     if (snapshot.existingIdempotencyKeys.has(idempotencyKey)) {
-      row.outcome = "JA_EXISTE";
-      continue;
+      if (!isPreNetworkRetryable(retryInfo.get(idempotencyKey), { projectId, caseId, recipientUserId: userId, idempotencyKey })) {
+        row.outcome = "JA_EXISTE";
+        continue;
+      }
+      // Mesma linha, mesma chave: enqueue não cria outra (upsert ignora duplicata) e devolve a linha PENDING existente.
+      row.retry = true;
+      retried += 1;
     }
-    row.outcome = "WOULD_SEND";
+    row.outcome = row.retry ? "WOULD_RETRY" : "WOULD_SEND";
     entries.push({
       idempotencyKey,
       notificationType: "IMMEDIATE",
@@ -188,7 +229,7 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
     });
   }
 
-  const result: PilotSingleAlertResult = { status: "DRY_RUN", blockedReason: null, readinessBlockers: [], ...base, caseId, recipients, sent: 0, failed: 0, skipped: 0 };
+  const result: PilotSingleAlertResult = { status: "DRY_RUN", blockedReason: null, readinessBlockers: [], ...base, caseId, recipients, sent: 0, failed: 0, skipped: 0, retried };
   if (dryRun) return result;
   if (entries.length === 0) return { ...result, status: "ALREADY_SENT" };
 
@@ -200,7 +241,7 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
       action: "RISK_ALERT_PILOT_SINGLE_RUN",
       entityType: "RISK_ALERT_CASE",
       entityId: caseId,
-      detail: `Execução manual única do piloto: ${entries.length} destinatário(s) lógico(s) da allowlist, entrega restrita ao grupo WEG_INTERNAL_FOUR. risk_alerts_enabled não alterado.`,
+      detail: `Execução manual única do piloto: ${entries.length} destinatário(s) lógico(s) da allowlist (${retried} retentativa(s) de linha bloqueada antes de qualquer chamada de rede), entrega restrita ao grupo WEG_INTERNAL_FOUR. risk_alerts_enabled não alterado.`,
     },
   ]);
   const ctx: SendContext = {

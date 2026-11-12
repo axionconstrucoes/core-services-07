@@ -459,6 +459,29 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
       return persisted;
     },
 
+    async loadOutboxRetryInfo(projectId, idempotencyKeys) {
+      if (idempotencyKeys.length === 0) return [];
+      const { data, error } = await client
+        .from("risk_alert_outbox")
+        .select("id,idempotency_key,project_id,case_id,recipient_user_id,status,provider_message_id,sent_at,email_id,last_error,attempt_count")
+        .eq("project_id", projectId)
+        .in("idempotency_key", idempotencyKeys);
+      fail("Falha ao ler estado da outbox para retentativa", error);
+      return (data ?? []).map((row) => ({
+        id: row.id as string,
+        idempotencyKey: row.idempotency_key as string,
+        projectId: row.project_id as string,
+        caseId: s(row.case_id),
+        recipientUserId: row.recipient_user_id as string,
+        status: row.status as string,
+        providerMessageId: s(row.provider_message_id),
+        sentAt: s(row.sent_at),
+        emailId: s(row.email_id),
+        lastError: s(row.last_error),
+        attemptCount: Number(row.attempt_count ?? 0),
+      }));
+    },
+
     async listPendingRows(projectId) {
       const { data, error } = await client
         .from("risk_alert_outbox")
