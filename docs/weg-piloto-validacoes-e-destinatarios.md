@@ -73,3 +73,13 @@ Com `ACC_PROJECT_PILOT_TEST_GROUP=WEG_INTERNAL_FOUR`, o processador de respostas
 | Fora do grupo | regras normais (`authorizeReply`) |
 
 Correlação exige token do Reply-To ou In-Reply-To (índice do próprio projeto); Message-ID repetido é ignorado. Testes: `scripts/test-pilot-group-reply.mjs` (12).
+
+## Execução manual única do alerta (sem ligar a geração recorrente)
+
+`risk_alerts_enabled` permanece `false`. A execução única usa `GET /api/cron/risk-alerts?pilotSingleCase=<caso>` (mesma rota autenticada pelo segredo dedicado; **não** roda o ciclo normal) via workflow `Pilot Single Alert` (só `workflow_dispatch`, só `main`).
+
+- `mode=dry-run` (padrão): lê e simula; sem escrita e sem envio.
+- `mode=send`: exige `confirm=ENVIAR-UMA-VEZ` e que `ACC_PILOT_SINGLE_ALERT_CASE_ID` no Vercel seja IDÊNTICO ao caso (armamento explícito; remover a variável depois).
+- Destinatários lógicos = allowlist (máx. 3) com vínculo ativo; entrega pela cadeia do provider (grupo WEG_INTERNAL_FOUR: To exato nas quatro caixas, sem Cc/Bcc).
+- Idempotência: chave `${caso}:PILOT_SINGLE:${usuário}`; segunda execução não reenvia. Ações nos links alteram o estado do caso escolhido.
+- Teste: `scripts/test-pilot-single-alert.mjs` (parte de `test:email`).

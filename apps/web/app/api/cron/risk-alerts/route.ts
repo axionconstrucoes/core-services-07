@@ -1,5 +1,6 @@
 import { isCronRequestAuthorized, RISK_ALERTS_CRON_SECRET_ENV } from "@/lib/cron/cron-request-auth";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
+import { PILOT_SINGLE_CASE_ENV, runPilotSingleAlert } from "@/lib/risk-alerts/run-pilot-single-alert";
 import { runRiskAlertCycle } from "@/lib/risk-alerts/run-risk-alert-cycle";
 
 // Worker horário dos alertas de risco. Disparado pelo workflow GitHub
@@ -17,6 +18,10 @@ import { runRiskAlertCycle } from "@/lib/risk-alerts/run-risk-alert-cycle";
 // - Execução concorrente na mesma instância => 409 (o ciclo já é
 //   idempotente pela outbox; entre instâncias, o workflow tem
 //   concurrency group e as chaves únicas impedem duplicidade).
+// - ?pilotSingleCase=<uuid do caso> => execução MANUAL ÚNICA do piloto WEG (run-pilot-single-alert.ts), no lugar do ciclo:
+//   nunca roda o ciclo normal, não liga risk_alerts_enabled e usa a mesma cadeia de guardas do provider. Com dryRun=1 só
+//   simula (sem escrita/envio). Sem dryRun, só envia se o id do caso for IDÊNTICO ao configurado em
+//   ACC_PILOT_SINGLE_ALERT_CASE_ID no servidor (armamento explícito e removível); ausente/divergente => 403.
 // A janela do consolidado (quarta 07:00 no timezone do projeto) é decidida
 // pelo próprio ciclo a cada hora — o agendamento em UTC nunca fixa o
 // horário local.
@@ -39,6 +44,23 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const dryRun = url.searchParams.get("dryRun") === "1";
   const projectId = url.searchParams.get("projectId");
+
+  const pilotSingleCase = url.searchParams.get("pilotSingleCase");
+  if (pilotSingleCase !== null) {
+    const armed = (process.env[PILOT_SINGLE_CASE_ENV] ?? "").trim().toLowerCase();
+    if (!dryRun && (!armed || armed !== pilotSingleCase.trim().toLowerCase())) {
+      return Response.json({ error: "Execução única não armada para este caso." }, { status: 403 });
+    }
+    inFlight = true;
+    try {
+      const single = await runPilotSingleAlert({ caseId: pilotSingleCase, dryRun });
+      return Response.json(single, { status: single.failed > 0 ? 207 : 200 });
+    } catch {
+      return Response.json({ error: "Falha na execução única do piloto." }, { status: 500 });
+    } finally {
+      inFlight = false;
+    }
+  }
 
   inFlight = true;
   try {
