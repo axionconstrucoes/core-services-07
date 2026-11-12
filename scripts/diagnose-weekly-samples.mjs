@@ -11,6 +11,8 @@ register("./ts-module-resolver.mjs", import.meta.url);
 const require = createRequire(import.meta.url);
 const JSZip = require("jszip");
 const { identifyWeeklyReportSheets } = await import("../apps/web/lib/schedule/weekly-report/identify-sheets.ts");
+const { readWorkbookSafely } = await import("../apps/web/lib/schedule/weekly-report/read-workbook.ts");
+const { processWorkbookGrids } = await import("../apps/web/lib/schedule/weekly-report/process-workbook.ts");
 
 const WEG = "00000000-0000-4000-8000-000000000001";
 /** Lista FECHADA (prefixos de SHA-256): 4 casos humanos + controles/referências. Nada além disto é lido. */
@@ -31,11 +33,13 @@ const MAX_BYTES = 60 * 1024 * 1024;
   for (const { sha6, rotulo } of SAMPLE_SHA_PREFIXES) {
     console.log(`\n== ${rotulo} (sha ${sha6})`);
     const { data: wbs, error } = await supabase.from("weekly_report_workbooks")
-      .select("work_week_number,status,email_attachment_id,file_size_bytes")
+      .select("id,work_week_number,status,email_attachment_id,file_size_bytes,extracted_at")
       .eq("project_id", WEG).like("file_sha256", `${sha6}%`).limit(1);
     if (error || !wbs?.length) { console.log("registro: não encontrado"); continue; }
     const wb = wbs[0];
-    console.log(`semana=${wb.work_week_number} status_atual=${wb.status}`);
+    console.log(`semana=${wb.work_week_number} status_gravado=${wb.status} gravado_em=${String(wb.extracted_at ?? "").slice(0, 10)}`);
+    const { data: rec } = await supabase.from("weekly_report_sheets").select("category,status").eq("workbook_id", wb.id);
+    const gravado = Object.fromEntries((rec ?? []).map((r) => [r.category, r.status]));
     if (!wb.email_attachment_id) { console.log("sem anexo vinculado"); continue; }
     const { data: att } = await supabase.from("email_attachments")
       .select("storage_bucket,storage_path,file_size_bytes").eq("id", wb.email_attachment_id).eq("project_id", WEG).single();
@@ -45,6 +49,20 @@ const MAX_BYTES = 60 * 1024 * 1024;
     try {
       const { sheets, pkg } = await inspectPackage(JSZip, Buffer.from(await blob.arrayBuffer()));
       console.log(JSON.stringify(summarizeStructure(sheets, identifyWeeklyReportSheets, pkg), null, 1));
+      // SIMULAÇÃO EM MEMÓRIA com o parser ATUAL (nada gravado, nenhum conteúdo no log): só status por categoria e códigos de alerta.
+      try {
+        const buf = Buffer.from(await blob.arrayBuffer());
+        const reading = await readWorkbookSafely({ buffer: buf, fileName: "amostra.xlsx", mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const ctx = { fileName: "amostra.xlsx", workWeekLabel: null, thresholds: [], mppFacts: null, officialBaseline: null, previousDeviationPp: null, previousBaselineSheet: null, criticalActivityCount: null, humanDecisions: {} };
+        const res = processWorkbookGrids({ grids: reading.grids, safety: reading.safety, sheetIndex: reading.sheetIndex }, ctx);
+        const sim = Object.fromEntries(res.sheets.map((s) => [s.category, s.status]));
+        const codigos = {};
+        for (const s of res.sheets) for (const a of s.alerts ?? []) codigos[`${s.category}:${a.code}`] = (codigos[`${s.category}:${a.code}`] ?? 0) + 1;
+        const mudou = Object.keys(sim).filter((k) => gravado[k] && gravado[k] !== sim[k]);
+        console.log(JSON.stringify({ SIMULACAO_PARSER_ATUAL_EM_MEMORIA_NADA_GRAVADO: true, status_workbook_simulado: res.status, status_por_categoria_simulado: sim, status_por_categoria_gravado: gravado, categorias_que_mudariam: mudou, codigos_de_alerta: codigos }));
+      } catch (e) {
+        console.log(`simulacao: erro ${String(e?.message ?? e).replace(/[^w .:-]/g, "?").slice(0, 60)}`);
+      }
     } catch (e) {
       console.log(`estrutura: erro ${String(e?.message ?? e).replace(/[^\w .:-]/g, "?").slice(0, 80)}`);
     }

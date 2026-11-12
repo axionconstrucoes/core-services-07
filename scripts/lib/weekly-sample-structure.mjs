@@ -44,6 +44,9 @@ export function summarizeStructure(sheets, identify, pkg) {
   const matches = identify(sheets.map((s) => ({ name: s.name, index: s.index })));
   const byIndex = new Map(matches.filter((m) => m.sheetIndex != null).map((m) => [m.sheetIndex, m.category]));
   return {
+    // IDENTIFICAÇÃO (nome da aba pelo parser atual) ≠ VALIDAÇÃO (o conteúdo corresponde semanticamente à categoria). Só a primeira é feita aqui.
+    identificacao_aba: "POR_NOME_PARSER_ATUAL",
+    validacao_conteudo: "NAO_REALIZADA (ler a estrutura nao prova que a aba corresponde a categoria esperada)",
     abas: sheets.length,
     ocultas: sheets.filter((s) => s.hidden).length,
     graficos: pkg.charts,
@@ -54,11 +57,14 @@ export function summarizeStructure(sheets, identify, pkg) {
       i: s.index,
       classe: classifySheetName(s.name),
       reconhecida_como: byIndex.get(s.index) ?? null,
+      identificacao: byIndex.has(s.index) ? "IDENTIFICADA_POR_NOME" : "NAO_IDENTIFICADA_POR_NOME",
+      validacao_conteudo: "NAO_REALIZADA",
       oculta: s.hidden,
       dimensao: s.dimension,
       desenho: s.drawing,
     })),
     // Abas cuja classe aponta para uma categoria esperada mas que o parser atual NÃO reconheceu (candidatas a apelido de layout).
+    proposta_alias_financeiro: proposeFinanceiroAlias(sheets, matches),
     pistas_nao_reconhecidas: sheets
       .filter((s) => !byIndex.has(s.index))
       .map((s) => ({ i: s.index, classe: classifySheetName(s.name) }))
@@ -101,3 +107,16 @@ export async function inspectPackage(JSZip, buffer) {
   };
 }
 
+
+/**
+ * PROPOSTA (não aplicada em produção): alias ESTREITO para Financeiro. Só o nome normalizado EXATO "resumofinanceiro(s)" e apenas
+ * quando o parser atual não achou Financeiro e há exatamente UMA aba candidata. Não generaliza ("resumo", "financeiro detalhado", etc.).
+ */
+export const FINANCEIRO_ALIAS_EXATOS = new Set(["resumofinanceiro", "resumofinanceiros"]);
+export function proposeFinanceiroAlias(sheets, matches) {
+  const atual = matches.find((m) => m.category === "FINANCEIRO");
+  if (!atual || atual.status !== "MISSING_SHEET") return { aplicada_em_producao: false, casaria: false, motivo: atual ? atual.status : "sem_categoria" };
+  const cand = sheets.filter((s) => FINANCEIRO_ALIAS_EXATOS.has(normalizeName(s.name)));
+  if (cand.length !== 1) return { aplicada_em_producao: false, casaria: false, motivo: cand.length ? "ambigua" : "sem_candidata" };
+  return { aplicada_em_producao: false, casaria: true, aba_indice: cand[0].index, validacao_conteudo: "NAO_REALIZADA" };
+}
