@@ -424,15 +424,20 @@ try {
       const message = sanitizeConstrumanagerContentError(error);
       if (!firstError) firstError = message;
 
-      const resultado = firstRow(
-        await rpc("fail_construmanager_content_download_system", {
-          p_project_id: PROJECT_ID,
-          p_link_id: alvo.link_id,
-          p_error: message,
-          p_backoff_seconds: computeBackoffSeconds(Number(alvo.auto_attempts ?? 1)),
-          p_max_auto_attempts: config.maxAutoAttempts,
-        })
-      ).catch(() => null);
+      let resultado = null;
+      try {
+        resultado = firstRow(
+          await rpc("fail_construmanager_content_download_system", {
+            p_project_id: PROJECT_ID,
+            p_link_id: alvo.link_id,
+            p_error: message,
+            p_backoff_seconds: computeBackoffSeconds(Number(alvo.auto_attempts ?? 1)),
+            p_max_auto_attempts: config.maxAutoAttempts,
+          })
+        );
+      } catch {
+        resultado = null;
+      }
 
       failed += 1;
       naoProcessados.delete(alvo.link_id);
