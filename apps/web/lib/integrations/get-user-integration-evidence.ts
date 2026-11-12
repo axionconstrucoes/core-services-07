@@ -29,17 +29,19 @@ const sum = (map: Map<string, number>) => [...map.values()].reduce((a, b) => a +
 
 export async function getUserIntegrationEvidence(supabase: SupabaseClient, projectId: string): Promise<MatrixEvidence> {
   const warnings: string[] = [];
-  const [auth, controls, emailRows, attachmentRows, unassigned, ingestionConfig, recipientConfig] = await Promise.all([
+  const [auth, controls, emailRows, attachmentRows, unassigned, ingestionConfig, recipientConfig, emailIntegration, systemOutput] = await Promise.all([
     supabase.from("email_access_authorizations").select("user_id,account_email,status,requested_at").eq("project_id", projectId).order("requested_at", { ascending: false }),
     supabase.from("email_mailbox_collection_controls").select("mailbox_address,technical_permission_status,collection_enabled,individual_consent_status,corporate_authorization_status,period_start,period_end,revoked_at,last_sync_at,last_sync_status").eq("project_id", projectId),
     pages((from, to) => supabase.from("emails").select("mailbox_address,sent_at").eq("project_id", projectId).eq("provider", "GMAIL").not("mailbox_address", "is", null).order("id").range(from, to)),
     pages((from, to) => supabase.from("email_attachments").select("processing_status,storage_path,emails!inner(mailbox_address)").eq("project_id", projectId).order("id").range(from, to)),
     count(supabase.from("emails").select("id", { count: "exact", head: true }).eq("project_id", projectId).eq("provider", "GMAIL").is("mailbox_address", null)),
-    supabase.from("project_email_ingestion_configs").select("id,enabled").eq("project_id", projectId).maybeSingle(),
+    supabase.from("project_email_ingestion_configs").select("id,enabled,window_mode,custom_start_at,custom_end_at,monitoring_started_at,last_sync_at").eq("project_id", projectId).maybeSingle(),
     supabase.from("project_weekly_schedule_ingestion_configs").select("pilot_recipient_allowlist_user_ids").eq("project_id", projectId).maybeSingle(),
+    supabase.from("project_integrations").select("status").eq("project_id", projectId).eq("source_type", "EMAIL").maybeSingle(),
+    count(supabase.from("emails").select("id", { count: "exact", head: true }).eq("project_id", projectId).is("provider", null).is("mailbox_address", null)),
   ]);
   if (auth.error) warnings.push("Não foi possível conferir os aceites individuais.");
-  if (controls.error) warnings.push("O controle técnico de coleta por caixa não está disponível em produção (tabela ausente ou ilegível). A conexão técnica e a coleta atual aparecem como NÃO COMPROVADAS; as importações já feitas valem apenas como histórico.");
+  if (controls.error) warnings.push("O controle técnico de coleta por caixa não está disponível em produção (tabela ausente ou ilegível). A coleta atual é avaliada pela execução do coletor OAuth, atribuída somente à caixa autenticada por ele; as demais caixas ficam NÃO COMPROVADAS e as importações já feitas valem apenas como histórico.");
   if (emailRows === null) warnings.push("Não foi possível conferir as mensagens importadas por caixa.");
   if (attachmentRows === null) warnings.push("Não foi possível conferir os anexos por caixa.");
 
@@ -77,6 +79,12 @@ export async function getUserIntegrationEvidence(supabase: SupabaseClient, proje
     mailboxes = [...map.values()];
   }
 
+  const oauth: MatrixEvidence["oauth"] = !ingestionConfig.error && ingestionConfig.data ? {
+    enabled: ingestionConfig.data.enabled === true, windowMode: (ingestionConfig.data.window_mode as string) ?? null,
+    customStartAt: (ingestionConfig.data.custom_start_at as string) ?? null, customEndAt: (ingestionConfig.data.custom_end_at as string) ?? null,
+    monitoringStartedAt: (ingestionConfig.data.monitoring_started_at as string) ?? null, lastSyncAt: (ingestionConfig.data.last_sync_at as string) ?? null,
+    integrationStatus: emailIntegration.error ? null : ((emailIntegration.data?.status as string) ?? null),
+  } : null;
   const shared = await getSharedEvidence(supabase, projectId, warnings);
   return {
     measuredAt: new Date().toISOString(),
@@ -86,6 +94,8 @@ export async function getUserIntegrationEvidence(supabase: SupabaseClient, proje
     ingestion,
     mailboxes: emailRows === null ? null : mailboxes,
     unassignedEmails: unassigned,
+    systemOutputEmails: systemOutput,
+    oauth,
     shared,
     warnings,
   };

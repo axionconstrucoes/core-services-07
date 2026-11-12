@@ -14,6 +14,16 @@ export type MatrixControl = {
   corporate_authorization_status: string; period_start: string | null; period_end: string | null; revoked_at: string | null;
   last_sync_at: string | null; last_sync_status: string | null;
 };
+/**
+ * Caixa cuja identidade autenticada o coletor OAuth comprova a cada execução: o cron (gmail-inbound-sync.yml) usa
+ * GOOGLE_GMAIL_INBOUND_MAILBOX e o script aborta se getProfile().emailAddress for diferente. Um teste estático confere
+ * esta constante contra o workflow e a trava do script. Qualquer outra caixa NÃO herda a execução do projeto.
+ */
+export const OAUTH_COLLECTOR_MAILBOX = "reynaldo@axion.com.br";
+export type OAuthEvidence = {
+  enabled: boolean; windowMode: string | null; customStartAt: string | null; customEndAt: string | null;
+  monitoringStartedAt: string | null; lastSyncAt: string | null; integrationStatus: string | null;
+};
 export type MailboxEvidence = {
   mailbox: string; emails: number; bodiesAvailable: number | null; lastMessageAt: string | null;
   attachments: number; attachmentsStored: number; attachmentsProcessed: number; attachmentsPending: number; attachmentsError: number;
@@ -36,9 +46,13 @@ export type MatrixEvidence = {
   alertRecipientUserIds: string[] | null;
   authorizations: MatrixAuthorization[] | null;
   controls: MatrixControl[] | null; // null = tabela ausente/ilegível: conexão técnica e coleta atual NÃO comprovadas
+  /** Evidência do coletor OAuth atual (project_email_ingestion_configs). Só é usada quando não há tabela de controles. */
+  oauth?: OAuthEvidence | null;
   ingestion: { projectEnabled: boolean; mailboxes: { mailbox: string; enabled: boolean }[] } | null;
   mailboxes: MailboxEvidence[] | null;
   unassignedEmails: number | null;
+  /** Registros sem provedor e sem caixa: alertas gerados pelo ACC (saída do sistema), nunca fonte externa. */
+  systemOutputEmails?: number | null;
   shared: SharedEvidence;
   warnings: string[];
 };
@@ -64,6 +78,28 @@ const consentText: Record<string, string> = {
   PENDENTE: "Aceite pendente: o usuário ainda não decidiu.", RECUSADO: "Aceite recusado pelo usuário.", REVOGADO: "Aceite revogado.",
   EXPIRADO: "Aceite expirado.", CANCELADO: "Solicitação cancelada.",
 };
+type OAuthVerdict = { verdict: "OK" | "NOT_PROVEN" | "ABSENT"; label: string; reason: string; at: string | null };
+/** Evidência do coletor OAuth atribuída a UMA caixa. last_sync_at é do projeto: só vale para a caixa autenticada pelo coletor. */
+function oauthRun(evidence: MatrixEvidence, email: string, authOk: boolean, mailboxEnabled: boolean | null, now: Date): OAuthVerdict {
+  const run = evidence.oauth;
+  if (!run) return { verdict: "ABSENT", label: "", reason: "", at: null };
+  if (email !== OAUTH_COLLECTOR_MAILBOX) {
+    return { verdict: "NOT_PROVEN", label: "Execução não atribuível", reason: `A última execução do coletor (${run.lastSyncAt ?? "sem data"}) é do projeto e autentica como outra caixa (${OAUTH_COLLECTOR_MAILBOX}); não comprova a coleta desta caixa.`, at: null };
+  }
+  if (!authOk) return { verdict: "NOT_PROVEN", label: "Sem aceite válido", reason: "Sem aceite autorizado vigente para esta caixa.", at: run.lastSyncAt };
+  if (!run.enabled) return { verdict: "NOT_PROVEN", label: "Monitoramento desligado", reason: "A configuração de ingestão do projeto está desabilitada.", at: run.lastSyncAt };
+  if (mailboxEnabled !== true) return { verdict: "NOT_PROVEN", label: "Caixa fora da coleta", reason: "A caixa não está habilitada na configuração de ingestão da obra.", at: run.lastSyncAt };
+  const startRaw = run.windowMode === "CUSTOM" ? run.customStartAt : run.windowMode === "FROM_NOW" ? run.monitoringStartedAt : null;
+  const start = startRaw ? Date.parse(startRaw) : null, end = run.windowMode === "CUSTOM" && run.customEndAt ? Date.parse(run.customEndAt) : null;
+  if ((run.windowMode === "CUSTOM" || run.windowMode === "FROM_NOW") && (start === null || !Number.isFinite(start))) return { verdict: "NOT_PROVEN", label: "Período inválido", reason: "Início do período da configuração ausente ou inválido.", at: run.lastSyncAt };
+  if (run.windowMode !== null && !["FROM_PROJECT_START", "FROM_NOW", "CUSTOM"].includes(run.windowMode)) return { verdict: "NOT_PROVEN", label: "Período inválido", reason: `Modo de janela desconhecido: ${run.windowMode}.`, at: run.lastSyncAt };
+  if (start !== null && now.getTime() < start) return { verdict: "NOT_PROVEN", label: "Período futuro", reason: `O período só começa em ${startRaw}.`, at: run.lastSyncAt };
+  if (end !== null && (!Number.isFinite(end) || now.getTime() > end)) return { verdict: "NOT_PROVEN", label: "Período vencido", reason: `O período configurado terminou em ${run.customEndAt}.`, at: run.lastSyncAt };
+  if (!run.lastSyncAt) return { verdict: "NOT_PROVEN", label: "Coleta não comprovada", reason: "Nenhuma execução bem-sucedida registrada.", at: null };
+  if (now.getTime() - Date.parse(run.lastSyncAt) > STALE_MS) return { verdict: "NOT_PROVEN", label: "Coleta desatualizada", reason: `Última execução bem-sucedida em ${run.lastSyncAt}.`, at: run.lastSyncAt };
+  return { verdict: "OK", label: "", reason: "", at: run.lastSyncAt };
+}
+
 const STALE_MS = 48 * 3600 * 1000; // coletas incrementais rodam a cada poucas horas; >48h sem sincronizar não é "coleta atual"
 
 export function buildUserSourceRows(members: MatrixMember[], evidence: MatrixEvidence, now = new Date()): UserSourceRow[] {
@@ -84,8 +120,10 @@ export function buildUserSourceRows(members: MatrixMember[], evidence: MatrixEvi
 
     const revoked = Boolean(control && (control.revoked_at || control.corporate_authorization_status === "REVOGADA" || ["REVOGADO", "RECUSADO"].includes(control.individual_consent_status)));
     let technical: Beacon;
+    const oauth = evidence.controls === null ? oauthRun(evidence, email, auth.ok, mailboxEnabled, now) : null;
     if (evidence.controls === null) {
-      technical = bad("Não comprovada", "A tabela de controles de coleta não existe em produção; a permissão técnica atual não é registrada. Importações antigas são histórico, não prova atual.");
+      if (oauth?.verdict === "OK") technical = ok("Inferida da execução", `Inferida da execução bem-sucedida em ${oauth.at}: o coletor OAuth autentica como esta caixa (getProfile confere a identidade a cada execução). Não é uma verificação de permissão técnica registrada.`, oauth.at);
+      else technical = bad("Não comprovada", oauth?.reason || "A tabela de controles de coleta não existe em produção; a permissão técnica atual não é registrada. Importações antigas são histórico, não prova atual.");
     } else if (!control) technical = bad("Não comprovada", "Sem controle registrado para esta caixa.");
     else if (revoked) technical = bad("Revogada", "Autorização ou consentimento revogado no controle da caixa.");
     else if (control.technical_permission_status === "CONFIRMADA") technical = ok("Confirmada", "Permissão técnica confirmada no controle da caixa.", control.last_sync_at);
@@ -96,7 +134,11 @@ export function buildUserSourceRows(members: MatrixMember[], evidence: MatrixEvi
     if (member.status !== "ACTIVE") collection = bad("Usuário inativo", "O vínculo com a obra não está ativo.");
     else if (emails === null) collection = bad("Sem comprovação", "Contagem de mensagens por caixa indisponível.");
     else if (!auth.ok) collection = bad(emails > 0 ? "Sem aceite válido" : "Nada coletado", emails > 0 ? `${emails} mensagens históricas existem, mas não há aceite autorizado vigente.` : "Nenhuma mensagem importada e sem aceite vigente.");
-    else if (evidence.controls === null) {
+    else if (evidence.controls === null && oauth?.verdict === "OK") {
+      collection = ok("Execução recente comprovada", `Coletor OAuth autenticado como esta caixa; última execução bem-sucedida em ${oauth.at}, dentro da janela da configuração. A tabela de controles por caixa não é usada; ${emails} mensagens importadas.`, oauth.at);
+    } else if (evidence.controls === null && oauth && oauth.verdict !== "ABSENT") {
+      collection = bad(oauth.label, oauth.reason, oauth.at);
+    } else if (evidence.controls === null) {
       collection = emails > 0
         ? bad("Histórico importado", `${emails} mensagens importadas (última enviada em ${mailbox?.lastMessageAt ?? "data indisponível"}). Sem controle de coleta em produção, não há prova de coleta atual.`, mailbox?.lastMessageAt ?? null)
         : bad("Nada coletado", "Nenhuma mensagem importada desta caixa para este projeto.");
