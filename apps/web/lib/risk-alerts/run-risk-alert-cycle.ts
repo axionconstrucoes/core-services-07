@@ -357,7 +357,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
   return result;
 }
 
-interface SendContext {
+export interface SendContext {
   store: RiskAlertStore;
   provider: EmailProvider;
   projectId: string;
@@ -470,7 +470,7 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
   }
 }
 
-async function sendPlanned(outboxId: string, caseId: string | null, entry: PlannedOutboxEntry, ctx: SendContext): Promise<"SENT" | "FAILED" | "SKIPPED"> {
+export async function sendPlanned(outboxId: string, caseId: string | null, entry: PlannedOutboxEntry, ctx: SendContext): Promise<"SENT" | "FAILED" | "SKIPPED"> {
   const recipientEmail = entry.recipient.email;
   if (!recipientEmail) {
     await ctx.store.markFailed(outboxId, "Destinatário sem e-mail no momento do envio.");

@@ -1,0 +1,66 @@
+name: Pilot Single Alert
+
+# Execução MANUAL e ÚNICA de um alerta do piloto WEG (sem ligar a geração recorrente).
+# Não tem schedule. Só roda em main. Chama a rota JÁ autenticada /api/cron/risk-alerts no modo pilotSingleCase, que:
+#   - nunca executa o ciclo normal e nunca altera risk_alerts_enabled;
+#   - usa a mesma cadeia de guardas do provider (grupo WEG_INTERNAL_FOUR: To exato nas quatro caixas, sem Cc/Bcc);
+#   - só ENVIA se o id do caso for idêntico a ACC_PILOT_SINGLE_ALERT_CASE_ID configurada no servidor (armamento explícito);
+#   - é idempotente por caso+destinatário (não reenvia).
+# O segredo vai só no header Authorization (nunca em URL ou log).
+
+on:
+  workflow_dispatch:
+    inputs:
+      case_id:
+        description: "UUID do caso de risco (risk_alert_cases.id) — HIGH/CRITICAL, aberto, da WEG"
+        required: true
+      mode:
+        description: "dry-run (padrão, sem escrita/envio) ou send"
+        required: false
+        default: "dry-run"
+      confirm:
+        description: "Para mode=send digite exatamente: ENVIAR-UMA-VEZ"
+        required: false
+        default: ""
+
+concurrency:
+  group: pilot-single-alert
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call single-alert mode
+        shell: bash
+        env:
+          ACC_APP_BASE_URL: ${{ vars.ACC_APP_BASE_URL }}
+          ACC_RISK_ALERTS_CRON_SECRET: ${{ secrets.ACC_RISK_ALERTS_CRON_SECRET }}
+          CASE_ID: ${{ github.event.inputs.case_id }}
+          MODE: ${{ github.event.inputs.mode }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          set -euo pipefail
+          [[ "${CASE_ID}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] || { echo "::error::case_id não é um UUID"; exit 1; }
+          [ -n "${ACC_APP_BASE_URL:-}" ] && [ -n "${ACC_RISK_ALERTS_CRON_SECRET:-}" ] || { echo "::error::ACC_APP_BASE_URL ou segredo ausente"; exit 1; }
+          case "${ACC_APP_BASE_URL}" in https://*) ;; *) echo "::error::ACC_APP_BASE_URL precisa começar com https://"; exit 1 ;; esac
+          case "${MODE}" in
+            dry-run) extra="&dryRun=1" ;;
+            send)
+              [ "${CONFIRM}" = "ENVIAR-UMA-VEZ" ] || { echo "::error::confirmação ausente para mode=send"; exit 1; }
+              extra="" ;;
+            *) echo "::error::mode inválido"; exit 1 ;;
+          esac
+          status=$(curl --silent --show-error --max-time 120 \
+            --output response.json --write-out "%{http_code}" \
+            -H "Authorization: Bearer ${ACC_RISK_ALERTS_CRON_SECRET}" \
+            "${ACC_APP_BASE_URL%/}/api/cron/risk-alerts?pilotSingleCase=${CASE_ID}${extra}")
+          echo "HTTP ${status}"
+          cat response.json
+          echo
+          [ "${status}" = "200" ] || exit 1
