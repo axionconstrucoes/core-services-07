@@ -1,0 +1,31 @@
+# Diagnostico MANUAL e SOMENTE LEITURA da ESTRUTURA de 8 planilhas semanais da WEG (lista fechada no script).
+# Nao le celulas, nao grava no banco nem no Storage, nao reprocessa. Repositorio publico: o log traz so classes de
+# vocabulario fechado, indices, dimensoes e contagens (sem nomes de aba/arquivo/pessoas, sem conteudo).
+# Sem upload-artifact, sem schedule; somente main. Nenhum cron alterado.
+name: Weekly samples structure diagnostic (manual, WEG, somente leitura)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Estrutura das amostras (leitura)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/diagnose-weekly-samples.mjs
