@@ -136,5 +136,24 @@ for (const v of versions) {
   }
   for (const k of n.rows.keys()) if (!oldRows.has(k)) onlyNew += 1;
   console.log(`comparação por linha: idênticas=${exact}; idênticas se ignorar células escravas de mesclagem=${ownEqual}; mesmos valores (só posição de colunas vazias)=${tokEqual}; idem sem escravas=${tokEqualOwn}; DIFERENTES=${differ} (valores só no novo=${extraCellsInNew}, valores só no antigo=${missingInNew}); linhas só no antigo=${onlyOld}; linhas só no novo=${onlyNew}`);
+  // Alinhamento por CONTEÚDO, ignorando o número da linha: separa "mesmo conteúdo em outra linha" de perda/ganho real.
+  {
+    const pool = new Map(); // "aba|tokens" -> lista de números de linha do antigo (variante completa e sem escravas)
+    const add = (k, key, rn) => { const kk = k + "#" + key; (pool.get(kk) ?? pool.set(kk, []).get(kk)).push(rn); };
+    for (const [k, r] of oldRows) { const sh = k.slice(0, k.lastIndexOf("|")), rn = Number(k.split("|").pop()); const a = toks(r.all.join(" | ")).join(""), b = toks(r.own.join(" | ")).join(""); add(sh, a, rn); if (b !== a) add(sh, b, rn); }
+    const used = new Set(); const offsets = {}; let sameNum = 0, diffNum = 0, noMatch = 0;
+    for (const [k, t] of n.rows) {
+      const sh = k.slice(0, k.lastIndexOf("|")), rn = Number(k.split("|").pop());
+      const list = pool.get(sh + "#" + toks(t).join(""));
+      const free = list?.filter((x) => !used.has(sh + "|" + x));
+      if (!free || !free.length) { noMatch += 1; continue; }
+      const pick = free.includes(rn) ? rn : free.reduce((p, c) => (Math.abs(c - rn) < Math.abs(p - rn) ? c : p));
+      used.add(sh + "|" + pick);
+      if (pick === rn) sameNum += 1; else { diffNum += 1; const d = rn - pick; offsets[d] = (offsets[d] ?? 0) + 1; }
+    }
+    const oldUnmatched = [...oldRows.keys()].filter((k) => !used.has(k)).length;
+    const top = Object.entries(offsets).sort((x, y) => y[1] - x[1]).slice(0, 6).map(([d, c]) => d + ":" + c).join(", ");
+    console.log("alinhamento por conteúdo: linhas do novo com conteúdo igual a uma do antigo na MESMA numeração=" + sameNum + ", em OUTRA numeração=" + diffNum + " (deslocamentos novo-antigo, top: " + top + "), sem correspondente no antigo=" + noMatch + "; linhas do antigo sem correspondente no novo=" + oldUnmatched);
+  }
   if (dsample.length) console.log(`  amostra das diferentes (posição/tamanho, sem texto): ${dsample.join("; ")}`);
 }
