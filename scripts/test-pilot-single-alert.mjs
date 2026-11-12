@@ -237,5 +237,87 @@ await check("rota: exige cron-secret; execução real sem armamento => 403; id d
   assert(!/\$\{\{ *secrets\.[A-Z_]+ *\}\}[^\n]*\?/.test(wf), "segredo em URL");
 });
 
+// ---------------------------------------------------------------------------------------------------------------
+// Reentrada ESTREITA: a mesma linha bloqueada ANTES de qualquer chamada de rede pode ser retentada; nada mais.
+// ---------------------------------------------------------------------------------------------------------------
+const { EmailSendError } = await import("../apps/web/lib/email/email-provider");
+const { isPreNetworkRetryable, PILOT_SINGLE_PRE_NETWORK_MARKER } = await import("../apps/web/lib/risk-alerts/run-pilot-single-alert");
+const PRE_NETWORK_ERROR = "GmailEmailProvider: remetente do piloto não configurado — envio bloqueado antes de qualquer chamada de rede.";
+
+class PreNetworkBlockedProvider extends FakeEmailProvider {
+  async send() {
+    throw new EmailSendError(PRE_NETWORK_ERROR);
+  }
+}
+
+/** Reproduz o run real: 3 linhas PENDING, 1 tentativa, sem provider_message_id, last_error com o marcador pré-rede. */
+async function preBlocked() {
+  const w = await seeded();
+  const r = await runPilotSingleAlert({ caseId: w.highCase.id, now: new Date(T0), store: w.store, provider: new PreNetworkBlockedProvider() });
+  assert(r.status === "EXECUTED" && r.sent === 0 && r.failed === 3, `pré-bloqueio: ${JSON.stringify(r)}`);
+  const rows = w.store.state.outbox.filter((o) => o.idempotencyKey.includes(":PILOT_SINGLE:"));
+  assert(rows.length === 3 && rows.every((o) => o.status === "PENDING" && o.attemptCount === 1 && !o.providerMessageId && o.lastError?.includes(PILOT_SINGLE_PRE_NETWORK_MARKER)), JSON.stringify(rows.map((o) => [o.status, o.attemptCount, o.lastError])));
+  w.rec.guarded.length = 0;
+  return { ...w, rows };
+}
+
+await check("reentrada: linhas bloqueadas antes da rede => dry-run WOULD_RETRY sem escrita; execução reaproveita AS MESMAS linhas (sem duplicar) e envia 3", () =>
+  withEnv({}, async () => {
+    const w = await preBlocked();
+    const before = w.store.state.outbox.map((o) => `${o.id}:${o.idempotencyKey}`).sort();
+    const dry = await runPilotSingleAlert({ caseId: w.highCase.id, dryRun: true, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(dry.status === "DRY_RUN" && dry.retried === 3 && dry.recipients.every((x) => x.outcome === "WOULD_RETRY" && x.retry), JSON.stringify(dry.recipients));
+    assert(JSON.stringify(w.store.state.outbox.map((o) => `${o.id}:${o.idempotencyKey}`).sort()) === JSON.stringify(before), "dry-run escreveu");
+    assert(w.rec.guarded.length === 0, "dry-run enviou");
+    const r = await runPilotSingleAlert({ caseId: w.highCase.id, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(r.status === "EXECUTED" && r.sent === 3 && r.retried === 3 && r.recipients.every((x) => x.retry && x.outcome === "SENT"), JSON.stringify(r));
+    assert(JSON.stringify(w.store.state.outbox.map((o) => `${o.id}:${o.idempotencyKey}`).sort()) === JSON.stringify(before), "criou linha nova ou trocou chave");
+    assert(w.rows.every((o) => o.status === "SENT"), "linhas originais não ficaram SENT");
+    for (const g of w.rec.guarded) {
+      const to = String(g.to).split(",").map((a) => a.trim().toLowerCase()).sort();
+      assert(JSON.stringify(to) === JSON.stringify([...GROUP].sort()) && !g.cc && !g.bcc, `To=${g.to}`);
+    }
+    assert(w.rec.guarded.length === 3, `${w.rec.guarded.length} mensagens`);
+    const again = await runPilotSingleAlert({ caseId: w.highCase.id, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(again.status === "ALREADY_SENT" && again.recipients.every((x) => x.outcome === "JA_EXISTE"), "reenviou após SENT");
+    assert(w.rec.guarded.length === 3, "reenviou");
+  }));
+
+await check("reentrada recusada: provider_message_id preenchido, status SENT, last_error sem marcador, linha de outro caso, tentativas esgotadas", () =>
+  withEnv({}, async () => {
+    const w = await preBlocked();
+    const [a, b, c] = w.rows;
+    a.providerMessageId = "msg-qualquer"; // possível entrega => nunca retenta
+    b.lastError = "Falha de rede no provedor."; // sem o marcador pré-rede
+    c.caseId = "99999999-0000-4000-8000-000000000099"; // linha de outro caso
+    const r = await runPilotSingleAlert({ caseId: w.highCase.id, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(r.status === "ALREADY_SENT" && r.retried === 0 && r.recipients.every((x) => x.outcome === "JA_EXISTE" && !x.retry), JSON.stringify(r.recipients));
+    assert(w.rec.guarded.length === 0, "enviou");
+    const base = { idempotencyKey: "k", projectId: WEG, caseId: "c", recipientUserId: "u" };
+    const ok = { id: "1", ...base, status: "PENDING", providerMessageId: null, sentAt: null, emailId: null, lastError: PRE_NETWORK_ERROR, attemptCount: 1 };
+    const exp = { projectId: WEG, caseId: "c", recipientUserId: "u", idempotencyKey: "k" };
+    assert(isPreNetworkRetryable(ok, exp) === true, "caso válido recusado");
+    assert(!isPreNetworkRetryable({ ...ok, status: "SENT" }, exp), "SENT retentado");
+    assert(!isPreNetworkRetryable({ ...ok, status: "FAILED" }, exp), "FAILED retentado");
+    assert(!isPreNetworkRetryable({ ...ok, sentAt: "2026-11-12T00:00:00Z" }, exp), "sent_at retentado");
+    assert(!isPreNetworkRetryable({ ...ok, emailId: "e" }, exp), "email_id retentado");
+    assert(!isPreNetworkRetryable({ ...ok, attemptCount: 3 }, exp), "tentativas esgotadas retentado");
+    assert(!isPreNetworkRetryable({ ...ok, projectId: "outro" }, exp), "outro projeto retentado");
+    assert(!isPreNetworkRetryable({ ...ok, recipientUserId: "outro" }, exp), "outro destinatário retentado");
+    assert(!isPreNetworkRetryable(undefined, exp), "sem linha retentado");
+  }));
+
+await check("ciclo normal (mesmo com a flag ligada em memória) NÃO envia as linhas PILOT_SINGLE de caso de TESTE bloqueadas antes da rede", () =>
+  withEnv({}, async () => {
+    const w = await preBlocked();
+    const testCase = w.store.state.cases.get(w.highCase.id);
+    testCase.title = `[TESTE PILOTO] ${testCase.title}`;
+    testCase.reference = "TESTE-PILOTO";
+    w.world.config.riskAlertsEnabled = true;
+    await runRiskAlertCycle({ now: new Date(T0), store: w.store, provider: w.provider, expert: { answer: async () => ({ answerText: "x", confidence: 0.5, requiresHumanReview: true }) }, dryRun: false });
+    w.world.config.riskAlertsEnabled = false;
+    assert(w.rows.every((o) => o.status === "PENDING" && o.attemptCount === 1 && !o.providerMessageId), JSON.stringify(w.rows.map((o) => [o.status, o.attemptCount])));
+  }));
+
 console.log(`\n${passed} OK, ${failed} falha(s)`);
 process.exit(failed ? 1 : 0);

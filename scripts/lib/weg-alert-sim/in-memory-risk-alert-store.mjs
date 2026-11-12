@@ -201,6 +201,24 @@ export function createInMemoryRiskAlertStore(world) {
       return persisted;
     },
 
+    async loadOutboxRetryInfo(projectId, keys) {
+      return state.outbox
+        .filter((o) => keys.includes(o.idempotencyKey))
+        .map((o) => ({
+          id: o.id,
+          idempotencyKey: o.idempotencyKey,
+          projectId: o.projectId ?? projectId,
+          caseId: o.caseId,
+          recipientUserId: o.recipientUserId,
+          status: o.status,
+          providerMessageId: o.providerMessageId ?? null,
+          sentAt: o.sentAt ?? null,
+          emailId: o.emailId ?? null,
+          lastError: o.lastError ?? null,
+          attemptCount: o.attemptCount,
+        }));
+    },
+
     async listPendingRows() {
       return state.outbox
         .filter((o) => o.status === "PENDING" && o.attemptCount < MAX_SEND_ATTEMPTS)
