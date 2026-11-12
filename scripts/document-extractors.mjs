@@ -1,6 +1,6 @@
-﻿import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import mammoth from "mammoth";
-import ExcelJS from "exceljs";
+import { readXlsxLines, XLSX_EXTRACTOR, XLSX_EXTRACTOR_VERSION } from "./lib/xlsx-extract.mjs";
 
 const MAX_SEGMENT_CHARS = 5000;
 
@@ -161,57 +161,23 @@ async function extractDocx(buffer) {
 }
 
 async function extractXlsx(buffer) {
-  const workbook =
-    new ExcelJS.Workbook();
-
-  await workbook.xlsx.load(buffer);
+  const { lines } = await readXlsxLines(buffer, normalizeText);
 
   const segments = [];
   const complete = [];
 
-  workbook.eachSheet((worksheet) => {
-    worksheet.eachRow(
-      { includeEmpty: false },
-      (row, rowNumber) => {
-        const values = [];
-
-        row.eachCell(
-          { includeEmpty: true },
-          (cell) => {
-            values.push(
-              normalizeText(cell.text)
-            );
-          }
-        );
-
-        const text =
-          values.join(" | ").trim();
-
-        if (!text) {
-          return;
-        }
-
-        complete.push(
-          `[${worksheet.name} - linha ${rowNumber}] ${text}`
-        );
-
-        segments.push(
-          ...splitLongText(
-            text,
-            `Planilha "${worksheet.name}", linha ${rowNumber}`
-          )
-        );
-      }
+  for (const { sheet, row, text } of lines) {
+    complete.push(`[${sheet} - linha ${row}] ${text}`);
+    segments.push(
+      ...splitLongText(text, `Planilha "${sheet}", linha ${row}`)
     );
-  });
+  }
 
   return {
-    extractor: "exceljs",
-    extractorVersion: "1",
+    extractor: XLSX_EXTRACTOR,
+    extractorVersion: XLSX_EXTRACTOR_VERSION,
     pageCount: null,
-    text: normalizeText(
-      complete.join("\n")
-    ),
+    text: normalizeText(complete.join("\n")),
     segments,
   };
 }

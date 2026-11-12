@@ -20,6 +20,7 @@ import { randomUUID } from "node:crypto";
 import { register } from "node:module";
 import { openAsBlob } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import { completeContentDownloadAsService } from "./lib/construmanager-complete-service.mjs";
 
 register("./ts-module-resolver.mjs", import.meta.url);
 
@@ -396,19 +397,18 @@ try {
         bytesStored += Number(content.sizeBytes ?? 0);
       }
 
-      const done = firstRow(
-        await rpc("complete_construmanager_content_download_system", {
-          p_project_id: PROJECT_ID,
-          p_link_id: alvo.link_id,
-          p_sha256: content.sha256,
-          p_size_bytes: content.sizeBytes,
-          p_storage_bucket: CONTENT_BUCKET,
-          p_storage_path: storagePath,
-          p_mime_type: content.mimeType,
-          p_detected_extension: content.detectedExtension,
-          p_zip_entry_path: content.zipEntryPath,
-        })
-      );
+      // Nao usa complete_..._system: ela delega a RPC de sessao (auth.uid()) e falha com service_role.
+      const done = await completeContentDownloadAsService(supabase, {
+        projectId: PROJECT_ID,
+        linkId: alvo.link_id,
+        sha256: content.sha256,
+        sizeBytes: content.sizeBytes,
+        storageBucket: CONTENT_BUCKET,
+        storagePath,
+        mimeType: content.mimeType,
+        detectedExtension: content.detectedExtension,
+        zipEntryPath: content.zipEntryPath,
+      });
 
       stored += 1;
       if (done?.blob_reused) reused += 1;
