@@ -13,6 +13,9 @@ import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { findPossibleDuplicates, listNearMisses, type SsmaFormMetricsRow, type SsmaIncidentLinkRow } from "@/lib/ssma/dashboard-metrics";
 import type { FieldRecordRow } from "@/lib/ssma/field-records/field-record-view";
 import { createSupabaseServerClient } from "@axion/db/server";
+import { getRecentChecklistSubmissions } from "@/lib/ssma/checklist-photos/data";
+import { CHECKLIST_SUBMISSIONS_LIMIT } from "@/lib/ssma/checklist-photos/checklist-submissions-view";
+import { ChecklistSubmissionsGallery } from "@/components/ssma/checklist-photos/checklist-submissions-gallery";
 
 export const metadata: Metadata = { title: "Registros de campo SSMA" };
 
@@ -34,7 +37,7 @@ export default async function SsmaFieldRecordsPage({
   if (!project) notFound();
 
   const names = new Map(members.map((member) => [member.userId, member.user.name]));
-  const { available, records } = await getFieldRecords(projectId, names);
+  const [{ available, records }, checklists] = await Promise.all([getFieldRecords(projectId, names), getRecentChecklistSubmissions(projectId, names)]);
   const today = new Date().toISOString().slice(0, 10);
   const summary = summarizeFieldRecords(records, today);
 
@@ -141,6 +144,22 @@ export default async function SsmaFieldRecordsPage({
           </Card>
         </>
       )}
+
+      <Card id="checklists-enviados">
+        <CardHeader>
+          <CardTitle className="text-base">Checklists enviados</CardTitle>
+          <p className="text-xs text-muted-foreground">Últimos {CHECKLIST_SUBMISSIONS_LIMIT} envios. As fotos abrem a partir do original guardado no ACC (link temporário); a cópia no Google Drive não é usada aqui.</p>
+        </CardHeader>
+        <CardContent>
+          {!checklists.available ? (
+            <p className="text-sm text-muted-foreground">Não foi possível carregar os checklists enviados.</p>
+          ) : checklists.submissions.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum checklist enviado ainda.</p>
+          ) : (
+            <ChecklistSubmissionsGallery submissions={checklists.submissions} />
+          )}
+        </CardContent>
+      </Card>
 
       <SsmaInstallCard />
     </div>
