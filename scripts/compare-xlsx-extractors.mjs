@@ -54,7 +54,7 @@ async function oldCells(buffer) {
       rows.push([`${ws.name}|${number}`, { all, own, si }]);
     });
   });
-  return { rows, throws, sheets: sheets.length };
+  return { rows, throws, sheets: sheets.length, sheetNames: sheets };
 }
 
 async function newLines(buffer) {
@@ -63,6 +63,22 @@ async function newLines(buffer) {
   const names = [];
   for (const l of lines) { if (!names.includes(l.sheet)) names.push(l.sheet); rows.set(`${l.sheet}|${l.row}`, l.text); }
   return { rows, stats, sheets: names.length };
+}
+
+/** Células cruas via leitura em fluxo (valor como gravado no arquivo): chave "aba|linha|coluna" -> há texto? */
+async function streamCellsPresence(buffer) {
+  const { Readable } = await import("node:stream");
+  const reader = new ExcelJS.stream.xlsx.WorkbookReader(Readable.from([buffer]), { entries: "emit", sharedStrings: "cache", styles: "cache", hyperlinks: "ignore", worksheets: "emit" });
+  const present = new Set();
+  for await (const ws of reader) {
+    for await (const row of ws) {
+      row.eachCell({ includeEmpty: false }, (cell, col) => {
+        let t = ""; try { t = normalize(cell.text); } catch { t = ""; }
+        if (t) present.add(ws.name + "|" + row.number + "|" + col);
+      });
+    }
+  }
+  return present;
 }
 
 // Processo filho: lê com o extrator ANTIGO isolado.
@@ -78,7 +94,7 @@ function oldIsolated(buffer) {
     const r = spawnSync("node", [fileURLToPath(import.meta.url), "--old", join(dir, "in.xlsx"), join(dir, "out.json")], { encoding: "utf8", timeout: 240000, maxBuffer: 1 << 24 });
     if (r.status !== 0) return { falhou: true, sinal: r.signal, estouroMemoria: /heap out of memory|FATAL ERROR/i.test(String(r.stderr)) };
     const j = JSON.parse(readFileSync(join(dir, "out.json"), "utf8"));
-    return { rows: new Map(j.rows), throws: j.throws, sheets: j.sheets };
+    return { rows: new Map(j.rows), throws: j.throws, sheets: j.sheets, sheetNames: j.sheetNames };
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
@@ -136,6 +152,22 @@ for (const v of versions) {
   }
   for (const k of n.rows.keys()) if (!oldRows.has(k)) onlyNew += 1;
   console.log(`comparação por linha: idênticas=${exact}; idênticas se ignorar células escravas de mesclagem=${ownEqual}; mesmos valores (só posição de colunas vazias)=${tokEqual}; idem sem escravas=${tokEqualOwn}; DIFERENTES=${differ} (valores só no novo=${extraCellsInNew}, valores só no antigo=${missingInNew}); linhas só no antigo=${onlyOld}; linhas só no novo=${onlyNew}`);
+  // Hipótese: o DOM anula (valor nulo) células que o arquivo traz com valor e que caem dentro de intervalos mesclados.
+  try {
+    const present = await streamCellsPresence(buffer);
+    const throwKeys = new Set(o.throws.map((t) => o.sheetNames[t.sheet - 1] + "|" + t.row + "|" + t.col));
+    const throwWithValue = [...throwKeys].filter((k) => present.has(k)).length;
+    let newOnlyRows = 0, newOnlyAllInThrows = 0;
+    const rowsOfNewOnly = [...n.rows.keys()].filter((k) => !oldRows.has(k));
+    for (const k of rowsOfNewOnly) {
+      newOnlyRows += 1;
+      const sh = k.slice(0, k.lastIndexOf("|")), rn = k.split("|").pop();
+      const cells = [...present].filter((p) => p.startsWith(sh + "|" + rn + "|"));
+      if (cells.length && cells.every((c) => throwKeys.has(c))) newOnlyAllInThrows += 1;
+    }
+    console.log("verificação da hipótese (mesclagem no DOM): posições ilegíveis no antigo=" + throwKeys.size + "; dessas, com valor gravado no arquivo (visto pelo fluxo)=" + throwWithValue + "; linhas só no novo=" + newOnlyRows + ", das quais com TODAS as células em posições ilegíveis do antigo=" + newOnlyAllInThrows);
+  } catch (e) { console.log("verificação da hipótese: falhou (" + String(e.message).slice(0, 60) + ")"); }
+
   // Alinhamento por CONTEÚDO, ignorando o número da linha: separa "mesmo conteúdo em outra linha" de perda/ganho real.
   {
     const pool = new Map(); // "aba|tokens" -> lista de números de linha do antigo (variante completa e sem escravas)
