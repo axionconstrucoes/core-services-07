@@ -30,3 +30,14 @@ export function safeFailureCode(error) {
 export function failureRecord(stage, emailId, error) {
   return { etapa: stage, email_id: String(emailId), codigo: safeFailureCode(error) };
 }
+
+/**
+ * HTTP 404 exclusivamente na leitura da mensagem (etapa gmail_get) significa "mensagem indisponível no provedor".
+ * Não indica a causa (exclusão, movimentação ou identificador inválido não são distinguíveis aqui).
+ * Qualquer outra etapa ou status (401, 403, 5xx, banco, autorização) continua sendo falha.
+ */
+export function isProviderMessageUnavailable(stage, error) {
+  if (stage !== "gmail_get" || error instanceof RecoveryStageError || error?.recoveryDb === true) return false;
+  const status = Number(error?.response?.status ?? error?.status ?? error?.code);
+  return status === 404;
+}
