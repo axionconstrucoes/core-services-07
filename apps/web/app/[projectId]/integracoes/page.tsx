@@ -8,6 +8,7 @@ import { EmailProjectScopeForm } from "@/components/integrations/email-project-s
 import { EmailSyncConfirmationPanel } from "@/components/integrations/email-sync-confirmation-panel";
 import { EmailSyncPanel } from "@/components/integrations/email-sync-panel";
 import { IntegrationCard } from "@/components/integrations/integration-card";
+import { UserIntegrationMatrix } from "@/components/integrations/user-integration-matrix";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
@@ -21,6 +22,8 @@ import { getConstrumanagerMetadataOverview } from "@/lib/integrations/construman
 import { getConstrumanagerVersionTransitions } from "@/lib/integrations/construmanager/get-version-transitions";
 import { getDiarioDeObraMonitoringOverview } from "@/lib/integrations/diario-de-obra/get-monitoring-overview";
 import { getDiarioDeObraClimateKpiOverview } from "@/lib/integrations/diario-de-obra/get-climate-kpi-overview";
+import { getUserIntegrationEvidence } from "@/lib/integrations/get-user-integration-evidence";
+import { buildSharedSourceRows, buildUserSourceRows } from "@/lib/integrations/user-integration-matrix";
 
 export const metadata: Metadata = { title: "Integrações" };
 
@@ -35,7 +38,7 @@ export default async function IntegracoesPage({
   const supabase = await createSupabaseServerClient();
   const sources = getSourceDefinitions();
 
-  const [configs, permission, project, projectStartRow, accounts, ingestionConfig, latestRun, attachmentRows, construmanagerMetadata, construmanagerTransitions, diarioDeObraOverview, diarioDeObraClimateKpi, members] = await Promise.all([
+  const [configs, permission, project, projectStartRow, accounts, ingestionConfig, latestRun, attachmentRows, construmanagerMetadata, construmanagerTransitions, diarioDeObraOverview, diarioDeObraClimateKpi, members, userIntegrationEvidence] = await Promise.all([
     getIntegrationConfigs(projectId),
     getCurrentProjectPermission(projectId),
     getProject(projectId),
@@ -51,6 +54,7 @@ export default async function IntegracoesPage({
     getDiarioDeObraMonitoringOverview(supabase, projectId),
     getDiarioDeObraClimateKpiOverview(supabase, projectId),
     getProjectMembers(projectId),
+    getUserIntegrationEvidence(supabase, projectId),
   ]);
 
   const canManage = permission === "ADMINISTRADOR";
@@ -63,10 +67,14 @@ export default async function IntegracoesPage({
   const budgetUsers = members
     .filter((member) => member.status === "ACTIVE" && member.area === "ORÇAMENTO")
     .map((member) => ({ id: member.userId, name: member.user.name }));
+  const userSourceRows = buildUserSourceRows(members, userIntegrationEvidence);
+  const sharedSourceRows = buildSharedSourceRows(userIntegrationEvidence);
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Administração de Integrações" description="Status operacional das fontes configuradas para este projeto." />
+
+      <UserIntegrationMatrix rows={userSourceRows} shared={sharedSourceRows} warnings={userIntegrationEvidence.warnings} measuredAt={userIntegrationEvidence.measuredAt} unassignedEmails={userIntegrationEvidence.unassignedEmails} />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         {sources.map((source) => {

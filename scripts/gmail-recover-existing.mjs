@@ -5,10 +5,15 @@ import { register } from "node:module";
 import { pathToFileURL } from "node:url";
 import { pilotSenderMatches } from "./lib/gmail-weg-pilot-sender.mjs";
 import { extractGmailBody } from "./lib/gmail-message-body.mjs";
+import { RecoveryStageError, failureRecord } from "./lib/gmail-recovery-diagnostics.mjs";
 import { RECOVERY, recoveryOptions, assertRecoveryAuthorization, isRecoveryRow, assertRecoveryMessage, collectRecoveryAttachments } from "./lib/gmail-recovery-policy.mjs";
 
 export async function recoverExisting({ supabase, gmail, options, ingestAttachments }) {
-  const checked = async (query) => { const { data, error } = await query; if (error) throw new Error(error.message); return data; };
+  const checked = async (query) => {
+    const { data, error } = await query;
+    if (error) { const failure = new Error("Falha de consulta ao banco."); failure.recoveryDb = true; failure.code = /^[A-Za-z0-9_.-]{1,16}$/.test(String(error.code ?? "")) ? `DB_${error.code}` : "DB_ERRO"; throw failure; }
+    return data;
+  };
 
   async function assertAuthorized() {
     const config = await checked(supabase.from("project_email_ingestion_configs").select("id,project_id,enabled").eq("project_id", RECOVERY.projectId).single());
@@ -37,7 +42,7 @@ export async function recoverExisting({ supabase, gmail, options, ingestAttachme
   if (missingMailbox.error) throw new Error(missingMailbox.error.message);
   const candidates = rows.filter(isRecoveryRow).filter((row) => options.kind !== "bodies" || (!row.body_text && !row.body_html));
   const batch = candidates.slice(0, options.limit);
-  const stats = { modo: options.apply ? "APPLY" : "DRY_RUN", tipo: options.kind, candidatas: candidates.length, analisadas: 0, restantes: candidates.length - batch.length, sem_caixa_excluidas: missingMailbox.count, corpos: 0, anexos_pendentes: 0, anexos_gravados: 0, anexos_existentes: 0, falhas: 0 };
+  const stats = { modo: options.apply ? "APPLY" : "DRY_RUN", tipo: options.kind, candidatas: candidates.length, analisadas: 0, restantes: candidates.length - batch.length, sem_caixa_excluidas: missingMailbox.count, corpos: 0, anexos_pendentes: 0, anexos_gravados: 0, anexos_existentes: 0, falhas: 0, falhas_detalhe: [] };
   let ingest = ingestAttachments;
   if (options.kind === "attachments" && options.apply && !ingest) {
     register("./ts-module-resolver.mjs", import.meta.url);
@@ -46,13 +51,19 @@ export async function recoverExisting({ supabase, gmail, options, ingestAttachme
   for (const row of batch) {
     // Revogação ou desligamento interrompe a próxima leitura; falha de consulta bloqueia.
     await assertAuthorized();
+    let stage = "gmail_get";
     try {
       const { data: message } = await gmail.users.messages.get({ userId: "me", id: row.provider_message_id, format: "full" });
+      stage = "validar_mensagem";
       assertRecoveryMessage(row, message);
+      stage = "validar_remetente";
       const fromHeader = (message.payload?.headers ?? []).find((item) => item.name?.toLowerCase() === "from")?.value ?? "";
       const addresses = fromHeader.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? [];
+      // Apenas a quantidade de endereços do cabeçalho é registrada (nunca os endereços).
+      if (addresses.length !== 1) throw new RecoveryStageError(`REMETENTE_COM_${addresses.length}_ENDERECOS`);
       if (!pilotSenderMatches(RECOVERY.projectId, addresses)) throw new Error("Remetente diferente do piloto.");
       stats.analisadas++;
+      stage = options.kind === "bodies" ? "extrair_corpo" : "consultar_anexos";
       if (options.kind === "bodies") {
         const { bodyText, bodyHtml } = extractGmailBody(message);
         if (!bodyText && !bodyHtml) throw new Error("Corpo vazio no provedor.");
@@ -65,10 +76,12 @@ export async function recoverExisting({ supabase, gmail, options, ingestAttachme
           stats.corpos += changed.length;
         } else stats.corpos++;
       } else {
+        stage = "consultar_anexos";
         const parts = collectRecoveryAttachments(message.payload);
         const existing = await checked(supabase.from("email_attachments").select("gmail_attachment_id").eq("project_id", RECOVERY.projectId).eq("email_id", row.id));
         const ids = new Set(existing.map((item) => item.gmail_attachment_id));
         const pending = parts.filter((part) => !ids.has(part.gmailAttachmentId));
+        stage = "recuperar_gravar_anexos";
         stats.anexos_existentes += parts.length - pending.length;
         stats.anexos_pendentes += pending.length;
         if (options.apply && pending.length) {
@@ -85,14 +98,20 @@ export async function recoverExisting({ supabase, gmail, options, ingestAttachme
           for (const result of results) {
             if (result.status === "INGESTED") stats.anexos_gravados++;
             else if (result.status === "ALREADY_INGESTED") stats.anexos_existentes++;
-            else stats.falhas++;
+            else {
+              stats.falhas++;
+              const code = /^[A-Z_]{1,40}$/.test(String(result.status)) ? `RESULTADO_${result.status}` : "RESULTADO_NAO_CLASSIFICADO";
+              stats.falhas_detalhe.push({ etapa: stage, email_id: String(row.id), codigo: code });
+            }
           }
         }
       }
-    } catch {
+    } catch (error) {
       // Não publica assunto, corpo, nome de anexo nem resposta de provedor em logs públicos.
       stats.falhas++;
-      console.error("Falha na recuperação de uma mensagem; conteúdo omitido.");
+      const detail = failureRecord(stage, row.id, error);
+      stats.falhas_detalhe.push(detail);
+      console.error(`Falha na recuperação: etapa=${detail.etapa} email_id=${detail.email_id} codigo=${detail.codigo}; conteúdo omitido.`);
     }
   }
   return stats;
