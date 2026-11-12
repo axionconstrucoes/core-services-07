@@ -1,8 +1,8 @@
 // Comparação SOMENTE LEITURA de fidelidade entre o extrator XLSX ANTIGO (leitura em memória, ExcelJS DOM, como em
 // b173844^) e o NOVO (scripts/lib/xlsx-extract.mjs), célula a célula, sobre versões XLSX reais da WEG.
 // Não grava no banco nem no Storage. NUNCA imprime conteúdo de célula, nomes de aba ou de arquivo: só contagens,
-// posições (aba por índice, linha, coluna) e o TIPO da diferença. O antigo é executado com proteção por célula
-// (valor ilegível => vazio) apenas para conseguir terminar; as ilegíveis são contadas e classificadas.
+// posições (aba por índice, linha, coluna) e o TIPO da diferença. O antigo é executado em processo filho (estoura a
+// memória em arquivo grande) e com proteção por célula (valor ilegível => vazio) apenas para conseguir terminar.
 import { createClient } from "@supabase/supabase-js";
 import ExcelJS from "exceljs";
 import { spawnSync } from "node:child_process";
@@ -17,53 +17,58 @@ const normalize = (value) => String(value ?? "").replace(/\r\n/g, "\n").replace(
 const colLetter = (n) => { let s = ""; for (let x = n; x > 0; x = Math.floor((x - 1) / 26)) s = String.fromCharCode(65 + ((x - 1) % 26)) + s; return s; };
 const kindOf = (cell) => {
   const v = cell.value;
-  if (v == null) return "valor-nulo";
+  const merged = cell.isMerged && cell.master !== cell ? "+escrava-de-mesclagem" : cell.isMerged ? "+mestre-de-mesclagem" : "";
+  if (v == null) return `valor-nulo${merged}`;
   if (typeof v === "object") {
-    if ("formula" in v || "sharedFormula" in v) return `formula(result=${v.result == null ? "nulo" : typeof v.result})`;
-    if ("richText" in v) return "richText";
-    if ("hyperlink" in v) return "hyperlink";
-    if ("error" in v) return "erro";
-    if (v instanceof Date) return "data";
-    return "objeto";
+    if ("formula" in v || "sharedFormula" in v) return `formula(result=${v.result == null ? "nulo" : typeof v.result})${merged}`;
+    if ("richText" in v) return `richText${merged}`;
+    if ("hyperlink" in v) return `hyperlink${merged}`;
+    if ("error" in v) return `erro${merged}`;
+    if (v instanceof Date) return `data${merged}`;
+    return `objeto${merged}`;
   }
-  return typeof v;
+  return `${typeof v}${merged}`;
 };
 
-/** Antigo: ExcelJS DOM + eachRow(includeEmpty:false) + eachCell(includeEmpty:true), igual ao código anterior. */
+/** Antigo: ExcelJS DOM + eachRow(includeEmpty:false) + eachCell(includeEmpty:true), igual ao código anterior.
+ *  Guarda duas versões da linha: `all` (como o antigo gravava) e `own` (sem células escravas de mesclagem, que o DOM
+ *  preenche com o valor da célula mestre). Chave interna por NOME da aba (nunca impresso). */
 async function oldCells(buffer) {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buffer);
-  const rows = new Map(); // "sheetIdx|row" -> string[] (por coluna, a partir da coluna 1)
+  const rows = []; // [key, { all, own, si }]
   const throws = []; // { kind, sheet, row, col }
-  let sheetIdx = 0;
+  const sheets = [];
   wb.eachSheet((ws) => {
-    sheetIdx += 1;
-    const si = sheetIdx;
+    sheets.push(ws.name);
+    const si = sheets.length;
     ws.eachRow({ includeEmpty: false }, (row, number) => {
-      const values = [];
+      const all = [], own = [];
       row.eachCell({ includeEmpty: true }, (cell, col) => {
         let text;
         try { text = cell.text; } catch { throws.push({ kind: kindOf(cell), sheet: si, row: number, col }); text = ""; }
-        values.push(normalize(text));
+        const t = normalize(text);
+        all.push(t);
+        if (!(cell.isMerged && cell.master !== cell)) own.push(t);
       });
-      rows.set(`${si}|${number}`, values);
+      rows.push([`${ws.name}|${number}`, { all, own, si }]);
     });
   });
-  return { rows, throws };
+  return { rows, throws, sheets: sheets.length };
 }
 
 async function newLines(buffer) {
   const { lines, stats } = await readXlsxLines(buffer, normalize);
-  // índice de aba por ordem de aparição (as linhas vêm agrupadas por aba)
-  const order = []; const rows = new Map();
-  for (const l of lines) { if (!order.includes(l.sheet)) order.push(l.sheet); rows.set(`${order.indexOf(l.sheet) + 1}|${l.row}`, l.text); }
-  return { rows, stats, sheets: order.length };
+  const rows = new Map();
+  const names = [];
+  for (const l of lines) { if (!names.includes(l.sheet)) names.push(l.sheet); rows.set(`${l.sheet}|${l.row}`, l.text); }
+  return { rows, stats, sheets: names.length };
 }
 
-// Processo filho: lê com o extrator ANTIGO isolado (ele estoura a memória em arquivos grandes e mataria o processo principal).
+// Processo filho: lê com o extrator ANTIGO isolado.
 if (process.argv[2] === "--old") {
-  const { rows, throws } = await oldCells(readFileSync(process.argv[3]));
-  writeFileSync(process.argv[4], JSON.stringify({ rows: [...rows], throws }));
+  const r = await oldCells(readFileSync(process.argv[3]));
+  writeFileSync(process.argv[4], JSON.stringify(r));
   process.exit(0);
 }
 function oldIsolated(buffer) {
@@ -73,9 +78,12 @@ function oldIsolated(buffer) {
     const r = spawnSync("node", [fileURLToPath(import.meta.url), "--old", join(dir, "in.xlsx"), join(dir, "out.json")], { encoding: "utf8", timeout: 240000, maxBuffer: 1 << 24 });
     if (r.status !== 0) return { falhou: true, sinal: r.signal, estouroMemoria: /heap out of memory|FATAL ERROR/i.test(String(r.stderr)) };
     const j = JSON.parse(readFileSync(join(dir, "out.json"), "utf8"));
-    return { rows: new Map(j.rows), throws: j.throws };
+    return { rows: new Map(j.rows), throws: j.throws, sheets: j.sheets };
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
+
+const toks = (s) => s.split("|").map((x) => x.trim()).filter(Boolean);
+const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 // Modo local (teste): node scripts/compare-xlsx-extractors.mjs arquivo.xlsx
 const localFile = process.argv[2];
@@ -93,7 +101,7 @@ console.log(`Versões XLSX do lote (WEG): ${versions.length}`);
 for (const v of versions) {
   const tag = v.id.slice(0, 8);
   let buffer;
-  if (v.local) buffer = (await import("node:fs")).readFileSync(v.local);
+  if (v.local) buffer = readFileSync(v.local);
   else {
     const { data: blob, error: dl } = await supabase.storage.from(v.storage_bucket).download(v.file_path);
     if (dl || !blob) { console.log(`\n== ${tag} download ERRO`); continue; }
@@ -106,24 +114,27 @@ for (const v of versions) {
   if (!n) continue;
   console.log(`novo: rota=${n.stats.rota} abas=${n.sheets} linhas=${n.rows.size} celulasIlegiveis=${n.stats.celulasIlegiveis}`);
   if (!o) continue;
-  const oldNonEmpty = new Map([...o.rows].map(([k, vals]) => [k, vals.join(" | ").trim()]).filter(([, t]) => t));
-  console.log(`antigo(protegido): linhas(eachRow)=${o.rows.size} linhasComTexto=${oldNonEmpty.size} celulasQueLancam=${o.throws.length}`);
+  const oldRows = new Map([...o.rows].map(([k, r]) => [k, { ...r, text: r.all.join(" | ").trim() }]).filter(([, r]) => r.text));
+  console.log(`antigo(protegido): abas=${o.sheets} linhas(eachRow)=${o.rows.size} linhasComTexto=${oldRows.size} celulasQueLancam=${o.throws.length}`);
   const byKind = {}; const byCol = {}; const sample = [];
   for (const t of o.throws) { byKind[t.kind] = (byKind[t.kind] ?? 0) + 1; const c = colLetter(t.col); byCol[c] = (byCol[c] ?? 0) + 1; if (sample.length < 6) sample.push(`aba${t.sheet}!${colLetter(t.col)}${t.row}`); }
   console.log(`  ilegíveis por tipo: ${JSON.stringify(byKind)}; por coluna: ${JSON.stringify(byCol)}; exemplos(posição): ${sample.join(", ")}`);
-  let onlyOld = 0, onlyNew = 0, same = 0, diffText = 0, diffOnlyLeadingSep = 0, diffLenOnly = 0, diffContent = 0; const dsample = [];
-  for (const [k, t] of oldNonEmpty) {
+  let exact = 0, ownEqual = 0, tokEqual = 0, tokEqualOwn = 0, differ = 0, onlyOld = 0, onlyNew = 0, extraCellsInNew = 0, missingInNew = 0;
+  const dsample = [];
+  for (const [k, r] of oldRows) {
     if (!n.rows.has(k)) { onlyOld += 1; continue; }
     const nt = n.rows.get(k);
-    if (nt === t) { same += 1; continue; }
-    diffText += 1;
-    const strip = (s) => s.replace(/^(\s*\|\s*)+/, "");
-    const toks = (s) => s.split("|").map((x) => x.trim()).filter(Boolean).join("|");
-    if (strip(nt) === strip(t)) diffOnlyLeadingSep += 1;
-    else if (toks(nt) === toks(t)) diffLenOnly += 1; // mesmos valores, só mudou o posicionamento de colunas vazias
-    else { diffContent += 1; if (dsample.length < 6) { const [si, r] = k.split("|"); dsample.push(`aba${si}!linha${r}(antigo=${t.length}c,novo=${nt.length}c)`); } }
+    if (nt === r.text) { exact += 1; continue; }
+    if (nt === r.own.join(" | ").trim()) { ownEqual += 1; continue; }
+    if (same(toks(nt), toks(r.text))) { tokEqual += 1; continue; }
+    if (same(toks(nt), toks(r.own.join(" | ")))) { tokEqualOwn += 1; continue; }
+    differ += 1;
+    const a = new Set(toks(r.all.join(" | "))), b = new Set(toks(nt));
+    extraCellsInNew += [...b].filter((x) => !a.has(x)).length;
+    missingInNew += [...a].filter((x) => !b.has(x)).length;
+    if (dsample.length < 6) dsample.push(`aba${r.si}!linha${k.split("|").pop()}(antigo=${r.text.length}c,novo=${nt.length}c)`);
   }
-  for (const k of n.rows.keys()) if (!oldNonEmpty.has(k)) onlyNew += 1;
-  console.log(`comparação por linha: iguais=${same} diferentes=${diffText} (só separadores iniciais=${diffOnlyLeadingSep}; mesmos valores, colunas vazias deslocadas=${diffLenOnly}; conteúdo diferente=${diffContent}) soNoAntigo=${onlyOld} soNoNovo=${onlyNew}`);
-  if (dsample.length) console.log(`  amostra de conteúdo diferente (posição/tamanho, sem texto): ${dsample.join("; ")}`);
+  for (const k of n.rows.keys()) if (!oldRows.has(k)) onlyNew += 1;
+  console.log(`comparação por linha: idênticas=${exact}; idênticas se ignorar células escravas de mesclagem=${ownEqual}; mesmos valores (só posição de colunas vazias)=${tokEqual}; idem sem escravas=${tokEqualOwn}; DIFERENTES=${differ} (valores só no novo=${extraCellsInNew}, valores só no antigo=${missingInNew}); linhas só no antigo=${onlyOld}; linhas só no novo=${onlyNew}`);
+  if (dsample.length) console.log(`  amostra das diferentes (posição/tamanho, sem texto): ${dsample.join("; ")}`);
 }
