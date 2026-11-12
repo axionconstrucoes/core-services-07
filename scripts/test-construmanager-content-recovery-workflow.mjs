@@ -33,4 +33,19 @@ check("arquivo acima do teto vira referencia externa e nao e baixado", evaluateS
 check("tamanho desconhecido exige decisao humana", evaluateSizePolicy(null, cap).classification === "DECISAO_HUMANA");
 const WORKER = rd("scripts/construmanager-content-worker.mjs");
 check("falha por item nao usa .catch sobre valor sincrono (abortava a rodada)", !/firstRow\([\s\S]{0,400}?\)\s*\.catch\(/.test(WORKER));
+// Conclusao pelo service_role: a RPC *_system delegava a RPC de sessao (auth.uid() nulo => "Sessao nao autenticada.").
+const { completeContentDownloadAsService } = await import("./lib/construmanager-complete-service.mjs");
+check("worker nao chama complete_*_system (delega a RPC de sessao)", !/rpc\("complete_construmanager_content_download_system"/.test(WORKER));
+const mkDb = (existingBlob, linkRows) => { const calls = []; const q = (table) => { const st = { table, op: null, row: null, filt: {} }; const b = {
+  upsert(row) { st.op = "upsert"; st.row = row; return b; }, update(row) { st.op = "update"; st.row = row; return b; }, select() { return st.op ? b : (st.op = "select", b); },
+  eq(k, v) { st.filt[k] = v; return b; }, maybeSingle() { calls.push(st); return Promise.resolve({ data: existingBlob ? { id: "blob-1" } : null, error: null }); },
+  then(res) { calls.push(st); const data = st.op === "upsert" ? (existingBlob ? [] : [{ id: "blob-1" }]) : st.op === "update" ? linkRows : []; return Promise.resolve({ data, error: null }).then(res); } }; return b; };
+  return { calls, from: q }; };
+const A = { projectId: "p1", linkId: "l1", sha256: "a".repeat(64), sizeBytes: 10, storageBucket: "construmanager-content", storagePath: "sha256/aa", mimeType: "application/pdf", detectedExtension: "pdf", zipEntryPath: null };
+const db1 = mkDb(false, [{ id: "l1" }]); const r1 = await completeContentDownloadAsService(db1, A);
+const upd = db1.calls.find((c) => c.op === "update");
+check("conclusao: blob novo e vinculo ARMAZENADO escopado ao projeto, lease zerado", r1.blob_reused === false && upd.row.download_status === "ARMAZENADO" && upd.row.download_error === null && upd.row.lease_owner === null && upd.filt.project_id === "p1" && upd.filt.id === "l1");
+check("conclusao: blob existente e reaproveitado", (await completeContentDownloadAsService(mkDb(true, [{ id: "l1" }]), A)).blob_reused === true);
+check("conclusao: vinculo de outro projeto/inexistente falha", await completeContentDownloadAsService(mkDb(false, []), A).then(() => false, () => true));
+check("conclusao: sha256 invalido falha antes de qualquer escrita", await (async () => { const d = mkDb(false, [{ id: "l1" }]); try { await completeContentDownloadAsService(d, { ...A, sha256: "x" }); return false; } catch { return d.calls.length === 0; } })());
 console.log(`\n${passed} OK, ${failed} falha(s)`); process.exit(failed ? 1 : 0);
