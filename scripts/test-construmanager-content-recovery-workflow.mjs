@@ -31,4 +31,6 @@ check("itens acima do teto de 50 desligam (fail-closed)", resolveAutomationConfi
 const cap = 50_000_000;
 check("arquivo acima do teto vira referencia externa e nao e baixado", evaluateSizePolicy(256_261_753, cap).classification === "REFERENCIA_EXTERNA" && evaluateSizePolicy(10_326_397, cap).eligible === true);
 check("tamanho desconhecido exige decisao humana", evaluateSizePolicy(null, cap).classification === "DECISAO_HUMANA");
+const WORKER = rd("scripts/construmanager-content-worker.mjs");
+check("falha por item nao usa .catch sobre valor sincrono (abortava a rodada)", !/firstRow\([\s\S]{0,400}?\)\s*\.catch\(/.test(WORKER));
 console.log(`\n${passed} OK, ${failed} falha(s)`); process.exit(failed ? 1 : 0);
