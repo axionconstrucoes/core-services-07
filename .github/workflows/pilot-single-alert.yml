@@ -61,6 +61,7 @@ jobs:
             -H "Authorization: Bearer ${ACC_RISK_ALERTS_CRON_SECRET}" \
             "${ACC_APP_BASE_URL%/}/api/cron/risk-alerts?pilotSingleCase=${CASE_ID}${extra}")
           echo "HTTP ${status}"
-          cat response.json
+          # Repositório público: o log só mostra contagens e desfecho (sem nomes, e-mails ou ids).
+          node -e "const j=JSON.parse(require('fs').readFileSync('response.json','utf8'));console.log(JSON.stringify({status:j.status,blockedReason:j.blockedReason,readinessBlockers:j.readinessBlockers,riskAlertsEnabledInDatabase:j.riskAlertsEnabledInDatabase,deliveryGroupSize:(j.deliveryGroup||[]).length,sent:j.sent,failed:j.failed,skipped:j.skipped,recipients:(j.recipients||[]).map((x,i)=>({n:i+1,eligibility:x.eligibility,outcome:x.outcome}))}))"
           echo
           [ "${status}" = "200" ] || exit 1
