@@ -14,6 +14,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 import { getSourceDefinitions } from "@/lib/data";
 import { createDriveReadOnlyFilesClient } from "@/lib/drive/drive-client";
 import { isDriveOAuthConfigured, loadDriveOAuthConfig } from "@/lib/drive/drive-config";
+import { describeSsmaDriveValidationError } from "@/lib/integrations/esg-ssma/drive-validation-error";
 import { isGoogleDriveFolderUrl } from "@/lib/integrations/esg-ssma/drive-source-policy";
 import { inspectSsmaDriveSource } from "@/lib/integrations/esg-ssma/validate-drive-source";
 import { createConstrumanagerClient } from "@/lib/integrations/construmanager/client";
@@ -51,20 +52,10 @@ import type {
 } from "./actions-state";
 
 function sanitizeSsmaDriveValidationError(error: unknown): string {
-  const message = error instanceof Error ? error.message : "";
-  if (message === "INVALID_FOLDER_URL") return "A origem configurada não é uma URL válida de pasta do Google Drive.";
-  if (message === "ROOT_IS_NOT_A_FOLDER") return "A origem configurada não aponta para uma pasta do Google Drive.";
-  if (message.startsWith("MISSING_FOLDERS:")) {
-    const count = message.slice("MISSING_FOLDERS:".length).split("|").filter(Boolean).length;
-    return `Estrutura incompleta: ${count} das 12 subpastas obrigatórias não foram encontradas.`;
-  }
-  if (message.startsWith("DUPLICATED_FOLDERS:")) {
-    return "Estrutura ambígua: há subpastas obrigatórias duplicadas na raiz configurada.";
-  }
-  if (/invalid_grant|unauthorized|401/i.test(message)) return "A autorização do Google Drive expirou ou foi revogada.";
-  if (/forbidden|permission|insufficient|403/i.test(message)) return "A conta configurada não possui acesso de leitura à pasta SSMA/ESG.";
-  if (/not found|404/i.test(message)) return "A pasta SSMA/ESG não foi encontrada ou não está compartilhada com a conta configurada.";
-  return "Não foi possível validar a pasta SSMA/ESG. Nenhum arquivo foi baixado ou alterado.";
+  // Só código fechado e texto fixo: nunca a mensagem bruta do provedor, token, client id ou URL.
+  const { code, message } = describeSsmaDriveValidationError(error);
+  console.warn(`[ssma-drive-validation] falha codigo=${code}`);
+  return message;
 }
 
 function requiredField(formData: FormData, name: string): string {
