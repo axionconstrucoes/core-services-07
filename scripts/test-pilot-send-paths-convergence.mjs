@@ -216,7 +216,7 @@ await check("ACC_EMAIL_ONLY_RECIPIENT=crm@ não bloqueia o grupo da WEG, mas con
   }));
 
 // --- 3. Respostas -------------------------------------------------------------------------------------------------------------------
-await check("respostas (limite documentado): só a caixa remetente do piloto (crm@) é aceita como resposta do piloto; as outras três NÃO são atribuídas ao participante simulado", () => {
+await check("respostas (função LEGADA authorizePilotMailboxReply, não usada no grupo; ver test-pilot-group-reply.mjs): só a caixa remetente do piloto (crm@) é aceita como resposta do piloto; as outras três NÃO são atribuídas ao participante simulado", () => {
   const mailbox = withEnvSync(GROUP_ENV, () => profileMod.resolveProjectPilotReplyMailbox(WEG));
   assert(mailbox === "crm@axion.com.br", `caixa=${mailbox}`);
   const ctx = (sender) => ({ senderEmail: sender, pilotMailbox: mailbox, correlationMethod: "REPLY_TO_TOKEN", participantUserId: "u1", participant: { userId: "u1", active: true, membershipStatus: "ACTIVE" }, alertRecipientUserIds: ["u1"], allowlistUserIds: ["u1"], authenticationResults: null });

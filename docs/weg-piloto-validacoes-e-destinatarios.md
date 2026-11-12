@@ -58,3 +58,18 @@ Pré-condições: CI verde no HEAD final; backup/estado registrado; `risk_alerts
 4. Verificação sem envio: executar a suíte `test:email` na main e uma simulação com `FakeEmailProvider` confirmando To exato, ausência de Cc/Bcc e `[PILOTO]`.
 5. Somente com aprovação final: habilitar `risk_alerts_enabled=true` na WEG e disparar UM ciclo controlado; conferir os cabeçalhos da mensagem recebida (To, ausência de Cc/Bcc, assunto `[PILOTO]`, remetente) nas quatro caixas.
 6. Rollback imediato: `risk_alerts_enabled=false` (para o envio), remover `ACC_PROJECT_PILOT_TEST_GROUP` (volta ao destino institucional), redeploy. Nenhuma migration envolvida.
+
+
+## Respostas no grupo interno (WEG_INTERNAL_FOUR) — identidade própria
+
+Com `ACC_PROJECT_PILOT_TEST_GROUP=WEG_INTERNAL_FOUR`, o processador de respostas deixa de atribuir a caixa do piloto (`crm@`) ao participante simulado:
+
+| Remetente real (From) | Resultado |
+|---|---|
+| Destinatário lógico do alerta, na allowlist, vínculo ativo (qualquer das quatro caixas) | autorizado com a PRÓPRIA identidade; ação aplicada pela máquina de estados |
+| Membro do grupo, vínculo ativo, mas não destinatário lógico (ou fora da allowlist) | resposta REGISTRADA com a própria identidade (`REVIEW_REQUIRED`, auditoria `RISK_ALERT_PILOT_GROUP_REPLY`); nenhuma ação sobre o alerta |
+| `crm@` | trata-se como qualquer membro: nunca vira Jaime, Carlos, Reynaldo ou outro participante |
+| Membro do grupo sem vínculo ativo, sem profile, autenticação com falha ou correlação fraca (código visível) | `UNAUTHORIZED_REPLY` (`PILOT_GROUP_*`) |
+| Fora do grupo | regras normais (`authorizeReply`) |
+
+Correlação exige token do Reply-To ou In-Reply-To (índice do próprio projeto); Message-ID repetido é ignorado. Testes: `scripts/test-pilot-group-reply.mjs` (12).

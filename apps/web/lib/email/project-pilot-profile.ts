@@ -177,3 +177,14 @@ export function resolveProjectPilotReplyMailbox(projectId: string, env: Env = pr
   if (profile.projectId !== projectId.trim().toLowerCase()) return null;
   return profile.destination === WEG_INTERNAL_TEST_RECIPIENTS.join(", ") ? profile.sender : profile.destination;
 }
+
+/**
+ * Grupo interno de testadores (WEG_INTERNAL_FOUR) quando o perfil do projeto é VÁLIDO e usa o grupo; null caso contrário.
+ * No grupo cada pessoa responde com a PRÓPRIA identidade: a caixa remetente (crm@) deixa de ser atribuída ao participante simulado.
+ */
+export function resolveProjectPilotReplyGroup(projectId: string, env: Env = process.env): string[] | null {
+  const profile = resolveProjectPilotProfile(env);
+  if (!profile.configured || !profile.valid) return null;
+  if (profile.projectId !== projectId.trim().toLowerCase()) return null;
+  return profile.destination === WEG_INTERNAL_TEST_RECIPIENTS.join(", ") ? [...WEG_INTERNAL_TEST_RECIPIENTS] : null;
+}
