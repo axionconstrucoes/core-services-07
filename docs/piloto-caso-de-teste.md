@@ -12,7 +12,9 @@ Convenção (sem coluna nova, sem migration): `title` começa com `[TESTE PILOTO
 | `alert-detail-data.ts` + `alertas/[caseId]/page.tsx` | `isTestCase` e badge "TESTE — caso isolado do piloto, não é risco real" |
 | `acoes/actions.ts` (escalonamento manual) | caso de teste nunca entra em `riskCaseByActionId` |
 | `loadCorrelationIndex` | **não** filtra (respostas ao caso de teste precisam correlacionar) |
-| `listPendingRows` | **não** filtra: saídas PENDING do caso de teste (ex.: ESCALATION/FORWARD) só são enviadas quando o ciclo recorrente ou o envio único rodarem, sempre pelas guardas do provider (To = 4 caixas) |
+| `run-risk-alert-cycle.ts` (`sendPlanned` e `sendPendingRow`) | **bloqueio fail-closed contra ENVIO TARDIO**: linha de caso de TESTE não é enviada pelo ciclo (nem marcada: permanece PENDING, sem perder histórico) e é contada em `pilotTestCaseBlocked`; só as chaves `PILOT_SINGLE` do envio único armado (`pilotSingleArmedKeys`) saem, pelas guardas do provider (To = 4 caixas). Casos de teste ficam em `snapshot.testCases` (visíveis só ao envio único) |
+
+**Pendência resolvida:** desligar a geração recorrente não impedia que FORWARD/ESCALATION PENDING de um caso de teste saíssem depois, se o ciclo fosse ligado. Com o bloqueio, essas linhas nunca saem pelo ciclo; ficam PENDING até decisão humana (o histórico se mantém).
 
 ## Quem pode agir (TS × banco `record_risk_alert_action`)
 - Banco: ADMINISTRADOR (web), responsável atual/anterior, encaminhado ativo, destinatário na outbox do caso, responsáveis da Matriz da área.

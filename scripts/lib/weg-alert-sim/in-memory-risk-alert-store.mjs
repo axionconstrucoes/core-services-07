@@ -56,6 +56,7 @@ export function createInMemoryRiskAlertStore(world) {
         settings: world.settings ?? null,
         cases: world.sourceCases.map((c) => ({ ...c })),
         existingCases: [...state.cases.values()].filter((c) => !isPilotTestCase(c)).map((c) => ({ ...c })),
+        testCases: [...state.cases.values()].filter((c) => isPilotTestCase(c)).map((c) => ({ ...c })),
         linkedActions: new Map([...state.actions.values()].map((a) => [a.id, { ...a }])),
         recipients: world.recipients,
         existingIdempotencyKeys: new Set(state.outbox.map((o) => o.idempotencyKey)),

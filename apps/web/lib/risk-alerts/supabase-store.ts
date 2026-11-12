@@ -148,8 +148,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
       const alertRows = (alerts ?? []) as unknown as IngestionAlertSourceRow[];
 
       // Caso de TESTE do piloto fica fora do planejamento do ciclo (não é fechado, escalado, contado nem entra em consolidado).
-      const existingCases: RiskCaseRecord[] = (existing ?? [])
-        .filter((row) => !isPilotTestCase({ title: row.title as string | null, reference: row.reference as string | null }))
+      const allCases: RiskCaseRecord[] = (existing ?? [])
         .map((row) => ({
         id: row.id as string,
         sourceType: row.source_type as RiskCaseRecord["sourceType"],
@@ -177,6 +176,9 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         topLevelReachedAt: s(row.top_level_reached_at),
         visibleCode: (row.visible_code as string) ?? "",
       }));
+      const existingCases = allCases.filter((c) => !isPilotTestCase(c));
+      // Casos de TESTE ficam à parte: só o envio único (pilotSingleCase) os enxerga.
+      const testCases = allCases.filter((c) => isPilotTestCase(c));
 
       const actionIds = existingCases.map((c) => c.slaActionId).filter((id): id is string => Boolean(id));
       const { data: actions } = actionIds.length
@@ -299,6 +301,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         settings: mapSettings((settings as Row | null) ?? null),
         cases: [...collectComparisonCases(comparisonRows), ...collectSheetCases(sheetRows), ...collectIngestionAlertCases(alertRows, (config?.risk_alert_severity_map as IngestionAlertSeverityMap | null) ?? null)],
         existingCases,
+        testCases,
         linkedActions,
         recipients,
         existingIdempotencyKeys: new Set((keys ?? []).map((row) => row.idempotency_key as string)),

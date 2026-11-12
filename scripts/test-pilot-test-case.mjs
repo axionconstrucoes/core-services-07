@@ -26,6 +26,7 @@ const { isPilotTestCase } = await import("../apps/web/lib/risk-alerts/pilot-test
 const { applyAlertAction } = await import("../apps/web/lib/risk-alerts/alert-state-machine");
 const { resolveMatrixPolicy } = await import("../apps/web/lib/sla/resolve-matrix-policy");
 const { runRiskAlertCycle } = await import("../apps/web/lib/risk-alerts/run-risk-alert-cycle");
+const { runPilotSingleAlert } = await import("../apps/web/lib/risk-alerts/run-pilot-single-alert");
 const { FakeEmailProvider } = await import("../apps/web/lib/email/fake-email-provider");
 const { createInMemoryRiskAlertStore } = await import("./lib/weg-alert-sim/in-memory-risk-alert-store.mjs");
 
@@ -113,7 +114,9 @@ await check("isPilotTestCase: marca por title OU reference; caso real e vazio n�
 });
 
 await check("todos os pontos que leem risk_alert_cases usam isPilotTestCase (e há rótulo TESTE nos painéis)", () => {
-  assert(/isPilotTestCase/.test(read("apps/web/lib/risk-alerts/supabase-store.ts")) && /filter\(\(row\) => !isPilotTestCase/.test(read("apps/web/lib/risk-alerts/supabase-store.ts")), "supabase-store");
+  assert(/isPilotTestCase/.test(read("apps/web/lib/risk-alerts/supabase-store.ts")) && /filter\(\(c\) => !isPilotTestCase\(c\)\)/.test(read("apps/web/lib/risk-alerts/supabase-store.ts")) && /testCases/.test(read("apps/web/lib/risk-alerts/supabase-store.ts")), "supabase-store");
+  const cycleSrc = read("apps/web/lib/risk-alerts/run-risk-alert-cycle.ts");
+  assert((cycleSrc.match(/isPilotTestCaseSendBlocked\(record, /g) ?? []).length === 2, "bloqueio de envio tardio deve estar em sendPlanned e sendPendingRow");
   const view = read("apps/web/lib/risk-alerts/pilot-risk-alerts-view-data.ts");
   assert(/isPilotTestCase/.test(view) && /testCasesOpen/.test(view) && /isTest:/.test(view) && /\.not\("case_id", "in"/.test(view), "view-data (contagens/outbox)");
   assert(/isPilotTestCase/.test(read("apps/web/lib/risk-alerts/alert-detail-data.ts")) && /isTestCase/.test(read("apps/web/lib/risk-alerts/alert-detail-data.ts")), "detalhe");
@@ -184,11 +187,10 @@ await check("máquina de estados (sla_action_id nulo): TAKING_ACTION, FORWARD, a
   assert(!JSON.stringify(transitions).includes(REAL_ID), "caso real apareceu nas transições");
 });
 
-await check("ciclo recorrente com a flag ligada NÃO planeja o caso de teste; saídas pendentes só chegam às quatro caixas; caso real e Ricardo intocados", () =>
+await check("envio tardio: linha PENDING de caso de teste NÃO sai no ciclo normal (fica PENDING e contada); controle: caso comum sai; caso real e Ricardo intocados", () =>
   withEnv(async () => {
     const w = makeWorld();
     const realBefore = JSON.stringify(w.store.state.cases.get(REAL_ID));
-    // Aplica as transições do caso de teste no store (como a RPC) até o estado AWAITING_RECIPIENT_ACTION.
     const store = w.store;
     let s = snapshotOf();
     const a1 = act(s, "TAKING_ACTION", U.rey, { text: "Assumindo (teste)." });
@@ -196,27 +198,47 @@ await check("ciclo recorrente com a flag ligada NÃO planeja o caso de teste; sa
     s = next(s, a1);
     const a2 = act(s, "FORWARD", U.rey, { targetUserId: U.jaime, text: "Encaminhando (teste)." });
     await store.applyTransition(TEST_ID, a2, U.rey);
-    const pendingBefore = store.state.outbox.filter((o) => o.caseId === TEST_ID && o.status === "PENDING").length;
-    assert(pendingBefore >= 2, `pendentes ${pendingBefore}`);
+    const pendingRows = store.state.outbox.filter((o) => o.caseId === TEST_ID && o.status === "PENDING");
+    assert(pendingRows.length >= 2, `pendentes ${pendingRows.length}`);
     assert(w.rec.guarded.length === 0, "transição enviou e-mail sem ciclo");
-    const caseBefore = JSON.stringify(store.state.cases.get(TEST_ID));
-    // Liga a flag SÓ no ensaio (em memória) para provar que o ciclo não toca o caso de teste e que a entrega fica restrita.
+    const caseBefore = JSON.parse(JSON.stringify(store.state.cases.get(TEST_ID)));
+    // Liga a flag SÓ no ensaio (em memória) para provar que o ciclo não envia nem toca o caso de teste.
     w.world.config.riskAlertsEnabled = true;
-    await runRiskAlertCycle({ now: new Date(T0), store, provider: w.provider, expert: { answer: async () => ({ answerText: "x", confidence: 0.5, requiresHumanReview: true }) }, dryRun: false });
-    assert(w.rec.guarded.length >= 1, "nenhuma saída pendente processada");
+    const cycle = await runRiskAlertCycle({ now: new Date(T0), store, provider: w.provider, expert: { answer: async () => ({ answerText: "x", confidence: 0.5, requiresHumanReview: true }) }, dryRun: false });
+    assert(w.rec.guarded.length === 0, `ciclo enviou ${w.rec.guarded.length} mensagem(ns) de caso de teste`);
+    assert(cycle.projects[0].pilotTestCaseBlocked >= pendingRows.length, `contagem ${cycle.projects[0].pilotTestCaseBlocked}`);
+    for (const row of pendingRows) {
+      const now = store.state.outbox.find((o) => o.id === row.id);
+      assert(now.status === "PENDING" && now.attemptCount === 0 && !now.sentAt, `linha ${row.idempotencyKey} foi alterada: ${now.status}`);
+    }
+    const after = store.state.cases.get(TEST_ID);
+    for (const k of ["status", "state", "currentLevel", "currentResponsibleUserId", "closedAt", "riskLevel"]) assert(JSON.stringify(after[k]) === JSON.stringify(caseBefore[k]), `ciclo alterou ${k} do caso de teste`);
+    assert(!store.state.outbox.some((o) => o.caseId === TEST_ID && o.notificationType === "DIGEST"), "consolidado incluiu o caso de teste");
+    assert(JSON.stringify(store.state.cases.get(REAL_ID)) === realBefore, "caso real alterado");
+    assert(!store.state.outbox.some((o) => o.caseId === REAL_ID) && !store.state.events.some((e) => e.caseId === REAL_ID) && !store.state.audit.some((a) => a.entityId === REAL_ID), "histórico do caso real recebeu registros");
+    assert(store.state.cases.get(REAL_ID).currentResponsibleUserId === U.ricardo, "Ricardo deixou de ser o responsável do caso real");
+    // ---- envio único ARMADO (pilotSingleCase): só as chaves PILOT_SINGLE saem, pelas guardas, To = 4 caixas; FORWARD/ESCALATION seguem PENDING.
+    w.world.config.riskAlertsEnabled = false;
+    const single = await runPilotSingleAlert({ caseId: TEST_ID, now: new Date(T0), store, provider: w.provider });
+    assert(single.status === "EXECUTED" && single.sent === 3 && single.failed === 0, JSON.stringify(single));
+    assert(w.rec.guarded.length === 3, `${w.rec.guarded.length} mensagens`);
     for (const g of w.rec.guarded) {
       const to = String(g.to).split(",").map((x) => x.trim().toLowerCase()).sort();
       assert(JSON.stringify(to) === JSON.stringify([...GROUP].sort()), `To=${g.to}`);
       assert(!g.cc && !g.bcc, "Cc/Bcc");
       const text = JSON.stringify(g);
-      assert(!/axion@axion\.com\.br/i.test(text) && !/ricardo\.martins/i.test(text), "axion@ ou Ricardo apareceu");
+      assert(!/axion@axion.com.br/i.test(text) && !/ricardo.martins/i.test(text), "axion@ ou Ricardo apareceu");
     }
-    const after = store.state.cases.get(TEST_ID);
-    for (const k of ["status", "state", "currentLevel", "currentResponsibleUserId", "closedAt", "riskLevel"]) assert(JSON.stringify(after[k]) === JSON.stringify(JSON.parse(caseBefore)[k]), `ciclo alterou ${k} do caso de teste`);
-    assert(!store.state.outbox.some((o) => o.caseId === TEST_ID && o.notificationType === "DIGEST"), "consolidado incluiu o caso de teste");
-    assert(JSON.stringify(store.state.cases.get(REAL_ID)) === realBefore, "caso real alterado");
-    assert(!store.state.outbox.some((o) => o.caseId === REAL_ID) && !store.state.events.some((e) => e.caseId === REAL_ID) && !store.state.audit.some((a) => a.entityId === REAL_ID), "histórico do caso real recebeu registros");
-    assert(store.state.cases.get(REAL_ID).currentResponsibleUserId === U.ricardo, "Ricardo deixou de ser o responsável do caso real");
+    for (const row of pendingRows) assert(store.state.outbox.find((o) => o.id === row.id).status === "PENDING", "envio único enviou linha que não era sua");
+    // ---- controle: caso COMUM com a mesma linha PENDING sai no ciclo (o bloqueio é específico do caso de teste).
+    const c = makeWorld();
+    const CTRL = "9c9c9c9c-0000-4000-8000-0000000000c9";
+    c.store.state.cases.set(CTRL, caseRecord({ id: CTRL, sourceId: "ctrl-src", title: "Caso comum de controle", reference: "W44", currentResponsibleUserId: U.rey, visibleCode: "C0C0C0C0" }));
+    const cs = snapshotOf({ id: CTRL, sourceId: "ctrl-src", title: "Caso comum de controle", reference: "W44" });
+    await c.store.applyTransition(CTRL, act(cs, "TAKING_ACTION", U.rey, { text: "Assumindo (controle)." }), U.rey);
+    c.world.config.riskAlertsEnabled = true;
+    const cc = await runRiskAlertCycle({ now: new Date(T0), store: c.store, provider: c.provider, expert: { answer: async () => ({ answerText: "x", confidence: 0.5, requiresHumanReview: true }) }, dryRun: false });
+    assert(c.rec.guarded.length >= 1 && cc.projects[0].pilotTestCaseBlocked === 0, `controle: enviadas ${c.rec.guarded.length}, bloqueadas ${cc.projects[0].pilotTestCaseBlocked}`);
   }));
 
 await check("sla_action_id nulo na camada do banco: todos os blocos de SLA da RPC são protegidos (leitura do repositório)", () => {

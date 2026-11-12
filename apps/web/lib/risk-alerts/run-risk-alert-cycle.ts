@@ -48,6 +48,7 @@ import { runCycleEscalationHook } from "@/lib/whatsapp/hooks";
 import { notifyDirectorateWhatsappSafely } from "@/lib/whatsapp/notify-directorate-server";
 
 import { buildOpaqueReplyTo, generateReplyToken, hashReplyToken } from "./replies/reply-pipeline";
+import { isPilotTestCase } from "./pilot-test-case";
 import type { PendingOutboxRow, RiskAlertProjectSnapshot, RiskAlertStore } from "./store";
 import { createSupabaseRiskAlertStore, sanitizeError } from "./supabase-store";
 import type { AlertActionType, ExpertId, ImmediateAlertContent, PlannedOutboxEntry, RiskAlertPlan } from "./types";
@@ -65,6 +66,8 @@ export interface RiskAlertCycleProjectResult {
   sent: number;
   failed: number;
   skipped: number;
+  /** Linhas de caso de TESTE do piloto NÃO enviadas pelo ciclo (permanecem PENDING; só o envio único armado as envia). */
+  pilotTestCaseBlocked: number;
   forwardsReturned: number;
   topLevelReached: number;
   expertAnswers: number;
@@ -201,6 +204,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       sent: 0,
       failed: 0,
       skipped: 0,
+      pilotTestCaseBlocked: 0,
       forwardsReturned: 0,
       topLevelReached: 0,
       expertAnswers: 0,
@@ -350,6 +354,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       else if (outcome === "FAILED") projectResult.failed += 1;
       else projectResult.skipped += 1;
     }
+    projectResult.pilotTestCaseBlocked = ctx.testCaseBlocked ?? 0;
 
     result.projects.push(projectResult);
   }
@@ -373,6 +378,20 @@ export interface SendContext {
   deliveredKeys: Set<string>;
   /** Bloqueios de prontidão do ciclo — retentativas de consolidado respeitam o mesmo critério do planejador. */
   readinessBlockers: string[];
+  /**
+   * Chaves de idempotência liberadas pelo ENVIO ÚNICO armado (pilotSingleCase). Caso de TESTE do piloto só envia por aqui:
+   * ausente => fail-closed (a linha NÃO é enviada nem marcada; permanece PENDING e fica contada em testCaseBlocked).
+   */
+  pilotSingleArmedKeys?: ReadonlySet<string>;
+  testCaseBlocked?: number;
+}
+
+/** Bloqueio fail-closed contra ENVIO TARDIO de mensagens de caso de TESTE (ex.: FORWARD/ESCALATION geradas pelos botões). Não altera a linha. */
+export function isPilotTestCaseSendBlocked(record: { title?: string | null; reference?: string | null } | null, idempotencyKey: string, ctx: SendContext): boolean {
+  if (!record || !isPilotTestCase(record)) return false;
+  if (ctx.pilotSingleArmedKeys?.has(idempotencyKey)) return false;
+  ctx.testCaseBlocked = (ctx.testCaseBlocked ?? 0) + 1;
+  return true;
 }
 
 /** Links das 5 ações (token curto/expirável, só hash persistido). */
@@ -477,6 +496,7 @@ export async function sendPlanned(outboxId: string, caseId: string | null, entry
     return "FAILED";
   }
   const record = caseId ? await ctx.store.loadCaseRecord(caseId) : null;
+  if (isPilotTestCaseSendBlocked(record, entry.idempotencyKey, ctx)) return "SKIPPED";
   let built: BuiltEmail;
   if (entry.content.kind === "DIGEST") {
     built = buildRiskDigestEmail({ content: entry.content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: entry.recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso });
@@ -568,6 +588,7 @@ async function sendPendingRow(row: PendingOutboxRow, ctx: SendContext): Promise<
   }
   if (row.notificationType === "DIGEST") return sendPendingDigest(row, ctx);
   const record = row.caseId ? await ctx.store.loadCaseRecord(row.caseId) : null;
+  if (isPilotTestCaseSendBlocked(record, row.idempotencyKey, ctx)) return "SKIPPED";
   if (!record) {
     // Delimitação da outbox: sem risk_alert_case nada é enviado por aqui
     // (ações SLA comuns permanecem no fluxo antigo).
