@@ -6,10 +6,11 @@
 //
 // Reaproveita sem desvio: a mesma outbox (idempotência), o mesmo sendPlanned/deliver (composição, links de ação, Reply-To,
 // assinatura), o mesmo getEmailProvider() e as MESMAS guardas do piloto do provider (guarda global → perfil do projeto →
-// destino único → MIME → conferência do MIME final). O roteamento para as quatro caixas é decidido pelo perfil do projeto.
+// destino único → MIME → conferência do MIME final). O roteamento (destino exclusivo ou grupo) é decidido pelo perfil do projeto.
 //
 // Salvaguardas (todas fail-closed):
-//   - exige o grupo WEG_INTERNAL_FOUR ativo e válido para ESTE projeto (resolveProjectPilotReplyGroup);
+//   - exige perfil de entrega do piloto ATIVO e VÁLIDO para ESTE projeto (resolveProjectPilotDeliveryTargets): o destino exclusivo
+//     da lista fixa (axion@axion.com.br) ou, se configurado, o grupo WEG_INTERNAL_FOUR;
 //   - o caso precisa existir no projeto, estar ABERTO e ser HIGH/CRITICAL; o id do caso é informado explicitamente;
 //   - destinatários lógicos = membros da allowlist do piloto com vínculo ativo (evaluateRecipient) — nunca outros;
 //   - teto: 1 caso e no máximo MAX_PILOT_SINGLE_RECIPIENTS e-mails;
@@ -26,7 +27,7 @@ import { loadAccLogoInlineImage } from "@/lib/email/branding/load-acc-logo-inlin
 import type { EmailProvider } from "@/lib/email/email-provider";
 import { getEmailProvider } from "@/lib/email/get-email-provider";
 import { resolveEmailProviderName } from "@/lib/email/gmail-auth";
-import { resolveProjectPilotReplyGroup, resolveProjectPilotProfile } from "@/lib/email/project-pilot-profile";
+import { resolveProjectPilotDeliveryTargets, resolveProjectPilotProfile } from "@/lib/email/project-pilot-profile";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
 import { slaEscalationLevelLabels } from "@/lib/labels";
 import { resolveMatrixPolicy } from "@/lib/sla/resolve-matrix-policy";
@@ -98,6 +99,12 @@ export interface PilotSingleAlertResult {
 
 export interface RunPilotSingleAlertOptions {
   caseId: string;
+  /**
+   * Seleção EXPLÍCITA de UM destinatário lógico (user_id da allowlist do piloto). Só ele é planejado/enviado; as demais linhas da
+   * outbox (inclusive PENDING) não são lidas para envio, enfileiradas nem modificadas. No modo destino exclusivo (uma única caixa
+   * real) a execução REAL exige esta seleção — assim o primeiro teste nunca gera várias mensagens para a mesma caixa.
+   */
+  recipientUserId?: string | null;
   dryRun?: boolean;
   now?: Date;
   store?: RiskAlertStore;
@@ -120,8 +127,8 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
   const profile = resolveProjectPilotProfile();
   if (!profile.configured || !profile.valid) return blocked(caseId, "PILOT_PROFILE_INVALID");
   const projectId = profile.projectId;
-  const group = resolveProjectPilotReplyGroup(projectId);
-  if (!group) return blocked(caseId, "PILOT_GROUP_NOT_ACTIVE", { projectId });
+  const group = resolveProjectPilotDeliveryTargets(projectId);
+  if (!group) return blocked(caseId, "PILOT_DELIVERY_NOT_ACTIVE", { projectId });
 
   const store = options.store ?? createSupabaseRiskAlertStore(createSupabaseAdminClient());
   const snapshot = await store.loadProjectSnapshot(projectId);
@@ -162,7 +169,16 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
     return blocked(caseId, `READINESS:${blockerToSuppressionReason(readiness.blockers[0])}`, { ...base, readinessBlockers: readiness.blockers });
   }
 
-  const allowlist = (config.pilotRecipientAllowlistUserIds ?? []).slice(0, MAX_PILOT_SINGLE_RECIPIENTS);
+  const fullAllowlist = (config.pilotRecipientAllowlistUserIds ?? []).slice(0, MAX_PILOT_SINGLE_RECIPIENTS);
+  const requestedRecipient = options.recipientUserId?.trim().toLowerCase() || null;
+  if (requestedRecipient !== null && !UUID.test(requestedRecipient)) return blocked(caseId, "RECIPIENT_ID_INVALID", base);
+  // Destino exclusivo (uma única caixa real): a execução real precisa nomear o destinatário lógico, para não gerar uma mensagem por
+  // pessoa da allowlist, todas para a mesma caixa.
+  if (!dryRun && group.length === 1 && requestedRecipient === null) return blocked(caseId, "RECIPIENT_SELECTION_REQUIRED", base);
+  if (requestedRecipient !== null && !fullAllowlist.some((id) => id.toLowerCase() === requestedRecipient)) {
+    return blocked(caseId, "RECIPIENT_NOT_IN_ALLOWLIST", base);
+  }
+  const allowlist = requestedRecipient === null ? fullAllowlist : fullAllowlist.filter((id) => id.toLowerCase() === requestedRecipient);
   const nowIso = (options.now ?? new Date()).toISOString();
   const linked = record.slaActionId ? snapshot.linkedActions.get(record.slaActionId) : undefined;
   const content: ImmediateAlertContent = {

@@ -194,10 +194,11 @@ await check("bloqueios: caso médio, caso inexistente/outro projeto, id inválid
     assert((await run("não-é-uuid")).blockedReason === "CASE_ID_INVALID");
     assert(w.rec.guarded.length === 0);
   });
-  await withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
+  await withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "", ACC_PROJECT_PILOT_DESTINATION: "outro@exemplo.com" }, async () => {
     const w = await seeded();
     const r = await runPilotSingleAlert({ caseId: w.highCase.id, store: w.store, provider: w.provider });
-    assert(r.status === "BLOCKED" && r.blockedReason === "PILOT_GROUP_NOT_ACTIVE", r.blockedReason);
+    assert(r.status === "BLOCKED" && r.blockedReason === "PILOT_PROFILE_INVALID", r.blockedReason);
+    assert(w.rec.guarded.length === 0, "enviou com destino fora da lista fixa");
   });
   await withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "OUTRO_GRUPO" }, async () => {
     const w = await seeded();
@@ -260,6 +261,75 @@ async function preBlocked() {
   w.rec.guarded.length = 0;
   return { ...w, rows };
 }
+
+await check("destino EXCLUSIVO: execução real SEM seleção de destinatário é bloqueada (nada enviado, outbox intacta); dry-run sem seleção só planeja", () =>
+  withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
+    const w = await seeded();
+    const dry = await runPilotSingleAlert({ caseId: w.highCase.id, dryRun: true, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(dry.status === "DRY_RUN" && JSON.stringify(dry.deliveryGroup) === JSON.stringify([BOX]) && dry.recipients.length === 3, `${dry.status} ${dry.blockedReason}`);
+    assert(w.store.state.outbox.length === w.seedOutbox && w.rec.guarded.length === 0, "dry-run escreveu/enviou");
+    const r = await runPilotSingleAlert({ caseId: w.highCase.id, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(r.status === "BLOCKED" && r.blockedReason === "RECIPIENT_SELECTION_REQUIRED" && r.sent === 0, JSON.stringify(r));
+    assert(w.store.state.outbox.length === w.seedOutbox && w.rec.guarded.length === 0, "bloqueio escreveu/enviou");
+  }));
+
+await check("destino EXCLUSIVO + UM destinatário selecionado: exatamente 1 mensagem, To=axion@, sem Cc/Bcc; as outras linhas não existem/não mudam; repetir não reenvia", () =>
+  withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
+    const w = await seeded();
+    const dry = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, dryRun: true, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(dry.status === "DRY_RUN" && dry.recipients.length === 1 && dry.recipients[0].userId === U.jaime && dry.recipients[0].outcome === "WOULD_SEND", JSON.stringify(dry.recipients));
+    assert(w.store.state.outbox.length === w.seedOutbox && w.rec.guarded.length === 0, "dry-run escreveu/enviou");
+    const r = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime.toUpperCase(), now: new Date(T0), store: w.store, provider: w.provider });
+    assert(r.status === "EXECUTED" && r.sent === 1 && r.failed === 0 && r.recipients.length === 1, JSON.stringify(r));
+    assert(w.rec.guarded.length === 1, `${w.rec.guarded.length} mensagens`);
+    const g = w.rec.guarded[0];
+    assert(String(g.to).trim().toLowerCase() === BOX && !g.cc && !g.bcc, `To=${g.to} cc=${g.cc} bcc=${g.bcc}`);
+    for (const other of GROUP.filter((a) => a !== BOX && a !== CRM)) assert(!JSON.stringify(g).toLowerCase().includes(other), `menciona ${other}`);
+    const rows = w.store.state.outbox.filter((o) => o.idempotencyKey.includes(":PILOT_SINGLE:"));
+    assert(rows.length === 1 && rows[0].idempotencyKey.endsWith(U.jaime) && rows[0].status === "SENT", JSON.stringify(rows.map((o) => [o.idempotencyKey, o.status])));
+    const again = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(again.status === "ALREADY_SENT" && again.recipients[0].outcome === "JA_EXISTE" && w.rec.guarded.length === 1, "reenviou a mesma mensagem");
+    assert(!w.store.state.outbox.some((o) => o.idempotencyKey.endsWith(U.rey) || o.idempotencyKey.endsWith(U.carlos)), "criou linha para destinatário não selecionado");
+  }));
+
+await check("seleção inválida: UUID inválido e usuário fora da allowlist (inclusive o responsável da Matriz) => bloqueio, nada enviado", () =>
+  withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
+    const w = await seeded();
+    const bad = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: "nao-e-uuid", store: w.store, provider: w.provider });
+    assert(bad.status === "BLOCKED" && bad.blockedReason === "RECIPIENT_ID_INVALID", bad.blockedReason);
+    const out = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.ricardo, store: w.store, provider: w.provider });
+    assert(out.status === "BLOCKED" && out.blockedReason === "RECIPIENT_NOT_IN_ALLOWLIST", out.blockedReason);
+    assert(w.rec.guarded.length === 0 && w.store.state.outbox.length === w.seedOutbox, "enviou/escreveu");
+  }));
+
+await check("3 linhas PENDING pré-rede + snapshot de produção + UM selecionado: só a linha escolhida é retentada (1 e-mail); as outras 2 seguem PENDING, intactas", () =>
+  withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
+    // As 3 linhas pré-rede foram criadas pelo app ainda em modo grupo (sem seleção); só depois o ambiente passa a destino exclusivo.
+    const w = await withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "WEG_INTERNAL_FOUR" }, () => preBlocked());
+    prodLikeSnapshot(w.store);
+    const fingerprint = (o) => JSON.stringify([o.id, o.idempotencyKey, o.status, o.attemptCount, o.lastError, o.providerMessageId, o.sentAt]);
+    const chosen = w.rows.find((o) => o.idempotencyKey.endsWith(U.jaime));
+    const others = w.rows.filter((o) => o !== chosen);
+    const before = others.map(fingerprint).sort();
+    const dry = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, dryRun: true, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(dry.retried === 1 && dry.recipients.length === 1 && dry.recipients[0].outcome === "WOULD_RETRY" && dry.recipients[0].retry, JSON.stringify(dry.recipients));
+    const r = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(r.status === "EXECUTED" && r.sent === 1 && r.retried === 1, JSON.stringify(r));
+    assert(w.rec.guarded.length === 1 && String(w.rec.guarded[0].to).trim().toLowerCase() === BOX && !w.rec.guarded[0].cc && !w.rec.guarded[0].bcc, "mensagem fora do esperado");
+    assert(chosen.status === "SENT", "linha escolhida não ficou SENT");
+    assert(others.length === 2 && others.every((o) => o.status === "PENDING" && o.attemptCount === 1 && !o.providerMessageId && !o.sentAt), "outras linhas foram modificadas");
+    assert(JSON.stringify(others.map(fingerprint).sort()) === JSON.stringify(before), "outras linhas mudaram");
+    assert(w.store.state.outbox.filter((o) => o.idempotencyKey.includes(":PILOT_SINGLE:")).length === 3, "criou/apagou linha");
+    const again = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(again.status === "ALREADY_SENT" && w.rec.guarded.length === 1, "reenviou");
+  }));
+
+await check("plumbing: a rota repassa pilotSingleRecipient e o workflow exige recipient_user_id (UUID) em mode=send", () => {
+  const route = fs.readFileSync(new URL("../apps/web/app/api/cron/risk-alerts/route.ts", import.meta.url), "utf8");
+  assert(/pilotSingleRecipient/.test(route) && /recipientUserId/.test(route), "rota não repassa a seleção");
+  const wf = fs.readFileSync(new URL("../.github/workflows/pilot-single-alert.yml", import.meta.url), "utf8");
+  assert(/recipient_user_id/.test(wf) && /mode=send exige recipient_user_id/.test(wf) && /pilotSingleRecipient=/.test(wf), "workflow sem a seleção obrigatória");
+});
 
 await check("reentrada: linhas bloqueadas antes da rede => dry-run WOULD_RETRY sem escrita; execução reaproveita AS MESMAS linhas (sem duplicar) e envia 3", () =>
   withEnv({}, async () => {
