@@ -1,6 +1,6 @@
 import { isCronRequestAuthorized, RISK_ALERTS_CRON_SECRET_ENV } from "@/lib/cron/cron-request-auth";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
-import { PILOT_SINGLE_CASE_ENV, runPilotSingleAlert } from "@/lib/risk-alerts/run-pilot-single-alert";
+import { authorizePilotSingleRequest, runPilotSingleAlert } from "@/lib/risk-alerts/run-pilot-single-alert";
 import { runRiskAlertCycle } from "@/lib/risk-alerts/run-risk-alert-cycle";
 
 // Worker horário dos alertas de risco. Disparado pelo workflow GitHub
@@ -46,16 +46,12 @@ export async function GET(request: Request) {
   const dryRun = url.searchParams.get("dryRun") === "1";
   const projectId = url.searchParams.get("projectId");
 
-  const pilotSingleCase = url.searchParams.get("pilotSingleCase");
-  if (pilotSingleCase !== null) {
-    const armed = (process.env[PILOT_SINGLE_CASE_ENV] ?? "").trim().toLowerCase();
-    if (!dryRun && (!armed || armed !== pilotSingleCase.trim().toLowerCase())) {
-      return Response.json({ error: "Execução única não armada para este caso." }, { status: 403 });
-    }
+  const pilotSingle = authorizePilotSingleRequest(url.searchParams);
+  if (pilotSingle !== null) {
+    if (!pilotSingle.ok) return Response.json({ error: pilotSingle.error }, { status: pilotSingle.status });
     inFlight = true;
     try {
-      const recipientParam = url.searchParams.get("pilotSingleRecipient");
-      const single = await runPilotSingleAlert({ caseId: pilotSingleCase, dryRun, recipientUserId: recipientParam });
+      const single = await runPilotSingleAlert({ caseId: pilotSingle.caseId, dryRun: pilotSingle.dryRun, recipientUserId: pilotSingle.recipientUserId });
       return Response.json(single, { status: single.failed > 0 ? 207 : 200 });
     } catch {
       return Response.json({ error: "Falha na execução única do piloto." }, { status: 500 });

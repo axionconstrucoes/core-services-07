@@ -43,6 +43,34 @@ import { DEFAULT_PROJECT_TIMEZONE, MAX_SEND_ATTEMPTS } from "./types";
 
 export const MAX_PILOT_SINGLE_RECIPIENTS = 3;
 export const PILOT_SINGLE_CASE_ENV = "ACC_PILOT_SINGLE_ALERT_CASE_ID";
+/** Armamento do DESTINATÁRIO (user_id) da execução real. Independente do armamento do caso: ambos são variáveis do servidor. */
+export const PILOT_SINGLE_RECIPIENT_ENV = "ACC_PILOT_SINGLE_ALERT_RECIPIENT_ID";
+
+export type PilotSingleRequestDecision =
+  | { ok: true; caseId: string; recipientUserId: string | null; dryRun: boolean }
+  | { ok: false; status: 403; error: string };
+
+/**
+ * Autoriza (no SERVIDOR) uma requisição do envio único. null => a requisição não é do envio único (ciclo normal).
+ * Execução REAL exige: id do caso IDÊNTICO ao armado em PILOT_SINGLE_CASE_ENV e, quando um destinatário é selecionado, user_id
+ * IDÊNTICO ao armado em PILOT_SINGLE_RECIPIENT_ENV. Armar exige acesso de administração ao ambiente do servidor; o dry-run não exige
+ * armamento e nunca escreve nem envia. Valores ausentes/divergentes => 403 (fail closed).
+ */
+export function authorizePilotSingleRequest(params: URLSearchParams, env: Record<string, string | undefined> = process.env): PilotSingleRequestDecision | null {
+  const caseParam = params.get("pilotSingleCase");
+  if (caseParam === null) return null;
+  const dryRun = params.get("dryRun") === "1";
+  const recipient = (params.get("pilotSingleRecipient") ?? "").trim().toLowerCase() || null;
+  if (!dryRun) {
+    const armedCase = (env[PILOT_SINGLE_CASE_ENV] ?? "").trim().toLowerCase();
+    if (!armedCase || armedCase !== caseParam.trim().toLowerCase()) return { ok: false, status: 403, error: "Execução única não armada para este caso." };
+    if (recipient !== null) {
+      const armedRecipient = (env[PILOT_SINGLE_RECIPIENT_ENV] ?? "").trim().toLowerCase();
+      if (!armedRecipient || armedRecipient !== recipient) return { ok: false, status: 403, error: "Execução única não armada para este destinatário." };
+    }
+  }
+  return { ok: true, caseId: caseParam, recipientUserId: recipient, dryRun };
+}
 
 export type PilotSingleAlertStatus = "BLOCKED" | "DRY_RUN" | "EXECUTED" | "ALREADY_SENT";
 
@@ -169,7 +197,16 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
     return blocked(caseId, `READINESS:${blockerToSuppressionReason(readiness.blockers[0])}`, { ...base, readinessBlockers: readiness.blockers });
   }
 
-  const fullAllowlist = (config.pilotRecipientAllowlistUserIds ?? []).slice(0, MAX_PILOT_SINGLE_RECIPIENTS);
+  // Sem duplicatas (mesma pessoa listada duas vezes não pode gerar duas mensagens para a mesma chave de idempotência).
+  const seenAllowlist = new Set<string>();
+  const fullAllowlist = (config.pilotRecipientAllowlistUserIds ?? [])
+    .filter((id) => {
+      const key = id.toLowerCase();
+      if (seenAllowlist.has(key)) return false; // mantém a PRIMEIRA ocorrência
+      seenAllowlist.add(key);
+      return true;
+    })
+    .slice(0, MAX_PILOT_SINGLE_RECIPIENTS);
   const requestedRecipient = options.recipientUserId?.trim().toLowerCase() || null;
   if (requestedRecipient !== null && !UUID.test(requestedRecipient)) return blocked(caseId, "RECIPIENT_ID_INVALID", base);
   // Destino exclusivo (uma única caixa real): a execução real precisa nomear o destinatário lógico, para não gerar uma mensagem por
@@ -250,6 +287,20 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
 
   const result: PilotSingleAlertResult = { status: "DRY_RUN", blockedReason: null, readinessBlockers: [], ...base, caseId, recipients, sent: 0, failed: 0, skipped: 0, retried };
   if (dryRun) return result;
+  // Seleção explícita: a execução REAL exige EXATAMENTE uma mensagem elegível (nova ou pré-rede retentável). Zero ou mais de uma =>
+  // bloqueio explícito, sem escrita e sem envio (nunca "ALREADY_SENT" genérico).
+  if (requestedRecipient !== null && entries.length !== 1) {
+    const outcome = recipients[0]?.outcome;
+    const reason =
+      entries.length > 1
+        ? "RECIPIENT_AMBIGUOUS"
+        : outcome === "NAO_ELEGIVEL"
+          ? "RECIPIENT_NOT_ELIGIBLE"
+          : outcome === "JA_EXISTE"
+            ? "RECIPIENT_ALREADY_PROCESSED_NOT_RETRYABLE"
+            : "RECIPIENT_NO_ELIGIBLE_MESSAGE";
+    return { ...result, status: "BLOCKED", blockedReason: reason };
+  }
   if (entries.length === 0) return { ...result, status: "ALREADY_SENT" };
 
   // ---- execução real: só aqui há escrita (outbox + auditoria + envio). risk_alerts_enabled NÃO é tocado. ----
