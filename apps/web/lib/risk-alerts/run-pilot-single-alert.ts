@@ -191,10 +191,13 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
   const recipients: PilotSingleAlertRecipientResult[] = [];
   const entries: PlannedOutboxEntry[] = [];
   // Estado das chaves que JÁ existem (somente leitura): base da reentrada estreita pré-rede.
-  const existingKeys = allowlist.map((userId) => `${caseId}:PILOT_SINGLE:${userId}`).filter((key) => snapshot.existingIdempotencyKeys.has(key));
+  // ATENÇÃO: no Supabase real, existingIdempotencyKeys NÃO contém linhas PENDING (o ciclo normal as retenta por desenho). Se o
+  // gate dependesse só dele, uma linha PENDING (inclusive após resposta incerta do Gmail) pareceria "nova" e o enqueue a devolveria
+  // para reenvio sem passar por isPreNetworkRetryable. Por isso o estado da outbox é lido para TODAS as chaves candidatas.
+  const candidateKeys = allowlist.map((userId) => `${caseId}:PILOT_SINGLE:${userId}`);
   const retryInfo = new Map<string, OutboxRetryInfo>();
-  if (existingKeys.length > 0 && store.loadOutboxRetryInfo) {
-    for (const info of await store.loadOutboxRetryInfo(projectId, existingKeys)) retryInfo.set(info.idempotencyKey, info);
+  if (store.loadOutboxRetryInfo) {
+    for (const info of await store.loadOutboxRetryInfo(projectId, candidateKeys)) retryInfo.set(info.idempotencyKey, info);
   }
   let retried = 0;
   for (const userId of allowlist) {
@@ -203,7 +206,7 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
     const row: PilotSingleAlertRecipientResult = { userId, name: recipient.name, eligibility: recipient.status, suppressionReason: recipient.suppressionReason, idempotencyKey, outcome: "NAO_ELEGIVEL", retry: false };
     recipients.push(row);
     if (recipient.status !== "PENDING") continue;
-    if (snapshot.existingIdempotencyKeys.has(idempotencyKey)) {
+    if (snapshot.existingIdempotencyKeys.has(idempotencyKey) || retryInfo.has(idempotencyKey)) {
       if (!isPreNetworkRetryable(retryInfo.get(idempotencyKey), { projectId, caseId, recipientUserId: userId, idempotencyKey })) {
         row.outcome = "JA_EXISTE";
         continue;

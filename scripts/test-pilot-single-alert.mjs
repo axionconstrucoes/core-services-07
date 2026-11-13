@@ -283,6 +283,31 @@ await check("reentrada: linhas bloqueadas antes da rede => dry-run WOULD_RETRY s
     assert(w.rec.guarded.length === 3, "reenviou");
   }));
 
+// Reproduz o Supabase REAL: existingIdempotencyKeys NÃO contém linhas PENDING (supabase-store.ts: .neq("status","PENDING")).
+function prodLikeSnapshot(store) {
+  const orig = store.loadProjectSnapshot.bind(store);
+  store.loadProjectSnapshot = async (id) => {
+    const snap = await orig(id);
+    const pending = new Set(store.state.outbox.filter((o) => o.status === "PENDING").map((o) => o.idempotencyKey));
+    return { ...snap, existingIdempotencyKeys: new Set([...snap.existingIdempotencyKeys].filter((k) => !pending.has(k))) };
+  };
+}
+
+await check("snapshot de produção (sem chaves PENDING): pré-rede => WOULD_RETRY; PENDING com erro incerto/entrega possível => JA_EXISTE e NUNCA reenvia", () =>
+  withEnv({}, async () => {
+    const w = await preBlocked();
+    prodLikeSnapshot(w.store);
+    const dry = await runPilotSingleAlert({ caseId: w.highCase.id, dryRun: true, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(dry.retried === 3 && dry.recipients.every((x) => x.outcome === "WOULD_RETRY" && x.retry), `dry: ${JSON.stringify(dry.recipients)}`);
+    const [a, b, c] = w.rows;
+    a.lastError = "Falha de rede no provedor (resposta incerta)."; // sem marcador pré-rede: o Gmail pode ter entregue
+    b.lastError = null;
+    c.lastError = "timeout aguardando resposta do Gmail";
+    const r = await runPilotSingleAlert({ caseId: w.highCase.id, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(r.status === "ALREADY_SENT" && r.sent === 0 && r.recipients.every((x) => x.outcome === "JA_EXISTE" && !x.retry), JSON.stringify(r));
+    assert(w.rec.guarded.length === 0, "reenviou linha PENDING sem marcador pré-rede (risco de duplicidade)");
+  }));
+
 await check("reentrada recusada: provider_message_id preenchido, status SENT, last_error sem marcador, linha de outro caso, tentativas esgotadas", () =>
   withEnv({}, async () => {
     const w = await preBlocked();
