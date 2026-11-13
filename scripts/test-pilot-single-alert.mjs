@@ -2,6 +2,9 @@
 // de guardas do transporte real. Nenhuma rede, nenhum banco, nenhum e-mail.
 // Uso: node scripts/test-pilot-single-alert.mjs
 import net from "node:net";
+import os from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { register } from "node:module";
 
 const leaked = Object.keys(process.env).filter((k) => /^(SUPABASE_|NEXT_PUBLIC_SUPABASE|GOOGLE_(?!GMAIL_INBOUND_MAILBOX$)|ANTHROPIC_API_KEY|ELEVENLABS_|CRON_SECRET|ACC_RISK_ALERTS_)/.test(k));
@@ -21,7 +24,7 @@ process.env.GOOGLE_GMAIL_INBOUND_MAILBOX = "crm@axion.com.br";
 register("./ts-module-resolver.mjs", import.meta.url);
 register("./lib/weg-alert-sim/hooks.mjs", import.meta.url);
 
-const { runPilotSingleAlert, MAX_PILOT_SINGLE_RECIPIENTS } = await import("../apps/web/lib/risk-alerts/run-pilot-single-alert");
+const { runPilotSingleAlert, MAX_PILOT_SINGLE_RECIPIENTS, authorizePilotSingleRequest, PILOT_SINGLE_CASE_ENV, PILOT_SINGLE_RECIPIENT_ENV } = await import("../apps/web/lib/risk-alerts/run-pilot-single-alert");
 const { runRiskAlertCycle } = await import("../apps/web/lib/risk-alerts/run-risk-alert-cycle");
 const { FakeEmailProvider } = await import("../apps/web/lib/email/fake-email-provider");
 const { createInMemoryRiskAlertStore } = await import("./lib/weg-alert-sim/in-memory-risk-alert-store.mjs");
@@ -226,16 +229,35 @@ await check("allowlist: quem não está nela não recebe (Ricardo = responsável
     assert(r.sent === 2 && w.rec.guarded.length === 2, `${r.sent} enviados`);
   }));
 
-await check("rota: exige cron-secret; execução real sem armamento => 403; id divergente => 403; dry-run não exige armamento; ciclo normal não é chamado", async () => {
+await check("rota: exige cron-secret ANTES; delega a autorização (caso + destinatário) a authorizePilotSingleRequest; ramo único não chama o ciclo normal", async () => {
   const src = fs.readFileSync(new URL("../apps/web/app/api/cron/risk-alerts/route.ts", import.meta.url), "utf8");
   assert(/isCronRequestAuthorized\(request, process\.env\[RISK_ALERTS_CRON_SECRET_ENV\]\)/.test(src), "autenticação removida");
-  assert(src.indexOf("isCronRequestAuthorized") < src.indexOf("pilotSingleCase"), "autenticação deve vir antes");
-  assert(/!dryRun && \(!armed \|\| armed !== pilotSingleCase/.test(src), "armamento ausente");
-  const branch = src.slice(src.indexOf("if (pilotSingleCase !== null)"), src.indexOf("inFlight = true;\n  try {\n    const result") === -1 ? undefined : src.indexOf("const result = await runRiskAlertCycle"));
-  assert(!/runRiskAlertCycle/.test(branch.slice(0, branch.indexOf("return Response.json(single"))), "ramo único chama o ciclo normal");
+  assert(src.indexOf("isCronRequestAuthorized") < src.indexOf("authorizePilotSingleRequest(url.searchParams)"), "autenticação deve vir antes");
+  assert(/if \(!pilotSingle\.ok\) return Response\.json\(\{ error: pilotSingle\.error \}, \{ status: pilotSingle\.status \}\)/.test(src), "403 não propagado");
+  assert(/recipientUserId: pilotSingle\.recipientUserId/.test(src), "rota não repassa o destinatário ao motor");
+  const branch = src.slice(src.indexOf("const pilotSingle = authorizePilotSingleRequest"), src.indexOf("return Response.json(single"));
+  assert(branch.length > 50 && !/runRiskAlertCycle/.test(branch), "ramo único chama o ciclo normal");
   const wf = fs.readFileSync(new URL("../.github/workflows/pilot-single-alert.yml", import.meta.url), "utf8");
   assert(!/schedule:/.test(wf) && /workflow_dispatch:/.test(wf) && /refs\/heads\/main/.test(wf) && /ENVIAR-UMA-VEZ/.test(wf), "workflow fora do padrão");
   assert(!/\$\{\{ *secrets\.[A-Z_]+ *\}\}[^\n]*\?/.test(wf), "segredo em URL");
+});
+
+await check("autorização no servidor: dry-run sem armamento; real exige caso armado e, com destinatário selecionado, destinatário armado (ambos idênticos)", () => {
+  const C = "0dc108da-409d-4792-907c-b21015d4e5ac";
+  const P = (o) => new URLSearchParams(o);
+  assert(authorizePilotSingleRequest(P({})) === null && authorizePilotSingleRequest(P({ dryRun: "1" })) === null, "requisição normal tratada como envio único");
+  const dry = authorizePilotSingleRequest(P({ pilotSingleCase: C, dryRun: "1", pilotSingleRecipient: U.jaime.toUpperCase() }), {});
+  assert(dry.ok && dry.dryRun && dry.recipientUserId === U.jaime, "dry-run exigiu armamento ou não repassou o destinatário");
+  const arm = { [PILOT_SINGLE_CASE_ENV]: C, [PILOT_SINGLE_RECIPIENT_ENV]: U.jaime };
+  assert(authorizePilotSingleRequest(P({ pilotSingleCase: C }), {}).status === 403, "real sem caso armado");
+  assert(authorizePilotSingleRequest(P({ pilotSingleCase: C }), { [PILOT_SINGLE_CASE_ENV]: "DESARMADO" }).status === 403, "caso desarmado");
+  assert(authorizePilotSingleRequest(P({ pilotSingleCase: C, pilotSingleRecipient: U.jaime }), { [PILOT_SINGLE_CASE_ENV]: C }).status === 403, "destinatário não armado");
+  assert(authorizePilotSingleRequest(P({ pilotSingleCase: C, pilotSingleRecipient: U.rey }), arm).status === 403, "destinatário divergente do armado");
+  assert(authorizePilotSingleRequest(P({ pilotSingleCase: "99999999-0000-4000-8000-000000000099", pilotSingleRecipient: U.jaime }), arm).status === 403, "caso divergente do armado");
+  const ok = authorizePilotSingleRequest(P({ pilotSingleCase: C.toUpperCase(), pilotSingleRecipient: ` ${U.jaime.toUpperCase()} ` }), arm);
+  assert(ok.ok && !ok.dryRun && ok.recipientUserId === U.jaime, JSON.stringify(ok));
+  const blank = authorizePilotSingleRequest(P({ pilotSingleCase: C, pilotSingleRecipient: "  " }), { [PILOT_SINGLE_CASE_ENV]: C });
+  assert(blank.ok && blank.recipientUserId === null, "destinatário em branco deveria virar null (e o motor exige seleção no destino exclusivo)");
 });
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -288,7 +310,7 @@ await check("destino EXCLUSIVO + UM destinatário selecionado: exatamente 1 mens
     const rows = w.store.state.outbox.filter((o) => o.idempotencyKey.includes(":PILOT_SINGLE:"));
     assert(rows.length === 1 && rows[0].idempotencyKey.endsWith(U.jaime) && rows[0].status === "SENT", JSON.stringify(rows.map((o) => [o.idempotencyKey, o.status])));
     const again = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, now: new Date(T0), store: w.store, provider: w.provider });
-    assert(again.status === "ALREADY_SENT" && again.recipients[0].outcome === "JA_EXISTE" && w.rec.guarded.length === 1, "reenviou a mesma mensagem");
+    assert(again.status === "BLOCKED" && again.blockedReason === "RECIPIENT_ALREADY_PROCESSED_NOT_RETRYABLE" && again.recipients[0].outcome === "JA_EXISTE" && w.rec.guarded.length === 1, "reenviou a mesma mensagem");
     assert(!w.store.state.outbox.some((o) => o.idempotencyKey.endsWith(U.rey) || o.idempotencyKey.endsWith(U.carlos)), "criou linha para destinatário não selecionado");
   }));
 
@@ -321,12 +343,137 @@ await check("3 linhas PENDING pré-rede + snapshot de produção + UM selecionad
     assert(JSON.stringify(others.map(fingerprint).sort()) === JSON.stringify(before), "outras linhas mudaram");
     assert(w.store.state.outbox.filter((o) => o.idempotencyKey.includes(":PILOT_SINGLE:")).length === 3, "criou/apagou linha");
     const again = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, now: new Date(T0), store: w.store, provider: w.provider });
-    assert(again.status === "ALREADY_SENT" && w.rec.guarded.length === 1, "reenviou");
+    assert(again.status === "BLOCKED" && again.blockedReason === "RECIPIENT_ALREADY_PROCESSED_NOT_RETRYABLE" && w.rec.guarded.length === 1, "reenviou");
+  }));
+
+await check("propagação REAL workflow -> rota -> motor: o script do workflow monta a URL; a autorização do servidor a aceita; o motor envia UMA mensagem", () =>
+  withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
+    const wf = fs.readFileSync(new URL("../.github/workflows/pilot-single-alert.yml", import.meta.url), "utf8").split(/\r?\n/);
+    const at = wf.findIndex((l) => /^\s*run: \|\s*$/.test(l));
+    assert(at > 0, "script do workflow não encontrado");
+    const script = wf.slice(at + 1).map((l) => l.replace(/^ {10}/, "")).join("\n");
+    const prelude = 'curl() { local a last out=""; for a in "$@"; do last="$a"; done; while [ $# -gt 0 ]; do [ "$1" = "--output" ] && out="$2"; shift; done; printf "%s" "$last" > url.txt; echo "{}" > "$out"; echo 200; }\n';
+    const CASE = "0dc108da-409d-4792-907c-b21015d4e5ac";
+    const runWf = (inputs) => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wf-"));
+      const r = spawnSync("bash", ["-c", prelude + script], {
+        cwd: dir,
+        env: { PATH: process.env.PATH, ACC_APP_BASE_URL: "https://acc.invalid", ACC_RISK_ALERTS_CRON_SECRET: "dummy", CASE_ID: CASE, MODE: "dry-run", CONFIRM: "", RECIPIENT_USER_ID: "", ...inputs },
+        encoding: "utf8",
+      });
+      const urlFile = path.join(dir, "url.txt");
+      const url = fs.existsSync(urlFile) ? fs.readFileSync(urlFile, "utf8") : null;
+      fs.rmSync(dir, { recursive: true, force: true });
+      return { code: r.status, url, err: `${r.stdout}${r.stderr}` };
+    };
+    // validações do workflow: send sem confirmação, send sem destinatário, UUID inválido => falha ANTES de chamar a rota
+    assert(runWf({ MODE: "send", RECIPIENT_USER_ID: U.jaime }).code !== 0 && runWf({ MODE: "send", RECIPIENT_USER_ID: U.jaime }).url === null, "send sem confirmação chamou a rota");
+    const noRec = runWf({ MODE: "send", CONFIRM: "ENVIAR-UMA-VEZ" });
+    assert(noRec.code !== 0 && noRec.url === null, `send sem destinatário chamou a rota: ${noRec.err}`);
+    assert(runWf({ MODE: "send", CONFIRM: "ENVIAR-UMA-VEZ", RECIPIENT_USER_ID: "nao-uuid" }).url === null, "UUID inválido chamou a rota");
+    // dry-run: a URL carrega caso, dryRun=1 e o destinatário; segredo NUNCA na URL
+    const dry = runWf({ MODE: "dry-run", RECIPIENT_USER_ID: U.jaime });
+    assert(dry.code === 0 && dry.url, `dry-run do workflow falhou: ${dry.err}`);
+    const dUrl = new URL(dry.url);
+    assert(dUrl.pathname === "/api/cron/risk-alerts" && !dry.url.includes("dummy"), "URL fora do esperado ou com segredo");
+    const dDec = authorizePilotSingleRequest(dUrl.searchParams, {});
+    assert(dDec.ok && dDec.dryRun && dDec.caseId === CASE && dDec.recipientUserId === U.jaime, JSON.stringify(dDec));
+    // send: a URL NÃO tem dryRun, carrega caso+destinatário; o servidor só autoriza com os DOIS armamentos
+    const send = runWf({ MODE: "send", CONFIRM: "ENVIAR-UMA-VEZ", RECIPIENT_USER_ID: U.jaime });
+    assert(send.code === 0 && send.url, `send do workflow falhou: ${send.err}`);
+    const sUrl = new URL(send.url);
+    assert(!sUrl.searchParams.has("dryRun") && sUrl.searchParams.get("pilotSingleRecipient") === U.jaime, "URL do send fora do esperado");
+    assert(authorizePilotSingleRequest(sUrl.searchParams, { [PILOT_SINGLE_CASE_ENV]: CASE }).status === 403, "send autorizado sem armar o destinatário");
+    const arm = { [PILOT_SINGLE_CASE_ENV]: "cccccccc-0000-4000-8000-000000000001", [PILOT_SINGLE_RECIPIENT_ENV]: U.jaime };
+    const w = await seeded();
+    const sUrl2 = new URL(send.url.replace(CASE, w.highCase.id));
+    const dec = authorizePilotSingleRequest(sUrl2.searchParams, arm);
+    assert(dec.ok && !dec.dryRun && dec.recipientUserId === U.jaime, JSON.stringify(dec));
+    const r = await runPilotSingleAlert({ caseId: dec.caseId, dryRun: dec.dryRun, recipientUserId: dec.recipientUserId, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(r.status === "EXECUTED" && r.sent === 1 && w.rec.guarded.length === 1 && String(w.rec.guarded[0].to).trim().toLowerCase() === BOX && !w.rec.guarded[0].cc && !w.rec.guarded[0].bcc, JSON.stringify(r));
+  }));
+
+await check("seleção: zero mensagens elegíveis => BLOQUEIO explícito (inelegível, já processada, entrega possível, SENT); nada é enviado nem alterado", () =>
+  withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
+    // inelegível (membro inativo)
+    const a = await seeded();
+    a.world.recipients.set(U.carlos, { userId: U.carlos, name: "Carlos", email: EMAIL[U.carlos], membershipStatus: "INACTIVE" });
+    const ra = await runPilotSingleAlert({ caseId: a.highCase.id, recipientUserId: U.carlos, now: new Date(T0), store: a.store, provider: a.provider });
+    assert(ra.status === "BLOCKED" && ra.blockedReason === "RECIPIENT_NOT_ELIGIBLE" && ra.sent === 0, JSON.stringify(ra));
+    assert(a.rec.guarded.length === 0 && a.store.state.outbox.length === a.seedOutbox, "inelegível escreveu/enviou");
+    // linhas pré-rede criadas pelo app em modo grupo; depois cada variação de risco de entrega anterior
+    const variants = [
+      ["erro incerto sem marcador", (o) => { o.lastError = "timeout aguardando resposta do Gmail"; }],
+      ["last_error nulo", (o) => { o.lastError = null; }],
+      ["provider_message_id preenchido", (o) => { o.providerMessageId = "msg-qualquer"; }],
+      ["sent_at preenchido", (o) => { o.sentAt = "2026-11-13T12:00:00.000Z"; }],
+      ["status SENT", (o) => { o.status = "SENT"; }],
+      ["tentativas esgotadas", (o) => { o.attemptCount = 3; }],
+    ];
+    for (const [label, mutate] of variants) {
+      const w = await withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "WEG_INTERNAL_FOUR" }, () => preBlocked());
+      prodLikeSnapshot(w.store);
+      const row = w.rows.find((o) => o.idempotencyKey.endsWith(U.jaime));
+      mutate(row);
+      const fp = () => JSON.stringify(w.store.state.outbox.map((o) => [o.id, o.status, o.attemptCount, o.lastError, o.providerMessageId, o.sentAt]));
+      const before = fp();
+      const r = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, now: new Date(T0), store: w.store, provider: w.provider });
+      assert(r.status === "BLOCKED" && r.blockedReason === "RECIPIENT_ALREADY_PROCESSED_NOT_RETRYABLE" && r.sent === 0 && r.retried === 0, `${label}: ${JSON.stringify(r)}`);
+      assert(w.rec.guarded.length === 0, `${label}: enviou`);
+      assert(fp() === before, `${label}: a outbox mudou`);
+    }
+  }));
+
+await check("seleção: allowlist com a MESMA pessoa duplicada (inclusive em caixa diferente) gera UMA mensagem, em seleção e em modo grupo", () =>
+  withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
+    const w = await seeded();
+    w.world.config.pilotRecipientAllowlistUserIds = [U.jaime, U.jaime.toUpperCase(), U.rey];
+    const r = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(r.status === "EXECUTED" && r.sent === 1 && r.recipients.length === 1 && w.rec.guarded.length === 1, JSON.stringify(r));
+    assert(w.store.state.outbox.filter((o) => o.idempotencyKey.includes(":PILOT_SINGLE:")).length === 1, "mais de uma linha para a mesma pessoa");
+    const g = await withEnv({}, async () => {
+      const w2 = await seeded();
+      w2.world.config.pilotRecipientAllowlistUserIds = [U.rey, U.rey.toUpperCase(), U.jaime];
+      const r2 = await runPilotSingleAlert({ caseId: w2.highCase.id, now: new Date(T0), store: w2.store, provider: w2.provider });
+      return { r2, sent: w2.rec.guarded.length };
+    });
+    assert(g.r2.recipients.length === 2 && g.r2.sent === 2 && g.sent === 2, "modo grupo não deduplicou");
+  }));
+
+await check("CONCORRÊNCIA: 6 execuções simultâneas da MESMA mensagem selecionada => exatamente UM envio; linha SENT com 1 tentativa; demais linhas intocadas", () =>
+  withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
+    const w = await withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "WEG_INTERNAL_FOUR" }, () => preBlocked());
+    prodLikeSnapshot(w.store);
+    const chosen = w.rows.find((o) => o.idempotencyKey.endsWith(U.jaime));
+    const others = w.rows.filter((o) => o !== chosen);
+    const fp = (o) => JSON.stringify([o.id, o.status, o.attemptCount, o.lastError, o.providerMessageId, o.sentAt]);
+    const before = others.map(fp).sort();
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, i) => runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, dryRun: i === 5, now: new Date(T0), store: w.store, provider: w.provider }))
+    );
+    const sentTotal = results.reduce((n, r) => n + r.sent, 0);
+    assert(sentTotal === 1 && w.rec.guarded.length === 1, `enviados=${sentTotal} mensagens=${w.rec.guarded.length} ${JSON.stringify(results.map((r) => [r.status, r.sent, r.recipients.map((x) => x.outcome)]))}`);
+    assert(chosen.status === "SENT" && chosen.attemptCount === 2, `linha escolhida: ${fp(chosen)}`); // 1 tentativa pré-rede + 1 envio
+    assert(JSON.stringify(others.map(fp).sort()) === JSON.stringify(before), "outras linhas mudaram");
+    assert(w.store.state.outbox.filter((o) => o.idempotencyKey.includes(":PILOT_SINGLE:")).length === 3, "criou/apagou linha");
+    const again = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(again.status === "BLOCKED" && again.blockedReason === "RECIPIENT_ALREADY_PROCESSED_NOT_RETRYABLE" && w.rec.guarded.length === 1, "reenviou depois de SENT");
+  }));
+
+await check("CONCORRÊNCIA (mensagem nova, sem linha prévia): 6 execuções simultâneas => exatamente UM envio e UMA linha", () =>
+  withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
+    const w = await seeded();
+    const results = await Promise.all(Array.from({ length: 6 }, () => runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, now: new Date(T0), store: w.store, provider: w.provider })));
+    const sentTotal = results.reduce((n, r) => n + r.sent, 0);
+    assert(sentTotal === 1 && w.rec.guarded.length === 1, `enviados=${sentTotal} mensagens=${w.rec.guarded.length}`);
+    const rows = w.store.state.outbox.filter((o) => o.idempotencyKey.includes(":PILOT_SINGLE:"));
+    assert(rows.length === 1 && rows[0].status === "SENT" && rows[0].attemptCount === 1, JSON.stringify(rows.map((o) => [o.status, o.attemptCount])));
   }));
 
 await check("plumbing: a rota repassa pilotSingleRecipient e o workflow exige recipient_user_id (UUID) em mode=send", () => {
   const route = fs.readFileSync(new URL("../apps/web/app/api/cron/risk-alerts/route.ts", import.meta.url), "utf8");
-  assert(/pilotSingleRecipient/.test(route) && /recipientUserId/.test(route), "rota não repassa a seleção");
+  const engine = fs.readFileSync(new URL("../apps/web/lib/risk-alerts/run-pilot-single-alert.ts", import.meta.url), "utf8");
+  assert(/pilotSingleRecipient/.test(engine) && /recipientUserId/.test(route), "seleção não repassada rota -> motor");
   const wf = fs.readFileSync(new URL("../.github/workflows/pilot-single-alert.yml", import.meta.url), "utf8");
   assert(/recipient_user_id/.test(wf) && /mode=send exige recipient_user_id/.test(wf) && /pilotSingleRecipient=/.test(wf), "workflow sem a seleção obrigatória");
 });
