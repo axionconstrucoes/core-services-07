@@ -20,7 +20,8 @@ import { runRiskAlertCycle } from "@/lib/risk-alerts/run-risk-alert-cycle";
 //   concurrency group e as chaves únicas impedem duplicidade).
 // - ?pilotSingleCase=<uuid do caso> => execução MANUAL ÚNICA do piloto WEG (run-pilot-single-alert.ts), no lugar do ciclo:
 //   nunca roda o ciclo normal, não liga risk_alerts_enabled e usa a mesma cadeia de guardas do provider. Com dryRun=1 só
-//   simula (sem escrita/envio). Sem dryRun, só envia se o id do caso for IDÊNTICO ao configurado em
+//   simula (sem escrita/envio). ?pilotSingleRecipient=<uuid do usuário da allowlist> seleciona UM destinatário lógico (obrigatório
+//   na execução real quando a entrega é a caixa única axion@). Sem dryRun, só envia se o id do caso for IDÊNTICO ao configurado em
 //   ACC_PILOT_SINGLE_ALERT_CASE_ID no servidor (armamento explícito e removível); ausente/divergente => 403.
 // A janela do consolidado (quarta 07:00 no timezone do projeto) é decidida
 // pelo próprio ciclo a cada hora — o agendamento em UTC nunca fixa o
@@ -53,7 +54,8 @@ export async function GET(request: Request) {
     }
     inFlight = true;
     try {
-      const single = await runPilotSingleAlert({ caseId: pilotSingleCase, dryRun });
+      const recipientParam = url.searchParams.get("pilotSingleRecipient");
+      const single = await runPilotSingleAlert({ caseId: pilotSingleCase, dryRun, recipientUserId: recipientParam });
       return Response.json(single, { status: single.failed > 0 ? 207 : 200 });
     } catch {
       return Response.json({ error: "Falha na execução única do piloto." }, { status: 500 });

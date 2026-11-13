@@ -14,6 +14,10 @@ on:
       case_id:
         description: "UUID do caso de risco (risk_alert_cases.id) — HIGH/CRITICAL, aberto, da WEG"
         required: true
+      recipient_user_id:
+        description: "UUID do usuário da allowlist do piloto (UM destinatário lógico). Obrigatório em mode=send"
+        required: false
+        default: ""
       mode:
         description: "dry-run (padrão, sem escrita/envio) ou send"
         required: false
@@ -42,6 +46,7 @@ jobs:
           ACC_APP_BASE_URL: ${{ vars.ACC_APP_BASE_URL }}
           ACC_RISK_ALERTS_CRON_SECRET: ${{ secrets.ACC_RISK_ALERTS_CRON_SECRET }}
           CASE_ID: ${{ github.event.inputs.case_id }}
+          RECIPIENT_USER_ID: ${{ github.event.inputs.recipient_user_id }}
           MODE: ${{ github.event.inputs.mode }}
           CONFIRM: ${{ github.event.inputs.confirm }}
         run: |
@@ -49,11 +54,18 @@ jobs:
           [[ "${CASE_ID}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] || { echo "::error::case_id não é um UUID"; exit 1; }
           [ -n "${ACC_APP_BASE_URL:-}" ] && [ -n "${ACC_RISK_ALERTS_CRON_SECRET:-}" ] || { echo "::error::ACC_APP_BASE_URL ou segredo ausente"; exit 1; }
           case "${ACC_APP_BASE_URL}" in https://*) ;; *) echo "::error::ACC_APP_BASE_URL precisa começar com https://"; exit 1 ;; esac
+          if [ -n "${RECIPIENT_USER_ID}" ]; then
+            [[ "${RECIPIENT_USER_ID}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]] || { echo "::error::recipient_user_id não é um UUID"; exit 1; }
+            recipient="&pilotSingleRecipient=${RECIPIENT_USER_ID}"
+          else
+            recipient=""
+          fi
           case "${MODE}" in
-            dry-run) extra="&dryRun=1" ;;
+            dry-run) extra="&dryRun=1${recipient}" ;;
             send)
               [ "${CONFIRM}" = "ENVIAR-UMA-VEZ" ] || { echo "::error::confirmação ausente para mode=send"; exit 1; }
-              extra="" ;;
+              [ -n "${recipient}" ] || { echo "::error::mode=send exige recipient_user_id (um único destinatário lógico)"; exit 1; }
+              extra="${recipient}" ;;
             *) echo "::error::mode inválido"; exit 1 ;;
           esac
           status=$(curl --silent --show-error --max-time 120 \

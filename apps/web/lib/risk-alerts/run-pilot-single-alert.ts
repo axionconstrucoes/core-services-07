@@ -99,6 +99,12 @@ export interface PilotSingleAlertResult {
 
 export interface RunPilotSingleAlertOptions {
   caseId: string;
+  /**
+   * Seleção EXPLÍCITA de UM destinatário lógico (user_id da allowlist do piloto). Só ele é planejado/enviado; as demais linhas da
+   * outbox (inclusive PENDING) não são lidas para envio, enfileiradas nem modificadas. No modo destino exclusivo (uma única caixa
+   * real) a execução REAL exige esta seleção — assim o primeiro teste nunca gera várias mensagens para a mesma caixa.
+   */
+  recipientUserId?: string | null;
   dryRun?: boolean;
   now?: Date;
   store?: RiskAlertStore;
@@ -163,7 +169,16 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
     return blocked(caseId, `READINESS:${blockerToSuppressionReason(readiness.blockers[0])}`, { ...base, readinessBlockers: readiness.blockers });
   }
 
-  const allowlist = (config.pilotRecipientAllowlistUserIds ?? []).slice(0, MAX_PILOT_SINGLE_RECIPIENTS);
+  const fullAllowlist = (config.pilotRecipientAllowlistUserIds ?? []).slice(0, MAX_PILOT_SINGLE_RECIPIENTS);
+  const requestedRecipient = options.recipientUserId?.trim().toLowerCase() || null;
+  if (requestedRecipient !== null && !UUID.test(requestedRecipient)) return blocked(caseId, "RECIPIENT_ID_INVALID", base);
+  // Destino exclusivo (uma única caixa real): a execução real precisa nomear o destinatário lógico, para não gerar uma mensagem por
+  // pessoa da allowlist, todas para a mesma caixa.
+  if (!dryRun && group.length === 1 && requestedRecipient === null) return blocked(caseId, "RECIPIENT_SELECTION_REQUIRED", base);
+  if (requestedRecipient !== null && !fullAllowlist.some((id) => id.toLowerCase() === requestedRecipient)) {
+    return blocked(caseId, "RECIPIENT_NOT_IN_ALLOWLIST", base);
+  }
+  const allowlist = requestedRecipient === null ? fullAllowlist : fullAllowlist.filter((id) => id.toLowerCase() === requestedRecipient);
   const nowIso = (options.now ?? new Date()).toISOString();
   const linked = record.slaActionId ? snapshot.linkedActions.get(record.slaActionId) : undefined;
   const content: ImmediateAlertContent = {
