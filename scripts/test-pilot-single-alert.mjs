@@ -194,10 +194,11 @@ await check("bloqueios: caso médio, caso inexistente/outro projeto, id inválid
     assert((await run("não-é-uuid")).blockedReason === "CASE_ID_INVALID");
     assert(w.rec.guarded.length === 0);
   });
-  await withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
+  await withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "", ACC_PROJECT_PILOT_DESTINATION: "outro@exemplo.com" }, async () => {
     const w = await seeded();
     const r = await runPilotSingleAlert({ caseId: w.highCase.id, store: w.store, provider: w.provider });
-    assert(r.status === "BLOCKED" && r.blockedReason === "PILOT_GROUP_NOT_ACTIVE", r.blockedReason);
+    assert(r.status === "BLOCKED" && r.blockedReason === "PILOT_PROFILE_INVALID", r.blockedReason);
+    assert(w.rec.guarded.length === 0, "enviou com destino fora da lista fixa");
   });
   await withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "OUTRO_GRUPO" }, async () => {
     const w = await seeded();
@@ -260,6 +261,23 @@ async function preBlocked() {
   w.rec.guarded.length = 0;
   return { ...w, rows };
 }
+
+await check("destino EXCLUSIVO (sem grupo): dry-run não escreve; execução envia To=axion@ (única caixa), sem Cc/Bcc e sem as outras caixas; repetir não reenvia", () =>
+  withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
+    const w = await seeded();
+    const dry = await runPilotSingleAlert({ caseId: w.highCase.id, dryRun: true, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(dry.status === "DRY_RUN" && JSON.stringify(dry.deliveryGroup) === JSON.stringify([BOX]), `${dry.status} ${dry.blockedReason} ${JSON.stringify(dry.deliveryGroup)}`);
+    assert(w.store.state.outbox.length === w.seedOutbox && w.rec.guarded.length === 0, "dry-run escreveu/enviou");
+    const r = await runPilotSingleAlert({ caseId: w.highCase.id, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(r.status === "EXECUTED" && r.sent === 3 && r.failed === 0, JSON.stringify(r));
+    assert(w.rec.guarded.length === 3, `${w.rec.guarded.length} mensagens`);
+    for (const g of w.rec.guarded) {
+      assert(String(g.to).trim().toLowerCase() === BOX && !g.cc && !g.bcc, `To=${g.to} cc=${g.cc} bcc=${g.bcc}`);
+      for (const other of GROUP.filter((a) => a !== BOX && a !== CRM)) assert(!JSON.stringify(g).toLowerCase().includes(other), `menciona ${other}`);
+    }
+    const again = await runPilotSingleAlert({ caseId: w.highCase.id, now: new Date(T0), store: w.store, provider: w.provider });
+    assert(again.status === "ALREADY_SENT" && w.rec.guarded.length === 3, "reenviou no modo destino exclusivo");
+  }));
 
 await check("reentrada: linhas bloqueadas antes da rede => dry-run WOULD_RETRY sem escrita; execução reaproveita AS MESMAS linhas (sem duplicar) e envia 3", () =>
   withEnv({}, async () => {

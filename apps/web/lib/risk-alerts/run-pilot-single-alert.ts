@@ -6,10 +6,11 @@
 //
 // Reaproveita sem desvio: a mesma outbox (idempotência), o mesmo sendPlanned/deliver (composição, links de ação, Reply-To,
 // assinatura), o mesmo getEmailProvider() e as MESMAS guardas do piloto do provider (guarda global → perfil do projeto →
-// destino único → MIME → conferência do MIME final). O roteamento para as quatro caixas é decidido pelo perfil do projeto.
+// destino único → MIME → conferência do MIME final). O roteamento (destino exclusivo ou grupo) é decidido pelo perfil do projeto.
 //
 // Salvaguardas (todas fail-closed):
-//   - exige o grupo WEG_INTERNAL_FOUR ativo e válido para ESTE projeto (resolveProjectPilotReplyGroup);
+//   - exige perfil de entrega do piloto ATIVO e VÁLIDO para ESTE projeto (resolveProjectPilotDeliveryTargets): o destino exclusivo
+//     da lista fixa (axion@axion.com.br) ou, se configurado, o grupo WEG_INTERNAL_FOUR;
 //   - o caso precisa existir no projeto, estar ABERTO e ser HIGH/CRITICAL; o id do caso é informado explicitamente;
 //   - destinatários lógicos = membros da allowlist do piloto com vínculo ativo (evaluateRecipient) — nunca outros;
 //   - teto: 1 caso e no máximo MAX_PILOT_SINGLE_RECIPIENTS e-mails;
@@ -26,7 +27,7 @@ import { loadAccLogoInlineImage } from "@/lib/email/branding/load-acc-logo-inlin
 import type { EmailProvider } from "@/lib/email/email-provider";
 import { getEmailProvider } from "@/lib/email/get-email-provider";
 import { resolveEmailProviderName } from "@/lib/email/gmail-auth";
-import { resolveProjectPilotReplyGroup, resolveProjectPilotProfile } from "@/lib/email/project-pilot-profile";
+import { resolveProjectPilotDeliveryTargets, resolveProjectPilotProfile } from "@/lib/email/project-pilot-profile";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
 import { slaEscalationLevelLabels } from "@/lib/labels";
 import { resolveMatrixPolicy } from "@/lib/sla/resolve-matrix-policy";
@@ -120,8 +121,8 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
   const profile = resolveProjectPilotProfile();
   if (!profile.configured || !profile.valid) return blocked(caseId, "PILOT_PROFILE_INVALID");
   const projectId = profile.projectId;
-  const group = resolveProjectPilotReplyGroup(projectId);
-  if (!group) return blocked(caseId, "PILOT_GROUP_NOT_ACTIVE", { projectId });
+  const group = resolveProjectPilotDeliveryTargets(projectId);
+  if (!group) return blocked(caseId, "PILOT_DELIVERY_NOT_ACTIVE", { projectId });
 
   const store = options.store ?? createSupabaseRiskAlertStore(createSupabaseAdminClient());
   const snapshot = await store.loadProjectSnapshot(projectId);
