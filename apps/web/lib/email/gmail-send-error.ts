@@ -15,7 +15,7 @@
 // chamada de rede", que estas falhas (pós-rede) NUNCA contêm.
 
 export type GmailSendFailureClass = "DEFINITIVE" | "TEMPORARY" | "UNCERTAIN";
-export type GmailSendStage = "TOKEN_REFRESH" | "SEND" | "RESPONSE";
+export type GmailSendStage = "AUTH_REFRESH" | "SEND" | "RESPONSE";
 
 export type GmailSendFailureReason =
   | "GMAIL_API_DISABLED"
@@ -63,7 +63,7 @@ function stageOf(err: Record<string, unknown>): GmailSendStage {
   const config = asRecord(err.config);
   const url = typeof config?.url === "string" ? config.url : "";
   // Só o host/caminho é inspecionado (nunca registrado); o refresh do token ocorre dentro da chamada de envio.
-  return /oauth2\.googleapis\.com\/token|accounts\.google\.com\/o\/oauth2/i.test(url) ? "TOKEN_REFRESH" : "SEND";
+  return /oauth2\.googleapis\.com\/token|accounts\.google\.com\/o\/oauth2/i.test(url) ? "AUTH_REFRESH" : "SEND";
 }
 
 /** Extrai, do corpo do erro do Google, o primeiro código de razão utilizável (errors[].reason, details[].reason, status, error). */
@@ -121,14 +121,14 @@ export function classifyGmailSendError(error: unknown): GmailSendDiagnostic {
   if (httpStatus === null) {
     if (NOT_ESTABLISHED.has(code)) return done("CONNECTION_NOT_ESTABLISHED", "TEMPORARY");
     if (TIMEOUTS.has(code) || err.name === "AbortError" || /timeout|timed out/i.test(typeof err.message === "string" ? err.message : "")) {
-      return stage === "TOKEN_REFRESH" ? done("TIMEOUT", "TEMPORARY") : done("TIMEOUT", "UNCERTAIN");
+      return stage === "AUTH_REFRESH" ? done("TIMEOUT", "TEMPORARY") : done("TIMEOUT", "UNCERTAIN");
     }
-    if (LOST.has(code)) return stage === "TOKEN_REFRESH" ? done("CONNECTION_LOST", "TEMPORARY") : done("CONNECTION_LOST", "UNCERTAIN");
+    if (LOST.has(code)) return stage === "AUTH_REFRESH" ? done("CONNECTION_LOST", "TEMPORARY") : done("CONNECTION_LOST", "UNCERTAIN");
     return done("UNKNOWN", "UNCERTAIN");
   }
 
   // Falhas no endpoint de token: o envio nem começou — nunca há mensagem enviada.
-  if (stage === "TOKEN_REFRESH") {
+  if (stage === "AUTH_REFRESH") {
     if (apiLower === "invalid_grant") return done("AUTH_INVALID_GRANT", "DEFINITIVE");
     if (apiLower === "invalid_client" || apiLower === "unauthorized_client") return done("AUTH_INVALID_CLIENT", "DEFINITIVE");
     if (httpStatus >= 500 || httpStatus === 429) return done(httpStatus === 429 ? "RATE_LIMITED" : "SERVER_ERROR", "TEMPORARY");
@@ -161,4 +161,12 @@ export function formatGmailSendDiagnostic(d: GmailSendDiagnostic): string {
   const parts = [`etapa=${d.stage}`, `http=${d.httpStatus ?? "n/a"}`, `api=${d.apiCode ?? "n/a"}`, `motivo=${d.reason}`, `classe=${d.classification}`];
   if (d.correlationId) parts.push(`corr=${d.correlationId}`);
   return `[${parts.join(" ")}]`;
+}
+
+const DIAGNOSTIC_TEXT = /\[etapa=[A-Z_]+ http=(?:\d{3}|n\/a) api=[A-Za-z0-9_.:-]+ motivo=[A-Z_]+ classe=[A-Z]+(?: corr=[A-Za-z0-9_.:-]+)?\]/;
+
+/** Extrai de um last_error o trecho de diagnóstico seguro gerado por formatGmailSendDiagnostic (ou null). Nunca devolve texto livre. */
+export function extractGmailSendDiagnosticText(lastError: string | null | undefined): string | null {
+  if (typeof lastError !== "string") return null;
+  return DIAGNOSTIC_TEXT.exec(lastError)?.[0] ?? null;
 }
