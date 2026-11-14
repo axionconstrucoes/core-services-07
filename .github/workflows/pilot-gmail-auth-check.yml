@@ -1,0 +1,40 @@
+name: Pilot Gmail Auth Check
+
+# Diagnóstico MANUAL e SOMENTE-LEITURA da autenticação Gmail do piloto WEG. Sem schedule. Só roda em main.
+# Chama a rota JÁ autenticada /api/cron/risk-alerts com pilotAuthCheck=1, que tenta renovar o access token com as credenciais da
+# Vercel Production e devolve apenas campos normalizados (etapa, status HTTP, razão, classe, escopos, fingerprint do client id).
+# NÃO envia e-mail, NÃO chama o Gmail de mensagens, NÃO toca na outbox e NÃO altera credenciais.
+# O segredo vai só no header Authorization (nunca em URL ou log). Repositório público: o log mostra só o JSON normalizado.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: pilot-gmail-auth-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call auth check
+        shell: bash
+        env:
+          ACC_APP_BASE_URL: ${{ vars.ACC_APP_BASE_URL }}
+          ACC_RISK_ALERTS_CRON_SECRET: ${{ secrets.ACC_RISK_ALERTS_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          [ -n "${ACC_APP_BASE_URL:-}" ] && [ -n "${ACC_RISK_ALERTS_CRON_SECRET:-}" ] || { echo "::error::ACC_APP_BASE_URL ou segredo ausente"; exit 1; }
+          case "${ACC_APP_BASE_URL}" in https://*) ;; *) echo "::error::ACC_APP_BASE_URL precisa começar com https://"; exit 1 ;; esac
+          status=$(curl --silent --show-error --max-time 60 \
+            --output response.json --write-out "%{http_code}" \
+            -H "Authorization: Bearer ${ACC_RISK_ALERTS_CRON_SECRET}" \
+            "${ACC_APP_BASE_URL%/}/api/cron/risk-alerts?pilotAuthCheck=1")
+          echo "HTTP ${status}"
+          node -e "const j=JSON.parse(require('fs').readFileSync('response.json','utf8'));const k=['ok','stage','httpStatus','apiCode','reason','classification','refreshed','configSource','clientIdFingerprint','scopes','accountMatchesSender','gmailMessagesApiCalled'];console.log(JSON.stringify(Object.fromEntries(k.filter((x)=>x in j).map((x)=>[x,j[x]]))))"
+          rm -f response.json

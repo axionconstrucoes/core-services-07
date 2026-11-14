@@ -1,3 +1,4 @@
+import { runGmailPilotAuthCheck } from "@/lib/email/gmail-auth-check";
 import { isCronRequestAuthorized, RISK_ALERTS_CRON_SECRET_ENV } from "@/lib/cron/cron-request-auth";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
 import { authorizePilotSingleRequest, runPilotSingleAlert } from "@/lib/risk-alerts/run-pilot-single-alert";
@@ -43,6 +44,14 @@ export async function GET(request: Request) {
   }
 
   const url = new URL(request.url);
+  // ?pilotAuthCheck=1 => DIAGNÓSTICO somente-leitura da autenticação Gmail do piloto (gmail-auth-check.ts): renova o access token com as
+  // credenciais da Vercel e devolve só campos normalizados. Nunca envia, nunca chama o Gmail de mensagens, nunca toca na outbox nem
+  // no ciclo. Mesma autenticação (segredo dedicado) da rota; sem endpoint novo.
+  if (url.searchParams.get("pilotAuthCheck") === "1") {
+    const check = await runGmailPilotAuthCheck();
+    return Response.json(check, { status: check.ok ? 200 : 207, headers: { "Cache-Control": "no-store" } });
+  }
+
   const dryRun = url.searchParams.get("dryRun") === "1";
   const projectId = url.searchParams.get("projectId");
 
