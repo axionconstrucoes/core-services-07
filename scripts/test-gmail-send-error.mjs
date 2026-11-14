@@ -5,8 +5,14 @@ import { register } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+globalThis.fetch = async () => {
+  throw new Error("NETWORK_BLOCKED");
+};
 register("./ts-module-resolver.mjs", import.meta.url);
-const { classifyGmailSendError, formatGmailSendDiagnostic, responseWithoutIdDiagnostic } = await import("../apps/web/lib/email/gmail-send-error");
+register("./lib/weg-alert-sim/hooks.mjs", import.meta.url);
+const { classifyGmailSendError, formatGmailSendDiagnostic, responseWithoutIdDiagnostic, extractGmailSendDiagnosticText } = await import("../apps/web/lib/email/gmail-send-error");
+const { isPreNetworkRetryable } = await import("../apps/web/lib/risk-alerts/run-pilot-single-alert");
+const { sanitizeError } = await import("../apps/web/lib/risk-alerts/supabase-store");
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(path.join(root, p), "utf8");
 
@@ -55,9 +61,9 @@ const cases = [
   ["429 limite de taxa", gaxios(429, apiErr(429, "rateLimitExceeded", "RESOURCE_EXHAUSTED")), 429, "RATE_LIMITED", "TEMPORARY", "SEND"],
   ["500", gaxios(500, apiErr(500, "backendError", "INTERNAL")), 500, "SERVER_ERROR", "UNCERTAIN", "SEND"],
   ["503", gaxios(503, apiErr(503, "backendError", "UNAVAILABLE")), 503, "SERVER_ERROR", "UNCERTAIN", "SEND"],
-  ["token: invalid_grant", tokenErr(400, "invalid_grant"), 400, "AUTH_INVALID_GRANT", "DEFINITIVE", "TOKEN_REFRESH"],
-  ["token: invalid_client", tokenErr(401, "invalid_client"), 401, "AUTH_INVALID_CLIENT", "DEFINITIVE", "TOKEN_REFRESH"],
-  ["token: 503 (nada enviado)", tokenErr(503, "temporarily_unavailable"), 503, "SERVER_ERROR", "TEMPORARY", "TOKEN_REFRESH"],
+  ["token: invalid_grant", tokenErr(400, "invalid_grant"), 400, "AUTH_INVALID_GRANT", "DEFINITIVE", "AUTH_REFRESH"],
+  ["token: invalid_client", tokenErr(401, "invalid_client"), 401, "AUTH_INVALID_CLIENT", "DEFINITIVE", "AUTH_REFRESH"],
+  ["token: 503 (nada enviado)", tokenErr(503, "temporarily_unavailable"), 503, "SERVER_ERROR", "TEMPORARY", "AUTH_REFRESH"],
 ];
 for (const [name, err, http, reason, cls, stage] of cases) {
   check(`classifica ${name}`, () => {
@@ -91,7 +97,7 @@ check("conexão nunca estabelecida (ENOTFOUND/ECONNREFUSED) => TEMPORÁRIA", () 
 });
 check("timeout/queda no endpoint de token (nada enviado) => TEMPORÁRIA", () => {
   const d = classifyGmailSendError({ code: "ETIMEDOUT", config: { url: "https://oauth2.googleapis.com/token" } });
-  eq(d.stage, "TOKEN_REFRESH");
+  eq(d.stage, "AUTH_REFRESH");
   eq(d.classification, "TEMPORARY");
 });
 check("resposta incerta: 2xx sem id/threadId => INCERTO", () => {
@@ -132,6 +138,41 @@ check("texto formatado NÃO contém o marcador pré-rede (falha pós-rede nunca 
     const t = formatGmailSendDiagnostic(classifyGmailSendError(err));
     if (t.includes("antes de qualquer chamada de rede")) throw new Error("marcador presente");
   }
+});
+
+
+// ---- Integração com a persistência (sanitizeError do store) e com o gate de idempotência ----
+const PREFIX = "GmailEmailProvider: falha ao enviar via Gmail API. ";
+const allErrs = [...cases.map((c) => c[1]), { code: "ETIMEDOUT" }, { code: "ECONNRESET" }, {}, null];
+check("sanitizeError do store PRESERVA o diagnóstico completo (sem '<redacted>' nem '<email>')", () => {
+  for (const err of allErrs) {
+    const text = PREFIX + formatGmailSendDiagnostic(classifyGmailSendError(err));
+    const stored = sanitizeError(new Error(text));
+    if (stored !== text) throw new Error(`alterado pelo sanitizeError: ${stored}`);
+    if (/<redacted>|<email>/.test(stored)) throw new Error("redigido");
+  }
+});
+check("extractGmailSendDiagnosticText recupera só o trecho seguro e ignora texto livre", () => {
+  const d = formatGmailSendDiagnostic(classifyGmailSendError(cases[2][1]));
+  eq(extractGmailSendDiagnosticText(PREFIX + d), d);
+  eq(extractGmailSendDiagnosticText("erro livre com Bearer ya29.x [etapa=SEND http=403 api=a b]"), null);
+  eq(extractGmailSendDiagnosticText(null), null);
+  eq(extractGmailSendDiagnosticText(undefined), null);
+});
+const KEY = "0dc108da-409d-4792-907c-b21015d4e5ac:PILOT_SINGLE:c7bfe367-bac6-4263-8dd1-2b8b561e8cec";
+const expected = { projectId: "p1", caseId: "0dc108da-409d-4792-907c-b21015d4e5ac", recipientUserId: "c7bfe367-bac6-4263-8dd1-2b8b561e8cec", idempotencyKey: KEY };
+const rowWith = (lastError, extra = {}) => ({ idempotencyKey: KEY, projectId: "p1", caseId: expected.caseId, recipientUserId: expected.recipientUserId, status: "PENDING", attemptCount: 2, providerMessageId: null, sentAt: null, emailId: null, lastError, ...extra });
+check("falha APÓS contato com o Gmail (qualquer classe) NUNCA é retentável pelo gate pré-rede", () => {
+  for (const err of allErrs) {
+    const lastError = sanitizeError(new Error(PREFIX + formatGmailSendDiagnostic(classifyGmailSendError(err))));
+    if (isPreNetworkRetryable(rowWith(lastError), expected)) throw new Error(`retentável: ${lastError}`);
+  }
+  if (isPreNetworkRetryable(rowWith("GmailEmailProvider: falha ao enviar via Gmail API."), expected)) throw new Error("erro genérico antigo retentável");
+});
+check("controle: bloqueio genuíno pré-rede continua retentável (comportamento existente preservado)", () => {
+  const pre = "GmailEmailProvider: remetente do piloto não configurado — envio bloqueado antes de qualquer chamada de rede.";
+  eq(isPreNetworkRetryable(rowWith(pre, { attemptCount: 1 }), expected), true);
+  eq(isPreNetworkRetryable(rowWith(pre, { attemptCount: 1, providerMessageId: "x" }), expected), false);
 });
 
 // Integração por texto-fonte (o provider importa "server-only"): o erro bruto nunca é logado e a falha continua fechada.

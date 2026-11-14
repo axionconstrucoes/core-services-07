@@ -36,6 +36,7 @@ import type { SlaArea, SlaRiskLevel } from "@/lib/sla/types";
 import { blockerToSuppressionReason, evaluatePilotReadiness, isSeverityMapComplete } from "./pilot-readiness";
 import { evaluateRecipient } from "./plan-risk-alerts";
 import { sendPlanned, type SendContext } from "./run-risk-alert-cycle";
+import { extractGmailSendDiagnosticText } from "@/lib/email/gmail-send-error";
 import type { OutboxRetryInfo, RiskAlertStore } from "./store";
 import { createSupabaseRiskAlertStore } from "./supabase-store";
 import type { ImmediateAlertContent, PlannedOutboxEntry } from "./types";
@@ -83,6 +84,8 @@ export interface PilotSingleAlertRecipientResult {
   outcome: "WOULD_SEND" | "WOULD_RETRY" | "SENT" | "FAILED" | "SKIPPED" | "JA_EXISTE" | "NAO_ELEGIVEL";
   /** true quando a MESMA linha da outbox (bloqueada antes de qualquer chamada de rede) foi retentada. */
   retry: boolean;
+  /** Diagnóstico seguro (allowlist) da falha do provedor, quando outcome=FAILED. Nunca contém erro bruto, tokens ou MIME. */
+  failureDiagnostic?: string | null;
 }
 
 /**
@@ -338,6 +341,14 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
     if (outcome === "SENT") result.sent += 1;
     else if (outcome === "FAILED") result.failed += 1;
     else result.skipped += 1;
+  }
+  // Diagnóstico útil e SEGURO para o workflow: só o trecho normalizado (allowlist) gravado em last_error. Leitura apenas; não altera a outbox.
+  if (result.failed > 0 && store.loadOutboxRetryInfo) {
+    const failedRows = recipients.filter((r) => r.outcome === "FAILED");
+    const infos = await store.loadOutboxRetryInfo(projectId, failedRows.map((r) => r.idempotencyKey));
+    for (const row of failedRows) {
+      row.failureDiagnostic = extractGmailSendDiagnosticText(infos.find((info) => info.idempotencyKey === row.idempotencyKey)?.lastError);
+    }
   }
   return { ...result, status: "EXECUTED" };
 }
