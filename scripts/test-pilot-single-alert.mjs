@@ -27,6 +27,8 @@ register("./lib/weg-alert-sim/hooks.mjs", import.meta.url);
 const { runPilotSingleAlert, MAX_PILOT_SINGLE_RECIPIENTS, authorizePilotSingleRequest, PILOT_SINGLE_CASE_ENV, PILOT_SINGLE_RECIPIENT_ENV } = await import("../apps/web/lib/risk-alerts/run-pilot-single-alert");
 const { runRiskAlertCycle } = await import("../apps/web/lib/risk-alerts/run-risk-alert-cycle");
 const { FakeEmailProvider } = await import("../apps/web/lib/email/fake-email-provider");
+const { EmailSendError } = await import("../apps/web/lib/email/email-provider");
+const { classifyGmailSendError, formatGmailSendDiagnostic } = await import("../apps/web/lib/email/gmail-send-error");
 const { createInMemoryRiskAlertStore } = await import("./lib/weg-alert-sim/in-memory-risk-alert-store.mjs");
 const fs = await import("node:fs");
 
@@ -116,6 +118,17 @@ async function withEnv(extra, fn) {
 }
 
 /** Semeadura: o ciclo normal roda UMA vez com a allowlist vazia (tudo SUPPRESSED) para existir o caso, como no histórico real; depois a allowlist é a real. */
+
+// Amostras do diagnóstico REAL gravado em last_error após contato com o Gmail (todas as classes) — nenhuma pode ser retentável.
+const GMAIL_ERR = (status, reason) => ({ response: { status, data: { error: { errors: [{ reason }] } }, headers: {} }, config: { url: "https://gmail.googleapis.com/gmail/v1/users/me/messages/send" } });
+const DIAG_SAMPLES = [
+  ["HTTP 400", GMAIL_ERR(400, "invalidArgument")],
+  ["HTTP 403 API desativada", GMAIL_ERR(403, "accessNotConfigured")],
+  ["HTTP 429", GMAIL_ERR(429, "rateLimitExceeded")],
+  ["HTTP 503", GMAIL_ERR(503, "backendError")],
+  ["timeout", { code: "ETIMEDOUT", config: { url: "https://gmail.googleapis.com/x" } }],
+  ["erro sem estrutura", {}],
+].map(([n, err]) => [n, `GmailEmailProvider: falha ao enviar via Gmail API. ${formatGmailSendDiagnostic(classifyGmailSendError(err))}`]);
 async function seeded() {
   const w = makeWorld();
   w.world.config.riskAlertsEnabled = true;
@@ -263,7 +276,6 @@ await check("autorização no servidor: dry-run sem armamento; real exige caso a
 // ---------------------------------------------------------------------------------------------------------------
 // Reentrada ESTREITA: a mesma linha bloqueada ANTES de qualquer chamada de rede pode ser retentada; nada mais.
 // ---------------------------------------------------------------------------------------------------------------
-const { EmailSendError } = await import("../apps/web/lib/email/email-provider");
 const { isPreNetworkRetryable, PILOT_SINGLE_PRE_NETWORK_MARKER } = await import("../apps/web/lib/risk-alerts/run-pilot-single-alert");
 const PRE_NETWORK_ERROR = "GmailEmailProvider: remetente do piloto não configurado — envio bloqueado antes de qualquer chamada de rede.";
 
@@ -404,6 +416,7 @@ await check("seleção: zero mensagens elegíveis => BLOQUEIO explícito (ineleg
     // linhas pré-rede criadas pelo app em modo grupo; depois cada variação de risco de entrega anterior
     const variants = [
       ["erro incerto sem marcador", (o) => { o.lastError = "timeout aguardando resposta do Gmail"; }],
+      ...DIAG_SAMPLES.map(([n, text]) => [`diagnóstico Gmail pós-rede (${n})`, (o) => { o.lastError = text; }]),
       ["last_error nulo", (o) => { o.lastError = null; }],
       ["provider_message_id preenchido", (o) => { o.providerMessageId = "msg-qualquer"; }],
       ["sent_at preenchido", (o) => { o.sentAt = "2026-11-13T12:00:00.000Z"; }],
@@ -420,6 +433,27 @@ await check("seleção: zero mensagens elegíveis => BLOQUEIO explícito (ineleg
       const r = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, now: new Date(T0), store: w.store, provider: w.provider });
       assert(r.status === "BLOCKED" && r.blockedReason === "RECIPIENT_ALREADY_PROCESSED_NOT_RETRYABLE" && r.sent === 0 && r.retried === 0, `${label}: ${JSON.stringify(r)}`);
       assert(w.rec.guarded.length === 0, `${label}: enviou`);
+      assert(fp() === before, `${label}: a outbox mudou`);
+    }
+  }));
+
+await check("falha do Gmail pós-rede: diagnóstico no resultado; a linha fica bloqueada (sem retentativa, sem novo envio) mesmo com 6 execuções simultâneas", () =>
+  withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
+    for (const [label, text] of DIAG_SAMPLES) {
+      const w = await seeded();
+      let calls = 0;
+      const failing = { send: async () => { calls += 1; throw new EmailSendError(text); } };
+      const fp = () => JSON.stringify(w.store.state.outbox.map((o) => [o.id, o.status, o.attemptCount, o.lastError, o.providerMessageId, o.sentAt]));
+      const first = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, now: new Date(T0), store: w.store, provider: failing });
+      assert(first.status === "EXECUTED" && first.sent === 0 && first.failed === 1 && calls === 1, `${label}: ${JSON.stringify(first)}`);
+      const diag = first.recipients[0].failureDiagnostic;
+      assert(typeof diag === "string" && text.endsWith(diag) && /^\[etapa=/.test(diag), `${label}: diagnóstico ausente/incorreto: ${diag}`);
+      const row = w.store.state.outbox.find((o) => o.idempotencyKey.endsWith(`:PILOT_SINGLE:${U.jaime}`));
+      assert(row && row.status === "PENDING" && !row.providerMessageId && !row.sentAt && row.attemptCount >= 1 && !row.lastError.includes(PILOT_SINGLE_PRE_NETWORK_MARKER), `${label}: linha inesperada ${JSON.stringify(row)}`);
+      const before = fp();
+      const again = await Promise.all(Array.from({ length: 6 }, () => runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, now: new Date(T0), store: w.store, provider: failing })));
+      assert(again.every((r) => r.status === "BLOCKED" && r.blockedReason === "RECIPIENT_ALREADY_PROCESSED_NOT_RETRYABLE" && r.sent === 0 && r.retried === 0), `${label}: ${JSON.stringify(again.map((r) => [r.status, r.blockedReason]))}`);
+      assert(calls === 1, `${label}: reenviou (${calls} chamadas)`);
       assert(fp() === before, `${label}: a outbox mudou`);
     }
   }));

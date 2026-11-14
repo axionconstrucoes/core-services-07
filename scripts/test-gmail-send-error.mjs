@@ -175,6 +175,25 @@ check("controle: bloqueio genuíno pré-rede continua retentável (comportamento
   eq(isPreNetworkRetryable(rowWith(pre, { attemptCount: 1, providerMessageId: "x" }), expected), false);
 });
 
+
+check("código da API com 'token/key' vira credential_error (não vira <redacted>) sem perder a classificação", () => {
+  const e = gaxios(403, apiErr(403, "ACCESS_TOKEN_SCOPE_INSUFFICIENT", "PERMISSION_DENIED"));
+  const d = classifyGmailSendError(e);
+  eq(d.apiCode, "credential_error");
+  eq(d.reason, "INSUFFICIENT_SCOPE");
+  const text = "x " + formatGmailSendDiagnostic(d);
+  eq(sanitizeError(new Error(text)), text);
+});
+check("identificadores técnicos normalizados (etapa AUTH_REFRESH, motivos, classes) sobrevivem ao sanitizeError", () => {
+  for (const id of ["AUTH_REFRESH", "AUTH_INVALID_GRANT", "AUTH_UNAUTHORIZED", "AUTH_INVALID_CLIENT", "GMAIL_API_DISABLED", "UNCERTAIN", "DEFINITIVE", "TEMPORARY"]) {
+    eq(sanitizeError(new Error(`[etapa=${id}]`)), `[etapa=${id}]`, id);
+  }
+});
+check("timeout (api=n/a) é extraído do last_error pelo workflow", () => {
+  const t = `${PREFIX}${formatGmailSendDiagnostic(classifyGmailSendError({ code: "ETIMEDOUT" }))}`;
+  if (extractGmailSendDiagnosticText(sanitizeError(new Error(t))) === null) throw new Error("extração falhou");
+});
+
 // Integração por texto-fonte (o provider importa "server-only"): o erro bruto nunca é logado e a falha continua fechada.
 const src = read("apps/web/lib/email/gmail-email-provider.ts");
 check("provider: catch usa o classificador e não registra o erro bruto", () => {

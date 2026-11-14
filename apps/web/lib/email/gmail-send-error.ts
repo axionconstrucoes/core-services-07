@@ -111,11 +111,14 @@ export function classifyGmailSendError(error: unknown): GmailSendDiagnostic {
   const response = asRecord(err.response);
   const stage = stageOf(err);
   const httpStatus = numericStatus(err, response);
-  const apiCode = apiCodeOf(response);
+  // Códigos que contêm "token/key/secret/bearer" seriam apagados pelo sanitizeError do store (apareceriam como <redacted>):
+  // viram um identificador neutro, mantendo o diagnóstico legível sem depender de sanitização genérica.
+  const rawApiCode = apiCodeOf(response);
+  const apiCode = rawApiCode !== null && /(bearer|token|secret|key)/i.test(rawApiCode) ? "credential_error" : rawApiCode;
   const correlationId = correlationOf(response);
   const base = { stage, httpStatus, apiCode, correlationId };
   const code = typeof err.code === "string" ? err.code.toUpperCase() : "";
-  const apiLower = (apiCode ?? "").toLowerCase();
+  const apiLower = (rawApiCode ?? "").toLowerCase();
   const done = (reason: GmailSendFailureReason, classification: GmailSendFailureClass): GmailSendDiagnostic => ({ ...base, reason, classification });
 
   if (httpStatus === null) {
@@ -163,7 +166,7 @@ export function formatGmailSendDiagnostic(d: GmailSendDiagnostic): string {
   return `[${parts.join(" ")}]`;
 }
 
-const DIAGNOSTIC_TEXT = /\[etapa=[A-Z_]+ http=(?:\d{3}|n\/a) api=[A-Za-z0-9_.:-]+ motivo=[A-Z_]+ classe=[A-Z]+(?: corr=[A-Za-z0-9_.:-]+)?\]/;
+const DIAGNOSTIC_TEXT = /\[etapa=[A-Z_]+ http=(?:\d{3}|n\/a) api=(?:[A-Za-z0-9_.:-]+|n\/a) motivo=[A-Z_]+ classe=[A-Z]+(?: corr=[A-Za-z0-9_.:-]+)?\]/;
 
 /** Extrai de um last_error o trecho de diagnóstico seguro gerado por formatGmailSendDiagnostic (ou null). Nunca devolve texto livre. */
 export function extractGmailSendDiagnosticText(lastError: string | null | undefined): string | null {
