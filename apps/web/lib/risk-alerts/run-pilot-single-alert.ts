@@ -311,7 +311,7 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
       action: "RISK_ALERT_PILOT_SINGLE_RUN",
       entityType: "RISK_ALERT_CASE",
       entityId: caseId,
-      detail: `Execução manual única do piloto: ${entries.length} destinatário(s) lógico(s) da allowlist (${retried} retentativa(s) de linha bloqueada antes de qualquer chamada de rede), entrega restrita ao grupo WEG_INTERNAL_FOUR. risk_alerts_enabled não alterado.`,
+      detail: `Execução manual única do piloto: ${entries.length} destinatário(s) lógico(s) da allowlist (${retried} retentativa(s) de linha bloqueada antes de qualquer chamada de rede), entrega restrita ao destino configurado do piloto (${group.length} caixa(s) física(s), sem CC/BCC). risk_alerts_enabled não alterado.`,
     },
   ]);
   const ctx: SendContext = {
