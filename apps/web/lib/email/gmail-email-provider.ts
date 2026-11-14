@@ -7,6 +7,7 @@ import {
   type SendEmailInput,
   type SendEmailResult,
 } from "./email-provider";
+import { classifyGmailSendError, formatGmailSendDiagnostic, responseWithoutIdDiagnostic, type GmailSendDiagnostic } from "./gmail-send-error";
 import { loadGmailConfig, loadGmailPilotSenderConfig, type GmailConfig } from "./gmail-auth";
 import { base64UrlEncode, buildMimeMessage } from "./mime-message";
 import { applyPilotOutboundGuard } from "./pilot-outbound-guard";
@@ -15,6 +16,15 @@ import { assertOnlyRecipient } from "./only-recipient-guard";
 import { applyProjectPilotProfile, assertPilotMimeRecipients } from "./project-pilot-profile";
 
 export { base64UrlEncode, buildMimeMessage };
+
+const GMAIL_SEND_TIMEOUT_MS = 20_000;
+
+/** Registra (sanitizado) e devolve o erro de envio com o diagnóstico seguro anexado. Falha FECHADA: nunca vira sucesso. */
+function sendFailure(diagnostic: GmailSendDiagnostic): EmailSendError {
+  const text = formatGmailSendDiagnostic(diagnostic);
+  console.error(`[GmailEmailProvider] falha ao enviar via Gmail API. ${text}`);
+  return new EmailSendError(`GmailEmailProvider: falha ao enviar via Gmail API. ${text}`, { ...diagnostic });
+}
 
 // Usa OAuth2 da mailbox técnica dedicada (scope gmail.send).
 // Não executa consent flow, não armazena refresh token em DB,
@@ -74,32 +84,27 @@ export class GmailEmailProvider implements EmailProvider {
     let providerThreadId: string | null | undefined;
 
     try {
-      const response = await gmail.users.messages.send({
-        userId: "me",
-        requestBody: {
-          raw,
+      const response = await gmail.users.messages.send(
+        {
+          userId: "me",
+          requestBody: {
+            raw,
+          },
         },
-      });
+        // Sem timeout o SDK pode ficar pendurado até o limite da função; timeout => resultado INCERTO (classificado abaixo).
+        { timeout: GMAIL_SEND_TIMEOUT_MS }
+      );
 
       providerMessageId = response.data.id;
       providerThreadId = response.data.threadId;
-    } catch {
-      // Log propositalmente sanitizado.
-      // Nunca registra erro bruto retornado pelo SDK do Google,
-      // pois ele pode conter detalhes da requisição.
-      console.error(
-        "[GmailEmailProvider] falha ao enviar via Gmail API."
-      );
-
-      throw new EmailSendError(
-        "GmailEmailProvider: falha ao enviar via Gmail API."
-      );
+    } catch (error) {
+      // Log e last_error propositalmente sanitizados: só a allowlist de gmail-send-error.ts (status HTTP, código da API,
+      // motivo normalizado, classe e id de correlação). Nunca o erro bruto do SDK (pode conter Authorization/requisição/MIME).
+      throw sendFailure(classifyGmailSendError(error));
     }
 
     if (!providerMessageId || !providerThreadId) {
-      throw new EmailSendError(
-        "GmailEmailProvider: resposta do Gmail sem id/threadId."
-      );
+      throw sendFailure(responseWithoutIdDiagnostic());
     }
 
     return {

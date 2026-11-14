@@ -86,8 +86,11 @@ export interface EmailProvider {
 
 // Erro sanitizado de envio — nunca deve carregar secrets/tokens/headers brutos.
 export class EmailSendError extends Error {
-  constructor(message: string) {
+  /** Diagnóstico normalizado e seguro (allowlist) da falha do provedor — nunca o erro bruto. */
+  readonly diagnostic?: Readonly<Record<string, string | number | null>>;
+  constructor(message: string, diagnostic?: Readonly<Record<string, string | number | null>>) {
     super(message);
     this.name = "EmailSendError";
+    this.diagnostic = diagnostic;
   }
 }
