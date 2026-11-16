@@ -94,12 +94,9 @@ check("tela e lib nao fazem DELETE nem escrita direta", () => {
     assert.ok(!/remove_project_member|\.from\(|\.insert\(|\.upsert\(|\.update\(|supabase\.rpc/.test(src(f)), f);
   }
 });
-check("candidatos: fail-closed quando a RPC nao existe; migration sem escrita e exige admin", () => {
+check("candidatos: fail-closed quando a RPC nao existe (a migration vai em PR proprio, com revisao de seguranca)", () => {
   const a = src("apps/web/lib/users/addable-profiles.ts");
   assert.ok(a.includes("available: false, candidates: []"));
-  const sql = src("supabase/migrations/20261116090000_list_addable_profiles_for_project.sql");
-  assert.ok(sql.includes("has_project_permission(p_project_id, 'ADMINISTRADOR')"));
-  assert.ok(!/\b(insert|update|delete)\b\s+(into|from|public)/i.test(sql.replace(/--.*$/gm, "")));
 });
 check("paginas usam a elegibilidade centralizada da Matriz", () => {
   for (const f of ["apps/web/app/[projectId]/usuarios/page.tsx", "apps/web/app/[projectId]/acoes/configuracao/page.tsx"]) assert.ok(src(f).includes("resolveEligibleSlaPeople"), f);
