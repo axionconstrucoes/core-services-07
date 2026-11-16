@@ -23,8 +23,10 @@ import { getLatestEmailSyncRun } from "@/lib/email/inbound/ingestion-controls/ge
 import { getEsgObligationEvidenceForProject, getEsgObligationSubmissionsForProject, getEsgObligations } from "@/lib/esg/esg-obligations-data";
 import { getSlaActions } from "@/lib/sla/sla-actions-data";
 import { getContractChanges, getIntegrationConfigs, getProject, getSourceDefinitions } from "@/lib/data";
+import { resolveWeeklyCronogramaStatus } from "@/lib/schedule/weekly-ingestion/resolve-weekly-cronograma-status";
 import { resolveEmailIntegrationDisplayStatus, resolveAllIntegrationStatuses, summarizeIntegrationStatuses } from "@/lib/ui/resolve-integration-display-status";
 
+import { getCronogramaWeeklyFacts } from "./get-cronograma-weekly-facts";
 import { computeAdditionalProposalsSummary } from "./compute-additional-proposals-summary";
 import { buildContractValueTable, computeAditivosContratuaisSummary, selectFormalizedAditivos } from "./compute-contract-value";
 import { computeDeadlineSummary } from "./compute-deadline-summary";
@@ -56,6 +58,7 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
     latestSyncRun,
     contractChanges,
     emailAccounts,
+    cronogramaFacts,
   ] = await Promise.all([
     getProject(projectId),
     getEmailVolumeRows(supabase, projectId),
@@ -71,6 +74,7 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
     getLatestEmailSyncRun(supabase, projectId),
     getContractChanges(projectId),
     getEmailAccounts(supabase),
+    getCronogramaWeeklyFacts(supabase, projectId),
   ]);
 
   const range = resolveTimeRange(searchParams, new Date(), project?.startDate ?? null);
@@ -96,7 +100,17 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
           hasClientDomain: clientDomains.length > 0,
           accountStatus: linkedAccount?.status ?? null,
         });
-  const integrationStatusGroups = summarizeIntegrationStatuses(resolveAllIntegrationStatuses(sources, integrationConfigs, emailStatus));
+  // Cronograma: regra semanal (MPP anexo de e-mail de remetente autorizado, processado); Excel/Curva S nunca promove.
+  const cronogramaResolution = resolveWeeklyCronogramaStatus({
+    storedStatus: integrationConfigs.find((config) => config.sourceType === "CRONOGRAMA")?.status ?? null,
+    facts: cronogramaFacts,
+    now: new Date(),
+  });
+  const integrationStatusGroups = summarizeIntegrationStatuses(
+    resolveAllIntegrationStatuses(sources, integrationConfigs, emailStatus, {
+      CRONOGRAMA: { status: cronogramaResolution.status, detail: cronogramaResolution.detail },
+    })
+  );
 
   const findingsInRange = filterFindingsByRange(findings, range);
   const activeFindingsSummary = resolveActiveFindingsSummary(findingsInRange);
