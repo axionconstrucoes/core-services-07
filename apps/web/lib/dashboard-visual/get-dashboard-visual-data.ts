@@ -21,8 +21,10 @@ import { getEmailAccounts } from "@/lib/email/inbound/ingestion-controls/get-ema
 import { getProjectEmailIngestionConfig } from "@/lib/email/inbound/ingestion-controls/get-project-email-ingestion-config";
 import { getLatestEmailSyncRun } from "@/lib/email/inbound/ingestion-controls/get-sync-runs";
 import { getEsgObligationEvidenceForProject, getEsgObligationSubmissionsForProject, getEsgObligations } from "@/lib/esg/esg-obligations-data";
+import { getSsmaOperationEvidence } from "@/lib/integrations/esg-ssma/get-ssma-operation-evidence";
 import { getSlaActions } from "@/lib/sla/sla-actions-data";
 import { getContractChanges, getIntegrationConfigs, getProject, getSourceDefinitions } from "@/lib/data";
+import { resolveEsgSsmaIntegrationLabel } from "@/lib/ui/resolve-esg-ssma-display-status";
 import { resolveEmailIntegrationDisplayStatus, resolveAllIntegrationStatuses, summarizeIntegrationStatuses } from "@/lib/ui/resolve-integration-display-status";
 
 import { computeAdditionalProposalsSummary } from "./compute-additional-proposals-summary";
@@ -56,6 +58,7 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
     latestSyncRun,
     contractChanges,
     emailAccounts,
+    ssmaEvidence,
   ] = await Promise.all([
     getProject(projectId),
     getEmailVolumeRows(supabase, projectId),
@@ -71,6 +74,7 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
     getLatestEmailSyncRun(supabase, projectId),
     getContractChanges(projectId),
     getEmailAccounts(supabase),
+    getSsmaOperationEvidence(supabase, projectId),
   ]);
 
   const range = resolveTimeRange(searchParams, new Date(), project?.startDate ?? null);
@@ -96,7 +100,11 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
           hasClientDomain: clientDomains.length > 0,
           accountStatus: linkedAccount?.status ?? null,
         });
-  const integrationStatusGroups = summarizeIntegrationStatuses(resolveAllIntegrationStatuses(sources, integrationConfigs, emailStatus));
+  // ESG/SSMA: o STATUS da integração externa não é promovido por registros internos; só o RÓTULO informa que o módulo SSMA está operacional
+  // (ver resolve-esg-ssma-display-status.ts).
+  const storedEsgSsma = integrationConfigs.find((config) => config.sourceType === "ESG_SSMA");
+  const sourcesForStatus = sources.map((source) => (source.type === "ESG_SSMA" ? { ...source, label: resolveEsgSsmaIntegrationLabel(source.label, storedEsgSsma?.status ?? null, ssmaEvidence) } : source));
+  const integrationStatusGroups = summarizeIntegrationStatuses(resolveAllIntegrationStatuses(sourcesForStatus, integrationConfigs, emailStatus));
 
   const findingsInRange = filterFindingsByRange(findings, range);
   const activeFindingsSummary = resolveActiveFindingsSummary(findingsInRange);
