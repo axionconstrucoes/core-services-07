@@ -42,3 +42,11 @@ export const initialPreRegisterMemberState: PreRegisterMemberState = { error: nu
 
 export type SetMemberWhatsappContactState = { error: string | null; success: boolean };
 export const initialSetMemberWhatsappContactState: SetMemberWhatsappContactState = { error: null, success: false };
+
+export type SaveParticipantsState = {
+  error: string | null;
+  success: boolean;
+  applied: number;
+  failedAt: string | null;
+};
+export const initialSaveParticipantsState: SaveParticipantsState = { error: null, success: false, applied: 0, failedAt: null };

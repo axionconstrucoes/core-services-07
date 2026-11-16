@@ -33,19 +33,21 @@ const migration = readSource("supabase/migrations/20260911121000_allow_pending_m
 
 console.log("\nMATRIZ SLA — USUÁRIOS PRÉ-CADASTRADOS\n");
 
-check("as duas páginas incluem pré-cadastros pendentes nos seletores", () => {
+const eligibility = readSource("apps/web/lib/users/participant-selection.ts");
+
+check("as duas páginas incluem pré-cadastros pendentes nos seletores (via elegibilidade central)", () => {
   for (const source of [usersPage, configurationPage]) {
-    assert(source.includes('invitation.status === "PENDING"'));
-    assert(source.includes("formatInvitationSelection(invitation.id)"));
-    assert(source.includes("Aguardando primeiro login"));
+    assert(source.includes("resolveEligibleSlaPeople("));
+    assert(source.includes("formatInvitationSelection"));
   }
+  assert(eligibility.includes('i.status === "PENDING"'));
+  assert(eligibility.includes("formatInvitation(i.id)"));
+  assert(eligibility.includes("Aguardando primeiro login"));
 });
 
 check("somente memberships ativas e pré-cadastros pendentes são elegíveis", () => {
-  for (const source of [usersPage, configurationPage]) {
-    assert(source.includes('member.status === "ACTIVE"'));
-    assert(!source.includes('invitation.status === "CANCELLED"'));
-  }
+  assert(eligibility.includes('m.status === "ACTIVE"'));
+  assert(!eligibility.includes('"CANCELLED"'));
 });
 
 check("formulário aceita referências de membership e de pré-cadastro", () => {

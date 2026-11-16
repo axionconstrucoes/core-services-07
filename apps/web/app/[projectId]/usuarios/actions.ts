@@ -9,10 +9,15 @@
 
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@axion/db/server";
+import { getCurrentProjectPermission } from "@/lib/contract-review";
+import { getProjectMembers } from "@/lib/data";
+import { getAddableProfiles } from "@/lib/users/addable-profiles";
+import { planParticipantChanges, type MemberInput } from "@/lib/users/participant-selection";
 import type {
   AddProjectMemberState,
   FoundProfile,
   PreRegisterMemberState,
+  SaveParticipantsState,
   SearchProfileState,
   SetMemberJobTitleState,
   SetMemberStatusState,
@@ -374,5 +379,90 @@ export async function setMemberWhatsappContactAction(
     return { error: null, success: true };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Falha ao salvar o contato WhatsApp.", success: false };
+  }
+}
+
+// Salvar participantes (seleção por checkbox). Fonte de verdade: project_memberships.
+// - exige ADMINISTRADOR ativo do projeto E confirmação explícita (confirmed=on);
+// - o plano é RECALCULADO aqui no servidor a partir do estado atual do banco (nada vem pronto do cliente);
+// - cada mudança usa as RPCs existentes (add_project_member / set_project_member_status), que revalidam
+//   o administrador, recusam auto-alteração, protegem o último administrador e gravam audit_log_entries;
+// - desmarcar = INACTIVE (reversível). Nunca há DELETE/remove_project_member aqui.
+export async function saveProjectParticipantsAction(
+  _prevState: SaveParticipantsState,
+  formData: FormData
+): Promise<SaveParticipantsState> {
+  const fail = (error: string, applied = 0, failedAt: string | null = null): SaveParticipantsState => ({
+    error,
+    success: false,
+    applied,
+    failedAt,
+  });
+  try {
+    const supabase = await createSupabaseServerClient();
+    const projectId = requiredField(formData, "projectId");
+    if (formData.get("confirmed") !== "on") return fail("Confirme explicitamente as alterações antes de salvar.");
+    if ((await getCurrentProjectPermission(projectId)) !== "ADMINISTRADOR") {
+      return fail("Apenas administradores do projeto podem alterar participantes.");
+    }
+    const { data: authData } = await supabase.auth.getUser();
+    const currentUserId = authData.user?.id ?? null;
+
+    const selectedIds = formData.getAll("selected").map(String);
+    let additions: Record<string, { permission?: string; area?: string }> = {};
+    try {
+      additions = JSON.parse(String(formData.get("additions") ?? "{}"));
+    } catch {
+      return fail("Dados de adição inválidos.");
+    }
+    if (typeof additions !== "object" || additions === null || Array.isArray(additions)) return fail("Dados de adição inválidos.");
+
+    const members = (await getProjectMembers(projectId)) as unknown as Array<{
+      userId: string;
+      status: "ACTIVE" | "INACTIVE";
+      permission: string;
+      area: string | null;
+      user: { name: string; email: string };
+    }>;
+    const memberInputs: MemberInput[] = members.map((m) => ({ ...m, projectId }));
+    const addable = await getAddableProfiles(projectId);
+
+    const plan = planParticipantChanges({
+      projectId,
+      members: memberInputs,
+      selectedIds,
+      additions,
+      candidateIds: addable.candidates.map((c) => c.id),
+      currentUserId,
+    });
+    if (plan.blocked.length > 0) return fail(plan.blocked[0].message);
+    if (plan.operations.length === 0) return fail("Nenhuma alteração a salvar.");
+
+    let applied = 0;
+    for (const op of plan.operations) {
+      const { error } =
+        op.type === "ADD"
+          ? await supabase.rpc("add_project_member", {
+              p_project_id: projectId,
+              p_user_id: op.userId,
+              p_permission: op.permission,
+              p_area: op.area,
+            })
+          : await supabase.rpc("set_project_member_status", {
+              p_project_id: projectId,
+              p_user_id: op.userId,
+              p_status: op.type === "DEACTIVATE" ? "INACTIVE" : "ACTIVE",
+            });
+      if (error) {
+        revalidatePath(`/${projectId}/usuarios`);
+        return fail(`${error.message} (${applied} alteração(ões) já aplicada(s) antes da falha).`, applied, op.userId);
+      }
+      applied += 1;
+    }
+    revalidatePath(`/${projectId}/usuarios`);
+    revalidatePath(`/${projectId}/acoes/configuracao`);
+    return { error: null, success: true, applied, failedAt: null };
+  } catch (error) {
+    return fail(error instanceof Error ? error.message : "Falha ao salvar participantes.");
   }
 }
