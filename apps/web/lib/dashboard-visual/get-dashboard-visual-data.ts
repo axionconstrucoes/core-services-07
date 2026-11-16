@@ -23,8 +23,10 @@ import { getLatestEmailSyncRun } from "@/lib/email/inbound/ingestion-controls/ge
 import { getEsgObligationEvidenceForProject, getEsgObligationSubmissionsForProject, getEsgObligations } from "@/lib/esg/esg-obligations-data";
 import { getSlaActions } from "@/lib/sla/sla-actions-data";
 import { getContractChanges, getIntegrationConfigs, getProject, getSourceDefinitions } from "@/lib/data";
+import { resolveCronogramaDisplayStatus } from "@/lib/ui/resolve-cronograma-display-status";
 import { resolveEmailIntegrationDisplayStatus, resolveAllIntegrationStatuses, summarizeIntegrationStatuses } from "@/lib/ui/resolve-integration-display-status";
 
+import { getCronogramaMppEvidence } from "./get-cronograma-mpp-evidence";
 import { computeAdditionalProposalsSummary } from "./compute-additional-proposals-summary";
 import { buildContractValueTable, computeAditivosContratuaisSummary, selectFormalizedAditivos } from "./compute-contract-value";
 import { computeDeadlineSummary } from "./compute-deadline-summary";
@@ -56,6 +58,7 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
     latestSyncRun,
     contractChanges,
     emailAccounts,
+    cronogramaEvidence,
   ] = await Promise.all([
     getProject(projectId),
     getEmailVolumeRows(supabase, projectId),
@@ -71,6 +74,7 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
     getLatestEmailSyncRun(supabase, projectId),
     getContractChanges(projectId),
     getEmailAccounts(supabase),
+    getCronogramaMppEvidence(supabase, projectId),
   ]);
 
   const range = resolveTimeRange(searchParams, new Date(), project?.startDate ?? null);
@@ -96,7 +100,14 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
           hasClientDomain: clientDomains.length > 0,
           accountStatus: linkedAccount?.status ?? null,
         });
-  const integrationStatusGroups = summarizeIntegrationStatuses(resolveAllIntegrationStatuses(sources, integrationConfigs, emailStatus));
+  const integrationStatusGroups = summarizeIntegrationStatuses(
+    resolveAllIntegrationStatuses(sources, integrationConfigs, emailStatus, {
+      CRONOGRAMA: resolveCronogramaDisplayStatus({
+        storedStatus: integrationConfigs.find((config) => config.sourceType === "CRONOGRAMA")?.status ?? null,
+        evidence: cronogramaEvidence,
+      }),
+    })
+  );
 
   const findingsInRange = filterFindingsByRange(findings, range);
   const activeFindingsSummary = resolveActiveFindingsSummary(findingsInRange);

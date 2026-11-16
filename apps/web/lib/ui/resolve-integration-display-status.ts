@@ -52,12 +52,15 @@ export interface IntegrationStatusEntry {
 export function resolveAllIntegrationStatuses(
   sources: SourceDefinition[],
   configs: { sourceType: SourceType; status: IntegrationStatus }[],
-  emailStatus: IntegrationStatus
+  emailStatus: IntegrationStatus,
+  overrides: Partial<Record<SourceType, IntegrationStatus>> = {}
 ): IntegrationStatusEntry[] {
   return sources.map((source) => {
     if (source.type === "EMAIL") {
       return { sourceType: source.type, label: source.label, status: emailStatus };
     }
+    const override = overrides[source.type];
+    if (override) return { sourceType: source.type, label: source.label, status: override };
     const config = configs.find((c) => c.sourceType === source.type);
     return {
       sourceType: source.type,
