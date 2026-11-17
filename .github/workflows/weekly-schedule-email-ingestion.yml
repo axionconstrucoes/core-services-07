@@ -103,12 +103,11 @@ jobs:
           ACC_RISK_ALERTS_INBOUND_CLIENT_SECRET: ${{ secrets.ACC_RISK_ALERTS_INBOUND_CLIENT_SECRET }}
           ACC_RISK_ALERTS_INBOUND_REFRESH_TOKEN: ${{ secrets.ACC_RISK_ALERTS_INBOUND_REFRESH_TOKEN }}
           ACC_RISK_ALERTS_INBOUND_MAILBOX: ${{ secrets.ACC_RISK_ALERTS_INBOUND_MAILBOX }}
-          # Piloto por projeto (docs/piloto-projeto-email.md): vazios => nada muda. Só a caixa do piloto é usada na atribuição de respostas.
+          # Piloto WEG (docs/piloto-entrega-direta-cc-acc.md): entrega direta ao colaborador + Cc acc@. Vazios => nada muda. Estes valores precisam
+          # ser IDÊNTICOS aos do servidor (Vercel). As variáveis legadas DESTINATION e TEST_GROUP não são mais lidas e não são mais repassadas.
           ACC_PROJECT_PILOT_PROJECT_ID: ${{ vars.ACC_PROJECT_PILOT_PROJECT_ID }}
-          ACC_PROJECT_PILOT_DESTINATION: ${{ vars.ACC_PROJECT_PILOT_DESTINATION }}
           ACC_PROJECT_PILOT_SENDER: ${{ vars.ACC_PROJECT_PILOT_SENDER }}
-          # Grupo de entrega do piloto WEG (vazio => roteamento anterior). Deve ser idêntico ao configurado no servidor.
-          ACC_PROJECT_PILOT_TEST_GROUP: ${{ vars.ACC_PROJECT_PILOT_TEST_GROUP }}
+          ACC_PROJECT_PILOT_AUTHORIZED_SENDERS: ${{ vars.ACC_PROJECT_PILOT_AUTHORIZED_SENDERS }}
 
   risk-alerts:
     # Só agendado ou manual com fase "all" — nunca em execuções manuais de
