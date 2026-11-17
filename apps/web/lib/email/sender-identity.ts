@@ -41,9 +41,11 @@ function assertBareEmailAddress(senderEmail: string): void {
 // GmailConfig.senderEmail). O address-spec RFC 5322 não permite aspas
 // duplas cruas dentro do display-name; escapamos por segurança mesmo que
 // a constante acima nunca as contenha.
-export function formatSenderHeader(senderEmail: string): string {
+export function formatSenderHeader(senderEmail: string, displayName?: string | null): string {
   assertBareEmailAddress(senderEmail);
-  const escapedDisplayName = ACC_SENDER_DISPLAY_NAME.replace(/"/g, '\\"');
+  // displayName === null => endereço puro (remetente que é uma PESSOA: nunca com o nome institucional do ACC). undefined => nome institucional.
+  if (displayName === null) return senderEmail;
+  const escapedDisplayName = (displayName ?? ACC_SENDER_DISPLAY_NAME).replace(/"/g, '\\"');
   return `"${escapedDisplayName}" <${senderEmail}>`;
 }
 

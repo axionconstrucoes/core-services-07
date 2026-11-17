@@ -10,10 +10,10 @@ import {
 import { classifyGmailSendError, formatGmailSendDiagnostic, responseWithoutIdDiagnostic, type GmailSendDiagnostic } from "./gmail-send-error";
 import { loadGmailConfig, loadGmailPilotSenderConfig, type GmailConfig } from "./gmail-auth";
 import { base64UrlEncode, buildMimeMessage } from "./mime-message";
-import { applyPilotOutboundGuard } from "./pilot-outbound-guard";
 import { applyVeraEmailHeader } from "./branding/vera-email-header";
 import { assertOnlyRecipient } from "./only-recipient-guard";
-import { applyProjectPilotProfile, assertPilotMimeRecipients } from "./project-pilot-profile";
+import { assertPilotMimeRecipients } from "./project-pilot-profile";
+import { prepareOutboundMessage } from "./outbound-routing";
 
 export { base64UrlEncode, buildMimeMessage };
 
@@ -42,18 +42,22 @@ export class GmailEmailProvider implements EmailProvider {
     // ou chamada de rede. Nenhuma instanciação direta desta classe
     // escapa da trava do piloto.
     // Perfil do PROJETO PILOTO (project-pilot-profile.ts): destino e remetente fixos, sem CC/BCC; outros projetos passam intocados.
-    const routing = applyProjectPilotProfile(applyPilotOutboundGuard(input));
-    const guardedInput = assertOnlyRecipient(applyVeraEmailHeader(routing.input), undefined, undefined, routing.destination);
+    const routing = prepareOutboundMessage(input);
+    const guardedInput = assertOnlyRecipient(applyVeraEmailHeader(routing.input), undefined, undefined, routing.to);
 
     // Mensagem do piloto só sai pela identidade do remetente do piloto — nunca pelo remetente padrão, nunca só trocando o From.
     let config = this.config;
-    // Se o remetente padrão JÁ é o remetente do piloto (mesma conta autenticada), usa a configuração padrão; senão exige a identidade própria.
+    // Se o remetente padrão JÁ é o remetente resolvido (mesma conta autenticada), usa a configuração padrão; senão exige a identidade própria
+    // DAQUELE remetente (ACC institucional ou participante autorizado). Sem credencial: bloqueia — nunca envia por outra identidade.
     if (routing.routed && this.config.senderEmail.trim().toLowerCase() !== routing.sender) {
       try {
         config = loadGmailPilotSenderConfig(routing.sender as string);
       } catch {
-        throw new EmailSendError("GmailEmailProvider: remetente do piloto não configurado — envio bloqueado antes de qualquer chamada de rede.");
+        throw new EmailSendError("GmailEmailProvider: identidade do remetente do piloto não configurada — envio bloqueado antes de qualquer chamada de rede.");
       }
+    }
+    if (routing.routed && config.senderEmail.trim().toLowerCase() !== routing.sender) {
+      throw new EmailSendError("GmailEmailProvider: identidade autenticada diferente do remetente resolvido — envio bloqueado antes de qualquer chamada de rede.");
     }
 
     const senderDomain =
@@ -75,9 +79,9 @@ export class GmailEmailProvider implements EmailProvider {
       auth: oauth2Client,
     });
 
-    const mime = buildMimeMessage(guardedInput, config.senderEmail, messageIdHeader);
-    // Transporte final: Para = destino único, From = remetente do piloto, nenhum Cc/Bcc — conferido sobre o MIME já montado.
-    if (routing.routed) assertPilotMimeRecipients(mime, routing.sender as string, routing.destination as string);
+    const mime = buildMimeMessage(guardedInput, config.senderEmail, messageIdHeader, { displayName: routing.routed ? routing.senderDisplayName : undefined });
+    // Transporte final: From = remetente resolvido, To = o colaborador, Cc = cópia institucional, nenhum Bcc, nenhum endereço proibido.
+    if (routing.routed) assertPilotMimeRecipients(mime, routing.sender as string, routing.to as string, routing.cc);
     const raw = base64UrlEncode(mime);
 
     let providerMessageId: string | null | undefined;
@@ -114,6 +118,7 @@ export class GmailEmailProvider implements EmailProvider {
       providerThreadId,
       messageIdHeader,
       sentAt: new Date().toISOString(),
+      ...(routing.routed ? { to: routing.to as string, cc: routing.cc } : {}),
     };
   }
 }

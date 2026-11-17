@@ -30,6 +30,9 @@ export interface SendEmailInput {
   // Imagens inline referenciadas por "cid:" dentro de `html` — ignorado
   // quando `html` está ausente. Nenhum caller existente precisa mudar.
   inlineImages?: InlineImageAttachment[];
+  // Cópia (Cc). Só o perfil do PILOTO por projeto a preenche (cópia institucional obrigatória, ver project-pilot-profile.ts); nenhum fluxo
+  // de aplicação define Cc por conta própria. Fora do piloto o campo é removido pelos guards.
+  cc?: string[];
   replyTo?: string;
   // Contexto que AUTORIZA um Reply-To: só mensagens de uma conversa de
   // alerta de risco (outbox + conversa válidas) podem pedir Reply-To, e
@@ -54,6 +57,8 @@ export interface PilotMessageContext {
   projectId?: string | null;
   participantLabel?: string | null;
   escalationLevel?: string | null;
+  /** Remetente SOLICITADO (identidade autenticada). Ausente => identidade institucional do ACC. Validado e resolvido pelo perfil do piloto; nunca livre. */
+  senderEmail?: string | null;
 }
 
 // Dica de contexto do botão "Fale com a AXIA" que o provider acrescenta ao cabeçalho do e-mail (ver
@@ -78,6 +83,9 @@ export interface SendEmailResult {
   providerThreadId: string;
   messageIdHeader: string;
   sentAt: string; // ISO datetime
+  /** Destinatário principal e cópias EFETIVAMENTE usados no transporte (rastreabilidade; só preenchidos em mensagens do piloto). */
+  to?: string;
+  cc?: string[];
 }
 
 export interface EmailProvider {

@@ -80,8 +80,9 @@ check("servidor: o destino efetivo vem de resolveEffectiveRecipient (mesma fonte
 });
 
 check("guard e modo de saída preservados: o envio continua passando por applyPilotOutboundGuard no provider", () => {
-  assert.ok(src("apps/web/lib/email/gmail-email-provider.ts").includes("applyPilotOutboundGuard"));
-  assert.ok(src("apps/web/lib/email/fake-email-provider.ts").includes("applyPilotOutboundGuard"));
+  assert.ok(src("apps/web/lib/email/gmail-email-provider.ts").includes("prepareOutboundMessage"));
+  assert.ok(src("apps/web/lib/email/fake-email-provider.ts").includes("prepareOutboundMessage"));
+  assert.ok(src("apps/web/lib/email/outbound-routing.ts").includes("applyPilotOutboundGuard"), "a guarda global continua sendo aplicada às mensagens fora do projeto piloto");
   assert.ok(!src("apps/web/lib/email/send-contract-alert-email.ts").includes("process.env.ACC_OUTBOUND_MODE"), "sem segunda leitura do modo");
 });
 

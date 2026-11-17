@@ -38,11 +38,11 @@ import { evaluatePilotReadiness, blockerToSuppressionReason, isSeverityMapComple
 import { rebuildDigestContent } from "./rebuild-digest-content";
 import { evaluateRecipient, planRiskAlerts } from "./plan-risk-alerts";
 import { resolveDeliveryAddress } from "@/lib/email/pilot-delivery-override";
-import { resolveProjectPilotProfile, resolveProjectPilotReplyMailbox } from "@/lib/email/project-pilot-profile";
+import { isProjectPilotActive, resolveProjectPilotProfile } from "@/lib/email/project-pilot-profile";
 
-/** Projeto piloto por projeto: a entrega é decidida pelo perfil de e-mail (destino único); o override de entrega legado não se aplica. */
+/** Projeto piloto por projeto: a entrega é decidida pelo perfil de e-mail (entrega direta ao colaborador + Cc institucional); o override de entrega legado não se aplica. */
 function projectPilotActive(projectId: string): boolean {
-  return resolveProjectPilotReplyMailbox(projectId) !== null;
+  return isProjectPilotActive(projectId);
 }
 import { runCycleEscalationHook } from "@/lib/whatsapp/hooks";
 import { notifyDirectorateWhatsappSafely } from "@/lib/whatsapp/notify-directorate-server";
@@ -472,7 +472,7 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
         action: "RISK_ALERT_EMAIL_SENT",
         entityType: caseId ? "RISK_ALERT_CASE" : "RISK_ALERT_DIGEST",
         entityId: caseId ?? idempotencyKey,
-        detail: `E-mail ${notificationType}${escalationLevel ? ` (${escalationLevel})` : ""} enviado ao usuário ${recipientUserId} via ${sent.provider} (${sent.providerMessageId}). Chave ${idempotencyKey}.${delivery.overridden ? " Override de entrega do piloto: entregue na caixa institucional configurada (destinatário lógico preservado)." : ""}`,
+        detail: `E-mail ${notificationType}${escalationLevel ? ` (${escalationLevel})` : ""} enviado ao usuário ${recipientUserId} via ${sent.provider} (${sent.providerMessageId}). Chave ${idempotencyKey}.${sent.cc && sent.cc.length > 0 ? ` Remetente autenticado: ${sent.from}; destinatário principal (usuário lógico): ${sent.to}; cópia institucional: ${sent.cc.join(", ")}.` : ""}${delivery.overridden ? " Override de entrega do piloto: entregue na caixa institucional configurada (destinatário lógico preservado)." : ""}`,
       },
     ]);
     // WhatsApp SIMULADO (desligado por padrão): só alerta CRÍTICO que acabou de chegar à Diretoria. Nunca lança nem altera o resultado do e-mail.

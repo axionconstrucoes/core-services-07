@@ -236,7 +236,7 @@ await check("TODO ponto de envio passa por provider.send (que aplica a guarda e 
     }
   }
   const provider = rd("apps/web/lib/email/gmail-email-provider.ts") + rd("apps/web/lib/email/fake-email-provider.ts");
-  eq((provider.match(/applyProjectPilotProfile\(applyPilotOutboundGuard\(input\)\)/g) ?? []).length, 2, "providers aplicam guarda + perfil do piloto");
+  eq((provider.match(/prepareOutboundMessage\(input\)/g) ?? []).length, 2, "providers aplicam o roteamento único (perfil do piloto → guarda global)");
   eq((provider.match(/applyVeraEmailHeader\(routing\.input\)/g) ?? []).length, 2, "providers aplicam AXIA depois do perfil do piloto");
 });
 

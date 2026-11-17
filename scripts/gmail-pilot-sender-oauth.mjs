@@ -23,7 +23,17 @@ import readline from "node:readline/promises";
 import { pathToFileURL } from "node:url";
 import { google } from "googleapis";
 
-const ALLOWED_SENDERS = ["crm@axion.com.br"]; // espelha PROJECT_PILOT_ALLOWED_SENDERS (apps/web/lib/email/project-pilot-profile.ts)
+// Espelha apps/web/lib/email/project-pilot-profile.ts: identidade institucional + participantes autorizados do piloto.
+const ACC_SENDER = "acc@axion.com.br";
+const PARTICIPANT_SENDERS = ["reynaldo@axion.com.br", "jaime.ramos@axion.com.br", "carlos.evandro@axion.com.br"];
+const ALLOWED_SENDERS = [ACC_SENDER, ...PARTICIPANT_SENDERS];
+
+/** Variável do refresh token: ACC => GOOGLE_GMAIL_PILOT_REFRESH_TOKEN; participante => GOOGLE_GMAIL_PILOT_USER_<CHAVE>_REFRESH_TOKEN. */
+export function refreshTokenEnvName(mailbox) {
+  if (mailbox === ACC_SENDER) return "GOOGLE_GMAIL_PILOT_REFRESH_TOKEN";
+  const key = mailbox.split("@")[0].replace(/[^a-z0-9]+/g, "_").toUpperCase();
+  return `GOOGLE_GMAIL_PILOT_USER_${key}_REFRESH_TOKEN`;
+}
 const SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send";
 const IDENTITY_SCOPE = "https://www.googleapis.com/auth/userinfo.email";
 const REDIRECT_URI = "http://localhost:53684/oauth2callback";
@@ -136,8 +146,9 @@ function main() {
         res.end(`<h2>Remetente do piloto autorizado</h2><p>Conta: ${mailbox}</p><p>Escopo de envio: gmail.send. Você pode fechar esta janela.</p>`);
       }
 
-      setEnvValue("GOOGLE_GMAIL_PILOT_SENDER_EMAIL", mailbox);
-      setEnvValue("GOOGLE_GMAIL_PILOT_REFRESH_TOKEN", tokens.refresh_token);
+      // A identidade institucional grava também o remetente do piloto; um participante grava SOMENTE o próprio token (nunca troca o remetente institucional).
+      if (mailbox === ACC_SENDER) setEnvValue("GOOGLE_GMAIL_PILOT_SENDER_EMAIL", mailbox);
+      setEnvValue(refreshTokenEnvName(mailbox), tokens.refresh_token);
       if (client.source === "PILOT") setEnvValue("GOOGLE_GMAIL_PILOT_CLIENT_ID", client.clientId);
       console.log(
         `\nOK - ${scopesMode === "send-only" ? "token salvo (conta NÃO verificada)" : `identidade de envio do piloto confirmada como ${mailbox}`}. Valores salvos em apps/web/.env.local sem serem exibidos.`

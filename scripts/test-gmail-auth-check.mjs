@@ -36,14 +36,13 @@ const REFRESH = "1//0gREFRESH-SEGREDO";
 const ACCESS = "ya29.ACCESS-SEGREDO";
 const ENV = {
   ACC_PROJECT_PILOT_PROJECT_ID: "00000000-0000-4000-8000-000000000001",
-  ACC_PROJECT_PILOT_DESTINATION: "axion@axion.com.br",
-  ACC_PROJECT_PILOT_SENDER: "crm@axion.com.br",
+  ACC_PROJECT_PILOT_SENDER: "acc@axion.com.br",
   GOOGLE_GMAIL_CLIENT_ID: CLIENT_ID,
   GOOGLE_GMAIL_CLIENT_SECRET: SECRET,
   GOOGLE_GMAIL_SENDER_EMAIL: "outro@axion.com.br",
   GOOGLE_GMAIL_REFRESH_TOKEN: "1//0gDEFAULT",
   GOOGLE_GMAIL_PILOT_REFRESH_TOKEN: REFRESH,
-  GOOGLE_GMAIL_PILOT_SENDER_EMAIL: "crm@axion.com.br",
+  GOOGLE_GMAIL_PILOT_SENDER_EMAIL: "acc@axion.com.br",
 };
 const resp = (status, body) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
 function recorder(handler) {
@@ -54,9 +53,9 @@ function recorder(handler) {
   };
   return { fetchImpl, calls };
 }
-const okFetch = (scope = "https://www.googleapis.com/auth/gmail.send openid https://www.googleapis.com/auth/userinfo.email", email = "crm@axion.com.br") =>
+const okFetch = (scope = "https://www.googleapis.com/auth/gmail.send openid https://www.googleapis.com/auth/userinfo.email", email = "acc@axion.com.br") =>
   recorder((url) => (url === GMAIL_AUTH_CHECK_TOKEN_URL ? resp(200, { access_token: ACCESS, expires_in: 3599, scope, token_type: "Bearer" }) : resp(200, { email })));
-const LEAKS = [SECRET, REFRESH, ACCESS, CLIENT_ID, "GOCSPX", "ya29", "1//0g", "Bearer", "crm@axion.com.br", "axion@axion.com.br"];
+const LEAKS = [SECRET, REFRESH, ACCESS, CLIENT_ID, "GOCSPX", "ya29", "1//0g", "Bearer", "acc@axion.com.br", "axion@axion.com.br"];
 const noLeak = (r) => {
   const out = JSON.stringify(r);
   for (const bad of LEAKS) if (out.includes(bad)) throw new Error(`vazou "${bad}"`);
@@ -159,7 +158,7 @@ await check("configuração ausente: credenciais/refresh/remetente => CONFIG_MIS
   }
 });
 await check("perfil do piloto ausente/inválido => CONFIG_INVALID/CONFIG_MISSING sem rede", async () => {
-  for (const env of [{ ...ENV, ACC_PROJECT_PILOT_PROJECT_ID: "" }, { ...ENV, ACC_PROJECT_PILOT_SENDER: "x@evil.com" }, { ...ENV, ACC_PROJECT_PILOT_DESTINATION: "x@evil.com" }]) {
+  for (const env of [{ ...ENV, ACC_PROJECT_PILOT_PROJECT_ID: "" }, { ...ENV, ACC_PROJECT_PILOT_SENDER: "x@evil.com" }, { ...ENV, ACC_PROJECT_PILOT_SENDER: "axion@axion.com.br" }]) {
     const f = okFetch();
     const r = await runGmailPilotAuthCheck({ env, fetchImpl: f.fetchImpl });
     eq([r.ok, r.stage], [false, "CONFIG"]);

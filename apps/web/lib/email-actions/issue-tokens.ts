@@ -4,6 +4,7 @@ import { createSupabaseAdminClient } from "@axion/db/admin";
 
 import { getAppBaseUrl } from "@/lib/app-base-url";
 import { resolveEffectiveRecipient } from "@/lib/email/pilot-outbound-guard";
+import { isPilotParticipantAddress, isProjectPilotActive } from "@/lib/email/project-pilot-profile";
 
 import { buildEmailActionUrl } from "./urls";
 import { resolveAllowedEmailActions } from "./resolve-allowed-actions";
@@ -47,7 +48,12 @@ export async function issueEmailAlertActionButtons(
   // de ACC_OUTBOUND_MODE/ACC_PILOT_RECIPIENT aqui. Em produção, quem de
   // fato recebe é o destinatário pretendido; em piloto, é sempre
   // reynaldo@axion.com.br — o mesmo cálculo que o envio real usa.
-  const resolved = resolveEffectiveRecipient(input.intendedRecipientEmail);
+  // Projeto piloto (entrega direta): quem recebe e pode clicar é o PRÓPRIO colaborador — o destinatário efetivo é o pretendido, não a caixa de
+  // contingência global. Qualquer outro caso segue a regra global de sempre.
+  const directPilotDelivery = isProjectPilotActive(input.projectId) && isPilotParticipantAddress(input.intendedRecipientEmail);
+  const resolved = directPilotDelivery
+    ? { mode: "PILOT" as const, intendedRecipientEmail: input.intendedRecipientEmail, effectiveRecipientEmail: input.intendedRecipientEmail.trim().toLowerCase() }
+    : resolveEffectiveRecipient(input.intendedRecipientEmail);
 
   // Em produção, os botões são oferecidos conforme a permissão de quem
   // FOI ENDEREÇADO o e-mail. Em piloto, quem de fato recebe (e pode

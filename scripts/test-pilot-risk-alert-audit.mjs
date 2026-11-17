@@ -194,7 +194,7 @@ await check("R9. Nenhum e-mail real: sem caixa inbound configurada há bloqueio 
   assert(!r.ready && r.blockers.includes("REPLY_MAILBOX_NOT_CONFIGURED") && sql.includes("'REPLY_MAILBOX_NOT_CONFIGURED'"));
   assert(describeSuppression("REPLY_MAILBOX_NOT_CONFIGURED").includes("Reply-To"));
   const fake = readSource("apps/web/lib/email/fake-email-provider.ts");
-  assert(!/fetch\(|https?:\/\//.test(fake) && fake.includes("applyPilotOutboundGuard(input)"));
+  assert(!/fetch\(|https?:\/\//.test(fake) && fake.includes("prepareOutboundMessage(input)"));
   assert(readSource("apps/web/lib/email/email-provider.ts").includes('kind: "RISK_ALERT_CONVERSATION"'));
 });
 

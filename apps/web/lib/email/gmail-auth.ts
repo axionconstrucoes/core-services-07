@@ -1,6 +1,6 @@
 import "server-only";
 
-import { resolveGmailPilotSenderConfig } from "./gmail-pilot-credentials";
+import { resolveGmailPilotIdentityConfig } from "./gmail-pilot-credentials";
 
 export type EmailProviderName = "fake" | "gmail";
 
@@ -59,6 +59,6 @@ export function loadGmailConfig(): GmailConfig {
 // Cliente OAuth isolado opcional (GOOGLE_GMAIL_PILOT_CLIENT_ID/SECRET) — regras em gmail-pilot-credentials.ts;
 // sem fallback para o remetente padrão.
 export function loadGmailPilotSenderConfig(expectedSender: string): GmailConfig {
-  const resolved = resolveGmailPilotSenderConfig(expectedSender, process.env);
+  const resolved = resolveGmailPilotIdentityConfig(expectedSender, process.env);
   return { clientId: resolved.clientId, clientSecret: resolved.clientSecret, refreshToken: resolved.refreshToken, senderEmail: resolved.senderEmail };
 }

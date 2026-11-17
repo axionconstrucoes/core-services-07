@@ -291,7 +291,7 @@ await checkAsync("FakeEmailProvider aplica a reescrita completa quando o piloto 
 check("convenção de falha simulada do FakeEmailProvider continua funcionando independente do modo piloto (checada sobre o input bruto)", () => {
   const source = readSource("apps/web/lib/email/fake-email-provider.ts");
   const forcedFailureIdx = source.indexOf("FAKE_FORCED_FAILURE_RECIPIENT");
-  const guardCallIdx = source.indexOf("applyPilotOutboundGuard(input)");
+  const guardCallIdx = source.indexOf("prepareOutboundMessage(input)");
   assert(forcedFailureIdx !== -1 && guardCallIdx !== -1, "não encontrou os dois pontos esperados no arquivo");
   assert(forcedFailureIdx < guardCallIdx, "a checagem de falha simulada precisa continuar ANTES do guard, sobre o input bruto");
 });
@@ -303,7 +303,7 @@ check("convenção de falha simulada do FakeEmailProvider continua funcionando i
 
 check("estrutural: GmailEmailProvider chama applyPilotOutboundGuard ANTES do try/catch que envolve gmail.users.messages.send", () => {
   const source = readSource("apps/web/lib/email/gmail-email-provider.ts");
-  const guardCallIdx = source.indexOf("applyPilotOutboundGuard(input)");
+  const guardCallIdx = source.indexOf("prepareOutboundMessage(input)");
   const networkCallIdx = source.indexOf("gmail.users.messages.send(");
   assert(guardCallIdx !== -1, "chamada ao guard não encontrada em GmailEmailProvider");
   assert(networkCallIdx !== -1, "chamada de rede não encontrada em GmailEmailProvider");
@@ -357,7 +357,7 @@ check("bypass 1/4 — toda classe que implementa EmailProvider chama applyPilotO
   for (const file of implementers) {
     const source = readFileSync(file, "utf8");
     assert(
-      source.includes("applyPilotOutboundGuard("),
+      source.includes("prepareOutboundMessage(") || source.includes("applyPilotOutboundGuard("),
       `${path.relative(repoRoot, file)} implementa EmailProvider mas não chama applyPilotOutboundGuard — bypass possível`
     );
   }

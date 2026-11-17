@@ -94,7 +94,7 @@ check("remetente padrão inalterado: loadGmailConfig não lê variáveis do pilo
   const body = src.slice(start, end);
   assert(!/GOOGLE_GMAIL_PILOT_/.test(body), "loadGmailConfig não pode ler variáveis do piloto");
   assert(body.includes("GOOGLE_GMAIL_CLIENT_ID") && body.includes("GOOGLE_GMAIL_REFRESH_TOKEN") && body.includes("GOOGLE_GMAIL_SENDER_EMAIL"));
-  assert(src.includes("resolveGmailPilotSenderConfig(expectedSender, process.env)"));
+  assert(src.includes("resolveGmailPilotIdentityConfig(expectedSender, process.env)"));
 });
 
 check("script: escolhe cliente isolado, compartilhado ou falha com par parcial", () => {

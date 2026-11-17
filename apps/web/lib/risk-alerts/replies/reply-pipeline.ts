@@ -71,6 +71,8 @@ export interface InboundHeaders {
   contentType?: string | null;
   authenticationResults?: string | null;
   subject?: string | null;
+  /** Cabeçalho X-ACC-Outbound: mensagem GERADA pelo ACC (inclusive a cópia Cc que volta à caixa institucional). */
+  xAccOutbound?: string | null;
 }
 
 export type InboundFilterVerdict = "OK" | "IGNORED_AUTO_REPLY" | "IGNORED_BOUNCE" | "IGNORED_SELF" | "IGNORED_LOOP";
@@ -89,6 +91,8 @@ export function filterInboundMessage(headers: InboundHeaders, context: { accMail
   ) {
     return "IGNORED_BOUNCE";
   }
+  // Mensagem gerada pelo ACC (ex.: a CÓPIA Cc entregue na caixa institucional): nunca é resposta de ninguém, mesmo quando o From é um colaborador.
+  if (headers.xAccOutbound) return "IGNORED_SELF";
   if (context.accMailboxes.some((mailbox) => mailbox.toLowerCase() === from || from.startsWith(`${mailbox.toLowerCase().split("@")[0]}+`))) return "IGNORED_SELF";
   if (headers.messageId && context.seenMessageIds.has(headers.messageId)) return "IGNORED_LOOP";
   if (headers.references.length > (context.maxReferences ?? 40)) return "IGNORED_LOOP";
@@ -292,72 +296,4 @@ export function replyToFormalAction(result: ReplyClassificationResult): "TAKING_
   if (result.classification === "ACKNOWLEDGEMENT") return "OTHER";
   if (result.classification === "QUESTION_TO_EXPERT") return "EXPERT_CONSULTATION";
   return null;
-}
-
-// ------------------------------------------------------------------
-// 3b. Resposta escrita pela CAIXA do piloto (projeto piloto por projeto)
-// ------------------------------------------------------------------
-// No piloto de um projeto todos os participantes são SIMULADOS e entregues numa única caixa institucional. Quem responde por ela escreve
-// "como" o participante da mensagem respondida. A autorização é ESTRITA e não eleva nada: o ator é exatamente o participante daquela
-// mensagem (o mesmo que responderia com o próprio e-mail), com as mesmas regras (destinatário do alerta, allowlist, vínculo ativo) e as
-// mesmas transições/permissões da máquina de estados. Só vale para o projeto piloto, para o remetente = caixa do piloto e para
-// correlação por token do Reply-To ou In-Reply-To (nunca código visível nem References).
-export interface PilotMailboxReplyContext {
-  senderEmail: string;
-  pilotMailbox: string;
-  correlationMethod: ReplyCorrelationMethod;
-  participantUserId: string | null | undefined;
-  participant: { userId: string; active: boolean; membershipStatus: string | null } | null;
-  alertRecipientUserIds: string[];
-  allowlistUserIds: string[];
-  authenticationResults: string | null;
-}
-
-export type PilotMailboxReplyAuthorization =
-  | { authorized: true; userId: string; note: string }
-  | { authorized: false; reason: "NOT_PILOT_MAILBOX" | "WEAK_CORRELATION" | "PARTICIPANT_UNKNOWN" | "PROFILE_INACTIVE" | "MEMBERSHIP_INACTIVE" | "NOT_RECIPIENT" | "NOT_ALLOWLISTED" | "AUTH_FAILED" };
-
-export function authorizePilotMailboxReply(ctx: PilotMailboxReplyContext): PilotMailboxReplyAuthorization {
-  if (ctx.senderEmail.trim().toLowerCase() !== ctx.pilotMailbox.trim().toLowerCase()) return { authorized: false, reason: "NOT_PILOT_MAILBOX" };
-  if (ctx.correlationMethod !== "REPLY_TO_TOKEN" && ctx.correlationMethod !== "IN_REPLY_TO") return { authorized: false, reason: "WEAK_CORRELATION" };
-  if (!ctx.participantUserId || !ctx.participant || ctx.participant.userId !== ctx.participantUserId) return { authorized: false, reason: "PARTICIPANT_UNKNOWN" };
-  if (!ctx.participant.active) return { authorized: false, reason: "PROFILE_INACTIVE" };
-  if (ctx.participant.membershipStatus !== "ACTIVE") return { authorized: false, reason: "MEMBERSHIP_INACTIVE" };
-  const auth = parseAuthenticationResults(ctx.authenticationResults);
-  if ([auth.spf, auth.dkim, auth.dmarc].some((v) => v === "fail" || v === "permerror")) return { authorized: false, reason: "AUTH_FAILED" };
-  if (!ctx.alertRecipientUserIds.includes(ctx.participantUserId)) return { authorized: false, reason: "NOT_RECIPIENT" };
-  if (!ctx.allowlistUserIds.includes(ctx.participantUserId)) return { authorized: false, reason: "NOT_ALLOWLISTED" };
-  return { authorized: true, userId: ctx.participantUserId, note: "Resposta pela caixa do piloto, atribuída ao participante simulado da mensagem respondida." };
-}
-
-// ------------------------------------------------------------------
-// 3c. Resposta de TESTADOR do grupo interno do piloto (WEG_INTERNAL_FOUR)
-// ------------------------------------------------------------------
-// No grupo cada pessoa responde com a PRÓPRIA identidade (From real, profile e vínculo do projeto). Nunca se atribui a resposta de
-// uma pessoa a outra, nem a identidade do CRM ao participante simulado. Quem é destinatário lógico do alerta e está na allowlist é
-// autorizado por `authorizeReply` (identidade própria). Quem está no grupo mas NÃO é destinatário lógico só tem a resposta REGISTRADA,
-// sob a própria identidade, para revisão humana: nenhuma transição do alerta é aplicada.
-export interface PilotGroupReplyContext {
-  senderEmail: string;
-  group: string[];
-  correlationMethod: ReplyCorrelationMethod;
-  profile: { userId: string; email: string; active: boolean } | null;
-  membershipStatus: string | null;
-  authenticationResults: string | null;
-}
-
-export type PilotGroupReplyVerdict =
-  | { observer: true; userId: string }
-  | { observer: false; reason: "NOT_GROUP_MEMBER" | "WEAK_CORRELATION" | "UNKNOWN_SENDER" | "PROFILE_INACTIVE" | "MEMBERSHIP_INACTIVE" | "AUTH_FAILED" };
-
-export function classifyPilotGroupReply(ctx: PilotGroupReplyContext): PilotGroupReplyVerdict {
-  const sender = ctx.senderEmail.trim().toLowerCase();
-  if (!ctx.group.map((a) => a.toLowerCase()).includes(sender)) return { observer: false, reason: "NOT_GROUP_MEMBER" };
-  if (ctx.correlationMethod !== "REPLY_TO_TOKEN" && ctx.correlationMethod !== "IN_REPLY_TO") return { observer: false, reason: "WEAK_CORRELATION" };
-  if (!ctx.profile || ctx.profile.email.trim().toLowerCase() !== sender) return { observer: false, reason: "UNKNOWN_SENDER" };
-  if (!ctx.profile.active) return { observer: false, reason: "PROFILE_INACTIVE" };
-  if (ctx.membershipStatus !== "ACTIVE") return { observer: false, reason: "MEMBERSHIP_INACTIVE" };
-  const auth = parseAuthenticationResults(ctx.authenticationResults);
-  if ([auth.spf, auth.dkim, auth.dmarc].some((v) => v === "fail" || v === "permerror")) return { observer: false, reason: "AUTH_FAILED" };
-  return { observer: true, userId: ctx.profile.userId };
 }

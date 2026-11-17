@@ -1,5 +1,5 @@
 // Credenciais OAuth DEDICADAS da caixa que recebe as respostas aos
-// alertas de risco (piloto: axion@axion.com.br) — puro, sem I/O.
+// alertas de risco (piloto: acc@axion.com.br) — puro, sem I/O.
 //
 // A fase `replies` do worker usa EXCLUSIVAMENTE ACC_RISK_ALERTS_INBOUND_*:
 // nunca cai para GOOGLE_GMAIL_INBOUND_* (credenciais do Gmail Inbound Sync,

@@ -86,7 +86,7 @@ const {
 const { extractEmailAddresses } = await import("../apps/web/lib/email/inbound/gmail-inbound-policy");
 const { createSupabaseRiskAlertStore } = await import("../apps/web/lib/risk-alerts/supabase-store");
 const { processAlertReplies } = await import("../apps/web/lib/risk-alerts/replies/process-alert-replies");
-const { resolveProjectPilotReplyMailbox, resolveProjectPilotReplyGroup } = await import("../apps/web/lib/email/project-pilot-profile");
+const { isProjectPilotActive } = await import("../apps/web/lib/email/project-pilot-profile");
 const { extractInboundFromGmail } = await import("../apps/web/lib/risk-alerts/replies/gmail-reply-extract");
 const { extractReplyTokens, hashReplyToken } = await import("../apps/web/lib/risk-alerts/replies/reply-pipeline");
 const { resolveRiskAlertInboundCredentials, inboundProfileMatchesMailbox, checkOverrideCompatibility } = await import("../apps/web/lib/risk-alerts/replies/inbound-credentials");
@@ -397,8 +397,8 @@ if (phases.has("replies") && apply) {
     // Override de entrega do projeto precisa ser a própria caixa dedicada —
     // senão as respostas chegariam a uma caixa que este worker não lê.
     const { data: overrideRow } = await supabase.from("project_weekly_schedule_ingestion_configs").select("pilot_delivery_override_email").eq("project_id", config.projectId).maybeSingle();
-    // Projeto piloto por projeto: a entrega é decidida pelo perfil de e-mail (destino único), então o override de entrega legado não conta.
-    const compat = checkOverrideCompatibility(mailbox, resolveProjectPilotReplyMailbox(config.projectId) ? null : (overrideRow?.pilot_delivery_override_email ?? null));
+    // Projeto piloto por projeto: a entrega é decidida pelo perfil de e-mail (entrega direta + Cc institucional), então o override de entrega legado não conta.
+    const compat = checkOverrideCompatibility(mailbox, isProjectPilotActive(config.projectId) ? null : (overrideRow?.pilot_delivery_override_email ?? null));
     if (!compat.ok) {
       summary.replies.skippedProjects.push({ projectId: config.projectId, status: compat.status });
       console.log(`Projeto ${config.projectId}: respostas ${compat.status} (override de entrega difere da caixa dedicada).`);
@@ -503,10 +503,8 @@ if (phases.has("replies") && apply) {
       }
     }
     // Processamento (puro + store): nunca loga corpo — só contagens.
-    const outcome = await processAlertReplies(riskStore, config.projectId, new Date().toISOString(), [mailbox], {
-      pilotMailbox: resolveProjectPilotReplyMailbox(config.projectId),
-      pilotGroup: resolveProjectPilotReplyGroup(config.projectId),
-    });
+    // Cada colaborador responde com a PRÓPRIA identidade; a caixa institucional (mailbox) é só do ACC e nunca é atribuída a participante.
+    const outcome = await processAlertReplies(riskStore, config.projectId, new Date().toISOString(), [mailbox]);
     summary.replies.processed.push(outcome);
   }
 }
