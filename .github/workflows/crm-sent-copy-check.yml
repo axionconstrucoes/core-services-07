@@ -1,0 +1,48 @@
+name: CRM Sent Copy Check
+
+# Verificação MANUAL e SOMENTE-LEITURA, na caixa crm@ (credencial de leitura das respostas, gmail.readonly), de UMA mensagem já enviada
+# pelo piloto: presença em Enviados, cópias (Cc) e cabeçalhos. Repositório público: saída só com booleanos/contagens/rótulos.
+# O destinatário esperado entra como SHA-256 (hex) do endereço em minúsculas — nenhum e-mail aparece no evento nem no log.
+
+on:
+  workflow_dispatch:
+    inputs:
+      message_id_gmail:
+        description: "Id Gmail da mensagem (provider_message_id da outbox)"
+        required: true
+      rfc822_message_id:
+        description: "Message-ID com os sinais <> (message_id_header da outbox)"
+        required: true
+      expected_to_sha256:
+        description: "SHA-256 (hex) do destinatário esperado em minúsculas"
+        required: true
+
+concurrency:
+  group: crm-sent-copy-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Verificar cópia na caixa crm@ (somente leitura)
+        env:
+          ACC_RISK_ALERTS_INBOUND_CLIENT_ID: ${{ secrets.ACC_RISK_ALERTS_INBOUND_CLIENT_ID }}
+          ACC_RISK_ALERTS_INBOUND_CLIENT_SECRET: ${{ secrets.ACC_RISK_ALERTS_INBOUND_CLIENT_SECRET }}
+          ACC_RISK_ALERTS_INBOUND_REFRESH_TOKEN: ${{ secrets.ACC_RISK_ALERTS_INBOUND_REFRESH_TOKEN }}
+          ACC_RISK_ALERTS_INBOUND_MAILBOX: ${{ secrets.ACC_RISK_ALERTS_INBOUND_MAILBOX }}
+          MSG_ID: ${{ github.event.inputs.message_id_gmail }}
+          RFC822_ID: ${{ github.event.inputs.rfc822_message_id }}
+          EXPECTED_TO_SHA256: ${{ github.event.inputs.expected_to_sha256 }}
+        run: node scripts/verify-crm-sent-copy.mjs
