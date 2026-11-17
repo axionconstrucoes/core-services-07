@@ -49,6 +49,7 @@ import { notifyDirectorateWhatsappSafely } from "@/lib/whatsapp/notify-directora
 
 import { buildOpaqueReplyTo, generateReplyToken, hashReplyToken } from "./replies/reply-pipeline";
 import { isPilotTestCase } from "./pilot-test-case";
+import { buildCycleDryRunPreviewItem, dryRunEffectiveConfig, shouldAssumeRiskAlertsEnabledForDryRun } from "./cycle-dry-run";
 import type { PendingOutboxRow, RiskAlertProjectSnapshot, RiskAlertStore } from "./store";
 import { createSupabaseRiskAlertStore, sanitizeError } from "./supabase-store";
 import type { AlertActionType, ExpertId, ImmediateAlertContent, PlannedOutboxEntry, RiskAlertPlan } from "./types";
@@ -73,6 +74,8 @@ export interface RiskAlertCycleProjectResult {
   expertAnswers: number;
   digestWindow: { key: string; isOpen: boolean } | null;
   dryRunPreview?: Array<Record<string, unknown>>;
+  /** true quando o dry-run planejou o projeto piloto como se risk_alerts_enabled=true (nada é gravado). */
+  dryRunAssumedEnabled?: boolean;
 }
 
 export interface RiskAlertCycleResult {
@@ -146,6 +149,15 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
 
   for (const projectId of projectIds) {
     const snapshot = await store.loadProjectSnapshot(projectId);
+    // Dry-run do projeto piloto pedido explicitamente: planeja como se a flag estivesse ligada (somente leitura, provedor simulado).
+    const pilotProfile = resolveProjectPilotProfile();
+    const assumeEnabled = shouldAssumeRiskAlertsEnabledForDryRun({
+      dryRun,
+      requestedProjectId: options.projectId ?? null,
+      projectId,
+      pilotProjectId: pilotProfile.configured && pilotProfile.valid ? pilotProfile.projectId : null,
+    });
+    const planConfig = dryRunEffectiveConfig(snapshot.config, assumeEnabled);
     const timeZone = snapshot.settings?.timezone ?? DEFAULT_PROJECT_TIMEZONE;
     const policyFor = (area: SlaArea, riskLevel: SlaRiskLevel) =>
       resolveMatrixPolicy({ rules: snapshot.matrixRules, responsibles: snapshot.areaResponsibles, settings: snapshot.settings, area, riskLevel });
@@ -153,7 +165,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     const areasInUse = Array.from(new Set(snapshot.cases.map((c) => c.area)));
     const readiness = evaluatePilotReadiness({
       featureEnabled,
-      config: snapshot.config,
+      config: planConfig,
       providerConfigured,
       explicitRuleLevels: Array.from(new Set(snapshot.matrixRules.filter((r) => r.active).map((r) => r.riskLevel))),
       matrixStatuses: areasInUse.map((area) => {
@@ -180,7 +192,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       featureEnabled,
       providerConfigured,
       dryRun,
-      config: snapshot.config,
+      config: planConfig,
       timeZone,
       cases: snapshot.cases,
       existingCases: snapshot.existingCases,
@@ -217,16 +229,10 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     }
 
     if (dryRun) {
-      projectResult.dryRunPreview = plan.outbox.map((entry) => ({
-        idempotencyKey: entry.idempotencyKey,
-        type: entry.notificationType,
-        level: entry.escalationLevel,
-        riskLevel: entry.riskLevel,
-        recipientUserId: entry.recipient.userId,
-        recipientStatus: entry.recipient.status,
-        suppressionReason: entry.recipient.suppressionReason ?? "DRY_RUN",
-        summary: entry.payloadSummary,
-      }));
+      const visibleCodeByCaseId = new Map(snapshot.existingCases.map((c) => [c.id, c.visibleCode] as const));
+      const pilotParticipants = pilotProfile.configured && pilotProfile.valid && pilotProfile.projectId === projectId.toLowerCase() ? pilotProfile.participants : null;
+      projectResult.dryRunPreview = plan.outbox.map((entry) => ({ ...buildCycleDryRunPreviewItem(entry, { visibleCodeByCaseId, pilotParticipants }) }));
+      projectResult.dryRunAssumedEnabled = assumeEnabled;
       projectResult.slaActionsCreated = plan.slaActionCreates.length;
       projectResult.escalationsApplied = plan.escalations.length;
       result.projects.push(projectResult);
