@@ -504,7 +504,31 @@ if (phases.has("replies") && apply) {
     }
     // Processamento (puro + store): nunca loga corpo — só contagens.
     // Cada colaborador responde com a PRÓPRIA identidade; a caixa institucional (mailbox) é só do ACC e nunca é atribuída a participante.
-    const outcome = await processAlertReplies(riskStore, config.projectId, new Date().toISOString(), [mailbox]);
+    // O Gmail pode substituir o Message-ID do MIME ao enviar pela API; as respostas citam o Message-ID REAL. Para os envios
+    // feitos por esta MESMA caixa, lê (somente leitura, metadata) o Message-ID real e o usa como apelido em memória do gravado.
+    // Nenhum registro é alterado; falha de leitura apenas deixa a mensagem sem apelido (o Reply-To com token continua valendo).
+    const messageIdAliases = new Map();
+    const { data: outboundRows } = await supabase
+      .from("alert_email_messages")
+      .select("provider_message_id,message_id_header,sender_email")
+      .eq("project_id", config.projectId)
+      .eq("direction", "OUTBOUND")
+      .not("provider_message_id", "is", null)
+      .not("message_id_header", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    for (const row of outboundRows ?? []) {
+      if (row.sender_email && row.sender_email.trim().toLowerCase() !== String(mailbox).trim().toLowerCase()) continue; // id de outra caixa: não existe aqui
+      try {
+        const meta = await gmail.users.messages.get({ userId: "me", id: row.provider_message_id, format: "metadata", metadataHeaders: ["Message-ID"] });
+        const real = (meta.data.payload?.headers ?? []).find((h) => /^message-id$/i.test(h.name ?? ""))?.value;
+        if (real && real.trim() !== row.message_id_header.trim()) messageIdAliases.set(real.trim(), row.message_id_header.trim());
+      } catch {
+        // indisponível nesta caixa — sem apelido
+      }
+    }
+    summary.replies.messageIdAliases = (summary.replies.messageIdAliases ?? 0) + messageIdAliases.size;
+    const outcome = await processAlertReplies(riskStore, config.projectId, new Date().toISOString(), [mailbox], { messageIdAliases });
     summary.replies.processed.push(outcome);
   }
 }
@@ -526,7 +550,7 @@ if (summary.classification) console.table([summary.classification]);
 if (summary.workbooks) console.table([summary.workbooks]);
 if (Object.keys(summary.alerts).length > 0) console.table([summary.alerts]);
 if (summary.replies) {
-  console.table([{ status: summary.replies.status ?? "OK", threads: summary.replies.threads, viaReplyTo: summary.replies.replyToMatches, capturadas: summary.replies.captured, projetosPulados: (summary.replies.skippedProjects ?? []).length }]);
+  console.table([{ status: summary.replies.status ?? "OK", threads: summary.replies.threads, viaReplyTo: summary.replies.replyToMatches, capturadas: summary.replies.captured, projetosPulados: (summary.replies.skippedProjects ?? []).length, apelidosMessageId: summary.replies.messageIdAliases ?? 0 }]);
   if (summary.replies.processed.length) console.table(summary.replies.processed);
 }
 // Fase de respostas bloqueada (perfil ≠ caixa dedicada): as demais fases já

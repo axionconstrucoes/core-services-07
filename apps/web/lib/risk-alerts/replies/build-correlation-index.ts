@@ -60,3 +60,33 @@ export function buildCorrelationIndex(
   const byVisibleCode = new Map(cases.filter((row) => row.visible_code).map((row) => [row.visible_code as string, row.id]));
   return { byMessageId, byReplyTokenHash, byVisibleCode, seenMessageIds, participantByMessageId, participantByReplyTokenHash };
 }
+
+/**
+ * O Gmail pode SUBSTITUIR o Message-ID que o ACC escreve no MIME ao enviar pela API (medido no piloto: o Message-ID real
+ * da mensagem enviada difere do gravado em message_id_header). Respostas trazem o Message-ID REAL em In-Reply-To/References.
+ * Este helper acrescenta, SÓ EM MEMÓRIA, o Message-ID real como apelido do gravado (mesmo caso, mesmo participante e
+ * anti-loop). Nenhum registro é alterado. `aliases`: Message-ID real -> Message-ID gravado (ambos no formato <...>).
+ * Apelido que já aponta para outro caso é ignorado (nunca sobrescreve uma correlação existente).
+ */
+export function applyMessageIdAliases(
+  index: CorrelationIndex & { seenMessageIds: Set<string> },
+  aliases: ReadonlyMap<string, string>
+): number {
+  const normalize = (id: string) => id.trim().replace(/^<?/, "<").replace(/>?$/, ">");
+  let applied = 0;
+  for (const [rawReal, rawRecorded] of aliases) {
+    const real = normalize(rawReal);
+    const recorded = normalize(rawRecorded);
+    if (real === recorded) continue;
+    const caseId = index.byMessageId.get(recorded);
+    if (!caseId) continue;
+    const existing = index.byMessageId.get(real);
+    if (existing && existing !== caseId) continue;
+    index.byMessageId.set(real, caseId);
+    const participant = index.participantByMessageId?.get(recorded);
+    if (participant && index.participantByMessageId && !index.participantByMessageId.has(real)) index.participantByMessageId.set(real, participant);
+    index.seenMessageIds.add(real);
+    applied += 1;
+  }
+  return applied;
+}
