@@ -99,8 +99,9 @@ function makeEnv({ messages = {}, attachments = {}, ingestFailures = {}, linkErr
     if (linkError) throw linkError;
     linked.push(input.attachmentId);
   };
-  const run = (rows) =>
+  const run = (rows, extra = {}) =>
     processMessageRows({
+      ...extra,
       rows,
       planningEmails: PLANNING,
       gmail,
@@ -272,6 +273,33 @@ await check("diagnóstico nunca contém assunto, endereço, nome de arquivo ou i
   for (const secret of ["assunto-sigiloso", "planejamento@example.test", "Ata Semanal", "gmail-2", "att-gmail-3"]) {
     assert.ok(!all.includes(secret), `vazou: ${secret}`);
   }
+});
+
+await check("teto 404: cada 404 é registrado; mensagem já no teto é pulada SEM chamar a API e sem falha", async () => {
+  const recorded = [];
+  const env = makeEnv({ messages: { "gmail-1": httpError(404) } });
+  const s1 = await env.run([row("1")], { recordUnavailable: async (r) => recorded.push(r.id) });
+  assert.equal(s1.skippedMissingMessage, 1);
+  assert.deepEqual(recorded, ["1"]);
+  let calls = 0;
+  const env2 = makeEnv({ messages: { "gmail-1": httpError(404) } });
+  const original = env2.run;
+  const s2 = await original([row("1")], {
+    knownUnavailableIds: new Set(["1"]),
+    recordUnavailable: async () => { calls += 1; },
+  });
+  assert.equal(s2.skippedKnownUnavailable, 1);
+  assert.equal(s2.skippedMissingMessage, 0);
+  assert.equal(s2.failures, 0);
+  assert.equal(calls, 0, "não registra de novo nem consulta o Gmail");
+  assert.equal(computeExitCode(s2), 0);
+});
+
+await check("teto 404: falha ao registrar a pendência não vira falha do job", async () => {
+  const env = makeEnv({ messages: { "gmail-1": httpError(404) } });
+  const s = await env.run([row("1")], { recordUnavailable: async () => { throw new Error("db fora"); } });
+  assert.equal(s.skippedMissingMessage, 1);
+  assert.equal(s.failures, 0);
 });
 
 await check("regra do código de saída: 1 se falhas>0 ou anexos ausentes>0; mensagens ausentes sozinhas = 0", () => {
