@@ -13,6 +13,7 @@ import { applyAlertAction } from "../alert-state-machine";
 import { routeExpert } from "../experts/route-alert-expert";
 import { DEFAULT_CORPORATE_EMAIL_DOMAIN } from "../plan-risk-alerts";
 import type { RiskAlertStore } from "../store";
+import { applyMessageIdAliases } from "./build-correlation-index";
 import { authorizeReply, classifyReply, correlateReply, filterInboundMessage, parseReplyBody, replyToFormalAction } from "./reply-pipeline";
 
 export interface ProcessRepliesResult {
@@ -29,13 +30,19 @@ export interface ProcessRepliesResult {
 // Modelo de entrega direta do piloto: cada colaborador responde com a PRÓPRIA identidade (From real) — a autorização é sempre por
 // remetente (authorizeReply: perfil, vínculo ativo, destinatário lógico do alerta e allowlist). Não existe mais atribuição de resposta
 // por "caixa do piloto": uma resposta vinda do ACC (crm@) ou de endereço desconhecido NUNCA é atribuída a participante algum.
-export async function processAlertReplies(store: RiskAlertStore, projectId: string, nowIso: string, accMailboxes: string[]): Promise<ProcessRepliesResult> {
+export interface ProcessRepliesOptions {
+  /** Message-ID REAL (lido na caixa) -> Message-ID gravado pelo ACC. Só em memória; ver applyMessageIdAliases. */
+  messageIdAliases?: ReadonlyMap<string, string>;
+}
+
+export async function processAlertReplies(store: RiskAlertStore, projectId: string, nowIso: string, accMailboxes: string[], options: ProcessRepliesOptions = {}): Promise<ProcessRepliesResult> {
   const selfMailboxes = accMailboxes;
   const result: ProcessRepliesResult = { projectId, received: 0, ignored: 0, unauthorized: 0, pendingHumanReview: 0, reviewRequired: 0, applied: 0, recorded: 0 };
   const inbound = await store.listInboundToProcess(projectId);
   if (inbound.length === 0) return result;
   const snapshot = await store.loadProjectSnapshot(projectId);
   const index = await store.loadCorrelationIndex(projectId);
+  if (options.messageIdAliases && options.messageIdAliases.size > 0) applyMessageIdAliases(index, options.messageIdAliases);
   const config = snapshot.config;
   const corporateDomain = (config?.senderDomain ?? DEFAULT_CORPORATE_EMAIL_DOMAIN).toLowerCase();
   const profileByEmail = new Map<string, { userId: string; email: string; membershipStatus: string | null }>();
