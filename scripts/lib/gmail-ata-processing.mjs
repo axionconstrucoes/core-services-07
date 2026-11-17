@@ -69,6 +69,8 @@ export async function processMessageRows({
   isMeetingMinutes,
   projectId,
   mailbox,
+  knownUnavailableIds = new Set(),
+  recordUnavailable = async () => {},
   log = console.log,
   warn = console.warn,
   error: logError = console.error,
@@ -77,6 +79,7 @@ export async function processMessageRows({
     scanned: 0,
     processed: 0,
     skippedMissingMessage: 0,
+    skippedKnownUnavailable: 0,
     missingAttachment: 0,
     failures: 0,
     attachmentsSeen: 0,
@@ -87,6 +90,13 @@ export async function processMessageRows({
   for (const row of rows) {
     if (!planningEmails.has(String(row.from_address ?? "").trim().toLowerCase())) continue;
     summary.scanned += 1;
+
+    // Mensagem que já devolveu 404 em execuções anteriores até o teto: pendência permanente registrada em
+    // auditoria — não chama a API de novo (sem retentativa infinita). O registro do e-mail é preservado.
+    if (knownUnavailableIds.has(row.id)) {
+      summary.skippedKnownUnavailable += 1;
+      continue;
+    }
 
     let rowIncomplete = false;
     let operation = "gmail.messages.get";
@@ -106,6 +116,11 @@ export async function processMessageRows({
       } catch (getError) {
         if (getHttpStatus(getError) === 404) {
           summary.skippedMissingMessage += 1;
+          try {
+            await recordUnavailable(row);
+          } catch {
+            // registrar a pendência é best-effort: nunca transforma o 404 em falha do job
+          }
           warn(
             `::warning::[gmail-ata-worker] mensagem ausente no Gmail, ignorada nesta execucao: ` +
               `recordId=${row.id} operation=gmail.messages.get httpStatus=404. ` +
@@ -205,6 +220,7 @@ export function formatSummary(summary) {
   return (
     `Resumo: ${summary.processed} processada(s) de ${summary.scanned} examinada(s); ` +
     `${summary.skippedMissingMessage} ignorada(s) por mensagem ausente; ` +
+    `${summary.skippedKnownUnavailable ?? 0} pendente(s) permanente(s) por indisponibilidade ja registrada (sem nova chamada); ` +
     `${summary.missingAttachment} anexo(s) ausente(s); ${summary.failures} falha(s). ` +
     `Codigo de saida: ${computeExitCode(summary)} (1 se falhas>0 ou anexos ausentes>0; ` +
     `mensagens ausentes isoladas nao falham o job).`

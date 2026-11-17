@@ -86,6 +86,39 @@ if (planningProfilesError) throw new Error(planningProfilesError.message);
 const planningEmails = new Set(
   (planningProfiles ?? []).map((row) => String(row.email ?? "").trim().toLowerCase()).filter(Boolean)
 );
+// Teto de retentativas para mensagens indisponíveis no Gmail (HTTP 404 em messages.get): cada 404 é registrado
+// em audit_log_entries (sem migration); ao atingir o teto, a mensagem vira pendência permanente e não é mais
+// consultada. O registro do e-mail e o histórico são preservados.
+const UNAVAILABLE_ACTION = "GMAIL_MESSAGE_UNAVAILABLE";
+const UNAVAILABLE_MAX_ATTEMPTS = 3;
+const { data: unavailableRows, error: unavailableError } = await supabase
+  .from("audit_log_entries")
+  .select("entity_id")
+  .eq("project_id", PROJECT_ID)
+  .eq("action", UNAVAILABLE_ACTION)
+  .eq("entity_type", "EMAIL");
+if (unavailableError) throw new Error(unavailableError.message);
+const unavailableCounts = new Map();
+for (const row of unavailableRows ?? []) unavailableCounts.set(row.entity_id, (unavailableCounts.get(row.entity_id) ?? 0) + 1);
+const knownUnavailableIds = new Set(
+  [...unavailableCounts].filter(([, count]) => count >= UNAVAILABLE_MAX_ATTEMPTS).map(([id]) => id)
+);
+async function recordUnavailable(row) {
+  const attempt = (unavailableCounts.get(row.id) ?? 0) + 1;
+  const { error } = await supabase.from("audit_log_entries").insert({
+    project_id: PROJECT_ID,
+    actor_type: "SYSTEM",
+    actor_user_id: null,
+    actor_label: null,
+    action: UNAVAILABLE_ACTION,
+    entity_type: "EMAIL",
+    entity_id: row.id,
+    detail: `Gmail messages.get HTTP 404 (tentativa ${attempt} de ${UNAVAILABLE_MAX_ATTEMPTS}); ao atingir o teto vira pendencia permanente, sem novas consultas.`,
+  });
+  if (error) throw new Error(error.message);
+  unavailableCounts.set(row.id, attempt);
+}
+
 const auth = new google.auth.OAuth2(
   required("GOOGLE_GMAIL_INBOUND_CLIENT_ID"),
   required("GOOGLE_GMAIL_INBOUND_CLIENT_SECRET")
@@ -149,6 +182,8 @@ const summary = await processMessageRows({
   isMeetingMinutes,
   projectId: PROJECT_ID,
   mailbox,
+  knownUnavailableIds,
+  recordUnavailable,
 });
 
 console.log(JSON.stringify({ projectId: PROJECT_ID, ...summary }));
