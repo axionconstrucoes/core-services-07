@@ -1,0 +1,40 @@
+name: Risk Alerts WEG Dry-Run
+
+# DRY-RUN MANUAL do ciclo recorrente de alertas, SOMENTE para o projeto piloto WEG, antes de ligar risk_alerts_enabled.
+# Não tem schedule. Só roda em main. Chama /api/cron/risk-alerts?dryRun=1&projectId=<WEG>: nenhuma escrita, provedor simulado,
+# nenhum e-mail. O planejamento considera a flag ligada APENAS neste dry-run explícito do piloto; envio real não muda.
+# Repositório PÚBLICO: o log mostra só contagens, tipos, níveis, códigos de caso e rótulos P1/P2/P3 (participantes do piloto
+# na ordem fixa do código) ou FORA_DO_PILOTO — nunca nomes, e-mails ou ids. O segredo vai só no header Authorization.
+
+on:
+  workflow_dispatch: {}
+
+concurrency:
+  group: risk-alerts-weg-dry-run
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Dry-run do ciclo (WEG)
+        shell: bash
+        env:
+          ACC_APP_BASE_URL: ${{ vars.ACC_APP_BASE_URL }}
+          ACC_RISK_ALERTS_CRON_SECRET: ${{ secrets.ACC_RISK_ALERTS_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          [ -n "${ACC_APP_BASE_URL:-}" ] && [ -n "${ACC_RISK_ALERTS_CRON_SECRET:-}" ] || { echo "::error::ACC_APP_BASE_URL ou segredo ausente"; exit 1; }
+          case "${ACC_APP_BASE_URL}" in https://*) ;; *) echo "::error::ACC_APP_BASE_URL precisa começar com https://"; exit 1 ;; esac
+          status=$(curl --silent --show-error --max-time 120 \
+            --output response.json --write-out "%{http_code}" \
+            -H "Authorization: Bearer ${ACC_RISK_ALERTS_CRON_SECRET}" \
+            "${ACC_APP_BASE_URL%/}/api/cron/risk-alerts?dryRun=1&projectId=00000000-0000-4000-8000-000000000001")
+          echo "HTTP ${status}"
+          node -e "const j=JSON.parse(require('fs').readFileSync('response.json','utf8'));const p=(j.projects||[])[0]||{};const items=(p.dryRunPreview||[]).map(x=>({caso:x.visibleCode||null,tipo:x.type,nivel:x.level,risco:x.riskLevel,destinatario:x.recipientLabel,status:x.recipientStatus,motivo:x.suppressionReason,entregaOk:x.delivery?x.delivery.ok:null,cc:x.delivery?x.delivery.cc:null,enderecoProibido:x.delivery?x.delivery.forbiddenAddress:null}));console.log(JSON.stringify({dryRun:j.dryRun,featureEnabled:j.featureEnabled,assumiuFlag:p.dryRunAssumedEnabled===true,blockedReason:p.blockedReason??null,readinessBlockers:p.readinessBlockers||[],planned:p.planned??0,suppressed:p.suppressed??0,slaActionsCreated:p.slaActionsCreated??0,escalationsApplied:p.escalationsApplied??0,digestWindow:p.digestWindow??null,itens:items},null,1))"
+          [ "${status}" = "200" ] || exit 1
