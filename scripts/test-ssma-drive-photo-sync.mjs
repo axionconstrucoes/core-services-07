@@ -18,7 +18,8 @@ function check(label, condition) {
 
 check("processa somente pendentes e falhas", script.includes('.in("drive_sync_status", ["PENDING", "FAILED"])'));
 check("processa somente formulários finalizados", script.includes('.eq("ssma_form_submissions.status", "SUBMITTED")'));
-check("simulação é padrão", script.includes('if (!apply) process.exit(0)'));
+const runner = await readFile(new URL("./lib/ssma-photo-sync-runner.mjs", import.meta.url), "utf8");
+check("simulação é padrão (--apply explícito, runner só espelha com apply)", script.includes('args.includes("--apply")') && runner.includes("if (apply) {"));
 check("aplicação é explícita", workflow.includes("--apply --limit=100"));
 check("job tem concorrência única", workflow.includes("group: ssma-drive-photo-sync"));
 check("job nunca cancela execução ativa", workflow.includes("cancel-in-progress: false"));
