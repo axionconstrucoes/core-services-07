@@ -2,7 +2,7 @@
 //
 // Durante o piloto, TODOS os e-mails de alerta de risco de um projeto
 // podem ser entregues exclusivamente em uma caixa institucional do ACC
-// (ex.: axion@axion.com.br), configurada POR PROJETO em
+// (ex.: a caixa institucional crm@axion.com.br), configurada POR PROJETO em
 // project_weekly_schedule_ingestion_configs.pilot_delivery_override_email.
 // O override muda somente o endereço de ENTREGA: o destinatário lógico
 // (user_id calculado pela Matriz + allowlist), o responsável, as ações,

@@ -13,7 +13,7 @@ import { applyAlertAction } from "../alert-state-machine";
 import { routeExpert } from "../experts/route-alert-expert";
 import { DEFAULT_CORPORATE_EMAIL_DOMAIN } from "../plan-risk-alerts";
 import type { RiskAlertStore } from "../store";
-import { authorizePilotMailboxReply, authorizeReply, classifyPilotGroupReply, classifyReply, correlateReply, filterInboundMessage, parseReplyBody, replyToFormalAction } from "./reply-pipeline";
+import { authorizeReply, classifyReply, correlateReply, filterInboundMessage, parseReplyBody, replyToFormalAction } from "./reply-pipeline";
 
 export interface ProcessRepliesResult {
   projectId: string;
@@ -26,18 +26,11 @@ export interface ProcessRepliesResult {
   recorded: number;
 }
 
-export interface ProcessRepliesOptions {
-  /** Caixa do PILOTO por projeto (project-pilot-profile.ts) quando ESTE projeto é o piloto; null/ausente => comportamento de sempre. */
-  pilotMailbox?: string | null;
-  /** Grupo interno de testadores (WEG_INTERNAL_FOUR). Quando presente, cada pessoa responde com a própria identidade e a caixa do piloto NÃO é atribuída ao participante simulado. */
-  pilotGroup?: string[] | null;
-}
-
-export async function processAlertReplies(store: RiskAlertStore, projectId: string, nowIso: string, accMailboxes: string[], options: ProcessRepliesOptions = {}): Promise<ProcessRepliesResult> {
-  const pilotMailbox = options.pilotMailbox?.trim().toLowerCase() || null;
-  const pilotGroup = options.pilotGroup && options.pilotGroup.length ? options.pilotGroup.map((a) => a.trim().toLowerCase()) : null;
-  // No piloto a caixa de entrada É a caixa dos participantes simulados: respostas escritas por ela não são "auto-envio" do ACC (o ACC envia por outra identidade).
-  const selfMailboxes = pilotMailbox ? accMailboxes.filter((m) => m.trim().toLowerCase() !== pilotMailbox) : accMailboxes;
+// Modelo de entrega direta do piloto: cada colaborador responde com a PRÓPRIA identidade (From real) — a autorização é sempre por
+// remetente (authorizeReply: perfil, vínculo ativo, destinatário lógico do alerta e allowlist). Não existe mais atribuição de resposta
+// por "caixa do piloto": uma resposta vinda do ACC (crm@) ou de endereço desconhecido NUNCA é atribuída a participante algum.
+export async function processAlertReplies(store: RiskAlertStore, projectId: string, nowIso: string, accMailboxes: string[]): Promise<ProcessRepliesResult> {
+  const selfMailboxes = accMailboxes;
   const result: ProcessRepliesResult = { projectId, received: 0, ignored: 0, unauthorized: 0, pendingHumanReview: 0, reviewRequired: 0, applied: 0, recorded: 0 };
   const inbound = await store.listInboundToProcess(projectId);
   if (inbound.length === 0) return result;
@@ -86,37 +79,7 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
       corporateDomain,
       authenticationResults: message.headers.authenticationResults ?? null,
     });
-    // Piloto por projeto: resposta escrita pela caixa dos participantes simulados é atribuída ao participante da mensagem respondida (sem elevar permissões).
-    let authorization: { authorized: true; userId: string; note: string | null } | { authorized: false; reason: string } = baseAuthorization;
-    if (!baseAuthorization.authorized && pilotMailbox && !pilotGroup) {
-      const pilotAuth = authorizePilotMailboxReply({
-        senderEmail: message.headers.from,
-        pilotMailbox,
-        correlationMethod: correlation.method,
-        participantUserId: correlation.participantUserId,
-        participant: correlation.participantUserId && profileById.has(correlation.participantUserId) ? { userId: correlation.participantUserId, active: true, membershipStatus: profileById.get(correlation.participantUserId)!.membershipStatus } : null,
-        alertRecipientUserIds: loaded.alertRecipientUserIds,
-        allowlistUserIds: config?.pilotRecipientAllowlistUserIds ?? [],
-        authenticationResults: message.headers.authenticationResults ?? null,
-      });
-      if (pilotAuth.authorized) {
-        authorization = { authorized: true, userId: pilotAuth.userId, note: pilotAuth.note };
-        await store.audit(projectId, [{ action: "RISK_ALERT_PILOT_MAILBOX_REPLY", entityType: "RISK_ALERT_CASE", entityId: correlation.caseId, detail: `Resposta pela caixa do piloto atribuída ao participante simulado ${pilotAuth.userId} (correlação ${correlation.method}).` }]);
-      } else if (pilotAuth.reason !== "NOT_PILOT_MAILBOX") {
-        authorization = { authorized: false, reason: `PILOT_${pilotAuth.reason}` };
-      }
-    }
-    if (!authorization.authorized && pilotGroup) {
-      // Grupo interno: identidade própria; quem não é destinatário lógico apenas tem a resposta registrada (sem ação sobre o alerta).
-      const verdict = classifyPilotGroupReply({ senderEmail: message.headers.from, group: pilotGroup, correlationMethod: correlation.method, profile: senderProfile ? { userId: senderProfile.userId, email: senderProfile.email, active: true } : null, membershipStatus: senderProfile?.membershipStatus ?? null, authenticationResults: message.headers.authenticationResults ?? null });
-      if (verdict.observer) {
-        await store.updateInboundMessage(message.id, { caseId: correlation.caseId, senderUserId: verdict.userId, correlationMethod: correlation.method, bodyClean: parsed.clean, quotedText: parsed.quoted, signatureText: parsed.signature, status: "REVIEW_REQUIRED", statusReason: `Testador do grupo piloto não é destinatário lógico do alerta (${authorization.reason}); registrada sem ação formal`, requiresHumanReview: true });
-        await store.audit(projectId, [{ action: "RISK_ALERT_PILOT_GROUP_REPLY", entityType: "RISK_ALERT_CASE", entityId: correlation.caseId, detail: `Resposta de testador do grupo piloto ${verdict.userId} registrada sob a própria identidade, sem ação formal (${authorization.reason}); mensagem ${message.id}.` }]);
-        result.reviewRequired += 1;
-        continue;
-      }
-      if (verdict.reason !== "NOT_GROUP_MEMBER") authorization = { authorized: false, reason: `PILOT_GROUP_${verdict.reason}` };
-    }
+    const authorization: { authorized: true; userId: string; note: string | null } | { authorized: false; reason: string } = baseAuthorization;
     if (!authorization.authorized) {
       // Não altera o alerta; não devolve dados do projeto; registra o motivo.
       await store.updateInboundMessage(message.id, { caseId: correlation.caseId, correlationMethod: correlation.method, bodyClean: parsed.clean, quotedText: parsed.quoted, signatureText: parsed.signature, status: "UNAUTHORIZED_REPLY", statusReason: authorization.reason });

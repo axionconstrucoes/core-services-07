@@ -1,8 +1,8 @@
 // Integração do PILOTO por projeto com o ciclo REAL de alertas (runRiskAlertCycle) e o processador REAL de respostas,
 // sobre o store em memória e o FakeEmailProvider (mesma cadeia de guardas do transporte real). Nenhuma rede, nenhum banco, nenhum e-mail.
 //
-// Prova, no conjunto integrado (PR #125 + piloto): cada escalão (Responsável, Gestor, Diretoria) chega SÓ a axion@ com o seu participante;
-// repetições/reenvios idempotentes; envio concorrente sem duplicar (lease do #125); respostas de axion@ atribuídas ao participante certo e
+// Prova, no conjunto integrado (modelo de ENTREGA DIRETA com cópia institucional): cada escalão (Responsável, Gestor, Diretoria) chega à PRÓPRIA caixa do colaborador, com Cc em crm@;
+// repetições/reenvios idempotentes; envio concorrente sem duplicar (lease do #125); respostas atribuídas a QUEM RESPONDE (From real) e
 // aplicadas uma vez; outro projeto não é afetado.
 //
 // Uso: node scripts/test-pilot-cycle-integration.mjs
@@ -29,7 +29,7 @@ register("./lib/weg-alert-sim/hooks.mjs", import.meta.url);
 
 const { runRiskAlertCycle } = await import("../apps/web/lib/risk-alerts/run-risk-alert-cycle");
 const { processAlertReplies } = await import("../apps/web/lib/risk-alerts/replies/process-alert-replies");
-const { resolveProjectPilotReplyMailbox } = await import("../apps/web/lib/email/project-pilot-profile");
+const { isProjectPilotActive } = await import("../apps/web/lib/email/project-pilot-profile");
 const { FakeEmailProvider } = await import("../apps/web/lib/email/fake-email-provider");
 const { createInMemoryRiskAlertStore } = await import("./lib/weg-alert-sim/in-memory-risk-alert-store.mjs");
 
@@ -49,13 +49,14 @@ const assert = (c, m = "asserção falhou") => {
   if (!c) throw new Error(m);
 };
 
-const PROJECT_ID = "00000000-0000-4000-8000-00000000f002"; // fictício (ensaio)
+const PROJECT_ID = "00000000-0000-4000-8000-000000000001"; // WEG (o piloto é exclusivo dela)
 const OTHER_PROJECT_ID = "00000000-0000-4000-8000-00000000f003";
 const CRM = "crm@axion.com.br";
-const BOX = "axion@axion.com.br";
+const BOX = "axion@axion.com.br"; // PROIBIDO no novo modelo: nada pode ser roteado para ele
+const ACC = "crm@axion.com.br";
 const AREA = "PLANEJAMENTO";
 const U = { RESP: "a1111111-0000-4000-8000-000000000011", GESTOR: "b2222222-0000-4000-8000-000000000012", DIR: "c3333333-0000-4000-8000-000000000013" };
-const EMAIL = { [U.RESP]: "ens-resp-teste@axion.com.br", [U.GESTOR]: "ens-gestor-teste@axion.com.br", [U.DIR]: "ens-dir-teste@axion.com.br" };
+const EMAIL = { [U.RESP]: "reynaldo@axion.com.br", [U.GESTOR]: "jaime.ramos@axion.com.br", [U.DIR]: "carlos.evandro@axion.com.br" };
 const T0 = "2026-11-04T13:00:00.000Z";
 const plusMin = (iso, m) => new Date(new Date(iso).getTime() + m * 60_000).toISOString();
 
@@ -80,7 +81,7 @@ function makeWorld(projectId = PROJECT_ID) {
       enabled: true, riskAlertsEnabled: true, pilotRecipientAllowlistUserIds: Object.values(U), senderDomain: "axion.com.br",
       severityMap: { MISSING_WEEKLY_SCHEDULE: "HIGH", MISSING_WEEKLY_REPORT_WORKBOOK: "HIGH", MISSING_S_CURVE: "MEDIUM" },
       pilotProjectConfirmedAt: T0,
-      pilotDeliveryOverrideEmail: CRM, // override legado do projeto: deve ser IGNORADO enquanto o perfil do piloto estiver ativo
+      pilotDeliveryOverrideEmail: projectId === PROJECT_ID ? CRM : null, // override legado da WEG: deve ser IGNORADO enquanto o perfil do piloto estiver ativo
     },
     matrixRules: rulesFor(projectId),
     areaResponsibles: [{
@@ -91,8 +92,8 @@ function makeWorld(projectId = PROJECT_ID) {
     }],
     settings: null,
     recipients,
-    senderMailbox: CRM,
-    replyMailbox: CRM, // Opção B: o Reply-To aponta para crm@
+    senderMailbox: ACC,
+    replyMailbox: ACC, // o Reply-To aponta para a caixa institucional acc@
     sourceCases: [{
       sourceType: "SCHEDULE_COMPARISON", sourceId: "ens-critical", area: AREA, riskLevel: "CRITICAL", title: "[ENSAIO] Risco crítico fictício",
       summary: "Desvio fictício.", impact: "Impacto fictício.", recommendation: "Ação fictícia.", fingerprint: "fp-critical-v1",
@@ -124,7 +125,7 @@ function makeWorld(projectId = PROJECT_ID) {
 function withPilotEnv(fn, extra = {}) {
   const saved = { ...process.env };
   Object.assign(process.env, {
-    ACC_PROJECT_PILOT_PROJECT_ID: PROJECT_ID, ACC_PROJECT_PILOT_DESTINATION: BOX, ACC_PROJECT_PILOT_SENDER: CRM,
+    ACC_PROJECT_PILOT_PROJECT_ID: PROJECT_ID, ACC_PROJECT_PILOT_SENDER: ACC, GOOGLE_GMAIL_INBOUND_MAILBOX: ACC,
     AXION_EMAIL_PROVIDER: "fake", ACC_OUTBOUND_MODE: "pilot", ACC_PILOT_RECIPIENT: CRM, ...extra,
   });
   delete process.env.ACC_EMAIL_ONLY_RECIPIENT;
@@ -134,7 +135,7 @@ function withPilotEnv(fn, extra = {}) {
   });
 }
 
-await check("cadeia completa: Responsável, Gestor (T+61) e Diretoria (T+121) chegam SÓ a axion@, cada um com o seu participante e nível", () =>
+await check("cadeia completa: Responsável, Gestor (T+61) e Diretoria (T+121) chegam cada um à PRÓPRIA caixa, com Cc crm@, nunca a axion@", () =>
   withPilotEnv(async () => {
     const w = makeWorld();
     await w.run(T0);
@@ -144,13 +145,14 @@ await check("cadeia completa: Responsável, Gestor (T+61) e Diretoria (T+121) ch
     const levels = new Set(outbox.map((o) => o.escalationLevel));
     for (const l of ["RESPONSAVEL", "ESCALAO_1", "DIRETORIA"]) assert(levels.has(l), `faltou ${l} (${[...levels].join(",")})`);
     assert(w.rec.guarded.length === outbox.length && w.rec.guarded.length >= 3, `${w.rec.guarded.length} envios`);
-    assert(w.rec.guarded.every((g) => g.to === BOX), `destinos: ${[...new Set(w.rec.guarded.map((g) => g.to))].join(",")}`);
-    assert(w.rec.guarded.every((g) => !/ens-(resp|gestor|dir)-teste/.test(JSON.stringify(g))), "nenhum endereço lógico vaza para a mensagem");
+    assert(w.rec.guarded.every((g) => Object.values(EMAIL).includes(g.to)), `destinos: ${[...new Set(w.rec.guarded.map((g) => g.to))].join(",")}`);
+    assert(w.rec.guarded.every((g) => JSON.stringify(g.cc) === JSON.stringify([ACC]) && !g.bcc), "Cc institucional ausente ou Bcc presente");
+    assert(!w.rec.guarded.some((g) => JSON.stringify(g).includes(BOX)), "axion@ apareceu em alguma mensagem");
     for (const row of outbox) {
       const label = `usuário ${row.recipientUserId.slice(0, 8)}`;
       const msg = w.rec.guarded.find((g) => g.text.includes(label) && g.subject.includes(`[${row.escalationLevel ?? row.notificationType}]`));
       assert(msg, `mensagem do participante ${label} / ${row.escalationLevel}`);
-      assert(row.deliveredTo !== undefined || true);
+      assert(msg.to === EMAIL[row.recipientUserId], `usuário lógico ${label} não recebeu na própria caixa (${msg.to})`);
     }
     // cada participante lógico distinto aparece em mensagem própria (sem fusão pelo override legado crm@)
     const labels = new Set(w.rec.guarded.map((g) => /usuário (\w{8})/.exec(g.text)?.[1]));
@@ -180,7 +182,7 @@ await check("repetição do ciclo e reenvio no mesmo instante não duplicam; con
     assert(w.rec.guarded.length === w.store.state.outbox.filter((o) => o.status === "SENT").length, `envios=${w.rec.guarded.length} vs linhas SENT`);
   }));
 
-await check("respostas de axion@ (ao Reply-To de cada mensagem) viram ação do PARTICIPANTE daquela mensagem, uma única vez", () =>
+await check("respostas: cada colaborador responde com a PRÓPRIA identidade; a ação é do REMETENTE real (nunca de outro participante); resposta do ACC e cópia Cc são ignoradas; desconhecido não é autorizado", () =>
   withPilotEnv(async () => {
     const w = makeWorld();
     await w.run(T0);
@@ -189,29 +191,43 @@ await check("respostas de axion@ (ao Reply-To de cada mensagem) viram ação do 
     const gestorRow = w.store.state.outbox.find((o) => o.escalationLevel === "ESCALAO_1" && o.status === "SENT");
     const sendOf = (row) => w.rec.guarded.find((g) => g.text.includes(`usuário ${row.recipientUserId.slice(0, 8)}`) && g.subject.includes(`[${row.escalationLevel}]`));
     assert(sendOf(respRow)?.replyTo && sendOf(gestorRow)?.replyTo && sendOf(respRow).replyTo !== sendOf(gestorRow).replyTo, "Reply-To distinto por mensagem");
-    assert(sendOf(respRow).replyTo.startsWith("crm+alerta-") && sendOf(respRow).to === BOX, "Reply-To em crm@ e entrega em axion@");
-    const headers = (replyTo, mid) => ({ from: BOX, to: [replyTo], messageId: mid, inReplyTo: null, references: [], replyTo: null, autoSubmitted: null, authenticationResults: null, subject: "Re: alerta" });
-    const id = w.store.receiveInbound(headers(sendOf(gestorRow).replyTo, "<resp-gestor@axion.test>"), "Estou tomando as providências: equipe acionada, andamento em execução hoje.", plusMin(T0, 70));
-    w.store.setClock(plusMin(T0, 75));
-    const pilotMailbox = resolveProjectPilotReplyMailbox(PROJECT_ID);
-    assert(pilotMailbox === BOX);
-    const result = await processAlertReplies(w.store, PROJECT_ID, plusMin(T0, 75), [CRM], { pilotMailbox });
-    const msg = w.store.state.messages.find((m) => m.id === id);
-    assert(msg.status === "PROCESSED" && result.applied === 1, `status ${msg.status}, applied ${result.applied}`);
-    assert(msg.senderUserId === gestorRow.recipientUserId, "ator = participante da mensagem respondida (Gestor), não outro");
+    assert(sendOf(respRow).replyTo.startsWith("crm+alerta-") && sendOf(respRow).to === EMAIL[respRow.recipientUserId], "Reply-To em crm@ e entrega na caixa do próprio colaborador");
+    const headers = (from, replyTo, mid, extra = {}) => ({ from, to: [replyTo], messageId: mid, inReplyTo: null, references: [], replyTo: null, autoSubmitted: null, authenticationResults: null, subject: "Re: alerta", ...extra });
+    const body = "Estou tomando as providências: equipe acionada, andamento em execução hoje.";
+    const status = (id) => w.store.state.messages.find((m) => m.id === id);
+
+    // (a) Gestor responde da PRÓPRIA caixa => ação do Gestor, uma única vez
+    const idGestor = w.store.receiveInbound(headers(EMAIL[gestorRow.recipientUserId], sendOf(gestorRow).replyTo, "<resp-gestor@axion.test>"), body, plusMin(T0, 70));
+    // (b) a resposta do ACC (From crm@) ao Reply-To NUNCA é atribuída a participante
+    const idAcc = w.store.receiveInbound(headers(ACC, sendOf(gestorRow).replyTo, "<resp-acc@axion.test>"), body, plusMin(T0, 71));
+    // (c) a CÓPIA Cc entregue em crm@ (From = colaborador, mas marcada X-ACC-Outbound) é ignorada, não é "resposta"
+    const idCc = w.store.receiveInbound(headers(EMAIL[respRow.recipientUserId], sendOf(respRow).replyTo, "<copia-cc@axion.test>", { xAccOutbound: "1" }), body, plusMin(T0, 72));
+    // (d) remetente desconhecido não é autorizado
+    const idUnknown = w.store.receiveInbound(headers("estranho@exemplo.com", sendOf(gestorRow).replyTo, "<resp-estranho@axion.test>"), body, plusMin(T0, 73));
+    // (e) Responsável responde à mensagem do GESTOR (outro participante): ação atribuída ao REMETENTE (Responsável), nunca ao Gestor
+    const idCross = w.store.receiveInbound(headers(EMAIL[respRow.recipientUserId], sendOf(gestorRow).replyTo, "<resp-cruzada@axion.test>"), "Ciente, tomei ciência.", plusMin(T0, 74));
+    w.store.setClock(plusMin(T0, 80));
+    await processAlertReplies(w.store, PROJECT_ID, plusMin(T0, 80), [ACC]);
+
+    assert(status(idGestor).status === "PROCESSED" && status(idGestor).senderUserId === gestorRow.recipientUserId, `Gestor: ${status(idGestor).status}/${status(idGestor).senderUserId}`);
+    assert(status(idAcc).status === "IGNORED_SELF", `resposta do ACC: ${status(idAcc).status}`);
+    assert(status(idCc).status === "IGNORED_SELF", `cópia Cc: ${status(idCc).status}`);
+    assert(status(idUnknown).status === "UNAUTHORIZED_REPLY", `desconhecido: ${status(idUnknown).status}`);
+    assert(status(idCross).senderUserId === respRow.recipientUserId && status(idCross).senderUserId !== gestorRow.recipientUserId, "resposta cruzada atribuída ao participante errado");
     const events = w.store.state.events.length;
-    await processAlertReplies(w.store, PROJECT_ID, plusMin(T0, 80), [CRM], { pilotMailbox });
+    await processAlertReplies(w.store, PROJECT_ID, plusMin(T0, 90), [ACC]);
     assert(w.store.state.events.length === events, "reprocessar repetiu a ação");
   }));
 
-await check("sem o perfil do piloto no projeto (outro projeto): comportamento anterior — nada vai para axion@ e respostas de axion@ não são aceitas", () =>
+await check("outro projeto (fora do piloto): comportamento anterior da guarda global — nada vai para axion@, sem Cc institucional e sem faixa de piloto", () =>
   withPilotEnv(async () => {
     const w = makeWorld(OTHER_PROJECT_ID);
     await w.run(T0);
     assert(w.rec.guarded.length >= 1, "ciclo não enviou");
     assert(w.rec.guarded.every((g) => g.to !== BOX), "outro projeto recebeu no destino do piloto");
     assert(!w.rec.guarded.some((g) => g.subject.includes("[PILOTO]") || g.text.includes("Participante simulado")), "faixa do piloto em outro projeto");
-    assert(resolveProjectPilotReplyMailbox(OTHER_PROJECT_ID) === null);
+    assert(w.rec.guarded.every((g) => !g.cc), "Cc institucional só existe no projeto piloto");
+    assert(isProjectPilotActive(OTHER_PROJECT_ID) === false && isProjectPilotActive(PROJECT_ID) === true);
   }));
 
 console.log(`\nRESULTADO: ${passed} passaram, ${failed} falharam`);

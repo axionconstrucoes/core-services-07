@@ -36,7 +36,6 @@ const REFRESH = "1//0gREFRESH-SEGREDO";
 const ACCESS = "ya29.ACCESS-SEGREDO";
 const ENV = {
   ACC_PROJECT_PILOT_PROJECT_ID: "00000000-0000-4000-8000-000000000001",
-  ACC_PROJECT_PILOT_DESTINATION: "axion@axion.com.br",
   ACC_PROJECT_PILOT_SENDER: "crm@axion.com.br",
   GOOGLE_GMAIL_CLIENT_ID: CLIENT_ID,
   GOOGLE_GMAIL_CLIENT_SECRET: SECRET,
@@ -159,7 +158,7 @@ await check("configuração ausente: credenciais/refresh/remetente => CONFIG_MIS
   }
 });
 await check("perfil do piloto ausente/inválido => CONFIG_INVALID/CONFIG_MISSING sem rede", async () => {
-  for (const env of [{ ...ENV, ACC_PROJECT_PILOT_PROJECT_ID: "" }, { ...ENV, ACC_PROJECT_PILOT_SENDER: "x@evil.com" }, { ...ENV, ACC_PROJECT_PILOT_DESTINATION: "x@evil.com" }]) {
+  for (const env of [{ ...ENV, ACC_PROJECT_PILOT_PROJECT_ID: "" }, { ...ENV, ACC_PROJECT_PILOT_SENDER: "x@evil.com" }, { ...ENV, ACC_PROJECT_PILOT_SENDER: "axion@axion.com.br" }]) {
     const f = okFetch();
     const r = await runGmailPilotAuthCheck({ env, fetchImpl: f.fetchImpl });
     eq([r.ok, r.stage], [false, "CONFIG"]);
@@ -205,6 +204,45 @@ await check("workflow: só workflow_dispatch, só main, segredo só no header, s
   if (/schedule:|push:|pull_request/.test(wf)) throw new Error("gatilho indevido");
   if (!/workflow_dispatch:/.test(wf) || !/github\.ref == 'refs\/heads\/main'/.test(wf)) throw new Error("gatilho/branch");
   if (!/-H "Authorization: Bearer \$\{ACC_RISK_ALERTS_CRON_SECRET\}"/.test(wf) || /pilotSingleCase|mode=send|ENVIAR-UMA-VEZ/.test(wf)) throw new Error("conteúdo indevido");
+});
+
+// --- Identidade por participante (modelo de entrega direta): credencial PRÓPRIA, só para autorizados, nunca a do ACC -------------------
+const JAIME = "jaime.ramos@axion.com.br";
+const ENV_P = { ...ENV, ACC_PROJECT_PILOT_AUTHORIZED_SENDERS: JAIME, GOOGLE_GMAIL_PILOT_CLIENT_ID: "pilot-client-id", GOOGLE_GMAIL_PILOT_CLIENT_SECRET: "pilot-client-secret", GOOGLE_GMAIL_PILOT_USER_JAIME_RAMOS_REFRESH_TOKEN: "rt-do-jaime" };
+await check("identidade de participante autorizado: usa o token PRÓPRIO dele (não o do ACC) e confirma a conta (accountMatchesSender)", async () => {
+  const f = okFetch(undefined, JAIME);
+  const r = await runGmailPilotAuthCheck({ env: ENV_P, fetchImpl: f.fetchImpl, identity: JAIME });
+  eq([r.ok, r.refreshed, r.stage, r.accountMatchesSender], [true, true, "IDENTITY", true]);
+  const body = String(f.calls[0].init?.body ?? "");
+  if (!body.includes("rt-do-jaime") || body.includes(REFRESH)) throw new Error("não usou o refresh token do participante");
+  const out = JSON.stringify(r);
+  for (const bad of ["rt-do-jaime", "pilot-client-secret", JAIME]) if (out.includes(bad)) throw new Error(`vazou ${bad}`);
+});
+await check("participante com a conta ERRADA (token de outra pessoa) => accountMatchesSender=false", async () => {
+  const r = await runGmailPilotAuthCheck({ env: ENV_P, fetchImpl: okFetch(undefined, "crm@axion.com.br").fetchImpl, identity: JAIME });
+  eq([r.refreshed, r.accountMatchesSender], [true, false]);
+});
+await check("identidade não autorizada, sem credencial própria, proibida ou estranha => CONFIG_* sem rede", async () => {
+  const cases = [
+    [{ ...ENV_P, ACC_PROJECT_PILOT_AUTHORIZED_SENDERS: "" }, JAIME], // não autorizado
+    [{ ...ENV_P, GOOGLE_GMAIL_PILOT_USER_JAIME_RAMOS_REFRESH_TOKEN: "" }, JAIME], // sem credencial própria
+    [ENV_P, "axion@axion.com.br"],
+    [ENV_P, "externo@weg.net"],
+    [ENV_P, "carlos.evandro@axion.com.br"], // participante, mas não autorizado a enviar
+  ];
+  for (const [env, identity] of cases) {
+    const f = okFetch();
+    const r = await runGmailPilotAuthCheck({ env, fetchImpl: f.fetchImpl, identity });
+    eq([r.ok, r.stage, f.calls.length], [false, "CONFIG", 0]);
+  }
+});
+await check("sem identity => identidade institucional (crm@), como antes", async () => {
+  const r = await runGmailPilotAuthCheck({ env: ENV_P, fetchImpl: okFetch().fetchImpl });
+  eq([r.ok, r.accountMatchesSender], [true, true]);
+});
+await check("rota e workflow repassam identity (validada) sem aceitar valor livre", () => {
+  if (!route.includes('searchParams.get("identity")')) throw new Error("rota não repassa identity");
+  if (!/identity inválida/.test(wf) || !/@axion\\\.com\\\.br\$/.test(wf)) throw new Error("workflow não valida identity");
 });
 
 console.log(`\n${passed} OK, ${failed} falhas`);

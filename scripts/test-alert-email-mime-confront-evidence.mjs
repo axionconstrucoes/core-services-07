@@ -447,7 +447,7 @@ check("hierarquia de tamanhos LIMITADA a 20/16/15/14/12px (16px só no cabeçalh
     ...baseAlertInput,
     confrontationBlocks: [buildConfrontationBlock(baseConfrontationCandidate, "Reynaldo Duarte", "https://app.axion.com.br/x#confronto-c1")],
     keyEvidence: [
-      { kind: "EMAIL", url: "https://app.axion.com.br/x#e1", direction: "RECEIVED", from: "cliente@weg.com", to: "acc@axion.com.br", date: "20/08/2026", subject: "Notificação" },
+      { kind: "EMAIL", url: "https://app.axion.com.br/x#e1", direction: "RECEIVED", from: "cliente@weg.com", to: "crm@axion.com.br", date: "20/08/2026", subject: "Notificação" },
     ],
     actionButtons: [{ action: "RESPOND", url: "https://app.axion.com.br/email-actions/tok" }],
   });
@@ -717,7 +717,7 @@ check("evidência RECEBIDA: HTML mostra RECEBIDA + De/Para/Data/Assunto + link A
         url: "https://app.axion.com.br/proj-1/ledger/evt-1#evidencia-ev-1",
         direction: "RECEIVED",
         from: "cliente@weg.com.br",
-        to: "acc@axion.com.br",
+        to: "crm@axion.com.br",
         date: "20/08/2026",
         subject: "Notificação de atraso",
       },
@@ -727,7 +727,7 @@ check("evidência RECEBIDA: HTML mostra RECEBIDA + De/Para/Data/Assunto + link A
   // do link) + linha regular com De/Para; sem botão "Abrir evidência no ACC" separado.
   assert(html.includes("RECEBIDA — Notificação de atraso (20/08/2026)"));
   assert(html.includes("De: cliente@weg.com.br"));
-  assert(html.includes("Para: acc@axion.com.br"));
+  assert(html.includes("Para: crm@axion.com.br"));
   assert(html.includes('href="https://app.axion.com.br/proj-1/ledger/evt-1#evidencia-ev-1"'));
   assert(text.includes("RECEBIDA") && text.includes("cliente@weg.com.br"));
 });
@@ -740,7 +740,7 @@ check("evidência ENVIADA: HTML mostra ENVIADA (mailbox monitorada é a remetent
         kind: "EMAIL",
         url: "https://app.axion.com.br/proj-1/ledger/evt-1#evidencia-ev-2",
         direction: "SENT",
-        from: "acc@axion.com.br",
+        from: "crm@axion.com.br",
         to: "cliente@weg.com.br",
         date: "21/08/2026",
         subject: "Resposta à notificação",

@@ -109,6 +109,7 @@ export function extractInboundFromGmail(message: GmailMessageLike, mailbox: stri
       contentType: header(headers, "Content-Type"),
       authenticationResults: header(headers, "Authentication-Results"),
       subject: header(headers, "Subject"),
+      xAccOutbound: header(headers, "X-ACC-Outbound"),
     },
     bodyOriginal: limitInboundBody(body),
     receivedAt,

@@ -50,3 +50,42 @@ export function resolveGmailPilotSenderConfig(expectedSender: string, env: Env):
   }
   return { clientId: clientId!, clientSecret: clientSecret!, refreshToken: refreshToken!, senderEmail, clientSource };
 }
+
+// ------------------------------------------------------------------
+// Identidade de envio POR REMETENTE (modelo de entrega direta do piloto).
+//   - crm@axion.com.br (institucional): mesma configuração de sempre do piloto (resolveGmailPilotSenderConfig).
+//   - participante autorizado (reynaldo/jaime.ramos/carlos.evandro): credencial PRÓPRIA da pessoa, consentida por ela —
+//     GOOGLE_GMAIL_PILOT_USER_<CHAVE>_REFRESH_TOKEN, onde CHAVE = parte local do endereço em maiúsculas com não-alfanuméricos → "_"
+//     (ex.: jaime.ramos@ → GOOGLE_GMAIL_PILOT_USER_JAIME_RAMOS_REFRESH_TOKEN). Exige o par de cliente do piloto (ID e SECRET).
+// Sem credencial válida a função LANÇA: o chamador bloqueia o envio antes da rede. NUNCA há fallback para outra identidade.
+// ------------------------------------------------------------------
+import { ACC_PILOT_INSTITUTIONAL_ADDRESS, PILOT_PARTICIPANT_ADDRESSES } from "./project-pilot-profile";
+
+export function pilotParticipantEnvKey(email: string): string {
+  const local = email.trim().toLowerCase().split("@")[0] ?? "";
+  return local.replace(/[^a-z0-9]+/g, "_").toUpperCase();
+}
+
+export function pilotParticipantRefreshTokenEnvName(email: string): string {
+  return `GOOGLE_GMAIL_PILOT_USER_${pilotParticipantEnvKey(email)}_REFRESH_TOKEN`;
+}
+
+export function resolveGmailPilotIdentityConfig(sender: string, env: Env): GmailPilotSenderConfig {
+  const wanted = sender.trim().toLowerCase();
+  if (wanted === ACC_PILOT_INSTITUTIONAL_ADDRESS) return resolveGmailPilotSenderConfig(wanted, env);
+  if (!(PILOT_PARTICIPANT_ADDRESSES as readonly string[]).includes(wanted)) {
+    throw new Error("Remetente fora das identidades autorizadas do piloto (fail closed).");
+  }
+  const clientId = env.GOOGLE_GMAIL_PILOT_CLIENT_ID?.trim();
+  const clientSecret = env.GOOGLE_GMAIL_PILOT_CLIENT_SECRET?.trim();
+  const tokenName = pilotParticipantRefreshTokenEnvName(wanted);
+  const refreshToken = env[tokenName]?.trim();
+  const missing: string[] = [];
+  if (!present(clientId)) missing.push("GOOGLE_GMAIL_PILOT_CLIENT_ID");
+  if (!present(clientSecret)) missing.push("GOOGLE_GMAIL_PILOT_CLIENT_SECRET");
+  if (!present(refreshToken)) missing.push(tokenName);
+  if (missing.length > 0) {
+    throw new Error(`Identidade de envio do participante não configurada — variáveis ausentes: ${missing.join(", ")} (fail closed; sem fallback para outra identidade).`);
+  }
+  return { clientId: clientId!, clientSecret: clientSecret!, refreshToken: refreshToken!, senderEmail: wanted, clientSource: "PILOT" };
+}

@@ -8,6 +8,11 @@ name: Pilot Gmail Auth Check
 
 on:
   workflow_dispatch:
+    inputs:
+      identity:
+        description: "Opcional: participante autorizado a enviar (e-mail). Vazio = identidade institucional do piloto (crm@)"
+        required: false
+        default: ""
 
 concurrency:
   group: pilot-gmail-auth-check
@@ -27,14 +32,20 @@ jobs:
         env:
           ACC_APP_BASE_URL: ${{ vars.ACC_APP_BASE_URL }}
           ACC_RISK_ALERTS_CRON_SECRET: ${{ secrets.ACC_RISK_ALERTS_CRON_SECRET }}
+          IDENTITY: ${{ github.event.inputs.identity }}
         run: |
           set -euo pipefail
           [ -n "${ACC_APP_BASE_URL:-}" ] && [ -n "${ACC_RISK_ALERTS_CRON_SECRET:-}" ] || { echo "::error::ACC_APP_BASE_URL ou segredo ausente"; exit 1; }
           case "${ACC_APP_BASE_URL}" in https://*) ;; *) echo "::error::ACC_APP_BASE_URL precisa começar com https://"; exit 1 ;; esac
+          query="pilotAuthCheck=1"
+          if [ -n "${IDENTITY:-}" ]; then
+            [[ "${IDENTITY}" =~ ^[A-Za-z0-9._-]+@axion\.com\.br$ ]] || { echo "::error::identity inválida"; exit 1; }
+            query="${query}&identity=${IDENTITY}"
+          fi
           status=$(curl --silent --show-error --max-time 60 \
             --output response.json --write-out "%{http_code}" \
             -H "Authorization: Bearer ${ACC_RISK_ALERTS_CRON_SECRET}" \
-            "${ACC_APP_BASE_URL%/}/api/cron/risk-alerts?pilotAuthCheck=1")
+            "${ACC_APP_BASE_URL%/}/api/cron/risk-alerts?${query}")
           echo "HTTP ${status}"
           node -e "const j=JSON.parse(require('fs').readFileSync('response.json','utf8'));const k=['ok','stage','httpStatus','apiCode','reason','classification','refreshed','configSource','clientIdFingerprint','scopes','accountMatchesSender','gmailMessagesApiCalled'];console.log(JSON.stringify(Object.fromEntries(k.filter((x)=>x in j).map((x)=>[x,j[x]]))))"
           rm -f response.json

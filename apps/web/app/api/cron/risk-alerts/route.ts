@@ -48,7 +48,8 @@ export async function GET(request: Request) {
   // credenciais da Vercel e devolve só campos normalizados. Nunca envia, nunca chama o Gmail de mensagens, nunca toca na outbox nem
   // no ciclo. Mesma autenticação (segredo dedicado) da rota; sem endpoint novo.
   if (url.searchParams.get("pilotAuthCheck") === "1") {
-    const check = await runGmailPilotAuthCheck();
+    // ?identity=<participante autorizado> verifica a credencial PRÓPRIA dele (sem identity => identidade institucional).
+    const check = await runGmailPilotAuthCheck({ identity: url.searchParams.get("identity") });
     return Response.json(check, { status: check.ok ? 200 : 207, headers: { "Cache-Control": "no-store" } });
   }
 

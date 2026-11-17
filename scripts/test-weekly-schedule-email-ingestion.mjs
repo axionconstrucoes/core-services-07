@@ -87,7 +87,7 @@ function candidate(overrides = {}) {
     gmailMessageId: "msg-1",
     gmailThreadId: "thr-1",
     messageIdHeader: "<msg-1@axion.com.br>",
-    mailboxAddress: "acc@axion.com.br",
+    mailboxAddress: "crm@axion.com.br",
     direction: "OUTBOUND",
     providerLabels: ["SENT"],
     fromAddress: "planejador@axion.com.br",
@@ -342,7 +342,7 @@ await check("8. SHA-256 duplicado → RECEIVED_DUPLICATE: nenhuma versão nova, 
   assert(intake.duplicateOfDocumentVersionId === "dv-existing-0");
   assert(intake.gmailMessageId === "msg-1" && intake.gmailThreadId === "thr-1" && intake.fromAddress && intake.toAddresses.length === 1 && intake.subject && intake.sentAt, "message_id/thread/remetente/destinatários/assunto/data preservados");
   assert(intake.attachments[0].sha256Hash === "a".repeat(64) && intake.selectedSha256Hash === "a".repeat(64), "evidência do anexo preservada com SHA-256");
-  assert(intake.mailboxAddress === "acc@axion.com.br" && intake.direction === "OUTBOUND" && intake.providerLabels[0] === "SENT", "proveniência (caixa, direção, labels) gravada");
+  assert(intake.mailboxAddress === "crm@axion.com.br" && intake.direction === "OUTBOUND" && intake.providerLabels[0] === "SENT", "proveniência (caixa, direção, labels) gravada");
   assert(store.state.documents.length === 0, "documento alvo nem foi criado");
   assert(store.state.audits[0].action === "WEEKLY_SCHEDULE_EMAIL_RECEIVED_DUPLICATE");
 });

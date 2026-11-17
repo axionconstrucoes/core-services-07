@@ -104,7 +104,7 @@ function candidate(overrides = {}) {
     gmailMessageId: "msg-1",
     gmailThreadId: "thr-1",
     messageIdHeader: "<msg-1@axion.com.br>",
-    mailboxAddress: "acc@axion.com.br",
+    mailboxAddress: "crm@axion.com.br",
     direction: "OUTBOUND",
     providerLabels: ["SENT"],
     fromAddress: "planejador@axion.com.br",

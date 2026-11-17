@@ -50,8 +50,11 @@ const assert = (c, m = "asserção falhou") => {
 
 const WEG = "00000000-0000-4000-8000-000000000001";
 const CRM = "crm@axion.com.br";
-const BOX = "axion@axion.com.br";
-const GROUP = ["crm@axion.com.br", "reynaldo@axion.com.br", "jaime.ramos@axion.com.br", "carlos.evandro@axion.com.br"];
+const ACC = "crm@axion.com.br";
+const BOX = "axion@axion.com.br"; // PROIBIDO no novo modelo: só aparece para provar que nada é roteado para ele
+const PARTICIPANTS = ["reynaldo@axion.com.br", "jaime.ramos@axion.com.br", "carlos.evandro@axion.com.br"];
+// Modelo de entrega DIRETA: To = o próprio colaborador; Cc = crm@ (sempre); nunca Bcc; nunca axion@.
+const direct = (g, email) => String(g.to).trim().toLowerCase() === email && JSON.stringify(g.cc) === JSON.stringify([ACC]) && !g.bcc && !/axion@axion\.com\.br/i.test(JSON.stringify(g));
 const T0 = "2026-11-13T12:00:00.000Z";
 const U = {
   rey: "a1111111-0000-4000-8000-000000000011",
@@ -85,8 +88,8 @@ function makeWorld(projectId = WEG) {
     areaResponsibles: [{ id: "resp", projectId, area: "PLANEJAMENTO", responsibleDirectUserId: U.ricardo, responsibleDirectInvitationId: null, responsibleDirectName: null, secondaryResponsibleUserId: null, secondaryResponsibleInvitationId: null, secondaryResponsibleName: null, escalation1UserId: null, escalation1InvitationId: null, escalation1Name: null, escalation2UserId: null, escalation2Name: null, boardUserId: U.rey, boardInvitationId: null, boardName: null, updatedAt: T0 }],
     settings: null,
     recipients,
-    senderMailbox: CRM,
-    replyMailbox: CRM,
+    senderMailbox: ACC,
+    replyMailbox: ACC,
     sourceCases: [
       { sourceType: "SCHEDULE_COMPARISON", sourceId: "c-high", area: "PLANEJAMENTO", riskLevel: "HIGH", title: "Risco alto (ensaio)", summary: "Resumo.", impact: "Impacto.", recommendation: "Ação.", fingerprint: "fp1", originPath: "documentos?tab=registro-email", closed: false, reference: "ENS-HIGH" },
       { sourceType: "SCHEDULE_COMPARISON", sourceId: "c-med", area: "PLANEJAMENTO", riskLevel: "MEDIUM", title: "Risco médio (ensaio)", summary: "Resumo.", impact: "Impacto.", recommendation: null, fingerprint: "fp2", originPath: "documentos?tab=registro-email", closed: false, reference: "ENS-MED" },
@@ -102,7 +105,7 @@ function makeWorld(projectId = WEG) {
   return { world, store, rec, provider: new Recording() };
 }
 
-const GROUP_ENV = { ACC_PROJECT_PILOT_PROJECT_ID: WEG, ACC_PROJECT_PILOT_DESTINATION: BOX, ACC_PROJECT_PILOT_SENDER: CRM, ACC_PROJECT_PILOT_TEST_GROUP: "WEG_INTERNAL_FOUR", AXION_EMAIL_PROVIDER: "fake", ACC_OUTBOUND_MODE: "pilot", ACC_PILOT_RECIPIENT: CRM };
+const GROUP_ENV = { ACC_PROJECT_PILOT_PROJECT_ID: WEG, ACC_PROJECT_PILOT_SENDER: ACC, GOOGLE_GMAIL_INBOUND_MAILBOX: ACC, AXION_EMAIL_PROVIDER: "fake", ACC_OUTBOUND_MODE: "pilot", ACC_PILOT_RECIPIENT: CRM };
 
 async function withEnv(extra, fn) {
   const saved = { ...process.env };
@@ -156,21 +159,22 @@ await check("dry-run: planeja 3 destinatários da allowlist e NÃO escreve nem e
     assert(w.world.config.riskAlertsEnabled === false);
   }));
 
-await check("execução: 3 e-mails (um por pessoa da allowlist), To EXATO nas quatro caixas, sem Cc/Bcc, sem axion@, sem Ricardo", () =>
+await check("execução: 3 e-mails (um por pessoa da allowlist), cada um NA PRÓPRIA caixa, Cc crm@, sem Bcc, sem axion@, sem Ricardo", () =>
   withEnv({}, async () => {
     const w = await seeded();
     const r = await runPilotSingleAlert({ caseId: w.highCase.id, now: new Date(T0), store: w.store, provider: w.provider });
     assert(r.status === "EXECUTED" && r.sent === 3 && r.failed === 0, JSON.stringify(r));
     assert(w.rec.guarded.length === 3, `${w.rec.guarded.length} mensagens`);
     for (const g of w.rec.guarded) {
-      const to = String(g.to).split(",").map((a) => a.trim().toLowerCase()).sort();
-      assert(JSON.stringify(to) === JSON.stringify([...GROUP].sort()), `To=${g.to}`);
-      assert(!g.cc && !g.bcc, "Cc/Bcc presentes");
+      assert(PARTICIPANTS.includes(String(g.to).trim().toLowerCase()), `To=${g.to}`);
+      assert(JSON.stringify(g.cc) === JSON.stringify([ACC]) && !g.bcc, `Cc=${g.cc} Bcc=${g.bcc}`);
       assert(!/axion@axion\.com\.br/i.test(JSON.stringify(g)), "axion@ apareceu");
       assert(!/ricardo\.martins/i.test(JSON.stringify(g)), "Ricardo apareceu");
       assert(g.replyTo && /^crm\+alerta-/i.test(g.replyTo), `Reply-To=${g.replyTo}`);
       assert(/PILOTO/i.test(g.subject + g.text), "sem identificação de piloto");
     }
+    const tos = new Set(w.rec.guarded.map((g) => String(g.to).trim().toLowerCase()));
+    assert(tos.size === 3 && PARTICIPANTS.every((p) => tos.has(p)), "cada participante recebe exatamente uma mensagem na própria caixa");
     const labels = new Set(w.rec.guarded.map((g) => /usuário (\w{8})/.exec(g.text)?.[1]));
     assert(labels.size === 3, `${labels.size} participantes lógicos distintos`);
     assert(w.world.config.riskAlertsEnabled === false, "flag alterada");
@@ -210,13 +214,13 @@ await check("bloqueios: caso médio, caso inexistente/outro projeto, id inválid
     assert((await run("não-é-uuid")).blockedReason === "CASE_ID_INVALID");
     assert(w.rec.guarded.length === 0);
   });
-  await withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "", ACC_PROJECT_PILOT_DESTINATION: "outro@exemplo.com" }, async () => {
+  await withEnv({ ACC_PROJECT_PILOT_SENDER: "acc@axion.com.br" }, async () => {
     const w = await seeded();
     const r = await runPilotSingleAlert({ caseId: w.highCase.id, store: w.store, provider: w.provider });
     assert(r.status === "BLOCKED" && r.blockedReason === "PILOT_PROFILE_INVALID", r.blockedReason);
-    assert(w.rec.guarded.length === 0, "enviou com destino fora da lista fixa");
+    assert(w.rec.guarded.length === 0, "enviou com remetente fora da identidade institucional");
   });
-  await withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "OUTRO_GRUPO" }, async () => {
+  await withEnv({ ACC_PROJECT_PILOT_AUTHORIZED_SENDERS: "estranho@exemplo.com" }, async () => {
     const w = await seeded();
     const r = await runPilotSingleAlert({ caseId: w.highCase.id, store: w.store, provider: w.provider });
     assert(r.blockedReason === "PILOT_PROFILE_INVALID", r.blockedReason);
@@ -296,18 +300,16 @@ async function preBlocked() {
   return { ...w, rows };
 }
 
-await check("destino EXCLUSIVO: execução real SEM seleção de destinatário é bloqueada (nada enviado, outbox intacta); dry-run sem seleção só planeja", () =>
+await check("entrega direta: dry-run sem seleção planeja os 3 participantes (deliveryGroup = participantes, sem axion@); nada é escrito nem enviado", () =>
   withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
     const w = await seeded();
     const dry = await runPilotSingleAlert({ caseId: w.highCase.id, dryRun: true, now: new Date(T0), store: w.store, provider: w.provider });
-    assert(dry.status === "DRY_RUN" && JSON.stringify(dry.deliveryGroup) === JSON.stringify([BOX]) && dry.recipients.length === 3, `${dry.status} ${dry.blockedReason}`);
+    assert(dry.status === "DRY_RUN" && JSON.stringify(dry.deliveryGroup) === JSON.stringify(PARTICIPANTS) && dry.recipients.length === 3, `${dry.status} ${dry.blockedReason}`);
+    assert(!JSON.stringify(dry).includes(BOX), "axion@ apareceu no resultado");
     assert(w.store.state.outbox.length === w.seedOutbox && w.rec.guarded.length === 0, "dry-run escreveu/enviou");
-    const r = await runPilotSingleAlert({ caseId: w.highCase.id, now: new Date(T0), store: w.store, provider: w.provider });
-    assert(r.status === "BLOCKED" && r.blockedReason === "RECIPIENT_SELECTION_REQUIRED" && r.sent === 0, JSON.stringify(r));
-    assert(w.store.state.outbox.length === w.seedOutbox && w.rec.guarded.length === 0, "bloqueio escreveu/enviou");
   }));
 
-await check("destino EXCLUSIVO + UM destinatário selecionado: exatamente 1 mensagem, To=axion@, sem Cc/Bcc; as outras linhas não existem/não mudam; repetir não reenvia", () =>
+await check("entrega direta + UM destinatário selecionado: exatamente 1 mensagem, To=o próprio colaborador, Cc=crm@, sem Bcc; as outras linhas não existem/não mudam; repetir não reenvia", () =>
   withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
     const w = await seeded();
     const dry = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, dryRun: true, now: new Date(T0), store: w.store, provider: w.provider });
@@ -317,8 +319,8 @@ await check("destino EXCLUSIVO + UM destinatário selecionado: exatamente 1 mens
     assert(r.status === "EXECUTED" && r.sent === 1 && r.failed === 0 && r.recipients.length === 1, JSON.stringify(r));
     assert(w.rec.guarded.length === 1, `${w.rec.guarded.length} mensagens`);
     const g = w.rec.guarded[0];
-    assert(String(g.to).trim().toLowerCase() === BOX && !g.cc && !g.bcc, `To=${g.to} cc=${g.cc} bcc=${g.bcc}`);
-    for (const other of GROUP.filter((a) => a !== BOX && a !== CRM)) assert(!JSON.stringify(g).toLowerCase().includes(other), `menciona ${other}`);
+    assert(direct(g, EMAIL[U.jaime]), `To=${g.to} cc=${g.cc} bcc=${g.bcc}`);
+    for (const other of PARTICIPANTS.filter((a) => a !== EMAIL[U.jaime])) assert(!JSON.stringify(g).toLowerCase().includes(other), `menciona ${other}`);
     const rows = w.store.state.outbox.filter((o) => o.idempotencyKey.includes(":PILOT_SINGLE:"));
     assert(rows.length === 1 && rows[0].idempotencyKey.endsWith(U.jaime) && rows[0].status === "SENT", JSON.stringify(rows.map((o) => [o.idempotencyKey, o.status])));
     const again = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, now: new Date(T0), store: w.store, provider: w.provider });
@@ -349,7 +351,7 @@ await check("3 linhas PENDING pré-rede + snapshot de produção + UM selecionad
     assert(dry.retried === 1 && dry.recipients.length === 1 && dry.recipients[0].outcome === "WOULD_RETRY" && dry.recipients[0].retry, JSON.stringify(dry.recipients));
     const r = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, now: new Date(T0), store: w.store, provider: w.provider });
     assert(r.status === "EXECUTED" && r.sent === 1 && r.retried === 1, JSON.stringify(r));
-    assert(w.rec.guarded.length === 1 && String(w.rec.guarded[0].to).trim().toLowerCase() === BOX && !w.rec.guarded[0].cc && !w.rec.guarded[0].bcc, "mensagem fora do esperado");
+    assert(w.rec.guarded.length === 1 && direct(w.rec.guarded[0], EMAIL[U.jaime]), "mensagem fora do esperado");
     assert(chosen.status === "SENT", "linha escolhida não ficou SENT");
     assert(others.length === 2 && others.every((o) => o.status === "PENDING" && o.attemptCount === 1 && !o.providerMessageId && !o.sentAt), "outras linhas foram modificadas");
     assert(JSON.stringify(others.map(fingerprint).sort()) === JSON.stringify(before), "outras linhas mudaram");
@@ -402,7 +404,7 @@ await check("propagação REAL workflow -> rota -> motor: o script do workflow m
     const dec = authorizePilotSingleRequest(sUrl2.searchParams, arm);
     assert(dec.ok && !dec.dryRun && dec.recipientUserId === U.jaime, JSON.stringify(dec));
     const r = await runPilotSingleAlert({ caseId: dec.caseId, dryRun: dec.dryRun, recipientUserId: dec.recipientUserId, now: new Date(T0), store: w.store, provider: w.provider });
-    assert(r.status === "EXECUTED" && r.sent === 1 && w.rec.guarded.length === 1 && String(w.rec.guarded[0].to).trim().toLowerCase() === BOX && !w.rec.guarded[0].cc && !w.rec.guarded[0].bcc, JSON.stringify(r));
+    assert(r.status === "EXECUTED" && r.sent === 1 && w.rec.guarded.length === 1 && direct(w.rec.guarded[0], EMAIL[U.jaime]), JSON.stringify(r));
   }));
 
 await check("seleção: zero mensagens elegíveis => BLOQUEIO explícito (inelegível, já processada, entrega possível, SENT); nada é enviado nem alterado", () =>
@@ -524,10 +526,8 @@ await check("reentrada: linhas bloqueadas antes da rede => dry-run WOULD_RETRY s
     assert(r.status === "EXECUTED" && r.sent === 3 && r.retried === 3 && r.recipients.every((x) => x.retry && x.outcome === "SENT"), JSON.stringify(r));
     assert(JSON.stringify(w.store.state.outbox.map((o) => `${o.id}:${o.idempotencyKey}`).sort()) === JSON.stringify(before), "criou linha nova ou trocou chave");
     assert(w.rows.every((o) => o.status === "SENT"), "linhas originais não ficaram SENT");
-    for (const g of w.rec.guarded) {
-      const to = String(g.to).split(",").map((a) => a.trim().toLowerCase()).sort();
-      assert(JSON.stringify(to) === JSON.stringify([...GROUP].sort()) && !g.cc && !g.bcc, `To=${g.to}`);
-    }
+    for (const g of w.rec.guarded) assert(PARTICIPANTS.includes(String(g.to).trim().toLowerCase()) && JSON.stringify(g.cc) === JSON.stringify([ACC]) && !g.bcc, `To=${g.to} Cc=${g.cc}`);
+    assert(new Set(w.rec.guarded.map((g) => String(g.to).trim().toLowerCase())).size === 3, "um destinatário recebeu duas mensagens");
     assert(w.rec.guarded.length === 3, `${w.rec.guarded.length} mensagens`);
     const again = await runPilotSingleAlert({ caseId: w.highCase.id, now: new Date(T0), store: w.store, provider: w.provider });
     assert(again.status === "ALREADY_SENT" && again.recipients.every((x) => x.outcome === "JA_EXISTE"), "reenviou após SENT");

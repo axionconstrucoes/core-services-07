@@ -6,11 +6,11 @@
 //
 // Reaproveita sem desvio: a mesma outbox (idempotência), o mesmo sendPlanned/deliver (composição, links de ação, Reply-To,
 // assinatura), o mesmo getEmailProvider() e as MESMAS guardas do piloto do provider (guarda global → perfil do projeto →
-// destino único → MIME → conferência do MIME final). O roteamento (destino exclusivo ou grupo) é decidido pelo perfil do projeto.
+// perfil do projeto → MIME → conferência do MIME final). O roteamento (entrega direta ao colaborador + Cc institucional) é decidido pelo perfil do projeto.
 //
 // Salvaguardas (todas fail-closed):
-//   - exige perfil de entrega do piloto ATIVO e VÁLIDO para ESTE projeto (resolveProjectPilotDeliveryTargets): o destino exclusivo
-//     da lista fixa (axion@axion.com.br) ou, se configurado, o grupo WEG_INTERNAL_FOUR;
+//   - exige perfil de entrega do piloto ATIVO e VÁLIDO para ESTE projeto (resolveProjectPilotParticipants): entrega direta ao próprio
+//     colaborador (Reynaldo, Jaime ou Carlos Evandro) com cópia obrigatória em crm@axion.com.br;
 //   - o caso precisa existir no projeto, estar ABERTO e ser HIGH/CRITICAL; o id do caso é informado explicitamente;
 //   - destinatários lógicos = membros da allowlist do piloto com vínculo ativo (evaluateRecipient) — nunca outros;
 //   - teto: 1 caso e no máximo MAX_PILOT_SINGLE_RECIPIENTS e-mails;
@@ -27,7 +27,7 @@ import { loadAccLogoInlineImage } from "@/lib/email/branding/load-acc-logo-inlin
 import type { EmailProvider } from "@/lib/email/email-provider";
 import { getEmailProvider } from "@/lib/email/get-email-provider";
 import { resolveEmailProviderName } from "@/lib/email/gmail-auth";
-import { resolveProjectPilotDeliveryTargets, resolveProjectPilotProfile } from "@/lib/email/project-pilot-profile";
+import { isPilotParticipantAddress, resolveProjectPilotParticipants, resolveProjectPilotProfile } from "@/lib/email/project-pilot-profile";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
 import { slaEscalationLevelLabels } from "@/lib/labels";
 import { resolveMatrixPolicy } from "@/lib/sla/resolve-matrix-policy";
@@ -158,7 +158,7 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
   const profile = resolveProjectPilotProfile();
   if (!profile.configured || !profile.valid) return blocked(caseId, "PILOT_PROFILE_INVALID");
   const projectId = profile.projectId;
-  const group = resolveProjectPilotDeliveryTargets(projectId);
+  const group = resolveProjectPilotParticipants(projectId);
   if (!group) return blocked(caseId, "PILOT_DELIVERY_NOT_ACTIVE", { projectId });
 
   const store = options.store ?? createSupabaseRiskAlertStore(createSupabaseAdminClient());
@@ -212,8 +212,8 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
     .slice(0, MAX_PILOT_SINGLE_RECIPIENTS);
   const requestedRecipient = options.recipientUserId?.trim().toLowerCase() || null;
   if (requestedRecipient !== null && !UUID.test(requestedRecipient)) return blocked(caseId, "RECIPIENT_ID_INVALID", base);
-  // Destino exclusivo (uma única caixa real): a execução real precisa nomear o destinatário lógico, para não gerar uma mensagem por
-  // pessoa da allowlist, todas para a mesma caixa.
+  // Entrega direta: sem seleção, cada pessoa da allowlist (no máximo 3 participantes) recebe SUA mensagem na PRÓPRIA caixa. O workflow
+  // manual exige recipient_user_id em mode=send; a seleção explícita continua sendo o caminho recomendado (uma mensagem por vez).
   if (!dryRun && group.length === 1 && requestedRecipient === null) return blocked(caseId, "RECIPIENT_SELECTION_REQUIRED", base);
   if (requestedRecipient !== null && !fullAllowlist.some((id) => id.toLowerCase() === requestedRecipient)) {
     return blocked(caseId, "RECIPIENT_NOT_IN_ALLOWLIST", base);
@@ -262,6 +262,8 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
     const row: PilotSingleAlertRecipientResult = { userId, name: recipient.name, eligibility: recipient.status, suppressionReason: recipient.suppressionReason, idempotencyKey, outcome: "NAO_ELEGIVEL", retry: false };
     recipients.push(row);
     if (recipient.status !== "PENDING") continue;
+    // O endereço do destinatário lógico precisa ser um dos participantes autorizados do piloto (o provider também bloqueia; aqui é antes da outbox).
+    if (!isPilotParticipantAddress(recipient.email)) continue;
     if (snapshot.existingIdempotencyKeys.has(idempotencyKey) || retryInfo.has(idempotencyKey)) {
       if (!isPreNetworkRetryable(retryInfo.get(idempotencyKey), { projectId, caseId, recipientUserId: userId, idempotencyKey })) {
         row.outcome = "JA_EXISTE";
@@ -314,7 +316,7 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
       action: "RISK_ALERT_PILOT_SINGLE_RUN",
       entityType: "RISK_ALERT_CASE",
       entityId: caseId,
-      detail: `Execução manual única do piloto: ${entries.length} destinatário(s) lógico(s) da allowlist (${retried} retentativa(s) de linha bloqueada antes de qualquer chamada de rede), entrega restrita ao destino configurado do piloto (${group.length} caixa(s) física(s), sem CC/BCC). risk_alerts_enabled não alterado.`,
+      detail: `Execução manual única do piloto: ${entries.length} destinatário(s) lógico(s) da allowlist (${retried} retentativa(s) de linha bloqueada antes de qualquer chamada de rede), entrega direta ao próprio colaborador autorizado com cópia institucional (crm@axion.com.br), sem Bcc. risk_alerts_enabled não alterado.`,
     },
   ]);
   const ctx: SendContext = {

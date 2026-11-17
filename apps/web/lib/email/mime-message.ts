@@ -88,17 +88,20 @@ function encodeMimeBodyBase64(content: string): string {
 // formatado produz um From duplicado/aninhado; formatSenderHeader agora
 // recusa em runtime qualquer valor que contenha "<"/">"/'"' para tornar
 // esse erro impossível de passar despercebido.
-export function buildMimeMessage(input: SendEmailInput, from: string, messageIdHeader: string): string {
+export function buildMimeMessage(input: SendEmailInput, from: string, messageIdHeader: string, options: { displayName?: string | null } = {}): string {
   // Todo valor dinâmico que vira header passa por sanitizeHeaderValue
   // primeiro — nunca confiar que "só é um e-mail"/"só é um UUID" dispensa
   // a sanitização (defesa em profundidade contra header injection).
   const headers = [
-    `From: ${sanitizeHeaderValue(formatSenderHeader(from))}`,
+    `From: ${sanitizeHeaderValue(formatSenderHeader(from, options.displayName))}`,
     `To: ${sanitizeHeaderValue(input.to)}`,
+    ...(input.cc && input.cc.length > 0 ? [`Cc: ${sanitizeHeaderValue(input.cc.join(", "))}`] : []),
     `Subject: ${encodeMimeHeaderValue(sanitizeHeaderValue(input.subject))}`,
     `Date: ${new Date().toUTCString()}`,
     `Message-ID: ${sanitizeHeaderValue(messageIdHeader)}`,
     "MIME-Version: 1.0",
+    // Marca mensagens geradas pelo ACC: a fase de respostas ignora a CÓPIA (Cc) que volta à caixa institucional (nunca vira "resposta").
+    "X-ACC-Outbound: 1",
   ];
 
   if (input.replyTo) {

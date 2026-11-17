@@ -619,7 +619,7 @@ if (!supabaseUrl || !serviceKey) {
     const base = {
       project_id: REFERENCE_PROJECT_ID,
       from_address: "cliente@weg.net",
-      to_address: "acc@axion.com.br",
+      to_address: "crm@axion.com.br",
       subject: "Teste de dedup entre contas",
       sent_at: new Date().toISOString(),
       snippet: "teste",
