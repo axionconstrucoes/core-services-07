@@ -28,7 +28,7 @@ export interface ProcessRepliesResult {
 
 // Modelo de entrega direta do piloto: cada colaborador responde com a PRÓPRIA identidade (From real) — a autorização é sempre por
 // remetente (authorizeReply: perfil, vínculo ativo, destinatário lógico do alerta e allowlist). Não existe mais atribuição de resposta
-// por "caixa do piloto": uma resposta vinda do ACC (acc@) ou de endereço desconhecido NUNCA é atribuída a participante algum.
+// por "caixa do piloto": uma resposta vinda do ACC (crm@) ou de endereço desconhecido NUNCA é atribuída a participante algum.
 export async function processAlertReplies(store: RiskAlertStore, projectId: string, nowIso: string, accMailboxes: string[]): Promise<ProcessRepliesResult> {
   const selfMailboxes = accMailboxes;
   const result: ProcessRepliesResult = { projectId, received: 0, ignored: 0, unauthorized: 0, pendingHumanReview: 0, reviewRequired: 0, applied: 0, recorded: 0 };

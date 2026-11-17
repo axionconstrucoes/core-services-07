@@ -80,7 +80,7 @@ function selectCredentials(env: Env, identity?: string | null): { clientId: stri
   return { clientId: r.clientId, clientSecret: r.clientSecret, refreshToken: r.refreshToken, senderEmail: r.senderEmail, source: r.clientSource === "PILOT" ? "PILOT_ISOLATED_CLIENT" : "PILOT_SHARED_CLIENT" };
 }
 
-/** `identity` (opcional): participante autorizado a enviar com a própria conta; ausente => identidade institucional do piloto (acc@). */
+/** `identity` (opcional): participante autorizado a enviar com a própria conta; ausente => identidade institucional do piloto (crm@). */
 export async function runGmailPilotAuthCheck(options: { env?: Env; fetchImpl?: FetchLike; timeoutMs?: number; identity?: string | null } = {}): Promise<GmailAuthCheckResult> {
   const env = options.env ?? process.env;
   const fetchImpl = options.fetchImpl ?? (fetch as unknown as FetchLike);

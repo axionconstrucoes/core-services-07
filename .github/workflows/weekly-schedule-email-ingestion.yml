@@ -103,7 +103,7 @@ jobs:
           ACC_RISK_ALERTS_INBOUND_CLIENT_SECRET: ${{ secrets.ACC_RISK_ALERTS_INBOUND_CLIENT_SECRET }}
           ACC_RISK_ALERTS_INBOUND_REFRESH_TOKEN: ${{ secrets.ACC_RISK_ALERTS_INBOUND_REFRESH_TOKEN }}
           ACC_RISK_ALERTS_INBOUND_MAILBOX: ${{ secrets.ACC_RISK_ALERTS_INBOUND_MAILBOX }}
-          # Piloto WEG (docs/piloto-entrega-direta-cc-acc.md): entrega direta ao colaborador + Cc acc@. Vazios => nada muda. Estes valores precisam
+          # Piloto WEG (docs/piloto-entrega-direta-cc-acc.md): entrega direta ao colaborador + Cc crm@. Vazios => nada muda. Estes valores precisam
           # ser IDÊNTICOS aos do servidor (Vercel). As variáveis legadas DESTINATION e TEST_GROUP não são mais lidas e não são mais repassadas.
           ACC_PROJECT_PILOT_PROJECT_ID: ${{ vars.ACC_PROJECT_PILOT_PROJECT_ID }}
           ACC_PROJECT_PILOT_SENDER: ${{ vars.ACC_PROJECT_PILOT_SENDER }}

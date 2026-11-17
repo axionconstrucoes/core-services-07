@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       identity:
-        description: "Opcional: participante autorizado a enviar (e-mail). Vazio = identidade institucional do piloto (acc@)"
+        description: "Opcional: participante autorizado a enviar (e-mail). Vazio = identidade institucional do piloto (crm@)"
         required: false
         default: ""
 

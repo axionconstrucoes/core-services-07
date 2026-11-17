@@ -1,0 +1,36 @@
+name: Pilot Replies Mailbox Check
+
+# Diagnóstico MANUAL e SOMENTE-LEITURA da credencial de LEITURA das respostas aos alertas (secrets ACC_RISK_ALERTS_INBOUND_*). Sem schedule.
+# Renova o token e consulta só o perfil Gmail (users.getProfile). NÃO lê mensagens, NÃO envia, NÃO toca no banco e NÃO altera credenciais.
+# O log mostra SÓ booleanos e nomes curtos de escopo (repositório público): nenhum e-mail, token ou segredo.
+# Esperado para liberar as respostas por e-mail: ok=true (escopo gmail.readonly, conta = caixa configurada, caixa configurada = a institucional).
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: pilot-replies-mailbox-check
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Verificar credencial de leitura das respostas
+        env:
+          ACC_RISK_ALERTS_INBOUND_CLIENT_ID: ${{ secrets.ACC_RISK_ALERTS_INBOUND_CLIENT_ID }}
+          ACC_RISK_ALERTS_INBOUND_CLIENT_SECRET: ${{ secrets.ACC_RISK_ALERTS_INBOUND_CLIENT_SECRET }}
+          ACC_RISK_ALERTS_INBOUND_REFRESH_TOKEN: ${{ secrets.ACC_RISK_ALERTS_INBOUND_REFRESH_TOKEN }}
+          ACC_RISK_ALERTS_INBOUND_MAILBOX: ${{ secrets.ACC_RISK_ALERTS_INBOUND_MAILBOX }}
+        run: node scripts/check-risk-alerts-inbound-mailbox.mjs
