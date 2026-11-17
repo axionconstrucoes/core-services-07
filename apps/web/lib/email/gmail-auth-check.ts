@@ -7,7 +7,7 @@
 // Puro (env e fetch injetados, sem "server-only") para ser testável sem rede.
 import { createHash } from "node:crypto";
 import { classifyGmailSendError, type GmailSendFailureClass, type GmailSendFailureReason } from "./gmail-send-error";
-import { resolveGmailPilotSenderConfig } from "./gmail-pilot-credentials";
+import { resolveGmailPilotIdentityConfig, resolveGmailPilotSenderConfig } from "./gmail-pilot-credentials";
 import { resolveProjectPilotProfile } from "./project-pilot-profile";
 
 export const GMAIL_AUTH_CHECK_TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -58,9 +58,16 @@ function normalizeScopes(raw: unknown): string[] {
 }
 
 /** Seleciona as credenciais exatamente como o GmailEmailProvider para uma mensagem do projeto piloto. Lança (mensagem sem valores) se faltar/estiver inválido. */
-function selectCredentials(env: Env): { clientId: string; clientSecret: string; refreshToken: string; senderEmail: string; source: NonNullable<GmailAuthCheckResult["configSource"]> } {
+function selectCredentials(env: Env, identity?: string | null): { clientId: string; clientSecret: string; refreshToken: string; senderEmail: string; source: NonNullable<GmailAuthCheckResult["configSource"]> } {
   const profile = resolveProjectPilotProfile(env);
   if (!profile.configured || !profile.valid) throw new Error("PERFIL_PILOTO_INVALIDO");
+  // Identidade de um PARTICIPANTE autorizado a enviar: credencial própria (nunca a do ACC). Só vale se ele estiver em ACC_PROJECT_PILOT_AUTHORIZED_SENDERS.
+  const wanted = (identity ?? "").trim().toLowerCase();
+  if (wanted !== "" && wanted !== profile.sender) {
+    if (!profile.authorizedSenders.includes(wanted)) throw new Error("IDENTIDADE_NAO_AUTORIZADA");
+    const p = resolveGmailPilotIdentityConfig(wanted, env);
+    return { clientId: p.clientId, clientSecret: p.clientSecret, refreshToken: p.refreshToken, senderEmail: p.senderEmail, source: "PILOT_ISOLATED_CLIENT" };
+  }
   const defaultSender = (env.GOOGLE_GMAIL_SENDER_EMAIL ?? "").trim().toLowerCase();
   if (defaultSender === profile.sender) {
     const clientId = env.GOOGLE_GMAIL_CLIENT_ID?.trim();
@@ -73,7 +80,8 @@ function selectCredentials(env: Env): { clientId: string; clientSecret: string; 
   return { clientId: r.clientId, clientSecret: r.clientSecret, refreshToken: r.refreshToken, senderEmail: r.senderEmail, source: r.clientSource === "PILOT" ? "PILOT_ISOLATED_CLIENT" : "PILOT_SHARED_CLIENT" };
 }
 
-export async function runGmailPilotAuthCheck(options: { env?: Env; fetchImpl?: FetchLike; timeoutMs?: number } = {}): Promise<GmailAuthCheckResult> {
+/** `identity` (opcional): participante autorizado a enviar com a própria conta; ausente => identidade institucional do piloto (acc@). */
+export async function runGmailPilotAuthCheck(options: { env?: Env; fetchImpl?: FetchLike; timeoutMs?: number; identity?: string | null } = {}): Promise<GmailAuthCheckResult> {
   const env = options.env ?? process.env;
   const fetchImpl = options.fetchImpl ?? (fetch as unknown as FetchLike);
   const timeoutMs = options.timeoutMs ?? 10_000;
@@ -81,7 +89,7 @@ export async function runGmailPilotAuthCheck(options: { env?: Env; fetchImpl?: F
 
   let creds: ReturnType<typeof selectCredentials>;
   try {
-    creds = selectCredentials(env);
+    creds = selectCredentials(env, options.identity);
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     return { ...result, stage: "CONFIG", reason: message === "CREDENCIAIS_AUSENTES" || /não configurado|ausente/i.test(message) ? "CONFIG_MISSING" : "CONFIG_INVALID", classification: "DEFINITIVE" };
