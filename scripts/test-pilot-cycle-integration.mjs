@@ -1,7 +1,7 @@
 // Integração do PILOTO por projeto com o ciclo REAL de alertas (runRiskAlertCycle) e o processador REAL de respostas,
 // sobre o store em memória e o FakeEmailProvider (mesma cadeia de guardas do transporte real). Nenhuma rede, nenhum banco, nenhum e-mail.
 //
-// Prova, no conjunto integrado (modelo de ENTREGA DIRETA com cópia institucional): cada escalão (Responsável, Gestor, Diretoria) chega à PRÓPRIA caixa do colaborador, com Cc em acc@;
+// Prova, no conjunto integrado (modelo de ENTREGA DIRETA com cópia institucional): cada escalão (Responsável, Gestor, Diretoria) chega à PRÓPRIA caixa do colaborador, com Cc em crm@;
 // repetições/reenvios idempotentes; envio concorrente sem duplicar (lease do #125); respostas atribuídas a QUEM RESPONDE (From real) e
 // aplicadas uma vez; outro projeto não é afetado.
 //
@@ -23,7 +23,7 @@ net.Socket.prototype.connect = function blockedConnect() {
 };
 process.env.ACC_WEEKLY_REPORTS_ENABLED = "true";
 process.env.AXION_APP_BASE_URL = "https://acc-simulacao.invalid";
-process.env.GOOGLE_GMAIL_INBOUND_MAILBOX = "acc@axion.com.br";
+process.env.GOOGLE_GMAIL_INBOUND_MAILBOX = "crm@axion.com.br";
 register("./ts-module-resolver.mjs", import.meta.url);
 register("./lib/weg-alert-sim/hooks.mjs", import.meta.url);
 
@@ -53,7 +53,7 @@ const PROJECT_ID = "00000000-0000-4000-8000-000000000001"; // WEG (o piloto é e
 const OTHER_PROJECT_ID = "00000000-0000-4000-8000-00000000f003";
 const CRM = "crm@axion.com.br";
 const BOX = "axion@axion.com.br"; // PROIBIDO no novo modelo: nada pode ser roteado para ele
-const ACC = "acc@axion.com.br";
+const ACC = "crm@axion.com.br";
 const AREA = "PLANEJAMENTO";
 const U = { RESP: "a1111111-0000-4000-8000-000000000011", GESTOR: "b2222222-0000-4000-8000-000000000012", DIR: "c3333333-0000-4000-8000-000000000013" };
 const EMAIL = { [U.RESP]: "reynaldo@axion.com.br", [U.GESTOR]: "jaime.ramos@axion.com.br", [U.DIR]: "carlos.evandro@axion.com.br" };
@@ -135,7 +135,7 @@ function withPilotEnv(fn, extra = {}) {
   });
 }
 
-await check("cadeia completa: Responsável, Gestor (T+61) e Diretoria (T+121) chegam cada um à PRÓPRIA caixa, com Cc acc@, nunca a axion@", () =>
+await check("cadeia completa: Responsável, Gestor (T+61) e Diretoria (T+121) chegam cada um à PRÓPRIA caixa, com Cc crm@, nunca a axion@", () =>
   withPilotEnv(async () => {
     const w = makeWorld();
     await w.run(T0);
@@ -191,16 +191,16 @@ await check("respostas: cada colaborador responde com a PRÓPRIA identidade; a a
     const gestorRow = w.store.state.outbox.find((o) => o.escalationLevel === "ESCALAO_1" && o.status === "SENT");
     const sendOf = (row) => w.rec.guarded.find((g) => g.text.includes(`usuário ${row.recipientUserId.slice(0, 8)}`) && g.subject.includes(`[${row.escalationLevel}]`));
     assert(sendOf(respRow)?.replyTo && sendOf(gestorRow)?.replyTo && sendOf(respRow).replyTo !== sendOf(gestorRow).replyTo, "Reply-To distinto por mensagem");
-    assert(sendOf(respRow).replyTo.startsWith("acc+alerta-") && sendOf(respRow).to === EMAIL[respRow.recipientUserId], "Reply-To em acc@ e entrega na caixa do próprio colaborador");
+    assert(sendOf(respRow).replyTo.startsWith("crm+alerta-") && sendOf(respRow).to === EMAIL[respRow.recipientUserId], "Reply-To em crm@ e entrega na caixa do próprio colaborador");
     const headers = (from, replyTo, mid, extra = {}) => ({ from, to: [replyTo], messageId: mid, inReplyTo: null, references: [], replyTo: null, autoSubmitted: null, authenticationResults: null, subject: "Re: alerta", ...extra });
     const body = "Estou tomando as providências: equipe acionada, andamento em execução hoje.";
     const status = (id) => w.store.state.messages.find((m) => m.id === id);
 
     // (a) Gestor responde da PRÓPRIA caixa => ação do Gestor, uma única vez
     const idGestor = w.store.receiveInbound(headers(EMAIL[gestorRow.recipientUserId], sendOf(gestorRow).replyTo, "<resp-gestor@axion.test>"), body, plusMin(T0, 70));
-    // (b) a resposta do ACC (From acc@) ao Reply-To NUNCA é atribuída a participante
+    // (b) a resposta do ACC (From crm@) ao Reply-To NUNCA é atribuída a participante
     const idAcc = w.store.receiveInbound(headers(ACC, sendOf(gestorRow).replyTo, "<resp-acc@axion.test>"), body, plusMin(T0, 71));
-    // (c) a CÓPIA Cc entregue em acc@ (From = colaborador, mas marcada X-ACC-Outbound) é ignorada, não é "resposta"
+    // (c) a CÓPIA Cc entregue em crm@ (From = colaborador, mas marcada X-ACC-Outbound) é ignorada, não é "resposta"
     const idCc = w.store.receiveInbound(headers(EMAIL[respRow.recipientUserId], sendOf(respRow).replyTo, "<copia-cc@axion.test>", { xAccOutbound: "1" }), body, plusMin(T0, 72));
     // (d) remetente desconhecido não é autorizado
     const idUnknown = w.store.receiveInbound(headers("estranho@exemplo.com", sendOf(gestorRow).replyTo, "<resp-estranho@axion.test>"), body, plusMin(T0, 73));

@@ -24,7 +24,7 @@ import { pathToFileURL } from "node:url";
 import { google } from "googleapis";
 
 // Espelha apps/web/lib/email/project-pilot-profile.ts: identidade institucional + participantes autorizados do piloto.
-const ACC_SENDER = "acc@axion.com.br";
+const ACC_SENDER = "crm@axion.com.br";
 const PARTICIPANT_SENDERS = ["reynaldo@axion.com.br", "jaime.ramos@axion.com.br", "carlos.evandro@axion.com.br"];
 const ALLOWED_SENDERS = [ACC_SENDER, ...PARTICIPANT_SENDERS];
 

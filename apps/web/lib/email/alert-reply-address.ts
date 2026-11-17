@@ -1,7 +1,7 @@
 // Endereço de resposta (Reply-To) dos alertas de risco — PURO, sem I/O.
 //
 // Formato ÚNICO aceito:  <caixa-acc>+alerta-<token-opaco>@<domínio-configurado>
-//   ex.: acc+alerta-Qm9vayB0aGUgc3RhZ2U@axion.com.br
+//   ex.: crm+alerta-Qm9vayB0aGUgc3RhZ2U@axion.com.br
 //
 // A caixa-acc é a caixa inbound OFICIAL monitorada pelo worker
 // (GOOGLE_GMAIL_INBOUND_MAILBOX — a mesma variável que a fase `replies`

@@ -90,7 +90,7 @@ await check("1. Reply-To opaco: mailbox+alerta-<token>@domínio, token aleatóri
 });
 await check("2. In-Reply-To correlaciona primeiro (mesmo com token e código presentes)", () => {
   const index = { byMessageId: new Map([["<root@acc>", CASE_ID]]), byReplyTokenHash: new Map([[pipeline.hashReplyToken("tok"), "other-case"]]), byVisibleCode: new Map([["ABCD1234", "third"]]) };
-  const r = pipeline.correlateReply({ from: "a@axion.com.br", to: ["acc+alerta-tokentokentokentok@axion.com.br"], messageId: "<m@x>", inReplyTo: "root@acc", references: [] }, "ACC-ALERTA:ABCD1234", index);
+  const r = pipeline.correlateReply({ from: "a@axion.com.br", to: ["crm+alerta-tokentokentokentok@axion.com.br"], messageId: "<m@x>", inReplyTo: "root@acc", references: [] }, "ACC-ALERTA:ABCD1234", index);
   assert(r.caseId === CASE_ID && r.method === "IN_REPLY_TO");
 });
 await check("3. References correlaciona quando In-Reply-To falta; ambíguo (2 alertas) => sem caso", () => {
@@ -117,7 +117,7 @@ await check("5. Token armazenado só como hash (conversa, mensagens e links de a
 await check("6. message_id idempotente: provider_message_id UNIQUE; mensagem já vista vira IGNORED_LOOP", () => {
   const sql = readSource(MIGRATION);
   assert(sql.includes("provider_message_id text not null unique"));
-  const v = pipeline.filterInboundMessage({ from: "a@axion.com.br", to: [], messageId: "<dup@x>", inReplyTo: null, references: [] }, { accMailboxes: ["acc@axion.com.br"], seenMessageIds: new Set(["<dup@x>"]) });
+  const v = pipeline.filterInboundMessage({ from: "a@axion.com.br", to: [], messageId: "<dup@x>", inReplyTo: null, references: [] }, { accMailboxes: ["crm@axion.com.br"], seenMessageIds: new Set(["<dup@x>"]) });
   assert(v === "IGNORED_LOOP");
   const script = readSource("scripts/weekly-schedule-email-ingest.mjs");
   assert(script.includes('error.code !== "23505"') && script.includes("knownIds.has(message.id)"));
@@ -139,7 +139,7 @@ await check("8. Assinatura separada ('-- ', 'Atenciosamente', 'Enviado do meu iP
   assert(p3.clean === "Ciente" && p3.signature.includes("iPhone"));
 });
 await check("9. Autoresposta ignorada (Auto-Submitted, Precedence, X-Autoreply, assunto 'Resposta automática')", () => {
-  const ctx = { accMailboxes: ["acc@axion.com.br"], seenMessageIds: new Set() };
+  const ctx = { accMailboxes: ["crm@axion.com.br"], seenMessageIds: new Set() };
   const base = { from: "a@axion.com.br", to: [], messageId: "<1@x>", inReplyTo: null, references: [] };
   assert(pipeline.filterInboundMessage({ ...base, autoSubmitted: "auto-replied" }, ctx) === "IGNORED_AUTO_REPLY");
   assert(pipeline.filterInboundMessage({ ...base, precedence: "bulk" }, ctx) === "IGNORED_AUTO_REPLY");
@@ -148,7 +148,7 @@ await check("9. Autoresposta ignorada (Auto-Submitted, Precedence, X-Autoreply, 
   assert(pipeline.filterInboundMessage({ ...base, autoSubmitted: "no" }, ctx) === "OK");
 });
 await check("10. Bounce/DSN ignorado (mailer-daemon, Return-Path vazio, multipart/report, 'Undeliverable')", () => {
-  const ctx = { accMailboxes: ["acc@axion.com.br"], seenMessageIds: new Set() };
+  const ctx = { accMailboxes: ["crm@axion.com.br"], seenMessageIds: new Set() };
   const base = { to: [], messageId: "<2@x>", inReplyTo: null, references: [] };
   assert(pipeline.filterInboundMessage({ ...base, from: "mailer-daemon@googlemail.com" }, ctx) === "IGNORED_BOUNCE");
   assert(pipeline.filterInboundMessage({ ...base, from: "a@axion.com.br", returnPath: "<>" }, ctx) === "IGNORED_BOUNCE");
@@ -486,8 +486,8 @@ await check("51. Provider fake não envia: sem rede; guard aplicado; dry-run sem
   const provider = new FakeEmailProvider();
   const sent = await provider.send({ to: "piloto.a@axion.com.br", subject: "s", text: "t", correlationId: "c1", inReplyTo: "<root@acc>", references: ["<root@acc>"] });
   assert(sent.provider === "FAKE");
-  const mime = buildMimeMessage({ to: "a@b.c", subject: "s", text: "t", correlationId: "c", inReplyTo: "<root@acc>", references: ["<root@acc>", "<x@acc>"], replyTo: "acc+alerta-abc@axion.com.br" }, "acc_ia@axion.com.br", "<m@acc>");
-  assert(mime.includes("In-Reply-To: <root@acc>") && mime.includes("References: <root@acc> <x@acc>") && mime.includes("Reply-To: acc+alerta-abc@axion.com.br"));
+  const mime = buildMimeMessage({ to: "a@b.c", subject: "s", text: "t", correlationId: "c", inReplyTo: "<root@acc>", references: ["<root@acc>", "<x@acc>"], replyTo: "crm+alerta-abc@axion.com.br" }, "acc_ia@axion.com.br", "<m@acc>");
+  assert(mime.includes("In-Reply-To: <root@acc>") && mime.includes("References: <root@acc> <x@acc>") && mime.includes("Reply-To: crm+alerta-abc@axion.com.br"));
   const cycle = readSource("apps/web/lib/risk-alerts/run-risk-alert-cycle.ts");
   assert(cycle.includes("const provider = dryRun ? new FakeEmailProvider()"));
 });

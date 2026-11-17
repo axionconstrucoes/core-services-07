@@ -20,7 +20,7 @@ net.Socket.prototype.connect = function blockedConnect() {
 };
 process.env.ACC_WEEKLY_REPORTS_ENABLED = "true";
 process.env.AXION_APP_BASE_URL = "https://acc-simulacao.invalid";
-process.env.GOOGLE_GMAIL_INBOUND_MAILBOX = "acc@axion.com.br";
+process.env.GOOGLE_GMAIL_INBOUND_MAILBOX = "crm@axion.com.br";
 register("./ts-module-resolver.mjs", import.meta.url);
 register("./lib/weg-alert-sim/hooks.mjs", import.meta.url);
 
@@ -50,10 +50,10 @@ const assert = (c, m = "asserção falhou") => {
 
 const WEG = "00000000-0000-4000-8000-000000000001";
 const CRM = "crm@axion.com.br";
-const ACC = "acc@axion.com.br";
+const ACC = "crm@axion.com.br";
 const BOX = "axion@axion.com.br"; // PROIBIDO no novo modelo: só aparece para provar que nada é roteado para ele
 const PARTICIPANTS = ["reynaldo@axion.com.br", "jaime.ramos@axion.com.br", "carlos.evandro@axion.com.br"];
-// Modelo de entrega DIRETA: To = o próprio colaborador; Cc = acc@ (sempre); nunca Bcc; nunca axion@.
+// Modelo de entrega DIRETA: To = o próprio colaborador; Cc = crm@ (sempre); nunca Bcc; nunca axion@.
 const direct = (g, email) => String(g.to).trim().toLowerCase() === email && JSON.stringify(g.cc) === JSON.stringify([ACC]) && !g.bcc && !/axion@axion\.com\.br/i.test(JSON.stringify(g));
 const T0 = "2026-11-13T12:00:00.000Z";
 const U = {
@@ -159,7 +159,7 @@ await check("dry-run: planeja 3 destinatários da allowlist e NÃO escreve nem e
     assert(w.world.config.riskAlertsEnabled === false);
   }));
 
-await check("execução: 3 e-mails (um por pessoa da allowlist), cada um NA PRÓPRIA caixa, Cc acc@, sem Bcc, sem axion@, sem Ricardo", () =>
+await check("execução: 3 e-mails (um por pessoa da allowlist), cada um NA PRÓPRIA caixa, Cc crm@, sem Bcc, sem axion@, sem Ricardo", () =>
   withEnv({}, async () => {
     const w = await seeded();
     const r = await runPilotSingleAlert({ caseId: w.highCase.id, now: new Date(T0), store: w.store, provider: w.provider });
@@ -170,7 +170,7 @@ await check("execução: 3 e-mails (um por pessoa da allowlist), cada um NA PRÓ
       assert(JSON.stringify(g.cc) === JSON.stringify([ACC]) && !g.bcc, `Cc=${g.cc} Bcc=${g.bcc}`);
       assert(!/axion@axion\.com\.br/i.test(JSON.stringify(g)), "axion@ apareceu");
       assert(!/ricardo\.martins/i.test(JSON.stringify(g)), "Ricardo apareceu");
-      assert(g.replyTo && /^acc\+alerta-/i.test(g.replyTo), `Reply-To=${g.replyTo}`);
+      assert(g.replyTo && /^crm\+alerta-/i.test(g.replyTo), `Reply-To=${g.replyTo}`);
       assert(/PILOTO/i.test(g.subject + g.text), "sem identificação de piloto");
     }
     const tos = new Set(w.rec.guarded.map((g) => String(g.to).trim().toLowerCase()));
@@ -214,7 +214,7 @@ await check("bloqueios: caso médio, caso inexistente/outro projeto, id inválid
     assert((await run("não-é-uuid")).blockedReason === "CASE_ID_INVALID");
     assert(w.rec.guarded.length === 0);
   });
-  await withEnv({ ACC_PROJECT_PILOT_SENDER: "crm@axion.com.br" }, async () => {
+  await withEnv({ ACC_PROJECT_PILOT_SENDER: "acc@axion.com.br" }, async () => {
     const w = await seeded();
     const r = await runPilotSingleAlert({ caseId: w.highCase.id, store: w.store, provider: w.provider });
     assert(r.status === "BLOCKED" && r.blockedReason === "PILOT_PROFILE_INVALID", r.blockedReason);
@@ -309,7 +309,7 @@ await check("entrega direta: dry-run sem seleção planeja os 3 participantes (d
     assert(w.store.state.outbox.length === w.seedOutbox && w.rec.guarded.length === 0, "dry-run escreveu/enviou");
   }));
 
-await check("entrega direta + UM destinatário selecionado: exatamente 1 mensagem, To=o próprio colaborador, Cc=acc@, sem Bcc; as outras linhas não existem/não mudam; repetir não reenvia", () =>
+await check("entrega direta + UM destinatário selecionado: exatamente 1 mensagem, To=o próprio colaborador, Cc=crm@, sem Bcc; as outras linhas não existem/não mudam; repetir não reenvia", () =>
   withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
     const w = await seeded();
     const dry = await runPilotSingleAlert({ caseId: w.highCase.id, recipientUserId: U.jaime, dryRun: true, now: new Date(T0), store: w.store, provider: w.provider });

@@ -1,5 +1,5 @@
 // Convergência de TODOS os caminhos de envio de e-mail para o MODELO DE ENTREGA DIRETA do piloto WEG:
-//   To = o próprio colaborador (Reynaldo, Jaime ou Carlos Evandro) · Cc = acc@axion.com.br SEMPRE · Remetente = acc@ (ou participante
+//   To = o próprio colaborador (Reynaldo, Jaime ou Carlos Evandro) · Cc = crm@axion.com.br SEMPRE · Remetente = crm@ (ou participante
 //   autorizado e autenticado) · axion@axion.com.br proibido em qualquer cabeçalho de destinatário.
 // Sem rede: cadeia real de guardas via FakeEmailProvider + montagem do MIME final. Nenhum e-mail é enviado.
 //
@@ -21,8 +21,9 @@ const pipeline = await import("../apps/web/lib/risk-alerts/replies/reply-pipelin
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const WEG = "00000000-0000-4000-8000-000000000001";
 const OTHER = "22222222-2222-4222-8222-222222222222";
-const ACC = "acc@axion.com.br";
+const ACC = "crm@axion.com.br";
 const BOX = "axion@axion.com.br"; // PROIBIDO
+const ACCX = "acc@axion.com.br"; // inexistente no Workspace: PROIBIDO
 const REY = "reynaldo@axion.com.br";
 const JAIME = "jaime.ramos@axion.com.br";
 const CARLOS = "carlos.evandro@axion.com.br";
@@ -163,15 +164,20 @@ await check("axion@axion.com.br NÃO aparece em nenhuma lista de roteamento do c
     const rel = path.relative(root, f).replace(/\\/g, "/");
     if (rel !== "apps/web/lib/email/project-pilot-profile.ts") offenders.push(rel);
   }
+  for (const f of prod) {
+    const code = stripComments(readFileSync(f, "utf8"));
+    const rel = path.relative(root, f).replace(/\\/g, "/");
+    if (code.includes("acc@axion.com.br") && rel !== "apps/web/lib/email/project-pilot-profile.ts") offenders.push(`${rel} (crm@)`);
+  }
   assert(offenders.length === 0, `axion@ referenciado em: ${offenders.join(", ")}`);
   const prof = stripComments(readFileSync(path.join(root, "apps/web/lib/email/project-pilot-profile.ts"), "utf8"));
-  assert(/PILOT_FORBIDDEN_ADDRESSES\s*=\s*\[\s*"axion@axion\.com\.br"\s*\]/.test(prof), "axion@ precisa estar apenas na lista PROIBIDA");
+  assert(/PILOT_FORBIDDEN_ADDRESSES\s*=\s*\[\s*"axion@axion\.com\.br"\s*,\s*"acc@axion\.com\.br"\s*\]/.test(prof), "axion@ e crm@ precisam estar apenas na lista PROIBIDA");
 });
 
 // --- 2. Entrega direta com Cc institucional (cadeia real, MIME final) --------------------------------------------------------------
 for (const mode of [undefined, "production"]) {
   for (const participant of PARTS) {
-    await check(`ACC → ${participant}: To = o colaborador, Cc = acc@, From = acc@ (institucional), sem Bcc/Resent, PILOTO — ACC_OUTBOUND_MODE=${mode ?? "(ausente)"}`, () =>
+    await check(`ACC → ${participant}: To = o colaborador, Cc = crm@, From = crm@ (institucional), sem Bcc/Resent, PILOTO — ACC_OUTBOUND_MODE=${mode ?? "(ausente)"}`, () =>
       withEnv({ ...PILOT_ENV, ...(mode ? { ACC_OUTBOUND_MODE: mode } : {}) }, async () => {
         const { guarded, result } = await sendThroughChain(base({ to: participant, cc: ["externo.cc@weg.net"], bcc: "externo.bcc@fornecedor.com" }));
         const mime = buildMimeMessage(guarded, ACC, "<conv@axion.invalid>");
@@ -189,7 +195,7 @@ for (const mode of [undefined, "production"]) {
   }
 }
 
-await check("destinatário fora dos participantes (externo, crm@, axion@, acc@, vários, com CRLF) é BLOQUEADO antes do MIME — nunca substituído", () =>
+await check("destinatário fora dos participantes (externo, crm@, axion@, crm@, vários, com CRLF) é BLOQUEADO antes do MIME — nunca substituído", () =>
   withEnv(PILOT_ENV, async () => {
     for (const to of ["cliente.externo@weg.net", "crm@axion.com.br", BOX, ACC, `${REY}, ${JAIME}`, `${REY}\r\nBcc: invasor@x.com`, "Ricardo <ricardo.martins@axion.com.br>"]) {
       await rejects(() => sendThroughChain(base({ to })), /Destinat/, `to=${JSON.stringify(to)}`);
@@ -204,17 +210,17 @@ await check("injeção de cabeçalho no assunto não cria destinatários (Bcc/Cc
     assert(!addrs(h.get("to")).concat(addrs(h.get("cc"))).includes("invasor@x.com"), "invasor virou destinatário");
   }));
 
-await check("Reply-To: só <caixa-inbound>+alerta-<token>@ da caixa oficial (acc@) e só com contexto de conversa; externo/axion@ é removido ou bloqueado", () =>
+await check("Reply-To: só <caixa-inbound>+alerta-<token>@ da caixa oficial (crm@) e só com contexto de conversa; externo/axion@ é removido ou bloqueado", () =>
   withEnv(PILOT_ENV, async () => {
     const ctx = { kind: "RISK_ALERT_CONVERSATION", outboxId: "11111111-1111-4111-8111-111111111111", conversationId: "22222222-2222-4222-8222-222222222222" };
     const token = "Qm9vayB0aGUgc3RhZ2VYWVo";
-    const ok = await sendThroughChain(base({ replyTo: `acc+alerta-${token}@axion.com.br`, replyToContext: ctx }));
-    assert(ok.guarded.replyTo === `acc+alerta-${token}@axion.com.br`, `Reply-To=${ok.guarded.replyTo}`);
-    for (const bad of ["externo@weg.net", `axion+alerta-${token}@axion.com.br`, `crm+alerta-${token}@axion.com.br`, `acc+alerta-${token}@outro.com`]) {
+    const ok = await sendThroughChain(base({ replyTo: `crm+alerta-${token}@axion.com.br`, replyToContext: ctx }));
+    assert(ok.guarded.replyTo === `crm+alerta-${token}@axion.com.br`, `Reply-To=${ok.guarded.replyTo}`);
+    for (const bad of ["externo@weg.net", `axion+alerta-${token}@axion.com.br`, `acc+alerta-${token}@axion.com.br`, `crm+alerta-${token}@outro.com`]) {
       const r = await sendThroughChain(base({ replyTo: bad, replyToContext: ctx }));
       assert(r.guarded.replyTo === undefined, `Reply-To inválido sobreviveu: ${bad}`);
     }
-    const noCtx = await sendThroughChain(base({ replyTo: `acc+alerta-${token}@axion.com.br` }));
+    const noCtx = await sendThroughChain(base({ replyTo: `crm+alerta-${token}@axion.com.br` }));
     assert(noCtx.guarded.replyTo === undefined, "Reply-To sem contexto sobreviveu");
   }));
 
@@ -231,11 +237,12 @@ await check("mensagem de outro projeto ou sem projeto NÃO usa o perfil: em modo
     }
   }));
 
-await check("perfil inválido falha fechado antes de MIME/rede (projeto fora da WEG, remetente ≠ acc@, autorizado desconhecido) e nunca cai para outro comportamento", async () => {
+await check("perfil inválido falha fechado antes de MIME/rede (projeto fora da WEG, remetente ≠ crm@, autorizado desconhecido) e nunca cai para outro comportamento", async () => {
   for (const env of [
     { ...PILOT_ENV, ACC_PROJECT_PILOT_PROJECT_ID: OTHER },
-    { ...PILOT_ENV, ACC_PROJECT_PILOT_SENDER: "crm@axion.com.br" },
+    { ...PILOT_ENV, ACC_PROJECT_PILOT_SENDER: ACCX },
     { ...PILOT_ENV, ACC_PROJECT_PILOT_SENDER: BOX },
+    { ...PILOT_ENV, ACC_PROJECT_PILOT_SENDER: REY },
     { ...PILOT_ENV, ACC_PROJECT_PILOT_SENDER: "" },
     { ...PILOT_ENV, ACC_PROJECT_PILOT_AUTHORIZED_SENDERS: "estranho@exemplo.com" },
     { ...PILOT_ENV, ACC_PROJECT_PILOT_AUTHORIZED_SENDERS: ACC },
@@ -257,7 +264,7 @@ await check("variáveis LEGADAS (ACC_PROJECT_PILOT_DESTINATION=axion@, ACC_PROJE
     const { guarded } = await sendThroughChain(base({ to: JAIME }));
     assert(guarded.to === JAIME && JSON.stringify(guarded.cc) === JSON.stringify([ACC]), `to=${guarded.to} cc=${guarded.cc}`);
     assert(!JSON.stringify(guarded).toLowerCase().includes(BOX), "axion@ apareceu");
-    assert(!JSON.stringify(guarded).includes("crm@axion.com.br"), "crm@ do grupo antigo apareceu");
+    assert(!JSON.stringify(guarded).includes(REY) && !JSON.stringify(guarded).includes(CARLOS), "o grupo antigo (4 caixas) voltou a aparecer");
   }));
 
 await check("ACC_EMAIL_ONLY_RECIPIENT=crm@ não bloqueia a entrega direta da WEG, mas continua prendendo os demais projetos", () =>
@@ -275,7 +282,7 @@ const FULL_CREDS = {
   GOOGLE_GMAIL_PILOT_USER_JAIME_RAMOS_REFRESH_TOKEN: "rt-jaime",
 };
 
-await check("participante AUTORIZADO e AUTENTICADO envia com a PRÓPRIA identidade (From = ele, sem nome institucional), To = destinatário, Cc = acc@", () =>
+await check("participante AUTORIZADO e AUTENTICADO envia com a PRÓPRIA identidade (From = ele, sem nome institucional), To = destinatário, Cc = crm@", () =>
   withEnv({ ...PILOT_ENV, ACC_PROJECT_PILOT_AUTHORIZED_SENDERS: JAIME }, async () => {
     const { guarded, result } = await sendThroughChain(base({ to: CARLOS, pilot: { projectId: WEG, senderEmail: JAIME } }), { requireSenderCredentials: true, credentialEnv: FULL_CREDS });
     const mime = buildMimeMessage(guarded, JAIME, "<conv@axion.invalid>", { displayName: null });
@@ -285,9 +292,9 @@ await check("participante AUTORIZADO e AUTENTICADO envia com a PRÓPRIA identida
     assert(result.from === JAIME && result.cc[0] === ACC, JSON.stringify(result));
   }));
 
-await check("participante NÃO autorizado como remetente, fora da lista, ou proibido => BLOQUEIA (nunca troca para acc@)", () =>
+await check("participante NÃO autorizado como remetente, fora da lista, ou proibido => BLOQUEIA (nunca troca para crm@)", () =>
   withEnv(PILOT_ENV, async () => {
-    for (const sender of [JAIME, CARLOS, "externo@weg.net", BOX, "crm@axion.com.br"]) {
+    for (const sender of [JAIME, CARLOS, "externo@weg.net", BOX, ACCX]) {
       await rejects(() => sendThroughChain(base({ pilot: { projectId: WEG, senderEmail: sender } }), { requireSenderCredentials: true, credentialEnv: FULL_CREDS }), /Remetente/, `sender=${sender}`);
     }
   }));
@@ -305,7 +312,7 @@ await check("remetente autorizado SEM credencial própria => BLOQUEIA antes de q
     const { GOOGLE_GMAIL_PILOT_REFRESH_TOKEN: _rt, ...semAcc } = FULL_CREDS;
     await rejects(() => sendThroughChain(base(), opts(semAcc)), /não configurada/, "ACC sem credencial");
     // ACC com SENDER_EMAIL de outra conta (ex.: crm@) não autentica como acc@
-    await rejects(() => sendThroughChain(base(), opts({ ...FULL_CREDS, GOOGLE_GMAIL_PILOT_SENDER_EMAIL: "crm@axion.com.br" })), /não configurada/, "ACC com conta diferente");
+    await rejects(() => sendThroughChain(base(), opts({ ...FULL_CREDS, GOOGLE_GMAIL_PILOT_SENDER_EMAIL: "outra.conta@axion.com.br" })), /não configurada/, "crm@ com conta diferente");
     assert(sent === 0, "alguma mensagem chegou a sair apesar da falta de credencial");
   }));
 
@@ -316,7 +323,7 @@ await check("resolução de credencial por identidade: variável por remetente, 
   assert(credsMod.pilotParticipantRefreshTokenEnvName(JAIME) === "GOOGLE_GMAIL_PILOT_USER_JAIME_RAMOS_REFRESH_TOKEN");
   assert(credsMod.pilotParticipantRefreshTokenEnvName(CARLOS) === "GOOGLE_GMAIL_PILOT_USER_CARLOS_EVANDRO_REFRESH_TOKEN");
   assert(credsMod.pilotParticipantRefreshTokenEnvName(REY) === "GOOGLE_GMAIL_PILOT_USER_REYNALDO_REFRESH_TOKEN");
-  for (const [email, env] of [[CARLOS, FULL_CREDS], [JAIME, { ...FULL_CREDS, GOOGLE_GMAIL_PILOT_CLIENT_SECRET: "" }], ["crm@axion.com.br", FULL_CREDS], [BOX, FULL_CREDS], ["externo@weg.net", FULL_CREDS]]) {
+  for (const [email, env] of [[CARLOS, FULL_CREDS], [JAIME, { ...FULL_CREDS, GOOGLE_GMAIL_PILOT_CLIENT_SECRET: "" }], [ACCX, FULL_CREDS], [BOX, FULL_CREDS], ["externo@weg.net", FULL_CREDS]]) {
     let threw = false;
     try {
       credsMod.resolveGmailPilotIdentityConfig(email, env);
@@ -331,7 +338,7 @@ await check("resolução de credencial por identidade: variável por remetente, 
 // --- 4. Conferência do MIME final e respostas -----------------------------------------------------------------------------------------
 await check("assertPilotMimeRecipients recusa: Bcc, Cc ausente/errado, axion@ em To/Cc/Reply-To, To diferente, From diferente", () => {
   const mk = (over = {}) => {
-    const h = { from: `"ACC" <${ACC}>`, to: JAIME, cc: ACC, "reply-to": `acc+alerta-Qm9vayB0aGUgc3RhZ2VYWVo@axion.com.br`, ...over };
+    const h = { from: `"ACC" <${ACC}>`, to: JAIME, cc: ACC, "reply-to": `crm+alerta-Qm9vayB0aGUgc3RhZ2VYWVo@axion.com.br`, ...over };
     return Object.entries(h).filter(([, v]) => v !== null).map(([k, v]) => `${k}: ${v}`).join("\r\n") + "\r\n\r\nCorpo";
   };
   profileMod.assertPilotMimeRecipients(mk(), ACC, JAIME);
@@ -353,7 +360,7 @@ await check("respostas: sem atribuição por 'caixa do piloto' (funções legada
   assert(pipeline.filterInboundMessage(headers(), ctx) === "OK", "resposta legítima do colaborador deveria passar");
   assert(pipeline.filterInboundMessage(headers({ xAccOutbound: "1" }), ctx) === "IGNORED_SELF", "cópia Cc não foi ignorada");
   assert(pipeline.filterInboundMessage(headers({ from: ACC }), ctx) === "IGNORED_SELF", "resposta do ACC não foi ignorada");
-  assert(pipeline.filterInboundMessage(headers({ from: "acc+alerta-abc@axion.com.br" }), ctx) === "IGNORED_SELF", "sub-endereço do ACC não foi ignorado");
+  assert(pipeline.filterInboundMessage(headers({ from: "crm+alerta-abc@axion.com.br" }), ctx) === "IGNORED_SELF", "sub-endereço do ACC não foi ignorado");
 });
 
 console.log(`\nRESULTADO: ${passed} passaram, ${failed} falharam`);

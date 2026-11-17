@@ -35,18 +35,19 @@ const throwsSend = (fn, re) => {
 };
 
 const WEG = "00000000-0000-4000-8000-000000000001";
-const ACC = "acc@axion.com.br";
+const ACC = "crm@axion.com.br";
 const BOX = "axion@axion.com.br";
+const ACCX = "acc@axion.com.br"; // inexistente no Workspace: proibido
 const REY = "reynaldo@axion.com.br";
 const JAIME = "jaime.ramos@axion.com.br";
 const CARLOS = "carlos.evandro@axion.com.br";
 const ENV = { ACC_PROJECT_PILOT_PROJECT_ID: WEG, ACC_PROJECT_PILOT_SENDER: ACC };
 const msg = (over = {}) => ({ to: REY, subject: "Alerta", text: "Corpo", correlationId: "c-1", pilot: { projectId: WEG, participantLabel: "usuário a1b2c3d4", escalationLevel: "RESPONSAVEL" }, ...over });
 
-check("constantes: participantes = os três colaboradores; Cc = acc@; axion@ só na lista PROIBIDA", () => {
+check("constantes: participantes = os três colaboradores; Cc = crm@; axion@ só na lista PROIBIDA", () => {
   assert(JSON.stringify([...p.PILOT_PARTICIPANT_ADDRESSES]) === JSON.stringify([REY, JAIME, CARLOS]));
   assert(p.ACC_PILOT_INSTITUTIONAL_ADDRESS === ACC);
-  assert(JSON.stringify([...p.PILOT_FORBIDDEN_ADDRESSES]) === JSON.stringify([BOX]));
+  assert(JSON.stringify([...p.PILOT_FORBIDDEN_ADDRESSES]) === JSON.stringify([BOX, ACCX]));
   assert(!p.PILOT_PARTICIPANT_ADDRESSES.includes(BOX) && !p.PILOT_PARTICIPANT_ADDRESSES.includes("crm@axion.com.br"));
 });
 
@@ -56,7 +57,7 @@ check("perfil: sem a variável do projeto nada muda (configured=false); mensagen
   assert(r.routed === false && r.input.to === REY && !r.input.cc);
 });
 
-check("perfil válido: WEG + remetente acc@; sem destino/grupo; Cc institucional; participantes fixos", () => {
+check("perfil válido: WEG + remetente crm@; sem destino/grupo; Cc institucional; participantes fixos", () => {
   const prof = p.resolveProjectPilotProfile(ENV);
   assert(prof.configured && prof.valid && prof.sender === ACC && prof.projectId === WEG);
   assert(JSON.stringify(prof.cc) === JSON.stringify([ACC]) && prof.participants.length === 3 && prof.authorizedSenders.length === 0);
@@ -68,7 +69,8 @@ check("perfil inválido (fail closed): não-UUID, projeto ≠ WEG, remetente aus
     { ...ENV, ACC_PROJECT_PILOT_PROJECT_ID: "nao-uuid" },
     { ...ENV, ACC_PROJECT_PILOT_PROJECT_ID: "22222222-2222-4222-8222-222222222222" },
     { ...ENV, ACC_PROJECT_PILOT_SENDER: "" },
-    { ...ENV, ACC_PROJECT_PILOT_SENDER: "crm@axion.com.br" },
+    { ...ENV, ACC_PROJECT_PILOT_SENDER: ACCX },
+    { ...ENV, ACC_PROJECT_PILOT_SENDER: REY },
     { ...ENV, ACC_PROJECT_PILOT_SENDER: BOX },
     { ...ENV, ACC_PROJECT_PILOT_AUTHORIZED_SENDERS: "estranho@exemplo.com" },
     { ...ENV, ACC_PROJECT_PILOT_AUTHORIZED_SENDERS: `${JAIME}, ${ACC}` },
@@ -92,7 +94,7 @@ check("autorizados a ENVIAR: lista opcional de participantes (normaliza caixa/du
   assert(prof.valid && JSON.stringify(prof.authorizedSenders) === JSON.stringify([JAIME, CARLOS]));
 });
 
-check("roteamento: To = colaborador, Cc = [acc@], sem Bcc; rótulo/assunto de PILOTO; remetente = acc@; exibição institucional", () => {
+check("roteamento: To = colaborador, Cc = [crm@], sem Bcc; rótulo/assunto de PILOTO; remetente = crm@; exibição institucional", () => {
   for (const to of [REY, JAIME, CARLOS, REY.toUpperCase()]) {
     const r = p.applyProjectPilotProfile(msg({ to, bcc: "x@y.com" }), ENV);
     assert(r.routed && r.to === to.toLowerCase() && r.input.to === to.toLowerCase());
@@ -104,10 +106,10 @@ check("roteamento: To = colaborador, Cc = [acc@], sem Bcc; rótulo/assunto de PI
 });
 
 check("destinatário fora dos participantes ou proibido => bloqueio (nunca substituição silenciosa)", () => {
-  for (const to of ["cliente@weg.net", "crm@axion.com.br", BOX, ACC, "", `${REY},${JAIME}`]) throwsSend(() => p.applyProjectPilotProfile(msg({ to }), ENV), /Destinat/);
+  for (const to of ["cliente@weg.net", ACC, BOX, ACCX, "", `${REY},${JAIME}`]) throwsSend(() => p.applyProjectPilotProfile(msg({ to }), ENV), /Destinat/);
 });
 
-check("remetente solicitado: padrão = acc@; participante só se autorizado; proibido/estranho bloqueia", () => {
+check("remetente solicitado: padrão = crm@; participante só se autorizado; proibido/estranho bloqueia", () => {
   const withSender = (senderEmail, env = ENV) => p.applyProjectPilotProfile(msg({ pilot: { projectId: WEG, senderEmail } }), env);
   assert(withSender(undefined).sender === ACC && withSender(ACC.toUpperCase()).sender === ACC);
   throwsSend(() => withSender(JAIME), /Remetente não autorizado/);
@@ -116,6 +118,7 @@ check("remetente solicitado: padrão = acc@; participante só se autorizado; pro
   assert(r.sender === JAIME && r.senderDisplayName === null && r.input.text.includes("participante autorizado e autenticado"));
   throwsSend(() => withSender(CARLOS, authorized), /Remetente não autorizado/);
   throwsSend(() => withSender(BOX, authorized), /Remetente proibido/);
+  throwsSend(() => withSender(ACCX, authorized), /Remetente proibido/);
   throwsSend(() => withSender("externo@weg.net", authorized), /Remetente não autorizado/);
 });
 
@@ -126,7 +129,7 @@ check("projeto da mensagem: contexto explícito do piloto ou dica da AXIA; outro
 });
 
 check("perfil inválido + mensagem da WEG => EmailSendError antes de qualquer MIME (não cai para a guarda global)", () => {
-  throwsSend(() => p.applyProjectPilotProfile(msg(), { ...ENV, ACC_PROJECT_PILOT_SENDER: "crm@axion.com.br" }), /Perfil do projeto piloto inválido/);
+  throwsSend(() => p.applyProjectPilotProfile(msg(), { ...ENV, ACC_PROJECT_PILOT_SENDER: ACCX }), /Perfil do projeto piloto inválido/);
 });
 
 check("participantes/atividade: resolveProjectPilotParticipants e isProjectPilotActive só valem para a WEG com perfil válido", () => {

@@ -62,7 +62,7 @@ const U_L2 = "aaaaaaaa-0000-4000-8000-000000000002";
 const U_L3 = "aaaaaaaa-0000-4000-8000-000000000003";
 const U_THIRD = "aaaaaaaa-0000-4000-8000-000000000009";
 const NOW = "2026-09-22T15:00:00.000Z";
-const MAILBOX = "acc@axion.com.br"; // caixa inbound oficial FICTÍCIA de teste
+const MAILBOX = "crm@axion.com.br"; // caixa inbound oficial FICTÍCIA de teste
 const PILOT_ENV = { outboundMode: "pilot", pilotRecipient: "crm@axion.com.br", alertReplyMailbox: MAILBOX, now: new Date(NOW), onReplyToRemoved: () => {} };
 const context = { kind: "RISK_ALERT_CONVERSATION", outboxId: OUTBOX_ID, conversationId: CONV_ID };
 const baseInput = { to: "reynaldo@axion.com.br", subject: "Alerta", text: "corpo", correlationId: "corr-1" };
@@ -106,12 +106,12 @@ await check("R1. Reply-To ACC válido é PRESERVADO em modo piloto (contexto de 
   assert(guarded.to === "crm@axion.com.br" && guarded.subject.startsWith("[TESTE CONTROLADO] "));
   const redirected = guard.applyPilotOutboundGuard({ ...baseInput, to: "terceiro@axion.com.br", replyTo: validReplyTo, replyToContext: context }, PILOT_ENV);
   assert(redirected.to === "crm@axion.com.br" && redirected.replyTo === validReplyTo, "fora da allowlist do guard: destinatário redirecionado, Reply-To (da caixa ACC) mantido");
-  assert(validReplyTo === `acc+alerta-${token}@axion.com.br`, "formato <caixa-acc>+alerta-<token>@<domínio>");
+  assert(validReplyTo === `crm+alerta-${token}@axion.com.br`, "formato <caixa-acc>+alerta-<token>@<domínio>");
 });
 await check("R2. Reply-To de domínio externo é removido (com e sem contexto) e o motivo registrado sem endereço/token", () => {
   const reasons = [];
   const env = { ...PILOT_ENV, onReplyToRemoved: (r) => reasons.push(r) };
-  const external = guard.applyPilotOutboundGuard({ ...baseInput, replyTo: `acc+alerta-${token}@empresa-externa.com.br`, replyToContext: context }, env);
+  const external = guard.applyPilotOutboundGuard({ ...baseInput, replyTo: `crm+alerta-${token}@empresa-externa.com.br`, replyToContext: context }, env);
   assert(external.replyTo === undefined && reasons.includes("DOMAIN_NOT_ALLOWED"));
   const noContext = guard.applyPilotOutboundGuard({ ...baseInput, replyTo: validReplyTo }, env);
   assert(noContext.replyTo === undefined && reasons.includes("REPLY_CONTEXT_MISSING"));
@@ -122,27 +122,27 @@ await check("R2. Reply-To de domínio externo é removido (com e sem contexto) e
   assert(src.includes("console.warn(`[pilot-outbound-guard] Reply-To removido (${reason}).`)") && !/console\.warn\([^)]*replyTo/.test(src));
 });
 await check("R3. Token inválido/curto/previsível (UUID) é removido; caixa não configurada remove", () => {
-  assert(guard.resolveGuardedReplyTo({ replyTo: "acc+alerta-abc@axion.com.br", replyToContext: context }, PILOT_ENV).removedReason === "TOKEN_INVALID");
-  assert(guard.resolveGuardedReplyTo({ replyTo: `acc+alerta-${CASE_ID}@axion.com.br`, replyToContext: context }, PILOT_ENV).removedReason === "TOKEN_LOOKS_LIKE_IDENTIFIER");
+  assert(guard.resolveGuardedReplyTo({ replyTo: "crm+alerta-abc@axion.com.br", replyToContext: context }, PILOT_ENV).removedReason === "TOKEN_INVALID");
+  assert(guard.resolveGuardedReplyTo({ replyTo: `crm+alerta-${CASE_ID}@axion.com.br`, replyToContext: context }, PILOT_ENV).removedReason === "TOKEN_LOOKS_LIKE_IDENTIFIER");
   assert(guard.resolveGuardedReplyTo({ replyTo: validReplyTo, replyToContext: context }, { alertReplyMailbox: undefined }).removedReason === "MAILBOX_NOT_CONFIGURED");
   assert(guard.resolveGuardedReplyTo({ replyTo: validReplyTo, replyToContext: context }, { alertReplyMailbox: "nao-e-email" }).removedReason === "MAILBOX_NOT_CONFIGURED");
   assert(replyAddress.isValidAlertReplyToken(token) && !replyAddress.isValidAlertReplyToken("a@b") && !replyAddress.isValidAlertReplyToken(CASE_ID));
   assert(/[A-Za-z0-9_-]{32}/.test(token) && !/[@.]/.test(token), "token base64url sem @/. — não carrega e-mail nem dados pessoais");
 });
 await check("R4. CR/LF no Reply-To é rejeitado antes de qualquer outra validação", () => {
-  for (const bad of [`${validReplyTo}\r\nBcc: x@y.z`, `${validReplyTo}\nX: y`, `acc+alerta-${token}@axion.com.br\r`]) {
+  for (const bad of [`${validReplyTo}\r\nBcc: x@y.z`, `${validReplyTo}\nX: y`, `crm+alerta-${token}@axion.com.br\r`]) {
     const r = guard.resolveGuardedReplyTo({ replyTo: bad, replyToContext: context }, PILOT_ENV);
     assert(r.replyTo === undefined && r.removedReason === "CRLF", `CRLF deveria ser rejeitado: ${JSON.stringify(bad)}`);
   }
   assert(replyAddress.validateAlertReplyTo("a\r\nb", MAILBOX).reason === "CRLF");
 });
 await check("R5. Header injection (<, >, vírgula, espaço, aspas, parênteses, não-ASCII) é rejeitada", () => {
-  const cases = [`"ACC" <${validReplyTo}>`, `${validReplyTo}, outro@axion.com.br`, `acc+alerta-${token} @axion.com.br`, `${validReplyTo};x`, `${validReplyTo}(c)`, `acc+alerta-${token}@axion.com.br\u00a0`, `açc+alerta-${token}@axion.com.br`];
+  const cases = [`"ACC" <${validReplyTo}>`, `${validReplyTo}, outro@axion.com.br`, `crm+alerta-${token} @axion.com.br`, `${validReplyTo};x`, `${validReplyTo}(c)`, `crm+alerta-${token}@axion.com.br\u00a0`, `açc+alerta-${token}@axion.com.br`];
   for (const bad of cases) {
     const r = guard.resolveGuardedReplyTo({ replyTo: bad, replyToContext: context }, PILOT_ENV);
     assert(r.replyTo === undefined && r.removedReason === "HEADER_INJECTION", `injeção deveria ser rejeitada: ${JSON.stringify(bad)} (${r.removedReason})`);
   }
-  const mime = buildMimeMessage({ ...baseInput, replyTo: validReplyTo }, "acc@axion.com.br", "<m@acc>");
+  const mime = buildMimeMessage({ ...baseInput, replyTo: validReplyTo }, "crm@axion.com.br", "<m@acc>");
   assert(mime.includes(`Reply-To: ${validReplyTo}`), "MIME emite o Reply-To válido");
 });
 await check("R6. Guard nunca redireciona o Reply-To para uma pessoa: endereço de pessoa da allowlist/caixa pessoal é removido; produção valida quando há contexto e não toca fluxos legados", () => {
@@ -153,7 +153,7 @@ await check("R6. Guard nunca redireciona o Reply-To para uma pessoa: endereço d
   const prodEnv = { outboundMode: "production", alertReplyMailbox: MAILBOX, now: new Date("2026-09-23T12:00:00Z"), onReplyToRemoved: () => {} };
   const legacy = guard.applyPilotOutboundGuard({ ...baseInput, replyTo: "resposta@empresa.com" }, prodEnv);
   assert(legacy.replyTo === "resposta@empresa.com", "produção sem contexto: fluxo legado intocado");
-  const prodAlert = guard.applyPilotOutboundGuard({ ...baseInput, replyTo: `acc+alerta-${token}@externo.com`, replyToContext: context }, prodEnv);
+  const prodAlert = guard.applyPilotOutboundGuard({ ...baseInput, replyTo: `crm+alerta-${token}@externo.com`, replyToContext: context }, prodEnv);
   assert(prodAlert.replyTo === undefined, "produção com contexto de alerta: externo removido");
   assert(guard.applyPilotOutboundGuard({ ...baseInput, replyTo: validReplyTo, replyToContext: context }, prodEnv).replyTo === validReplyTo);
 });

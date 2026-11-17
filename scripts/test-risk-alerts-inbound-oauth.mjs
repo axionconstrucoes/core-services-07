@@ -1,5 +1,5 @@
 // OAuth DEDICADO da caixa de respostas aos alertas de risco (piloto:
-// acc@axion.com.br) — a fase `replies` do worker usa EXCLUSIVAMENTE
+// crm@axion.com.br) — a fase `replies` do worker usa EXCLUSIVAMENTE
 // ACC_RISK_ALERTS_INBOUND_*, sem fallback para GOOGLE_GMAIL_INBOUND_*
 // (Gmail Inbound Sync, intocado). Funções REAIS (puras) + inspeção de
 // fonte do worker/workflow/helper; nenhum OAuth real, nenhum acesso a
@@ -43,13 +43,13 @@ async function check(name, fn) {
 }
 
 // ------------------------------------------------------------------ fixtures (valores FICTÍCIOS; nenhum segredo real)
-const BOX = "acc@axion.com.br";
+const BOX = "crm@axion.com.br";
 const ENV = creds.RISK_ALERTS_INBOUND_ENV;
 const fullEnv = () => ({
   [ENV.clientId]: "fake-client-id.apps.googleusercontent.com",
   [ENV.clientSecret]: "fake-client-secret",
   [ENV.refreshToken]: "fake-refresh-token",
-  [ENV.mailbox]: "  Acc@Axion.com.br ",
+  [ENV.mailbox]: "  Crm@Axion.com.br ",
 });
 const legacyEnv = () => ({
   GOOGLE_GMAIL_INBOUND_CLIENT_ID: "legacy-id",
@@ -95,7 +95,7 @@ await check("3. Sem fallback: somente GOOGLE_GMAIL_INBOUND_* presentes => SKIPPE
   assert(!codeOnly(readSource("apps/web/lib/risk-alerts/replies/inbound-credentials.ts")).includes("GOOGLE_GMAIL_INBOUND_"), "módulo não conhece as variáveis legadas");
 });
 await check("4. Caixa dedicada inválida (não é e-mail) => SKIPPED_NOT_CONFIGURED", () => {
-  for (const bad of ["axion", "axion@", "@axion.com.br", "axion acc@axion.com.br", "Axion <acc@axion.com.br>"]) {
+  for (const bad of ["axion", "axion@", "@axion.com.br", "axion crm@axion.com.br", "Axion <crm@axion.com.br>"]) {
     const result = creds.resolveRiskAlertInboundCredentials({ ...fullEnv(), [ENV.mailbox]: bad });
     assert(result.ok === false && result.missing.length === 1 && result.missing[0] === ENV.mailbox, `mailbox=${JSON.stringify(bad)}`);
   }
@@ -104,8 +104,8 @@ await check("4. Caixa dedicada inválida (não é e-mail) => SKIPPED_NOT_CONFIGU
 // ------------------------------------------------------------------ 2. falha fechada: perfil autenticado ≠ caixa
 await check("5. Perfil Gmail autenticado ≠ caixa dedicada => bloqueado (null, vazio, outra caixa, sub-endereço)", () => {
   assert(creds.inboundProfileMatchesMailbox(BOX, BOX) === true);
-  assert(creds.inboundProfileMatchesMailbox(" ACC@axion.com.br ", BOX) === true, "comparação normalizada");
-  for (const other of [null, undefined, "", "   ", "inbound@axion.com.br", "acc+alerta-x@axion.com.br", "acc@axion.com", "reynaldo@axion.com.br"]) {
+  assert(creds.inboundProfileMatchesMailbox(" CRM@axion.com.br ", BOX) === true, "comparação normalizada");
+  for (const other of [null, undefined, "", "   ", "inbound@axion.com.br", "crm+alerta-x@axion.com.br", "acc@axion.com", "reynaldo@axion.com.br"]) {
     assert(creds.inboundProfileMatchesMailbox(other, BOX) === false, `perfil ${JSON.stringify(other)} deveria bloquear`);
   }
 });
@@ -126,7 +126,7 @@ await check("7. Override de entrega ≠ caixa dedicada => BLOCKED_OVERRIDE_MISMA
   assert(creds.checkOverrideCompatibility(BOX, null).ok === true);
   assert(creds.checkOverrideCompatibility(BOX, undefined).ok === true);
   assert(creds.checkOverrideCompatibility(BOX, "").ok === true);
-  assert(creds.checkOverrideCompatibility(BOX, " ACC@axion.com.br ").ok === true);
+  assert(creds.checkOverrideCompatibility(BOX, " CRM@axion.com.br ").ok === true);
   const blocked = creds.checkOverrideCompatibility(BOX, "outra@axion.com.br");
   assert(blocked.ok === false && blocked.status === "BLOCKED_OVERRIDE_MISMATCH");
   assert(creds.checkOverrideCompatibility(BOX, "reynaldo@axion.com.br").ok === false);
@@ -139,7 +139,7 @@ const baseHeaders = (o = {}) => ({ from: "fornecedor@exemplo.com", messageId: "<
 await check("8. Mensagens da própria caixa dedicada (self / sub-endereço) são ignoradas", () => {
   const ctx = { accMailboxes: [BOX], seenMessageIds: new Set() };
   assert(filterInboundMessage(baseHeaders({ from: BOX }), ctx) === "IGNORED_SELF");
-  assert(filterInboundMessage(baseHeaders({ from: "acc+alerta-abc@axion.com.br" }), ctx) === "IGNORED_SELF");
+  assert(filterInboundMessage(baseHeaders({ from: "crm+alerta-abc@axion.com.br" }), ctx) === "IGNORED_SELF");
   assert(filterInboundMessage(baseHeaders(), ctx) === "OK");
   const sent = extractInboundFromGmail({ id: "g1", threadId: "t1", labelIds: ["SENT"], payload: { headers: [{ name: "From", value: BOX }, { name: "To", value: "x@exemplo.com" }, { name: "Message-ID", value: "<s@axion.com.br>" }], mimeType: "text/plain", body: { data: "" } } }, BOX);
   assert(sent && sent.isSentByMailbox === true, "mensagem enviada pela caixa nunca vira resposta");

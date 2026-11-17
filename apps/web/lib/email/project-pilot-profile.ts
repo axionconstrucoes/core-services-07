@@ -3,15 +3,15 @@
 // MODELO DE ENTREGA DIRETA COM CÓPIA INSTITUCIONAL (substitui o modelo anterior de destino único):
 //   - Participantes autorizados: Reynaldo, Jaime e Carlos Evandro (lista FIXA no código; endereços conferidos nos perfis do ACC).
 //   - Destinatário principal (To): o PRÓPRIO colaborador a quem o alerta se destina — o usuário lógico do alerta é também o destinatário físico.
-//   - Cópia obrigatória (Cc): acc@axion.com.br em TODA mensagem do piloto, inclusive quando o remetente é o próprio ACC.
-//   - Remetente: acc@axion.com.br (identidade institucional) ou um participante AUTORIZADO e AUTENTICADO. Nunca outra identidade; sem
+//   - Cópia obrigatória (Cc): crm@axion.com.br em TODA mensagem do piloto, inclusive quando o remetente é o próprio ACC.
+//   - Remetente: crm@axion.com.br (identidade institucional) ou um participante AUTORIZADO e AUTENTICADO. Nunca outra identidade; sem
 //     credencial própria do remetente solicitado a mensagem NÃO sai (nunca é enviada "como outra pessoa" nem pelo remetente padrão).
-//   - axion@axion.com.br é PROIBIDO em To, Cc, Reply-To e qualquer cabeçalho de destinatário.
+//   - axion@axion.com.br e acc@axion.com.br (esta não existe no Workspace) são PROIBIDOS em To, Cc, Reply-To e qualquer cabeçalho de destinatário.
 //   - Projeto: exclusivamente a WEG (conferido pelo id, nunca pelo nome).
 //
 // Configuração SOMENTE por variáveis de ambiente do servidor (nada versionado; sem a variável de projeto, nada muda):
 //   ACC_PROJECT_PILOT_PROJECT_ID          UUID do projeto piloto (precisa ser a WEG)
-//   ACC_PROJECT_PILOT_SENDER              identidade institucional de envio (precisa ser acc@axion.com.br)
+//   ACC_PROJECT_PILOT_SENDER              identidade institucional de envio (precisa ser crm@axion.com.br)
 //   ACC_PROJECT_PILOT_AUTHORIZED_SENDERS  (opcional) participantes autorizados a ENVIAR com a própria identidade, separados por vírgula
 // As variáveis legadas ACC_PROJECT_PILOT_DESTINATION e ACC_PROJECT_PILOT_TEST_GROUP NÃO são mais lidas (permanecem apenas como histórico).
 //
@@ -28,7 +28,7 @@ export const PROJECT_PILOT_AUTHORIZED_SENDERS_ENV = "ACC_PROJECT_PILOT_AUTHORIZE
 export const WEG_PROJECT_ID = "00000000-0000-4000-8000-000000000001";
 
 /** Identidade institucional do ACC: remetente padrão do piloto e cópia (Cc) obrigatória de toda mensagem. */
-export const ACC_PILOT_INSTITUTIONAL_ADDRESS = "acc@axion.com.br";
+export const ACC_PILOT_INSTITUTIONAL_ADDRESS = "crm@axion.com.br";
 
 /** Participantes autorizados do piloto WEG — endereços conferidos nos perfis do ACC (profiles.email), todos ACTIVE e na allowlist. */
 export const PILOT_PARTICIPANT_ADDRESSES = [
@@ -38,7 +38,7 @@ export const PILOT_PARTICIPANT_ADDRESSES = [
 ] as const;
 
 /** Endereços PROIBIDOS no roteamento do piloto (To, Cc, Reply-To, destinatários de resposta). */
-export const PILOT_FORBIDDEN_ADDRESSES = ["axion@axion.com.br"] as const;
+export const PILOT_FORBIDDEN_ADDRESSES = ["axion@axion.com.br", "acc@axion.com.br"] as const;
 
 export const PROJECT_PILOT_SUBJECT_TAG = "[PILOTO]";
 
@@ -53,7 +53,7 @@ export type ProjectPilotProfile =
       configured: true;
       valid: true;
       projectId: string;
-      /** Identidade institucional (acc@). */
+      /** Identidade institucional (crm@). */
       sender: string;
       /** Participantes autorizados a enviar com a própria identidade (subconjunto de PILOT_PARTICIPANT_ADDRESSES). */
       authorizedSenders: string[];
@@ -129,7 +129,7 @@ export interface ProjectPilotRouting {
   input: SendEmailInput;
   /** true => esta mensagem DEVE sair pela identidade `sender` (e só por ela). */
   routed: boolean;
-  /** Remetente autenticado resolvido (acc@ ou participante autorizado). */
+  /** Remetente autenticado resolvido (crm@ ou participante autorizado). */
   sender: string | null;
   /** Destinatário principal (o próprio colaborador). */
   to: string | null;
@@ -156,8 +156,8 @@ function buildBanner(input: SendEmailInput, senderLabel: string): { text: string
  * Aplica o perfil do projeto piloto. Mensagem de outro projeto (ou sem projeto, ou sem perfil configurado) volta INTOCADA.
  * Mensagem do projeto piloto:
  *   - To = o próprio colaborador (precisa ser um dos participantes autorizados — qualquer outro endereço BLOQUEIA o envio);
- *   - Cc = acc@axion.com.br, sempre (inclusive com remetente acc@); nunca Bcc;
- *   - remetente = acc@ (padrão) ou o participante solicitado, SE autorizado (ACC_PROJECT_PILOT_AUTHORIZED_SENDERS); caso contrário bloqueia;
+ *   - Cc = crm@axion.com.br, sempre (inclusive com remetente crm@); nunca Bcc;
+ *   - remetente = crm@ (padrão) ou o participante solicitado, SE autorizado (ACC_PROJECT_PILOT_AUTHORIZED_SENDERS); caso contrário bloqueia;
  *   - Reply-To validado pelo guard (caixa inbound do ACC + token opaco) e nunca para endereço proibido;
  *   - assunto e corpo identificados como PILOTO.
  */

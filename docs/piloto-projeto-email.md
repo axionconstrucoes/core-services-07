@@ -1,6 +1,6 @@
 # Piloto por projeto — e-mails com remetente e destino fixos (Fase 1)
 
-> **SUBSTITUÍDO (modelo de entrega):** o destino único `axion@axion.com.br` e o grupo `WEG_INTERNAL_FOUR` descritos abaixo foram aposentados. O piloto passou a usar **entrega direta ao colaborador com cópia institucional em `acc@axion.com.br`** — ver [piloto-entrega-direta-cc-acc.md](piloto-entrega-direta-cc-acc.md). Este texto permanece como histórico.
+> **SUBSTITUÍDO (modelo de entrega):** o destino único `axion@axion.com.br` e o grupo `WEG_INTERNAL_FOUR` descritos abaixo foram aposentados. O piloto passou a usar **entrega direta ao colaborador com cópia institucional em `crm@axion.com.br`** — ver [piloto-entrega-direta-cc-acc.md](piloto-entrega-direta-cc-acc.md). Este texto permanece como histórico.
 
 > Implementado e testado **sem envio real**. Nada disto está ativo enquanto `ACC_PROJECT_PILOT_PROJECT_ID` não for definido no ambiente do servidor. Nenhum valor real de configuração (UUID, contas) é versionado.
 

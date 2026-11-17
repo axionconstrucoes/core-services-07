@@ -53,7 +53,7 @@ export function resolveGmailPilotSenderConfig(expectedSender: string, env: Env):
 
 // ------------------------------------------------------------------
 // Identidade de envio POR REMETENTE (modelo de entrega direta do piloto).
-//   - acc@axion.com.br (institucional): mesma configuração de sempre do piloto (resolveGmailPilotSenderConfig).
+//   - crm@axion.com.br (institucional): mesma configuração de sempre do piloto (resolveGmailPilotSenderConfig).
 //   - participante autorizado (reynaldo/jaime.ramos/carlos.evandro): credencial PRÓPRIA da pessoa, consentida por ela —
 //     GOOGLE_GMAIL_PILOT_USER_<CHAVE>_REFRESH_TOKEN, onde CHAVE = parte local do endereço em maiúsculas com não-alfanuméricos → "_"
 //     (ex.: jaime.ramos@ → GOOGLE_GMAIL_PILOT_USER_JAIME_RAMOS_REFRESH_TOKEN). Exige o par de cliente do piloto (ID e SECRET).

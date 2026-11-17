@@ -10,7 +10,7 @@
 //
 // Salvaguardas (todas fail-closed):
 //   - exige perfil de entrega do piloto ATIVO e VÁLIDO para ESTE projeto (resolveProjectPilotParticipants): entrega direta ao próprio
-//     colaborador (Reynaldo, Jaime ou Carlos Evandro) com cópia obrigatória em acc@axion.com.br;
+//     colaborador (Reynaldo, Jaime ou Carlos Evandro) com cópia obrigatória em crm@axion.com.br;
 //   - o caso precisa existir no projeto, estar ABERTO e ser HIGH/CRITICAL; o id do caso é informado explicitamente;
 //   - destinatários lógicos = membros da allowlist do piloto com vínculo ativo (evaluateRecipient) — nunca outros;
 //   - teto: 1 caso e no máximo MAX_PILOT_SINGLE_RECIPIENTS e-mails;
@@ -316,7 +316,7 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
       action: "RISK_ALERT_PILOT_SINGLE_RUN",
       entityType: "RISK_ALERT_CASE",
       entityId: caseId,
-      detail: `Execução manual única do piloto: ${entries.length} destinatário(s) lógico(s) da allowlist (${retried} retentativa(s) de linha bloqueada antes de qualquer chamada de rede), entrega direta ao próprio colaborador autorizado com cópia institucional (acc@axion.com.br), sem Bcc. risk_alerts_enabled não alterado.`,
+      detail: `Execução manual única do piloto: ${entries.length} destinatário(s) lógico(s) da allowlist (${retried} retentativa(s) de linha bloqueada antes de qualquer chamada de rede), entrega direta ao próprio colaborador autorizado com cópia institucional (crm@axion.com.br), sem Bcc. risk_alerts_enabled não alterado.`,
     },
   ]);
   const ctx: SendContext = {
