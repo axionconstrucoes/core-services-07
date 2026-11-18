@@ -133,7 +133,7 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
       continue;
     }
     if ((snapshot.informativeAreas ?? []).includes(loaded.record.area)) {
-      // Área informativa no projeto (ex.: FINANCEIRO da WEG): a resposta fica registrada, sem ação,
+      // Área informativa no projeto (ex.: FINANCEIRO no piloto): a resposta fica registrada, sem ação,
       // escalonamento, cobrança ou confirmação automática.
       await store.updateInboundMessage(message.id, { ...basePatch, status: "PROCESSED", statusReason: "Área informativa: registrada sem ação automática" });
       result.recorded += 1;

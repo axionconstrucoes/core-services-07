@@ -93,6 +93,10 @@ const { resolveRiskAlertInboundCredentials, inboundProfileMatchesMailbox, checkO
 
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
+// --replies-dry-run: fase replies em modo SOMENTE LEITURA — lê a caixa institucional e processa as respostas
+// com o processador real, mas TODA escrita (mensagens, ações, auditoria, confirmações) fica em memória.
+// Nada é gravado, nenhuma confirmação é enfileirada, nenhum e-mail é enviado. Log só com contagens/estados.
+const repliesDryRun = args.includes("--replies-dry-run");
 const projectIdArg = args.find((arg) => !arg.startsWith("--")) ?? null;
 const phaseArg = (args.find((arg) => arg.startsWith("--phase=")) ?? "--phase=all").split("=")[1];
 const limitArg = args.find((arg) => arg.startsWith("--limit="));
@@ -118,6 +122,32 @@ function required(name) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing environment variable: ${name}`);
   return value;
+}
+
+/**
+ * Store de DRY-RUN para o processador de respostas: leituras reais (snapshot, índice, caso, previsões);
+ * escritas capturadas em memória; qualquer outra chamada falha fechada (nunca grava por acidente).
+ */
+function createDryRunReplyStore(realStore, inbound) {
+  const captured = { updates: [], transitions: [], audits: [], confirmations: [], forecastReplies: 0 };
+  const reads = new Set(["loadProjectSnapshot", "loadCorrelationIndex", "loadCaseSnapshotForAction", "loadCaseForecastEvents", "loadCaseRecord"]);
+  const writes = {
+    async listInboundToProcess() { return inbound; },
+    async updateInboundMessage(_id, patch) { captured.updates.push({ status: patch.status, statusReason: patch.statusReason, classification: patch.classification, correlationMethod: patch.correlationMethod }); },
+    async applyTransition(_caseId, transition) { captured.transitions.push(transition); return { state: transition.caseUpdate.state, escalationId: null }; },
+    async audit(_projectId, events) { captured.audits.push(...events.map((e) => e.action)); },
+    async recordForecastReply() { captured.forecastReplies += 1; },
+    async enqueueReplyConfirmation(_p, _c, entry) { captured.confirmations.push(entry.notificationType); },
+  };
+  const store = new Proxy({}, {
+    get(_target, prop) {
+      if (prop in writes) return writes[prop];
+      if (reads.has(prop) && typeof realStore[prop] === "function") return realStore[prop].bind(realStore);
+      return () => { throw new Error(`dry-run: chamada não permitida (${String(prop)})`); };
+    },
+    has(_target, prop) { return prop in writes || (reads.has(prop) && typeof realStore[prop] === "function"); },
+  });
+  return { store, captured };
 }
 
 function getHeader(headers, name) {
@@ -397,7 +427,7 @@ if (phases.has("alerts") && apply) {
 // FASE 7 — RESPOSTAS POR E-MAIL AOS ALERTAS DE RISCO
 // ------------------------------------------------------------------
 let repliesBlocked = false;
-if (phases.has("replies") && apply) {
+if (phases.has("replies") && (apply || repliesDryRun)) {
   // Credenciais DEDICADAS (nunca GOOGLE_GMAIL_INBOUND_*, que são do Gmail
   // Inbound Sync). Ausentes => fase pulada sem falhar o job.
   const inbound = resolveRiskAlertInboundCredentials(process.env);
@@ -460,10 +490,18 @@ if (phases.has("replies") && apply) {
       .not("reply_token_hash", "is", null);
     const conversationByTokenHash = new Map((outboundTokens ?? []).map((row) => [row.reply_token_hash, { id: row.conversation_id, case_id: row.case_id }]));
 
+    const dryInbound = [];
     const insertInbound = async (conversation, message) => {
       if (!message.id || knownIds.has(message.id)) return;
       const extracted = extractInboundFromGmail(message, mailbox);
       if (!extracted || extracted.isSentByMailbox) return; // mensagens do próprio ACC nunca viram "resposta"
+      if (repliesDryRun) {
+        // Somente memória: mesmo formato que listInboundToProcess devolveria após o registro.
+        knownIds.add(message.id);
+        summary.replies.captured += 1;
+        dryInbound.push({ id: `dry-${dryInbound.length + 1}`, projectId: config.projectId, providerMessageId: extracted.providerMessageId, headers: extracted.headers, bodyOriginal: extracted.bodyOriginal, receivedAt: extracted.receivedAt });
+        return;
+      }
       const { error } = await supabase.from("alert_email_messages").insert({
         project_id: config.projectId,
         conversation_id: conversation.id,
@@ -566,11 +604,21 @@ if (phases.has("replies") && apply) {
       }
     }
     summary.replies.messageIdAliases = (summary.replies.messageIdAliases ?? 0) + messageIdAliases.size;
+    if (repliesDryRun) {
+      const dry = createDryRunReplyStore(riskStore, dryInbound);
+      const outcome = await processAlertReplies(dry.store, config.projectId, new Date().toISOString(), [mailbox], { messageIdAliases });
+      summary.replies.processed.push({ ...outcome, dryRun: true });
+      console.log(`Respostas (DRY-RUN, nada gravado/enviado) projeto ${config.projectId}: ${JSON.stringify(outcome)}`);
+      console.log(`  mensagens: ${JSON.stringify(dry.captured.updates.map((u) => ({ status: u.status, motivo: u.statusReason ?? null, classificacao: u.classification ?? null, correlacao: u.correlationMethod ?? null })))}`);
+      console.log(`  transições planejadas: ${JSON.stringify(dry.captured.transitions.map((t) => ({ de: t.expectedState, para: t.caseUpdate.state, previsao: t.forecast?.status ?? null, outbox: t.outbox.map((e) => `${e.notificationType}/${e.status}`) })))}`);
+      console.log(`  auditoria planejada: ${JSON.stringify(dry.captured.audits)}; confirmações planejadas: ${dry.captured.confirmations.length + dry.captured.transitions.reduce((n, t) => n + t.outbox.filter((e) => e.notificationType === "ACTION_CONFIRMATION").length, 0)}`);
+      continue;
+    }
     const outcome = await processAlertReplies(riskStore, config.projectId, new Date().toISOString(), [mailbox], { messageIdAliases });
     summary.replies.processed.push(outcome);
   }
   // Respostas aos avisos de AÇÃO CORRETIVA SSMA (escopo WEG): mesma caixa institucional, somente leitura; só contagens no log.
-  if (gmail && mailbox) {
+  if (gmail && mailbox && !repliesDryRun) {
     try {
       const { runSsmaRepliesPhase } = await import("./lib/ssma-replies-phase.mjs");
       summary.replies.ssma = await runSsmaRepliesPhase({ supabase, gmail, mailbox });

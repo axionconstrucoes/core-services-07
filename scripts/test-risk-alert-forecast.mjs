@@ -293,5 +293,15 @@ await check("23. Estáticos: confirmação só por outbox (worker), sem envio no
   assert(!/FINANCEIRO/.test(readSource("apps/web/lib/risk-alerts/forecast.ts")));
 });
 
+await check("24. Dry-run da fase replies (crm@): sem --apply, escritas só em memória, SSMA não roda, store falha fechada", () => {
+  const script = readSource("scripts/weekly-schedule-email-ingest.mjs");
+  assert(script.includes('const repliesDryRun = args.includes("--replies-dry-run");'));
+  assert(script.includes("if (repliesDryRun) {\n        // Somente memória"), "captura não grava alert_email_messages");
+  assert(script.includes("gmail && mailbox && !repliesDryRun"), "SSMA não roda no dry-run");
+  assert(script.includes("dry-run: chamada não permitida"), "store falha fechada");
+  const wf = readSource(".github/workflows/weekly-schedule-email-ingestion.yml");
+  assert(wf.includes('node scripts/weekly-schedule-email-ingest.mjs "$project_id" --phase=replies --replies-dry-run') && !/--apply --phase=replies --replies-dry-run/.test(wf));
+});
+
 console.log(`\n${passed} OK, ${failed} FAIL`);
 if (failed > 0) process.exit(1);
