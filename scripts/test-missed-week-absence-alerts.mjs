@@ -1,4 +1,5 @@
-// Recuperação de semanas perdidas nos alertas de ausência ("detectado com atraso") + trava:
+// Recuperação de semanas perdidas (checkpoint em lotes, classificação por evidência, responsável à época)
+// nos alertas de ausência ("detectado com atraso") + trava:
 // alerta detectado com atraso NÃO gera e-mail, ação SLA nem escalonamento sem decisão humana
 // auditada de reemissão. Funções REAIS com stores em memória. Nenhum banco, rede ou e-mail.
 // Uso: node scripts/test-missed-week-absence-alerts.mjs
@@ -20,6 +21,7 @@ register("./ts-module-resolver.mjs", import.meta.url);
 
 const absence = await import("../apps/web/lib/schedule/weekly-ingestion/create-absence-alerts");
 const late = await import("../apps/web/lib/schedule/weekly-ingestion/late-detection");
+const classif = await import("../apps/web/lib/schedule/weekly-ingestion/missed-week-classification");
 const { collectIngestionAlertCases, caseKeyOf } = await import("../apps/web/lib/risk-alerts/collect-risk-cases");
 const { planRiskAlerts } = await import("../apps/web/lib/risk-alerts/plan-risk-alerts");
 const ledgerMod = await import("../apps/web/lib/risk-alerts/communication-ledger");
@@ -56,10 +58,32 @@ const cfg = (o = {}) => ({
   ...o,
 });
 
-function memoryStore({ receivedWeeks = [], sCurveWeeks = [], workbookWeeks = [], alerts = [] } = {}) {
+const RICARDO = { userId: "r0000000-0000-4000-8000-0000000000aa", email: "ricardo.martins@axion.com.br" };
+const JAIME = { userId: "b2222222-0000-4000-8000-000000000012", email: "jaime.ramos@axion.com.br" };
+// Transição real: 17/11/2026 22:31 UTC (RISK_ALERT_RESPONSIBLE_TRANSFERRED), várias linhas por caso.
+const TRANSFERS = [0, 1, 2].map(() => ({ at: "2026-11-17T22:31:53.972Z", from: RICARDO, to: JAIME }));
+
+/**
+ * Store em memória com evidência por semana. Padrões: coleta íntegra (última coleta muito depois),
+ * caixas do Ricardo e do Jaime integradas, transição em 17/11 — sobrescreva por teste.
+ */
+function memoryStore({
+  receivedWeeks = [],
+  sCurveWeeks = [],
+  workbookWeeks = [],
+  mppCollectedWeeks = [],
+  alerts = [],
+  lastSuccessfulCollectionAt = "2026-11-18T01:45:00Z",
+  integratedMailboxes = [RICARDO.email, JAIME.email],
+  current = JAIME,
+  transfers = TRANSFERS,
+  checkpoint = null,
+  withEvidence = true,
+} = {}) {
   const store = {
     alerts: alerts.map((a, i) => ({ id: `pre-${i}`, ...a })),
     audit: [],
+    checkpoints: checkpoint ? [checkpoint] : [],
     async hasReceivedScheduleForWeek(_p, w) { return receivedWeeks.includes(w); },
     async hasSCurveForWeek(_p, w) { return sCurveWeeks.includes(w); },
     async hasWorkbookForWeek(_p, w) { return workbookWeeks.includes(w); },
@@ -71,68 +95,133 @@ function memoryStore({ receivedWeeks = [], sCurveWeeks = [], workbookWeeks = [],
     },
     async writeAudit(entry) { store.audit.push(entry); },
   };
+  if (withEvidence) {
+    store.loadMissedWeeksCheckpoint = async () => store.checkpoints.at(-1) ?? null;
+    store.saveMissedWeeksCheckpoint = async (_p, week, summary) => {
+      store.checkpoints.push(week);
+      store.audit.push({ action: absence.MISSED_WEEKS_CHECKPOINT_ACTION, entityType: "WEEKLY_SCHEDULE_INGESTION_CONFIG", entityId: WEG, detail: JSON.stringify({ lastVerifiedWeekStart: week, ...summary }) });
+    };
+    store.loadMissedWeekEvidence = async (_cfg, week, deadlineAt) => {
+      const responsibleAtTime = classif.resolveResponsibleAt(deadlineAt.toISOString(), current, transfers);
+      return {
+        scheduleReceived: receivedWeeks.includes(week),
+        mppCollectedWithoutAcceptedSchedule: mppCollectedWeeks.includes(week),
+        lastSuccessfulCollectionAt,
+        responsibleAtTime,
+        responsibleMailboxIntegrated: Boolean(responsibleAtTime.email && integratedMailboxes.includes(responsibleAtTime.email)),
+      };
+    };
+  }
   return store;
 }
 
 // "Agora" = quarta 18/11/2026 (semana de 16/11, prazo ainda não vencido).
 const NOW = new Date("2026-11-18T15:00:00Z");
+const created = (s) => s.alerts.filter((a) => !a.id.startsWith("pre-"));
 
-await check("1. Semanas perdidas (02/11 e 09/11) criadas com marca 'detectado com atraso', prazo original e auditoria própria; 26/10 já alertada e 19/10 recebida não duplicam", async () => {
-  const s = memoryStore({ receivedWeeks: ["2026-10-19"], sCurveWeeks: ["2026-10-19"], workbookWeeks: ["2026-10-19"], alerts: [{ projectId: WEG, weekStart: "2026-10-26", kind: "MISSING_WEEKLY_SCHEDULE" }] });
+await check("1. CRONOGRAMA_NAO_RECEBIDO (coleta íntegra + caixa integrada): cria alerta 'detectado com atraso' com classificação, responsável à época e prazo original; 26/10 já alertada e 19/10 recebida não duplicam", async () => {
+  const s = memoryStore({ receivedWeeks: ["2026-10-19"], sCurveWeeks: ["2026-10-19"], workbookWeeks: ["2026-10-19"], alerts: [{ projectId: WEG, weekStart: "2026-10-26", kind: "MISSING_WEEKLY_SCHEDULE" }], checkpoint: "2026-10-12" });
   const out = await absence.createMissedWeekAbsenceAlerts(s, cfg(), NOW);
-  assert(JSON.stringify(out.examinedWeeks) === JSON.stringify(["2026-11-09", "2026-11-02", "2026-10-26", "2026-10-19"]), out.examinedWeeks.join(","));
-  const created = s.alerts.filter((a) => !a.id.startsWith("pre-"));
-  assert(out.createdLate === 2 && created.length === 2, `criados: ${created.map((a) => `${a.weekStart}/${a.kind}`).join(",")}`);
-  assert(created.every((a) => a.kind === "MISSING_WEEKLY_SCHEDULE"), "só cronograma (sem cronograma => Curva S/planilha NO_SCHEDULE_YET)");
-  assert(created.map((a) => a.weekStart).sort().join(",") === "2026-11-02,2026-11-09");
-  for (const a of created) {
-    assert(late.isLateDetectedDetail(a.detail), a.detail);
-    assert(a.detail.includes("em 2026-11-18T15:00:00.000Z"), "data de detecção");
-    assert(a.detail.includes(`prazo original ${a.deadlineAt}`), "prazo original");
+  assert(JSON.stringify(out.examinedWeeks) === JSON.stringify(["2026-10-19", "2026-10-26", "2026-11-02", "2026-11-09"]), out.examinedWeeks.join(","));
+  const c = created(s);
+  assert(out.createdLate === 2 && c.length === 2 && c.every((a) => a.kind === "MISSING_WEEKLY_SCHEDULE"), c.map((a) => `${a.weekStart}/${a.kind}`).join(","));
+  for (const a of c) {
+    assert(late.isLateDetectedDetail(a.detail) && a.detail.includes("CRONOGRAMA_NAO_RECEBIDO"), a.detail);
+    assert(a.detail.includes(`prazo original ${a.deadlineAt}`) && a.detail.includes("em 2026-11-18T15:00:00.000Z"));
   }
-  assert(created.find((a) => a.weekStart === "2026-11-02").deadlineAt === "2026-11-06T21:00:00.000Z", "prazo original de 02/11 = sexta 18:00 BRT");
-  assert(s.audit.filter((e) => e.action === "WEEKLY_ABSENCE_ALERT_DETECTED_LATE").length === 2);
-  assert(out.outcomes.some((o) => o.weekStart === "2026-10-26" && o.kind === "MISSING_WEEKLY_SCHEDULE" && o.result === "ALREADY_ALERTED"));
+  assert(c.find((a) => a.weekStart === "2026-11-02").deadlineAt === "2026-11-06T21:00:00.000Z");
+  assert(out.outcomes.some((o) => o.weekStart === "2026-10-26" && o.result === "ALREADY_ALERTED"));
   assert(out.outcomes.some((o) => o.weekStart === "2026-10-19" && o.kind === "MISSING_WEEKLY_SCHEDULE" && o.result === "RECEIVED"));
 });
 
-await check("2. Idempotência: segunda execução não cria nada novo", async () => {
-  const s = memoryStore({ receivedWeeks: ["2026-10-19"], sCurveWeeks: ["2026-10-19"], workbookWeeks: ["2026-10-19"] });
-  await absence.createMissedWeekAbsenceAlerts(s, cfg(), NOW);
-  const before = s.alerts.length;
-  const again = await absence.createMissedWeekAbsenceAlerts(s, cfg(), new Date("2026-11-18T16:00:00Z"));
-  assert(again.createdLate === 0 && s.alerts.length === before, `${again.createdLate} / ${s.alerts.length}`);
+await check("2. EVIDENCIA_INCOMPLETA_INTEGRACAO: coleta sem execução após prazo+margem OU caixa do responsável não integrada => sem alerta (ninguém cobrado), pendência de integração auditada", async () => {
+  const stale = memoryStore({ lastSuccessfulCollectionAt: "2026-11-05T12:00:00Z", checkpoint: "2026-10-26" });
+  const out = await absence.createMissedWeekAbsenceAlerts(stale, cfg(), NOW);
+  assert(created(stale).length === 0 && out.integrationPending === 2, `${created(stale).length} ${out.integrationPending}`);
+  const o = out.outcomes.filter((x) => x.kind === "MISSING_WEEKLY_SCHEDULE");
+  assert(o.every((x) => x.result === "INTEGRATION_PENDING" && x.classification === "EVIDENCIA_INCOMPLETA_INTEGRACAO" && x.reasons.includes("COLETA_SEM_EXECUCAO_APOS_PRAZO")), JSON.stringify(o));
+  assert(stale.audit.filter((a) => a.action === absence.MISSED_WEEK_INTEGRATION_PENDING_ACTION).length === 2);
+  const noMailbox = memoryStore({ integratedMailboxes: [], checkpoint: "2026-10-26" });
+  const out2 = await absence.createMissedWeekAbsenceAlerts(noMailbox, cfg(), NOW);
+  assert(created(noMailbox).length === 0 && out2.outcomes.filter((x) => x.kind === "MISSING_WEEKLY_SCHEDULE").every((x) => x.reasons.includes("CAIXA_DO_RESPONSAVEL_NAO_INTEGRADA")));
+  // Sem margem: coleta logo após o prazo (menos de 6 h) ainda não cobre a janela.
+  const tight = classif.classifyMissedWeek({ scheduleReceived: false, mppCollectedWithoutAcceptedSchedule: false, lastSuccessfulCollectionAt: "2026-11-06T22:00:00Z", responsibleAtTime: { ...RICARDO, source: "TRANSFER_HISTORY", isCurrent: false }, responsibleMailboxIntegrated: true }, new Date("2026-11-06T21:00:00Z"));
+  assert(tight.classification === "EVIDENCIA_INCOMPLETA_INTEGRACAO");
+  const unknown = classif.classifyMissedWeek({ scheduleReceived: false, mppCollectedWithoutAcceptedSchedule: false, lastSuccessfulCollectionAt: "2026-11-18T00:00:00Z", responsibleAtTime: { userId: null, email: null, source: "UNKNOWN", isCurrent: false }, responsibleMailboxIntegrated: false }, new Date("2026-11-06T21:00:00Z"));
+  assert(unknown.classification === "EVIDENCIA_INCOMPLETA_INTEGRACAO" && unknown.reasons.includes("RESPONSAVEL_NAO_IDENTIFICADO"));
 });
 
-await check("3. Teto: nunca examina mais de 4 semanas anteriores, mesmo pedindo mais; janela de monitoramento respeitada", async () => {
-  const s = memoryStore();
-  const out = await absence.createMissedWeekAbsenceAlerts(s, cfg(), NOW, 50);
-  assert(out.examinedWeeks.length === 4 && out.examinedWeeks.at(-1) === "2026-10-19", out.examinedWeeks.join(","));
-  const narrow = memoryStore();
-  const out2 = await absence.createMissedWeekAbsenceAlerts(narrow, cfg({ monitoringStartAt: "2026-11-05T00:00:00Z" }), NOW);
-  assert(narrow.alerts.map((a) => a.weekStart).join(",") === "2026-11-09,2026-11-02", narrow.alerts.map((a) => a.weekStart).join(","));
-  assert(out2.outcomes.filter((o) => o.result === "OUTSIDE_WINDOW").length === 2);
-  assert((await absence.createMissedWeekAbsenceAlerts(memoryStore(), cfg({ enabled: false }), NOW)).examinedWeeks.length === 0, "desligado => nada");
-});
-
-await check("4. Curva S e planilha: semana com cronograma recebido e sem Curva S/planilha também é recuperada (com a marca)", async () => {
-  const s = memoryStore({ receivedWeeks: ["2026-11-09", "2026-11-02", "2026-10-26", "2026-10-19"], sCurveWeeks: ["2026-11-02", "2026-10-26", "2026-10-19"], workbookWeeks: ["2026-11-02", "2026-10-26", "2026-10-19"] });
+await check("3. RECEBIDO_NAO_PROCESSADO: .mpp coletado (ou intake não aceito) sem cronograma aceito => sem alerta, pendência de processamento", async () => {
+  const s = memoryStore({ mppCollectedWeeks: ["2026-11-02"], checkpoint: "2026-10-26" });
   const out = await absence.createMissedWeekAbsenceAlerts(s, cfg(), NOW);
-  assert(s.alerts.map((a) => `${a.weekStart}:${a.kind}`).sort().join(",") === "2026-11-09:MISSING_S_CURVE,2026-11-09:MISSING_WEEKLY_REPORT_WORKBOOK", s.alerts.map((a) => `${a.weekStart}:${a.kind}`).join(","));
-  assert(s.alerts.every((a) => late.isLateDetectedDetail(a.detail)) && out.createdLate === 2);
-  const off = memoryStore({ receivedWeeks: ["2026-11-09"] });
-  await absence.createMissedWeekAbsenceAlerts(off, cfg({ sCurveAlertEnabled: false, workbookAlertEnabled: false }), NOW, 1);
-  assert(off.alerts.length === 0, "desligados por configuração");
+  const w = out.outcomes.find((x) => x.weekStart === "2026-11-02" && x.kind === "MISSING_WEEKLY_SCHEDULE");
+  assert(w.result === "RECEIVED_NOT_PROCESSED" && w.classification === "RECEBIDO_NAO_PROCESSADO", JSON.stringify(w));
+  assert(created(s).map((a) => a.weekStart).join(",") === "2026-11-09", "só a semana íntegra sem nada recebido gera alerta");
 });
 
-await check("5. Semana corrente segue o comportamento normal (sem marca de atraso)", async () => {
-  const s = memoryStore();
-  const friday = new Date("2026-11-20T21:05:00Z"); // após o prazo da semana de 16/11
+await check("4. Atribuição histórica: antes da transição de 17/11 = Ricardo (histórico, sem cobrança a quem saiu); depois = Jaime (atual)", async () => {
+  const before = classif.resolveResponsibleAt("2026-11-13T21:00:00.000Z", JAIME, TRANSFERS);
+  assert(before.userId === RICARDO.userId && before.source === "TRANSFER_HISTORY" && before.isCurrent === false, JSON.stringify(before));
+  const after = classif.resolveResponsibleAt("2026-11-20T21:00:00.000Z", JAIME, TRANSFERS);
+  assert(after.userId === JAIME.userId && after.source === "CURRENT_MATRIX" && after.isCurrent === true);
+  assert(classif.normalizeTransfers(TRANSFERS).length === 1, "linhas repetidas da mesma transição consolidadas");
+  assert(JSON.stringify(classif.parseTransferDetail("Planejamento WEG: responsável atual transferido de ricardo.martins@axion.com.br para jaime.ramos@axion.com.br por decisão do administrador (17/11/2026).")) === JSON.stringify({ fromEmail: "ricardo.martins@axion.com.br", toEmail: "jaime.ramos@axion.com.br" }));
+  const s = memoryStore({ checkpoint: "2026-11-02" });
+  await absence.createMissedWeekAbsenceAlerts(s, cfg(), NOW);
+  const a = created(s)[0];
+  assert(a && a.weekStart === "2026-11-09" && a.detail.includes(RICARDO.userId) && a.detail.includes("registro histórico, sem cobrança"), a?.detail);
+  // Caixa do Ricardo não integrada => a semana dele vira pendência de integração (não cobra).
+  const noRicardo = memoryStore({ checkpoint: "2026-11-02", integratedMailboxes: [JAIME.email] });
+  const out = await absence.createMissedWeekAbsenceAlerts(noRicardo, cfg(), NOW);
+  assert(created(noRicardo).length === 0 && out.integrationPending === 1);
+});
+
+await check("5. Checkpoint: lotes de até 4 semanas desde o início do monitoramento, nenhuma semana descartada, retomada exata, checkpoint auditável; dry-run não grava", async () => {
+  const s = memoryStore({ lastSuccessfulCollectionAt: null, integratedMailboxes: [] });
+  const config = cfg({ monitoringStartAt: "2026-08-20T15:13:58Z" }); // início efetivo da WEG
+  const all = [];
+  let rounds = 0;
+  for (;;) {
+    rounds += 1;
+    const out = await absence.createMissedWeekAbsenceAlerts(s, config, NOW);
+    assert(out.examinedWeeks.length <= 4, "lote máximo de 4");
+    all.push(...out.examinedWeeks);
+    if (!out.moreWeeksPending) break;
+    assert(rounds < 10);
+  }
+  assert(all[0] === "2026-08-17" && all.at(-1) === "2026-11-09" && all.length === 13 && new Set(all).size === 13, all.join(","));
+  assert(rounds === 4 && s.checkpoints.at(-1) === "2026-11-09");
+  assert(s.audit.filter((a) => a.action === absence.MISSED_WEEKS_CHECKPOINT_ACTION).length === 4);
+  const done = await absence.createMissedWeekAbsenceAlerts(s, config, NOW);
+  assert(done.examinedWeeks.length === 0 && !done.moreWeeksPending, "nada a refazer");
+  // Dry-run: classifica sem gravar nada.
+  const d = memoryStore({ checkpoint: "2026-10-26" });
+  const dry = await absence.createMissedWeekAbsenceAlerts(d, cfg(), NOW, { dryRun: true });
+  assert(dry.outcomes.filter((o) => o.result === "WOULD_CREATE_LATE").length === 2 && d.alerts.length === 0 && d.audit.length === 0 && d.checkpoints.length === 1 && dry.checkpointAfter === null);
+  // Sem evidência confiável no store: nunca declara ausência.
+  const legacy = memoryStore({ withEvidence: false });
+  const out = await absence.createMissedWeekAbsenceAlerts(legacy, cfg(), NOW);
+  assert(out.outcomes[0].result === "STORE_UNSUPPORTED" && legacy.alerts.length === 0);
+  assert((await absence.createMissedWeekAbsenceAlerts(memoryStore(), cfg({ enabled: false }), NOW)).examinedWeeks.length === 0);
+});
+
+await check("6. Curva S e planilha: semana com cronograma recebido e sem Curva S/planilha é recuperada (com a marca)", async () => {
+  const s = memoryStore({ receivedWeeks: ["2026-11-09"], checkpoint: "2026-11-02" });
+  const out = await absence.createMissedWeekAbsenceAlerts(s, cfg(), NOW);
+  assert(created(s).map((a) => a.kind).sort().join(",") === "MISSING_S_CURVE,MISSING_WEEKLY_REPORT_WORKBOOK" && out.createdLate === 2);
+  assert(created(s).every((a) => late.isLateDetectedDetail(a.detail)));
+  const off = memoryStore({ receivedWeeks: ["2026-11-09"], checkpoint: "2026-11-02" });
+  await absence.createMissedWeekAbsenceAlerts(off, cfg({ sCurveAlertEnabled: false, workbookAlertEnabled: false }), NOW);
+  assert(off.alerts.length === 0);
+});
+
+await check("7. Semana corrente segue o comportamento normal (sem marca de atraso) e nunca é tocada pela recuperação", async () => {
+  const s = memoryStore({ checkpoint: "2026-11-09" });
+  const friday = new Date("2026-11-20T21:05:00Z");
   const current = await absence.createWeeklyAbsenceAlert(s, cfg(), friday);
-  assert(current.result === "CREATED" && current.weekStart === "2026-11-16");
-  assert(!late.isLateDetectedDetail(s.alerts[0].detail), "alerta no prazo não leva a marca");
+  assert(current.result === "CREATED" && current.weekStart === "2026-11-16" && !late.isLateDetectedDetail(s.alerts[0].detail));
   const missed = await absence.createMissedWeekAbsenceAlerts(s, cfg(), friday);
-  assert(!missed.examinedWeeks.includes("2026-11-16"), "a recuperação nunca toca a semana corrente");
+  assert(missed.examinedWeeks.length === 0);
 });
 
 // ---------------- Trava no ciclo de alertas de risco ----------------
@@ -170,12 +259,12 @@ const basePlan = (o = {}) => ({
   ...o,
 });
 
-await check("6. Coleta: só o alerta com a marca vira caso 'detectedLate'", () => {
+await check("8. Coleta: só o alerta com a marca vira caso 'detectedLate'", () => {
   assert(lateCase.detectedLate === true && lateCase.riskLevel === "HIGH");
   assert(!normalCase.detectedLate, "alerta no prazo não é marcado");
 });
 
-await check("7. Caso NOVO detectado com atraso, alertas LIGADOS: registra o caso, mas nenhum e-mail, ação SLA ou escalonamento", () => {
+await check("9. Caso NOVO detectado com atraso, alertas LIGADOS: registra o caso, mas nenhum e-mail, ação SLA ou escalonamento", () => {
   const p = planRiskAlerts(basePlan());
   assert(p.caseUpserts.length === 1 && p.caseUpserts[0].change === "NEW", "caso registrado/visível");
   assert(p.outbox.length === 0, `sem e-mail: ${p.outbox.map((e) => e.idempotencyKey).join(",")}`);
@@ -183,7 +272,7 @@ await check("7. Caso NOVO detectado com atraso, alertas LIGADOS: registra o caso
   assert((p.lateDetectionHeld ?? []).includes(LATE_KEY), "retido");
 });
 
-await check("8. Ciclos seguintes sem decisão: continua sem envio; auditoria de decisão pendente uma única vez", () => {
+await check("10. Ciclos seguintes sem decisão: continua sem envio; auditoria de decisão pendente uma única vez", () => {
   const p = planRiskAlerts(basePlan({ existingCases: [existingLate] }));
   assert(p.outbox.length === 0 && p.slaActionCreates.length === 0);
   assert(p.audit.filter((a) => a.action === ledgerMod.REISSUE_DECISION_REQUIRED_ACTION && a.entityId === "case-late").length === 1);
@@ -193,7 +282,7 @@ await check("8. Ciclos seguintes sem decisão: continua sem envio; auditoria de 
   assert(planRiskAlerts(basePlan({ existingCases: [existingLate], reissueApprovals: system })).outbox.length === 0, "decisão de SYSTEM não libera");
 });
 
-await check("9. Com decisão humana auditada: libera UMA comunicação (chave REISSUE:<decisão>) e cria a ação SLA; repetir a decisão não duplica", () => {
+await check("11. Com decisão humana auditada: libera UMA comunicação (chave REISSUE:<decisão>) e cria a ação SLA; repetir a decisão não duplica", () => {
   const approvals = ledgerMod.resolveReissueApprovals([{ id: "aud-late-1", occurred_at: PLAN_NOW, actor_type: "USER", actor_user_id: U.rey, action: ledgerMod.REISSUE_APPROVED_ACTION, entity_type: "RISK_ALERT_CASE", entity_id: "case-late" }]);
   const p = planRiskAlerts(basePlan({ existingCases: [existingLate], reissueApprovals: approvals }));
   assert(p.outbox.length === 1 && p.outbox[0].idempotencyKey === `${LATE_KEY}:REISSUE:aud-late-1:${U.jaime}`, p.outbox.map((e) => e.idempotencyKey).join(","));
@@ -202,13 +291,13 @@ await check("9. Com decisão humana auditada: libera UMA comunicação (chave RE
   assert(used.outbox.length === 0, "mesma decisão não reemite");
 });
 
-await check("10. Alerta da semana corrente (sem marca) mantém o comportamento normal: imediato ao responsável", () => {
+await check("12. Alerta da semana corrente (sem marca) mantém o comportamento normal: imediato ao responsável", () => {
   const p = planRiskAlerts(basePlan({ cases: [normalCase] }));
   assert(p.outbox.length === 1 && p.outbox[0].notificationType === "IMMEDIATE" && p.outbox[0].recipient.userId === U.jaime, p.outbox.map((e) => e.idempotencyKey).join(","));
   assert(!(p.lateDetectionHeld ?? []).length);
 });
 
-await check("11. Integração: script semanal chama a recuperação na fase de alertas", async () => {
+await check("13. Integração: script semanal chama a recuperação na fase de alertas", async () => {
   const { readFileSync } = await import("node:fs");
   const worker = readFileSync(new URL("./weekly-schedule-email-ingest.mjs", import.meta.url), "utf8");
   assert(worker.includes("createMissedWeekAbsenceAlerts(alertStore, config, new Date())"));

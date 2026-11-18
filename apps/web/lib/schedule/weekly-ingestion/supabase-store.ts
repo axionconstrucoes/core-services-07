@@ -23,6 +23,9 @@ import { linkEmailAttachmentToDocument } from "../../email/attachments/link-emai
 import { resolveUserResponsibilityTier, type ResponsibilityMatrixRow } from "../../sla/resolve-user-responsibility-tier";
 import type { ScheduleSnapshot } from "./compare-schedule-versions";
 import { isMppAttachment } from "./evaluate-weekly-schedule-email";
+import { MISSED_WEEKS_CHECKPOINT_ACTION } from "./create-absence-alerts";
+import { parseTransferDetail, resolveResponsibleAt, type ResponsibleRef, type ResponsibleTransfer } from "./missed-week-classification";
+import { zonedDateTimeToUtc } from "./week-window";
 import type {
   AbsenceAlertRecord,
   AbsenceAlertStore,
@@ -659,6 +662,102 @@ export function createSupabaseScheduleComparisonStore(supabase: SupabaseClient):
 }
 
 export function createSupabaseAbsenceAlertStore(supabase: SupabaseClient): AbsenceAlertStore {
+  // Contexto por projeto da recuperação de semanas perdidas (uma leitura por execução).
+  interface EvidenceContext {
+    lastSuccessfulCollectionAt: string | null;
+    integratedMailboxes: Set<string>;
+    current: ResponsibleRef;
+    transfers: ResponsibleTransfer[];
+  }
+  const evidenceContextCache = new Map<string, Promise<EvidenceContext>>();
+  const loadEvidenceContext = (projectId: string, area: string): Promise<EvidenceContext> => {
+    const key = `${projectId}:${area}`;
+    let cached = evidenceContextCache.get(key);
+    if (!cached) {
+      cached = computeEvidenceContext(projectId, area);
+      evidenceContextCache.set(key, cached);
+    }
+    return cached;
+  };
+  async function computeEvidenceContext(projectId: string, area: string): Promise<EvidenceContext> {
+    // Última coleta bem-sucedida da caixa monitorada do projeto (Gmail Inbound Sync).
+    const { data: emailConfig, error: emailConfigError } = await supabase
+      .from("project_email_ingestion_configs")
+      .select("id,last_sync_at,enabled")
+      .eq("project_id", projectId)
+      .maybeSingle();
+    if (emailConfigError) fail("Falha ao carregar configuração de coleta de e-mail", emailConfigError);
+
+    // Caixas integradas = habilitadas E com mensagens efetivamente coletadas.
+    const integratedMailboxes = new Set<string>();
+    if (emailConfig?.id) {
+      const { data: mailboxes, error: mailboxesError } = await supabase
+        .from("project_email_ingestion_mailboxes")
+        .select("mailbox_address,enabled")
+        .eq("config_id", emailConfig.id as string)
+        .eq("enabled", true);
+      if (mailboxesError) fail("Falha ao listar caixas monitoradas", mailboxesError);
+      for (const row of mailboxes ?? []) {
+        const address = String(row.mailbox_address ?? "").trim().toLowerCase();
+        if (!address) continue;
+        const { count, error } = await supabase
+          .from("emails")
+          .select("id", { count: "exact", head: true })
+          .eq("project_id", projectId)
+          .ilike("mailbox_address", address);
+        if (error) fail("Falha ao verificar mensagens coletadas da caixa", error);
+        if ((count ?? 0) > 0) integratedMailboxes.add(address);
+      }
+    }
+
+    // Responsável atual (Nível 1 da Matriz da área autorizada) e histórico de transferências.
+    const { data: responsibles, error: responsiblesError } = await supabase
+      .from("sla_area_responsibles")
+      .select("responsible_direct_user_id")
+      .eq("project_id", projectId)
+      .eq("area", area)
+      .maybeSingle();
+    if (responsiblesError) fail("Falha ao carregar responsável da área", responsiblesError);
+    const { data: transferRows, error: transfersError } = await supabase
+      .from("audit_log_entries")
+      .select("occurred_at,detail")
+      .eq("project_id", projectId)
+      .eq("action", "RISK_ALERT_RESPONSIBLE_TRANSFERRED")
+      .order("occurred_at", { ascending: true })
+      .limit(500);
+    if (transfersError) fail("Falha ao carregar transferências de responsável", transfersError);
+    const parsed = (transferRows ?? [])
+      .map((row) => ({ at: row.occurred_at as string, emails: parseTransferDetail(row.detail as string | null) }))
+      .filter((row): row is { at: string; emails: { fromEmail: string; toEmail: string } } => row.emails !== null);
+    const currentUserId = (responsibles?.responsible_direct_user_id as string | null) ?? null;
+    const emails = Array.from(new Set(parsed.flatMap((row) => [row.emails.fromEmail, row.emails.toEmail])));
+    const profileByEmail = new Map<string, string>();
+    const emailById = new Map<string, string>();
+    if (emails.length > 0 || currentUserId) {
+      const { data: profiles, error: profilesError } = await supabase
+        .from("profiles")
+        .select("id,email")
+        .or([emails.length > 0 ? `email.in.(${emails.map((e) => `"${e}"`).join(",")})` : null, currentUserId ? `id.eq.${currentUserId}` : null].filter(Boolean).join(","));
+      if (profilesError) fail("Falha ao carregar perfis dos responsáveis", profilesError);
+      for (const row of profiles ?? []) {
+        const email = String(row.email ?? "").toLowerCase();
+        if (email) profileByEmail.set(email, row.id as string);
+        emailById.set(row.id as string, email);
+      }
+    }
+    const transfers: ResponsibleTransfer[] = parsed.map((row) => ({
+      at: row.at,
+      from: { userId: profileByEmail.get(row.emails.fromEmail) ?? null, email: row.emails.fromEmail },
+      to: { userId: profileByEmail.get(row.emails.toEmail) ?? null, email: row.emails.toEmail },
+    }));
+    return {
+      lastSuccessfulCollectionAt: emailConfig?.enabled ? ((emailConfig.last_sync_at as string | null) ?? null) : null,
+      integratedMailboxes,
+      current: { userId: currentUserId, email: currentUserId ? (emailById.get(currentUserId) ?? null) : null },
+      transfers,
+    };
+  }
+
   return {
     async hasReceivedScheduleForWeek(projectId, weekStart) {
       const { count, error } = await supabase
@@ -731,6 +830,77 @@ export function createSupabaseAbsenceAlertStore(supabase: SupabaseClient): Absen
         .select("id");
       if (error) fail("Falha ao resolver alerta de ausência", error);
       return (data ?? []).length > 0;
+    },
+
+    async loadMissedWeeksCheckpoint(projectId) {
+      const { data, error } = await supabase
+        .from("audit_log_entries")
+        .select("detail,occurred_at")
+        .eq("project_id", projectId)
+        .eq("action", MISSED_WEEKS_CHECKPOINT_ACTION)
+        .eq("entity_type", "WEEKLY_SCHEDULE_INGESTION_CONFIG")
+        .eq("entity_id", projectId)
+        .order("occurred_at", { ascending: false })
+        .limit(1);
+      if (error) fail("Falha ao carregar checkpoint de semanas verificadas", error);
+      const detail = (data ?? [])[0]?.detail as string | undefined;
+      if (!detail) return null;
+      try {
+        const parsed = JSON.parse(detail) as { lastVerifiedWeekStart?: unknown };
+        return typeof parsed.lastVerifiedWeekStart === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.lastVerifiedWeekStart) ? parsed.lastVerifiedWeekStart : null;
+      } catch {
+        return null;
+      }
+    },
+
+    async saveMissedWeeksCheckpoint(projectId, lastVerifiedWeekStart, summary) {
+      await writeSystemAudit(supabase, {
+        projectId,
+        action: MISSED_WEEKS_CHECKPOINT_ACTION,
+        entityType: "WEEKLY_SCHEDULE_INGESTION_CONFIG",
+        entityId: projectId,
+        detail: JSON.stringify({ lastVerifiedWeekStart, ...summary }),
+      });
+    },
+
+    async loadMissedWeekEvidence(config, weekStart, deadlineAt) {
+      const projectId = config.projectId;
+      const ctx = await loadEvidenceContext(projectId, config.authorizedArea);
+      const weekStartUtc = zonedDateTimeToUtc(weekStart, "00:00", config.timezone).toISOString();
+      const nextWeek = new Date(`${weekStart}T00:00:00Z`);
+      nextWeek.setUTCDate(nextWeek.getUTCDate() + 7);
+      const weekEndUtc = zonedDateTimeToUtc(nextWeek.toISOString().slice(0, 10), "00:00", config.timezone).toISOString();
+
+      const { data: intakes, error: intakesError } = await supabase.from("weekly_schedule_email_intakes").select("status").eq("project_id", projectId).eq("week_start", weekStart);
+      if (intakesError) fail("Falha ao listar intakes da semana", intakesError);
+      const statuses = (intakes ?? []).map((row) => row.status as string);
+      const scheduleReceived = statuses.some((status) => (RECEIVED_STATUSES as readonly string[]).includes(status));
+      let mppCollected = statuses.length > 0 && !scheduleReceived;
+      if (!scheduleReceived && !mppCollected) {
+        const { data: weekEmails, error: emailsError } = await supabase.from("emails").select("id").eq("project_id", projectId).gte("sent_at", weekStartUtc).lt("sent_at", weekEndUtc).limit(1000);
+        if (emailsError) fail("Falha ao listar e-mails da semana", emailsError);
+        const ids = (weekEmails ?? []).map((row) => row.id as string);
+        for (let i = 0; i < ids.length && !mppCollected; i += 200) {
+          const { count, error } = await supabase
+            .from("email_attachments")
+            .select("id", { count: "exact", head: true })
+            .in("email_id", ids.slice(i, i + 200))
+            .ilike("original_file_name", "%.mpp");
+          if (error) fail("Falha ao verificar anexos .mpp da semana", error);
+          mppCollected = (count ?? 0) > 0;
+        }
+      }
+
+      const responsibleAtTime = resolveResponsibleAt(deadlineAt.toISOString(), ctx.current, ctx.transfers);
+      const responsibleEmail = (responsibleAtTime.email ?? "").toLowerCase();
+      const responsibleMailboxIntegrated = Boolean(responsibleEmail && ctx.integratedMailboxes.has(responsibleEmail));
+      return {
+        scheduleReceived,
+        mppCollectedWithoutAcceptedSchedule: mppCollected,
+        lastSuccessfulCollectionAt: ctx.lastSuccessfulCollectionAt,
+        responsibleAtTime,
+        responsibleMailboxIntegrated,
+      };
     },
 
     async insertAlert(record: AbsenceAlertRecord) {
