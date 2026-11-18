@@ -103,6 +103,9 @@ jobs:
           GOOGLE_GMAIL_OWNER_CLIENT_SECRET: ${{ secrets.GOOGLE_GMAIL_INBOUND_CLIENT_SECRET }}
           GOOGLE_GMAIL_TITULAR_SLOT_MAILBOX: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_MAILBOX', matrix.slot)] }}
           GOOGLE_GMAIL_TITULAR_SLOT_REFRESH_TOKEN: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_REFRESH_TOKEN', matrix.slot)] }}
+          # Cliente OAuth PRÓPRIO do slot (opcional): garante que o refresh token seja usado com o MESMO cliente que o emitiu.
+          GOOGLE_GMAIL_TITULAR_SLOT_CLIENT_ID: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_CLIENT_ID', matrix.slot)] }}
+          GOOGLE_GMAIL_TITULAR_SLOT_CLIENT_SECRET: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_CLIENT_SECRET', matrix.slot)] }}
           SLOT: ${{ matrix.slot }}
           INPUT_MODE: ${{ github.event.inputs.mode || 'incremental' }}
           INPUT_SINCE: ${{ github.event.inputs.since }}
@@ -125,6 +128,9 @@ jobs:
           GOOGLE_GMAIL_OWNER_CLIENT_SECRET: ${{ secrets.GOOGLE_GMAIL_INBOUND_CLIENT_SECRET }}
           GOOGLE_GMAIL_TITULAR_SLOT_MAILBOX: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_MAILBOX', matrix.slot)] }}
           GOOGLE_GMAIL_TITULAR_SLOT_REFRESH_TOKEN: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_REFRESH_TOKEN', matrix.slot)] }}
+          # Cliente OAuth PRÓPRIO do slot (opcional): garante que o refresh token seja usado com o MESMO cliente que o emitiu.
+          GOOGLE_GMAIL_TITULAR_SLOT_CLIENT_ID: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_CLIENT_ID', matrix.slot)] }}
+          GOOGLE_GMAIL_TITULAR_SLOT_CLIENT_SECRET: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_CLIENT_SECRET', matrix.slot)] }}
           WEEKLY_INTAKE_CREDENTIAL_PREFIX: GOOGLE_GMAIL_TITULAR_SLOT
           INPUT_MODE: ${{ github.event.inputs.mode || 'incremental' }}
           INPUT_SINCE: ${{ github.event.inputs.since }}
