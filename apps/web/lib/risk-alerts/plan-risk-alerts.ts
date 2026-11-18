@@ -211,6 +211,25 @@ export function planRiskAlerts(input: PlanRiskAlertsInput): RiskAlertPlan {
     const policy = isSlaRisk(caseInput.riskLevel) ? input.policyFor(caseInput.area, caseInput.riskLevel) : null;
     plan.caseUpserts.push({ caseKey, existingId: existing?.id ?? null, input: caseInput, change, policy, lastDigestWindow: existing?.lastDigestWindow ?? null });
 
+    // ---------------- Detectado com atraso (semana perdida pelo agendador) ----------------
+    // Não gera e-mail, ação SLA nem escalonamento por padrão: fica registrado/visível e entra na trava
+    // de reemissão. Só uma decisão humana auditada (RISK_ALERT_REISSUE_APPROVED, por caso) libera a
+    // comunicação — uma vez, com chave REISSUE:<decisão> (nunca duplica com a reemissão do livro-razão).
+    const lateApproval = caseInput.detectedLate && existing ? input.reissueApprovals?.get(existing.id) ?? null : null;
+    if (caseInput.detectedLate && !lateApproval) {
+      if (!caseInput.closed) plan.lateDetectionHeld = [...(plan.lateDetectionHeld ?? []), caseKey];
+      if (existing && existing.status === "OPEN" && !caseInput.closed && !input.reissueDecisionRecordedCaseIds?.has(existing.id)) {
+        plan.audit.push({
+          action: REISSUE_DECISION_REQUIRED_ACTION,
+          entityType: "RISK_ALERT_CASE",
+          entityId: existing.id,
+          detail: `Alerta detectado com atraso (${caseInput.reference}): o agendador não executou na janela da semana. Nenhum e-mail, ação SLA ou escalonamento automático sem decisão humana auditada de reemissão.`,
+        });
+      }
+      continue;
+    }
+    const lateRelease = Boolean(caseInput.detectedLate && lateApproval && !existing?.slaActionId);
+
     if (policy && policy.status === "CONFIGURATION_REVIEW_REQUIRED" && change !== "UNCHANGED") {
       plan.audit.push({
         action: "RISK_ALERT_CONFIGURATION_REVIEW_REQUIRED",
@@ -221,7 +240,7 @@ export function planRiskAlerts(input: PlanRiskAlertsInput): RiskAlertPlan {
     }
 
     // ---------------- HIGH / CRITICAL: imediato + ação SLA ----------------
-    const alertNow = !caseInput.closed && IMMEDIATE_LEVELS.has(caseInput.riskLevel) && ["NEW", "REOPENED", "RAISED", "CHANGED"].includes(change);
+    const alertNow = !caseInput.closed && IMMEDIATE_LEVELS.has(caseInput.riskLevel) && (["NEW", "REOPENED", "RAISED", "CHANGED"].includes(change) || lateRelease);
     if (alertNow && policy && isSlaRisk(caseInput.riskLevel)) {
       const deadlines = computePolicyDeadlines(policy, input.now);
       const slaActionId = existing?.slaActionId ?? null;
@@ -248,7 +267,7 @@ export function planRiskAlerts(input: PlanRiskAlertsInput): RiskAlertPlan {
             ? evaluateRecipient(userId, config, input.recipients)
             : { userId, email: null, name: input.recipients.get(userId)?.name ?? null, status: "SUPPRESSED" as const, suppressionReason: "NOTIFY_BY_EMAIL_DISABLED" as const };
           pushEntry({
-            idempotencyKey: `${caseKey}:IMMEDIATE:${caseInput.fingerprint}:${userId}`,
+            idempotencyKey: lateApproval ? reissueIdempotencyKey(caseKey, lateApproval.auditId, userId) : `${caseKey}:IMMEDIATE:${caseInput.fingerprint}:${userId}`,
             notificationType: "IMMEDIATE",
             escalationLevel: "RESPONSAVEL",
             riskLevel: caseInput.riskLevel,

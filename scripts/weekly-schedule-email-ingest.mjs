@@ -69,7 +69,7 @@ if (!isWeeklyReportsEnabled()) {
 
 const { processWeeklyScheduleEmailCandidate } = await import("../apps/web/lib/schedule/weekly-ingestion/ingest-weekly-schedule-email");
 const { prepareScheduleComparisons } = await import("../apps/web/lib/schedule/weekly-ingestion/prepare-schedule-comparisons");
-const { createWeeklyAbsenceAlert, createWeeklySCurveAbsenceAlert, createWeeklyWorkbookAbsenceAlert, resolveAbsenceAlertsWithEvidence } = await import("../apps/web/lib/schedule/weekly-ingestion/create-absence-alerts");
+const { createWeeklyAbsenceAlert, createWeeklySCurveAbsenceAlert, createWeeklyWorkbookAbsenceAlert, createMissedWeekAbsenceAlerts, resolveAbsenceAlertsWithEvidence } = await import("../apps/web/lib/schedule/weekly-ingestion/create-absence-alerts");
 const { promoteReviewedIntake } = await import("../apps/web/lib/schedule/weekly-ingestion/promote-reviewed-intake");
 const { classifySyncedEmails } = await import("../apps/web/lib/email/registry/classify-synced-emails");
 const { processWeeklyReportWorkbooks } = await import("../apps/web/lib/schedule/weekly-report/process-weekly-report-workbooks");
@@ -379,6 +379,11 @@ if (phases.has("alerts") && apply) {
     // Planilha do relatório semanal ausente (mesmas garantias; inválida ≠ ausente).
     const workbook = await createWeeklyWorkbookAbsenceAlert(alertStore, config, new Date());
     summary.alerts[`WORKBOOK_${workbook.result}`] = (summary.alerts[`WORKBOOK_${workbook.result}`] ?? 0) + 1;
+    // Semanas anteriores perdidas (agendador não executou na janela): alerta "detectado com atraso",
+    // sem e-mail automático (trava de reemissão no ciclo de alertas). Teto de 4 semanas; idempotente.
+    const missed = await createMissedWeekAbsenceAlerts(alertStore, config, new Date());
+    summary.alerts.MISSED_WEEKS_CREATED_LATE = (summary.alerts.MISSED_WEEKS_CREATED_LATE ?? 0) + missed.createdLate;
+    console.log(`Projeto ${config.projectId}: semanas anteriores examinadas ${missed.examinedWeeks.length}, detectadas com atraso ${missed.createdLate}`);
     // Chegada posterior da evidência resolve os alertas de ausência abertos (encerra o caso de risco).
     const resolution = await resolveAbsenceAlertsWithEvidence(alertStore, config.projectId);
     summary.alerts.RESOLVED_BY_EVIDENCE = (summary.alerts.RESOLVED_BY_EVIDENCE ?? 0) + resolution.resolved;

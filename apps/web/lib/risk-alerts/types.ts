@@ -64,6 +64,11 @@ export interface RiskCaseInput {
   closed: boolean;
   /** Referência humana (WNN, categoria, tipo) para ordenação/exibição. */
   reference: string;
+  /**
+   * Alerta de ausência criado pela recuperação de semanas perdidas ("detectado com atraso").
+   * Não gera e-mail por padrão: só com decisão humana auditada de reemissão (RISK_ALERT_REISSUE_APPROVED).
+   */
+  detectedLate?: boolean;
 }
 
 /** Caso já persistido (risk_alert_cases). */
@@ -260,6 +265,8 @@ export interface RiskAlertPlan {
    * tentativa x supressão x aceite pelo Gmail. Lacunas sem decisão NUNCA viram e-mail.
    */
   communicationLedgers?: CaseCommunicationLedger[];
+  /** Casos abertos de alertas "detectados com atraso" retidos sem comunicação até decisão de reemissão. */
+  lateDetectionHeld?: string[];
 }
 
 // ------------------------------------------------------------------
