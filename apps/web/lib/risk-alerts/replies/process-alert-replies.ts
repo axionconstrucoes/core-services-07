@@ -14,6 +14,7 @@ import { routeExpert } from "../experts/route-alert-expert";
 import { DEFAULT_CORPORATE_EMAIL_DOMAIN } from "../plan-risk-alerts";
 import type { RiskAlertStore } from "../store";
 import { applyMessageIdAliases } from "./build-correlation-index";
+import { assessReplyTiming } from "./reply-timing";
 import { authorizeReply, classifyReply, correlateReply, filterInboundMessage, parseReplyBody, replyToFormalAction } from "./reply-pipeline";
 
 export interface ProcessRepliesResult {
@@ -25,6 +26,10 @@ export interface ProcessRepliesResult {
   reviewRequired: number;
   applied: number;
   recorded: number;
+  /** Escalonamentos aplicados DEPOIS do recebimento de uma resposta (leitura atrasada): correção auditada. */
+  timingCorrections?: number;
+  /** Respostas sem previsão: pendência registrada separadamente. */
+  forecastPending?: number;
 }
 
 // Modelo de entrega direta do piloto: cada colaborador responde com a PRÓPRIA identidade (From real) — a autorização é sempre por
@@ -95,6 +100,17 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
       continue;
     }
     const classification = classifyReply(parsed.clean);
+    // Recebimento (internalDate do Gmail) × processamento: registro auditado, correção de escalonamento aplicado depois de uma
+    // resposta já recebida (leitura atrasada) e pendência de previsão — sem apagar histórico. Falha aqui nunca bloqueia a resposta.
+    try {
+      const timingContext = loaded.snapshot.slaActionId && store.loadReplyTimingContext ? await store.loadReplyTimingContext(loaded.snapshot.slaActionId) : null;
+      const timing = assessReplyTiming({ caseId: correlation.caseId, messageId: message.id, receivedAt: message.receivedAt ?? null, processedAt: nowIso, classification: classification.classification, text: parsed.clean, context: timingContext });
+      await store.audit(projectId, timing.events);
+      if (timing.correctedEscalations > 0) result.timingCorrections = (result.timingCorrections ?? 0) + timing.correctedEscalations;
+      if (timing.forecastPending) result.forecastPending = (result.forecastPending ?? 0) + 1;
+    } catch {
+      // auditoria de prazo indisponível nesta rodada — a resposta segue o fluxo normal
+    }
     const basePatch = { caseId: correlation.caseId, senderUserId: authorization.userId, bodyClean: parsed.clean, quotedText: parsed.quoted, signatureText: parsed.signature, classification: classification.classification, confidence: classification.confidence, correlationMethod: correlation.method };
     const riskLevel = loaded.snapshot.riskLevel as SlaRiskLevel;
     const formal = replyToFormalAction(classification);

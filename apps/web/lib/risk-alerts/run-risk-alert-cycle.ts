@@ -35,6 +35,9 @@ import { actionLinkExpiry, buildActionLink, EMAIL_ACTION_TYPES, generateActionTo
 import { applyForwardTimeout, applyScheduledTopLevel } from "./alert-state-machine";
 import { buildAlertFollowUpEmail, buildImmediateRiskAlertEmail, buildRiskDigestEmail, formatDateTimeBR, type BuiltEmail } from "./build-risk-alert-emails";
 import { evaluatePilotReadiness, blockerToSuppressionReason, isSeverityMapComplete } from "./pilot-readiness";
+import { applyEscalationReplyGate, type GateDecision, type ReplyCheck } from "./escalation-reply-gate";
+import { checkRepliesBeforeEscalation, createGmailReadonlyFromEnv, type ReplyCheckRequest, type ReplyLookup } from "./replies/reply-verifier";
+import { decideReadinessAudit, READINESS_CONDITION_KEY, readinessDetail, type LatestReadinessAudit, type ReadinessAuditOutcome } from "./readiness-audit";
 import { caseKeyOf } from "./collect-risk-cases";
 import { rebuildDigestContent } from "./rebuild-digest-content";
 import { evaluateRecipient, planRiskAlerts } from "./plan-risk-alerts";
@@ -77,6 +80,10 @@ export interface RiskAlertCycleProjectResult {
   dryRunPreview?: Array<Record<string, unknown>>;
   /** true quando o dry-run planejou o projeto piloto como se risk_alerts_enabled=true (nada é gravado). */
   dryRunAssumedEnabled?: boolean;
+  /** Auditoria de prontidão desta rodada: gravada só na mudança de estado (UNCHANGED_NOT_READY = bloqueio igual, sem nova linha). */
+  readinessAudit?: ReadinessAuditOutcome;
+  /** Verificação de respostas antes dos escalonamentos desta rodada (retido / seguiu sem verificação / sem resposta). */
+  replyGate?: GateDecision[];
   /** Áreas informativas do projeto (sem alertas, SLA, cobrança ou escalonamento; fora da prontidão). */
   informativeAreas?: string[];
   /** Alertas "detectados com atraso" retidos sem comunicação (aguardam decisão de reemissão). */
@@ -115,6 +122,32 @@ export interface RunRiskAlertCycleOptions {
   store?: RiskAlertStore;
   provider?: EmailProvider;
   expert?: ExpertConsultant;
+  /** Verificação de respostas antes de escalonar (testes injetam; padrão: Gmail somente leitura da caixa monitorada). */
+  replyVerifier?: (requests: ReplyCheckRequest[]) => Promise<Map<string, ReplyCheck>>;
+}
+
+function createSupabaseReplyLookup(client: ReturnType<typeof createSupabaseAdminClient>): ReplyLookup {
+  return {
+    async conversationsForCase(caseId) {
+      const { data: conversations } = await client.from("alert_email_conversations").select("provider_thread_id,reply_token_hash").eq("case_id", caseId);
+      const { data: outbound } = await client.from("alert_email_messages").select("provider_thread_id,reply_token_hash,sent_at").eq("case_id", caseId).eq("direction", "OUTBOUND");
+      const firstSentAt = (outbound ?? []).map((row) => row.sent_at as string | null).filter((s): s is string => Boolean(s)).sort()[0] ?? null;
+      const rows = [...(conversations ?? []), ...(outbound ?? [])];
+      return rows.map((row) => ({ providerThreadId: (row.provider_thread_id as string | null) ?? null, replyTokenHash: (row.reply_token_hash as string | null) ?? null, firstSentAt }));
+    },
+    async knownMessageIds(projectId) {
+      const { data } = await client.from("alert_email_messages").select("provider_message_id").eq("project_id", projectId).not("provider_message_id", "is", null);
+      return new Set((data ?? []).map((row) => row.provider_message_id as string));
+    },
+  };
+}
+
+function createDefaultReplyVerifier(): (requests: ReplyCheckRequest[]) => Promise<Map<string, ReplyCheck>> {
+  let client: Awaited<ReturnType<typeof createGmailReadonlyFromEnv>> | undefined;
+  return async (requests) => {
+    if (client === undefined) client = await createGmailReadonlyFromEnv(process.env).catch(() => null);
+    return checkRepliesBeforeEscalation(requests, { gmail: client?.gmail ?? null, mailbox: client?.mailbox ?? null, lookup: client ? createSupabaseReplyLookup(createSupabaseAdminClient()) : { conversationsForCase: async () => [], knownMessageIds: async () => new Set<string>() }, unavailableReason: client ? undefined : "credencial de leitura da caixa monitorada (ACC_RISK_ALERTS_INBOUND_*) ausente na rota" });
+  };
 }
 
 function createDefaultExpertConsultant(): ExpertConsultant {
@@ -156,6 +189,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
   if (!featureEnabled) return result; // nenhuma consulta ao banco
 
   const store = options.store ?? createSupabaseRiskAlertStore(createSupabaseAdminClient());
+  let replyVerifier: ((requests: ReplyCheckRequest[]) => Promise<Map<string, ReplyCheck>>) | undefined;
   const provider = dryRun ? new FakeEmailProvider() : (options.provider ?? getEmailProvider());
   const providerConfigured = providerName === "gmail" || Boolean(options.provider);
   const baseUrl = getAppBaseUrl();
@@ -209,7 +243,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       })(),
     });
 
-    const plan: RiskAlertPlan = planRiskAlerts({
+    const plannedRaw: RiskAlertPlan = planRiskAlerts({
       now: nowIso,
       projectId,
       projectName: snapshot.projectName,
@@ -233,6 +267,26 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       reissueDecisionRecordedCaseIds: snapshot.reissueDecisionRecordedCaseIds,
     });
 
+    // Antes de efetivar escalonamentos: há resposta do caso recebida até o prazo e ainda não processada pelo leitor?
+    // (consulta pontual somente leitura; indisponível => segue e registra a limitação, sem afirmar ausência de resposta)
+    let plan: RiskAlertPlan = plannedRaw;
+    let replyGate: GateDecision[] = [];
+    if (plannedRaw.escalations.length > 0) {
+      const caseIdByKey = new Map(plannedRaw.caseUpserts.map((u) => [u.caseKey, u.existingId] as const));
+      const requests: ReplyCheckRequest[] = plannedRaw.escalations
+        .map((e) => ({ caseKey: e.caseKey, caseId: caseIdByKey.get(e.caseKey) ?? "", projectId, deadlineAt: e.deadlineAt ?? null }))
+        .filter((r) => r.caseId);
+      let checks: Map<string, ReplyCheck>;
+      try {
+        checks = await (options.replyVerifier ?? (replyVerifier ??= createDefaultReplyVerifier()))(requests);
+      } catch {
+        checks = new Map(requests.map((r) => [r.caseKey, { status: "UNAVAILABLE" as const, reason: "falha na verificação de respostas" }]));
+      }
+      const gated = applyEscalationReplyGate(plannedRaw, checks, nowIso);
+      plan = gated.plan;
+      replyGate = gated.decisions;
+    }
+
     const projectResult: RiskAlertCycleProjectResult = {
       projectId,
       blockedReason: plan.blockedReason,
@@ -250,6 +304,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       topLevelReached: 0,
       expertAnswers: 0,
       digestWindow: plan.digestWindow,
+      ...(replyGate.length ? { replyGate } : {}),
       informativeAreas: Array.from(informativeAreas),
       communicationSuspended: (plan.communicationSuspended ?? []).map((caseKey) => ({
         visibleCode: snapshot.existingCases.find((c) => caseKeyOf(c) === caseKey)?.visibleCode ?? null,
@@ -310,11 +365,26 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     const escalation = await store.applyEscalations(projectId, plan.escalations);
     projectResult.escalationsApplied = escalation.applied;
     const persisted = await store.enqueue(projectId, plan.outbox, caseIds, slaActionIds);
+    // Prontidão: auditoria só na mudança de estado (sem a leitura da última linha => grava, como antes: rastreabilidade primeiro).
+    let latestReadiness: LatestReadinessAudit | null | undefined;
+    try {
+      latestReadiness = store.latestReadinessAudit ? await store.latestReadinessAudit(projectId) : undefined;
+    } catch {
+      latestReadiness = undefined;
+    }
+    const readinessDecision =
+      latestReadiness === undefined
+        ? readiness.blockers.length
+          ? { event: { action: "RISK_ALERT_NOT_READY_FOR_REAL_SEND", entityType: "PROJECT", entityId: projectId, detail: readinessDetail(readiness.blockers) ?? "" }, outcome: "RECORDED_NOT_READY" as ReadinessAuditOutcome }
+          : { event: null, outcome: "NONE" as ReadinessAuditOutcome }
+        : decideReadinessAudit(projectId, readiness.blockers, latestReadiness);
+    projectResult.readinessAudit = readinessDecision.outcome;
+    if (store.recordRepeatedCondition && readinessDecision.outcome !== "NONE") {
+      await store.recordRepeatedCondition(projectId, READINESS_CONDITION_KEY, readinessDetail(readiness.blockers), nowIso);
+    }
     await store.audit(projectId, [
       ...plan.audit,
-      ...(readiness.blockers.length
-        ? [{ action: "RISK_ALERT_NOT_READY_FOR_REAL_SEND", entityType: "PROJECT", entityId: projectId, detail: `Envio real bloqueado: ${readiness.blockers.join(", ")}.` }]
-        : []),
+      ...(readinessDecision.event ? [readinessDecision.event] : []),
       ...plan.outbox.map((entry) => ({
         action: "RISK_ALERT_PLANNED",
         entityType: entry.notificationType === "DIGEST" ? "RISK_ALERT_DIGEST" : "RISK_ALERT_CASE",

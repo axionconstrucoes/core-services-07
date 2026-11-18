@@ -155,6 +155,10 @@ export interface RiskAlertStore {
   markDigestWindow(caseIds: string[], window: string): Promise<void>;
   recordEmail(projectId: string, input: { from: string; to: string; subject: string; sentAt: string; snippet: string }): Promise<string | null>;
   audit(projectId: string, events: PlannedAuditEvent[]): Promise<void>;
+  /** Última linha de prontidão (READY/NOT_READY) do projeto — para auditar só na mudança de estado. Opcional: ausente => grava sempre. */
+  latestReadinessAudit?(projectId: string): Promise<{ action: string; detail: string | null } | null>;
+  /** Contador best-effort de condição repetida (acc_repeated_conditions). Nunca lança. */
+  recordRepeatedCondition?(projectId: string, conditionKey: string, detail: string | null, nowIso: string): Promise<void>;
 
   // ---- conversa / mensagens ----
   ensureConversation(projectId: string, caseId: string): Promise<{ id: string; rootMessageIdHeader: string | null; providerThreadId: string | null; replyTokenHash: string | null }>;
@@ -162,6 +166,8 @@ export interface RiskAlertStore {
   recordOutboundMessage(record: OutboundMessageRecord): Promise<void>;
   loadCorrelationIndex(projectId: string): Promise<CorrelationIndex & { seenMessageIds: Set<string> }>;
   listInboundToProcess(projectId: string): Promise<InboundMessageRow[]>;
+  /** Prazos e escalonamentos da ação SLA — para auditar recebimento × processamento de respostas. Opcional. */
+  loadReplyTimingContext?(slaActionId: string): Promise<import("./replies/reply-timing").ReplyTimingContext | null>;
   updateInboundMessage(id: string, patch: { caseId?: string | null; conversationId?: string | null; senderUserId?: string | null; bodyClean?: string; quotedText?: string; signatureText?: string; classification?: ReplyClassification | null; confidence?: number | null; correlationMethod?: ReplyCorrelationMethod; requiresHumanReview?: boolean; expertId?: string | null; expertRouting?: Record<string, unknown> | null; status: ReplyMessageStatus; statusReason?: string | null }): Promise<void>;
 
   // ---- ações / estados ----

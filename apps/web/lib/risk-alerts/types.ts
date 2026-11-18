@@ -239,6 +239,8 @@ export interface PlannedEscalation {
   newLevel: SlaEscalationLevel;
   reason: string;
   reasons: string[];
+  /** Prazo vencido que motivou o escalonamento (assunção ou resposta/conclusão) — usado pela verificação de respostas. */
+  deadlineAt?: string | null;
 }
 
 export interface PlannedCaseUpsert {
