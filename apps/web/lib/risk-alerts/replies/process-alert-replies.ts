@@ -177,7 +177,7 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
         await store.recordForecastReply({ projectId, caseId: correlation.caseId, actorUserId: authorization.userId, fromState: loaded.snapshot.state, messageId: message.id, forecastAt, text: parsed.clean });
         await store.audit(projectId, [{ action: "RISK_ALERT_REPLY_OUT_OF_ORDER", entityType: "RISK_ALERT_CASE", entityId: correlation.caseId, detail: `Resposta (mensagem ${message.id}, recebida ${message.receivedAt}) anterior a uma atualização já registrada (${newer.effectiveAt}): mantida no histórico sem alterar estado nem previsão vigente.` }]);
         if (confirmation && store.enqueueReplyConfirmation) {
-          await store.enqueueReplyConfirmation(projectId, correlation.caseId, { ...confirmation, payloadSummary: { ...confirmation.payloadSummary, outOfOrder: true, statusLabel: "Registrada no histórico — há atualização mais recente neste alerta; nada foi alterado" } });
+          await store.enqueueReplyConfirmation(projectId, correlation.caseId, { ...confirmation, payloadSummary: { ...confirmation.payloadSummary, outOfOrder: true, escalatedTo: null, statusLabel: "Registrada no histórico — há atualização mais recente neste alerta; nada foi alterado" } });
         }
         await store.updateInboundMessage(message.id, { ...basePatch, status: "PROCESSED", statusReason: "Fora de ordem: registrada no histórico sem alterar o alerta" });
         result.recorded += 1;
@@ -197,7 +197,7 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
       }
       // Confirmação só depois da persistência acima (resposta registrada).
       if (transition.ok && confirmation && store.enqueueReplyConfirmation) {
-        await store.enqueueReplyConfirmation(projectId, correlation.caseId, { ...confirmation, payloadSummary: { ...confirmation.payloadSummary, statusLabel: `Resposta registrada (risco ${riskLevel === "LOW" ? "BAIXO" : "MÉDIO"}: sem alteração automática do alerta)` } });
+        await store.enqueueReplyConfirmation(projectId, correlation.caseId, { ...confirmation, payloadSummary: { ...confirmation.payloadSummary, escalatedTo: null, statusLabel: `Resposta registrada (risco ${riskLevel === "LOW" ? "BAIXO" : "MÉDIO"}: sem alteração automática do alerta)` } });
       }
       await store.updateInboundMessage(message.id, { ...basePatch, status: "PROCESSED", statusReason: transition.ok ? `Registrada (consolidado LOW/MEDIUM — sem ação automática)${forecastNote}` : transition.message });
       result.recorded += 1;
