@@ -99,6 +99,21 @@ const limitArg = args.find((arg) => arg.startsWith("--limit="));
 const limit = limitArg ? Number(limitArg.split("=")[1]) : 50;
 const phases = new Set(phaseArg === "all" ? ["intake", "promote", "compare", "classify", "workbook", "alerts", "replies"] : [phaseArg]);
 
+// Caixa de TITULAR (slot com prefixo, ex.: GOOGLE_GMAIL_TITULAR_1): só a fase intake, com janela explícita.
+//   WEEKLY_INTAKE_CREDENTIAL_PREFIX=<PREFIXO>  lê <PREFIXO>_MAILBOX/_REFRESH_TOKEN e o cliente do slot ou o
+//                                             compartilhado GOOGLE_GMAIL_OWNER_CLIENT_ID/_CLIENT_SECRET;
+//   --since=<ISO> [--until=<ISO>]             janela explícita (o cursor compartilhado da obra NÃO é lido nem movido);
+//   --historical                              recuperação histórica: nada vira versão automaticamente
+//                                             (applyHistoricalBackfillPolicy => revisão humana, bytes preservados).
+const ownerPrefix = (process.env.WEEKLY_INTAKE_CREDENTIAL_PREFIX ?? "").toUpperCase().replace(/[^A-Z0-9_]/g, "");
+const historicalBackfill = args.includes("--historical");
+const sinceArg = args.find((arg) => arg.startsWith("--since="))?.slice("--since=".length) ?? null;
+const untilArg = args.find((arg) => arg.startsWith("--until="))?.slice("--until=".length) ?? null;
+if ((ownerPrefix || historicalBackfill) && (phaseArg !== "intake" || !sinceArg)) {
+  console.error("ERRO: caixa de titular / --historical exigem --phase=intake e --since=<ISO>.");
+  process.exit(1);
+}
+
 function required(name) {
   const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing environment variable: ${name}`);
@@ -159,10 +174,18 @@ const summary = { candidates: 0, notSynced: 0, alreadyEvaluated: 0, recorded: {}
 // ------------------------------------------------------------------
 if (phases.has("intake")) {
   const { google } = await import("googleapis");
-  const auth = new google.auth.OAuth2(required("GOOGLE_GMAIL_INBOUND_CLIENT_ID"), required("GOOGLE_GMAIL_INBOUND_CLIENT_SECRET"));
-  auth.setCredentials({ refresh_token: required("GOOGLE_GMAIL_INBOUND_REFRESH_TOKEN") });
+  const { ownerCredentialNames, missingOwnerCredentials } = await import("./lib/gmail-owner-mailbox.mjs");
+  if (ownerPrefix && missingOwnerCredentials(ownerPrefix).length > 0) {
+    console.log(`Slot ${ownerPrefix}: credenciais ausentes (${missingOwnerCredentials(ownerPrefix).join(", ")}). Intake pulado; nada lido.`);
+    process.exit(0);
+  }
+  const owner = ownerPrefix ? ownerCredentialNames(ownerPrefix) : null;
+  const auth = owner
+    ? new google.auth.OAuth2(required(owner.clientId), required(owner.clientSecret))
+    : new google.auth.OAuth2(required("GOOGLE_GMAIL_INBOUND_CLIENT_ID"), required("GOOGLE_GMAIL_INBOUND_CLIENT_SECRET"));
+  auth.setCredentials({ refresh_token: owner ? required(owner.refreshToken) : required("GOOGLE_GMAIL_INBOUND_REFRESH_TOKEN") });
   const gmail = google.gmail({ version: "v1", auth });
-  const mailbox = required("GOOGLE_GMAIL_INBOUND_MAILBOX").toLowerCase();
+  const mailbox = (owner ? required(owner.mailbox) : required("GOOGLE_GMAIL_INBOUND_MAILBOX")).toLowerCase();
 
   const profile = await gmail.users.getProfile({ userId: "me" });
   if (profile.data.emailAddress?.toLowerCase() !== mailbox) {
@@ -180,13 +203,19 @@ if (phases.has("intake")) {
 
     // Overlap de 3 dias sobre o cursor; a idempotência real é o UNIQUE
     // (project_id, gmail_message_id) em weekly_schedule_email_intakes.
-    const cursor = config.lastScannedSentAt ? new Date(new Date(config.lastScannedSentAt).getTime() - 3 * 24 * 3600 * 1000) : null;
+    const explicitWindow = Boolean(sinceArg);
+    const cursor = !explicitWindow && config.lastScannedSentAt ? new Date(new Date(config.lastScannedSentAt).getTime() - 3 * 24 * 3600 * 1000) : null;
     const windowStart = config.monitoringStartAt ? new Date(config.monitoringStartAt) : null;
-    const afterDate = [cursor, windowStart].filter(Boolean).sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+    const explicitStart = explicitWindow ? new Date(sinceArg) : null;
+    if (explicitStart && Number.isNaN(explicitStart.getTime())) throw new Error("--since inválido.");
+    const afterDate = [cursor, windowStart, explicitStart].filter(Boolean).sort((a, b) => b.getTime() - a.getTime())[0] ?? null;
+    const explicitEnd = untilArg ? new Date(untilArg) : null;
+    if (explicitEnd && Number.isNaN(explicitEnd.getTime())) throw new Error("--until inválido.");
+    const beforeDate = [config.monitoringEndAt ? new Date(config.monitoringEndAt) : null, explicitEnd].filter(Boolean).sort((a, b) => a.getTime() - b.getTime())[0] ?? null;
 
     const queryParts = [`from:${config.senderDomain}`, "has:attachment", "filename:mpp"];
     if (afterDate) queryParts.push(`after:${Math.floor(afterDate.getTime() / 1000)}`);
-    if (config.monitoringEndAt) queryParts.push(`before:${Math.ceil(new Date(config.monitoringEndAt).getTime() / 1000)}`);
+    if (beforeDate) queryParts.push(`before:${Math.ceil(beforeDate.getTime() / 1000)}`);
     const query = queryParts.join(" ");
 
     const ids = [];
@@ -252,6 +281,7 @@ if (phases.has("intake")) {
         subject: getHeader(headers, "Subject") ?? "(sem assunto)",
         sentAt: message.internalDate ? new Date(Number(message.internalDate)).toISOString() : emailRow.sent_at,
         attachments: toCandidateAttachments(parts),
+        historicalBackfill,
       };
 
       console.log(`  Mensagem ${id}: ${candidate.attachments.length} anexo(s).`);
@@ -267,7 +297,8 @@ if (phases.has("intake")) {
       await sleep(200);
     }
 
-    if (apply && maxSentAt && (!config.lastScannedSentAt || maxSentAt > new Date(config.lastScannedSentAt))) {
+    // Janela explícita (caixa de titular / histórico): o cursor compartilhado da obra não é movido.
+    if (apply && !explicitWindow && maxSentAt && (!config.lastScannedSentAt || maxSentAt > new Date(config.lastScannedSentAt))) {
       const { error } = await supabase
         .from("project_weekly_schedule_ingestion_configs")
         .update({ last_scanned_sent_at: maxSentAt.toISOString() })
