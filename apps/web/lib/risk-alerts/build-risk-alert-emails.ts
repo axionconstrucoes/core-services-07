@@ -226,6 +226,8 @@ export function buildImmediateRiskAlertEmail(input: ImmediateEmailInput): BuiltE
           ],
         ] as Array<[string, string | null]>)
       : []),
+    ["Resposta do responsável", content.responderLine ?? null],
+    ["Previsão de conclusão", content.forecastLine ?? null],
     ["Recomendação do Expert", content.recommendation],
     ["Exigências da Matriz", requirements],
     ["Gerado em", formatDateTimeBR(input.generatedAt, input.timeZone)],
@@ -365,6 +367,8 @@ export interface FollowUpEmailInput {
   paragraphs?: string[];
   requiresHumanReview?: boolean;
   actionLinks?: Partial<Record<AlertActionType, string>>;
+  /** Título alternativo (ex.: pedido de previsão de conclusão). */
+  titleOverride?: string;
 }
 
 const FOLLOW_UP_TITLES: Record<FollowUpEmailInput["kind"], string> = {
@@ -375,10 +379,11 @@ const FOLLOW_UP_TITLES: Record<FollowUpEmailInput["kind"], string> = {
 };
 
 export function buildAlertFollowUpEmail(input: FollowUpEmailInput): BuiltEmail {
+  const title = input.titleOverride ?? FOLLOW_UP_TITLES[input.kind];
   const severity = RISK_LEVEL_TO_SEVERITY[input.riskLevel];
   const riskLabel = alertRiskLevelLabels[severity];
   const codeTag = input.visibleCode ? ` [ACC-ALERTA:${input.visibleCode}]` : "";
-  const subject = `${buildContractAlertSubject(input.projectName, severity)} - ${FOLLOW_UP_TITLES[input.kind].toUpperCase()}${codeTag}`;
+  const subject = `${buildContractAlertSubject(input.projectName, severity)} - ${title.toUpperCase()}${codeTag}`;
   const greeting = input.recipientName ? `Olá, ${input.recipientName}.` : "Olá.";
   const alertUrl = buildProjectLink(input.baseUrl, input.projectId, `alertas/${input.caseId}`);
   const rows: Array<[string, string | null]> = [["Projeto", input.projectName], ["Grau de risco", riskLabel], ["Alerta", input.caseTitle], ...input.rows, ["Gerado em", formatDateTimeBR(input.generatedAt, input.timeZone)]];
@@ -391,14 +396,14 @@ export function buildAlertFollowUpEmail(input: FollowUpEmailInput): BuiltEmail {
   const sideHtml = sideBox(alertUrl, "Abrir alerta no ACC", true) + renderActionLinksHtml(input.actionLinks) + renderReplyBox(input.riskLevel, input.visibleCode);
   const html = renderAlertCard(
     theme,
-    renderCardHeader(theme, `RISCO ${riskLabel}`, greeting, FOLLOW_UP_TITLES[input.kind]),
+    renderCardHeader(theme, `RISCO ${riskLabel}`, greeting, title),
     mainHtml,
     sideHtml,
     "Mensagem gerada pelo ACC na conversa deste alerta. Você pode responder diretamente a este e-mail."
   );
   const text = [
     "ACC - AXION Controle de Contratos",
-    `RISCO ${riskLabel} · ${FOLLOW_UP_TITLES[input.kind]}`,
+    `RISCO ${riskLabel} · ${title}`,
     "",
     greeting,
     ...(input.paragraphs ?? []),

@@ -923,6 +923,76 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         .map((row) => ({ eventId: row.id as string, caseId: row.case_id as string, projectId, expertId: row.expert_id as ExpertId, question: (row.text_content as string) ?? "", askedByUserId: s(row.actor_user_id), createdAt: row.created_at as string }));
     },
 
+    async loadCaseForecastEvents(caseId) {
+      const { data, error } = await client
+        .from("risk_alert_action_events")
+        .select("action_type,forecast_at,created_at,actor_user_id,message_id,text_content")
+        .eq("case_id", caseId)
+        .or("forecast_at.not.is.null,action_type.eq.TAKING_ACTION,idempotency_key.like.*:FORECAST_REPLY:*")
+        .order("created_at", { ascending: true });
+      fail("Falha ao carregar previsões do alerta", error);
+      const rows = data ?? [];
+      const messageIds = Array.from(new Set(rows.map((r) => r.message_id as string | null).filter((id): id is string => Boolean(id))));
+      const receivedById = new Map<string, string>();
+      if (messageIds.length > 0) {
+        const { data: messages } = await client.from("alert_email_messages").select("id,received_at").in("id", messageIds);
+        for (const m of messages ?? []) if (m.received_at) receivedById.set(m.id as string, m.received_at as string);
+      }
+      return rows.map((r) => ({
+        actionType: r.action_type as string,
+        forecastAt: s(r.forecast_at),
+        effectiveAt: (r.message_id ? receivedById.get(r.message_id as string) : undefined) ?? (r.created_at as string),
+        createdAt: r.created_at as string,
+        actorUserId: s(r.actor_user_id),
+        text: s(r.text_content),
+      }));
+    },
+
+    async enqueueReplyConfirmation(projectId, caseId, entry) {
+      const { data: caseRow } = await client.from("risk_alert_cases").select("sla_action_id").eq("id", caseId).maybeSingle();
+      const { data: conversation } = await client.from("alert_email_conversations").select("id").eq("case_id", caseId).maybeSingle();
+      const { error } = await client.from("risk_alert_outbox").upsert(
+        {
+          project_id: projectId,
+          case_id: caseId,
+          sla_action_id: (caseRow?.sla_action_id as string | null) ?? null,
+          risk_level: entry.riskLevel,
+          notification_type: entry.notificationType,
+          origin: entry.origin,
+          escalation_level: entry.escalationLevel,
+          recipient_user_id: entry.recipientUserId,
+          scheduled_for: new Date().toISOString(),
+          status: entry.status,
+          suppression_reason: entry.suppressionReason,
+          idempotency_key: entry.idempotencyKey,
+          matrix_rule_snapshot: entry.matrixRuleSnapshot,
+          payload_summary: entry.payloadSummary,
+          conversation_id: (conversation?.id as string | null) ?? null,
+        },
+        { onConflict: "idempotency_key", ignoreDuplicates: true }
+      );
+      fail("Falha ao registrar confirmação da resposta", error);
+    },
+
+    async recordForecastReply(input) {
+      const { error } = await client.from("risk_alert_action_events").insert({
+        project_id: input.projectId,
+        case_id: input.caseId,
+        action_type: "REPLY_RECEIVED",
+        actor_type: "USER",
+        actor_user_id: input.actorUserId,
+        origin: "EMAIL",
+        from_state: input.fromState,
+        to_state: input.fromState,
+        text_content: input.text.slice(0, 8000) || null,
+        forecast_at: input.forecastAt,
+        message_id: input.messageId,
+        idempotency_key: `${input.caseId}:FORECAST_REPLY:msg-${input.messageId}`,
+      });
+      // Reprocessar a mesma mensagem não duplica (chave única).
+      if (error && error.code !== "23505") fail("Falha ao registrar previsão de conclusão", error);
+    },
+
     async recordExpertAnswer(input) {
       const { data: caseRow } = await client.from("risk_alert_cases").select("state").eq("id", input.caseId).maybeSingle();
       const fromState = (caseRow?.state as string) ?? "EXPERT_CONSULTATION_PENDING";

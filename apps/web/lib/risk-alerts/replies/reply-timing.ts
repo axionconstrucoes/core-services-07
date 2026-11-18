@@ -24,6 +24,12 @@ export interface ReplyTimingInput {
   classification: string | null;
   text: string;
   context: ReplyTimingContext | null;
+  /**
+   * Decisão do extrator de previsão (forecast.ts) para respostas "em andamento": quando informada, é a
+   * fonte ÚNICA da pendência (inclui data sem horário em ALTO/CRÍTICO, ambígua ou passada) — evita dois
+   * registros para o mesmo fato. Ausente => heurística hasForecast.
+   */
+  forecast?: { pending: boolean; problem: string | null };
 }
 
 const ms = (iso: string | null | undefined) => (iso ? Date.parse(iso) : Number.NaN);
@@ -79,13 +85,13 @@ export function assessReplyTiming(input: ReplyTimingInput): { events: PlannedAud
   }
 
   const answersAction = input.classification === "ACKNOWLEDGEMENT" || input.classification === "STATUS_UPDATE";
-  const forecastPending = answersAction && !hasForecast(input.text);
+  const forecastPending = input.forecast ? input.forecast.pending : answersAction && !hasForecast(input.text);
   if (forecastPending) {
     events.push({
       action: "RISK_ALERT_REPLY_FORECAST_PENDING",
       entityType: "RISK_ALERT_CASE",
       entityId: input.caseId,
-      detail: `Recebimento da resposta ${input.messageId} registrado; previsão de conclusão não informada — pendência de previsão registrada separadamente.`,
+      detail: `Recebimento da resposta ${input.messageId} registrado; previsão de conclusão ${input.forecast?.problem ? `pendente: ${input.forecast.problem}` : "não informada"} — pendência de previsão registrada separadamente; cobranças e escalonamentos mantidos.`,
     });
   }
   return { events, receivedBeforeDeadline, correctedEscalations, forecastPending };

@@ -16,6 +16,7 @@ import type { EmailRegistryActionState } from "@/app/[projectId]/documentos/emai
 import { assertWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
 import { hashActionToken, isActionTokenValid } from "@/lib/risk-alerts/action-links";
 import { applyAlertAction, type AlertCaseSnapshot } from "@/lib/risk-alerts/alert-state-machine";
+import { applyPilotLevelOverride, LEVEL_OVERRIDE_ENTITY_TYPE, LEVEL_OVERRIDE_SET_ACTION, LEVEL_OVERRIDE_UNSET_ACTION, resolvePilotLevelOverrides, type LevelOverrideAuditRow } from "@/lib/risk-alerts/pilot-level-overrides";
 import { routeExpert } from "@/lib/risk-alerts/experts/route-alert-expert";
 import { createSupabaseRiskAlertStore } from "@/lib/risk-alerts/supabase-store";
 import type { AlertActionType } from "@/lib/risk-alerts/types";
@@ -63,7 +64,19 @@ export async function applyAlertActionAction(_prev: EmailRegistryActionState, fo
       .filter((id) => ((profileById.get(id)?.email as string | null) ?? "").toLowerCase().split("@")[1] === corporateDomain);
 
     const riskLevel = loaded.snapshot.riskLevel as SlaRiskLevel;
-    const policy = resolveMatrixPolicy({ rules, responsibles, settings, area: loaded.record.area, riskLevel });
+    // Mesma política do ciclo, inclusive a exceção temporária do piloto por nível (Nível 2). Sem leitura
+    // permitida do registro, segue a Matriz (sem exceção) — nunca amplia destinatários.
+    const { data: overrideRows } = await supabase
+      .from("audit_log_entries")
+      .select("id,project_id,occurred_at,actor_type,actor_user_id,action,entity_type,entity_id,detail")
+      .eq("project_id", projectId)
+      .eq("entity_type", LEVEL_OVERRIDE_ENTITY_TYPE)
+      .in("action", [LEVEL_OVERRIDE_SET_ACTION, LEVEL_OVERRIDE_UNSET_ACTION]);
+    const policy = applyPilotLevelOverride(
+      resolveMatrixPolicy({ rules, responsibles, settings, area: loaded.record.area, riskLevel }),
+      resolvePilotLevelOverrides(projectId, (overrideRows ?? []) as unknown as LevelOverrideAuditRow[]),
+      (config?.pilot_recipient_allowlist_user_ids as string[] | null) ?? null
+    );
     // ESPECIALISTA: a escolha explícita do dropdown prevalece; a decisão
     // (temas, confiança, sugerido × confirmado) é auditada com o evento.
     const expertRouting = action === "EXPERT_CONSULTATION" ? routeExpert({ question: field(formData, "question") ?? "", selectedExpertId: field(formData, "expertId") }) : null;
