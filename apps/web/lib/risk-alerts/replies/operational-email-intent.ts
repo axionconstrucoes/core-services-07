@@ -25,7 +25,7 @@ export function assessOperationalEmailIntent(cleanText: string): EmailIntentAsse
   if (!text) return { intent: "UNDETERMINED", requiresReview: true, reason: "Resposta vazia" };
 
   const resolve = /\b(resolvid[oa]|conclu[íi]d[oa]|finalizad[oa]|pend[êe]ncia encerrada|problema solucionado)\b/i.test(text);
-  const transfer = /\b(encaminh(?:o|ar|ei)|transfer(?:ir|ido|ida|ência)|reatribuir|novo respons[áa]vel|passar para)\b/i.test(text);
+  const transfer = /\b(encaminh(?:o|ar|ei|ad[oa])|transfer(?:ir|ido|ida|ência)|reatribuir|novo respons[áa]vel|passar para)\b/i.test(text);
   const blocked = /\b(impediment[oa]|bloquead[oa]|n[ãa]o consigo|dependemos de|aguardando libera[çc][ãa]o)\b/i.test(text);
   const evidence = /\b(anex[oa]|evid[êe]ncia|foto(?:grafia)?s?|comprovante|documento anexado)\b/i.test(text);
   const forecast = /\b(nova previs[ãa]o|previs[ãa]o atualizada|alter(?:o|ar|amos) a previs[ãa]o|nova data de conclus[ãa]o)\b/i.test(text);
