@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { isTechnicalProjectDocument } from "@/lib/documents/technical-project-list";
 import { ClausesMasterDetail } from "@/components/documents/clauses-master-detail";
 import { ContractualDocumentGroupSection } from "@/components/documents/contractual-document-group-section";
 import { DocumentCard } from "@/components/documents/document-card";
@@ -207,6 +208,9 @@ export default async function DocumentosPage({
   // (ungrouped), nunca um documento já vinculado a outro pai (evita
   // oferecer ali um fluxo de TROCA, que tem suas próprias regras de
   // confirmação já cobertas por LinkContractualAttachmentControl).
+  const visibleUngroupedDocuments = ungroupedDocuments.filter((document) => !isTechnicalProjectDocument(document));
+  const technicalCount = documents.filter(isTechnicalProjectDocument).length;
+
   const linkableDocuments = ungroupedDocuments.map((document) => ({
     id: document.id,
     title: document.title,
@@ -219,6 +223,14 @@ export default async function DocumentosPage({
         title="Documentos"
         description="Upload manual de contratos, aditivos, editais, RFI, RFP, clarificações, propostas, relatórios e cronogramas. O Google Drive é reservado exclusivamente ao SSMA/ESG."
       />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Link href={`/${projectId}/documentos/projetos`}
+          className="inline-flex min-h-10 items-center rounded-md border border-[#36557f] bg-[#172b46] px-4 text-sm font-semibold text-white hover:bg-[#244469]">
+          Projetos ({technicalCount})
+        </Link>
+        <span className="text-xs text-muted-foreground">Desenhos e projetos técnicos ficam na listagem sintética de Projetos.</span>
+      </div>
 
       <Tabs defaultValue={["documentos", "clausulas", "cronograma", "anexos-email", ...(weeklyReportsEnabled ? ["registro-email"] : [])].includes(initialTab) ? initialTab : "documentos"}>
         <TabsList>
@@ -329,7 +341,7 @@ export default async function DocumentosPage({
                 />
               ))}
 
-              {ungroupedDocuments.length > 0 ? (
+              {visibleUngroupedDocuments.length > 0 ? (
                 <div className="flex flex-col gap-2">
                   {contractualGroups.length > 0 ? (
                     <p className="text-xs font-medium text-muted-foreground">
@@ -337,7 +349,7 @@ export default async function DocumentosPage({
                     </p>
                   ) : null}
 
-                  {ungroupedDocuments.map((document) => (
+                  {visibleUngroupedDocuments.map((document) => (
                     <DocumentCard
                       key={document.id}
                       document={document}
