@@ -78,7 +78,7 @@ jobs:
           console.log(`Documentos pendentes suportados: ${pending.length}`);
 
           for (const row of pending) {
-            console.log(`Processando ${row.id} - ${row.original_file_name}`);
+            console.log(`Processando ${row.id}`);
             const result = spawnSync(
               "node",
               ["scripts/process-document-version.mjs", row.id],

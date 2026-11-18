@@ -61,11 +61,14 @@ export interface ResolveMatrixPolicyInput {
   settings: SlaProjectSettings | null;
   area: SlaArea;
   riskLevel: SlaRiskLevel;
+  /** Projeto (para o calendário de feriados). Ausente => deduzido de settings/responsáveis. */
+  projectId?: string | null;
 }
 
 export function resolveMatrixPolicy(input: ResolveMatrixPolicyInput): MatrixPolicy {
   const rule = resolveMatrixRule(input.rules, input.riskLevel, input.area);
-  const businessHours = resolveBusinessHoursConfig(input.settings);
+  const projectId = input.projectId ?? input.settings?.projectId ?? input.responsibles[0]?.projectId ?? null;
+  const businessHours = resolveBusinessHoursConfig(input.settings, projectId);
   const row = input.responsibles.find((r) => r.area === input.area) ?? null;
   const missing: MatrixPolicyMissing[] = [];
 
@@ -128,6 +131,8 @@ export function matrixPolicySnapshot(policy: MatrixPolicy): Record<string, unkno
     requiresAcknowledgmentConfirmation: policy.requiresAcknowledgmentConfirmation,
     requiresDelayJustification: policy.requiresDelayJustification,
     usingDefaultRule: policy.usingDefaultRule,
+    ruleId: policy.rule.ruleId ?? null,
+    ignoredDuplicateRuleIds: policy.rule.ignoredDuplicateRuleIds ?? [],
     level1UserId: policy.level1UserId,
     level1SecondaryUserId: policy.level1SecondaryUserId,
     level2UserId: policy.level2UserId,

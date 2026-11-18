@@ -26,7 +26,7 @@
 // gravada como evidência; nunca convertida em semana civil.
 
 import { parseWorkWeekSubject } from "../../email/registry/parse-work-week-subject";
-import { evaluateWeeklyScheduleEmail, isMppAttachment } from "./evaluate-weekly-schedule-email";
+import { applyHistoricalBackfillPolicy, evaluateWeeklyScheduleEmail, isMppAttachment } from "./evaluate-weekly-schedule-email";
 import type { IngestedMppAttachment, WeeklyScheduleIngestionStore, WeeklyScheduleIntakeRecord } from "./store";
 import { DuplicateDocumentVersionError } from "./store";
 import type { EmailAttachmentDescriptor, WeeklyScheduleEmailCandidate, WeeklyScheduleIngestionConfig, WeeklyScheduleIntakeStatus } from "./types";
@@ -78,7 +78,8 @@ export async function processWeeklyScheduleEmailCandidate(
   }
 
   const sender = await store.resolveSender(config.projectId, candidate.fromAddress, config.authorizedArea);
-  const decision = evaluateWeeklyScheduleEmail(candidate, config, sender);
+  const evaluated = evaluateWeeklyScheduleEmail(candidate, config, sender);
+  const decision = candidate.historicalBackfill ? applyHistoricalBackfillPolicy(evaluated) : evaluated;
   const weekStart = resolveWeekStart(candidate.sentAt, config.timezone);
   const workWeek = parseWorkWeekSubject(candidate.subject);
 

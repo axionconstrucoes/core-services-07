@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { configureSlaProjectSettingsAction } from "@/app/[projectId]/acoes/actions";
 import { initialConfigureSlaProjectSettingsState } from "@/app/[projectId]/acoes/actions-state";
+import { holidayCalendarForProject, VALIDATED_YEARS } from "@/lib/sla/holidays/calendars";
 
 // Correção de timezone: o cálculo de horário útil nunca usa UTC como
 // horário comercial — ver apps/web/lib/sla/time-units.ts. Default
@@ -53,9 +54,16 @@ export function SlaProjectSettingsForm({
         Horário útil: {String(businessDayStartHour).padStart(2, "0")}:00–{String(businessDayEndHour).padStart(2, "0")}:00,
         segunda a sexta ({timezone}). {isDefault ? "Usando o default institucional — ainda não configurado por este projeto." : ""}
       </p>
-      <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
-        Feriados ainda não são considerados nesta versão.
-      </p>
+      {holidayCalendarForProject(projectId) ? (
+        <p className="text-xs text-muted-foreground">
+          Feriados descontados: calendário {holidayCalendarForProject(projectId)} (nacionais por lei federal, Sexta-Feira da
+          Paixão e feriado estadual; pontos facultativos não são descontados). Validado para {VALIDATED_YEARS.join(" e ")}.
+        </p>
+      ) : (
+        <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+          Feriados não são considerados neste projeto (sem calendário configurado).
+        </p>
+      )}
 
       {state.error ? <p className="text-xs text-destructive">{state.error}</p> : null}
       {state.success ? <p className="text-xs text-emerald-600">Salvo.</p> : null}

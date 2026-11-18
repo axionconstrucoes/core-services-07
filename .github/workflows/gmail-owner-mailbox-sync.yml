@@ -1,0 +1,148 @@
+name: Gmail Owner Mailbox Sync
+
+# Coleta da caixa PRÓPRIA de titulares (recebidos + enviados), somente leitura (gmail.readonly).
+# Slots NEUTROS (sem nome/endereço no repositório público): a caixa de cada slot vem do segredo
+# GOOGLE_GMAIL_TITULAR_<N>_MAILBOX e o consentimento do titular de GOOGLE_GMAIL_TITULAR_<N>_REFRESH_TOKEN
+# (no job, expostos como GOOGLE_GMAIL_TITULAR_SLOT_*; o checkpoint é por caixa, não por slot).
+# O cliente OAuth é o mesmo da coleta Gmail existente (GOOGLE_GMAIL_INBOUND_CLIENT_ID/_SECRET).
+# CONDICIONAL: sem os segredos do slot o script informa os NOMES faltantes e encerra sem ler nada (exit 0).
+# Também não lê caixa fora da lista explícita da obra (project_email_ingestion_mailboxes).
+# Agendado: só o modo incremental, a partir do checkpoint INCREMENTAL (sem ele, nada é lido: a 1ª execução
+# contínua é manual, com --since). Histórico e contínuo têm checkpoints separados e um único grupo de concorrência.
+# Histórico: manual (workflow_dispatch, mode=history), retomável por checkpoint, janelas de 30 dias.
+# Logs: só contagens e identificador opaco (hash) da caixa.
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+    inputs:
+      slot:
+        description: "Slot do titular"
+        required: true
+        type: choice
+        options:
+          - "1"
+          - "2"
+      mode:
+        description: "history = histórico retomável | incremental = contínuo a partir do checkpoint"
+        required: true
+        type: choice
+        default: incremental
+        options:
+          - history
+          - incremental
+      since:
+        description: "Início ISO (obrigatório na 1ª execução do slot; ignorado se houver checkpoint)"
+        required: false
+        type: string
+      max_windows:
+        description: "Histórico: janelas de 30 dias por execução"
+        required: false
+        type: string
+        default: "6"
+      apply:
+        description: "Gravar (false = simulação: só conta)"
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: gmail-owner-mailbox-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        slot: ${{ github.event_name == 'schedule' && fromJSON('["1","2"]') || fromJSON(format('["{0}"]', github.event.inputs.slot)) }}
+    steps:
+      - name: Verificar segredos do slot (sem exibir valores)
+        id: check
+        env:
+          HAS_MAILBOX: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_MAILBOX', matrix.slot)] != '' }}
+          HAS_TOKEN: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_REFRESH_TOKEN', matrix.slot)] != '' }}
+        run: |
+          if [ "${HAS_MAILBOX}" = "true" ] && [ "${HAS_TOKEN}" = "true" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Slot ${{ matrix.slot }} sem consentimento cadastrado — nada lido."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout
+        if: steps.check.outputs.ready == 'true'
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        if: steps.check.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.check.outputs.ready == 'true'
+        run: npm ci
+
+      - name: Coletar caixa do titular (recebidos + enviados)
+        if: steps.check.outputs.ready == 'true'
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          GOOGLE_GMAIL_OWNER_CLIENT_ID: ${{ secrets.GOOGLE_GMAIL_INBOUND_CLIENT_ID }}
+          GOOGLE_GMAIL_OWNER_CLIENT_SECRET: ${{ secrets.GOOGLE_GMAIL_INBOUND_CLIENT_SECRET }}
+          GOOGLE_GMAIL_TITULAR_SLOT_MAILBOX: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_MAILBOX', matrix.slot)] }}
+          GOOGLE_GMAIL_TITULAR_SLOT_REFRESH_TOKEN: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_REFRESH_TOKEN', matrix.slot)] }}
+          # Cliente OAuth PRÓPRIO do slot (opcional): garante que o refresh token seja usado com o MESMO cliente que o emitiu.
+          GOOGLE_GMAIL_TITULAR_SLOT_CLIENT_ID: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_CLIENT_ID', matrix.slot)] }}
+          GOOGLE_GMAIL_TITULAR_SLOT_CLIENT_SECRET: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_CLIENT_SECRET', matrix.slot)] }}
+          SLOT: ${{ matrix.slot }}
+          INPUT_MODE: ${{ github.event.inputs.mode || 'incremental' }}
+          INPUT_SINCE: ${{ github.event.inputs.since }}
+          INPUT_MAX_WINDOWS: ${{ github.event.inputs.max_windows || '6' }}
+          INPUT_APPLY: ${{ github.event_name == 'schedule' && 'true' || github.event.inputs.apply }}
+        run: |
+          set -euo pipefail
+          ARGS=("--prefix=GOOGLE_GMAIL_TITULAR_SLOT" "--mode=${INPUT_MODE}" "--max-windows=${INPUT_MAX_WINDOWS}")
+          if [ -n "${INPUT_SINCE}" ]; then ARGS+=("--since=${INPUT_SINCE}"); fi
+          if [ "${INPUT_APPLY}" = "true" ]; then ARGS+=("--apply"); fi
+          node scripts/gmail-owner-mailbox-sync.mjs "${ARGS[@]}"
+
+      - name: Recuperar cronogramas (.mpp) da caixa do titular
+        if: ${{ steps.check.outputs.ready == 'true' && vars.ACC_WEEKLY_REPORTS_ENABLED == 'true' }}
+        env:
+          ACC_WEEKLY_REPORTS_ENABLED: ${{ vars.ACC_WEEKLY_REPORTS_ENABLED }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          GOOGLE_GMAIL_OWNER_CLIENT_ID: ${{ secrets.GOOGLE_GMAIL_INBOUND_CLIENT_ID }}
+          GOOGLE_GMAIL_OWNER_CLIENT_SECRET: ${{ secrets.GOOGLE_GMAIL_INBOUND_CLIENT_SECRET }}
+          GOOGLE_GMAIL_TITULAR_SLOT_MAILBOX: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_MAILBOX', matrix.slot)] }}
+          GOOGLE_GMAIL_TITULAR_SLOT_REFRESH_TOKEN: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_REFRESH_TOKEN', matrix.slot)] }}
+          # Cliente OAuth PRÓPRIO do slot (opcional): garante que o refresh token seja usado com o MESMO cliente que o emitiu.
+          GOOGLE_GMAIL_TITULAR_SLOT_CLIENT_ID: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_CLIENT_ID', matrix.slot)] }}
+          GOOGLE_GMAIL_TITULAR_SLOT_CLIENT_SECRET: ${{ secrets[format('GOOGLE_GMAIL_TITULAR_{0}_CLIENT_SECRET', matrix.slot)] }}
+          WEEKLY_INTAKE_CREDENTIAL_PREFIX: GOOGLE_GMAIL_TITULAR_SLOT
+          INPUT_MODE: ${{ github.event.inputs.mode || 'incremental' }}
+          INPUT_SINCE: ${{ github.event.inputs.since }}
+          INPUT_APPLY: ${{ github.event_name == 'schedule' && 'true' || github.event.inputs.apply }}
+        run: |
+          set -euo pipefail
+          if [ "${INPUT_MODE}" = "history" ]; then
+            if [ -z "${INPUT_SINCE}" ]; then echo "::notice::Histórico sem início explícito — recuperação de cronogramas pulada."; exit 0; fi
+            # Histórico: nada vira versão automaticamente (revisão humana; sem comparação nem alerta).
+            ARGS=("--phase=intake" "--since=${INPUT_SINCE}" "--historical" "--limit=500")
+          else
+            ARGS=("--phase=intake" "--since=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)" "--limit=100")
+          fi
+          if [ "${INPUT_APPLY}" = "true" ]; then ARGS+=("--apply"); fi
+          node scripts/weekly-schedule-email-ingest.mjs 00000000-0000-4000-8000-000000000001 "${ARGS[@]}"

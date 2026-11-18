@@ -7,17 +7,37 @@
 // (config.alertRecipientUserIds) é etapa posterior, fora deste módulo
 // (ver docs/weekly-schedule-email-ingestion.md).
 
-import type { AbsenceAlertStore, OpenAbsenceAlert } from "./store";
+import type { AbsenceAlertRecord, AbsenceAlertStore, OpenAbsenceAlert } from "./store";
 import type { WeeklyScheduleIngestionConfig } from "./types";
 import { isWithinMonitoringWindow } from "./evaluate-weekly-schedule-email";
-import { resolveCurrentWeekDeadline } from "./week-window";
+import { formatLateDetectionDetail } from "./late-detection";
+import {
+  classifyMissedWeek,
+  type MissedWeekClassification,
+  type MissedWeekReason,
+  type ResponsibleAtTime,
+} from "./missed-week-classification";
+import { previousWeekStart, resolveCurrentWeekDeadline, resolveWeekStart, resolveWeeklyDeadline } from "./week-window";
 
 export interface AbsenceAlertOutcome {
   projectId: string;
   weekStart: string;
   deadlineAt: string;
-  result: "NOT_DUE" | "RECEIVED" | "CREATED" | "ALREADY_ALERTED" | "OUTSIDE_WINDOW" | "DISABLED" | "NO_SCHEDULE_YET" | "STORE_UNSUPPORTED";
+  result:
+    | "NOT_DUE"
+    | "RECEIVED"
+    | "CREATED"
+    | "ALREADY_ALERTED"
+    | "OUTSIDE_WINDOW"
+    | "DISABLED"
+    | "NO_SCHEDULE_YET"
+    | "STORE_UNSUPPORTED"
+    | "INTEGRATION_PENDING"
+    | "RECEIVED_NOT_PROCESSED";
   alertId: string | null;
+  /** Semana corrente: classificação pela evidência efetiva (mesmo critério da recuperação de semanas perdidas). */
+  classification?: MissedWeekClassification;
+  reasons?: MissedWeekReason[];
 }
 
 /**
@@ -135,6 +155,44 @@ export async function createWeeklyAbsenceAlert(
     return { ...base, result: "RECEIVED" };
   }
 
+  // Mesmo critério da recuperação de semanas perdidas: ausência só é atribuída ao responsável quando a
+  // coleta está íntegra (execução bem-sucedida ≥ margem após o prazo) e a caixa do responsável da época
+  // está integrada. Caso contrário: pendência de integração/processamento, sem alerta e sem cobrança. A
+  // semana continua sendo reavaliada nas próximas execuções e, depois de encerrada, pela recuperação com
+  // checkpoint — nenhuma semana é descartada. Store sem evidência (testes legados) mantém o comportamento
+  // anterior; o store de produção sempre fornece a evidência.
+  let classificationNote = "";
+  if (store.loadMissedWeekEvidence) {
+    const evidence = await store.loadMissedWeekEvidence(config, weekStart, deadlineAt);
+    const { classification, reasons } = classifyMissedWeek(evidence, deadlineAt);
+    if (classification === "RECEBIDO") return { ...base, result: "RECEIVED", classification, reasons };
+    if (classification !== "CRONOGRAMA_NAO_RECEBIDO") {
+      const result = classification === "RECEBIDO_NAO_PROCESSADO" ? "RECEIVED_NOT_PROCESSED" : "INTEGRATION_PENDING";
+      const entityId = `${config.projectId}:${weekStart}`;
+      const key = `${classification}|${reasons.join(",")}`;
+      const already = store.hasAuditEntry ? await store.hasAuditEntry(config.projectId, CURRENT_WEEK_INTEGRATION_PENDING_ACTION, entityId, key) : false;
+      if (!already) {
+        await store.writeAudit({
+          projectId: config.projectId,
+          action: CURRENT_WEEK_INTEGRATION_PENDING_ACTION,
+          entityType: "WEEKLY_SCHEDULE_INGESTION_CONFIG",
+          entityId,
+          detail: JSON.stringify({
+            key,
+            weekStart,
+            deadlineAt: deadlineAt.toISOString(),
+            classification,
+            reasons,
+            responsibleAtTime: { userId: evidence.responsibleAtTime.userId, source: evidence.responsibleAtTime.source, isCurrent: evidence.responsibleAtTime.isCurrent },
+            note: "Semana corrente: sem alerta de ausência e sem cobrança ao responsável (evidência incompleta). Reavaliada nas próximas execuções.",
+          }),
+        });
+      }
+      return { ...base, result, classification, reasons };
+    }
+    classificationNote = " [CRONOGRAMA_NAO_RECEBIDO: coleta íntegra e caixa do responsável integrada]";
+  }
+
   const inserted = await store.insertAlert({
     projectId: config.projectId,
     configId: config.id,
@@ -144,7 +202,7 @@ export async function createWeeklyAbsenceAlert(
     recipientUserIds: config.alertRecipientUserIds,
     detail:
       `Nenhum cronograma semanal (.mpp) autorizado foi recebido na semana de ${weekStart} ` +
-      `até o prazo-limite ${deadlineAt.toISOString()} (${config.timezone}).`,
+      `até o prazo-limite ${deadlineAt.toISOString()} (${config.timezone}).${classificationNote}`,
   });
 
   if (!inserted.created) return { ...base, result: "ALREADY_ALERTED" };
@@ -199,4 +257,237 @@ export async function createWeeklySCurveAbsenceAlert(
     detail: `Alerta de ausência da Curva S criado para a semana de ${weekStart}.`,
   });
   return { ...base, result: "CREATED", alertId: inserted.id };
+}
+
+/** Lote máximo de semanas verificadas por execução (o checkpoint garante que nenhuma semana é descartada). */
+export const MISSED_WEEKS_MAX = 4;
+
+export const MISSED_WEEKS_CHECKPOINT_ACTION = "WEEKLY_ABSENCE_WEEKS_VERIFIED_CHECKPOINT";
+export const MISSED_WEEK_INTEGRATION_PENDING_ACTION = "WEEKLY_ABSENCE_INTEGRATION_PENDING";
+export const CURRENT_WEEK_INTEGRATION_PENDING_ACTION = "WEEKLY_ABSENCE_CURRENT_WEEK_INTEGRATION_PENDING";
+
+export interface MissedWeekAlertOutcome {
+  weekStart: string;
+  deadlineAt: string;
+  kind: AbsenceAlertRecord["kind"];
+  result:
+    | "CREATED_LATE"
+    | "WOULD_CREATE_LATE"
+    | "ALREADY_ALERTED"
+    | "RECEIVED"
+    | "INTEGRATION_PENDING"
+    | "RECEIVED_NOT_PROCESSED"
+    | "NO_SCHEDULE_YET"
+    | "DISABLED"
+    | "OUTSIDE_WINDOW"
+    | "STORE_UNSUPPORTED";
+  alertId: string | null;
+  classification?: MissedWeekClassification;
+  reasons?: MissedWeekReason[];
+  responsibleAtTime?: ResponsibleAtTime;
+}
+
+export interface MissedWeeksOutcome {
+  projectId: string;
+  /** Semana inicial do lote (após o checkpoint ou o início do monitoramento). */
+  startWeek: string | null;
+  checkpointBefore: string | null;
+  /** Checkpoint gravado por este lote (null em dry-run ou sem semanas verificadas). */
+  checkpointAfter: string | null;
+  examinedWeeks: string[];
+  createdLate: number;
+  integrationPending: number;
+  /** true quando ainda há semanas vencidas depois do lote (a próxima execução continua). */
+  moreWeeksPending: boolean;
+  outcomes: MissedWeekAlertOutcome[];
+}
+
+function nextWeekStart(weekStart: string): string {
+  const base = new Date(`${weekStart}T00:00:00Z`);
+  base.setUTCDate(base.getUTCDate() + 7);
+  return base.toISOString().slice(0, 10);
+}
+
+/** Primeira semana a verificar: depois do checkpoint; sem checkpoint, a do início do monitoramento; sem início, 4 semanas atrás. */
+export function resolveFirstMissedWeek(
+  checkpoint: string | null,
+  config: Pick<WeeklyScheduleIngestionConfig, "monitoringStartAt" | "timezone">,
+  currentWeekStart: string
+): string {
+  if (checkpoint) return nextWeekStart(checkpoint);
+  if (config.monitoringStartAt) return resolveWeekStart(new Date(config.monitoringStartAt), config.timezone);
+  let week = currentWeekStart;
+  for (let i = 0; i < MISSED_WEEKS_MAX; i += 1) week = previousWeekStart(week);
+  return week;
+}
+
+/**
+ * RECUPERAÇÃO DE SEMANAS PERDIDAS, em lotes com checkpoint. A regra semanal só olha a semana corrente;
+ * aqui verificamos, em ordem cronológica, as semanas vencidas desde o checkpoint (ou desde o início do
+ * monitoramento), até `batchSize` por execução. O checkpoint (auditoria
+ * WEEKLY_ABSENCE_WEEKS_VERIFIED_CHECKPOINT) garante que nenhuma semana é descartada.
+ *
+ * Cada semana sem cronograma aceito é CLASSIFICADA pela evidência efetiva de coleta e processamento:
+ *   - CRONOGRAMA_NAO_RECEBIDO (coleta íntegra e caixa do responsável à época integrada): cria o alerta de
+ *     ausência com a marca "detectado com atraso", a classificação e o responsável à época;
+ *   - EVIDENCIA_INCOMPLETA_INTEGRACAO / RECEBIDO_NAO_PROCESSADO: NÃO cria alerta (ninguém é cobrado) e
+ *     registra pendência de integração (WEEKLY_ABSENCE_INTEGRATION_PENDING).
+ * Alertas criados aqui NÃO geram e-mail por padrão (trava de reemissão do ciclo de alertas).
+ * `dryRun`: classifica sem gravar nada (nem alerta, nem auditoria, nem checkpoint).
+ */
+export async function createMissedWeekAbsenceAlerts(
+  store: AbsenceAlertStore,
+  config: WeeklyScheduleIngestionConfig & { sCurveAlertEnabled?: boolean; workbookAlertEnabled?: boolean },
+  now: Date = new Date(),
+  options: { batchSize?: number; dryRun?: boolean } = {}
+): Promise<MissedWeeksOutcome> {
+  const batchSize = Math.max(0, Math.floor(options.batchSize ?? MISSED_WEEKS_MAX));
+  const dryRun = options.dryRun === true;
+  const outcome: MissedWeeksOutcome = {
+    projectId: config.projectId,
+    startWeek: null,
+    checkpointBefore: null,
+    checkpointAfter: null,
+    examinedWeeks: [],
+    createdLate: 0,
+    integrationPending: 0,
+    moreWeeksPending: false,
+    outcomes: [],
+  };
+  if (!config.enabled) return outcome;
+  if (!store.loadMissedWeekEvidence || !store.loadMissedWeeksCheckpoint || (!dryRun && !store.saveMissedWeeksCheckpoint)) {
+    // Sem evidência confiável não se declara ausência (nunca cobra sem prova).
+    outcome.outcomes.push({ weekStart: "", deadlineAt: "", kind: "MISSING_WEEKLY_SCHEDULE", result: "STORE_UNSUPPORTED", alertId: null });
+    return outcome;
+  }
+
+  const currentWeekStart = resolveCurrentWeekDeadline(now, config).weekStart;
+  outcome.checkpointBefore = await store.loadMissedWeeksCheckpoint(config.projectId);
+  let weekStart = resolveFirstMissedWeek(outcome.checkpointBefore, config, currentWeekStart);
+  outcome.startWeek = weekStart;
+  let lastVerified: string | null = null;
+
+  while (weekStart < currentWeekStart) {
+    const deadlineAt = resolveWeeklyDeadline(weekStart, config);
+    if (deadlineAt.getTime() > now.getTime()) break;
+    if (outcome.examinedWeeks.length >= batchSize) {
+      outcome.moreWeeksPending = true;
+      break;
+    }
+    const deadlineIso = deadlineAt.toISOString();
+    const thisWeek = weekStart;
+    outcome.examinedWeeks.push(thisWeek);
+    lastVerified = thisWeek;
+    weekStart = nextWeekStart(weekStart);
+    const push = (o: Omit<MissedWeekAlertOutcome, "weekStart" | "deadlineAt">) => outcome.outcomes.push({ weekStart: thisWeek, deadlineAt: deadlineIso, ...o });
+
+    if (!isWithinMonitoringWindow(deadlineIso, config)) {
+      push({ kind: "MISSING_WEEKLY_SCHEDULE", result: "OUTSIDE_WINDOW", alertId: null });
+      continue;
+    }
+
+    const evidence = await store.loadMissedWeekEvidence(config, thisWeek, deadlineAt);
+    const { classification, reasons } = classifyMissedWeek(evidence, deadlineAt);
+    const responsibleAtTime = evidence.responsibleAtTime;
+    const candidates: Array<{ kind: MissedWeekAlertOutcome["kind"]; detail: string }> = [];
+
+    if (classification === "RECEBIDO") {
+      push({ kind: "MISSING_WEEKLY_SCHEDULE", result: "RECEIVED", alertId: null, classification });
+    } else if (classification === "CRONOGRAMA_NAO_RECEBIDO") {
+      const who = responsibleAtTime.isCurrent
+        ? `responsável à época: usuário ${responsibleAtTime.userId ?? "?"} (atual)`
+        : `responsável à época: usuário ${responsibleAtTime.userId ?? "?"} (anterior à transição — registro histórico, sem cobrança a quem saiu)`;
+      candidates.push({
+        kind: "MISSING_WEEKLY_SCHEDULE",
+        detail: `[CRONOGRAMA_NAO_RECEBIDO; ${who}] Nenhum cronograma semanal (.mpp) autorizado foi recebido na semana de ${thisWeek} até o prazo-limite ${deadlineIso} (${config.timezone}); coleta íntegra e caixa do responsável integrada.`,
+      });
+    } else {
+      outcome.integrationPending += 1;
+      push({
+        kind: "MISSING_WEEKLY_SCHEDULE",
+        result: classification === "RECEBIDO_NAO_PROCESSADO" ? "RECEIVED_NOT_PROCESSED" : "INTEGRATION_PENDING",
+        alertId: null,
+        classification,
+        reasons,
+        responsibleAtTime,
+      });
+      if (!dryRun) {
+        await store.writeAudit({
+          projectId: config.projectId,
+          action: MISSED_WEEK_INTEGRATION_PENDING_ACTION,
+          entityType: "WEEKLY_SCHEDULE_INGESTION_CONFIG",
+          entityId: `${config.projectId}:${thisWeek}`,
+          detail: JSON.stringify({
+            weekStart: thisWeek,
+            deadlineAt: deadlineIso,
+            classification,
+            reasons,
+            responsibleAtTime: { userId: responsibleAtTime.userId, source: responsibleAtTime.source, isCurrent: responsibleAtTime.isCurrent },
+            note: "Sem alerta de ausência e sem cobrança ao responsável: pendência de integração/processamento.",
+          }),
+        });
+      }
+    }
+
+    const scheduleReceived = classification === "RECEBIDO";
+    if (config.sCurveAlertEnabled === false) push({ kind: "MISSING_S_CURVE", result: "DISABLED", alertId: null });
+    else if (!scheduleReceived) push({ kind: "MISSING_S_CURVE", result: "NO_SCHEDULE_YET", alertId: null });
+    else if (await store.hasSCurveForWeek(config.projectId, thisWeek)) push({ kind: "MISSING_S_CURVE", result: "RECEIVED", alertId: null });
+    else
+      candidates.push({
+        kind: "MISSING_S_CURVE",
+        detail: `Relatório semanal recebido na semana de ${thisWeek}, mas nenhuma Curva S foi identificada nos anexos até o prazo-limite ${deadlineIso}.`,
+      });
+
+    if (config.workbookAlertEnabled === false) push({ kind: "MISSING_WEEKLY_REPORT_WORKBOOK", result: "DISABLED", alertId: null });
+    else if (!store.hasWorkbookForWeek) push({ kind: "MISSING_WEEKLY_REPORT_WORKBOOK", result: "STORE_UNSUPPORTED", alertId: null });
+    else if (!scheduleReceived) push({ kind: "MISSING_WEEKLY_REPORT_WORKBOOK", result: "NO_SCHEDULE_YET", alertId: null });
+    else if (await store.hasWorkbookForWeek(config.projectId, thisWeek)) push({ kind: "MISSING_WEEKLY_REPORT_WORKBOOK", result: "RECEIVED", alertId: null });
+    else
+      candidates.push({
+        kind: "MISSING_WEEKLY_REPORT_WORKBOOK",
+        detail: `Cronograma semanal recebido na semana de ${thisWeek}, mas nenhuma planilha do relatório semanal (.xlsx) foi identificada nos anexos até o prazo-limite ${deadlineIso}.`,
+      });
+
+    for (const candidate of candidates) {
+      const extra = candidate.kind === "MISSING_WEEKLY_SCHEDULE" ? { classification, reasons, responsibleAtTime } : {};
+      if (dryRun) {
+        push({ kind: candidate.kind, result: "WOULD_CREATE_LATE", alertId: null, ...extra });
+        continue;
+      }
+      const inserted = await store.insertAlert({
+        projectId: config.projectId,
+        configId: config.id,
+        kind: candidate.kind,
+        weekStart: thisWeek,
+        deadlineAt: deadlineIso,
+        recipientUserIds: config.alertRecipientUserIds,
+        detail: formatLateDetectionDetail(now, deadlineAt, candidate.detail),
+      });
+      if (!inserted.created) {
+        push({ kind: candidate.kind, result: "ALREADY_ALERTED", alertId: null, ...extra });
+        continue;
+      }
+      outcome.createdLate += 1;
+      push({ kind: candidate.kind, result: "CREATED_LATE", alertId: inserted.id, ...extra });
+      await store.writeAudit({
+        projectId: config.projectId,
+        action: "WEEKLY_ABSENCE_ALERT_DETECTED_LATE",
+        entityType: "WEEKLY_SCHEDULE_INGESTION_ALERT",
+        entityId: inserted.id ?? `${config.projectId}:${thisWeek}:${candidate.kind}`,
+        detail: `Alerta de ausência ${candidate.kind} da semana de ${thisWeek} detectado com atraso em ${now.toISOString()} (prazo original ${deadlineIso}). Sem e-mail automático: depende de decisão de reemissão.`,
+      });
+    }
+  }
+
+  if (!dryRun && lastVerified && store.saveMissedWeeksCheckpoint) {
+    await store.saveMissedWeeksCheckpoint(config.projectId, lastVerified, {
+      verifiedWeeks: outcome.examinedWeeks,
+      createdLate: outcome.createdLate,
+      integrationPending: outcome.integrationPending,
+      at: now.toISOString(),
+    });
+    outcome.checkpointAfter = lastVerified;
+  }
+  return outcome;
 }

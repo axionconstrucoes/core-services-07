@@ -43,10 +43,12 @@ export interface RecipientResolution {
  *  - registro CRÍTICO: membros ATIVOS (exceto LEITURA) das áreas Engenharia/SSMA-ESG + o responsável pela ação corretiva;
  *  - ação em ATRASO: o responsável + membros ATIVOS (exceto LEITURA) da área SSMA/ESG.
  */
-export function resolveRecipients(input: { event: FieldNotificationEvent; responsibleUserId: string | null; members: readonly MemberCandidate[] }): RecipientResolution {
+export function resolveRecipients(input: { event: FieldNotificationEvent; responsibleUserId: string | null; members: readonly MemberCandidate[]; responsibleOnly?: boolean }): RecipientResolution {
   const eligible = input.members.filter((m) => m.status === "ACTIVE" && m.permission !== "LEITURA");
   const chosen = eligible.filter((m) => {
     if (input.responsibleUserId && m.userId === input.responsibleUserId) return true;
+    // Escopo restrito (ex.: ações corretivas da WEG): somente o responsável da ação — nunca a lista da área.
+    if (input.responsibleOnly) return false;
     if (input.event === "CRITICAL_RECORD") return m.area !== null && (RECIPIENT_AREAS as readonly string[]).includes(m.area);
     return m.area === "ESG_SSMA";
   });
@@ -93,6 +95,14 @@ export interface MailContent {
   subject: string;
   text: string;
   html: string;
+  /** Mensagem operacional (sem faixa de teste do piloto). */
+  operational?: boolean;
+  /** Resposta no corpo do e-mail: token opaco do Reply-To (só o hash é persistido) e a ação a que se refere. */
+  reply?: { token: string; actionId: string; recordId: string };
+  /** Continuidade de thread (confirmação de resposta). */
+  thread?: { inReplyTo: string | null; references: string[] };
+  /** Rótulo curto do destinatário lógico no piloto (sem endereço). */
+  participantLabel?: string | null;
 }
 
 export interface Mailer {

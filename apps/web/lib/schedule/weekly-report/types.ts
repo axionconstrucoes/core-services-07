@@ -65,6 +65,9 @@ export interface WorkbookSafetyReport {
   formulasWithoutCachedValue: number;
   formulasPreserved: number;
   notes: string[];
+  /** Datas do próprio arquivo (docProps/core.xml) — criação e último salvamento; evidência da data do relatório. */
+  documentCreatedAt?: string | null;
+  documentModifiedAt?: string | null;
 }
 
 export interface WorkbookSheetIndexEntry {
@@ -136,6 +139,10 @@ export interface FinancialSheetRow {
   period: string;
   date: string | null;
   values: Partial<Record<FinancialColumnKey, number | null>>;
+  /** Colunas desta linha com fórmula SEM valor armazenado (valor indisponível, não zero). */
+  unavailable?: FinancialColumnKey[];
+  /** Linha (1-based) na aba de origem — rastreabilidade até a célula. */
+  sourceRow?: number;
 }
 
 export interface FinancialSheetData {

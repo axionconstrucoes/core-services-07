@@ -16,7 +16,7 @@ import { notifyDirectorateWhatsappSafely } from "@/lib/whatsapp/notify-directora
 import { getProject } from "@/lib/data";
 import { computeEscalation } from "@/lib/sla/compute-escalation";
 import { computeSlaDeadlines } from "@/lib/sla/compute-deadlines";
-import { resolveBusinessHoursConfig, resolveMatrixRule } from "@/lib/sla/resolve-matrix-rule";
+import { pickDeterministicMatrixRule, resolveBusinessHoursConfig, resolveMatrixRule } from "@/lib/sla/resolve-matrix-rule";
 import {
   parseSlaResponsibleSelection,
   type SlaResponsibleSelection,
@@ -32,7 +32,7 @@ import {
   getSlaProjectSettings,
 } from "@/lib/sla/sla-actions-data";
 import { isPilotTestCase } from "@/lib/risk-alerts/pilot-test-case";
-import type { SlaArea, SlaEscalationLevel, SlaRiskLevel } from "@/lib/sla/types";
+import type { SlaArea, SlaEscalationLevel, SlaMatrixRule, SlaRiskLevel } from "@/lib/sla/types";
 import type {
   AssumeSlaActionState,
   CompleteSlaActionState,
@@ -117,7 +117,7 @@ export async function createSlaActionAction(
     ]);
 
     const rule = resolveMatrixRule(matrixRules, riskLevel, area);
-    const businessHoursConfig = resolveBusinessHoursConfig(projectSettings);
+    const businessHoursConfig = resolveBusinessHoursConfig(projectSettings, projectId);
     const createdAt = new Date().toISOString();
     const deadlines = computeSlaDeadlines(createdAt, rule, businessHoursConfig);
 
@@ -352,42 +352,75 @@ export async function configureSlaMatrixRuleAction(
       return { error: validation.error, success: false };
     }
 
-    // "Anterior" para a auditoria — mesma linha que o upsert está prestes
-    // a sobrescrever (chave project_id+risk_level+area). Ausente na
-    // primeira configuração (era o default institucional) — tratado como
-    // "(default institucional)" no log, nunca um erro.
-    // .is("area", null) para o caso genérico (sem área) — .eq() com null
-    // nunca bate (SQL "= NULL" nunca é verdadeiro); PostgREST só aceita
-    // "is" para IS NULL.
-    const previousRowQuery = supabase
+    // "Anterior" para a auditoria e alvo da gravação: a regra EFETIVA para
+    // a chave (projeto, risco, área) escolhida pelo MESMO desempate
+    // determinístico usado no cálculo de prazos (pickDeterministicMatrixRule).
+    // Antes, para a regra geral (area = null), o upsert com onConflict
+    // "project_id,risk_level,area" NUNCA colidia (NULLs são distintos no
+    // índice único) e gravava uma linha NOVA — que não era a aplicada pelos
+    // prazos. Agora: existe linha efetiva => UPDATE por id; não existe =>
+    // INSERT. Duplicatas antigas não são apagadas nem desativadas aqui.
+    // .is("area", null) para o caso genérico — .eq() com null nunca bate.
+    const existingQuery = supabase
       .from("sla_matrix_rules")
       .select(
-        "time_unit,assume_deadline_value,respond_deadline_value,complete_deadline_value,escalation_2_after_value,board_after_value,notify_by_email,requires_acknowledgment_confirmation,requires_delay_justification"
+        "id,project_id,risk_level,area,active,created_at,time_unit,assume_deadline_value,respond_deadline_value,complete_deadline_value,escalation_2_after_value,board_after_value,notify_by_email,requires_acknowledgment_confirmation,requires_delay_justification"
       )
       .eq("project_id", projectId)
-      .eq("risk_level", riskLevel);
-    const { data: previousRow } = await (area ? previousRowQuery.eq("area", area) : previousRowQuery.is("area", null)).maybeSingle();
-
-    const { error } = await supabase.from("sla_matrix_rules").upsert(
-      {
-        project_id: projectId,
-        risk_level: riskLevel,
-        area,
-        time_unit: timeUnit,
-        assume_deadline_value: assumeDeadlineValue,
-        respond_deadline_value: respondDeadlineValue,
-        complete_deadline_value: completeDeadlineValue,
-        escalation_2_after_value: escalation2AfterValue,
-        board_after_value: boardAfterValue,
-        notify_by_email: notifyByEmail,
-        requires_acknowledgment_confirmation: requiresAcknowledgmentConfirmation,
-        requires_delay_justification: requiresDelayJustification,
-        is_default: false,
-        active: true,
-        updated_by_user_id: authData.user.id,
-      },
-      { onConflict: "project_id,risk_level,area" }
+      .eq("risk_level", riskLevel)
+      .eq("active", true);
+    const { data: existingRows, error: existingError } = await (area
+      ? existingQuery.eq("area", area)
+      : existingQuery.is("area", null));
+    if (existingError) {
+      return { error: existingError.message, success: false };
+    }
+    const existing = (existingRows ?? []) as Array<Record<string, unknown> & { id: string; created_at: string | null }>;
+    const { selected } = pickDeterministicMatrixRule(
+      existing.map((row) => ({ id: row.id, createdAt: row.created_at }) as unknown as SlaMatrixRule)
     );
+    const previousRow = selected ? (existing.find((row) => row.id === selected.id) ?? null) : null;
+    // Só os valores da regra entram no "Anterior" da auditoria (mesmo formato de antes).
+    const previousValues = previousRow
+      ? {
+          time_unit: previousRow.time_unit,
+          assume_deadline_value: previousRow.assume_deadline_value,
+          respond_deadline_value: previousRow.respond_deadline_value,
+          complete_deadline_value: previousRow.complete_deadline_value,
+          escalation_2_after_value: previousRow.escalation_2_after_value,
+          board_after_value: previousRow.board_after_value,
+          notify_by_email: previousRow.notify_by_email,
+          requires_acknowledgment_confirmation: previousRow.requires_acknowledgment_confirmation,
+          requires_delay_justification: previousRow.requires_delay_justification,
+        }
+      : null;
+
+    const values = {
+      time_unit: timeUnit,
+      assume_deadline_value: assumeDeadlineValue,
+      respond_deadline_value: respondDeadlineValue,
+      complete_deadline_value: completeDeadlineValue,
+      escalation_2_after_value: escalation2AfterValue,
+      board_after_value: boardAfterValue,
+      notify_by_email: notifyByEmail,
+      requires_acknowledgment_confirmation: requiresAcknowledgmentConfirmation,
+      requires_delay_justification: requiresDelayJustification,
+      is_default: false,
+      active: true,
+      updated_by_user_id: authData.user.id,
+    };
+
+    const { error } = previousRow
+      ? await supabase
+          .from("sla_matrix_rules")
+          .update({ ...values, updated_at: new Date().toISOString() })
+          .eq("id", previousRow.id)
+      : await supabase.from("sla_matrix_rules").insert({
+          project_id: projectId,
+          risk_level: riskLevel,
+          area,
+          ...values,
+        });
 
     if (error) {
       return { error: error.message, success: false };
@@ -408,7 +441,7 @@ export async function configureSlaMatrixRuleAction(
       action: "SLA_MATRIX_RULE_UPDATED",
       entity_type: "SLA_MATRIX_RULE",
       entity_id: `${projectId}:${riskLevel}:${area ?? "GLOBAL"}`,
-      detail: formatSlaMatrixRuleAuditDetail(riskLevel, previousRow, {
+      detail: formatSlaMatrixRuleAuditDetail(riskLevel, previousValues, {
         time_unit: timeUnit,
         assume_deadline_value: assumeDeadlineValue,
         respond_deadline_value: respondDeadlineValue,
@@ -566,7 +599,7 @@ export async function processSlaEscalationsAction(
       getSlaProjectSettings(projectId),
     ]);
 
-    const businessHoursConfig = resolveBusinessHoursConfig(projectSettings);
+    const businessHoursConfig = resolveBusinessHoursConfig(projectSettings, projectId);
     const now = new Date().toISOString();
     const openActions = actions.filter((a) => a.status !== "COMPLETED" && a.status !== "CANCELLED");
 

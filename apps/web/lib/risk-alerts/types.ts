@@ -9,6 +9,7 @@
 // Allowlist do piloto POR user_id: qualquer destinatário fora dela é
 // registrado como PILOT_RECIPIENT_SUPPRESSED, nunca enviado.
 
+import type { CaseCommunicationLedger } from "./communication-ledger";
 import type { SlaArea, SlaEscalationLevel, SlaRiskLevel } from "@/lib/sla/types";
 import type { MatrixPolicy } from "@/lib/sla/resolve-matrix-policy";
 
@@ -63,6 +64,11 @@ export interface RiskCaseInput {
   closed: boolean;
   /** Referência humana (WNN, categoria, tipo) para ordenação/exibição. */
   reference: string;
+  /**
+   * Alerta de ausência criado pela recuperação de semanas perdidas ("detectado com atraso").
+   * Não gera e-mail por padrão: só com decisão humana auditada de reemissão (RISK_ALERT_REISSUE_APPROVED).
+   */
+  detectedLate?: boolean;
 }
 
 /** Caso já persistido (risk_alert_cases). */
@@ -175,6 +181,19 @@ export interface ImmediateAlertContent {
   requiresJustification: boolean;
   escalationReason: string | null;
   changed: boolean;
+  /**
+   * Reemissão autorizada (decisão humana auditada) de comunicação que NUNCA foi entregue.
+   * O e-mail deixa explícito: não é risco novo, a etapa/prazos originais valem e as comunicações
+   * anteriores foram suprimidas (com datas) ou entregues em outra caixa.
+   */
+  reissue?: {
+    approvedAt: string;
+    stageReachedLabel: string;
+    note: string;
+    priorCommunications: Array<{ at: string; outcome: "SUPPRESSED" | "ACCEPTED_ELSEWHERE"; reason: string | null; levelLabel: string; recipientName: string | null }>;
+  };
+  /** Observação do nível (ex.: substituição temporária do piloto; o titular definitivo continua na Matriz). */
+  levelNote?: string | null;
 }
 
 export interface DigestItem {
@@ -254,6 +273,15 @@ export interface RiskAlertPlan {
   outbox: PlannedOutboxEntry[];
   audit: PlannedAuditEvent[];
   digestWindow: { key: string; isOpen: boolean } | null;
+  /**
+   * Livro-razão de comunicação dos casos abertos HIGH/CRITICAL com ação SLA: etapa alcançada x
+   * tentativa x supressão x aceite pelo Gmail. Lacunas sem decisão NUNCA viram e-mail.
+   */
+  communicationLedgers?: CaseCommunicationLedger[];
+  /** Casos abertos de alertas "detectados com atraso" retidos sem comunicação até decisão de reemissão. */
+  lateDetectionHeld?: string[];
+  /** Casos com comunicação suspensa por registro humano auditado (sem alerta/escalonamento/reemissão). */
+  communicationSuspended?: string[];
 }
 
 // ------------------------------------------------------------------

@@ -5,18 +5,21 @@
 // parede na timezone configurada, incluindo qualquer transição de
 // horário de verão de uma timezone IANA real.
 //
-// LIMITAÇÃO CONHECIDA (documentada, nunca escondida — ver
-// docs/sla-escalation.md "Limitações de calendário"): nesta versão,
-// sábado e domingo não são dias úteis; feriados (nacionais, regionais ou
-// municipais) NÃO são descontados. Isso é um comportamento mínimo
-// seguro — uma evolução futura poderá usar um calendário corporativo/
-// regional real, mas o sistema nunca finge considerá-lo hoje.
+// Calendário: sábado e domingo nunca são dias úteis. Feriados só são
+// descontados quando a configuração traz um `holidayCalendarId`
+// EXPLÍCITO (ver lib/sla/holidays/calendars.ts — fontes oficiais e
+// mapeamento por projeto). Sem calendário, o comportamento é o anterior
+// (só fins de semana) — ver docs/sla-escalation.md "Limitações de calendário".
+
+import { isHoliday, type HolidayCalendarId } from "./holidays/calendars";
 
 export interface SlaBusinessHoursConfig {
   /** IANA timezone identifier — ex.: "America/Sao_Paulo". */
   timeZone: string;
   businessDayStartHour: number;
   businessDayEndHour: number;
+  /** Calendário de feriados descontados de horas/dias úteis. Ausente = só fins de semana. */
+  holidayCalendarId?: HolidayCalendarId;
 }
 
 // Default institucional da AXION — nunca UTC como horário comercial.
@@ -116,6 +119,12 @@ function isWeekendYMD(year: number, month: number, day: number): boolean {
   return weekday === 0 || weekday === 6;
 }
 
+/** Dia não útil: fim de semana ou feriado do calendário configurado (quando houver). */
+function isNonBusinessDayYMD(year: number, month: number, day: number, config: SlaBusinessHoursConfig): boolean {
+  if (isWeekendYMD(year, month, day)) return true;
+  return config.holidayCalendarId ? isHoliday(config.holidayCalendarId, year, month, day) : false;
+}
+
 function nextDayYMD(year: number, month: number, day: number): { year: number; month: number; day: number } {
   const next = new Date(Date.UTC(year, month - 1, day + 1));
   return { year: next.getUTCFullYear(), month: next.getUTCMonth() + 1, day: next.getUTCDate() };
@@ -138,7 +147,7 @@ function nextBusinessDayStart(
   config: SlaBusinessHoursConfig
 ): Date {
   let { year, month, day } = ymd;
-  while (isWeekendYMD(year, month, day)) {
+  while (isNonBusinessDayYMD(year, month, day, config)) {
     ({ year, month, day } = nextDayYMD(year, month, day));
   }
   return businessWindowForDay(year, month, day, config).startUtc;
@@ -147,7 +156,7 @@ function nextBusinessDayStart(
 function clampIntoBusinessWindow(date: Date, config: SlaBusinessHoursConfig): Date {
   const { year, month, day } = zonedParts(date, config.timeZone);
 
-  if (isWeekendYMD(year, month, day)) {
+  if (isNonBusinessDayYMD(year, month, day, config)) {
     return nextBusinessDayStart(nextDayYMD(year, month, day), config);
   }
 
@@ -212,7 +221,7 @@ export function addBusinessDays(
   let remaining = wholeDays;
   while (remaining > 0) {
     ({ year, month, day } = nextDayYMD(year, month, day));
-    if (!isWeekendYMD(year, month, day)) {
+    if (!isNonBusinessDayYMD(year, month, day, config)) {
       remaining -= 1;
     }
   }

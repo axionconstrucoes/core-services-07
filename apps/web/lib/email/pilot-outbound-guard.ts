@@ -121,7 +121,13 @@ export function resolveGuardedReplyTo(input: Pick<SendEmailInput, "replyTo" | "r
   if (input.replyTo === undefined || input.replyTo === null || input.replyTo === "") return { replyTo: undefined, removedReason: null };
   const context = input.replyToContext;
   if (!context) return { replyTo: undefined, removedReason: "REPLY_CONTEXT_MISSING" };
-  if (context.kind !== "RISK_ALERT_CONVERSATION" || !UUID_PATTERN.test(context.outboxId ?? "") || !UUID_PATTERN.test(context.conversationId ?? "")) {
+  const contextValid =
+    context.kind === "RISK_ALERT_CONVERSATION"
+      ? UUID_PATTERN.test(context.outboxId ?? "") && UUID_PATTERN.test(context.conversationId ?? "")
+      : context.kind === "SSMA_CORRECTIVE_ACTION"
+        ? UUID_PATTERN.test(context.actionId ?? "") && UUID_PATTERN.test(context.recordId ?? "")
+        : false;
+  if (!contextValid) {
     return { replyTo: undefined, removedReason: "REPLY_CONTEXT_INVALID" };
   }
   const validation = validateAlertReplyTo(input.replyTo, env.alertReplyMailbox);

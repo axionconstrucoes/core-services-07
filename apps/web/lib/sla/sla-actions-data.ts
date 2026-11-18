@@ -50,6 +50,7 @@ type MatrixRuleRow = {
   requires_delay_justification: boolean;
   is_default: boolean;
   active: boolean;
+  created_at: string | null;
 };
 
 type ActionRow = {
@@ -191,6 +192,7 @@ export async function getSlaMatrixRules(projectId: string): Promise<SlaMatrixRul
     requiresDelayJustification: row.requires_delay_justification,
     isDefault: row.is_default,
     active: row.active,
+    createdAt: row.created_at ?? null,
   }));
 }
 

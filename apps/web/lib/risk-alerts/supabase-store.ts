@@ -6,6 +6,14 @@
 // Recebe o client por parâmetro (mesmo padrão de
 // schedule/weekly-ingestion/supabase-store.ts) — sem "server-only".
 
+import {
+  REISSUE_APPROVED_ACTION,
+  REISSUE_DECISION_REQUIRED_ACTION,
+  REISSUE_ENTITY_TYPE,
+  resolveReissueApprovals,
+  type OutboxHistoryRow,
+  type ReissueAuditRow,
+} from "./communication-ledger";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { ALERT_REPLY_MAILBOX_ENV, normalizeAlertReplyMailbox } from "@/lib/email/alert-reply-address";
@@ -22,6 +30,9 @@ import {
 } from "./collect-risk-cases";
 import type { ActiveForward, AlertCaseSnapshot } from "./alert-state-machine";
 import { isPilotTestCase } from "./pilot-test-case";
+import { LEVEL_OVERRIDE_ENTITY_TYPE, LEVEL_OVERRIDE_SET_ACTION, LEVEL_OVERRIDE_UNSET_ACTION, resolvePilotLevelOverrides, type LevelOverrideAuditRow } from "./pilot-level-overrides";
+import { INFORMATIVE_ENTITY_TYPE, INFORMATIVE_SET_ACTION, INFORMATIVE_UNSET_ACTION, resolveInformativeAreas, type InformativeAuditRow } from "./informative-areas";
+import { CASE_RESUMED_ACTION, CASE_SUSPENDED_ACTION, CASE_SUSPENSION_ENTITY_TYPE, resolveSuspendedCaseIds, type CaseSuspensionAuditRow } from "./case-communication-suspension";
 import { hashReplyToken, type InboundHeaders } from "./replies/reply-pipeline";
 import type { PersistedOutboxEntry, RiskAlertStore } from "./store";
 import type { ExpertId, IngestionAlertSeverityMap, LinkedSlaActionState, RecipientProfile, RiskCaseRecord } from "./types";
@@ -250,6 +261,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         requiresDelayJustification: Boolean(row.requires_delay_justification),
         isDefault: Boolean(row.is_default),
         active: Boolean(row.active),
+        createdAt: (row.created_at as string | null) ?? null,
       });
       const mapResponsibles = (row: Row): SlaAreaResponsibles => ({
         id: row.id as string,
@@ -282,6 +294,72 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
             }
           : null;
 
+      // Áreas informativas (registro humano auditado em audit_log_entries; sem migration).
+      const { data: informativeRows, error: informativeError } = await client
+        .from("audit_log_entries")
+        .select("project_id,occurred_at,actor_type,actor_user_id,action,entity_type,entity_id,detail")
+        .eq("project_id", projectId)
+        .eq("entity_type", INFORMATIVE_ENTITY_TYPE)
+        .in("action", [INFORMATIVE_SET_ACTION, INFORMATIVE_UNSET_ACTION]);
+      fail("Falha ao carregar áreas informativas", informativeError);
+      const informativeAreas = Array.from(resolveInformativeAreas(projectId, (informativeRows ?? []) as unknown as InformativeAuditRow[]));
+
+      // Exceções temporárias do piloto por nível (registro humano auditado em audit_log_entries; sem migration).
+      const { data: overrideRows, error: overrideError } = await client
+        .from("audit_log_entries")
+        .select("id,project_id,occurred_at,actor_type,actor_user_id,action,entity_type,entity_id,detail")
+        .eq("project_id", projectId)
+        .eq("entity_type", LEVEL_OVERRIDE_ENTITY_TYPE)
+        .in("action", [LEVEL_OVERRIDE_SET_ACTION, LEVEL_OVERRIDE_UNSET_ACTION]);
+      fail("Falha ao carregar exceções do piloto por nível", overrideError);
+      const pilotLevelOverrides = resolvePilotLevelOverrides(projectId, (overrideRows ?? []) as unknown as LevelOverrideAuditRow[]);
+      // Casos com comunicação suspensa (registro humano auditado; sem migration).
+      const { data: suspensionRows, error: suspensionError } = await client
+        .from("audit_log_entries")
+        .select("project_id,occurred_at,actor_type,actor_user_id,action,entity_type,entity_id,detail")
+        .eq("project_id", projectId)
+        .eq("entity_type", CASE_SUSPENSION_ENTITY_TYPE)
+        .in("action", [CASE_SUSPENDED_ACTION, CASE_RESUMED_ACTION]);
+      fail("Falha ao carregar suspensões de comunicação", suspensionError);
+      const suspendedCaseIds = Array.from(resolveSuspendedCaseIds(projectId, (suspensionRows ?? []) as unknown as CaseSuspensionAuditRow[]));
+
+      // Livro-razão de comunicação: histórico completo da outbox (SUPPRESSED NÃO é entrega) e
+      // decisões humanas de reemissão (audit_log_entries; sem migration).
+      const cycleCaseIds = existingCases.map((c) => c.id);
+      const { data: historyRows, error: historyError } = cycleCaseIds.length
+        ? await client
+            .from("risk_alert_outbox")
+            .select("case_id,notification_type,escalation_level,recipient_user_id,recipient_email,status,suppression_reason,attempt_count,provider_message_id,created_at,sent_at,idempotency_key")
+            .eq("project_id", projectId)
+            .in("case_id", cycleCaseIds)
+        : { data: [] as Row[], error: null };
+      fail("Falha ao carregar histórico da outbox", historyError);
+      const { data: reissueRows, error: reissueError } = await client
+        .from("audit_log_entries")
+        .select("id,occurred_at,actor_type,actor_user_id,action,entity_type,entity_id")
+        .eq("project_id", projectId)
+        .eq("entity_type", REISSUE_ENTITY_TYPE)
+        .in("action", [REISSUE_APPROVED_ACTION, REISSUE_DECISION_REQUIRED_ACTION]);
+      fail("Falha ao carregar decisões de reemissão", reissueError);
+      const outboxHistory: OutboxHistoryRow[] = (historyRows ?? []).map((row) => ({
+        caseId: row.case_id as string,
+        notificationType: row.notification_type as string,
+        escalationLevel: s(row.escalation_level),
+        recipientUserId: row.recipient_user_id as string,
+        recipientEmail: s(row.recipient_email),
+        status: row.status as string,
+        suppressionReason: s(row.suppression_reason),
+        attemptCount: Number(row.attempt_count ?? 0),
+        providerMessageId: s(row.provider_message_id),
+        createdAt: row.created_at as string,
+        sentAt: s(row.sent_at),
+        idempotencyKeyIsReissue: String(row.idempotency_key ?? "").includes(":REISSUE:"),
+      }));
+      const reissueApprovals = resolveReissueApprovals((reissueRows ?? []) as unknown as ReissueAuditRow[]);
+      const reissueDecisionRecordedCaseIds = new Set(
+        (reissueRows ?? []).filter((row) => row.action === REISSUE_DECISION_REQUIRED_ACTION).map((row) => row.entity_id as string)
+      );
+
       return {
         projectId,
         projectName: (project?.name as string) ?? projectId,
@@ -298,6 +376,9 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
           : null,
         matrixRules: (rules ?? []).map((row) => mapRule(row as Row)),
         areaResponsibles: (responsibles ?? []).map((row) => mapResponsibles(row as Row)),
+        informativeAreas,
+        pilotLevelOverrides,
+        suspendedCaseIds,
         settings: mapSettings((settings as Row | null) ?? null),
         cases: [...collectComparisonCases(comparisonRows), ...collectSheetCases(sheetRows), ...collectIngestionAlertCases(alertRows, (config?.risk_alert_severity_map as IngestionAlertSeverityMap | null) ?? null)],
         existingCases,
@@ -305,6 +386,9 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         linkedActions,
         recipients,
         existingIdempotencyKeys: new Set((keys ?? []).map((row) => row.idempotency_key as string)),
+        outboxHistory,
+        reissueApprovals,
+        reissueDecisionRecordedCaseIds,
         previousDigestSentAt: s(lastDigest?.sent_at),
         senderMailbox: process.env.GOOGLE_GMAIL_SENDER_EMAIL?.trim() || null,
         replyMailbox: normalizeAlertReplyMailbox(process.env[ALERT_REPLY_MAILBOX_ENV]),

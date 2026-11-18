@@ -344,7 +344,7 @@ try {
 
   console.log("");
   console.log(
-    `Processando: ${version.original_file_name}`
+    `Processando versao ${documentVersionId}`
   );
 
   const {
@@ -1077,7 +1077,7 @@ try {
       } catch (partError) {
         // Formato sem extrator de texto (ex.: imagem): o arquivo segue
         // no pacote documental, so nao entra no texto da analise.
-        console.warn(`Arquivo complementar sem texto extraivel: ${file.original_file_name} (${partError instanceof Error ? partError.message : partError})`);
+        console.warn(`Arquivo complementar ${file.id} sem texto extraivel.`);
         continue;
       }
 
@@ -1085,7 +1085,7 @@ try {
       const partIsPdf = isPdfSource({ mimeType: file.mime_type, fileName: file.original_file_name });
 
       if (!partIsPdf && (!partResult.text || partResult.text.trim().length === 0)) {
-        console.warn(`Arquivo complementar sem texto utilizavel: ${file.original_file_name}`);
+        console.warn(`Arquivo complementar ${file.id} sem texto utilizavel.`);
         continue;
       }
 
@@ -1115,7 +1115,7 @@ try {
       }
       extractors.add(partResult.extractor);
       contractualFileIds.push(file.id);
-      console.log(`Arquivo complementar incluido: ${file.original_file_name} (${partResult.pageCount ?? "?"} paginas, a partir da pagina ${offset + 1})`);
+      console.log(`Arquivo complementar ${file.id} incluido (${partResult.pageCount ?? "?"} paginas, a partir da pagina ${offset + 1})`);
     }
 
     // Sem arquivo complementar com texto, a extracao fica identica a

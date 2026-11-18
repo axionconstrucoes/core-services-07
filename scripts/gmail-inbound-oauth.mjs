@@ -11,9 +11,25 @@ import { google } from "googleapis";
 // variáveis GOOGLE_GMAIL_INBOUND_* do Gmail Inbound Sync. Default: prefixo
 // legado GOOGLE_GMAIL_INBOUND. Escopo continua gmail.readonly.
 const PREFIX = (process.argv.find((arg) => arg.startsWith("--prefix=")) ?? "--prefix=GOOGLE_GMAIL_INBOUND").split("=")[1].replace(/[^A-Z0-9_]/g, "");
-const CLIENT_ID = process.env[`${PREFIX}_CLIENT_ID`];
-const CLIENT_SECRET = process.env[`${PREFIX}_CLIENT_SECRET`];
+// --client-prefix=GOOGLE_GMAIL_INBOUND usa o cliente OAuth de outro prefixo quando o slot não tem cliente próprio
+// (caixa de titular: o refresh token fica sob <PREFIX>_REFRESH_TOKEN; o cliente é o compartilhado).
+const CLIENT_PREFIX = (process.argv.find((arg) => arg.startsWith("--client-prefix=")) ?? "--client-prefix=").split("=")[1].replace(/[^A-Z0-9_]/g, "");
+const CLIENT_ID = process.env[`${PREFIX}_CLIENT_ID`] || (CLIENT_PREFIX ? process.env[`${CLIENT_PREFIX}_CLIENT_ID`] : undefined);
+const CLIENT_SECRET = process.env[`${PREFIX}_CLIENT_SECRET`] || (CLIENT_PREFIX ? process.env[`${CLIENT_PREFIX}_CLIENT_SECRET`] : undefined);
 const MAILBOX = process.env[`${PREFIX}_MAILBOX`];
+
+// Procedimento RESERVADO: o código de autorização nunca sai desta máquina. O titular autoriza AQUI (janela anônima
+// do navegador desta máquina, presencialmente ou por acesso remoto à tela), o Google devolve o código ao servidor
+// local (127.0.0.1:53682) e o refresh token vai só para apps/web/.env.local. Não existe modo de "colar a URL de
+// retorno": ela contém o código e não deve trafegar por chat, e-mail, PR ou log.
+//   --no-open  não abre o navegador padrão (que pode estar logado em outra conta); só mostra a URL neste terminal
+//              para ser colada numa janela ANÔNIMA desta máquina.
+if (process.argv.some((arg) => arg === "--print-url" || arg.startsWith("--callback-url"))) {
+  console.error("ERRO: modo manual removido. O titular autoriza nesta máquina (janela anônima); o código não trafega.");
+  process.exit(1);
+}
+const NO_OPEN = process.argv.includes("--no-open");
+const WAIT_MINUTES = 15;
 
 const REDIRECT_URI = "http://localhost:53682/oauth2callback";
 const ENV_PATH = path.resolve("apps/web/.env.local");
@@ -66,19 +82,7 @@ function setEnvValue(key, value) {
   fs.writeFileSync(ENV_PATH, content, "utf8");
 }
 
-const server = http.createServer(async (req, res) => {
-  try {
-    const requestUrl = new URL(
-      req.url ?? "/",
-      REDIRECT_URI
-    );
-
-    if (requestUrl.pathname !== "/oauth2callback") {
-      res.writeHead(404);
-      res.end("Not found");
-      return;
-    }
-
+async function exchangeCallback(requestUrl) {
     const returnedState = requestUrl.searchParams.get("state");
     const code = requestUrl.searchParams.get("code");
     const oauthError = requestUrl.searchParams.get("error");
@@ -124,6 +128,24 @@ const server = http.createServer(async (req, res) => {
       tokens.refresh_token
     );
 
+    return authenticatedMailbox;
+}
+
+const server = http.createServer(async (req, res) => {
+  try {
+    const requestUrl = new URL(
+      req.url ?? "/",
+      REDIRECT_URI
+    );
+
+    if (requestUrl.pathname !== "/oauth2callback") {
+      res.writeHead(404);
+      res.end("Not found");
+      return;
+    }
+
+    const authenticatedMailbox = await exchangeCallback(requestUrl);
+
     res.writeHead(200, {
       "Content-Type": "text/html; charset=utf-8",
     });
@@ -147,6 +169,7 @@ const server = http.createServer(async (req, res) => {
 
     setTimeout(() => {
       server.close();
+      process.exit(0);
     }, 1000);
   } catch (error) {
     console.error(
@@ -172,6 +195,17 @@ server.listen(53682, "127.0.0.1", () => {
   console.log("");
   console.log(authorizationUrl);
   console.log("");
+  console.log(`Aguardando o retorno por até ${WAIT_MINUTES} min (somente 127.0.0.1:53682). O titular entra com a PRÓPRIA senha e 2FA.`);
 
-  exec(`start "" "${authorizationUrl}"`);
+  if (NO_OPEN) {
+    console.log("Abra uma janela ANÔNIMA do navegador NESTA máquina e cole a URL acima.");
+  } else {
+    exec(`start "" "${authorizationUrl}"`);
+  }
 });
+
+setTimeout(() => {
+  console.error(`Tempo esgotado (${WAIT_MINUTES} min) sem autorização. Nada foi gravado.`);
+  server.close();
+  process.exit(1);
+}, WAIT_MINUTES * 60 * 1000).unref();

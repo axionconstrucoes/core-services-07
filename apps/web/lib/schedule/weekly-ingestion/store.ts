@@ -15,6 +15,7 @@ import type { EmailAttachmentClassification, EmailDocumentClassification } from 
 import type { WorkbookProcessingContext } from "../weekly-report/process-workbook";
 import type { ExtractedSheet, WeeklyReportWorkbookStatus, WorkbookSafetyReport, WorkbookSheetIndexEntry } from "../weekly-report/types";
 import type { ScheduleSnapshot } from "./compare-schedule-versions";
+import type { MissedWeekEvidence } from "./missed-week-classification";
 import type {
   EmailAttachmentDescriptor,
   ScheduleComparisonType,
@@ -210,6 +211,13 @@ export interface AbsenceAlertStore {
   listOpenAbsenceAlerts?(projectId: string): Promise<OpenAbsenceAlert[]>;
   /** Marca resolved_at (uma única vez) quando a evidência da semana passou a existir. */
   resolveAbsenceAlert?(alertId: string, detail: string): Promise<boolean>;
+  /** Evidência efetiva de coleta/processamento da semana (recuperação de semanas perdidas). */
+  loadMissedWeekEvidence?(config: WeeklyScheduleIngestionConfig, weekStart: string, deadlineAt: Date): Promise<MissedWeekEvidence>;
+  /** Última semana já verificada pela recuperação (checkpoint auditável); null = nunca verificada. */
+  loadMissedWeeksCheckpoint?(projectId: string): Promise<string | null>;
+  saveMissedWeeksCheckpoint?(projectId: string, lastVerifiedWeekStart: string, summary: Record<string, unknown>): Promise<void>;
+  /** true quando já existe auditoria (action, entity_id) cujo detail JSON tem "key" igual (evita repetir a cada execução). */
+  hasAuditEntry?(projectId: string, action: string, entityId: string, key: string): Promise<boolean>;
   writeAudit(entry: AuditEntry): Promise<void>;
 }
 
@@ -339,4 +347,18 @@ export interface WeeklyReportWorkbookStore {
   /** Upsert do workbook (UNIQUE email_attachment_id) + abas (UNIQUE workbook_id, category), preservando decisões humanas. */
   saveWorkbook(candidate: WorkbookCandidateAttachment, input: WorkbookSaveInput): Promise<{ id: string }>;
   writeAudit(entry: AuditEntry): Promise<void>;
+  /**
+   * Leituras válidas ANTERIORES do mesmo projeto (outro anexo) com o mesmo
+   * SHA-256 (duplicata) ou a mesma semana (possível revisão), da mais antiga
+   * para a mais recente. Opcional: sem a porta, nada é marcado.
+   */
+  findRelatedWorkbooks?(candidate: WorkbookCandidateAttachment, sha256: string): Promise<RelatedWorkbook[]>;
+}
+
+export interface RelatedWorkbook {
+  id: string;
+  emailAttachmentId: string;
+  sha256: string;
+  workWeekLabel: string | null;
+  createdAt: string;
 }

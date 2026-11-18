@@ -329,3 +329,27 @@ export function evaluateWeeklyScheduleEmail(
     mppCandidates,
   };
 }
+
+/**
+ * Recuperação histórica: o .mpp de uma semana antiga é EVIDÊNCIA, não o
+ * cronograma vigente. Nunca é promovido automaticamente (uma versão nova
+ * viraria a "mais recente" das comparações e abriria casos sobre dados
+ * antigos). Decisões que identificaram ao menos um .mpp viram
+ * PENDING_HUMAN_REVIEW (bytes preservados; decisão humana promove ou não);
+ * IGNORED_* permanecem como estão. A decisão original fica nos motivos.
+ */
+export function applyHistoricalBackfillPolicy(decision: WeeklyScheduleEmailDecision): WeeklyScheduleEmailDecision {
+  if (decision.status === "IGNORED_NO_MPP" || decision.status === "IGNORED_OUTSIDE_WINDOW") return decision;
+  if (decision.mppCandidates.length === 0) return decision;
+  return {
+    ...decision,
+    status: "PENDING_HUMAN_REVIEW",
+    rule: "HISTORICAL_BACKFILL_REVIEW",
+    selectedAttachment: null,
+    reasons: [
+      "Recuperação histórica da caixa do titular: o anexo .mpp é preservado como evidência e aguarda revisão humana; não vira versão automaticamente nem gera comparação ou alerta.",
+      `Decisão original pela regra vigente: ${decision.status} (${decision.rule}).`,
+      ...decision.reasons,
+    ],
+  };
+}

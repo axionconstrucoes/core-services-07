@@ -1,0 +1,59 @@
+name: Financeiro — reprocessamento de exibição (informativo)
+
+# Manual apenas. Padrão: dry-run (só leitura). Gravação exige mode=apply E
+# confirm=REPROCESSAR-EXIBICAO. Log mascarado (sem valores, nomes ou ids).
+# Nunca altera classificação/alertas/casos; nenhuma notificação.
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_id:
+        description: "Projeto (UUID)"
+        required: true
+      mode:
+        description: "dry-run (padrão) ou apply"
+        required: true
+        default: dry-run
+        type: choice
+        options: [dry-run, apply]
+      confirm:
+        description: "Para apply: digite REPROCESSAR-EXIBICAO"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: financial-display-reprocess
+  cancel-in-progress: false
+
+jobs:
+  reprocess:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Reprocessar exibição do Financeiro
+        shell: bash
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          PROJECT_ID: ${{ github.event.inputs.project_id }}
+          MODE: ${{ github.event.inputs.mode }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          set -euo pipefail
+          if [ "$MODE" = "apply" ]; then
+            if [ "$CONFIRM" != "REPROCESSAR-EXIBICAO" ]; then
+              echo "::error::apply exige confirm=REPROCESSAR-EXIBICAO — nada gravado"; exit 1
+            fi
+            ACC_FINANCIAL_DISPLAY_REPROCESS_CONFIRM="$CONFIRM" node scripts/financial-display-reprocess.mjs "$PROJECT_ID" --apply
+          else
+            node scripts/financial-display-reprocess.mjs "$PROJECT_ID" --dry-run
+          fi

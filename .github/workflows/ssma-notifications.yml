@@ -6,10 +6,17 @@ name: SSMA Notifications
 # ação/prazo e nunca se repete, então um atraso do agendador apenas adia o aviso.
 
 on:
-  # DESATIVADO NO PILOTO: sem gatilho `schedule`. Notificações SSMA automáticas só serão religadas com
-  # autorização explícita (reinserir `schedule: - cron: "15 * * * *"` junto com ACC_SSMA_NOTIFICATIONS_ENABLED=true
-  # na Vercel). Coleta e processamento dos registros seguem independentes deste workflow.
+  # Religado em 18/11/2026 por autorização explícita, RESTRITO no servidor ao escopo ACC_SSMA_NOTIFICATIONS_SCOPE=WEG_CORRECTIVE_ACTIONS
+  # (somente aviso de ação corretiva em atraso da WEG ao responsável + confirmações de resposta). Sem ACC_SSMA_NOTIFICATIONS_ENABLED=true
+  # e escopo válido na Vercel, a rota responde 204 e nada é enviado. O aviso de atraso é único por ação/prazo/destinatário.
+  schedule:
+    - cron: "15 * * * *"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Prévia sem efeito (escopo WEG_CORRECTIVE_ACTIONS): nada é gravado nem enviado"
+        type: boolean
+        default: true
 
 concurrency:
   group: ssma-notifications
@@ -24,6 +31,7 @@ jobs:
         env:
           ACC_APP_BASE_URL: ${{ vars.ACC_APP_BASE_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '0' }}
         run: |
           set -euo pipefail
 
@@ -37,8 +45,17 @@ jobs:
             exit 1
           fi
 
-          curl --fail-with-body \
-            --silent \
-            --show-error \
+          # Só 200/204 contam como sucesso: redirecionamento (ex.: para /login), 207 (falha parcial) ou erro falham o job.
+          query=""
+          if [ "$DRY_RUN" = "1" ]; then query="?dryRun=1"; fi
+          code=$(curl --silent --show-error --max-redirs 0 \
+            -o "$RUNNER_TEMP/ssma-response.json" -w '%{http_code}' \
             -H "Authorization: Bearer ${CRON_SECRET}" \
-            "${ACC_APP_BASE_URL%/}/api/cron/ssma-notifications"
+            "${ACC_APP_BASE_URL%/}/api/cron/ssma-notifications${query}")
+          cat "$RUNNER_TEMP/ssma-response.json" || true
+          echo ""
+          echo "HTTP ${code}"
+          case "$code" in
+            200|204) ;;
+            *) echo "::error::Resposta inesperada da rota SSMA (HTTP ${code})."; exit 1 ;;
+          esac

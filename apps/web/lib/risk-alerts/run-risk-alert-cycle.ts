@@ -9,6 +9,7 @@
 // Condições para envio REAL: ver pilot-readiness.ts — qualquer bloqueio
 // mantém as entradas SUPPRESSED com o motivo. dryRun: nenhuma escrita.
 
+import { applyPilotLevelOverride, levelLabelFor, levelNoteFor } from "./pilot-level-overrides";
 import "server-only";
 
 import { createSupabaseAdminClient } from "@axion/db/admin";
@@ -27,7 +28,6 @@ import { getEmailProvider } from "@/lib/email/get-email-provider";
 import { resolveEmailProviderName } from "@/lib/email/gmail-auth";
 import { issueEmailAlertActionButtons } from "@/lib/email-actions/issue-tokens";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
-import { slaEscalationLevelLabels } from "@/lib/labels";
 import { resolveMatrixPolicy, type MatrixPolicy } from "@/lib/sla/resolve-matrix-policy";
 import type { SlaArea, SlaEscalationLevel, SlaRiskLevel } from "@/lib/sla/types";
 
@@ -35,6 +35,7 @@ import { actionLinkExpiry, buildActionLink, EMAIL_ACTION_TYPES, generateActionTo
 import { applyForwardTimeout, applyScheduledTopLevel } from "./alert-state-machine";
 import { buildAlertFollowUpEmail, buildImmediateRiskAlertEmail, buildRiskDigestEmail, formatDateTimeBR, type BuiltEmail } from "./build-risk-alert-emails";
 import { evaluatePilotReadiness, blockerToSuppressionReason, isSeverityMapComplete } from "./pilot-readiness";
+import { caseKeyOf } from "./collect-risk-cases";
 import { rebuildDigestContent } from "./rebuild-digest-content";
 import { evaluateRecipient, planRiskAlerts } from "./plan-risk-alerts";
 import { resolveDeliveryAddress } from "@/lib/email/pilot-delivery-override";
@@ -76,6 +77,22 @@ export interface RiskAlertCycleProjectResult {
   dryRunPreview?: Array<Record<string, unknown>>;
   /** true quando o dry-run planejou o projeto piloto como se risk_alerts_enabled=true (nada é gravado). */
   dryRunAssumedEnabled?: boolean;
+  /** Áreas informativas do projeto (sem alertas, SLA, cobrança ou escalonamento; fora da prontidão). */
+  informativeAreas?: string[];
+  /** Alertas "detectados com atraso" retidos sem comunicação (aguardam decisão de reemissão). */
+  lateDetectionHeld?: Array<{ visibleCode: string | null; reference: string }>;
+  /** Casos com comunicação suspensa (verificação pendente): sem alerta, escalonamento nem reemissão. */
+  communicationSuspended?: Array<{ visibleCode: string | null; reference: string }>;
+  /**
+   * Livro-razão de comunicação (mascarado: código visível do caso, papéis e status — sem usuário/e-mail).
+   * Distingue etapa alcançada, supressão e aceite pelo Gmail; lacunas sem decisão não geram e-mail.
+   */
+  communicationLedger?: Array<{
+    visibleCode: string | null;
+    stageReached: string;
+    decision: string;
+    recipients: Array<{ role: string; status: string; suppressions: number; acceptedByGmail: number; deliveredToRecipient: number; eligibleNow: boolean; ineligibleReason: string | null }>;
+  }>;
 }
 
 export interface RiskAlertCycleResult {
@@ -159,10 +176,17 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     });
     const planConfig = dryRunEffectiveConfig(snapshot.config, assumeEnabled);
     const timeZone = snapshot.settings?.timezone ?? DEFAULT_PROJECT_TIMEZONE;
+    // Exceção temporária do piloto por nível (ex.: Nível 2 do Planejamento) aplicada em memória — a Matriz não muda.
     const policyFor = (area: SlaArea, riskLevel: SlaRiskLevel) =>
-      resolveMatrixPolicy({ rules: snapshot.matrixRules, responsibles: snapshot.areaResponsibles, settings: snapshot.settings, area, riskLevel });
+      applyPilotLevelOverride(
+        resolveMatrixPolicy({ rules: snapshot.matrixRules, responsibles: snapshot.areaResponsibles, settings: snapshot.settings, area, riskLevel }),
+        snapshot.pilotLevelOverrides,
+        snapshot.config?.pilotRecipientAllowlistUserIds ?? null
+      );
 
-    const areasInUse = Array.from(new Set(snapshot.cases.map((c) => c.area)));
+    // Áreas informativas não entram na prontidão (a Matriz delas não bloqueia as demais); as outras mantêm todas as validações.
+    const informativeAreas = new Set<SlaArea>(snapshot.informativeAreas ?? []);
+    const areasInUse = Array.from(new Set(snapshot.cases.map((c) => c.area))).filter((area) => !informativeAreas.has(area));
     const readiness = evaluatePilotReadiness({
       featureEnabled,
       config: planConfig,
@@ -202,6 +226,11 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       existingIdempotencyKeys: snapshot.existingIdempotencyKeys,
       previousDigestSentAt: snapshot.previousDigestSentAt,
       readinessBlockers: readiness.blockers.map(blockerToSuppressionReason),
+      informativeAreas,
+      suspendedCaseIds: new Set(snapshot.suspendedCaseIds ?? []),
+      outboxHistory: snapshot.outboxHistory,
+      reissueApprovals: snapshot.reissueApprovals,
+      reissueDecisionRecordedCaseIds: snapshot.reissueDecisionRecordedCaseIds,
     });
 
     const projectResult: RiskAlertCycleProjectResult = {
@@ -221,6 +250,15 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       topLevelReached: 0,
       expertAnswers: 0,
       digestWindow: plan.digestWindow,
+      informativeAreas: Array.from(informativeAreas),
+      communicationSuspended: (plan.communicationSuspended ?? []).map((caseKey) => ({
+        visibleCode: snapshot.existingCases.find((c) => caseKeyOf(c) === caseKey)?.visibleCode ?? null,
+        reference: snapshot.cases.find((c) => caseKeyOf(c) === caseKey)?.reference ?? caseKey,
+      })),
+      lateDetectionHeld: (plan.lateDetectionHeld ?? []).map((caseKey) => ({
+        visibleCode: snapshot.existingCases.find((c) => caseKeyOf(c) === caseKey)?.visibleCode ?? null,
+        reference: snapshot.cases.find((c) => caseKeyOf(c) === caseKey)?.reference ?? caseKey,
+      })),
     };
 
     if (plan.blockedReason) {
@@ -233,6 +271,20 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       const pilotParticipants = pilotProfile.configured && pilotProfile.valid && pilotProfile.projectId === projectId.toLowerCase() ? pilotProfile.participants : null;
       projectResult.dryRunPreview = plan.outbox.map((entry) => ({ ...buildCycleDryRunPreviewItem(entry, { visibleCodeByCaseId, pilotParticipants }) }));
       projectResult.dryRunAssumedEnabled = assumeEnabled;
+      projectResult.communicationLedger = (plan.communicationLedgers ?? []).map((ledger) => ({
+        visibleCode: visibleCodeByCaseId.get(ledger.caseId) ?? null,
+        stageReached: ledger.stageReached,
+        decision: ledger.decision,
+        recipients: ledger.recipients.map((r) => ({
+          role: r.role,
+          status: r.status,
+          suppressions: r.suppressions.length,
+          acceptedByGmail: r.acceptedByGmail.length,
+          deliveredToRecipient: r.acceptedByGmail.filter((a) => a.deliveredToRecipient).length,
+          eligibleNow: r.eligibleNow,
+          ineligibleReason: r.ineligibleReason,
+        })),
+      }));
       projectResult.slaActionsCreated = plan.slaActionCreates.length;
       projectResult.escalationsApplied = plan.escalations.length;
       result.projects.push(projectResult);
@@ -449,7 +501,8 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
       references: conversation?.rootMessageIdHeader ? [conversation.rootMessageIdHeader] : undefined,
       correlationId: crypto.randomUUID(),
       vera: { projectId: ctx.projectId, context: "alerta" },
-      pilot: { projectId: ctx.projectId, participantLabel: `usuário ${recipientUserId.slice(0, 8)}`, escalationLevel: escalationLevel ?? notificationType },
+      // Faixa/prefixo de TESTE só no envio único armado (chave PILOT_SINGLE); alertas operacionais saem sem faixa de teste.
+      pilot: { projectId: ctx.projectId, participantLabel: `usuário ${recipientUserId.slice(0, 8)}`, escalationLevel: escalationLevel ?? notificationType, testMessage: idempotencyKey.includes(":PILOT_SINGLE:") },
     });
     const emailId = await ctx.store.recordEmail(ctx.projectId, { from: sent.from, to: delivery.deliveryEmail, subject: built.subject, sentAt: sent.sentAt, snippet: built.text });
     await ctx.store.markSent(outboxId, { recipientEmail: delivery.deliveryEmail, provider: sent.provider, providerMessageId: sent.providerMessageId, emailId, sentAt: sent.sentAt, messageIdHeader: sent.messageIdHeader, conversationId: conversation?.id ?? null });
@@ -601,6 +654,16 @@ async function sendPendingRow(row: PendingOutboxRow, ctx: SendContext): Promise<
     await ctx.store.markSkipped(row.id, "RISK_CASE_REQUIRED: entrada sem alerta de risco vinculado — fora da outbox de alertas (fluxo antigo permanece).");
     return "SKIPPED";
   }
+  if ((ctx.snapshot.suspendedCaseIds ?? []).includes(record.id)) {
+    // Comunicação suspensa por registro humano auditado (ex.: ausência não comprovada): nada sai deste caso.
+    await ctx.store.markSkipped(row.id, "CASE_COMMUNICATION_SUSPENDED: comunicação do caso suspensa até concluir a verificação — sem envio, repetição ou escalonamento.");
+    return "SKIPPED";
+  }
+  if ((ctx.snapshot.informativeAreas ?? []).includes(record.area)) {
+    // Área informativa: nenhuma mensagem de alerta/cobrança/escalonamento sai, nem de outra origem.
+    await ctx.store.markSkipped(row.id, "INFORMATIVE_AREA: área informativa no projeto — sem envio de alertas, cobranças ou escalonamentos.");
+    return "SKIPPED";
+  }
   if (record.status === "CLOSED" && row.notificationType !== "ACTION_CONFIRMATION") {
     await ctx.store.markSkipped(row.id, "Caso encerrado antes do envio.");
     return "SKIPPED";
@@ -632,8 +695,9 @@ async function sendPendingRow(row: PendingOutboxRow, ctx: SendContext): Promise<
       recommendation: record.recommendation,
       originPath: record.originPath || "documentos?tab=registro-email",
       slaActionId: record.slaActionId,
-      levelLabel: slaEscalationLevelLabels[level],
-      previousLevelLabel: row.payloadSummary.fromLevel ? slaEscalationLevelLabels[row.payloadSummary.fromLevel as SlaEscalationLevel] : null,
+      levelLabel: levelLabelFor(level, policy),
+      levelNote: levelNoteFor(level, policy, record.area),
+      previousLevelLabel: row.payloadSummary.fromLevel ? levelLabelFor(row.payloadSummary.fromLevel as SlaEscalationLevel, policy) : null,
       responsibleName: nameOf(record.currentResponsibleUserId),
       deadlineLabel: "Escalonado em",
       deadlineAt: ctx.nowIso,
