@@ -15,6 +15,9 @@ export const PUBLIC_CRON_ROUTES: ReadonlySet<string> = new Set([
   "/api/cron/risk-alerts",
   "/api/cron/contract-alert-batches",
   "/api/cron/alert-reminders",
+  // Avisos SSMA (ação corretiva em atraso da WEG + confirmações de resposta). Bearer CRON_SECRET; sem
+  // ACC_SSMA_NOTIFICATIONS_ENABLED=true e escopo válido responde 204. Antes ficava atrás do login (redirecionava a /login).
+  "/api/cron/ssma-notifications",
 ]);
 
 /** true somente para um caminho exatamente igual a uma rota técnica listada (sem normalização de barras/case). */
