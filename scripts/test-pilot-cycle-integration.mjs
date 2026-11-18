@@ -150,12 +150,14 @@ await check("cadeia completa: Responsável, Gestor (T+61) e Diretoria (T+121) ch
     assert(!w.rec.guarded.some((g) => JSON.stringify(g).includes(BOX)), "axion@ apareceu em alguma mensagem");
     for (const row of outbox) {
       const label = `usuário ${row.recipientUserId.slice(0, 8)}`;
-      const msg = w.rec.guarded.find((g) => g.text.includes(label) && g.subject.includes(`[${row.escalationLevel ?? row.notificationType}]`));
+      // Alerta operacional sem faixa de teste: a mensagem do usuário lógico é a que chegou à PRÓPRIA caixa dele.
+      const msg = w.rec.guarded.find((g) => g.to === EMAIL[row.recipientUserId]);
       assert(msg, `mensagem do participante ${label} / ${row.escalationLevel}`);
       assert(msg.to === EMAIL[row.recipientUserId], `usuário lógico ${label} não recebeu na própria caixa (${msg.to})`);
     }
     // cada participante lógico distinto aparece em mensagem própria (sem fusão pelo override legado crm@)
-    const labels = new Set(w.rec.guarded.map((g) => /usuário (\w{8})/.exec(g.text)?.[1]));
+    const labels = new Set(w.rec.guarded.map((g) => g.to));
+    assert(!w.rec.guarded.some((g) => /PILOTO — TESTE CONTROLADO|\[PILOTO\]/.test(g.subject + g.text)), "faixa de teste em alerta operacional");
     assert(labels.size === 3, `${labels.size} participantes distintos`);
   }));
 
@@ -189,7 +191,7 @@ await check("respostas: cada colaborador responde com a PRÓPRIA identidade; a a
     await w.run(plusMin(T0, 61));
     const respRow = w.store.state.outbox.find((o) => o.escalationLevel === "RESPONSAVEL" && o.status === "SENT");
     const gestorRow = w.store.state.outbox.find((o) => o.escalationLevel === "ESCALAO_1" && o.status === "SENT");
-    const sendOf = (row) => w.rec.guarded.find((g) => g.text.includes(`usuário ${row.recipientUserId.slice(0, 8)}`) && g.subject.includes(`[${row.escalationLevel}]`));
+    const sendOf = (row) => w.rec.guarded.find((g) => g.to === EMAIL[row.recipientUserId]);
     assert(sendOf(respRow)?.replyTo && sendOf(gestorRow)?.replyTo && sendOf(respRow).replyTo !== sendOf(gestorRow).replyTo, "Reply-To distinto por mensagem");
     assert(sendOf(respRow).replyTo.startsWith("crm+alerta-") && sendOf(respRow).to === EMAIL[respRow.recipientUserId], "Reply-To em crm@ e entrega na caixa do próprio colaborador");
     const headers = (from, replyTo, mid, extra = {}) => ({ from, to: [replyTo], messageId: mid, inReplyTo: null, references: [], replyTo: null, autoSubmitted: null, authenticationResults: null, subject: "Re: alerta", ...extra });

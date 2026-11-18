@@ -44,8 +44,8 @@ const CARLOS = "carlos.evandro@axion.com.br";
 const ENV = { ACC_PROJECT_PILOT_PROJECT_ID: WEG, ACC_PROJECT_PILOT_SENDER: ACC };
 const msg = (over = {}) => ({ to: REY, subject: "Alerta", text: "Corpo", correlationId: "c-1", pilot: { projectId: WEG, participantLabel: "usuário a1b2c3d4", escalationLevel: "RESPONSAVEL" }, ...over });
 
-check("constantes: participantes = os três colaboradores; Cc = crm@; axion@ só na lista PROIBIDA", () => {
-  assert(JSON.stringify([...p.PILOT_PARTICIPANT_ADDRESSES]) === JSON.stringify([REY, JAIME, CARLOS]));
+check("constantes: participantes = os três colaboradores + Gestor do Planejamento (corazza@); Cc = crm@; axion@ só na lista PROIBIDA", () => {
+  assert(JSON.stringify([...p.PILOT_PARTICIPANT_ADDRESSES]) === JSON.stringify([REY, JAIME, CARLOS, "corazza@axion.com.br"]));
   assert(p.ACC_PILOT_INSTITUTIONAL_ADDRESS === ACC);
   assert(JSON.stringify([...p.PILOT_FORBIDDEN_ADDRESSES]) === JSON.stringify([BOX, ACCX]));
   assert(!p.PILOT_PARTICIPANT_ADDRESSES.includes(BOX) && !p.PILOT_PARTICIPANT_ADDRESSES.includes("crm@axion.com.br"));
@@ -60,7 +60,7 @@ check("perfil: sem a variável do projeto nada muda (configured=false); mensagen
 check("perfil válido: WEG + remetente crm@; sem destino/grupo; Cc institucional; participantes fixos", () => {
   const prof = p.resolveProjectPilotProfile(ENV);
   assert(prof.configured && prof.valid && prof.sender === ACC && prof.projectId === WEG);
-  assert(JSON.stringify(prof.cc) === JSON.stringify([ACC]) && prof.participants.length === 3 && prof.authorizedSenders.length === 0);
+  assert(JSON.stringify(prof.cc) === JSON.stringify([ACC]) && prof.participants.length === 4 && prof.authorizedSenders.length === 0);
   assert(!("destination" in prof), "o perfil não pode mais ter destino único");
 });
 
@@ -94,15 +94,24 @@ check("autorizados a ENVIAR: lista opcional de participantes (normaliza caixa/du
   assert(prof.valid && JSON.stringify(prof.authorizedSenders) === JSON.stringify([JAIME, CARLOS]));
 });
 
-check("roteamento: To = colaborador, Cc = [crm@], sem Bcc; rótulo/assunto de PILOTO; remetente = crm@; exibição institucional", () => {
+check("roteamento: To = colaborador, Cc = [crm@], sem Bcc; remetente = crm@; exibição institucional; faixa de TESTE só no envio de teste", () => {
   for (const to of [REY, JAIME, CARLOS, REY.toUpperCase()]) {
     const r = p.applyProjectPilotProfile(msg({ to, bcc: "x@y.com" }), ENV);
     assert(r.routed && r.to === to.toLowerCase() && r.input.to === to.toLowerCase());
     assert(JSON.stringify(r.input.cc) === JSON.stringify([ACC]) && JSON.stringify(r.cc) === JSON.stringify([ACC]) && !r.input.bcc);
     assert(r.sender === ACC && r.senderDisplayName === undefined);
-    assert(/^\[PILOTO\] \[RESPONSAVEL\] Alerta$/.test(r.input.subject) && r.input.text.includes("PILOTO — TESTE CONTROLADO"));
-    assert(r.input.text.includes(`cópia institucional em ${ACC}`));
+    // Alerta operacional real: sem faixa nem prefixo de teste.
+    assert(r.input.subject === "Alerta" && !r.input.text.includes("PILOTO — TESTE CONTROLADO") && !r.input.text.includes("TESTE"), r.input.subject);
+    // Envio único de TESTE (testMessage): faixa e prefixo presentes.
+    const t = p.applyProjectPilotProfile(msg({ to, pilot: { projectId: WEG, participantLabel: "usuário a1b2c3d4", escalationLevel: "RESPONSAVEL", testMessage: true } }), ENV);
+    assert(/^\[PILOTO\] \[RESPONSAVEL\] Alerta$/.test(t.input.subject) && t.input.text.includes("PILOTO — TESTE CONTROLADO"));
+    assert(t.input.text.includes(`cópia institucional em ${ACC}`));
   }
+  // Prefixos de teste herdados são removidos do assunto do alerta real.
+  const herdado = p.applyProjectPilotProfile(msg({ subject: "[TESTE CONTROLADO] [PILOTO] Alerta" }), ENV);
+  assert(herdado.input.subject === "Alerta", herdado.input.subject);
+  // Gestor do Planejamento (corazza@) é destinatário permitido; outros endereços continuam bloqueados.
+  assert(p.applyProjectPilotProfile(msg({ to: "corazza@axion.com.br" }), ENV).to === "corazza@axion.com.br");
 });
 
 check("destinatário fora dos participantes ou proibido => bloqueio (nunca substituição silenciosa)", () => {
@@ -110,7 +119,7 @@ check("destinatário fora dos participantes ou proibido => bloqueio (nunca subst
 });
 
 check("remetente solicitado: padrão = crm@; participante só se autorizado; proibido/estranho bloqueia", () => {
-  const withSender = (senderEmail, env = ENV) => p.applyProjectPilotProfile(msg({ pilot: { projectId: WEG, senderEmail } }), env);
+  const withSender = (senderEmail, env = ENV) => p.applyProjectPilotProfile(msg({ pilot: { projectId: WEG, senderEmail, testMessage: true } }), env);
   assert(withSender(undefined).sender === ACC && withSender(ACC.toUpperCase()).sender === ACC);
   throwsSend(() => withSender(JAIME), /Remetente não autorizado/);
   const authorized = { ...ENV, ACC_PROJECT_PILOT_AUTHORIZED_SENDERS: JAIME };
@@ -133,7 +142,7 @@ check("perfil inválido + mensagem da WEG => EmailSendError antes de qualquer MI
 });
 
 check("participantes/atividade: resolveProjectPilotParticipants e isProjectPilotActive só valem para a WEG com perfil válido", () => {
-  assert(JSON.stringify(p.resolveProjectPilotParticipants(WEG, ENV)) === JSON.stringify([REY, JAIME, CARLOS]));
+  assert(JSON.stringify(p.resolveProjectPilotParticipants(WEG, ENV)) === JSON.stringify([REY, JAIME, CARLOS, "corazza@axion.com.br"]));
   assert(p.resolveProjectPilotParticipants("22222222-2222-4222-8222-222222222222", ENV) === null);
   assert(p.isProjectPilotActive(WEG, ENV) === true && p.isProjectPilotActive(WEG, {}) === false && p.isProjectPilotActive(WEG, { ...ENV, ACC_PROJECT_PILOT_SENDER: BOX }) === false);
   assert(p.isPilotParticipantAddress(JAIME.toUpperCase()) && !p.isPilotParticipantAddress(ACC) && !p.isPilotParticipantAddress(BOX) && !p.isPilotParticipantAddress(null));
