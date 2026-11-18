@@ -11,6 +11,7 @@ import type { ExpertId } from "../../ai/types";
 import { analyzeSCurve, crossCheckSCurveWithMpp, type MppFactsForCrossCheck } from "../s-curve/analyze-s-curve";
 import { classifySCurveRisk } from "../s-curve/classify-s-curve-risk";
 import type { SCurveMetrics } from "../s-curve/types";
+import type { ReportReference } from "./report-reference";
 import type { ScheduleRiskClassification, ScheduleRiskDimension, ScheduleRiskThreshold } from "../weekly-ingestion/types";
 import type {
   BaselineSheetData,
@@ -219,6 +220,53 @@ export interface FinancialAnalysisContext {
   fileName?: string | null;
   /** Letras das colunas na aba (locator) — rastreabilidade até a célula. */
   columnLetters?: Partial<Record<FinancialColumnKey, string>> | null;
+  /** Referência resolvida do PRÓPRIO relatório (prevalece sobre referenceDate). */
+  reference?: ReportReference | null;
+  /** Versões anteriores da aba (mesmo projeto), da mais antiga à mais recente — evidência de reprevisão. */
+  previousVersions?: FinancialPreviousVersion[] | null;
+}
+
+export interface FinancialPreviousVersion {
+  label: string | null;
+  rows: Array<{ period: string; previsto: number | null }>;
+}
+
+/**
+ * Natureza do PREVISTO da planilha:
+ * REFORECAST — evidência de reprevisão (previsto = realizado em mês encerrado
+ * ou previsto do mesmo mês alterado entre versões semanais);
+ * DECLARED_BASELINE_UNVERIFIED — cabeçalho declara linha de base, sem evidência contrária;
+ * UNKNOWN — sem evidência. Nunca "linha de base aprovada" sem documento de aprovação.
+ */
+export type FinancialBaseKind = "REFORECAST" | "DECLARED_BASELINE_UNVERIFIED" | "UNKNOWN";
+
+export const FINANCIAL_BASE_DISCLAIMER =
+  "Proximidade entre previsto e realizado NÃO comprova cumprimento da meta original: o previsto desta planilha pode ser reprevisto a cada semana (meses encerrados ajustados ao realizado). Indicador apenas informativo.";
+
+export function classifyFinancialBase(
+  data: Pick<FinancialSheetData, "columns" | "rows">,
+  closedPeriods: string[],
+  previousVersions: FinancialPreviousVersion[] = []
+): { baseKind: FinancialBaseKind; evidence: string[] } {
+  const evidence: string[] = [];
+  const closedSet = new Set(closedPeriods);
+  const equal = data.rows.filter(
+    (row) => closedSet.has(row.period) && typeof row.values.previsto === "number" && typeof row.values.realizado === "number" && Math.abs((row.values.previsto as number) - (row.values.realizado as number)) < 0.01
+  );
+  if (equal.length) evidence.push(`Previsto igual ao realizado em ${equal.length} mês(es) encerrado(s): ${equal.map((row) => row.period.slice(0, 7)).join(", ")}.`);
+  const current = new Map(data.rows.map((row) => [row.period, typeof row.values.previsto === "number" ? (row.values.previsto as number) : null]));
+  for (const version of previousVersions) {
+    for (const row of version.rows) {
+      const now = current.get(row.period);
+      if (typeof now === "number" && typeof row.previsto === "number" && Math.abs(now - row.previsto) >= 0.01) {
+        evidence.push(`Previsto de ${row.period.slice(0, 7)} difere entre versões: ${round2(row.previsto)} (${version.label ?? "outra versão"}) × ${round2(now)} (este relatório).`);
+      }
+    }
+  }
+  if (evidence.length) return { baseKind: "REFORECAST", evidence: evidence.slice(0, 20) };
+  const header = data.columns.previsto ?? data.columns.acumulado_previsto ?? "";
+  if (/linha\s+de\s+base|baseline|\bLB\s?\d|contratual|aprovad/i.test(header)) return { baseKind: "DECLARED_BASELINE_UNVERIFIED", evidence: [`Cabeçalho "${header}" declara linha de base (aprovação não verificada).`] };
+  return { baseKind: "UNKNOWN", evidence: [] };
 }
 
 export type FinancialPeriodStatus = "CLOSED" | "CURRENT_PARTIAL" | "FUTURE" | "UNDATED";
@@ -308,9 +356,20 @@ export function analyzeFinancialSheet(data: FinancialSheetData, thresholds: Sche
   if (data.unit === "PERCENT") alerts.push({ code: "FINANCIAL_IN_PERCENT", detail: "Aba financeira em percentual — não confundir com avanço físico.", severity: "INFO" });
 
   const valueNature = detectFinancialValueNature(data);
-  const referenceDate = context.referenceDate && ISO_DATE.test(context.referenceDate) ? context.referenceDate : null;
+  // Referência do PRÓPRIO relatório (report-reference.ts) prevalece; a data
+  // avulsa (envio) só é usada quando o chamador não resolveu a referência.
+  const reference = context.reference ?? null;
+  const referenceDate = reference
+    ? reference.referenceDate
+    : context.referenceDate && ISO_DATE.test(context.referenceDate)
+      ? context.referenceDate
+      : null;
+  if (reference) {
+    for (const warning of reference.warnings) alerts.push({ code: warning.code, detail: warning.detail, severity: "WARNING" });
+    for (const blocker of reference.blockers) notMeasurable.push(`referência do relatório: ${blocker}`);
+  }
   const fileWeek = weekLabelOfFile(context.fileName);
-  if (fileWeek && context.reportWeekLabel && fileWeek.toUpperCase() !== context.reportWeekLabel.toUpperCase()) {
+  if (!reference && fileWeek && context.reportWeekLabel && fileWeek.toUpperCase() !== context.reportWeekLabel.toUpperCase()) {
     alerts.push({
       code: "FILE_WEEK_LABEL_DIFFERS",
       detail: `Arquivo rotulado ${fileWeek} anexado ao pacote ${context.reportWeekLabel} — corte definido pela data de referência do pacote (${referenceDate ?? "ausente"}).`,
@@ -331,7 +390,7 @@ export function analyzeFinancialSheet(data: FinancialSheetData, thresholds: Sche
   const current = classified.filter((item) => item.status === "CURRENT_PARTIAL").map((item) => item.row);
   const future = classified.filter((item) => item.status === "FUTURE").map((item) => item.row);
 
-  if (!referenceDate) notMeasurable.push("data de referência do relatório ausente — sem data de corte não há comparação na mesma data");
+  if (!referenceDate && !(reference && reference.blockers.length)) notMeasurable.push("data de referência do relatório ausente — sem data de corte não há comparação na mesma data");
   if (!monthly) notMeasurable.push("série não é mensal com datas inequívocas — sem distribuição aprovada para obter o previsto na data de corte (rateio linear não é usado)");
   if (referenceDate && monthly && closed.length === 0) notMeasurable.push("nenhum mês encerrado antes da data de referência");
   if (valueNature === "UNKNOWN") notMeasurable.push("natureza dos valores (faturamento/medição × custo) não identificada nos cabeçalhos — direção adversa indefinida");
@@ -392,6 +451,11 @@ export function analyzeFinancialSheet(data: FinancialSheetData, thresholds: Sche
     });
   }
 
+  const base = classifyFinancialBase(data, closed.map((row) => row.period), context.previousVersions ?? []);
+  if (base.baseKind === "REFORECAST") {
+    alerts.push({ code: "BASE_IS_REFORECAST", detail: `Previsto da planilha é REPREVISÃO, não linha de base aprovada (${base.evidence.length} evidência(s)). ${FINANCIAL_BASE_DISCLAIMER}`, severity: "WARNING" });
+  }
+
   const measurable = notMeasurable.length === 0;
   const cutoffDate = lastClosed?.date ? (monthBounds(lastClosed.date)?.end ?? null) : null;
   const deviationAbsolute = measurable ? round2((actualAtCutoff as number) - (plannedAtCutoff as number)) : null;
@@ -424,7 +488,10 @@ export function analyzeFinancialSheet(data: FinancialSheetData, thresholds: Sche
       valueNature === "BILLING_PRODUCTION"
         ? `realizado (faturamento/medição) ${(deviationPercent as number) < 0 ? "abaixo" : "acima"} do previsto até ${cutoffDate} — execução financeira, NÃO estouro de custo`
         : `custo realizado ${(deviationPercent as number) > 0 ? "acima" : "abaixo"} do previsto até ${cutoffDate}`;
-    risk.reasons.push(`Desvio ${deviationPercent}% (${meaning}); referência ${referenceDate}, ${closed.length} mês(es) encerrado(s).`);
+    risk.reasons.push(
+      `Desvio ${deviationPercent}% (${meaning}); referência ${referenceDate} (${reference ? reference.source : "informada"}), ${closed.length} mês(es) encerrado(s); base do previsto: ${base.baseKind}.` +
+        (base.baseKind === "REFORECAST" ? " Proximidade previsto×realizado não comprova cumprimento da meta original." : "")
+    );
   }
 
   const cumulative = data.rows.map((row) => ({ period: row.period, previsto: row.values.acumulado_previsto ?? null, realizado: row.values.acumulado_realizado ?? null }));
@@ -433,6 +500,13 @@ export function analyzeFinancialSheet(data: FinancialSheetData, thresholds: Sche
       unit: data.unit,
       columnsMapped: Object.keys(data.columns),
       method: "CUTOFF_CLOSED_MONTHS_V2",
+      informativeOnly: true,
+      baseKind: base.baseKind,
+      baseEvidence: base.evidence,
+      baseDisclaimer: FINANCIAL_BASE_DISCLAIMER,
+      referenceSource: reference ? reference.source : referenceDate ? "PROVIDED" : "NONE",
+      reportWeekLabel: reference?.reportWeekLabel ?? context.reportWeekLabel ?? null,
+      referenceWeekLabels: reference?.weekLabels ?? null,
       valueNature,
       referenceDate,
       cutoffDate,
