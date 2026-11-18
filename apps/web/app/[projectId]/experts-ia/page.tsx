@@ -38,6 +38,15 @@ export default async function ExpertsIaPage({ params }: { params: Promise<{ proj
         description="Hub central dos Experts oficiais do ACC para este projeto — toda sugestão exige revisão humana. Os acessos já existentes (Diretor Comercial IA no Dashboard, Diretor de ESG IA em ESG/SSMA) continuam disponíveis normalmente; este hub não os substitui."
       />
 
+      <div>
+        <Link
+          href={`/${projectId}/experts-ia/descricao`}
+          className="inline-flex min-h-11 items-center justify-center rounded-md border border-yellow-500 bg-yellow-400 px-5 py-2 text-sm font-bold text-black hover:bg-yellow-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500"
+        >
+          Descrição dos Especialistas
+        </Link>
+      </div>
+
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {ALL_OFFICIAL_EXPERT_DEFINITIONS.map((expert) => {
           const isActive = expert.status === "IMPLEMENTED";
