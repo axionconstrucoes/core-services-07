@@ -189,11 +189,16 @@ export function applyProjectPilotProfile(input: SendEmailInput, env: Env = proce
   if (isForbidden(replyMailbox)) throw new EmailSendError("Caixa de resposta do piloto proibida — envio bloqueado antes de qualquer chamada de rede.");
   guarded.replyTo = resolveGuardedReplyTo(input, { alertReplyMailbox: replyMailbox || undefined }).replyTo;
   const stripped = input.subject.replace(/^(\[(TESTE CONTROLADO|PILOTO)[^\]]*\]\s*)+/, "");
-  guarded.subject = `${PROJECT_PILOT_SUBJECT_TAG} [${banner.level}] ${stripped}`;
-  guarded.text = `${banner.text}${input.text}`;
-  if (input.html !== undefined) {
-    const bodyOpen = input.html.match(/<body[^>]*>/i);
-    guarded.html = bodyOpen ? input.html.replace(bodyOpen[0], `${bodyOpen[0]}${banner.html}`) : `${banner.html}${input.html}`;
+  if (input.pilot?.operational === true) {
+    // Mensagem OPERACIONAL (comunicação real): mesmas travas de To/Cc/From/Reply-To, sem faixa nem etiqueta de teste.
+    guarded.subject = stripped;
+  } else {
+    guarded.subject = `${PROJECT_PILOT_SUBJECT_TAG} [${banner.level}] ${stripped}`;
+    guarded.text = `${banner.text}${input.text}`;
+    if (input.html !== undefined) {
+      const bodyOpen = input.html.match(/<body[^>]*>/i);
+      guarded.html = bodyOpen ? input.html.replace(bodyOpen[0], `${bodyOpen[0]}${banner.html}`) : `${banner.html}${input.html}`;
+    }
   }
   return {
     input: guarded,

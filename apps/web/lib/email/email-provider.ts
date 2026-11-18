@@ -59,6 +59,8 @@ export interface PilotMessageContext {
   escalationLevel?: string | null;
   /** Remetente SOLICITADO (identidade autenticada). Ausente => identidade institucional do ACC. Validado e resolvido pelo perfil do piloto; nunca livre. */
   senderEmail?: string | null;
+  /** Mensagem OPERACIONAL do piloto: mantém To/Cc/From/Reply-To travados, mas sem a faixa e a etiqueta de teste. */
+  operational?: boolean;
 }
 
 // Dica de contexto do botão "Fale com a AXIA" que o provider acrescenta ao cabeçalho do e-mail (ver
@@ -69,11 +71,18 @@ export interface VeraEmailHint {
   authorizationId?: string | null;
 }
 
-export interface AlertReplyToContext {
-  kind: "RISK_ALERT_CONVERSATION";
-  outboxId: string;
-  conversationId: string;
-}
+export type AlertReplyToContext =
+  | {
+      kind: "RISK_ALERT_CONVERSATION";
+      outboxId: string;
+      conversationId: string;
+    }
+  | {
+      // Aviso de ação corretiva SSMA (escopo restrito): o token do Reply-To é registrado (hash) na auditoria da ação antes do envio.
+      kind: "SSMA_CORRECTIVE_ACTION";
+      actionId: string;
+      recordId: string;
+    };
 
 // Resultado normalizado — nunca expõe a resposta raw do provider ao domínio.
 export interface SendEmailResult {

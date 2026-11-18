@@ -569,6 +569,17 @@ if (phases.has("replies") && apply) {
     const outcome = await processAlertReplies(riskStore, config.projectId, new Date().toISOString(), [mailbox], { messageIdAliases });
     summary.replies.processed.push(outcome);
   }
+  // Respostas aos avisos de AÇÃO CORRETIVA SSMA (escopo WEG): mesma caixa institucional, somente leitura; só contagens no log.
+  if (gmail && mailbox) {
+    try {
+      const { runSsmaRepliesPhase } = await import("./lib/ssma-replies-phase.mjs");
+      summary.replies.ssma = await runSsmaRepliesPhase({ supabase, gmail, mailbox });
+      console.log(`Respostas SSMA (ações corretivas): ${JSON.stringify(summary.replies.ssma)}`);
+    } catch {
+      summary.replies.ssma = { error: true };
+      console.error("Respostas SSMA (ações corretivas): falha nesta rodada (sem detalhes no log público).");
+    }
+  }
 }
 
 console.log("");
