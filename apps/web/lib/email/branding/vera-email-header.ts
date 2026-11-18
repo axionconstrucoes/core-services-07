@@ -11,10 +11,15 @@
 // Alternativa legível: se o cliente de e-mail não carregar imagens ou ignorar estilos, ainda aparecem o texto do
 // link "Fale com a AXIA" e o texto alternativo da foto; a versão em texto simples ganha uma linha com o endereço.
 //
+// DISPONIBILIDADE: o cabeçalho só entra quando a AXIA conversacional está LIGADA (AXIA_CHAT_PROVIDER diferente de "off",
+// ver lib/assistant/chat-config.ts). Com a AXIA desligada (estado atual de produção), nenhum e-mail apresenta o acesso à
+// AXIA como funcional — o e-mail segue sem o cabeçalho, sem falhar o envio. Este módulo NUNCA liga provedores de IA.
+//
 // Sem "server-only": testável por script Node.
 
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { loadAxiaChatConfig } from "../../assistant/chat-config";
 import type { InlineImageAttachment, SendEmailInput, VeraEmailHint } from "../email-provider";
 
 export const VERA_EMAIL_IMAGE_CID = "vera-assistente-acc";
@@ -69,13 +74,21 @@ export function buildVeraHeaderHtml(url: string, hasImage: boolean): string {
   );
 }
 
+/** true só quando a AXIA conversacional está configurada e ligada (fail closed: "off", inválida ou incompleta => false). */
+export function isAxiaEmailAccessAvailable(env: Record<string, string | undefined> = process.env): boolean {
+  return loadAxiaChatConfig(env).mode !== "off";
+}
+
 export interface ApplyVeraOptions {
+  /** Disponibilidade da AXIA; padrão = isAxiaEmailAccessAvailable(process.env). false => e-mail sem cabeçalho da AXIA. */
+  axiaAvailable?: boolean;
   /** URL base do ACC; padrão AXION_APP_BASE_URL. Sem ela, o e-mail segue sem o cabeçalho (nunca falha o envio). */
   baseUrl?: string | null;
   loadImage?: () => InlineImageAttachment | null;
 }
 
 export function applyVeraEmailHeader(input: SendEmailInput, options: ApplyVeraOptions = {}): SendEmailInput {
+  if (!(options.axiaAvailable ?? isAxiaEmailAccessAvailable())) return input;
   const baseUrl = (options.baseUrl ?? process.env.AXION_APP_BASE_URL ?? "").trim();
   if (!/^https?:\/\//i.test(baseUrl)) return input;
   if (input.html?.includes(VERA_EMAIL_MARKER)) return input;

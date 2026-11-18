@@ -31,10 +31,13 @@ export const WEG_PROJECT_ID = "00000000-0000-4000-8000-000000000001";
 export const ACC_PILOT_INSTITUTIONAL_ADDRESS = "crm@axion.com.br";
 
 /** Participantes autorizados do piloto WEG — endereços conferidos nos perfis do ACC (profiles.email), todos ACTIVE e na allowlist. */
+// corazza@: Gestor (Nível 2) do Planejamento da WEG, incluído por decisão do responsável em 18/11/2026. Endereço do cadastro (convite
+// do projeto). Só recebe quando o convite for ativado no primeiro login e o user id entrar na allowlist do piloto (planejamento).
 export const PILOT_PARTICIPANT_ADDRESSES = [
   "reynaldo@axion.com.br",
   "jaime.ramos@axion.com.br",
   "carlos.evandro@axion.com.br",
+  "corazza@axion.com.br",
 ] as const;
 
 /** Endereços PROIBIDOS no roteamento do piloto (To, Cc, Reply-To, destinatários de resposta). */
@@ -159,7 +162,8 @@ function buildBanner(input: SendEmailInput, senderLabel: string): { text: string
  *   - Cc = crm@axion.com.br, sempre (inclusive com remetente crm@); nunca Bcc;
  *   - remetente = crm@ (padrão) ou o participante solicitado, SE autorizado (ACC_PROJECT_PILOT_AUTHORIZED_SENDERS); caso contrário bloqueia;
  *   - Reply-To validado pelo guard (caixa inbound do ACC + token opaco) e nunca para endereço proibido;
- *   - assunto e corpo identificados como PILOTO.
+ *   - assunto e corpo identificados como PILOTO — SOMENTE no envio único de teste (pilot.testMessage === true). Alertas
+ *     operacionais reais saem sem faixa nem prefixo de teste (prefixos de teste herdados são removidos do assunto).
  */
 export function applyProjectPilotProfile(input: SendEmailInput, env: Env = process.env): ProjectPilotRouting {
   const profile = resolveProjectPilotProfile(env);
@@ -189,11 +193,15 @@ export function applyProjectPilotProfile(input: SendEmailInput, env: Env = proce
   if (isForbidden(replyMailbox)) throw new EmailSendError("Caixa de resposta do piloto proibida — envio bloqueado antes de qualquer chamada de rede.");
   guarded.replyTo = resolveGuardedReplyTo(input, { alertReplyMailbox: replyMailbox || undefined }).replyTo;
   const stripped = input.subject.replace(/^(\[(TESTE CONTROLADO|PILOTO)[^\]]*\]\s*)+/, "");
-  guarded.subject = `${PROJECT_PILOT_SUBJECT_TAG} [${banner.level}] ${stripped}`;
-  guarded.text = `${banner.text}${input.text}`;
-  if (input.html !== undefined) {
-    const bodyOpen = input.html.match(/<body[^>]*>/i);
-    guarded.html = bodyOpen ? input.html.replace(bodyOpen[0], `${bodyOpen[0]}${banner.html}`) : `${banner.html}${input.html}`;
+  if (input.pilot?.testMessage === true) {
+    guarded.subject = `${PROJECT_PILOT_SUBJECT_TAG} [${banner.level}] ${stripped}`;
+    guarded.text = `${banner.text}${input.text}`;
+    if (input.html !== undefined) {
+      const bodyOpen = input.html.match(/<body[^>]*>/i);
+      guarded.html = bodyOpen ? input.html.replace(bodyOpen[0], `${bodyOpen[0]}${banner.html}`) : `${banner.html}${input.html}`;
+    }
+  } else {
+    guarded.subject = stripped;
   }
   return {
     input: guarded,
