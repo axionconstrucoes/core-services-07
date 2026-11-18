@@ -89,7 +89,7 @@ export function NewProjectStartupChecklist({ projectId }: { projectId: string })
         <div key={group} className="rounded-md border p-3 sm:p-4">
           <h3 className="mb-3 text-sm font-semibold">{group}</h3>
           <div className="space-y-2">
-            {STEPS.filter((step) => step.group === group).map((step, index) => (
+            {STEPS.filter((step) => step.group === group).map((step) => (
               <div key={step.id} className="flex gap-3 rounded-md border p-3">
                 <input type="checkbox" id={`startup-check-${step.id}`} checked={Boolean(completed[step.id])}
                   onChange={(event) => toggle(step.id, event.target.checked)}
