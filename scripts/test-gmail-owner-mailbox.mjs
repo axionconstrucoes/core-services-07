@@ -19,7 +19,7 @@ import {
 register("./ts-module-resolver.mjs", import.meta.url);
 const { applyHistoricalBackfillPolicy } = await import("../apps/web/lib/schedule/weekly-ingestion/evaluate-weekly-schedule-email");
 
-const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8");
+const rd = (p) => readFileSync(new URL(`../${p}`, import.meta.url), "utf8").replace(/\r\n/g, "\n");
 let passed = 0;
 const test = async (name, fn) => {
   await fn();
@@ -142,11 +142,15 @@ await test("workflow: condicional aos segredos do slot, leitura, sem nomes/ender
   assert.ok(wf.includes("concurrency:\n  group: gmail-owner-mailbox-sync\n"));
 });
 
-await test("OAuth: modo manual (--print-url / --callback-url) sem imprimir tokens; escopo só leitura", () => {
+await test("OAuth: procedimento reservado — sem modo de colar a URL de retorno; servidor só local; tokens não impressos", () => {
   const src = rd("scripts/gmail-inbound-oauth.mjs");
-  assert.ok(src.includes('"--print-url"') && src.includes("--callback-url="));
+  assert.ok(!src.includes("STATE_PATH") && !src.includes("readSavedState"), "modo manual removido");
+  assert.ok(src.includes('arg === "--print-url" || arg.startsWith("--callback-url")') && src.includes("modo manual removido"), "flags antigas recusadas");
+  assert.ok(src.includes('server.listen(53682, "127.0.0.1"'), "servidor só na interface local");
+  assert.ok(src.includes('"--no-open"') && src.includes("janela ANÔNIMA"));
+  assert.ok(src.includes("WAIT_MINUTES * 60 * 1000"), "servidor expira");
   assert.ok(src.includes("returnedState !== state"));
-  assert.ok(!/console\.[a-z]+\([^)]*(refresh_token|tokens\b)/.test(src), "token nunca impresso");
+  assert.ok(!/console\.[a-z]+\([^)]*(refresh_token|tokens)/.test(src), "token nunca impresso");
   const scopes = src.match(/https:\/\/www\.googleapis\.com\/auth\/[a-z._]+/g) ?? [];
   assert.deepEqual([...new Set(scopes)], ["https://www.googleapis.com/auth/gmail.readonly"]);
 });
