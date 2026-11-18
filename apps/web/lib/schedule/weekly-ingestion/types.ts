@@ -51,7 +51,8 @@ export type WeeklyScheduleDecisionRule =
   | "OUTSIDE_MONITORING_WINDOW"
   | "DUPLICATE_SHA256"
   | "HUMAN_REVIEW_APPROVED"
-  | "INGESTION_FAILURE";
+  | "INGESTION_FAILURE"
+  | "HISTORICAL_BACKFILL_REVIEW";
 
 export interface WeeklyScheduleIngestionConfig {
   id: string;
@@ -107,6 +108,12 @@ export interface WeeklyScheduleEmailCandidate {
   /** ISO datetime. */
   sentAt: string;
   attachments: EmailAttachmentDescriptor[];
+  /**
+   * Recuperação HISTÓRICA (caixa de titular, mensagens antigas): nunca vira
+   * versão automaticamente nem gera comparação/alerta — vai para revisão
+   * humana com os bytes preservados (applyHistoricalBackfillPolicy).
+   */
+  historicalBackfill?: boolean;
 }
 
 /**
