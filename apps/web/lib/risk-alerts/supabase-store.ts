@@ -670,6 +670,28 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
       return (data?.id as string) ?? null;
     },
 
+    async latestReadinessAudit(projectId) {
+      const { data, error } = await client
+        .from("audit_log_entries")
+        .select("action,detail")
+        .eq("project_id", projectId)
+        .in("action", ["RISK_ALERT_NOT_READY_FOR_REAL_SEND", "RISK_ALERT_READY_FOR_REAL_SEND"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw new Error("Falha ao ler a última auditoria de prontidão.");
+      return data ? { action: String(data.action), detail: data.detail ?? null } : null;
+    },
+
+    async recordRepeatedCondition(projectId, conditionKey, detail, nowIso) {
+      // Tabela/RPC da migration do agendador (20261118093000). Ausente => sem contador, sem falha.
+      try {
+        await client.rpc("acc_bump_repeated_condition", { p_project_id: projectId, p_condition_key: conditionKey, p_detail: detail, p_seen_at: nowIso });
+      } catch {
+        // best-effort
+      }
+    },
+
     async audit(projectId, events) {
       if (events.length === 0) return;
       const { error } = await client.from("audit_log_entries").insert(

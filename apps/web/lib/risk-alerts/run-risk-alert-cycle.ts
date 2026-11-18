@@ -35,6 +35,7 @@ import { actionLinkExpiry, buildActionLink, EMAIL_ACTION_TYPES, generateActionTo
 import { applyForwardTimeout, applyScheduledTopLevel } from "./alert-state-machine";
 import { buildAlertFollowUpEmail, buildImmediateRiskAlertEmail, buildRiskDigestEmail, formatDateTimeBR, type BuiltEmail } from "./build-risk-alert-emails";
 import { evaluatePilotReadiness, blockerToSuppressionReason, isSeverityMapComplete } from "./pilot-readiness";
+import { decideReadinessAudit, READINESS_CONDITION_KEY, readinessDetail, type LatestReadinessAudit, type ReadinessAuditOutcome } from "./readiness-audit";
 import { caseKeyOf } from "./collect-risk-cases";
 import { rebuildDigestContent } from "./rebuild-digest-content";
 import { evaluateRecipient, planRiskAlerts } from "./plan-risk-alerts";
@@ -77,6 +78,8 @@ export interface RiskAlertCycleProjectResult {
   dryRunPreview?: Array<Record<string, unknown>>;
   /** true quando o dry-run planejou o projeto piloto como se risk_alerts_enabled=true (nada é gravado). */
   dryRunAssumedEnabled?: boolean;
+  /** Auditoria de prontidão desta rodada: gravada só na mudança de estado (UNCHANGED_NOT_READY = bloqueio igual, sem nova linha). */
+  readinessAudit?: ReadinessAuditOutcome;
   /** Áreas informativas do projeto (sem alertas, SLA, cobrança ou escalonamento; fora da prontidão). */
   informativeAreas?: string[];
   /** Alertas "detectados com atraso" retidos sem comunicação (aguardam decisão de reemissão). */
@@ -310,11 +313,26 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     const escalation = await store.applyEscalations(projectId, plan.escalations);
     projectResult.escalationsApplied = escalation.applied;
     const persisted = await store.enqueue(projectId, plan.outbox, caseIds, slaActionIds);
+    // Prontidão: auditoria só na mudança de estado (sem a leitura da última linha => grava, como antes: rastreabilidade primeiro).
+    let latestReadiness: LatestReadinessAudit | null | undefined;
+    try {
+      latestReadiness = store.latestReadinessAudit ? await store.latestReadinessAudit(projectId) : undefined;
+    } catch {
+      latestReadiness = undefined;
+    }
+    const readinessDecision =
+      latestReadiness === undefined
+        ? readiness.blockers.length
+          ? { event: { action: "RISK_ALERT_NOT_READY_FOR_REAL_SEND", entityType: "PROJECT", entityId: projectId, detail: readinessDetail(readiness.blockers) ?? "" }, outcome: "RECORDED_NOT_READY" as ReadinessAuditOutcome }
+          : { event: null, outcome: "NONE" as ReadinessAuditOutcome }
+        : decideReadinessAudit(projectId, readiness.blockers, latestReadiness);
+    projectResult.readinessAudit = readinessDecision.outcome;
+    if (store.recordRepeatedCondition && readinessDecision.outcome !== "NONE") {
+      await store.recordRepeatedCondition(projectId, READINESS_CONDITION_KEY, readinessDetail(readiness.blockers), nowIso);
+    }
     await store.audit(projectId, [
       ...plan.audit,
-      ...(readiness.blockers.length
-        ? [{ action: "RISK_ALERT_NOT_READY_FOR_REAL_SEND", entityType: "PROJECT", entityId: projectId, detail: `Envio real bloqueado: ${readiness.blockers.join(", ")}.` }]
-        : []),
+      ...(readinessDecision.event ? [readinessDecision.event] : []),
       ...plan.outbox.map((entry) => ({
         action: "RISK_ALERT_PLANNED",
         entityType: entry.notificationType === "DIGEST" ? "RISK_ALERT_DIGEST" : "RISK_ALERT_CASE",

@@ -1,9 +1,10 @@
 // Agendador do ACC (migration 20261118093000, PROPOSTA — NÃO aplicada em nenhum remoto) em PostgreSQL 17 DESCARTÁVEL
 // (PGlite) com TODAS as migrations reexecutadas. pg_cron/pg_net/Vault não existem no PGlite: este teste cria STUBS mínimos de
 // vault.decrypted_secrets, net.http_post/http_get e net._http_response para provar a lógica SQL do agendador:
-// sem segredo => nada é chamado; disparo registrado; reconciliação de 204/200/4xx/5xx/timeout; trava de sobreposição da rota;
-// watchdog abre/resolve incidente; anon/authenticated/service_role não executam disparo nem leem segredo.
-// Uso: node scripts/test-scheduler-sql.mjs
+// sem segredo => nada é chamado; disparo aceito (204) ≠ início ≠ conclusão; reconciliação de respostas; trava de sobreposição
+// das rotas; rota SSMA com o CRON_SECRET; watchdog por motivo (falha de disparo, disparo sem início, início sem conclusão,
+// job com falha, rota com falha, sem sucesso recente); contador de condição repetida; papéis sem acesso.
+// Uso: node --import ./scripts/lib/block-live-ai.mjs scripts/test-scheduler-sql.mjs
 
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync, readdirSync } from "node:fs";
@@ -32,8 +33,8 @@ for (const f of files) {
 }
 const q = async (sql, p) => (await db.query(sql, p)).rows;
 const err = async (p) => { try { await p; return null; } catch (e) { return String(e.message); } };
+const asService = async (fn) => { await db.exec("set role service_role;"); try { return await fn(); } finally { await db.exec("reset role;"); } };
 
-// ---- stubs de plataforma (só neste teste) ----
 await db.exec(`
   create schema if not exists vault;
   create table vault.decrypted_secrets (name text primary key, decrypted_secret text);
@@ -45,111 +46,155 @@ await db.exec(`
   create function net.http_get(url text, params jsonb default '{}'::jsonb, headers jsonb default '{}'::jsonb, timeout_milliseconds int default 2000)
     returns bigint language sql as $$ insert into net.requests (method,url,headers,timeout_milliseconds) values ('GET',url,headers,timeout_milliseconds) returning id $$;
 `);
-await db.query("insert into public.projects (id,name,code,client,location,start_date,baseline_end_date) values ('00000000-0000-4000-8000-000000000001','WEG','WEG','Cliente','Cidade','2026-01-01','2027-01-01') on conflict do nothing");
+const WEG = "00000000-0000-4000-8000-000000000001";
+await db.query("insert into public.projects (id,name,code,client,location,start_date,baseline_end_date) values ($1,'WEG','WEG','Cliente','Cidade','2026-01-01','2027-01-01') on conflict do nothing", [WEG]);
 
 const hb = async (job) => (await q("select * from public.acc_scheduler_heartbeats where job = $1", [job]))[0];
 const respond = (id, status, extra = {}) => db.query("insert into net._http_response (id,status_code,timed_out,error_msg) values ($1,$2,$3,$4)", [id, status, extra.timedOut ?? false, extra.error ?? null]);
+const dispatch = async (job, inputs = "{}") => (await q(`select public.acc_scheduler_dispatch_workflow($1, $2::jsonb) as id`, [job, inputs]))[0].id;
+const route = async (job) => (await q("select public.acc_scheduler_call_route($1) as id", [job]))[0].id;
+const beat = (job, event, runId, conclusion = null) => asService(() => q("select public.acc_scheduler_record_heartbeat($1,$2,$3,1,$4)", [job, event, runId, conclusion]));
+const openReasons = async (job) => (await q("select fingerprint from public.acc_system_health_incidents where status = 'OPEN' and fingerprint like $1 order by 1", [`scheduler:${job}:%`])).map((r) => r.fingerprint.split(":")[2]);
+const back = (job, col, minutes) => db.query(`update public.acc_scheduler_heartbeats set ${col} = ${col} - ($2 || ' minutes')::interval where job = $1`, [job, String(minutes)]);
 
-await check("sem segredos no Vault: nenhum disparo e nenhuma chamada à rota", async () => {
-  eq((await q("select public.acc_scheduler_dispatch_workflow('weekly-all', '{\"phase\":\"all\"}'::jsonb) as id"))[0].id, null, "dispatch");
-  eq((await q("select public.acc_scheduler_call_risk_alerts() as id"))[0].id, null, "rota");
+await check("sem segredos no Vault: nenhum disparo e nenhuma chamada de rota", async () => {
+  eq(await dispatch("weekly-all", '{"phase":"all"}'), null, "dispatch");
+  eq(await route("risk-alerts"), null, "rota riscos");
+  eq(await route("ssma-notifications"), null, "rota SSMA");
   eq((await q("select count(*)::int n from net.requests"))[0].n, 0, "requests");
 });
 
 await db.exec(`insert into vault.decrypted_secrets values
-  ('acc_github_actions_dispatch_token','tok-teste'), ('acc_risk_alerts_cron_secret','seg-teste'), ('acc_app_base_url','https://acc.exemplo.invalid')`);
+  ('acc_github_actions_dispatch_token','tok-teste'), ('acc_risk_alerts_cron_secret','seg-riscos'), ('acc_cron_secret','seg-cron'), ('acc_app_base_url','https://acc.exemplo.invalid')`);
 
 let ghId;
 await check("disparo GitHub: endpoint workflow_dispatch, ref main, inputs e cabeçalhos", async () => {
-  ghId = (await q("select public.acc_scheduler_dispatch_workflow('weekly-all', '{\"phase\":\"all\"}'::jsonb) as id"))[0].id;
+  ghId = await dispatch("weekly-all", '{"phase":"all"}');
   const [r] = await q("select * from net.requests where id = $1", [ghId]);
   eq(r.url, "https://api.github.com/repos/axionconstrucoes/core-services-07/actions/workflows/weekly-schedule-email-ingestion.yml/dispatches", "url");
   eq(r.body, { ref: "main", inputs: { phase: "all" } }, "body");
   eq(r.headers.Authorization, "Bearer tok-teste", "auth");
-  ok((await hb("weekly-all")).last_dispatch_at, "last_dispatch_at");
 });
 
-await check("GitHub 204: aceito, sem falha e SEM sucesso (sucesso só pelo heartbeat do workflow)", async () => {
+await check("204 = disparo ACEITO apenas: sem início, sem conclusão, sem sucesso", async () => {
   await respond(ghId, 204);
   await q("select public.acc_scheduler_reconcile('weekly-all')");
   const h = await hb("weekly-all");
-  eq([h.last_dispatch_http_status, h.last_failure_code, h.last_success_at], [204, null, null], "estado");
+  eq([h.last_dispatch_http_status, h.last_started_at, h.last_finished_at, h.last_success_at, h.last_failure_code], [204, null, null, null, null], "estado");
 });
 
-await check("GitHub 422 no disparo seguinte: falha DISPATCH_HTTP_422 registrada", async () => {
-  const id2 = (await q("select public.acc_scheduler_dispatch_workflow('weekly-all', '{\"phase\":\"all\"}'::jsonb) as id"))[0].id;
-  await respond(id2, 422);
-  await q("select public.acc_scheduler_reconcile('weekly-all')");
-  eq((await hb("weekly-all")).last_failure_code, "DISPATCH_HTTP_422", "código");
+await check("watchdog: disparo aceito sem início após a tolerância => DISPATCH_WITHOUT_START", async () => {
+  await back("weekly-all", "last_dispatch_at", 20);
+  await q("select public.acc_scheduler_watchdog()");
+  ok((await openReasons("weekly-all")).includes("DISPATCH_WITHOUT_START"), "deveria abrir DISPATCH_WITHOUT_START");
 });
 
-await check("heartbeat do workflow (service_role) registra sucesso; job desconhecido não altera nada", async () => {
-  await db.exec("set role service_role;");
-  try { await q("select public.acc_scheduler_record_heartbeat('weekly-all','success', now() - interval '2 minutes')"); } finally { await db.exec("reset role;"); }
-  ok((await hb("weekly-all")).last_success_at, "last_success_at");
-  ok(await err(q("select public.acc_scheduler_record_heartbeat('weekly-all','ok')")), "status inválido deveria falhar");
+await check("início real (run_id) resolve 'disparo sem início'; sem conclusão após max_run => STARTED_WITHOUT_FINISH", async () => {
+  await beat("weekly-all", "started", 4242);
+  eq(String((await hb("weekly-all")).last_started_run_id), "4242", "run_id");
+  await q("select public.acc_scheduler_watchdog()");
+  ok(!(await openReasons("weekly-all")).includes("DISPATCH_WITHOUT_START"), "deveria resolver");
+  await back("weekly-all", "last_started_at", 40); await back("weekly-all", "last_dispatch_at", 40); // mantém a ordem disparo < início
+  await q("select public.acc_scheduler_watchdog()");
+  ok((await openReasons("weekly-all")).includes("STARTED_WITHOUT_FINISH"), "deveria abrir STARTED_WITHOUT_FINISH");
 });
 
-let routeId;
-await check("rota Vercel: GET /api/cron/risk-alerts com Bearer do Vault e timeout de 290 s", async () => {
-  routeId = (await q("select public.acc_scheduler_call_risk_alerts() as id"))[0].id;
-  const [r] = await q("select * from net.requests where id = $1", [routeId]);
-  eq([r.method, r.url, r.headers.Authorization, r.timeout_milliseconds], ["GET", "https://acc.exemplo.invalid/api/cron/risk-alerts", "Bearer seg-teste", 290000], "requisição");
+await check("conclusão success com o mesmo run_id: sucesso comprovado e incidentes resolvidos", async () => {
+  await beat("weekly-all", "finished", 4242, "success");
+  const h = await hb("weekly-all");
+  eq([h.last_conclusion, String(h.last_finished_run_id)], ["success", "4242"], "conclusão");
+  ok(h.last_success_at, "last_success_at");
+  await q("select public.acc_scheduler_watchdog()");
+  eq(await openReasons("weekly-all"), [], "sem incidentes");
 });
 
-await check("trava de sobreposição: sem resposta da chamada anterior, a próxima rodada NÃO chama a rota", async () => {
-  eq((await q("select public.acc_scheduler_call_risk_alerts() as id"))[0].id, null, "segunda chamada");
+await check("conclusão failure => JOB_FAILED; evento inválido é recusado", async () => {
+  await beat("mpp-worker", "started", 7);
+  await beat("mpp-worker", "finished", 7, "failure");
+  await q("select public.acc_scheduler_watchdog()");
+  ok((await openReasons("mpp-worker")).includes("JOB_FAILED"), "JOB_FAILED");
+  eq((await hb("mpp-worker")).last_failure_code, "JOB_FAILURE", "código");
+  ok(await err(beat("mpp-worker", "finished", 7, "ok")), "conclusão inválida");
+  ok(await err(beat("mpp-worker", "dispatched", 7)), "evento inválido");
 });
 
-await check("rota 200: sucesso comprovado; próxima rodada volta a chamar", async () => {
-  await respond(routeId, 200);
-  const next = (await q("select public.acc_scheduler_call_risk_alerts() as id"))[0].id;
-  ok(next, "deveria chamar de novo");
+await check("GitHub 422 => DISPATCH_FAILED", async () => {
+  const id = await dispatch("document-worker");
+  await respond(id, 422);
+  await q("select public.acc_scheduler_watchdog()");
+  eq((await hb("document-worker")).last_failure_code, "DISPATCH_HTTP_422", "código");
+  ok((await openReasons("document-worker")).includes("DISPATCH_FAILED"), "DISPATCH_FAILED");
+});
+
+let rId;
+await check("rota de riscos: GET /api/cron/risk-alerts com o segredo DEDICADO e timeout de 290 s", async () => {
+  rId = await route("risk-alerts");
+  const [r] = await q("select * from net.requests where id = $1", [rId]);
+  eq([r.method, r.url, r.headers.Authorization, r.timeout_milliseconds], ["GET", "https://acc.exemplo.invalid/api/cron/risk-alerts", "Bearer seg-riscos", 290000], "requisição");
+});
+
+await check("rota SSMA: GET /api/cron/ssma-notifications com o CRON_SECRET (não o de riscos)", async () => {
+  const id = await route("ssma-notifications");
+  const [r] = await q("select * from net.requests where id = $1", [id]);
+  eq([r.url, r.headers.Authorization], ["https://acc.exemplo.invalid/api/cron/ssma-notifications", "Bearer seg-cron"], "requisição");
+  await respond(id, 200);
+});
+
+await check("trava de sobreposição: sem resposta da chamada anterior, a rodada seguinte NÃO chama", async () => {
+  eq(await route("risk-alerts"), null, "segunda chamada");
+});
+
+await check("rota 200: sucesso; próxima rodada volta a chamar", async () => {
+  await respond(rId, 200);
+  rId = await route("risk-alerts");
+  ok(rId, "deveria chamar");
   ok((await hb("risk-alerts")).last_success_at, "last_success_at");
-  routeId = next;
 });
 
 for (const [status, extra, code] of [[207, {}, "ROUTE_HTTP_207"], [401, {}, "ROUTE_HTTP_401"], [409, {}, "ROUTE_IN_FLIGHT"], [204, {}, "ROUTE_DISABLED"], [500, {}, "ROUTE_HTTP_500"], [null, { timedOut: true }, "TIMEOUT"], [null, { error: "conn refused" }, "NET_ERROR"]]) {
-  await check(`rota ${status ?? JSON.stringify(extra)}: falha ${code}`, async () => {
-    await respond(routeId, status, extra);
-    routeId = (await q("select public.acc_scheduler_call_risk_alerts() as id"))[0].id;
+  await check(`rota ${status ?? JSON.stringify(extra)}: falha ${code} e incidente ROUTE_FAILURE`, async () => {
+    await respond(rId, status, extra);
+    rId = await route("risk-alerts");
     eq((await hb("risk-alerts")).last_failure_code, code, "código");
+    await q("select public.acc_scheduler_watchdog()");
+    ok((await openReasons("risk-alerts")).includes("ROUTE_FAILURE"), "ROUTE_FAILURE");
   });
 }
 
 await check("base URL não https: rota não é chamada", async () => {
-  await respond(routeId, 200);
+  await respond(rId, 200);
   await db.exec("update vault.decrypted_secrets set decrypted_secret = 'http://inseguro.invalid' where name = 'acc_app_base_url'");
-  eq((await q("select public.acc_scheduler_call_risk_alerts() as id"))[0].id, null, "chamada");
+  eq(await route("risk-alerts"), null, "chamada");
   await db.exec("update vault.decrypted_secrets set decrypted_secret = 'https://acc.exemplo.invalid' where name = 'acc_app_base_url'");
 });
 
-await check("watchdog: job sem sucesso abre incidente; sucesso recente resolve", async () => {
-  await q("select public.acc_scheduler_watchdog()");
-  const open = await q("select fingerprint from public.acc_system_health_incidents where status = 'OPEN' order by 1");
-  ok(open.some((r) => r.fingerprint === "scheduler:mpp-worker"), "mpp-worker sem sucesso deveria abrir incidente");
-  ok(!open.some((r) => r.fingerprint === "scheduler:weekly-all"), "weekly-all teve sucesso recente");
-  await db.exec("set role service_role;");
-  try { await q("select public.acc_scheduler_record_heartbeat('mpp-worker','success')"); } finally { await db.exec("reset role;"); }
-  await q("select public.acc_scheduler_watchdog()");
-  eq((await q("select status from public.acc_system_health_incidents where fingerprint = 'scheduler:mpp-worker'"))[0].status, "RESOLVED", "resolvido");
+await check("contador de condição repetida: incrementa no mesmo detalhe e reinicia na mudança", async () => {
+  const bump = (d) => asService(() => q("select public.acc_bump_repeated_condition($1,'risk-alerts:real-send-readiness',$2, now())", [WEG, d]));
+  await bump("A"); await bump("A"); await bump("A");
+  eq((await q("select occurrences::int n from public.acc_repeated_conditions"))[0].n, 3, "3 ocorrências");
+  await bump("B");
+  eq((await q("select occurrences::int n, detail from public.acc_repeated_conditions"))[0], { n: 1, detail: "B" }, "reiniciado");
 });
 
 for (const role of ["anon", "authenticated", "service_role"]) {
-  await check(`${role} não dispara workflow, não chama a rota e não lê segredo`, async () => {
+  await check(`${role} não dispara workflow, não chama rota, não lê segredo nem roda o watchdog`, async () => {
     await db.exec(`set role ${role};`);
     try {
-      for (const sql of ["select public.acc_scheduler_dispatch_workflow('weekly-all')", "select public.acc_scheduler_call_risk_alerts()", "select public.acc_scheduler_secret('acc_github_actions_dispatch_token')", "select public.acc_scheduler_watchdog()"]) {
+      for (const sql of ["select public.acc_scheduler_dispatch_workflow('weekly-all')", "select public.acc_scheduler_call_route('risk-alerts')", "select public.acc_scheduler_secret('acc_github_actions_dispatch_token')", "select public.acc_scheduler_watchdog()"]) {
         ok(/permission denied/i.test((await err(q(sql))) ?? ""), `${sql} deveria ser negado`);
       }
     } finally { await db.exec("reset role;"); }
   });
 }
 
-await check("anon/authenticated não leem a tabela de heartbeats", async () => {
+await check("anon/authenticated não leem heartbeats nem contadores, nem gravam heartbeat", async () => {
   for (const role of ["anon", "authenticated"]) {
     await db.exec(`set role ${role};`);
-    try { ok(/permission denied/i.test((await err(q("select * from public.acc_scheduler_heartbeats"))) ?? ""), role); } finally { await db.exec("reset role;"); }
+    try {
+      ok(/permission denied/i.test((await err(q("select * from public.acc_scheduler_heartbeats"))) ?? ""), `${role} heartbeats`);
+      ok(/permission denied/i.test((await err(q("select * from public.acc_repeated_conditions"))) ?? ""), `${role} contadores`);
+      ok(/permission denied/i.test((await err(q("select public.acc_scheduler_record_heartbeat('weekly-all','started',1,1,null)"))) ?? ""), `${role} heartbeat`);
+    } finally { await db.exec("reset role;"); }
   }
 });
 

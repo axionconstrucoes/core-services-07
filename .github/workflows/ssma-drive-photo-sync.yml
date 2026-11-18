@@ -22,6 +22,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      # Agendador (docs/operacao-agendador-sla.md): INÍCIO real do job com run_id. Nunca falha o workflow.
+      - name: Heartbeat do agendador (início)
+        continue-on-error: true
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/scheduler-heartbeat.mjs ssma-drive started
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -41,3 +48,12 @@ jobs:
           GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
           GOOGLE_DRIVE_REFRESH_TOKEN: ${{ secrets.GOOGLE_DRIVE_REFRESH_TOKEN }}
           SSMA_SYNC_CRITICAL_PROJECT_IDS: ${{ vars.ACC_PROJECT_PILOT_PROJECT_ID }}
+
+      # Agendador: CONCLUSÃO efetiva do job (success|failure|cancelled) com o mesmo run_id. Nunca falha o workflow.
+      - name: Heartbeat do agendador (conclusão)
+        if: always()
+        continue-on-error: true
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/scheduler-heartbeat.mjs ssma-drive finished ${{ job.status }}

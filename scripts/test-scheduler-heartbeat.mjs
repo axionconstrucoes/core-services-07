@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { buildHeartbeatPayload } from "./scheduler-heartbeat.mjs";
 
-assert.deepEqual(buildHeartbeatPayload("weekly-all", "success", "2026-11-18T10:00:00Z"), {
-  p_job: "weekly-all", p_status: "success", p_started_at: "2026-11-18T10:00:00.000Z", p_failure_code: null,
-});
-assert.equal(buildHeartbeatPayload("mpp-worker", "failure").p_failure_code, "JOB_FAILURE");
-assert.equal(buildHeartbeatPayload("gmail-sync", "cancelled", "lixo").p_started_at, null);
-assert.throws(() => buildHeartbeatPayload("desconhecido", "success"));
-assert.throws(() => buildHeartbeatPayload("weekly-all", "ok"));
+const env = { GITHUB_RUN_ID: "44223845567", GITHUB_RUN_ATTEMPT: "1" };
+assert.deepEqual(buildHeartbeatPayload("weekly-all", "started", undefined, env), { p_job: "weekly-all", p_event: "started", p_run_id: 44223845567, p_run_attempt: 1, p_conclusion: null });
+assert.deepEqual(buildHeartbeatPayload("mpp-worker", "finished", "FAILURE", env), { p_job: "mpp-worker", p_event: "finished", p_run_id: 44223845567, p_run_attempt: 1, p_conclusion: "failure" });
+assert.equal(buildHeartbeatPayload("gmail-sync", "started", undefined, { GITHUB_RUN_ID: "x;drop" }).p_run_id, null);
+assert.throws(() => buildHeartbeatPayload("desconhecido", "started"));
+assert.throws(() => buildHeartbeatPayload("weekly-all", "finished", "ok"));
+assert.throws(() => buildHeartbeatPayload("weekly-all", "dispatched"));
 console.log("scheduler-heartbeat: ok");
