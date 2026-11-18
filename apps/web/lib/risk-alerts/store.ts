@@ -2,6 +2,7 @@
 // real em supabase-store.ts (worker, service role); implementações em
 // memória nos testes (scripts/test-pilot-risk-alerts.mjs).
 
+import type { PilotLevelOverride } from "./pilot-level-overrides";
 import type { OutboxHistoryRow, ReissueApproval } from "./communication-ledger";
 import type { SlaArea, SlaAreaResponsibles, SlaMatrixRule, SlaProjectSettings } from "@/lib/sla/types";
 
@@ -32,6 +33,8 @@ export interface RiskAlertProjectSnapshot {
   areaResponsibles: SlaAreaResponsibles[];
   /** Áreas informativas do projeto (registro humano auditado): sem alertas/SLA/escalonamento e fora da prontidão. */
   informativeAreas?: SlaArea[];
+  /** Exceções temporárias do piloto por nível (registro humano auditado; a Matriz não muda). */
+  pilotLevelOverrides?: PilotLevelOverride[];
   settings: SlaProjectSettings | null;
   cases: RiskCaseInput[];
   existingCases: RiskCaseRecord[];

@@ -30,6 +30,7 @@ import {
 } from "./collect-risk-cases";
 import type { ActiveForward, AlertCaseSnapshot } from "./alert-state-machine";
 import { isPilotTestCase } from "./pilot-test-case";
+import { LEVEL_OVERRIDE_ENTITY_TYPE, LEVEL_OVERRIDE_SET_ACTION, LEVEL_OVERRIDE_UNSET_ACTION, resolvePilotLevelOverrides, type LevelOverrideAuditRow } from "./pilot-level-overrides";
 import { INFORMATIVE_ENTITY_TYPE, INFORMATIVE_SET_ACTION, INFORMATIVE_UNSET_ACTION, resolveInformativeAreas, type InformativeAuditRow } from "./informative-areas";
 import { hashReplyToken, type InboundHeaders } from "./replies/reply-pipeline";
 import type { PersistedOutboxEntry, RiskAlertStore } from "./store";
@@ -302,6 +303,16 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
       fail("Falha ao carregar áreas informativas", informativeError);
       const informativeAreas = Array.from(resolveInformativeAreas(projectId, (informativeRows ?? []) as unknown as InformativeAuditRow[]));
 
+      // Exceções temporárias do piloto por nível (registro humano auditado em audit_log_entries; sem migration).
+      const { data: overrideRows, error: overrideError } = await client
+        .from("audit_log_entries")
+        .select("id,project_id,occurred_at,actor_type,actor_user_id,action,entity_type,entity_id,detail")
+        .eq("project_id", projectId)
+        .eq("entity_type", LEVEL_OVERRIDE_ENTITY_TYPE)
+        .in("action", [LEVEL_OVERRIDE_SET_ACTION, LEVEL_OVERRIDE_UNSET_ACTION]);
+      fail("Falha ao carregar exceções do piloto por nível", overrideError);
+      const pilotLevelOverrides = resolvePilotLevelOverrides(projectId, (overrideRows ?? []) as unknown as LevelOverrideAuditRow[]);
+
       // Livro-razão de comunicação: histórico completo da outbox (SUPPRESSED NÃO é entrega) e
       // decisões humanas de reemissão (audit_log_entries; sem migration).
       const cycleCaseIds = existingCases.map((c) => c.id);
@@ -356,6 +367,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         matrixRules: (rules ?? []).map((row) => mapRule(row as Row)),
         areaResponsibles: (responsibles ?? []).map((row) => mapResponsibles(row as Row)),
         informativeAreas,
+        pilotLevelOverrides,
         settings: mapSettings((settings as Row | null) ?? null),
         cases: [...collectComparisonCases(comparisonRows), ...collectSheetCases(sheetRows), ...collectIngestionAlertCases(alertRows, (config?.risk_alert_severity_map as IngestionAlertSeverityMap | null) ?? null)],
         existingCases,
