@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ALL_OFFICIAL_EXPERT_DEFINITIONS, type OfficialExpertId } from "@/lib/ai/expert-definitions";
+import { requestedSkillsForExpert, SKILL_DISCOVERY_TOOL } from "@/lib/ai/expert-definitions/requested-skills";
 import { buildAiProviderUiMetadata } from "@/lib/ai/provider-ui-metadata";
 import { resolveAiProviderNameForExpert } from "@/lib/ai/providers/resolve-provider-for-expert";
 import { expertAccentBorderClassName, expertIconClassName, resolveExpertIcon } from "@/components/ai/expert-visual-identity";
@@ -43,6 +44,7 @@ export default async function ExpertsIaPage({ params }: { params: Promise<{ proj
           const href = EXPERT_ACCESS_HREF[expert.expertId]?.(projectId);
           const providerMeta = buildAiProviderUiMetadata(resolveAiProviderNameForExpert(expert.expertId), null);
           const Icon = resolveExpertIcon(expert.visualIdentity);
+          const requestedSkills = requestedSkillsForExpert(expert.expertId);
 
           return (
             <Card key={expert.expertId} className={cn("flex flex-col", expertAccentBorderClassName(expert.visualIdentity))}>
@@ -69,7 +71,17 @@ export default async function ExpertsIaPage({ params }: { params: Promise<{ proj
                   Provider: {providerMeta.providerLabel}
                 </Badge>
               </CardHeader>
-              <CardContent className="mt-auto">
+              <CardContent className="mt-auto space-y-3">
+                <div className="space-y-2 border-t pt-3">
+                  <p className="text-xs font-semibold">Skills selecionadas para este especialista</p>
+                  {requestedSkills.map((skill) => (
+                    <div key={skill.id} className="space-y-1 rounded-md border p-2">
+                      <p className="break-words text-xs font-semibold">{skill.label}</p>
+                      <p className="text-xs text-muted-foreground">{skill.purpose}</p>
+                      <Badge variant="outline" className="text-[10px]">Pendente de integração ao ACC</Badge>
+                    </div>
+                  ))}
+                </div>
                 {isActive && href ? (
                   <Link href={href} className={cn(buttonVariants({ size: "sm" }))}>
                     Abrir Expert
@@ -88,6 +100,11 @@ export default async function ExpertsIaPage({ params }: { params: Promise<{ proj
           );
         })}
       </div>
+      <p className="text-xs text-muted-foreground">
+        Ferramenta administrativa selecionada: {SKILL_DISCOVERY_TOOL.label} — busca de skills, não é especialista.
+        As skills foram informadas como instaladas no Claude Code; essa instalação não ativa automaticamente seu uso
+        pelas consultas do ACC. Antes de marcar uma skill como ativa, integrar e verificar seu conteúdo e execução.
+      </p>
     </div>
   );
 }
