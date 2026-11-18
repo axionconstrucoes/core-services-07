@@ -235,7 +235,17 @@ await check("17. Histórico citado ignorado: data só na citação NÃO vira pre
   await processAlertReplies(store, PROJECT, NOW, ["crm@axion.com.br"]);
   const t = calls.applied[0].transition;
   assert(t.forecast.status === "PENDING" && t.events[0].forecastAt === null);
-  assert(calls.audits.some((a) => a.action === "RISK_ALERT_FORECAST_PENDING"));
+  const pending = calls.audits.filter((a) => /FORECAST_PENDING/.test(a.action));
+  assert(pending.length === 1 && pending[0].action === "RISK_ALERT_REPLY_FORECAST_PENDING", "pendência de previsão = um único registro (o do #227): " + JSON.stringify(pending.map((p) => p.action)));
+});
+await check("17b. ALTO com data sem horário: pendência única (#227) com o motivo do extrator; data com horário => nenhuma pendência", async () => {
+  const noTime = makeStore({ inbound: [inboundMsg({ body: "Em andamento, previsão 25/11/2026" })] });
+  await processAlertReplies(noTime.store, PROJECT, NOW, ["crm@axion.com.br"]);
+  const p1 = noTime.calls.audits.filter((a) => /FORECAST_PENDING/.test(a.action));
+  assert(p1.length === 1 && /horário/.test(p1[0].detail), JSON.stringify(p1));
+  const ok = makeStore({ inbound: [inboundMsg()] });
+  await processAlertReplies(ok.store, PROJECT, NOW, ["crm@axion.com.br"]);
+  assert(!ok.calls.audits.some((a) => /FORECAST_PENDING/.test(a.action)) && ok.calls.audits.some((a) => a.action === "RISK_ALERT_REPLY_RECEIVED"));
 });
 await check("18. Remetente não autorizado / resposta automática => nada aplicado nem confirmado", async () => {
   const { store, calls } = makeStore({ inbound: [inboundMsg({ id: "a", from: "fora@axion.com.br" }), inboundMsg({ id: "b", autoSubmitted: "auto-replied" }), inboundMsg({ id: "c", from: "x@gmail.com" })] });

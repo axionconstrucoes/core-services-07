@@ -11,7 +11,7 @@ import type { SlaRiskLevel } from "@/lib/sla/types";
 
 import { applyAlertAction } from "../alert-state-machine";
 import { applyPilotLevelOverride } from "../pilot-level-overrides";
-import { describeForecastProblem, extractForecastFromText, forecastTracking, isAfter } from "../forecast";
+import { applyForecastPrecision, describeForecastProblem, extractForecastFromText, forecastTracking, isAfter } from "../forecast";
 import { routeExpert } from "../experts/route-alert-expert";
 import { DEFAULT_CORPORATE_EMAIL_DOMAIN } from "../plan-risk-alerts";
 import type { RiskAlertStore } from "../store";
@@ -102,11 +102,16 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
       continue;
     }
     const classification = classifyReply(parsed.clean);
+    // Previsão de término: "em andamento" (STATUS_UPDATE => TOMANDO PROVIDÊNCIAS) pede a data de conclusão.
+    // Referência = recebimento do e-mail (processamento atrasado não invalida a data). ALTO/CRÍTICO exigem horário.
+    const formalEarly = replyToFormalAction(classification);
+    const forecast = formalEarly === "TAKING_ACTION" ? extractForecastFromText(parsed.clean, message.receivedAt) : null;
+    const forecastDecision = forecast ? applyForecastPrecision(forecast, forecastTracking(loaded.snapshot.riskLevel)) : null;
     // Recebimento (internalDate do Gmail) × processamento: registro auditado, correção de escalonamento aplicado depois de uma
     // resposta já recebida (leitura atrasada) e pendência de previsão — sem apagar histórico. Falha aqui nunca bloqueia a resposta.
     try {
       const timingContext = loaded.snapshot.slaActionId && store.loadReplyTimingContext ? await store.loadReplyTimingContext(loaded.snapshot.slaActionId) : null;
-      const timing = assessReplyTiming({ caseId: correlation.caseId, messageId: message.id, receivedAt: message.receivedAt ?? null, processedAt: nowIso, classification: classification.classification, text: parsed.clean, context: timingContext });
+      const timing = assessReplyTiming({ caseId: correlation.caseId, messageId: message.id, receivedAt: message.receivedAt ?? null, processedAt: nowIso, classification: classification.classification, text: parsed.clean, context: timingContext, forecast: forecastDecision ? { pending: forecastDecision.status !== "VALID", problem: forecastDecision.status === "VALID" ? null : describeForecastProblem(forecastDecision) } : undefined });
       await store.audit(projectId, timing.events);
       if (timing.correctedEscalations > 0) result.timingCorrections = (result.timingCorrections ?? 0) + timing.correctedEscalations;
       if (timing.forecastPending) result.forecastPending = (result.forecastPending ?? 0) + 1;
@@ -115,11 +120,8 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
     }
     const basePatch = { caseId: correlation.caseId, senderUserId: authorization.userId, bodyClean: parsed.clean, quotedText: parsed.quoted, signatureText: parsed.signature, classification: classification.classification, confidence: classification.confidence, correlationMethod: correlation.method };
     const riskLevel = loaded.snapshot.riskLevel as SlaRiskLevel;
-    const formal = replyToFormalAction(classification);
+    const formal = formalEarly;
     const digestLike = riskLevel === "LOW" || riskLevel === "MEDIUM";
-    // Previsão de término: "em andamento" (STATUS_UPDATE => TOMANDO PROVIDÊNCIAS) pede a data de conclusão.
-    // Referência = recebimento do e-mail (processamento atrasado não invalida a data).
-    const forecast = formal === "TAKING_ACTION" ? extractForecastFromText(parsed.clean, message.receivedAt) : null;
     if (classification.ambiguous || !formal || loaded.snapshot.state === "RESOLVED") {
       // Ambígua/inconclusiva: registra sem confirmar, resolver ou reatribuir.
       await store.updateInboundMessage(message.id, { ...basePatch, status: classification.ambiguous ? "REVIEW_REQUIRED" : "PROCESSED", statusReason: classification.ambiguous ? "Classificação ambígua" : "Registrada sem ação formal", requiresHumanReview: classification.ambiguous });
@@ -206,7 +208,8 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
         const forecastAt = transition.forecast?.status === "VALID" ? transition.forecast.forecastAt : null;
         await store.recordForecastReply({ projectId, caseId: correlation.caseId, actorUserId: authorization.userId, fromState: loaded.snapshot.state, messageId: message.id, forecastAt, text: parsed.clean });
         forecastNote = forecastAt ? " · previsão de conclusão registrada" : " · previsão de conclusão pendente";
-        await store.audit(projectId, [{ action: forecastAt ? "RISK_ALERT_FORECAST_RECORDED" : "RISK_ALERT_FORECAST_PENDING", entityType: "RISK_ALERT_CASE", entityId: correlation.caseId, detail: forecastAt ? `Previsão de conclusão ${forecastAt} informada por e-mail (mensagem ${message.id}; ${riskLevel}: só registro, sem escalonamento adicional).` : `Resposta "em andamento" sem data válida (mensagem ${message.id}; ${riskLevel}): pendência registrada.` }]);
+        // Pendência de previsão: registro único RISK_ALERT_REPLY_FORECAST_PENDING (auditoria de recebimento acima).
+        if (forecastAt) await store.audit(projectId, [{ action: "RISK_ALERT_FORECAST_RECORDED", entityType: "RISK_ALERT_CASE", entityId: correlation.caseId, detail: `Previsão de conclusão ${forecastAt} informada por e-mail (mensagem ${message.id}; ${riskLevel}: só registro, sem escalonamento adicional).` }]);
       }
       // Confirmação só depois da persistência acima (resposta registrada).
       if (transition.ok && confirmation && store.enqueueReplyConfirmation) {
@@ -219,9 +222,9 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
     try {
       // A confirmação ao responsável está na outbox da transição: gravada na mesma transação (RPC).
       await store.applyTransition(correlation.caseId, transition, authorization.userId);
-      if (transition.forecast) {
-        const f = transition.forecast;
-        await store.audit(projectId, [{ action: f.status === "VALID" ? "RISK_ALERT_FORECAST_RECORDED" : "RISK_ALERT_FORECAST_PENDING", entityType: "RISK_ALERT_CASE", entityId: correlation.caseId, detail: f.status === "VALID" ? `Previsão de conclusão ${f.forecastAt} informada por e-mail (mensagem ${message.id}); acompanha os escalonamentos. Prazos SLA inalterados.` : `Resposta "em andamento" sem previsão válida (mensagem ${message.id}): ${f.problem ?? "pendência"} Pendência registrada e complementação solicitada; cobranças e escalonamentos mantidos.` }]);
+      // Pendência de previsão: registro único RISK_ALERT_REPLY_FORECAST_PENDING (auditoria de recebimento acima).
+      if (transition.forecast?.status === "VALID") {
+        await store.audit(projectId, [{ action: "RISK_ALERT_FORECAST_RECORDED", entityType: "RISK_ALERT_CASE", entityId: correlation.caseId, detail: `Previsão de conclusão ${transition.forecast.forecastAt} informada por e-mail (mensagem ${message.id}); acompanha os escalonamentos. Prazos SLA inalterados.` }]);
       }
       const forecastNote = transition.forecast ? (transition.forecast.status === "VALID" ? " · previsão de conclusão registrada" : " · previsão de conclusão pendente (complementação solicitada)") : "";
       await store.updateInboundMessage(message.id, { ...basePatch, expertId: expertRouting?.expertId ?? null, expertRouting: expertRouting ? { ...expertRouting } : null, status: "PROCESSED", statusReason: `Ação ${formal} aplicada por e-mail${forecastNote}` });

@@ -50,7 +50,7 @@ const { data: outbound } = await client.from("alert_email_messages").select("mes
 const rootMessageId = outbound?.[0]?.message_id_header;
 if (!sender?.email || !rootMessageId) throw new Error("remetente ou mensagem raiz do caso indisponível");
 
-const READS = new Set(["loadProjectSnapshot", "loadCorrelationIndex", "loadCaseSnapshotForAction", "loadCaseForecastEvents", "loadCaseRecord"]);
+const READS = new Set(["loadProjectSnapshot", "loadCorrelationIndex", "loadCaseSnapshotForAction", "loadCaseForecastEvents", "loadCaseRecord", "loadReplyTimingContext"]);
 function dryStore(inbound, extraHistory = []) {
   const captured = { updates: [], transitions: [], audits: [], forecastReplies: [], confirmations: [] };
   const writes = {

@@ -130,7 +130,7 @@ function required(name) {
  */
 function createDryRunReplyStore(realStore, inbound) {
   const captured = { updates: [], transitions: [], audits: [], confirmations: [], forecastReplies: 0 };
-  const reads = new Set(["loadProjectSnapshot", "loadCorrelationIndex", "loadCaseSnapshotForAction", "loadCaseForecastEvents", "loadCaseRecord"]);
+  const reads = new Set(["loadProjectSnapshot", "loadCorrelationIndex", "loadCaseSnapshotForAction", "loadCaseForecastEvents", "loadCaseRecord", "loadReplyTimingContext"]);
   const writes = {
     async listInboundToProcess() { return inbound; },
     async updateInboundMessage(_id, patch) { captured.updates.push({ status: patch.status, statusReason: patch.statusReason, classification: patch.classification, correlationMethod: patch.correlationMethod }); },
