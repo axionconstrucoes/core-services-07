@@ -71,6 +71,11 @@ export interface PlanRiskAlertsInput {
    * motivo — o plano continua sendo calculado e auditado.
    */
   readinessBlockers?: RiskSuppressionReason[];
+  /**
+   * Áreas INFORMATIVAS (configuração explícita por projeto): os casos continuam registrados e visíveis,
+   * mas nenhum alerta, repetição, consolidado, ação SLA, cobrança ou escalonamento é planejado para elas.
+   */
+  informativeAreas?: ReadonlySet<SlaArea>;
 }
 
 function emptyPlan(blockedReason: RiskSuppressionReason | null): RiskAlertPlan {
@@ -177,6 +182,12 @@ export function planRiskAlerts(input: PlanRiskAlertsInput): RiskAlertPlan {
     const existing = existingByKey.get(caseKey) ?? null;
     const change = detectChange(existing, caseInput);
     if (change === null) continue;
+
+    if (input.informativeAreas?.has(caseInput.area)) {
+      // Área informativa: só o registro/atualização do caso (apresentação). Nenhuma automação de alerta.
+      plan.caseUpserts.push({ caseKey, existingId: existing?.id ?? null, input: caseInput, change, policy: null, lastDigestWindow: existing?.lastDigestWindow ?? null });
+      continue;
+    }
 
     const policy = isSlaRisk(caseInput.riskLevel) ? input.policyFor(caseInput.area, caseInput.riskLevel) : null;
     plan.caseUpserts.push({ caseKey, existingId: existing?.id ?? null, input: caseInput, change, policy, lastDigestWindow: existing?.lastDigestWindow ?? null });

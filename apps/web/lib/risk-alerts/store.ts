@@ -2,7 +2,7 @@
 // real em supabase-store.ts (worker, service role); implementações em
 // memória nos testes (scripts/test-pilot-risk-alerts.mjs).
 
-import type { SlaAreaResponsibles, SlaMatrixRule, SlaProjectSettings } from "@/lib/sla/types";
+import type { SlaArea, SlaAreaResponsibles, SlaMatrixRule, SlaProjectSettings } from "@/lib/sla/types";
 
 import type { ActiveForward, AlertCaseSnapshot, AlertTransition } from "./alert-state-machine";
 import type { CorrelationIndex, InboundHeaders } from "./replies/reply-pipeline";
@@ -29,6 +29,8 @@ export interface RiskAlertProjectSnapshot {
   config: RiskAlertProjectConfig | null;
   matrixRules: SlaMatrixRule[];
   areaResponsibles: SlaAreaResponsibles[];
+  /** Áreas informativas do projeto (registro humano auditado): sem alertas/SLA/escalonamento e fora da prontidão. */
+  informativeAreas?: SlaArea[];
   settings: SlaProjectSettings | null;
   cases: RiskCaseInput[];
   existingCases: RiskCaseRecord[];

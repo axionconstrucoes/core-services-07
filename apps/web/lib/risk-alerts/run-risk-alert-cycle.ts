@@ -76,6 +76,8 @@ export interface RiskAlertCycleProjectResult {
   dryRunPreview?: Array<Record<string, unknown>>;
   /** true quando o dry-run planejou o projeto piloto como se risk_alerts_enabled=true (nada é gravado). */
   dryRunAssumedEnabled?: boolean;
+  /** Áreas informativas do projeto (sem alertas, SLA, cobrança ou escalonamento; fora da prontidão). */
+  informativeAreas?: string[];
 }
 
 export interface RiskAlertCycleResult {
@@ -162,7 +164,9 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     const policyFor = (area: SlaArea, riskLevel: SlaRiskLevel) =>
       resolveMatrixPolicy({ rules: snapshot.matrixRules, responsibles: snapshot.areaResponsibles, settings: snapshot.settings, area, riskLevel });
 
-    const areasInUse = Array.from(new Set(snapshot.cases.map((c) => c.area)));
+    // Áreas informativas não entram na prontidão (a Matriz delas não bloqueia as demais); as outras mantêm todas as validações.
+    const informativeAreas = new Set<SlaArea>(snapshot.informativeAreas ?? []);
+    const areasInUse = Array.from(new Set(snapshot.cases.map((c) => c.area))).filter((area) => !informativeAreas.has(area));
     const readiness = evaluatePilotReadiness({
       featureEnabled,
       config: planConfig,
@@ -202,6 +206,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       existingIdempotencyKeys: snapshot.existingIdempotencyKeys,
       previousDigestSentAt: snapshot.previousDigestSentAt,
       readinessBlockers: readiness.blockers.map(blockerToSuppressionReason),
+      informativeAreas,
     });
 
     const projectResult: RiskAlertCycleProjectResult = {
@@ -221,6 +226,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       topLevelReached: 0,
       expertAnswers: 0,
       digestWindow: plan.digestWindow,
+      informativeAreas: Array.from(informativeAreas),
     };
 
     if (plan.blockedReason) {
@@ -599,6 +605,11 @@ async function sendPendingRow(row: PendingOutboxRow, ctx: SendContext): Promise<
     // Delimitação da outbox: sem risk_alert_case nada é enviado por aqui
     // (ações SLA comuns permanecem no fluxo antigo).
     await ctx.store.markSkipped(row.id, "RISK_CASE_REQUIRED: entrada sem alerta de risco vinculado — fora da outbox de alertas (fluxo antigo permanece).");
+    return "SKIPPED";
+  }
+  if ((ctx.snapshot.informativeAreas ?? []).includes(record.area)) {
+    // Área informativa: nenhuma mensagem de alerta/cobrança/escalonamento sai, nem de outra origem.
+    await ctx.store.markSkipped(row.id, "INFORMATIVE_AREA: área informativa no projeto — sem envio de alertas, cobranças ou escalonamentos.");
     return "SKIPPED";
   }
   if (record.status === "CLOSED" && row.notificationType !== "ACTION_CONFIRMATION") {
