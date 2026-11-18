@@ -176,16 +176,37 @@ function FinancialBody({ sheet }: { sheet: RegistryWorkbookSheet }) {
   const m = (sheet.metrics ?? {}) as Record<string, unknown>;
   const data = sheet.data as { unit?: string; columns?: Record<string, string>; rows?: Array<{ period: string; values: Record<string, number | null> }> };
   const keys = Object.keys(data.columns ?? {});
+  const isCutoffMethod = m.method === "CUTOFF_CLOSED_MONTHS_V2";
   return (
     <div className="flex flex-col gap-2 text-xs">
+      {isCutoffMethod ? (
+        <p className="rounded-md border px-2 py-1">
+          Indicador informativo (sem alerta, cobrança ou escalonamento). Base do previsto: <strong>{v(m.baseKind)}</strong>. {v(m.baseDisclaimer)}
+        </p>
+      ) : (
+        <p className="rounded-md border px-2 py-1">
+          Leitura anterior à correção do cálculo: totais abaixo pelo método antigo (realizado parcial × previsto de todo o horizonte, inclui meses futuros) — não comparáveis e não indicam atraso. Indicador informativo.
+        </p>
+      )}
       <ul className="grid grid-cols-2 gap-x-3 gap-y-1 md:grid-cols-4">
         <li>Unidade: {v(data.unit)}</li>
-        <li>Data de corte: {v(m.cutoffDate)}</li>
-        <li>Previsto até o corte: {v(m.plannedTotal)}</li>
-        <li>Realizado até o corte: {v(m.actualTotal)}</li>
-        <li>Desvio no corte: {v(m.deviationAbsolute)} ({v(m.deviationPercent, "%")})</li>
-        <li>Natureza: {v(m.valueNature)}</li>
-        <li>Desvio antigo (horizonte total, substituído): {v((m.legacyFullHorizon as { deviationPercent?: unknown } | undefined)?.deviationPercent, "%")}</li>
+        {isCutoffMethod ? (
+          <>
+            <li>Referência do relatório: {v(m.referenceDate)} ({v(m.referenceSource)})</li>
+            <li>Data de corte: {v(m.cutoffDate)}</li>
+            <li>Previsto até o corte: {v(m.plannedTotal)}</li>
+            <li>Realizado até o corte: {v(m.actualTotal)}</li>
+            <li>Desvio no corte: {v(m.deviationAbsolute)} ({v(m.deviationPercent, "%")})</li>
+            <li>Natureza: {v(m.valueNature)}</li>
+            <li>Desvio pelo método antigo (substituído): {v((m.legacyFullHorizon as { deviationPercent?: unknown } | undefined)?.deviationPercent, "%")}</li>
+          </>
+        ) : (
+          <>
+            <li>Previsto (método antigo, horizonte total): {v(m.plannedTotal)}</li>
+            <li>Realizado (método antigo): {v(m.actualTotal)}</li>
+            <li>Desvio (método antigo, não comparável): {v(m.deviationAbsolute)} ({v(m.deviationPercent, "%")})</li>
+          </>
+        )}
         <li>Tendência: {v(m.trend)}</li>
         <li>Medido: {v(m.medido)}</li>
         <li>Faturado: {v(m.faturado)}</li>

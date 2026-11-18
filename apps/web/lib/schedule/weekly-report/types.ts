@@ -65,6 +65,9 @@ export interface WorkbookSafetyReport {
   formulasWithoutCachedValue: number;
   formulasPreserved: number;
   notes: string[];
+  /** Datas do próprio arquivo (docProps/core.xml) — criação e último salvamento; evidência da data do relatório. */
+  documentCreatedAt?: string | null;
+  documentModifiedAt?: string | null;
 }
 
 export interface WorkbookSheetIndexEntry {

@@ -1091,10 +1091,28 @@ export function createSupabaseWeeklyReportWorkbookStore(supabase: SupabaseClient
       }
 
       // Data de referência do pacote = envio do e-mail semanal (fuso de Brasília).
-      const { data: sourceEmail } = await supabase.from("emails").select("sent_at").eq("id", candidate.emailId).maybeSingle();
+      const { data: sourceEmail } = await supabase.from("emails").select("sent_at,subject").eq("id", candidate.emailId).maybeSingle();
       const reportReferenceDate = toBrasiliaDate((sourceEmail?.sent_at as string | null) ?? null);
 
-      return { workWeekLabel: candidate.workWeekLabel, reportReferenceDate, thresholds, mppFacts, officialBaseline, previousDeviationPp, previousBaselineSheet, criticalActivityCount, humanDecisions };
+      const emailSubject = (sourceEmail?.subject as string | null) ?? null;
+
+      // Versões anteriores da aba Financeiro (mais antigas primeiro), só leitura: evidência de reprevisão.
+      const { data: financialHistory } = await supabase
+        .from("weekly_report_sheets")
+        .select("data,workbook_id,created_at,weekly_report_workbooks!inner(work_week_label,email_attachment_id,project_id)")
+        .eq("category", "FINANCEIRO")
+        .eq("weekly_report_workbooks.project_id", candidate.projectId)
+        .neq("weekly_report_workbooks.email_attachment_id", candidate.attachmentId)
+        .order("created_at", { ascending: true })
+        .limit(60);
+      const previousFinancialVersions = (financialHistory ?? []).flatMap((row) => {
+        const rows = (row.data as { rows?: Array<{ period: string; values?: { previsto?: number | null } }> } | null)?.rows;
+        if (!Array.isArray(rows)) return [];
+        const workbook = (Array.isArray(row.weekly_report_workbooks) ? row.weekly_report_workbooks[0] : row.weekly_report_workbooks) as { work_week_label?: string | null } | null;
+        return [{ label: workbook?.work_week_label ?? null, rows: rows.map((item) => ({ period: item.period, previsto: typeof item.values?.previsto === "number" ? item.values.previsto : null })) }];
+      });
+
+      return { workWeekLabel: candidate.workWeekLabel, reportReferenceDate, emailSubject, previousFinancialVersions, thresholds, mppFacts, officialBaseline, previousDeviationPp, previousBaselineSheet, criticalActivityCount, humanDecisions };
     },
 
     async findRelatedWorkbooks(candidate, sha256) {

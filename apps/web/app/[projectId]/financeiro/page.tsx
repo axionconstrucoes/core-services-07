@@ -185,6 +185,11 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
             <p className="text-xs text-amber-800">{selected.alerts.filter((alert) => alert.severity !== "INFO").map((alert) => alert.detail).join(" ")}</p>
           ) : null}
 
+          <p className="text-xs text-muted-foreground" data-testid="financial-base-disclaimer">
+            Informativo: o previsto destas planilhas pode ser reprevisto a cada semana (meses encerrados ajustados ao realizado). Proximidade entre previsto e realizado não comprova cumprimento da meta original.
+            {selected.cutoffDate ? null : " Esta leitura não tem data de corte gravada: meses futuros e o mês corrente (parcial) aparecem junto dos encerrados."}
+          </p>
+
           {/* Cards */}
           {cards.length === 0 ? (
             <EmptyState message="Semana sem valores financeiros disponíveis (nenhuma coluna reconhecida com valor armazenado)." />
