@@ -44,8 +44,8 @@ const CARLOS = "carlos.evandro@axion.com.br";
 const ENV = { ACC_PROJECT_PILOT_PROJECT_ID: WEG, ACC_PROJECT_PILOT_SENDER: ACC };
 const msg = (over = {}) => ({ to: REY, subject: "Alerta", text: "Corpo", correlationId: "c-1", pilot: { projectId: WEG, participantLabel: "usuário a1b2c3d4", escalationLevel: "RESPONSAVEL" }, ...over });
 
-check("constantes: participantes = os três colaboradores + Gestor do Planejamento (corazza@); Cc = crm@; axion@ só na lista PROIBIDA", () => {
-  assert(JSON.stringify([...p.PILOT_PARTICIPANT_ADDRESSES]) === JSON.stringify([REY, JAIME, CARLOS, "corazza@axion.com.br"]));
+check("constantes: participantes = os três colaboradores (Corazza fora do piloto, decisão de 18/11/2026); Cc = crm@; axion@ só na lista PROIBIDA", () => {
+  assert(JSON.stringify([...p.PILOT_PARTICIPANT_ADDRESSES]) === JSON.stringify([REY, JAIME, CARLOS]));
   assert(p.ACC_PILOT_INSTITUTIONAL_ADDRESS === ACC);
   assert(JSON.stringify([...p.PILOT_FORBIDDEN_ADDRESSES]) === JSON.stringify([BOX, ACCX]));
   assert(!p.PILOT_PARTICIPANT_ADDRESSES.includes(BOX) && !p.PILOT_PARTICIPANT_ADDRESSES.includes("crm@axion.com.br"));
