@@ -300,11 +300,11 @@ async function preBlocked() {
   return { ...w, rows };
 }
 
-await check("entrega direta: dry-run sem seleção planeja os 3 participantes da allowlist (deliveryGroup = participantes permitidos, incl. Gestor corazza@ ainda sem conta; sem axion@); nada é escrito nem enviado", () =>
+await check("entrega direta: dry-run sem seleção planeja os 3 participantes da allowlist (deliveryGroup = participantes permitidos; Corazza fora do piloto; sem axion@); nada é escrito nem enviado", () =>
   withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
     const w = await seeded();
     const dry = await runPilotSingleAlert({ caseId: w.highCase.id, dryRun: true, now: new Date(T0), store: w.store, provider: w.provider });
-    assert(dry.status === "DRY_RUN" && JSON.stringify(dry.deliveryGroup) === JSON.stringify([...PARTICIPANTS, "corazza@axion.com.br"]) && dry.recipients.length === 3, `${dry.status} ${dry.blockedReason}`);
+    assert(dry.status === "DRY_RUN" && JSON.stringify(dry.deliveryGroup) === JSON.stringify([...PARTICIPANTS]) && dry.recipients.length === 3, `${dry.status} ${dry.blockedReason}`);
     assert(!JSON.stringify(dry).includes(BOX), "axion@ apareceu no resultado");
     assert(w.store.state.outbox.length === w.seedOutbox && w.rec.guarded.length === 0, "dry-run escreveu/enviou");
   }));

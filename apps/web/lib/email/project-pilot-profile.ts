@@ -31,13 +31,11 @@ export const WEG_PROJECT_ID = "00000000-0000-4000-8000-000000000001";
 export const ACC_PILOT_INSTITUTIONAL_ADDRESS = "crm@axion.com.br";
 
 /** Participantes autorizados do piloto WEG — endereços conferidos nos perfis do ACC (profiles.email), todos ACTIVE e na allowlist. */
-// corazza@: Gestor (Nível 2) do Planejamento da WEG, incluído por decisão do responsável em 18/11/2026. Endereço do cadastro (convite
-// do projeto). Só recebe quando o convite for ativado no primeiro login e o user id entrar na allowlist do piloto (planejamento).
 export const PILOT_PARTICIPANT_ADDRESSES = [
   "reynaldo@axion.com.br",
   "jaime.ramos@axion.com.br",
   "carlos.evandro@axion.com.br",
-  "corazza@axion.com.br",
+
 ] as const;
 
 /** Endereços PROIBIDOS no roteamento do piloto (To, Cc, Reply-To, destinatários de resposta). */
