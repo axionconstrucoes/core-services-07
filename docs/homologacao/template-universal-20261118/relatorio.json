@@ -1,5 +1,5 @@
 {
-  "geradoEm": "2026-11-18T18:07:45.006Z",
+  "geradoEm": "2026-11-18T19:06:46.153Z",
   "modelos": [
     {
       "id": "01-critico-engenharia",
@@ -66,6 +66,20 @@
         "maroon": true,
         "inverted": false
       }
+    },
+    {
+      "id": "07-contrato-critico-individual",
+      "title": "Alerta contratual individual — CRÍTICO",
+      "subject": "[RISCO CRÍTICO] WEG — Obra de Homologação | ACC",
+      "hasAxia": true,
+      "fourButtons": true
+    },
+    {
+      "id": "08-contrato-lote-quatro-graus",
+      "title": "Alertas contratuais em lote — CRÍTICO, ALTO, MÉDIO e BAIXO",
+      "subject": "[RISCO CRÍTICO] WEG — Obra de Homologação | 4 alertas | ACC",
+      "hasAxia": true,
+      "fourButtons": true
     }
   ],
   "capturas": [
@@ -151,6 +165,34 @@
       "viewport": "celular",
       "file": "img/06-consolidado-concluida-celular.png",
       "height": 2198,
+      "horizontalScroll": false
+    },
+    {
+      "id": "07-contrato-critico-individual",
+      "viewport": "desktop",
+      "file": "img/07-contrato-critico-individual-desktop.png",
+      "height": 977,
+      "horizontalScroll": false
+    },
+    {
+      "id": "07-contrato-critico-individual",
+      "viewport": "celular",
+      "file": "img/07-contrato-critico-individual-celular.png",
+      "height": 1421,
+      "horizontalScroll": false
+    },
+    {
+      "id": "08-contrato-lote-quatro-graus",
+      "viewport": "desktop",
+      "file": "img/08-contrato-lote-quatro-graus-desktop.png",
+      "height": 1537,
+      "horizontalScroll": false
+    },
+    {
+      "id": "08-contrato-lote-quatro-graus",
+      "viewport": "celular",
+      "file": "img/08-contrato-lote-quatro-graus-celular.png",
+      "height": 2610,
       "horizontalScroll": false
     }
   ]

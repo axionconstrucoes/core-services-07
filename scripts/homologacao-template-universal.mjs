@@ -20,6 +20,8 @@ mkdirSync(path.join(outDir, "html"), { recursive: true });
 mkdirSync(path.join(outDir, "img"), { recursive: true });
 
 const { buildImmediateRiskAlertEmail, buildRiskDigestEmail } = await import("../apps/web/lib/risk-alerts/build-risk-alert-emails.ts");
+const { buildContractAlertEmail } = await import("../apps/web/lib/email/templates/contract-alert-template.ts");
+const { buildContractAlertBatchEmail } = await import("../apps/web/lib/email/templates/contract-alert-batch-template.ts");
 const { applyVeraEmailHeader, loadVeraInlineImage } = await import("../apps/web/lib/email/branding/vera-email-header.ts");
 const { loadAccAlertLogos } = await import("../apps/web/lib/email/branding/load-acc-logo-inline-image.ts");
 
@@ -137,6 +139,62 @@ const MODELS = [
       }),
   },
 ];
+
+const QUICK = (n) => ({ RESOLVIDO: `${BASE}/alertas/acao/p/b/e${n}?acao=RESOLVIDO`, EM_ANDAMENTO: `${BASE}/alertas/acao/p/b/e${n}?acao=EM_ANDAMENTO`, ENVIADO_PARA: `${BASE}/alertas/acao/p/b/e${n}?acao=ENVIADO_PARA` });
+MODELS.push({
+  id: "07-contrato-critico-individual",
+  title: "Alerta contratual individual — CRÍTICO",
+  build: () =>
+    buildContractAlertEmail({
+      recipientName: "Ana Souza",
+      projectName: "WEG — Obra de Homologação",
+      severity: "CRITICA",
+      title: "Aditivo de prazo sem aceite formal do cliente",
+      summary: "O cliente solicitou 45 dias adicionais por e-mail, sem formalização por aditivo, e a execução já consome o prazo pleiteado.",
+      relatedEventTitle: "Solicitação de prorrogação por e-mail",
+      contractualBasis: null,
+      confrontationBlocks: [{ clauseNumber: "8.2", eventFinding: "Pedido de 45 dias sem aditivo assinado", contractProvision: "Prazos só se alteram por termo aditivo formal", conclusion: "Risco de descumprimento do prazo contratual", potentialImpact: "Multa por atraso", approvedByLine: "Aprovado por Fulana (Jurídico)", detailUrl: `${BASE}/c/1` }],
+      impactedClause: { label: "Cláusula 8.2 – Prazos e Cronograma", text: "O prazo de execução somente poderá ser alterado mediante termo aditivo." },
+      keyEvidence: [{ kind: "OTHER", url: `${BASE}/e/1`, sourceTypeLabel: "E-mail", label: "Pedido de prorrogação do cliente" }],
+      potentialImpact: "Multa contratual por atraso",
+      recommendedAction: "Formalizar o aditivo de prazo antes do vencimento.",
+      responsibleName: "Bruno Lima",
+      dueDate: "25/11/2026",
+      eventUrl: `${BASE}/ev/1`,
+      actionButtons: [],
+      hasInlineLogo: true,
+      hasInlineInvertedLogo: true,
+      quickActionUrls: QUICK(1),
+      aiConsultUrl: `${BASE}/alertas/consulta-ia/p/evento/e1`,
+      repeatNotice: true,
+    }),
+});
+MODELS.push({
+  id: "08-contrato-lote-quatro-graus",
+  title: "Alertas contratuais em lote — CRÍTICO, ALTO, MÉDIO e BAIXO",
+  build: () =>
+    buildContractAlertBatchEmail({
+      recipientName: "Ana Souza",
+      projectName: "WEG — Obra de Homologação",
+      batchUrl: `${BASE}/lote/1`,
+      hasInlineLogo: true,
+      hasInlineInvertedLogo: true,
+      items: ["CRITICA", "ALTA", "MEDIA", "BAIXA"].map((severity, i) => ({
+        eventId: `ev-${i + 1}`,
+        projectName: "WEG — Obra de Homologação",
+        title: `Evento contratual ${severity.toLowerCase()} ${i + 1}`,
+        severity,
+        riskDescription: `Descrição fictícia do alerta contratual ${severity} para conferência visual.`,
+        clauseLabel: "Cláusula 8.2 – Prazos e Cronograma",
+        clauseText: "Texto fictício da cláusula impactada.",
+        evidence: [{ kind: "OTHER", url: `${BASE}/e/${i}`, sourceTypeLabel: "Cronograma", label: "Linha de base" }],
+        eventUrl: `${BASE}/ev/${i + 1}`,
+        respondItemUrl: `${BASE}/lote/1#evento-ev-${i + 1}`,
+        quickActionUrl: `${BASE}/alertas/acao/p/1/ev-${i + 1}`,
+        aiConsultUrl: `${BASE}/alertas/consulta-ia/p/evento/ev-${i + 1}`,
+      })),
+    }),
+});
 
 const dataUri = (img) => `data:${img.mimeType};base64,${img.contentBase64}`;
 
