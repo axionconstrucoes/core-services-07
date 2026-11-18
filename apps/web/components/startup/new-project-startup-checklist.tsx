@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CheckSquare2, ExternalLink } from "lucide-react";
+import { CheckSquare2, CheckCircle2, ExternalLink } from "lucide-react";
 
 type StartupStep = {
   id: string;
@@ -15,7 +15,7 @@ type StartupStep = {
 
 const STEPS: readonly StartupStep[] = [
   { id:"project", group:"1. Identificação e responsabilidades", title:"Revisar os dados básicos da obra", detail:"Confira nome da obra, cliente, identificação contratual, situação do projeto e demais informações cadastradas. Corrija os dados do projeto antes de prosseguir.", path:"dashboard", destination:"Dashboard / Editar projeto" },
-  { id:"dates", group:"1. Identificação e responsabilidades", title:"Definir as datas do Start-up", detail:"Registre a data inicial da obra, a data final prevista da linha de base e a data de início operacional do ACC. Verifique se os períodos históricos estão corretos.", path:"startup#configuracao", destination:"Start-up ACC — Configuração" },
+  { id:"dates", group:"1. Identificação e responsabilidades", title:"Conferir as datas principais da obra no Dashboard", detail:"Confira as datas de início da obra, término da baseline e início operacional do ACC no Dashboard. Marque esta etapa após verificar os registros; as datas não são editadas no checklist.", path:"dashboard", destination:"Dashboard" },
   { id:"members", group:"1. Identificação e responsabilidades", title:"Cadastrar participantes e permissões", detail:"Inclua administradores, gestores, responsáveis e colaboradores; confirme contas, status ativo, papéis e acesso exclusivamente às obras autorizadas.", path:"usuarios", destination:"Usuários" },
   { id:"sla", group:"1. Identificação e responsabilidades", title:"Conferir a matriz de responsabilidades e SLA", detail:"Defina responsáveis, gerência, diretoria, áreas e prazos de cada gravidade. Confirme regras de escalonamento antes de habilitar alertas.", path:"usuarios", destination:"Usuários / Matriz de SLA" },
   { id:"document-base", group:"2. Base contratual", title:"Enviar o contrato-base e a versão assinada", detail:"Faça upload do documento original, confira seu tipo, versão, data, autoria e anexos. Valide se o processamento e a leitura do arquivo estão completos.", path:"documentos", destination:"Documentos" },
@@ -30,10 +30,8 @@ const STEPS: readonly StartupStep[] = [
   { id:"ssma", group:"4. Planejamento, financeiro e SSMA", title:"Preparar o módulo ESG/SSMA", detail:"Confira obrigações, relatórios diários e avulsos, registros de ocorrências, responsáveis, evidências e fotos. Verifique o acesso dos usuários de campo.", path:"esg", destination:"ESG/SSMA" },
   { id:"finance", group:"4. Planejamento, financeiro e SSMA", title:"Verificar informações financeiras da obra", detail:"Confira disponibilidade das informações financeiras autorizadas, dados de faturamento e indicadores. O acesso depende da permissão do usuário.", path:"financeiro", destination:"Financeiro (se autorizado)" },
   { id:"experts", group:"5. Validação e entrada em operação", title:"Verificar especialistas e competências", detail:"Confira o provedor configurado, disponibilidade de IA, skills integradas e limitações reais. Não confunda skills instaladas no Claude Code com skills operacionais do ACC.", path:"experts-ia", destination:"Experts IA" },
-  { id:"historical", group:"5. Validação e entrada em operação", title:"Revisar riscos e ocorrências históricas", detail:"Na própria aba Start-up, revise todos os findings históricos ALTO/CRÍTICO e registre a decisão humana. Não reabra ocorrências antigas apenas por importação retroativa.", path:"startup#historico", destination:"Start-up ACC / Findings históricos" },
   { id:"alerts", group:"5. Validação e entrada em operação", title:"Verificar ações, responsáveis e escalonamentos", detail:"Confira as ações abertas, matrizes de SLA, alertas e destinatários. Valide a configuração de piloto antes de habilitar comunicações operacionais.", path:"acoes", destination:"Ações e Escalonamentos" },
   { id:"audit", group:"5. Validação e entrada em operação", title:"Revisar auditoria e dados antes do início operacional", detail:"Confirme evidências de cadastro, histórico, configurações, permissões, pendências e riscos. A revisão final deve ser feita por administrador autorizado.", path:"auditoria", destination:"Auditoria" },
-  { id:"go-live", group:"5. Validação e entrada em operação", title:"Concluir formalmente o Start-up ACC", detail:"Retorne a esta página e utilize o procedimento oficial de conclusão abaixo do checklist. O checkbox não substitui a validação do servidor nem autoriza o go-live.", path:"startup#conclusao", destination:"Start-up ACC / Conclusão" },
 ];
 
 export function NewProjectStartupChecklist({ projectId }: { projectId: string }) {
@@ -71,8 +69,8 @@ export function NewProjectStartupChecklist({ projectId }: { projectId: string })
       <div className="rounded-md border p-4">
         <h2 className="flex items-center gap-2 text-base font-semibold"><CheckSquare2 className="size-5" /> Checklist para configurar um novo projeto</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Marque cada etapa depois de concluí-la. Clique no título da etapa para abrir diretamente a página correspondente.
-          O preenchimento é manual e não substitui a verificação dos dados pelo ACC.
+          Clique no título da etapa para abrir sua página, preencha os dados e volte ao Start-up para marcar o checkbox. Um tique verde DONE confirma a marcação.
+          O registro do checklist é manual e não substitui a validação dos dados pelo ACC.
         </p>
         <p className="mt-3 text-sm font-semibold" aria-live="polite">
           {loaded ? `${checkedCount} de ${STEPS.length} etapas marcadas (${Math.round(100 * checkedCount / STEPS.length)}%)` : "Carregando marcações..."}
@@ -81,7 +79,7 @@ export function NewProjectStartupChecklist({ projectId }: { projectId: string })
           <div className="h-full bg-green-600 transition-all" style={{ width: `${100 * checkedCount / STEPS.length}%` }} />
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
-          As marcações deste checklist são salvas apenas neste navegador e dispositivo, por projeto; não são sincronizadas com outros usuários.
+          As marcações são preservadas ao sair e retornar, neste navegador e dispositivo, por projeto; não são sincronizadas com outros usuários.
           A aprovação formal do Start-up continua independente.
         </p>
       </div>
@@ -100,6 +98,11 @@ export function NewProjectStartupChecklist({ projectId }: { projectId: string })
                     className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary underline-offset-2 hover:underline focus-visible:underline">
                     {step.title} <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
                   </Link>
+                  {completed[step.id] ? (
+                    <p className="inline-flex items-center gap-1 rounded bg-green-700 px-2 py-0.5 text-xs font-bold text-white" aria-label="Etapa marcada como concluída">
+                      <CheckCircle2 className="size-4" aria-hidden="true" /> DONE
+                    </p>
+                  ) : null}
                   <p className="text-sm leading-relaxed text-muted-foreground">{step.detail}</p>
                   <p className="text-xs text-muted-foreground">Abrir: {step.destination}</p>
                 </div>
