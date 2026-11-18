@@ -91,3 +91,14 @@ jobs:
             }
           }
           NODE
+
+      # Heartbeat do agendador (docs/operacao-agendador-sla.md): registra o
+      # TÉRMINO do job. Nunca falha o workflow; sem a migration do agendador
+      # aplicada, não tem efeito.
+      - name: Heartbeat do agendador
+        if: always()
+        continue-on-error: true
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/scheduler-heartbeat.mjs document-worker ${{ job.status }}

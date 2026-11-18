@@ -49,3 +49,14 @@ jobs:
           GOOGLE_GMAIL_INBOUND_CLIENT_SECRET: ${{ secrets.GOOGLE_GMAIL_REYNALDO_CLIENT_SECRET }}
           GOOGLE_GMAIL_INBOUND_REFRESH_TOKEN: ${{ secrets.GOOGLE_GMAIL_REYNALDO_REFRESH_TOKEN }}
           GOOGLE_GMAIL_INBOUND_MAILBOX: reynaldo@axion.com.br
+
+      # Heartbeat do agendador (docs/operacao-agendador-sla.md): registra o
+      # TÉRMINO do job. Nunca falha o workflow; sem a migration do agendador
+      # aplicada, não tem efeito.
+      - name: Heartbeat do agendador
+        if: always()
+        continue-on-error: true
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/scheduler-heartbeat.mjs gmail-sync ${{ job.status }}
