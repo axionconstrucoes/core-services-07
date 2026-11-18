@@ -128,6 +128,7 @@ export function buildImmediateRiskAlertEmail(input: ImmediateEmailInput): BuiltE
     ["Impacto", content.impact || null],
     [content.deadlineLabel, formatDateTimeBR(content.deadlineAt, input.timeZone)],
     ["Nível atual", content.levelLabel],
+    ["Observação do nível", content.levelNote ?? null],
     ["Nível anterior", content.previousLevelLabel],
     ["Responsável (Nível 1)", content.responsibleName],
     ["Motivo do escalonamento", content.escalationReason],
