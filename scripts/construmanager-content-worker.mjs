@@ -21,6 +21,7 @@ import { register } from "node:module";
 import { openAsBlob } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
 import { completeContentDownloadAsService } from "./lib/construmanager-complete-service.mjs";
+import { opaqueRef, redactNames } from "./lib/construmanager-log-safety.mjs";
 
 register("./ts-module-resolver.mjs", import.meta.url);
 
@@ -166,18 +167,18 @@ if (config.dryRun) {
   log(`anomalia (decisao humana) .... ${decisaoHumana.length}`);
 
   for (const item of selecionados) {
-    log(`  BAIXARIA #${item.row.construmanager_object_id} ${item.row.source_name} (${item.size} bytes)`);
+    log(`  BAIXARIA ${opaqueRef(item.row.id)} (${item.size} bytes)`);
   }
 
   for (const item of referenciaExterna) {
     log(
-      `  SOMENTE NO CONSTRUMANAGER #${item.row.construmanager_object_id} ${item.row.source_name} (${item.size} bytes) — nao seria baixado`
+      `  SOMENTE NO CONSTRUMANAGER ${opaqueRef(item.row.id)} (${item.size} bytes) — nao seria baixado`
     );
   }
 
   for (const item of decisaoHumana) {
     log(
-      `  DECISAO HUMANA #${item.row.construmanager_object_id} ${item.row.source_name} — ${item.verdict.reason}`
+      `  DECISAO HUMANA ${opaqueRef(item.row.id)} — ${redactNames(item.verdict.reason, item.row.source_name)}`
     );
   }
 
@@ -292,7 +293,7 @@ try {
     });
 
     humanDecision += 1;
-    log(`decisao humana: #${row.construmanager_object_id} ${row.source_name} — ${verdict.reason}`);
+    log(`decisao humana: ${opaqueRef(row.id)} — ${redactNames(verdict.reason, row.source_name)}`);
   }
 
   // 4. Autentica UMA vez para a rodada. O token vale ~24 h; reautenticar
@@ -416,12 +417,12 @@ try {
       naoProcessados.delete(alvo.link_id);
 
       log(
-        `ARMAZENADO #${alvo.construmanager_object_id} ${alvo.source_name} | ` +
+        `ARMAZENADO ${opaqueRef(alvo.link_id)} | ` +
           `sha=${content.sha256.slice(0, 12)} | ${content.sizeBytes} bytes | ` +
           `${done?.blob_reused ? "reaproveitado" : "novo"}`
       );
     } catch (error) {
-      const message = sanitizeConstrumanagerContentError(error);
+      const message = redactNames(sanitizeConstrumanagerContentError(error), alvo.source_name);
       if (!firstError) firstError = message;
 
       let resultado = null;
@@ -444,9 +445,9 @@ try {
 
       if (resultado?.requires_human_decision) {
         humanDecision += 1;
-        log(`ESGOTADO #${alvo.construmanager_object_id} — aguarda decisao humana: ${message}`);
+        log(`ESGOTADO ${opaqueRef(alvo.link_id)} — aguarda decisao humana: ${message}`);
       } else {
-        log(`ERRO #${alvo.construmanager_object_id} — nova tentativa agendada: ${message}`);
+        log(`ERRO ${opaqueRef(alvo.link_id)} — nova tentativa agendada: ${message}`);
       }
     } finally {
       if (cleanup) await cleanup().catch(() => undefined);
