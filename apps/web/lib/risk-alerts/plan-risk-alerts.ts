@@ -71,12 +71,6 @@ export interface PlanRiskAlertsInput {
    * motivo — o plano continua sendo calculado e auditado.
    */
   readinessBlockers?: RiskSuppressionReason[];
-  /**
-   * Áreas com responsável operacional TEMPORÁRIO ativo: se o escalonamento cair no próprio responsável
-   * atual da ação (ex.: substituto que também é a Diretoria da área), não gera segundo e-mail à mesma
-   * pessoa — o nível sobe e fica auditado. Fora dessas áreas o comportamento é o de sempre.
-   */
-  interimAreas?: ReadonlySet<SlaArea>;
 }
 
 function emptyPlan(blockedReason: RiskSuppressionReason | null): RiskAlertPlan {
@@ -305,16 +299,7 @@ export function planRiskAlerts(input: PlanRiskAlertsInput): RiskAlertPlan {
           entityId: linked.id,
           detail: `${result.reasons.join(" ")} Nível ${slaEscalationLevelLabels[linked.currentEscalationLevel]} → ${slaEscalationLevelLabels[destination.level]}.`,
         });
-        if (destination.userId && destination.userId === linked.responsibleUserId && input.interimAreas?.has(caseInput.area)) {
-          // Área com substituto temporário cujo escalonamento cai no próprio responsável atual da ação
-          // (ex.: substituto que também é a Diretoria): o nível sobe e fica auditado, sem segundo e-mail.
-          plan.audit.push({
-            action: "RISK_ALERT_ESCALATION_RECIPIENT_DEDUPED",
-            entityType: "SLA_ACTION",
-            entityId: linked.id,
-            detail: `Escalonamento para ${slaEscalationLevelLabels[destination.level]} (${caseInput.area}) tem como destinatário o próprio responsável atual — e-mail duplicado não gerado.`,
-          });
-        } else if (destination.userId) {
+        if (destination.userId) {
           const recipient = policy.notifyByEmail
             ? evaluateRecipient(destination.userId, config, input.recipients)
             : { userId: destination.userId, email: null, name: null, status: "SUPPRESSED" as const, suppressionReason: "NOTIFY_BY_EMAIL_DISABLED" as const };

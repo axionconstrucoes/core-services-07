@@ -22,15 +22,6 @@ import {
 } from "./collect-risk-cases";
 import type { ActiveForward, AlertCaseSnapshot } from "./alert-state-machine";
 import { isPilotTestCase } from "./pilot-test-case";
-import {
-  INTERIM_ASSIGNED_ACTION,
-  INTERIM_ENTITY_TYPE,
-  INTERIM_REVOKED_ACTION,
-  applyInterimResponsibles,
-  describeInterimStatus,
-  resolveActiveInterims,
-  type InterimAuditRow,
-} from "./interim-responsibles";
 import { hashReplyToken, type InboundHeaders } from "./replies/reply-pipeline";
 import type { PersistedOutboxEntry, RiskAlertStore } from "./store";
 import type { ExpertId, IngestionAlertSeverityMap, LinkedSlaActionState, RecipientProfile, RiskCaseRecord } from "./types";
@@ -291,17 +282,6 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
             }
           : null;
 
-      // Responsável operacional TEMPORÁRIO (registro humano em audit_log_entries; a Matriz gravada não muda).
-      const { data: interimRows } = await client
-        .from("audit_log_entries")
-        .select("project_id,occurred_at,actor_type,actor_user_id,action,entity_type,entity_id,detail")
-        .eq("project_id", projectId)
-        .eq("entity_type", INTERIM_ENTITY_TYPE)
-        .in("action", [INTERIM_ASSIGNED_ACTION, INTERIM_REVOKED_ACTION]);
-      const storedResponsibles = (responsibles ?? []).map((row) => mapResponsibles(row as Row));
-      const interims = resolveActiveInterims(projectId, (interimRows ?? []) as unknown as InterimAuditRow[]);
-      const allowlistIds = (config?.pilot_recipient_allowlist_user_ids as string[] | null) ?? null;
-
       return {
         projectId,
         projectName: (project?.name as string) ?? projectId,
@@ -317,8 +297,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
             }
           : null,
         matrixRules: (rules ?? []).map((row) => mapRule(row as Row)),
-        areaResponsibles: applyInterimResponsibles(storedResponsibles, interims),
-        interimStatuses: describeInterimStatus(storedResponsibles, interims, recipients, allowlistIds),
+        areaResponsibles: (responsibles ?? []).map((row) => mapResponsibles(row as Row)),
         settings: mapSettings((settings as Row | null) ?? null),
         cases: [...collectComparisonCases(comparisonRows), ...collectSheetCases(sheetRows), ...collectIngestionAlertCases(alertRows, (config?.risk_alert_severity_map as IngestionAlertSeverityMap | null) ?? null)],
         existingCases,

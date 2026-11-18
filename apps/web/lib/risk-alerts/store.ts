@@ -3,7 +3,6 @@
 // memória nos testes (scripts/test-pilot-risk-alerts.mjs).
 
 import type { SlaAreaResponsibles, SlaMatrixRule, SlaProjectSettings } from "@/lib/sla/types";
-import type { InterimStatus } from "./interim-responsibles";
 
 import type { ActiveForward, AlertCaseSnapshot, AlertTransition } from "./alert-state-machine";
 import type { CorrelationIndex, InboundHeaders } from "./replies/reply-pipeline";
@@ -29,10 +28,7 @@ export interface RiskAlertProjectSnapshot {
   projectName: string;
   config: RiskAlertProjectConfig | null;
   matrixRules: SlaMatrixRule[];
-  /** Matriz como o motor de alertas a enxerga (substituições temporárias já aplicadas ao Nível 1). */
   areaResponsibles: SlaAreaResponsibles[];
-  /** Substituições temporárias ATIVAS e a situação da titular definitiva (somente informativo). */
-  interimStatuses?: InterimStatus[];
   settings: SlaProjectSettings | null;
   cases: RiskCaseInput[];
   existingCases: RiskCaseRecord[];
