@@ -28,7 +28,7 @@
 --   acc_app_base_url                   https://acc.axion.com.br (não é segredo; só https é aceito)
 -- Sem um segredo, a chamada correspondente simplesmente não acontece (o watchdog acusa).
 --
--- Reversão: ver docs/operacao-agendador-sla.md §9 (cron.unschedule de 'acc-%', variável
+-- Reversão: ver docs/operacao-agendador-sla.md §12 (parar cron.unschedule de 'acc-%', confirmar chamadas e workflows, só então variável
 -- ACC_SCHEDULER_PG_CRON_ENABLED=false, opcionalmente remover segredos/tabelas).
 -- =====================================================================
 

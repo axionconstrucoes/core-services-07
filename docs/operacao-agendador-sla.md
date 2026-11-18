@@ -280,21 +280,48 @@ não passa pelo GitHub.
 
 ## 12. Reversão passo a passo
 
-1. **GitHub:** `ACC_SCHEDULER_PG_CRON_ENABLED=false` (ou apagar a variável). O job `risk-alerts` do weekly e o workflow `ssma-notifications` voltam a chamar as rotas.
-2. **Supabase (SQL Editor):**
+**Ordem obrigatória: parar o pg_cron → esperar terminarem as chamadas e os workflows já disparados → só então
+reabilitar os chamadores do GitHub → conferir o retorno.** Inverter isso (flag `false` antes de parar o pg_cron) abre
+uma janela com duas origens chamando as mesmas rotas, e um `weekly-all` já disparado pelo pg_cron (evento
+`workflow_dispatch`, fase `all`) executaria também o job `risk-alerts`.
+
+1. **Parar o agendador do banco (SQL Editor):**
    `select cron.unschedule(jobname) from cron.job where jobname like 'acc-%';`
-3. **Conferir:**
-   - `select count(*) from cron.job where jobname like 'acc-%';` deve retornar 0;
-   - `last_dispatch_at` deixa de avançar.
-4. **Opcional (segredos):**
+   (inclui `acc-watchdog` e `acc-cron-history-cleanup`). Conferir: `select count(*) from cron.job where jobname like 'acc-%';` deve retornar 0.
+2. **Confirmar que nada ficou em andamento** (só avançar quando TODOS os itens estiverem limpos; repetir a conferência
+   a cada minuto até limpar, no máximo ~15 min — o timeout das rotas é de 290 s e o lease da outbox é de 10 min):
+   - **Chamadas às rotas (pg_net):** `select count(*) from net.http_request_queue;` deve ser 0 e
+     `select job, last_dispatch_request_id, last_reconciled_request_id from public.acc_scheduler_heartbeats where last_dispatch_request_id is distinct from last_reconciled_request_id;`
+     não deve retornar linhas com `last_dispatch_at` dentro de `start_grace`; `last_dispatch_at` deixou de avançar.
+   - **Workflows já disparados (GitHub):** `gh run list --status in_progress --limit 50` e `gh run list --status queued --limit 50`
+     sem nenhum run de `weekly-schedule-email-ingestion.yml`, `ssma-notifications.yml`, `mpp-document-worker.yml`,
+     `document-processing-worker.yml`, `gmail-inbound-sync.yml`, `ssma-drive-photo-sync.yml`,
+     `construmanager-content-ingestion.yml` ou `diario-de-obra-sync.yml`.
+   - **Outbox:** `select count(*) from public.risk_alert_outbox where claimed_at > now() - interval '10 minutes';` deve ser 0
+     (nenhum envio reivindicado e possivelmente em curso).
+   - Se algum item não limpar, NÃO reabilitar o GitHub: investigar primeiro (run travado, chamada sem resposta).
+3. **Reabilitar os chamadores do GitHub:** `ACC_SCHEDULER_PG_CRON_ENABLED=false` (ou apagar a variável). O job
+   `risk-alerts` do weekly e o workflow `ssma-notifications` voltam a chamar as rotas; o `schedule` do GitHub volta a ser
+   a origem única.
+4. **Conferir o retorno:**
+   - `select count(*) from cron.job where jobname like 'acc-%';` continua 0;
+   - na próxima janela horária, `gh run list --workflow weekly-schedule-email-ingestion.yml --limit 3` mostra o run
+     `schedule` e o job `risk-alerts` executado (não `skipped`); idem `ssma-notifications.yml` no minuto 15;
+   - nenhum envio fora do escopo do piloto na auditoria e na `risk_alert_outbox`;
+   - lembrar que o `schedule` do GitHub é irregular (ver §1): a conferência pode levar mais de uma hora.
+5. **Opcional (segredos), somente depois do passo 4:**
    - `delete from vault.secrets where name in ('acc_github_actions_dispatch_token','acc_risk_alerts_cron_secret','acc_cron_secret','acc_app_base_url');`
    - revogar o PAT no GitHub (Settings → Developer settings → Fine-grained tokens).
-5. **Opcional (objetos):** manter as tabelas e funções como histórico (recomendado), ou removê-las:
+6. **Opcional (objetos):** manter as tabelas e funções como histórico (recomendado), ou removê-las:
    - `drop function public.acc_scheduler_*`;
    - `drop table public.acc_scheduler_heartbeats, public.acc_repeated_conditions`.
 
    A extensão pg_net/pg_cron só deve ser removida se nada mais a usar.
-6. O `schedule` do GitHub continua como hoje durante e depois da reversão. A deduplicação de auditoria (§5) independe do agendador e pode permanecer.
+7. A deduplicação de auditoria (§5) independe do agendador e pode permanecer.
+
+**Critérios para acionar a reversão** (qualquer um): resposta HTTP diferente de 200 em 2 ciclos seguidos de uma rota;
+`ROUTE_HTTP_401`; heartbeat sem `started` ou sem `finished` por mais de 30 min; qualquer e-mail fora do escopo do piloto;
+escalonamento de caso retido ou de reemissão.
 
 ## 13. Decisões necessárias
 
