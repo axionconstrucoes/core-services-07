@@ -152,10 +152,10 @@ export function AlertActionForms(props: AlertActionFormsProps) {
               </label>
               <label className="flex flex-col gap-1">
                 Novo responsável (colaboradores ativos desta obra)
-                <Select name="targetUserId" required defaultValue="" className="h-10 border-slate-600 bg-slate-900 text-white" data-testid="alert-forward-select">
-                  <option value="" disabled className="bg-slate-900 text-white">Selecione…</option>
+                <Select name="targetUserId" required defaultValue="" className="h-10 border-[#8fa8cc] bg-[#0B1F3A] text-white [color-scheme:dark] [&>option]:bg-[#0B1F3A] [&>option]:text-white [&>option:checked]:bg-[#315783] [&>option:checked]:text-white" data-testid="alert-forward-select">
+                  <option value="" disabled className="bg-[#0B1F3A] text-white">Selecione…</option>
                   {candidates.map((c) => (
-                    <option key={c.userId} value={c.userId} className="bg-slate-900 text-white">
+                    <option key={c.userId} value={c.userId} className="bg-[#0B1F3A] text-white">
                       {c.name} — {c.email} — {c.area ?? "sem área"} — {c.permission}{c.matrixPosition ? ` — ${c.matrixPosition}` : ""}{c.inPilotAllowlist ? "" : " — fora da allowlist do piloto (recebe só este alerta)"}
                     </option>
                   ))}

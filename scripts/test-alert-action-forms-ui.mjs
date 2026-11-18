@@ -49,8 +49,9 @@ check("EM ANDAMENTO: ALTO/CRÍTICO exigem data E horário (datetime-local obriga
   assert.ok(form.includes("não reinicia o prazo original nem suspende os escalonamentos"));
 });
 
-check("ENVIAR PARA: lista escura com texto branco, lista aberta automaticamente, justificativa OPCIONAL, CONFIRMAR ENVIO", () => {
-  assert.ok(form.includes("bg-slate-900 text-white"));
+check("ENVIAR PARA: lista azul-marinho escuro com texto branco, lista aberta automaticamente, justificativa OPCIONAL, CONFIRMAR ENVIO", () => {
+  assert.ok(form.includes("bg-[#0B1F3A] text-white"), "lista azul-marinho escuro com texto branco");
+  assert.ok(form.includes("[color-scheme:dark]") && form.includes("[&>option:checked]:bg-[#315783]"), "lista nativa escura e item selecionado destacado");
   assert.ok(form.includes('name === "targetUserId"') || form.includes('"targetUserId"'));
   assert.ok(form.includes('Justificativa do encaminhamento (opcional)<Textarea name="text" rows={2} />'), "justificativa não pode ser obrigatória");
   assert.ok(form.includes('"CONFIRMAR ENVIO"'));

@@ -71,12 +71,12 @@ export default async function IntegracoesPage({
   const sharedSourceRows = buildSharedSourceRows(userIntegrationEvidence);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Administração de Integrações" description="Status operacional das fontes configuradas para este projeto." />
 
       <UserIntegrationMatrix rows={userSourceRows} shared={sharedSourceRows} warnings={userIntegrationEvidence.warnings} measuredAt={userIntegrationEvidence.measuredAt} unassignedEmails={userIntegrationEvidence.unassignedEmails} systemOutputEmails={userIntegrationEvidence.systemOutputEmails} />
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         {sources.map((source) => {
           const config = configs.find((item) => item.sourceType === source.type);
 

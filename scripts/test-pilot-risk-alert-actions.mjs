@@ -600,8 +600,8 @@ await check("59. Regras de SLA, cron, migrations, workflows e destinatários per
 });
 await check("60. RESOLVIDO exige confirmação explícita e, em ALTO/CRÍTICO, evidência; nada é concluído sem isso", () => {
   assert(act("RESOLVED", { text: "ok" }).code === "CONFIRMATION_REQUIRED");
-  assert(act("RESOLVED", { text: "ok", confirmed: true }).code === "EVIDENCE_REQUIRED", "ALTO sem evidência");
-  const ok = act("RESOLVED", { text: "ok", confirmed: true, evidence: "foto-123" });
+  assert(act("RESOLVED", { text: "ok", confirmed: true, justification: "j" }).code === "EVIDENCE_REQUIRED", "ALTO sem evidência");
+  const ok = act("RESOLVED", { text: "ok", confirmed: true, justification: "j", evidence: "foto-123" });
   assert(ok.ok === true);
 });
 await check("61. EM ANDAMENTO exige previsão válida na tela (inválida é recusada); a previsão não reinicia prazo nem suspende escalonamento", () => {
