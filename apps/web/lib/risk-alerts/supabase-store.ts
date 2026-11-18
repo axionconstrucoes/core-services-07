@@ -6,6 +6,14 @@
 // Recebe o client por parâmetro (mesmo padrão de
 // schedule/weekly-ingestion/supabase-store.ts) — sem "server-only".
 
+import {
+  REISSUE_APPROVED_ACTION,
+  REISSUE_DECISION_REQUIRED_ACTION,
+  REISSUE_ENTITY_TYPE,
+  resolveReissueApprovals,
+  type OutboxHistoryRow,
+  type ReissueAuditRow,
+} from "./communication-ledger";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { ALERT_REPLY_MAILBOX_ENV, normalizeAlertReplyMailbox } from "@/lib/email/alert-reply-address";
@@ -293,6 +301,42 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
       fail("Falha ao carregar áreas informativas", informativeError);
       const informativeAreas = Array.from(resolveInformativeAreas(projectId, (informativeRows ?? []) as unknown as InformativeAuditRow[]));
 
+      // Livro-razão de comunicação: histórico completo da outbox (SUPPRESSED NÃO é entrega) e
+      // decisões humanas de reemissão (audit_log_entries; sem migration).
+      const cycleCaseIds = existingCases.map((c) => c.id);
+      const { data: historyRows, error: historyError } = cycleCaseIds.length
+        ? await client
+            .from("risk_alert_outbox")
+            .select("case_id,notification_type,escalation_level,recipient_user_id,recipient_email,status,suppression_reason,attempt_count,provider_message_id,created_at,sent_at")
+            .eq("project_id", projectId)
+            .in("case_id", cycleCaseIds)
+        : { data: [] as Row[], error: null };
+      fail("Falha ao carregar histórico da outbox", historyError);
+      const { data: reissueRows, error: reissueError } = await client
+        .from("audit_log_entries")
+        .select("id,occurred_at,actor_type,actor_user_id,action,entity_type,entity_id")
+        .eq("project_id", projectId)
+        .eq("entity_type", REISSUE_ENTITY_TYPE)
+        .in("action", [REISSUE_APPROVED_ACTION, REISSUE_DECISION_REQUIRED_ACTION]);
+      fail("Falha ao carregar decisões de reemissão", reissueError);
+      const outboxHistory: OutboxHistoryRow[] = (historyRows ?? []).map((row) => ({
+        caseId: row.case_id as string,
+        notificationType: row.notification_type as string,
+        escalationLevel: s(row.escalation_level),
+        recipientUserId: row.recipient_user_id as string,
+        recipientEmail: s(row.recipient_email),
+        status: row.status as string,
+        suppressionReason: s(row.suppression_reason),
+        attemptCount: Number(row.attempt_count ?? 0),
+        providerMessageId: s(row.provider_message_id),
+        createdAt: row.created_at as string,
+        sentAt: s(row.sent_at),
+      }));
+      const reissueApprovals = resolveReissueApprovals((reissueRows ?? []) as unknown as ReissueAuditRow[]);
+      const reissueDecisionRecordedCaseIds = new Set(
+        (reissueRows ?? []).filter((row) => row.action === REISSUE_DECISION_REQUIRED_ACTION).map((row) => row.entity_id as string)
+      );
+
       return {
         projectId,
         projectName: (project?.name as string) ?? projectId,
@@ -317,6 +361,9 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         linkedActions,
         recipients,
         existingIdempotencyKeys: new Set((keys ?? []).map((row) => row.idempotency_key as string)),
+        outboxHistory,
+        reissueApprovals,
+        reissueDecisionRecordedCaseIds,
         previousDigestSentAt: s(lastDigest?.sent_at),
         senderMailbox: process.env.GOOGLE_GMAIL_SENDER_EMAIL?.trim() || null,
         replyMailbox: normalizeAlertReplyMailbox(process.env[ALERT_REPLY_MAILBOX_ENV]),

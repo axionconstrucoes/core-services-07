@@ -9,6 +9,7 @@
 // Allowlist do piloto POR user_id: qualquer destinatário fora dela é
 // registrado como PILOT_RECIPIENT_SUPPRESSED, nunca enviado.
 
+import type { CaseCommunicationLedger } from "./communication-ledger";
 import type { SlaArea, SlaEscalationLevel, SlaRiskLevel } from "@/lib/sla/types";
 import type { MatrixPolicy } from "@/lib/sla/resolve-matrix-policy";
 
@@ -254,6 +255,11 @@ export interface RiskAlertPlan {
   outbox: PlannedOutboxEntry[];
   audit: PlannedAuditEvent[];
   digestWindow: { key: string; isOpen: boolean } | null;
+  /**
+   * Livro-razão de comunicação dos casos abertos HIGH/CRITICAL com ação SLA: etapa alcançada x
+   * tentativa x supressão x aceite pelo Gmail. Lacunas sem decisão NUNCA viram e-mail.
+   */
+  communicationLedgers?: CaseCommunicationLedger[];
 }
 
 // ------------------------------------------------------------------

@@ -25,6 +25,15 @@ import { computePolicyDeadlines, matrixPolicySnapshot, type MatrixPolicy } from 
 import type { SlaArea, SlaAreaResponsibles, SlaEscalationLevel, SlaRiskLevel } from "@/lib/sla/types";
 
 import { caseKeyOf } from "./collect-risk-cases";
+import {
+  buildCaseCommunicationLedger,
+  describeReissue,
+  REISSUE_DECISION_REQUIRED_ACTION,
+  reissueIdempotencyKey,
+  type CaseCommunicationLedger,
+  type OutboxHistoryRow,
+  type ReissueApproval,
+} from "./communication-ledger";
 import { resolveDigestWindow } from "./digest-window";
 import { compareDigestItems, toStoredDigestItems } from "./rebuild-digest-content";
 import type {
@@ -76,6 +85,15 @@ export interface PlanRiskAlertsInput {
    * mas nenhum alerta, repetição, consolidado, ação SLA, cobrança ou escalonamento é planejado para elas.
    */
   informativeAreas?: ReadonlySet<SlaArea>;
+  /**
+   * Histórico da outbox por caso (todas as linhas, inclusive SUPPRESSED) para o livro-razão de
+   * comunicação. Ausente => livro-razão não calculado (comportamento anterior).
+   */
+  outboxHistory?: OutboxHistoryRow[];
+  /** Decisões humanas auditadas de reemissão (RISK_ALERT_REISSUE_APPROVED), por caso. */
+  reissueApprovals?: Map<string, ReissueApproval>;
+  /** Casos que já têm RISK_ALERT_REISSUE_DECISION_REQUIRED registrado (não repetir a auditoria). */
+  reissueDecisionRecordedCaseIds?: ReadonlySet<string>;
 }
 
 function emptyPlan(blockedReason: RiskSuppressionReason | null): RiskAlertPlan {
@@ -166,6 +184,7 @@ export function planRiskAlerts(input: PlanRiskAlertsInput): RiskAlertPlan {
 
   const existingByKey = new Map(input.existingCases.map((c) => [caseKeyOf(c), c]));
   const digestCandidates: Array<{ item: DigestItem; recipients: string[] }> = [];
+  const ledgers: CaseCommunicationLedger[] = [];
 
   const readinessBlocker = !input.dryRun && input.readinessBlockers && input.readinessBlockers.length > 0 ? input.readinessBlockers[0] : null;
   const pushEntry = (entry: PlannedOutboxEntry) => {
@@ -359,6 +378,79 @@ export function planRiskAlerts(input: PlanRiskAlertsInput): RiskAlertPlan {
       }
     }
 
+    // ---------------- Livro-razão: etapa alcançada sem comunicação entregue ----------------
+    // Supressão NÃO é entrega. Lacuna sem decisão humana => só registro (nenhum e-mail).
+    // Com decisão auditada => uma reemissão por decisão, com prazos/etapa originais (sem reiniciar SLA).
+    if (input.outboxHistory && existing && existing.status === "OPEN" && !caseInput.closed && linked && policy && policy.status === "OK" && IMMEDIATE_LEVELS.has(caseInput.riskLevel) && isSlaRisk(caseInput.riskLevel)) {
+      const approval = input.reissueApprovals?.get(existing.id) ?? null;
+      const ledgerEntry = buildCaseCommunicationLedger({
+        caseId: existing.id,
+        linked,
+        policy,
+        history: input.outboxHistory,
+        recipients: input.recipients,
+        approval,
+        eligibility: (userId) => {
+          const evaluated = evaluateRecipient(userId, config, input.recipients);
+          return { eligible: evaluated.status === "PENDING", reason: evaluated.suppressionReason };
+        },
+      });
+      // Comunicação nova deste mesmo ciclo para o destinatário já cobre a lacuna.
+      const coveredNow = (userId: string) => plan.outbox.some((e) => e.caseKey === caseKey && e.recipient.userId === userId && e.recipient.status === "PENDING");
+      const openGaps = ledgerEntry.gaps.filter((gap) => !coveredNow(gap.userId));
+      const effective: CaseCommunicationLedger = { ...ledgerEntry, gaps: openGaps, decision: openGaps.length === 0 ? "INFORMED" : ledgerEntry.decision };
+      ledgers.push(effective);
+      if (effective.decision === "REISSUE_DECISION_REQUIRED" && !input.reissueDecisionRecordedCaseIds?.has(existing.id)) {
+        plan.audit.push({
+          action: REISSUE_DECISION_REQUIRED_ACTION,
+          entityType: "RISK_ALERT_CASE",
+          entityId: existing.id,
+          detail: `Etapa ${slaEscalationLevelLabels[linked.currentEscalationLevel]} alcançada sem comunicação entregue a ${openGaps.length} destinatário(s) (${openGaps.map((g) => `${g.role}:${g.status}`).join(", ")}). Nenhum e-mail reemitido sem decisão humana auditada.`,
+        });
+      }
+      if (effective.decision === "REISSUE_APPROVED" && approval) {
+        for (const gap of openGaps) {
+          if (!gap.eligibleNow) continue;
+          const recipient = evaluateRecipient(gap.userId, config, input.recipients);
+          const isResponsible = gap.role === "RESPONSAVEL";
+          pushEntry({
+            idempotencyKey: reissueIdempotencyKey(caseKey, approval.auditId, gap.userId),
+            notificationType: isResponsible ? "IMMEDIATE" : "ESCALATION",
+            escalationLevel: isResponsible ? "RESPONSAVEL" : gap.role,
+            riskLevel: caseInput.riskLevel,
+            caseKey,
+            slaActionId: linked.id,
+            recipient,
+            scheduledFor: input.now,
+            digestWindow: null,
+            matrixRuleSnapshot: matrixPolicySnapshot(policy),
+            payloadSummary: { title: caseInput.title, reference: caseInput.reference, reissue: true, approvalAuditId: approval.auditId, stageReached: linked.currentEscalationLevel, previousStatus: gap.status },
+            content: {
+              kind: isResponsible ? "IMMEDIATE" : "ESCALATION",
+              caseTitle: caseInput.title,
+              reference: caseInput.reference,
+              riskLevel: caseInput.riskLevel,
+              area: caseInput.area,
+              summary: caseInput.summary,
+              impact: caseInput.impact,
+              recommendation: caseInput.recommendation,
+              originPath: caseInput.originPath,
+              slaActionId: linked.id,
+              levelLabel: slaEscalationLevelLabels[isResponsible ? "RESPONSAVEL" : gap.role],
+              previousLevelLabel: null,
+              responsibleName: input.recipients.get(linked.responsibleUserId ?? "")?.name ?? null,
+              deadlineLabel: linked.acknowledgedAt ? "Prazo vencido" : "Prazo para assumir (original)",
+              deadlineAt: linked.acknowledgedAt ? (linked.completeDueAt ?? linked.respondDueAt) : linked.assumeDueAt,
+              requiresAcknowledgment: policy.requiresAcknowledgmentConfirmation,
+              requiresJustification: policy.requiresDelayJustification,
+              escalationReason: describeReissue(gap, approval),
+              changed: false,
+            },
+          });
+        }
+      }
+    }
+
     // ---------------- LOW / MEDIUM: candidatos ao consolidado ----------------
     const digestLevel = DIGEST_LEVELS.has(caseInput.riskLevel) ? (caseInput.riskLevel as "LOW" | "MEDIUM") : null;
     if (digestLevel && policy) {
@@ -440,6 +532,7 @@ export function planRiskAlerts(input: PlanRiskAlertsInput): RiskAlertPlan {
     }
   }
 
+  if (input.outboxHistory) plan.communicationLedgers = ledgers;
   return plan;
 }
 
