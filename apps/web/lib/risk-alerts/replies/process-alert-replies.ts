@@ -17,6 +17,7 @@ import { DEFAULT_CORPORATE_EMAIL_DOMAIN } from "../plan-risk-alerts";
 import type { RiskAlertStore } from "../store";
 import { applyMessageIdAliases } from "./build-correlation-index";
 import { assessReplyTiming } from "./reply-timing";
+import { assessOperationalEmailIntent } from "./operational-email-intent";
 import { authorizeReply, classifyReply, correlateReply, filterInboundMessage, parseReplyBody, replyToFormalAction } from "./reply-pipeline";
 
 export interface ProcessRepliesResult {
@@ -99,6 +100,25 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
       await store.updateInboundMessage(message.id, { caseId: correlation.caseId, correlationMethod: correlation.method, bodyClean: parsed.clean, quotedText: parsed.quoted, signatureText: parsed.signature, status: "UNAUTHORIZED_REPLY", statusReason: authorization.reason });
       await store.audit(projectId, [{ action: "RISK_ALERT_UNAUTHORIZED_REPLY", entityType: "RISK_ALERT_CASE", entityId: correlation.caseId, detail: `Resposta não autorizada (${authorization.reason}); mensagem ${message.id}.` }]);
       result.unauthorized += 1;
+      continue;
+    }
+    // Não transformar "resolvido", encaminhamento ou evidências em um simples
+    // TAKING_ACTION. Até existir execução transacional específica com autorização,
+    // essas intenções ficam rastreadas para revisão humana, sem mexer no SLA.
+    const operational = assessOperationalEmailIntent(parsed.clean);
+    if (operational.requiresReview) {
+      await store.updateInboundMessage(message.id, {
+        caseId: correlation.caseId,
+        senderUserId: authorization.userId,
+        bodyClean: parsed.clean,
+        quotedText: parsed.quoted,
+        signatureText: parsed.signature,
+        correlationMethod: correlation.method,
+        status: "REVIEW_REQUIRED",
+        statusReason: `Operação por e-mail: ${operational.intent} — ${operational.reason}`,
+        requiresHumanReview: true,
+      });
+      result.reviewRequired += 1;
       continue;
     }
     const classification = classifyReply(parsed.clean);
