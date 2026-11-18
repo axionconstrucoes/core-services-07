@@ -117,7 +117,7 @@ export async function createSlaActionAction(
     ]);
 
     const rule = resolveMatrixRule(matrixRules, riskLevel, area);
-    const businessHoursConfig = resolveBusinessHoursConfig(projectSettings);
+    const businessHoursConfig = resolveBusinessHoursConfig(projectSettings, projectId);
     const createdAt = new Date().toISOString();
     const deadlines = computeSlaDeadlines(createdAt, rule, businessHoursConfig);
 
@@ -599,7 +599,7 @@ export async function processSlaEscalationsAction(
       getSlaProjectSettings(projectId),
     ]);
 
-    const businessHoursConfig = resolveBusinessHoursConfig(projectSettings);
+    const businessHoursConfig = resolveBusinessHoursConfig(projectSettings, projectId);
     const now = new Date().toISOString();
     const openActions = actions.filter((a) => a.status !== "COMPLETED" && a.status !== "CANCELLED");
 

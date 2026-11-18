@@ -271,17 +271,29 @@ abaixo), nunca a um usuário específico.
 
 ## 15. Limitações de calendário (seção 20)
 
-Não existe calendário corporativo de feriados nesta fase. "Dia
-útil"/"hora útil" (`apps/web/lib/sla/time-units.ts`) consideram apenas
+"Dia útil"/"hora útil" (`apps/web/lib/sla/time-units.ts`) consideram
 segunda a sexta, **no horário e timezone configurados do projeto**
-(default `America/Sao_Paulo`, 08:00–18:00 — ver seção 3.1; nunca UTC
-como horário comercial) — feriados nacionais/regionais/municipais
-**não** são descontados. Isso é um comportamento mínimo seguro,
-documentado explicitamente na UI de configuração ("Feriados ainda não
-são considerados nesta versão."), não uma simulação de um calendário
-completo que não existe. Um calendário de feriados real fica como
-extensão futura.
+(default `America/Sao_Paulo`, 08:00–18:00; nunca UTC como horário
+comercial) e, **quando o projeto tem calendário configurado**, descontam
+feriados (`apps/web/lib/sla/holidays/calendars.ts`).
 
+- Configuração explícita, sem migration: `PROJECT_HOLIDAY_CALENDARS`
+  mapeia projeto → calendário. Hoje só a WEG (Linhares/ES) usa
+  `BR-ES-LINHARES`. Projetos sem mapeamento seguem só com fins de semana.
+- Nacionais: Lei 662/1949 (red. Lei 10.607/2002), Lei 6.802/1980 (12/10),
+  Lei 14.759/2023 (20/11) e Sexta-Feira da Paixão (Lei 9.093/1995, art. 2º).
+- Espírito Santo: Nossa Senhora da Penha (Lei Estadual 11.010/2019),
+  segunda-feira 8 dias após a Páscoa.
+- **Não** descontados: pontos facultativos (Carnaval, Corpus Christi,
+  23/05 no ES). Feriados municipais de Linhares: nenhum confirmado por
+  fonte oficial — pendente (22/08 citado só por agregadores).
+- Validado para 2026 e 2027 (`scripts/test-sla-holidays.mjs`).
+- Prazos já gravados (`sla_actions`, casos, outbox) **não** são
+  recalculados. O calendário vale para prazos novos e para as
+  verificações de escalonamento feitas a partir de agora
+  (`compute-escalation` soma os intervalos no momento da verificação).
+- Limitação: o cálculo SQL `sla_add_time_units` (prazos das ações
+  corretivas SSMA) ainda não desconta feriados.
 ## 16. Bug corrigido durante a implementação
 
 `audit_log_entries` exige `actor_label IS NULL` quando
