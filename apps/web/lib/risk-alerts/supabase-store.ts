@@ -22,6 +22,7 @@ import {
 } from "./collect-risk-cases";
 import type { ActiveForward, AlertCaseSnapshot } from "./alert-state-machine";
 import { isPilotTestCase } from "./pilot-test-case";
+import { INFORMATIVE_ENTITY_TYPE, INFORMATIVE_SET_ACTION, INFORMATIVE_UNSET_ACTION, resolveInformativeAreas, type InformativeAuditRow } from "./informative-areas";
 import { hashReplyToken, type InboundHeaders } from "./replies/reply-pipeline";
 import type { PersistedOutboxEntry, RiskAlertStore } from "./store";
 import type { ExpertId, IngestionAlertSeverityMap, LinkedSlaActionState, RecipientProfile, RiskCaseRecord } from "./types";
@@ -282,6 +283,16 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
             }
           : null;
 
+      // Áreas informativas (registro humano auditado em audit_log_entries; sem migration).
+      const { data: informativeRows, error: informativeError } = await client
+        .from("audit_log_entries")
+        .select("project_id,occurred_at,actor_type,actor_user_id,action,entity_type,entity_id,detail")
+        .eq("project_id", projectId)
+        .eq("entity_type", INFORMATIVE_ENTITY_TYPE)
+        .in("action", [INFORMATIVE_SET_ACTION, INFORMATIVE_UNSET_ACTION]);
+      fail("Falha ao carregar áreas informativas", informativeError);
+      const informativeAreas = Array.from(resolveInformativeAreas(projectId, (informativeRows ?? []) as unknown as InformativeAuditRow[]));
+
       return {
         projectId,
         projectName: (project?.name as string) ?? projectId,
@@ -298,6 +309,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
           : null,
         matrixRules: (rules ?? []).map((row) => mapRule(row as Row)),
         areaResponsibles: (responsibles ?? []).map((row) => mapResponsibles(row as Row)),
+        informativeAreas,
         settings: mapSettings((settings as Row | null) ?? null),
         cases: [...collectComparisonCases(comparisonRows), ...collectSheetCases(sheetRows), ...collectIngestionAlertCases(alertRows, (config?.risk_alert_severity_map as IngestionAlertSeverityMap | null) ?? null)],
         existingCases,

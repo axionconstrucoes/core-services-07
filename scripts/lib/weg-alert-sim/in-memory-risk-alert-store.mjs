@@ -53,6 +53,7 @@ export function createInMemoryRiskAlertStore(world) {
         config: world.config,
         matrixRules: world.matrixRules,
         areaResponsibles: world.areaResponsibles,
+        informativeAreas: world.informativeAreas ?? [],
         settings: world.settings ?? null,
         cases: world.sourceCases.map((c) => ({ ...c })),
         existingCases: [...state.cases.values()].filter((c) => !isPilotTestCase(c)).map((c) => ({ ...c })),
