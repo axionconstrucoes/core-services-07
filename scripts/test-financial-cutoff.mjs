@@ -184,6 +184,26 @@ await check("data de referência em Brasília (envio 01:30Z = dia anterior)", ()
   assert.equal(toBrasiliaDate("inválido"), null);
 });
 
+await check("FINANCEIRO informativo: sinais da aba nunca têm severidade CRITICAL", () => {
+  const variants = [
+    sheet(BASE),
+    sheet(BASE.map((r) => (r[0] === "09" ? ["09", 600, 0] : r))),
+    sheet(BASE.map((r) => (r[0] === "11" ? ["11", 800, 90] : r))),
+  ];
+  for (const s of variants) {
+    for (const thresholds of [T, []]) {
+      const r = analyzeFinancialSheet(s, thresholds, { ...ctx, fileName: "(W42) x.xlsx" });
+      assert.ok(r.alerts.every((a) => a.severity === "INFO" || a.severity === "WARNING"), JSON.stringify(r.alerts));
+    }
+  }
+});
+
+await check("sem limite gravado o indicador nunca sai de REVIEW_REQUIRED (nenhuma criticidade inventada)", () => {
+  for (const rows of [BASE, BASE.map((r) => (r[0] === "09" ? ["09", 600, 1] : r))]) {
+    assert.equal(analyzeFinancialSheet(sheet(rows), [], ctx).risk.classification, "REVIEW_REQUIRED");
+  }
+});
+
 const REL = (id, sha, week, at) => ({ id, emailAttachmentId: `att-${id}`, sha256: sha, workWeekLabel: week, createdAt: at });
 const RESULT = {
   status: "EXTRACTED",

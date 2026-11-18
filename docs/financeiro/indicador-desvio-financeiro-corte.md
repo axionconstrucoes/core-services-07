@@ -1,6 +1,11 @@
 # Indicador FINANCIAL_DEVIATION_PERCENT — comparação na mesma data de corte
 
 Método: `CUTOFF_CLOSED_MONTHS_V2` (`apps/web/lib/schedule/weekly-report/analyze-sheets.ts`).
+
+> **Escopo desta fase: FINANCEIRO é apenas INFORMATIVO.** O indicador corrigido existe para não exibir valores enganosos.
+> Ele **não** gera alertas, repetições, cobranças nem escalonamentos.
+> O tratamento da área FINANCEIRO como informativa no ciclo de alertas é feito em outra alteração.
+> Os sinais desta aba têm severidade apenas INFO ou WARNING. Nenhum limite é gravado.
 Este documento descreve o método. Valores reais de projeto não constam aqui (repositório público).
 Eles ficam no ACC, na auditoria do caso.
 
@@ -74,7 +79,7 @@ Sem limite aprovado para `FINANCIAL_DEVIATION_PERCENT`, o resultado mensurável 
 Leituras e casos já existentes não são alterados nem excluídos.
 As duplicatas históricas foram registradas na auditoria.
 
-## Definições necessárias antes de aprovar limites
+## Definições necessárias se o indicador deixar de ser informativo (fase futura)
 
 1. **Base de comparação aprovada.** Hoje o "PREVISTO MENSAL" da planilha é reprevisto a cada semana: em meses já encerrados, o previsto passa a ser igual ao realizado. É preciso definir qual previsto vale como base, por exemplo a curva financeira contratual aprovada e sua versão.
 2. **Data de fechamento do realizado.** O realizado de um mês encerrado continua mudando nas semanas seguintes, porque o faturamento direto do cliente é lançado depois. É preciso definir a partir de quando o mês é considerado fechado: dia de corte da medição ou número de dias após o fim do mês.
