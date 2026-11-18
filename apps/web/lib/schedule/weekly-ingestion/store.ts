@@ -339,4 +339,18 @@ export interface WeeklyReportWorkbookStore {
   /** Upsert do workbook (UNIQUE email_attachment_id) + abas (UNIQUE workbook_id, category), preservando decisões humanas. */
   saveWorkbook(candidate: WorkbookCandidateAttachment, input: WorkbookSaveInput): Promise<{ id: string }>;
   writeAudit(entry: AuditEntry): Promise<void>;
+  /**
+   * Leituras válidas ANTERIORES do mesmo projeto (outro anexo) com o mesmo
+   * SHA-256 (duplicata) ou a mesma semana (possível revisão), da mais antiga
+   * para a mais recente. Opcional: sem a porta, nada é marcado.
+   */
+  findRelatedWorkbooks?(candidate: WorkbookCandidateAttachment, sha256: string): Promise<RelatedWorkbook[]>;
+}
+
+export interface RelatedWorkbook {
+  id: string;
+  emailAttachmentId: string;
+  sha256: string;
+  workWeekLabel: string | null;
+  createdAt: string;
 }

@@ -9,7 +9,7 @@
 
 import type { MppFactsForCrossCheck } from "../s-curve/analyze-s-curve";
 import type { ScheduleRiskThreshold } from "../weekly-ingestion/types";
-import { analyzeBaselineSheet, analyzeCurvaSSheet, analyzeFinancialSheet, analyzeHistogramSheet, analyzeSsmaSheet, routeSheetToExpert, type OfficialBaselineFacts } from "./analyze-sheets";
+import { analyzeBaselineSheet, analyzeCurvaSSheet, analyzeFinancialSheet, analyzeHistogramSheet, analyzeSsmaSheet, routeSheetToExpert, type FinancialAnalysisContext, type OfficialBaselineFacts } from "./analyze-sheets";
 import { extractBaselineSheet, extractCurvaSFromBaselineGrid, extractCurvaSSheet, extractFinancialSheet, extractHistogramSheet, extractSsmaSheet } from "./extract-sheets";
 import { identifyWeeklyReportSheets } from "./identify-sheets";
 import type {
@@ -28,6 +28,8 @@ import { WEEKLY_REPORT_SHEET_CATEGORIES } from "./types";
 export interface WorkbookProcessingContext {
   fileName: string;
   workWeekLabel: string | null;
+  /** Data de referência do pacote semanal (envio do e-mail, AAAA-MM-DD) — define o corte do Financeiro. */
+  reportReferenceDate?: string | null;
   thresholds: ScheduleRiskThreshold[];
   mppFacts: MppFactsForCrossCheck | null;
   officialBaseline: OfficialBaselineFacts | null;
@@ -220,7 +222,13 @@ export function processWorkbookGrids(input: { grids: SheetGrid[]; safety: Workbo
     raw.LINHA_BASE.sheet.alerts.push(...analysis.alerts);
   }
   if (raw.FINANCEIRO) {
-    const analysis = analyzeFinancialSheet(raw.FINANCEIRO.data as Parameters<typeof analyzeFinancialSheet>[0], context.thresholds);
+    const analysis = analyzeFinancialSheet(raw.FINANCEIRO.data as Parameters<typeof analyzeFinancialSheet>[0], context.thresholds, {
+      referenceDate: context.reportReferenceDate ?? null,
+      reportWeekLabel: context.workWeekLabel,
+      fileName: context.fileName,
+      columnLetters: (raw.FINANCEIRO.sheet.locator.columns ?? null) as FinancialAnalysisContext["columnLetters"],
+    });
+    raw.FINANCEIRO.sheet.cutoffDate = raw.FINANCEIRO.sheet.cutoffDate ?? analysis.metrics.cutoffDate;
     raw.FINANCEIRO.sheet.metrics = analysis.metrics;
     raw.FINANCEIRO.sheet.riskClassification = analysis.risk.classification;
     raw.FINANCEIRO.sheet.riskReasons = analysis.risk.reasons;
