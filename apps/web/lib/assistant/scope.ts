@@ -62,7 +62,7 @@ export function isPersonalOrObsceneOutOfScope(normalized: string): boolean {
   // Menções explícitas a ocorrências de obra, assédio e SSMA precisam seguir
   // o caminho de orientação/encaminhamento, nunca ser silenciosamente recusadas.
   if (/\\b(assedio|denuncia|ocorrencia|violencia|vitima|seguranca do trabalho|ssma|esg|rdo|acidente|obra|projeto|cliente|fornecedor|colaborador|funcionario|responsavel|relato|evidencia|investigacao)\\b/.test(text)) return false;
-  const personal = /\\b(quantos anos (voce|vc|a axia) (tem|possui)|qual (e )?(a )?sua idade|qual (e )?(o )?nome (dos seus|de seus|dos teus) pais|quem (sao|e) (seus|os seus) pais|voce (tem|possui) (pais|mae|pai|filhos|marido|esposa|namorado|namorada)|voce (e|esta) (casad[ao]|solteir[ao])|onde voce mora|qual (e )?(o )?seu endereco|com quem voce mora|quantos (filhos|irmaos|anos) voce tem|voce (ja )?(namorou|beijou|transou))\\b/;
+  const personal = /\\b(quantos anos (voce|vc|a axia) (tem|possui)|qual (e )?(a )?sua idade|qual (e )?(o )?nome (dos seus|de seus|dos teus) pais|quem (sao|e) (seus|os seus) pais|voce (tem|possui) (pais|mae|pai|filhos|marido|esposa|namorado|namorada)|voce (e|esta) (casad[ao]|solteir[ao])|onde voce mora|qual (e )?(o )?seu endereco|com quem voce mora|quantos (filhos|irmaos|anos) voce tem|quantos voce tem|voce (ja )?(namorou|beijou|transou))\\b/;
   const obscene = /\\b(me (mostre|mande|envie) (nudes|pornografia|fotos intimas)|quero (sexo|pornografia|nudes)|conte (uma )?piada (sexual|obscena)|fale (sobre )?(sexo explicito|pornografia)|descreva (um )?ato sexual|me excite|mensagem erotica|conteudo pornografico)\\b/;
   return personal.test(text) || obscene.test(text);
 }
