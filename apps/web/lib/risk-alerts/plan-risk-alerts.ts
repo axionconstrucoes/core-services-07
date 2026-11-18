@@ -356,6 +356,7 @@ export function planRiskAlerts(input: PlanRiskAlertsInput): RiskAlertPlan {
           newLevel: destination.level,
           reason: result.reason,
           reasons: result.reasons,
+          deadlineAt: linked.acknowledgedAt ? (linked.completeDueAt ?? linked.respondDueAt) : linked.assumeDueAt,
         });
         plan.audit.push({
           action: "RISK_ALERT_DEADLINE_EXPIRED",

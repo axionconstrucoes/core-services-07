@@ -166,6 +166,8 @@ export interface RiskAlertStore {
   recordOutboundMessage(record: OutboundMessageRecord): Promise<void>;
   loadCorrelationIndex(projectId: string): Promise<CorrelationIndex & { seenMessageIds: Set<string> }>;
   listInboundToProcess(projectId: string): Promise<InboundMessageRow[]>;
+  /** Prazos e escalonamentos da ação SLA — para auditar recebimento × processamento de respostas. Opcional. */
+  loadReplyTimingContext?(slaActionId: string): Promise<import("./replies/reply-timing").ReplyTimingContext | null>;
   updateInboundMessage(id: string, patch: { caseId?: string | null; conversationId?: string | null; senderUserId?: string | null; bodyClean?: string; quotedText?: string; signatureText?: string; classification?: ReplyClassification | null; confidence?: number | null; correlationMethod?: ReplyCorrelationMethod; requiresHumanReview?: boolean; expertId?: string | null; expertRouting?: Record<string, unknown> | null; status: ReplyMessageStatus; statusReason?: string | null }): Promise<void>;
 
   // ---- ações / estados ----

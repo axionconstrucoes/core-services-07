@@ -2,6 +2,7 @@ import { createSupabaseAdminClient } from "@axion/db/admin";
 import { isCronRequestAuthorized } from "@/lib/cron/cron-request-auth";
 import { FakeEmailProvider } from "@/lib/email/fake-email-provider";
 import { resolveSsmaNotificationScope } from "@/lib/ssma/field-notifications/enabled";
+import { startRouteMetrics } from "@/lib/cron/route-metrics";
 import { createNotifyDeps, createProviderMailer, previewOverdueActionNotifications, sweepFieldNotifications } from "@/lib/ssma/field-notifications/server";
 
 export const runtime = "nodejs";
@@ -21,16 +22,18 @@ export async function GET(request: Request) {
   if (inFlight) return Response.json({ error: "Execução anterior em andamento." }, { status: 409 });
 
   inFlight = true;
+  const stopMetrics = startRouteMetrics();
   try {
     const dryRun = new URL(request.url).searchParams.get("dryRun") === "1";
     const admin = createSupabaseAdminClient();
     if (dryRun && scope.mode === "WEG_CORRECTIVE_ACTIONS") {
-      return Response.json({ dryRun: true, preview: await previewOverdueActionNotifications(admin, { scope }) }, { status: 200 });
+      const preview = await previewOverdueActionNotifications(admin, { scope });
+      return Response.json({ dryRun: true, preview, metrics: stopMetrics() }, { status: 200 });
     }
     const mailer = dryRun ? createProviderMailer(admin, new FakeEmailProvider()) : createProviderMailer(admin);
     const result = await sweepFieldNotifications(admin, { deps: createNotifyDeps(admin, mailer), scope });
     const failed = result.criticalRecords.failed + result.overdueActions.failed + result.replyConfirmations.failed + (result.followUp?.failed ?? 0) + (result.followUp?.uncertain ?? 0);
-    return Response.json({ dryRun, ...result }, { status: failed > 0 ? 207 : 200 });
+    return Response.json({ dryRun, ...result, metrics: stopMetrics() }, { status: failed > 0 ? 207 : 200 });
   } catch {
     return Response.json({ error: "Falha ao processar as notificações de SSMA." }, { status: 500 });
   } finally {

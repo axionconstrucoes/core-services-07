@@ -670,6 +670,19 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
       return (data?.id as string) ?? null;
     },
 
+    async loadReplyTimingContext(slaActionId) {
+      const { data: action, error } = await client.from("sla_actions").select("assume_due_at,respond_due_at,complete_due_at,acknowledged_at").eq("id", slaActionId).maybeSingle();
+      if (error || !action) return null;
+      const { data: escalations } = await client.from("sla_action_escalations").select("to_level,escalated_at").eq("action_id", slaActionId).order("escalated_at", { ascending: true });
+      return {
+        assumeDueAt: s(action.assume_due_at),
+        respondDueAt: s(action.respond_due_at),
+        completeDueAt: s(action.complete_due_at),
+        acknowledgedAt: s(action.acknowledged_at),
+        escalations: (escalations ?? []).filter((row) => row.escalated_at).map((row) => ({ toLevel: String(row.to_level), escalatedAt: String(row.escalated_at) })),
+      };
+    },
+
     async latestReadinessAudit(projectId) {
       const { data, error } = await client
         .from("audit_log_entries")

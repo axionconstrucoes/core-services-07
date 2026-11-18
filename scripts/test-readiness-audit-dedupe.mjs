@@ -2,7 +2,10 @@
 // nova linha quando o conjunto de bloqueios muda e linha READY quando os bloqueios são resolvidos.
 // Uso: node --import ./scripts/lib/block-live-ai.mjs scripts/test-readiness-audit-dedupe.mjs
 import assert from "node:assert/strict";
-import { decideReadinessAudit, readinessDetail, NOT_READY_ACTION, READY_ACTION } from "../apps/web/lib/risk-alerts/readiness-audit.ts";
+import { register } from "node:module";
+
+register("./ts-module-resolver.mjs", import.meta.url);
+const { decideReadinessAudit, readinessDetail, NOT_READY_ACTION, READY_ACTION } = await import("../apps/web/lib/risk-alerts/readiness-audit");
 
 const P = "00000000-0000-4000-8000-000000000001";
 let passed = 0;
