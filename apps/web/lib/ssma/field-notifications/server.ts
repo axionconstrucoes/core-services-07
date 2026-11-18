@@ -31,6 +31,7 @@ import {
   SSMA_REPLY_TOKEN_ISSUED,
   ssmaSeverityOf,
 } from "./replies";
+import { followUpSsmaCorrectiveActions, type SsmaFollowUpResult } from "./follow-up";
 import { ALERT_REPLY_MAILBOX_ENV, buildAlertReplyAddress } from "@/lib/email/alert-reply-address";
 import { generateReplyToken, hashReplyToken } from "@/lib/risk-alerts/replies/reply-pipeline";
 
@@ -194,6 +195,7 @@ export interface SweepResult {
   criticalRecords: { checked: number; sent: number; failed: number; noRecipient: number };
   overdueActions: { checked: number; sent: number; failed: number; noRecipient: number };
   replyConfirmations: { pending: number; sent: number; failed: number; uncertain: number };
+  followUp: SsmaFollowUpResult | null;
 }
 
 interface OverdueActionRow {
@@ -274,6 +276,7 @@ export async function sweepFieldNotifications(
     criticalRecords: { checked: 0, sent: 0, failed: 0, noRecipient: 0 },
     overdueActions: { checked: 0, sent: 0, failed: 0, noRecipient: 0 },
     replyConfirmations: { pending: 0, sent: 0, failed: 0, uncertain: 0 },
+    followUp: null,
   };
   const add = (bucket: SweepResult["criticalRecords"], summary: NotifySummary | { skipped: string }) => {
     bucket.checked += 1;
@@ -323,6 +326,8 @@ export async function sweepFieldNotifications(
     }
   }
 
+  // Continuidade (escalonamento pela Matriz + previsão vencida) — só no escopo operacional restrito.
+  if (scope.operational) result.followUp = await followUpSsmaCorrectiveActions(admin, deps.mailer, scope);
   if (scope.replyEnabled) result.replyConfirmations = await sendPendingSsmaReplyConfirmations(admin, deps.mailer, scope);
   return result;
 }

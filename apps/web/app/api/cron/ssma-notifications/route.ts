@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     }
     const mailer = dryRun ? createProviderMailer(admin, new FakeEmailProvider()) : createProviderMailer(admin);
     const result = await sweepFieldNotifications(admin, { deps: createNotifyDeps(admin, mailer), scope });
-    const failed = result.criticalRecords.failed + result.overdueActions.failed + result.replyConfirmations.failed;
+    const failed = result.criticalRecords.failed + result.overdueActions.failed + result.replyConfirmations.failed + (result.followUp?.failed ?? 0) + (result.followUp?.uncertain ?? 0);
     return Response.json({ dryRun, ...result }, { status: failed > 0 ? 207 : 200 });
   } catch {
     return Response.json({ error: "Falha ao processar as notificações de SSMA." }, { status: 500 });
