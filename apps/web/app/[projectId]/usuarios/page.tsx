@@ -96,7 +96,7 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
     })),
   ].sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
   const responsiblesByArea = new Map(areaResponsibles.map((responsible) => [responsible.area, responsible]));
-  const businessHoursConfig = resolveBusinessHoursConfig(projectSettings);
+  const businessHoursConfig = resolveBusinessHoursConfig(projectSettings, projectId);
 
   return (
     <div className="flex flex-col gap-6">

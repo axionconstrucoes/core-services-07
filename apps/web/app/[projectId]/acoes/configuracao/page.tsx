@@ -57,7 +57,7 @@ export default async function SlaConfigurationPage({ params }: { params: Promise
       })),
   ].sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
   const responsiblesByArea = new Map(areaResponsibles.map((r) => [r.area, r]));
-  const businessHoursConfig = resolveBusinessHoursConfig(projectSettings);
+  const businessHoursConfig = resolveBusinessHoursConfig(projectSettings, projectId);
   // Alertas de risco do piloto: só com ACC_WEEKLY_REPORTS_ENABLED (tabelas
   // novas); somente leitura — prazos/níveis continuam editáveis apenas na Matriz.
   const pilotRiskAlerts = isWeeklyReportsEnabled() ? await getPilotRiskAlertsView(projectId) : null;

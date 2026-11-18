@@ -6,6 +6,7 @@
 // DEFAULTS. Cada projeto deve poder alterá-los").
 
 import { DEFAULT_SLA_MATRIX } from "./default-matrix";
+import { holidayCalendarForProject } from "./holidays/calendars";
 import { AXION_DEFAULT_BUSINESS_HOURS_CONFIG, type SlaBusinessHoursConfig } from "./time-units";
 import type { SlaArea, SlaMatrixRule, SlaProjectSettings, SlaRiskLevel } from "./types";
 
@@ -152,13 +153,18 @@ export function resolveGenericMatrixRule(projectRules: SlaMatrixRule[], riskLeve
  * quando existir, senão o default institucional AXION
  * (America/Sao_Paulo, 08:00–18:00). Nunca UTC como horário comercial.
  */
-export function resolveBusinessHoursConfig(settings: SlaProjectSettings | null): SlaBusinessHoursConfig {
-  if (!settings) {
-    return AXION_DEFAULT_BUSINESS_HOURS_CONFIG;
-  }
-  return {
-    timeZone: settings.timezone,
-    businessDayStartHour: settings.businessDayStartHour,
-    businessDayEndHour: settings.businessDayEndHour,
-  };
+export function resolveBusinessHoursConfig(
+  settings: SlaProjectSettings | null,
+  projectId?: string | null
+): SlaBusinessHoursConfig {
+  // Calendário de feriados: mapeamento explícito por projeto (lib/sla/holidays/calendars.ts).
+  const holidayCalendarId = holidayCalendarForProject(projectId ?? settings?.projectId ?? null);
+  const base: SlaBusinessHoursConfig = settings
+    ? {
+        timeZone: settings.timezone,
+        businessDayStartHour: settings.businessDayStartHour,
+        businessDayEndHour: settings.businessDayEndHour,
+      }
+    : AXION_DEFAULT_BUSINESS_HOURS_CONFIG;
+  return holidayCalendarId ? { ...base, holidayCalendarId } : base;
 }
