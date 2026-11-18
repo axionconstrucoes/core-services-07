@@ -186,7 +186,8 @@ for (const mode of [undefined, "production"]) {
         assert(addrs(h.get("cc")).join() === ACC, `Cc=${addrs(h.get("cc"))}`);
         for (const f of ["bcc", "resent-to", "resent-cc", "resent-bcc"]) assert(!h.has(f), `cabeçalho ${f} presente`);
         assert(addrs(h.get("from")).join() === ACC && /ACC AXION CONTROLE DE CONTRATOS/.test(h.get("from")[0]), "From diferente da identidade institucional");
-        assert(/\[PILOTO\]/.test(guarded.subject) && guarded.text.includes("PILOTO — TESTE CONTROLADO"), "sem identificação de PILOTO");
+        // Alerta operacional (sem testMessage): sem faixa nem prefixo de teste; o roteamento do piloto continua igual.
+        assert(!/\[PILOTO\]|\[TESTE CONTROLADO\]/.test(guarded.subject) && !guarded.text.includes("PILOTO — TESTE CONTROLADO"), "faixa de teste em alerta operacional");
         assert(!/externo|weg\.net|fornecedor/i.test(mime.split(/\r?\n\r?\n/, 1)[0]), "endereço externo vazou para os cabeçalhos");
         assert(!mime.toLowerCase().includes(BOX), "axion@ apareceu no MIME");
         assert(result.to === participant && JSON.stringify(result.cc) === JSON.stringify([ACC]) && result.from === ACC, JSON.stringify(result));

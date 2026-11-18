@@ -9,6 +9,7 @@
 // Condições para envio REAL: ver pilot-readiness.ts — qualquer bloqueio
 // mantém as entradas SUPPRESSED com o motivo. dryRun: nenhuma escrita.
 
+import { applyPilotLevelOverride, levelLabelFor, levelNoteFor } from "./pilot-level-overrides";
 import "server-only";
 
 import { createSupabaseAdminClient } from "@axion/db/admin";
@@ -27,7 +28,6 @@ import { getEmailProvider } from "@/lib/email/get-email-provider";
 import { resolveEmailProviderName } from "@/lib/email/gmail-auth";
 import { issueEmailAlertActionButtons } from "@/lib/email-actions/issue-tokens";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
-import { slaEscalationLevelLabels } from "@/lib/labels";
 import { resolveMatrixPolicy, type MatrixPolicy } from "@/lib/sla/resolve-matrix-policy";
 import type { SlaArea, SlaEscalationLevel, SlaRiskLevel } from "@/lib/sla/types";
 
@@ -174,8 +174,13 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     });
     const planConfig = dryRunEffectiveConfig(snapshot.config, assumeEnabled);
     const timeZone = snapshot.settings?.timezone ?? DEFAULT_PROJECT_TIMEZONE;
+    // Exceção temporária do piloto por nível (ex.: Nível 2 do Planejamento) aplicada em memória — a Matriz não muda.
     const policyFor = (area: SlaArea, riskLevel: SlaRiskLevel) =>
-      resolveMatrixPolicy({ rules: snapshot.matrixRules, responsibles: snapshot.areaResponsibles, settings: snapshot.settings, area, riskLevel });
+      applyPilotLevelOverride(
+        resolveMatrixPolicy({ rules: snapshot.matrixRules, responsibles: snapshot.areaResponsibles, settings: snapshot.settings, area, riskLevel }),
+        snapshot.pilotLevelOverrides,
+        snapshot.config?.pilotRecipientAllowlistUserIds ?? null
+      );
 
     // Áreas informativas não entram na prontidão (a Matriz delas não bloqueia as demais); as outras mantêm todas as validações.
     const informativeAreas = new Set<SlaArea>(snapshot.informativeAreas ?? []);
@@ -489,7 +494,8 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
       references: conversation?.rootMessageIdHeader ? [conversation.rootMessageIdHeader] : undefined,
       correlationId: crypto.randomUUID(),
       vera: { projectId: ctx.projectId, context: "alerta" },
-      pilot: { projectId: ctx.projectId, participantLabel: `usuário ${recipientUserId.slice(0, 8)}`, escalationLevel: escalationLevel ?? notificationType },
+      // Faixa/prefixo de TESTE só no envio único armado (chave PILOT_SINGLE); alertas operacionais saem sem faixa de teste.
+      pilot: { projectId: ctx.projectId, participantLabel: `usuário ${recipientUserId.slice(0, 8)}`, escalationLevel: escalationLevel ?? notificationType, testMessage: idempotencyKey.includes(":PILOT_SINGLE:") },
     });
     const emailId = await ctx.store.recordEmail(ctx.projectId, { from: sent.from, to: delivery.deliveryEmail, subject: built.subject, sentAt: sent.sentAt, snippet: built.text });
     await ctx.store.markSent(outboxId, { recipientEmail: delivery.deliveryEmail, provider: sent.provider, providerMessageId: sent.providerMessageId, emailId, sentAt: sent.sentAt, messageIdHeader: sent.messageIdHeader, conversationId: conversation?.id ?? null });
@@ -677,8 +683,9 @@ async function sendPendingRow(row: PendingOutboxRow, ctx: SendContext): Promise<
       recommendation: record.recommendation,
       originPath: record.originPath || "documentos?tab=registro-email",
       slaActionId: record.slaActionId,
-      levelLabel: slaEscalationLevelLabels[level],
-      previousLevelLabel: row.payloadSummary.fromLevel ? slaEscalationLevelLabels[row.payloadSummary.fromLevel as SlaEscalationLevel] : null,
+      levelLabel: levelLabelFor(level, policy),
+      levelNote: levelNoteFor(level, policy, record.area),
+      previousLevelLabel: row.payloadSummary.fromLevel ? levelLabelFor(row.payloadSummary.fromLevel as SlaEscalationLevel, policy) : null,
       responsibleName: nameOf(record.currentResponsibleUserId),
       deadlineLabel: "Escalonado em",
       deadlineAt: ctx.nowIso,

@@ -134,7 +134,7 @@ const image = { cid: vera.VERA_EMAIL_IMAGE_CID, filename: "ajuda-acc-email.png",
 const baseInput = { to: "a@axion.com.br", subject: "S", text: "Corpo", html: "<html><body style=\"x\"><p>Conteúdo</p></body></html>", correlationId: "c1" };
 
 await check("cabeçalho: foto circular + 'Fale com a AXIA' à direita, link, alt legível; conteúdo preservado", () => {
-  const out = vera.applyVeraEmailHeader({ ...baseInput, vera: { projectId: PROJECT, context: "alerta" } }, { baseUrl: BASE, loadImage: () => image });
+  const out = vera.applyVeraEmailHeader({ ...baseInput, vera: { projectId: PROJECT, context: "alerta" } }, { baseUrl: BASE, loadImage: () => image, axiaAvailable: true });
   ok(out.html.includes('align="right"') && out.html.includes("Fale com a AXIA") && out.html.includes(`cid:${image.cid}`), "cabeçalho incompleto");
   ok(out.html.includes("border-radius:20px") && out.html.includes('alt="AXIA — Assistente ACC"'), "foto circular/alt");
   ok(out.html.includes(`href="${BASE}/${PROJECT}/ajuda?vera=abrir&amp;contexto=alerta"`), "link");
@@ -146,33 +146,49 @@ await check("cabeçalho: foto circular + 'Fale com a AXIA' à direita, link, alt
 });
 
 await check("cabeçalho: sem imagem disponível, o texto-link continua (alternativa legível)", () => {
-  const out = vera.applyVeraEmailHeader(baseInput, { baseUrl: BASE, loadImage: () => null });
+  const out = vera.applyVeraEmailHeader(baseInput, { baseUrl: BASE, loadImage: () => null, axiaAvailable: true });
   ok(out.html.includes("Fale com a AXIA") && !out.html.includes("cid:"), "sem imagem: texto deve permanecer");
   eq(out.inlineImages, undefined, "sem anexo");
 });
 
 await check("cabeçalho: idempotente, não duplica a imagem e não age sem URL base", () => {
-  const once = vera.applyVeraEmailHeader(baseInput, { baseUrl: BASE, loadImage: () => image });
-  const twice = vera.applyVeraEmailHeader(once, { baseUrl: BASE, loadImage: () => image });
+  const once = vera.applyVeraEmailHeader(baseInput, { baseUrl: BASE, loadImage: () => image, axiaAvailable: true });
+  const twice = vera.applyVeraEmailHeader(once, { baseUrl: BASE, loadImage: () => image, axiaAvailable: true });
   eq(twice.html, once.html, "idempotência");
-  const withLogo = vera.applyVeraEmailHeader({ ...baseInput, inlineImages: [image] }, { baseUrl: BASE, loadImage: () => image });
+  const withLogo = vera.applyVeraEmailHeader({ ...baseInput, inlineImages: [image] }, { baseUrl: BASE, loadImage: () => image, axiaAvailable: true });
   eq(withLogo.inlineImages.length, 1, "imagem duplicada");
-  eq(vera.applyVeraEmailHeader(baseInput, { baseUrl: "" }), baseInput, "sem base: igual");
-  eq(vera.applyVeraEmailHeader(baseInput, { baseUrl: "javascript:alert(1)" }), baseInput, "base inválida");
+  eq(vera.applyVeraEmailHeader(baseInput, { baseUrl: "", axiaAvailable: true }), baseInput, "sem base: igual");
+  eq(vera.applyVeraEmailHeader(baseInput, { baseUrl: "javascript:alert(1)", axiaAvailable: true }), baseInput, "base inválida");
 });
 
 await check("e-mail só em texto e HTML sem <body> também recebem a AXIA", () => {
-  const textOnly = vera.applyVeraEmailHeader({ to: "a@axion.com.br", subject: "S", text: "Corpo", correlationId: "c" }, { baseUrl: BASE, loadImage: () => image });
+  const textOnly = vera.applyVeraEmailHeader({ to: "a@axion.com.br", subject: "S", text: "Corpo", correlationId: "c" }, { baseUrl: BASE, loadImage: () => image, axiaAvailable: true });
   ok(textOnly.text.startsWith("Fale com a AXIA") && textOnly.html === undefined, "texto simples");
-  const noBody = vera.applyVeraEmailHeader({ ...baseInput, html: "<table><tr><td>X</td></tr></table>" }, { baseUrl: BASE, loadImage: () => image });
+  const noBody = vera.applyVeraEmailHeader({ ...baseInput, html: "<table><tr><td>X</td></tr></table>" }, { baseUrl: BASE, loadImage: () => image, axiaAvailable: true });
   ok(noBody.html.startsWith("<table role=\"presentation\"") && noBody.html.endsWith("</table>"), "sem body");
+});
+
+await check("AXIA desligada (AXIA_CHAT_PROVIDER=off/ausente/inválida): nenhum e-mail apresenta o acesso à AXIA", () => {
+  for (const env of [{}, { AXIA_CHAT_PROVIDER: "off" }, { AXIA_CHAT_PROVIDER: "xyz" }, { AXIA_CHAT_PROVIDER: "anthropic" }]) ok(vera.isAxiaEmailAccessAvailable(env) === false, JSON.stringify(env));
+  ok(vera.isAxiaEmailAccessAvailable({ AXIA_CHAT_PROVIDER: "simulated" }) === true, "simulated fora da Vercel conta como ligada");
+  eq(vera.applyVeraEmailHeader(baseInput, { baseUrl: BASE, loadImage: () => image, axiaAvailable: false }), baseInput, "desligada: e-mail intocado");
+  const prev = process.env.AXIA_CHAT_PROVIDER;
+  process.env.AXIA_CHAT_PROVIDER = "off";
+  try {
+    eq(vera.applyVeraEmailHeader(baseInput, { baseUrl: BASE, loadImage: () => image }), baseInput, "padrão do ambiente desligado: intocado");
+  } finally {
+    if (prev === undefined) delete process.env.AXIA_CHAT_PROVIDER;
+    else process.env.AXIA_CHAT_PROVIDER = prev;
+  }
 });
 
 await check("pelo provider (guarda do piloto + AXIA): o destino continua redirecionado e o cabeçalho entra", async () => {
   const previous = process.env.AXION_APP_BASE_URL;
   const previousRecipient = process.env.ACC_PILOT_RECIPIENT;
+  const previousAxia = process.env.AXIA_CHAT_PROVIDER;
   process.env.AXION_APP_BASE_URL = BASE;
   process.env.ACC_PILOT_RECIPIENT = "crm@axion.com.br";
+  process.env.AXIA_CHAT_PROVIDER = "simulated";
   try {
     let seen = null;
     const provider = new FakeEmailProvider({ onGuardedInput: (input) => (seen = input) });
@@ -181,6 +197,8 @@ await check("pelo provider (guarda do piloto + AXIA): o destino continua redirec
     eq(seen.to, "crm@axion.com.br", "destino redirecionado à caixa de teste");
     ok(seen.subject.startsWith("[TESTE CONTROLADO]") || process.env.ACC_OUTBOUND_MODE === "production", "guarda do piloto alterada");
   } finally {
+    if (previousAxia === undefined) delete process.env.AXIA_CHAT_PROVIDER;
+    else process.env.AXIA_CHAT_PROVIDER = previousAxia;
     if (previous === undefined) delete process.env.AXION_APP_BASE_URL;
     else process.env.AXION_APP_BASE_URL = previous;
     if (previousRecipient === undefined) delete process.env.ACC_PILOT_RECIPIENT;

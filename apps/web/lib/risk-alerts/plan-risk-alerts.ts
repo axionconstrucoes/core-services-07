@@ -19,6 +19,7 @@
 //   - Idempotência: chave por evento × estado × nível × destinatário × janela.
 
 import { slaEscalationLevelLabels } from "@/lib/labels";
+import { levelLabelFor, levelNoteFor } from "./pilot-level-overrides";
 import { computeEscalation } from "@/lib/sla/compute-escalation";
 import { resolveEscalationDestination } from "@/lib/sla/resolve-escalation-destination";
 import { computePolicyDeadlines, matrixPolicySnapshot, type MatrixPolicy } from "@/lib/sla/resolve-matrix-policy";
@@ -376,8 +377,9 @@ export function planRiskAlerts(input: PlanRiskAlertsInput): RiskAlertPlan {
               recommendation: caseInput.recommendation,
               originPath: caseInput.originPath,
               slaActionId: linked.id,
-              levelLabel: slaEscalationLevelLabels[destination.level],
-              previousLevelLabel: slaEscalationLevelLabels[linked.currentEscalationLevel],
+              levelLabel: levelLabelFor(destination.level, policy),
+              levelNote: levelNoteFor(destination.level, policy, caseInput.area),
+              previousLevelLabel: levelLabelFor(linked.currentEscalationLevel, policy),
               responsibleName: input.recipients.get(linked.responsibleUserId ?? "")?.name ?? null,
               deadlineLabel: "Prazo vencido",
               deadlineAt: linked.acknowledgedAt ? (linked.completeDueAt ?? linked.respondDueAt) : linked.assumeDueAt,
@@ -456,7 +458,8 @@ export function planRiskAlerts(input: PlanRiskAlertsInput): RiskAlertPlan {
               recommendation: caseInput.recommendation,
               originPath: caseInput.originPath,
               slaActionId: linked.id,
-              levelLabel: slaEscalationLevelLabels[isResponsible ? "RESPONSAVEL" : gap.role],
+              levelLabel: levelLabelFor(isResponsible ? "RESPONSAVEL" : gap.role, policy),
+              levelNote: isResponsible ? null : levelNoteFor(gap.role, policy, caseInput.area),
               previousLevelLabel: null,
               reissue: {
                 approvedAt: approval.approvedAt,

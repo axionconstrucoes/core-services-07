@@ -59,8 +59,12 @@ export interface PilotMessageContext {
   escalationLevel?: string | null;
   /** Remetente SOLICITADO (identidade autenticada). Ausente => identidade institucional do ACC. Validado e resolvido pelo perfil do piloto; nunca livre. */
   senderEmail?: string | null;
-  /** Mensagem OPERACIONAL do piloto: mantém To/Cc/From/Reply-To travados, mas sem a faixa e a etiqueta de teste. */
-  operational?: boolean;
+  /**
+   * true SOMENTE no envio único de TESTE armado (chave PILOT_SINGLE). Só então a mensagem ganha a faixa
+   * "PILOTO — TESTE CONTROLADO" e o prefixo [PILOTO] no assunto. Alertas operacionais reais saem sem faixa de teste
+   * (o roteamento, a cópia crm@ e os bloqueios do piloto continuam valendo igualmente).
+   */
+  testMessage?: boolean;
 }
 
 // Dica de contexto do botão "Fale com a AXIA" que o provider acrescenta ao cabeçalho do e-mail (ver

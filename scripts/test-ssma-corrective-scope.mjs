@@ -104,7 +104,7 @@ await check("perfil do piloto: mensagem operacional mantém To/Cc/Reply-To e nã
   assert.equal(routed.input.subject, "[RISCO ALTO] ACC - aviso");
   assert.equal(routed.input.text, "corpo");
   assert.equal(routed.input.replyTo, `crm+alerta-${TOKEN}@axion.com.br`);
-  const test = applyProjectPilotProfile({ to: "carlos.evandro@axion.com.br", subject: "x", text: "y", correlationId: "c", pilot: { projectId: WEG_PROJECT_ID } }, pilotEnv);
+  const test = applyProjectPilotProfile({ to: "carlos.evandro@axion.com.br", subject: "x", text: "y", correlationId: "c", pilot: { projectId: WEG_PROJECT_ID, testMessage: true } }, pilotEnv);
   assert.match(test.input.text, /TESTE CONTROLADO/);
   assert.throws(() => applyProjectPilotProfile({ to: "axion@axion.com.br", subject: "x", text: "y", correlationId: "c", pilot: { projectId: WEG_PROJECT_ID, operational: true } }, pilotEnv));
   assert.throws(() => applyProjectPilotProfile({ to: "outro@axion.com.br", subject: "x", text: "y", correlationId: "c", pilot: { projectId: WEG_PROJECT_ID, operational: true } }, pilotEnv));

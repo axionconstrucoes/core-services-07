@@ -192,6 +192,8 @@ export interface ImmediateAlertContent {
     note: string;
     priorCommunications: Array<{ at: string; outcome: "SUPPRESSED" | "ACCEPTED_ELSEWHERE"; reason: string | null; levelLabel: string; recipientName: string | null }>;
   };
+  /** Observação do nível (ex.: substituição temporária do piloto; o titular definitivo continua na Matriz). */
+  levelNote?: string | null;
 }
 
 export interface DigestItem {

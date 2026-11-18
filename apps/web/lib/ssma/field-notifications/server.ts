@@ -104,7 +104,7 @@ export function createProviderMailer(admin: Admin, provider: EmailProvider = get
           inlineImages: inlineLogo ? [inlineLogo] : undefined, correlationId,
           // Mensagem operacional: sem o atalho da AXIA (serviço não habilitado) e sem faixa de teste; travas do piloto mantidas.
           ...(content.operational
-            ? { pilot: { projectId, operational: true, participantLabel: content.participantLabel ?? null, escalationLevel: "Responsável" } }
+            ? { pilot: { projectId, participantLabel: content.participantLabel ?? null, escalationLevel: "Responsável" } }
             : { vera: { projectId, context: "ssma" as const } }),
           ...(replyTo && content.reply ? { replyTo, replyToContext: { kind: "SSMA_CORRECTIVE_ACTION" as const, actionId: content.reply.actionId, recordId: content.reply.recordId } } : {}),
           ...(content.thread?.inReplyTo ? { inReplyTo: content.thread.inReplyTo, references: content.thread.references } : {}),
