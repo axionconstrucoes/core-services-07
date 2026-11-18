@@ -38,6 +38,11 @@ export function assessOperationalEmailIntent(cleanText: string): EmailIntentAsse
   if (forecast) detected.push("FORECAST_UPDATE");
   if (status) detected.push("STATUS");
 
+  // Andamento e nova previsão podem coexistir no mesmo e-mail.
+  // Essa combinação continua no fluxo existente de status/previsão.
+  if (detected.length === 2 && detected.includes("STATUS") && detected.includes("FORECAST_UPDATE")) {
+    return { intent: "FORECAST_UPDATE", requiresReview: false, reason: "Status e previsão atualizada" };
+  }
   // Várias ações podem coexistir na resposta. Não presumir uma ação destrutiva
   // nem perder informação: revisão por pessoa autorizada.
   if (detected.length > 1) {
