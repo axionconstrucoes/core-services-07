@@ -22,10 +22,6 @@ const requested: Record<OfficialExpertId, readonly ExpertSkillAssociation[]> = {
     id: "planejamento-obras", label: "/planejamento-obras",
     purpose: "Cronograma, caminho crítico, curva S, controle de avanço e custo, Last Planner e análise de atrasos",
     state: "PENDING_INSTALLATION", source: "USER_SELECTED",
-  }, {
-    id: "engenharia-industrial-logistica", label: "/engenharia-industrial-logistica",
-    purpose: "Galpões, centros de distribuição, fábricas e built-to-suit: estrutura, piso, cobertura, incêndio, instalações e normas ABNT",
-    state: "PENDING_INSTALLATION", source: "USER_SELECTED",
   }],
   "esg-director": [{
     id: "ssma-esg-construcao", label: "/ssma-esg-construcao",
@@ -42,6 +38,16 @@ const requested: Record<OfficialExpertId, readonly ExpertSkillAssociation[]> = {
     purpose: "Decisões executivas: carteira de obras, margem, caixa, risco e estratégia",
     state: "PENDING_INSTALLATION", source: "USER_SELECTED",
   }],
+};
+
+// Engenharia ainda não possui Expert oficial próprio no catálogo de cinco Experts;
+ // manter separada para não prometer que o Diretor de Planejamento executa engenharia.
+export const ENGINEERING_SKILL_REQUEST: ExpertSkillAssociation = {
+  id: "engenharia-industrial-logistica",
+  label: "/engenharia-industrial-logistica",
+  purpose: "Galpões, centros de distribuição, fábricas e built-to-suit: estrutura, piso, cobertura, incêndio, instalações e normas ABNT",
+  state: "PENDING_INSTALLATION",
+  source: "USER_SELECTED",
 };
 
 export const SKILL_DISCOVERY_TOOL = {
