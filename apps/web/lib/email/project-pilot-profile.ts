@@ -1,7 +1,7 @@
 // Perfil de e-mail do PROJETO PILOTO (WEG) — puro, sem I/O, sem "server-only" (testável por script Node e usado pelos dois providers).
 //
 // MODELO DE ENTREGA DIRETA COM CÓPIA INSTITUCIONAL (substitui o modelo anterior de destino único):
-//   - Participantes autorizados: Reynaldo, Jaime e Carlos Evandro (lista FIXA no código; endereços conferidos nos perfis do ACC).
+//   - Participantes autorizados: Reynaldo, Jaime, Carlos Evandro e Carla (lista FIXA no código; acesso operacional condicionado aos vínculos/permissões do ACC).
 //   - Destinatário principal (To): o PRÓPRIO colaborador a quem o alerta se destina — o usuário lógico do alerta é também o destinatário físico.
 //   - Cópia obrigatória (Cc): crm@axion.com.br em TODA mensagem do piloto, inclusive quando o remetente é o próprio ACC.
 //   - Remetente: crm@axion.com.br (identidade institucional) ou um participante AUTORIZADO e AUTENTICADO. Nunca outra identidade; sem
@@ -35,7 +35,7 @@ export const PILOT_PARTICIPANT_ADDRESSES = [
   "reynaldo@axion.com.br",
   "jaime.ramos@axion.com.br",
   "carlos.evandro@axion.com.br",
-
+  "carla@axion.com.br",
 ] as const;
 
 /** Endereços PROIBIDOS no roteamento do piloto (To, Cc, Reply-To, destinatários de resposta). */
