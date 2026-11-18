@@ -73,12 +73,22 @@ duplicatas são absorvidas pelos grupos de concorrência
 | Comparação: só GitHub a cada 10 min | 10 min | até ~T+73 / ~T+133 | — |
 | Situação atual (`schedule` do GitHub) | — | 10–25 h observados | incompatível |
 
-**Atenção às respostas.** Uma resposta por e-mail recebida pouco antes de T+61
-pode ser lida só depois do escalonamento: resposta em T+55 pode ser processada
-até ~T+67,5. Os **botões de ação do e-mail** gravam na hora, pela aplicação, e
-não têm esse atraso. Para responder por e-mail com garantia antes do prazo seria
-preciso levar a leitura de respostas para uma rota Vercel chamada a cada
-2–5 min. Isso fica fora deste PR e é uma decisão.
+**Respostas × escalonamento (PR #227, mesclado em main, commit 6b33462, em produção no deployment `dpl_FjuniCLazYFKFXqkSUrJEVBFEuhY`).**
+A leitura periódica (≤ ~12,5 min) não pode transformar resposta recebida em ausência de resposta:
+- **(a) Recebimento confiável:** a hora usada é o `internalDate` do Gmail, separada da hora de processamento. `RISK_ALERT_REPLY_RECEIVED` registra as duas.
+- **(b) Verificação antes de escalonar:** o ciclo consulta a caixa monitorada pontualmente, só leitura, pelo Reply-To opaco (comparando o hash do token) e pela thread do alerta.
+  - Se há resposta do caso recebida até o prazo e ainda não processada, o escalonamento **fica retido** nesta rodada: sem e-mail, com `RISK_ALERT_ESCALATION_HELD_PENDING_REPLY`.
+  - A retenção dura no máximo 30 min após o prazo. Passado isso, segue com `RISK_ALERT_ESCALATION_REPLY_PENDING_PROCESSING`.
+- **Credencial: a rota Vercel hoje NÃO tem a leitura da caixa monitorada.** As variáveis `ACC_RISK_ALERTS_INBOUND_*` (gmail.readonly da crm@) existem só nos segredos do GitHub. Enquanto não forem gravadas na Vercel, toda verificação resulta em "não verificado" (item e). Gravá-las é uma decisão.
+- **(c) Correção:** se o escalonamento já ocorreu e a resposta tinha sido recebida antes dele, grava-se `RISK_ALERT_ESCALATION_REPLY_CORRECTION` ("não houve ausência de resposta"), sem apagar histórico.
+- **(d) Resposta incompleta:** o recebimento é registrado, e a falta de previsão vira `RISK_ALERT_REPLY_FORECAST_PENDING`, em registro separado.
+- **(e) Caixa indisponível** (sem credencial, conta errada, erro do Gmail): o escalonamento segue com `RISK_ALERT_REPLIES_NOT_VERIFIED` ("NÃO significa que o responsável não respondeu").
+- **Cenário testado** (`scripts/test-reply-before-escalation.mjs`): resposta recebida em T+59, ciclo em T+61 e processamento em T+65.
+  - Em T+61, com verificação disponível, o escalonamento fica retido.
+  - Em T+61, sem verificação, segue marcado como "não verificado".
+  - Em T+65, o processamento registra o recebimento em T+59 e a correção do escalonamento de T+61.
+- **SSMA:** o escalonamento SSMA (#226) ainda **não** chama a verificação. A função `checkRepliesBeforeEscalation` está pronta para isso, mas falta a correlação própria das respostas SSMA. Pendência registrada.
+- Os botões de ação do e-mail gravam na hora e não dependem da leitura.
 
 **Pré-requisito da Matriz.** Há duas regras CRITICAL ativas:
 - regra A: Gestor em 1 h, Diretoria em 2 h;
@@ -222,15 +232,25 @@ select cron.schedule('acc-ssma-notifications','3-59/5 * * * *',$$select public.a
   - simultaneidade: ≤ 3 jobs, contra o limite de 20.
 - **Vercel** (plano atual indicado como Hobby: 1 milhão de invocações, 4 h de
   Active CPU e 360 GB-h por mês):
-  - riscos a cada 2 min = 21.600 invocações por mês;
-    - a **7–8 s** (dry-run medido) e 2 GB: ≈ **96 GB-h/mês**;
-    - a 15 s: ≈ 180 GB-h;
-  - SSMA a cada 5 min = 8.640 por mês; a ~5 s (não medido): ≈ 24 GB-h;
-  - **o maior risco é o Active CPU:** 4 h divididas por ~30 mil invocações dão
-    ≤ ~0,48 s de CPU por chamada. O CPU real da rota não foi medido; medir antes
-    de instalar;
-  - se exceder, o Hobby bloqueia o recurso por 30 dias. Alternativas: cadência de
-    5 min para riscos (precisão de T+61 em ±5 min) ou Pro (US$ 20/mês por membro).
+  - **Medição real** (18/11, produção `dpl_FjuniCLazYFKFXqkSUrJEVBFEuhY`; campo `metrics` da resposta, `process.cpuUsage`):
+
+    | Rota | Execuções | CPU (ms) | Tempo de parede (ms) |
+    |---|---|---|---|
+    | `/api/cron/risk-alerts?dryRun=1` (WEG) | 3 (runs 44301308932, 44301498170, 44301661778) | 147 / 366 / 482 | 4.896 / 4.920 / 6.684 |
+    | `/api/cron/ssma-notifications?dryRun=1` | 2 (runs 44301330405, 44301681716) | 53 / 50 | 2.380 / 3.909 |
+
+    - O Hobby não dá acesso às métricas de CPU da Vercel (Observability Plus: HTTP 402) e guarda só 1 h de logs. Por isso a medição foi feita pela própria rota.
+    - `process.cpuUsage` mede o processo inteiro, então o valor é um **teto** por chamada.
+    - O dry-run planeja tudo, mas **não envia**. O ciclo real com envios ainda não foi medido, porque a WEG está desligada.
+  - **Projeção mensal com a cadência proposta:**
+    - riscos a cada 2 min (21.600 chamadas): **0,9–2,9 h de CPU** (147–482 ms) e **~59–80 GB-h**;
+    - SSMA a cada 5 min (8.640 chamadas): **~0,12 h de CPU** e **~11–19 GB-h**;
+    - **total do agendador: ~1,0–3,0 h de CPU, contra 4 h incluídas no Hobby**, sem contar o uso normal da aplicação (não mensurável no Hobby) nem o envio real.
+  - **Conclusão.** Pela medição, a cadência de 2 min **cabe** no Hobby, mas com folga de apenas ~1–3 h para todo o resto da aplicação. Se o limite for excedido, o Hobby suspende o recurso por 30 dias (https://vercel.com/docs/plans/hobby), o que derrubaria a aplicação.
+  - **Decisão, sem alterar intervalos nem SLA:**
+    - (A) manter o Hobby e monitorar a CPU pela resposta das rotas, aceitando o risco de suspensão;
+    - (B) Pro a US$ 20/mês por membro, que troca o limite fixo por cobrança por uso (Active CPU a partir de US$ 0,128/h) e libera as métricas da Vercel e 1 dia de logs.
+  - **Recomendação: (B)**, porque o pior caso medido (2,9 h) já consome ~73% do Hobby só com o agendador.
 - **Supabase (Pro atual):**
   - pg_cron + pg_net sem cobrança separada documentada;
   - ~2.700 execuções de job por dia, mantidas por 7 dias pela limpeza;
@@ -277,6 +297,9 @@ não passa pelo GitHub.
 6. O `schedule` do GitHub continua como hoje durante e depois da reversão. A deduplicação de auditoria (§5) independe do agendador e pode permanecer.
 
 ## 13. Decisões necessárias
+
+0. Gravar na Vercel as variáveis de leitura da caixa monitorada (`ACC_RISK_ALERTS_INBOUND_*`, gmail.readonly da crm@), para a verificação de respostas antes de escalonar funcionar. Sem elas, a verificação fica "não verificado".
+0. Escolher o plano da Vercel: (A) Hobby com monitoramento ou (B) Pro, recomendado (§9).
 
 1. Aprovar a migration e a instalação. Hoje não estão autorizadas.
 2. Criar o PAT e gravar os segredos.
