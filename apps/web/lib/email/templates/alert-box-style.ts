@@ -247,17 +247,12 @@ export function buildActionsPanelHtml(innerHtml: string, consultAiHref?: string 
 }
 
 /**
- * CSS responsivo comum aos e-mails de alerta (individual e lote). No celular a coluna de ações vai para
- * BAIXO do conteúdo (nunca o cobre) e o CONSULTAR IA fica AO LADO dos três botões, com áreas de toque
- * de 44px (inline-block, sem flex/grid). Sem suporte a <style> no cliente, vale o layout vertical padrão.
+ * CSS responsivo comum aos e-mails de alerta (individual, lote, risco e consolidado). No celular a coluna de ações vai
+ * para BAIXO do conteúdo (nunca o cobre) e os quatro botões ficam empilhados, centralizados, com áreas de toque de 44px
+ * (sem flex/grid). Sem suporte a <style> no cliente, vale o layout vertical padrão.
  */
 export const ALERT_MOBILE_CSS = `
     .acc-actions-panel { width:100% !important; }
-    .acc-consult-wrap, .acc-buttons-wrap { display:inline-block !important; vertical-align:middle !important; box-sizing:border-box !important; margin:0 !important; }
-    .acc-consult-wrap { width:43% !important; padding:0 4px !important; }
-    .acc-buttons-wrap { width:55% !important; padding:0 4px !important; }
-    .acc-consult-ai { width:100% !important; max-width:138px !important; }
-    .acc-consult-ai td { height:48px !important; width:auto !important; }
-    .acc-consult-ai a { height:44px !important; line-height:44px !important; width:auto !important; font-size:12px !important; }
+    .acc-buttons-wrap { display:block !important; width:100% !important; margin:0 !important; }
     .acc-compact-btn td { height:44px !important; }
-    .acc-compact-btn a { height:44px !important; line-height:44px !important; }`;
+    .acc-compact-btn a, .acc-compact-btn span { height:44px !important; line-height:44px !important; }`;
