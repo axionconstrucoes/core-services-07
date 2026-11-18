@@ -1,7 +1,7 @@
 import { createSupabaseAdminClient } from "@axion/db/admin";
 import { createSupabaseServerClient } from "@axion/db/server";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
-import { NOTIFICATIONS_DISABLED, ssmaNotificationsEnabled } from "@/lib/ssma/field-notifications/enabled";
+import { NOTIFICATIONS_DISABLED, resolveSsmaNotificationScope, scopeAllowsProject, ssmaNotificationsEnabled } from "@/lib/ssma/field-notifications/enabled";
 import { notifyCriticalRecord } from "@/lib/ssma/field-notifications/server";
 
 // Aviso por e-mail de registro CRÍTICO de campo. Chamado pelo app logo depois que o registro chega ao servidor.
@@ -15,6 +15,9 @@ export async function POST(request: Request) {
   if (!authData.user) return Response.json({ error: "Sessão expirada." }, { status: 401 });
 
   if (!ssmaNotificationsEnabled()) return Response.json({ skipped: NOTIFICATIONS_DISABLED, notificationsEnabled: false }, { status: 200 });
+  // Escopo restrito (ex.: só ações corretivas da WEG): o aviso imediato de registro CRÍTICO fica desligado.
+  const scope = resolveSsmaNotificationScope();
+  if (!scope.criticalRecords) return Response.json({ skipped: NOTIFICATIONS_DISABLED, notificationsEnabled: false }, { status: 200 });
 
   let recordId = "";
   try {
@@ -27,6 +30,8 @@ export async function POST(request: Request) {
   const admin = createSupabaseAdminClient();
   const { data: record } = await admin.from("ssma_field_records").select("id,project_id,reported_by_user_id,risk_level").eq("id", recordId).maybeSingle();
   if (!record) return Response.json({ error: "Registro não encontrado." }, { status: 404 });
+
+  if (!scopeAllowsProject(scope, record.project_id as string)) return Response.json({ skipped: NOTIFICATIONS_DISABLED, notificationsEnabled: false }, { status: 200 });
 
   const permission = await getCurrentProjectPermission(record.project_id as string);
   if (permission === null || (record.reported_by_user_id !== authData.user.id && permission !== "ADMINISTRADOR")) {
