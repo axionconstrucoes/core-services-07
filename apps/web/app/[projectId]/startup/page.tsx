@@ -100,9 +100,9 @@ export default async function StartupPage({ params }: { params: Promise<{ projec
 
       <NewProjectStartupChecklist projectId={projectId} />
 
-      <StartupConfigForm projectId={projectId} config={summary.config} />
+      <div id="configuracao" className="scroll-mt-6"><StartupConfigForm projectId={projectId} config={summary.config} /></div>
 
-      <div className="flex flex-col gap-3">
+      <div id="historico" className="flex scroll-mt-6 flex-col gap-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="flex items-center gap-1.5 text-sm font-semibold">
             Findings históricos ALTO/CRÍTICO
@@ -119,7 +119,7 @@ export default async function StartupPage({ params }: { params: Promise<{ projec
         )}
       </div>
 
-      {summary.status !== "COMPLETED" ? <CompleteStartupButton projectId={projectId} canComplete={canComplete} pendingCount={pendingCount} /> : null}
+      <div id="conclusao" className="scroll-mt-6">{summary.status !== "COMPLETED" ? <CompleteStartupButton projectId={projectId} canComplete={canComplete} pendingCount={pendingCount} /> : <p className="text-sm text-muted-foreground">Start-up formalmente concluído.</p>}</div>
     </div>
   );
 }
