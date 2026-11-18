@@ -1,0 +1,61 @@
+# Promocao MANUAL do conteudo ja armazenado do Construmanager (obra WEG)
+# ao pipeline documental existente (documents/document_versions).
+#
+# Somente workflow_dispatch, somente na main. Dry-run por padrao.
+# Teto de 10 itens por rodada (o script tambem impoe o teto).
+# Nao baixa nada do Construmanager e nao re-envia bytes: a versao
+# documental aponta para o objeto ja guardado no bucket privado
+# `construmanager-content`. A extracao de texto e feita depois pelo
+# Document Processing Worker. Nenhum evento, risco, alerta ou e-mail.
+#
+# Repositorio PUBLICO: o log traz so contagens e referencias opacas.
+name: Construmanager document promotion (manual, WEG)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: dry-run (somente leitura) ou apply (cria versoes documentais)
+        required: true
+        default: dry-run
+        type: choice
+        options: [dry-run, apply]
+      limit:
+        description: Maximo de arquivos por rodada (1 a 10)
+        required: true
+        default: "10"
+        type: string
+
+concurrency:
+  group: construmanager-document-promotion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Validar entradas
+        env:
+          LIMIT: ${{ inputs.limit }}
+        run: |
+          [[ "$LIMIT" =~ ^[0-9]+$ ]] && [ "$LIMIT" -ge 1 ] && [ "$LIMIT" -le 10 ] || { echo "limit invalido"; exit 1; }
+      - name: Promover (projeto WEG)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          MODE_FLAG: ${{ inputs.mode == 'apply' && '--apply' || '--dry-run' }}
+          LIMIT: ${{ inputs.limit }}
+        run: node scripts/construmanager-promote-documents.mjs 00000000-0000-4000-8000-000000000001 "$MODE_FLAG" "--limit=$LIMIT"
