@@ -26,6 +26,7 @@ import { slaEscalationLevelLabels } from "@/lib/labels";
 import { computePolicyDeadlines, matrixPolicySnapshot, type MatrixPolicy } from "@/lib/sla/resolve-matrix-policy";
 import type { SlaEscalationLevel, SlaRiskLevel } from "@/lib/sla/types";
 
+import { applyForecastPrecision, describeForecastProblem, forecastTracking, parseForecastInput, type ForecastParse } from "./forecast";
 import { evaluateRecipient } from "./plan-risk-alerts";
 import type {
   AlertActionOrigin,
@@ -98,6 +99,14 @@ export interface AlertActionPayload {
   justification?: string | null;
   evidence?: string | null;
   forecastAt?: string | null;
+  /** Momento da informação da previsão (recebimento do e-mail); padrão: now. */
+  forecastReferenceAt?: string | null;
+  /** Problema já detectado na extração do texto (e-mail): data inválida/ambígua => pendência. */
+  forecastProblem?: string | null;
+  /** Extração do e-mail: a data veio com horário? (ALTO/CRÍTICO exigem horário). */
+  forecastHasTime?: boolean;
+  /** Trecho do e-mail reconhecido como previsão (para a confirmação ao responsável). */
+  forecastMatched?: string | null;
   targetUserId?: string | null;
   expertId?: ExpertId | null;
   /** Decisão de roteamento (fonte, confiança, temas, sugerido × confirmado) — auditada com o evento. */
@@ -175,6 +184,11 @@ export interface AlertTransition {
   escalation: { fromLevel: SlaEscalationLevel; toLevel: SlaEscalationLevel; reason: string } | null;
   topLevelReached: boolean;
   outbox: TransitionOutboxEntry[];
+  /**
+   * Previsão de término (só TOMANDO PROVIDÊNCIAS): VALID com a data registrada no evento, ou
+   * PENDING (sem data válida — pendência registrada, cobranças continuam). Não altera prazos SLA.
+   */
+  forecast?: { status: "VALID" | "PENDING"; forecastAt: string | null; tracking: "TRACKED" | "RECORD_ONLY"; problem: string | null };
 }
 
 export interface AlertTransitionError {
@@ -194,7 +208,8 @@ export interface AlertTransitionError {
     | "JUSTIFICATION_REQUIRED"
     | "EVIDENCE_REQUIRED"
     | "ACTOR_REQUIRED"
-    | "ACTION_NOT_ALLOWED";
+    | "ACTION_NOT_ALLOWED"
+    | "FORECAST_INVALID";
   message: string;
 }
 
@@ -254,6 +269,24 @@ export function applyAlertAction(input: ApplyAlertActionInput): ApplyAlertAction
     return fail("ASSIGNMENT_EXPIRED", "O prazo para assumir este encaminhamento expirou; a responsabilidade voltou ao remetente.");
   }
 
+  // Previsão de término: só TOMANDO PROVIDÊNCIAS. Na tela, data inválida é recusada (o usuário
+  // corrige); por e-mail, data inválida/ambígua vira pendência (nunca adivinhamos a data).
+  // ALTO/CRÍTICO exigem data E horário (sem horário => pendência); MÉDIO/BAIXO aceitam só a data.
+  // Por e-mail a precisão já foi verificada na extração (payload.forecastHasTime).
+  const forecastParse: ForecastParse =
+    action === "TAKING_ACTION"
+      ? applyForecastPrecision(
+          (() => {
+            const parsed = parseForecastInput(payload.forecastAt, payload.forecastReferenceAt ?? input.now);
+            return parsed.status === "VALID" && payload.forecastHasTime !== undefined ? { ...parsed, hasTime: payload.forecastHasTime } : parsed;
+          })(),
+          forecastTracking(snapshot.riskLevel)
+        )
+      : { status: "MISSING" };
+  if (action === "TAKING_ACTION" && forecastParse.status === "INVALID" && input.origin === "WEB") {
+    return fail("FORECAST_INVALID", describeForecastProblem(forecastParse) ?? "Previsão inválida.");
+  }
+
   const baseEvent = (type: AlertEventType, toState: AlertState, extra: Partial<TransitionEvent> = {}): TransitionEvent => ({
     actionType: type,
     actorUserId: input.actorUserId,
@@ -265,12 +298,14 @@ export function applyAlertAction(input: ApplyAlertActionInput): ApplyAlertAction
     text: payload.text ?? null,
     justification: payload.justification ?? null,
     evidence: payload.evidence ?? null,
-    forecastAt: payload.forecastAt ?? null,
+    forecastAt: type === "TAKING_ACTION" && forecastParse.status === "VALID" ? forecastParse.iso : null,
     targetUserId: null,
     expertId: null,
     expertRouting: null,
     messageId: payload.messageId ?? null,
-    idempotencyKey: eventKey(caseId, type, `${input.actorUserId ?? "system"}:${nowKey}`),
+    // Resposta por e-mail: a chave inclui a mensagem (reprocessar a mesma mensagem não duplica;
+    // duas respostas distintas no mesmo minuto não colidem). Tela: por minuto, como antes.
+    idempotencyKey: eventKey(caseId, type, `${input.actorUserId ?? "system"}:${payload.messageId ? `msg-${payload.messageId}` : nowKey}`),
     ...extra,
   });
 
@@ -311,7 +346,7 @@ export function applyAlertAction(input: ApplyAlertActionInput): ApplyAlertAction
     case "TAKING_ACTION": {
       if (!payload.text?.trim()) return fail("TEXT_REQUIRED", "Descreva a providência.");
       toState = "IN_PROGRESS";
-      summary = "Tomando providências";
+      summary = forecastParse.status === "VALID" ? "Tomando providências (previsão de conclusão registrada)" : "Tomando providências — previsão de conclusão pendente";
       events.push(baseEvent("TAKING_ACTION", toState));
       caseUpdate = { state: toState, slaActionStatus: "IN_PROGRESS", currentResponsibleUserId: input.actorUserId ?? snapshot.currentResponsibleUserId };
       if (activeForward && actedOnForward) closeActiveForwardAs = "ACTED";
@@ -414,11 +449,59 @@ export function applyAlertAction(input: ApplyAlertActionInput): ApplyAlertAction
           status: recipient.status,
           suppressionReason: recipient.suppressionReason,
           matrixRuleSnapshot: matrixPolicySnapshot(policy),
-          payloadSummary: { trigger: action, fromLevel: currentLevel, toLevel: next, levelLabel: slaEscalationLevelLabels[next] },
+          payloadSummary: {
+            trigger: action,
+            fromLevel: currentLevel,
+            toLevel: next,
+            levelLabel: slaEscalationLevelLabels[next],
+            // A previsão acompanha o escalonamento (ALTO/CRÍTICO): data informada ou pendência.
+            ...(action === "TAKING_ACTION" ? { forecastAt: forecastParse.status === "VALID" ? forecastParse.iso : null, forecastStatus: forecastParse.status === "VALID" ? "INFORMED" : "PENDING" } : {}),
+          },
         });
       }
       if (next === "DIRETORIA") caseUpdate.topLevelReached = false;
     }
+  }
+
+  // ---------------- Previsão de término ----------------
+  let forecast: AlertTransition["forecast"];
+  if (action === "TAKING_ACTION") {
+    const tracking = forecastTracking(snapshot.riskLevel);
+    const valid = forecastParse.status === "VALID";
+    forecast = { status: valid ? "VALID" : "PENDING", forecastAt: valid ? forecastParse.iso : null, tracking, problem: valid ? null : (payload.forecastProblem ?? describeForecastProblem(forecastParse)) };
+  }
+
+  // ---------------- Confirmação ao responsável (resposta por e-mail) ----------------
+  // Uma confirmação por mensagem processada (chave pela mensagem — idempotente), gravada na
+  // MESMA transação da ação (só é enviada depois de persistida). Destinatário = autor da
+  // resposta, avaliado pela allowlist do piloto (fora dela => SUPPRESSED). Nunca para
+  // respostas automáticas (filtradas antes) nem para as próprias confirmações (IGNORED_SELF).
+  if (input.origin === "EMAIL" && payload.messageId && input.actorUserId) {
+    const recipient = recipientEntry(input.actorUserId, input.config, input.recipients, false);
+    outbox.push({
+      idempotencyKey: `${caseId}:REPLY_CONFIRMATION:msg-${payload.messageId}`,
+      notificationType: "ACTION_CONFIRMATION",
+      origin: "EMAIL_REPLY",
+      escalationLevel: null,
+      riskLevel: snapshot.riskLevel,
+      recipientUserId: input.actorUserId,
+      status: recipient.status,
+      suppressionReason: recipient.suppressionReason,
+      matrixRuleSnapshot: matrixPolicySnapshot(policy),
+      payloadSummary: {
+        replyConfirmation: true,
+        messageId: payload.messageId,
+        action,
+        statusLabel: summary,
+        toState,
+        forecastStatus: forecast ? forecast.status : null,
+        forecastAt: forecast?.forecastAt ?? null,
+        forecastTracking: forecast?.tracking ?? null,
+        forecastProblem: forecast?.problem ?? null,
+        forecastMatched: payload.forecastMatched ?? null,
+        escalatedTo: escalation?.toLevel ?? null,
+      },
+    });
   }
 
   return {
@@ -433,6 +516,7 @@ export function applyAlertAction(input: ApplyAlertActionInput): ApplyAlertAction
     escalation,
     topLevelReached,
     outbox,
+    ...(forecast ? { forecast } : {}),
   };
 }
 

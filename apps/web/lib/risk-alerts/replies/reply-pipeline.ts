@@ -269,7 +269,7 @@ const RULES: Array<{ classification: ReplyClassification; patterns: RegExp[] }> 
   { classification: "DISAGREEMENT", patterns: [/\b(discordo|n[ãa]o concordo|n[ãa]o procede|incorreto|equivocad[oa]|contesto)\b/i] },
   { classification: "DECISION", patterns: [/\b(decid[io]|autorizo|aprovo|reprovo|determino|fica definido)\b/i] },
   { classification: "JUSTIFICATION", patterns: [/\b(justificativa|motivo|porque|devido a|em raz[ãa]o de|atras(o|ou) por)\b/i] },
-  { classification: "STATUS_UPDATE", patterns: [/\b(andamento|status|providenci(a|ando)|em execu[çc][ãa]o|previs[ãa]o|estamos|conclu[íi]do em|resolvid[oa]|tratad[oa])\b/i] },
+  { classification: "STATUS_UPDATE", patterns: [/\b(andamento|status|providenci(a|ando)|em execu[çc][ãa]o|previs[ãa]o|estamos|conclu[íi]do em|resolvid[oa]|tratad[oa])\b/i, /(tomando provid[êe]ncias|provid[êe]ncias em curso|em tratamento|conclus[ãa]o prevista|t[ée]rmino previsto|previst[oa] para)/i] },
   { classification: "ACKNOWLEDGEMENT", patterns: [/\b(ciente|de acordo|ok|recebido|estou ciente|tomei ci[êe]ncia|confirmo o recebimento|assumo)\b/i] },
 ];
 
@@ -283,8 +283,15 @@ export function classifyReply(cleanText: string): ReplyClassificationResult {
   const hits = RULES.map((rule) => ({ rule, count: rule.patterns.filter((p) => p.test(text)).length })).filter((h) => h.count > 0);
   if (hits.length === 0) return { classification: "UNCLASSIFIED", confidence: 0.2, ambiguous: true, matched: [] };
   hits.sort((a, b) => b.count - a.count);
+  // Empate "ciente" × "em andamento": a atualização de status é a informação mais específica
+  // (ex.: "Ciente, estamos providenciando") — não vira revisão humana por isso.
+  const statusBeatsAck = (x: (typeof hits)[number], y: (typeof hits)[number] | undefined) =>
+    Boolean(y && x.count === y.count && x.rule.classification === "ACKNOWLEDGEMENT" && y.rule.classification === "STATUS_UPDATE");
+  if (statusBeatsAck(hits[0], hits[1])) [hits[0], hits[1]] = [hits[1], hits[0]];
   const [best, second] = hits;
-  const ambiguous = Boolean(second && second.count === best.count) || text.length < 4;
+  const third = hits[2];
+  const tieOnlyWithAck = Boolean(second && second.count === best.count && best.rule.classification === "STATUS_UPDATE" && second.rule.classification === "ACKNOWLEDGEMENT" && !(third && third.count === best.count));
+  const ambiguous = (Boolean(second && second.count === best.count) && !tieOnlyWithAck) || text.length < 4;
   const confidence = Math.min(0.95, 0.5 + best.count * 0.2 - (second ? 0.1 : 0));
   return { classification: best.rule.classification, confidence: Number(confidence.toFixed(2)), ambiguous, matched: hits.map((h) => h.rule.classification) };
 }

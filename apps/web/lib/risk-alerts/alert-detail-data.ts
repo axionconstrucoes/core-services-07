@@ -18,6 +18,7 @@ import type { SlaRiskLevel } from "@/lib/sla/types";
 import { hashActionToken, isActionTokenValid } from "./action-links";
 import { ACTIONS_BY_STATE, nextHierarchyLevel } from "./alert-state-machine";
 import { ALERT_EXPERT_OPTIONS, suggestExpertForArea } from "./experts/route-alert-expert";
+import { forecastStatusLabel, resolveForecast, type ForecastSummary } from "./forecast";
 import { describeSuppression } from "./plan-risk-alerts";
 import { isPilotTestCase } from "./pilot-test-case";
 import type { AlertActionType, AlertState, RiskSuppressionReason } from "./types";
@@ -57,9 +58,11 @@ export interface AlertDetailView {
   previousResponsible: { userId: string | null; name: string | null };
   slaAction: { id: string; status: string; assumeDueAt: string; respondDueAt: string | null; completeDueAt: string | null; acknowledgedAt: string | null; completedAt: string | null; currentEscalationLevel: string } | null;
   nextScheduledEscalation: { level: string; reasons: string[] } | null;
+  /** Previsão de término vigente (histórico completo na linha do tempo). */
+  forecast: ForecastSummary & { statusLabel: string; informedByName: string | null };
   policy: MatrixPolicy;
   timeZone: string;
-  timeline: Array<{ id: string; at: string; type: string; actorName: string | null; origin: string; fromState: string | null; toState: string | null; fromLevel: string | null; toLevel: string | null; text: string | null; justification: string | null; targetName: string | null; expertId: string | null }>;
+  timeline: Array<{ id: string; at: string; type: string; actorName: string | null; origin: string; fromState: string | null; toState: string | null; fromLevel: string | null; toLevel: string | null; text: string | null; justification: string | null; targetName: string | null; expertId: string | null; forecastAt: string | null }>;
   messages: Array<{ id: string; at: string | null; direction: string; senderName: string | null; senderEmail: string | null; classification: string | null; confidence: number | null; expertId: string | null; requiresHumanReview: boolean; status: string; excerpt: string }>;
   forwards: Array<{ id: string; fromName: string | null; toName: string | null; assumeDueAt: string; timeoutAt: string; state: string; actedAt: string | null; returnedAt: string | null; pilotException: boolean }>;
   outbox: Array<{ id: string; type: string; escalationLevel: string | null; status: string; suppressionLabel: string | null; recipientName: string | null; at: string; origin: string }>;
@@ -144,6 +147,18 @@ export async function getAlertDetailView(projectId: string, caseId: string, opti
   const state = row.state as AlertState;
   const currentLevel = row.current_level as string;
   const next = nextHierarchyLevel(currentLevel as "RESPONSAVEL");
+  // Previsão de término: vigente = informação mais recente pela data de origem (recebimento do e-mail).
+  const receivedByMessage = new Map((messages ?? []).filter((m) => m.received_at).map((m) => [m.id as string, m.received_at as string]));
+  const forecastSummary = resolveForecast({
+    events: (events ?? [])
+      .filter((e) => e.forecast_at || e.action_type === "TAKING_ACTION" || String(e.idempotency_key ?? "").includes(":FORECAST_REPLY:"))
+      .map((e) => ({ actionType: e.action_type, forecastAt: e.forecast_at ?? null, effectiveAt: (e.message_id ? receivedByMessage.get(e.message_id) : undefined) ?? e.created_at, createdAt: e.created_at, actorUserId: e.actor_user_id ?? null, text: e.text_content ?? null })),
+    riskLevel: row.risk_level,
+    caseClosed: row.status === "CLOSED" || state === "RESOLVED",
+    nowIso: new Date().toISOString(),
+  });
+  const forecast = { ...forecastSummary, statusLabel: forecastStatusLabel(forecastSummary.status), informedByName: nameOf(forecastSummary.informedByUserId) };
+
   return {
     id: row.id,
     projectId,
@@ -167,9 +182,10 @@ export async function getAlertDetailView(projectId: string, caseId: string, opti
     previousResponsible: { userId: row.previous_responsible_user_id ?? null, name: nameOf(row.previous_responsible_user_id) },
     slaAction,
     nextScheduledEscalation,
+    forecast,
     policy,
     timeZone,
-    timeline: (events ?? []).map((e) => ({ id: e.id, at: e.created_at, type: e.action_type, actorName: nameOf(e.actor_user_id), origin: e.origin, fromState: e.from_state, toState: e.to_state, fromLevel: e.from_level, toLevel: e.to_level, text: e.text_content, justification: e.justification, targetName: nameOf(e.target_user_id), expertId: e.expert_id })),
+    timeline: (events ?? []).map((e) => ({ id: e.id, at: e.created_at, type: e.action_type, actorName: nameOf(e.actor_user_id), origin: e.origin, fromState: e.from_state, toState: e.to_state, fromLevel: e.from_level, toLevel: e.to_level, text: e.text_content, justification: e.justification, targetName: nameOf(e.target_user_id), expertId: e.expert_id, forecastAt: e.forecast_at ?? null })),
     messages: (messages ?? []).map((m) => ({ id: m.id, at: m.sent_at ?? m.received_at ?? null, direction: m.direction, senderName: nameOf(m.sender_user_id), senderEmail: m.direction === "INBOUND" ? m.sender_email : null, classification: m.classification, confidence: m.confidence === null ? null : Number(m.confidence), expertId: m.expert_id, requiresHumanReview: Boolean(m.requires_human_review), status: m.status, excerpt: ((m.body_clean as string | null) ?? "").slice(0, 400) })),
     forwards: (forwards ?? []).map((f) => ({ id: f.id, fromName: nameOf(f.from_user_id), toName: nameOf(f.to_user_id), assumeDueAt: f.assume_due_at, timeoutAt: f.timeout_at, state: f.state, actedAt: f.acted_at, returnedAt: f.returned_at, pilotException: Boolean(f.pilot_exception) })),
     outbox: (outbox ?? []).map((o) => ({ id: o.id, type: o.notification_type, escalationLevel: o.escalation_level, status: o.status, suppressionLabel: o.suppression_reason ? describeSuppression(o.suppression_reason as RiskSuppressionReason) : null, recipientName: nameOf(o.recipient_user_id), at: o.sent_at ?? o.scheduled_for, origin: o.origin })),

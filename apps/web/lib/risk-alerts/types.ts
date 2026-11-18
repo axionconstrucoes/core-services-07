@@ -194,6 +194,10 @@ export interface ImmediateAlertContent {
   };
   /** Observação do nível (ex.: substituição temporária do piloto; o titular definitivo continua na Matriz). */
   levelNote?: string | null;
+  /** Previsão de término vigente (ALTO/CRÍTICO): data, alteração, vencimento ou pendência. */
+  forecastLine?: string | null;
+  /** Última resposta "em andamento" do responsável (quem e quando) — informada aos níveis escalados. */
+  responderLine?: string | null;
 }
 
 export interface DigestItem {

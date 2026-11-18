@@ -10,6 +10,7 @@ import { resolveMatrixPolicy } from "@/lib/sla/resolve-matrix-policy";
 import type { SlaRiskLevel } from "@/lib/sla/types";
 
 import { applyAlertAction } from "../alert-state-machine";
+import { describeForecastProblem, extractForecastFromText, forecastTracking, isAfter } from "../forecast";
 import { routeExpert } from "../experts/route-alert-expert";
 import { DEFAULT_CORPORATE_EMAIL_DOMAIN } from "../plan-risk-alerts";
 import type { RiskAlertStore } from "../store";
@@ -115,6 +116,9 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
     const riskLevel = loaded.snapshot.riskLevel as SlaRiskLevel;
     const formal = replyToFormalAction(classification);
     const digestLike = riskLevel === "LOW" || riskLevel === "MEDIUM";
+    // Previsão de término: "em andamento" (STATUS_UPDATE => TOMANDO PROVIDÊNCIAS) pede a data de conclusão.
+    // Referência = recebimento do e-mail (processamento atrasado não invalida a data).
+    const forecast = formal === "TAKING_ACTION" ? extractForecastFromText(parsed.clean, message.receivedAt) : null;
     if (classification.ambiguous || !formal || loaded.snapshot.state === "RESOLVED") {
       // Ambígua/inconclusiva: registra sem confirmar, resolver ou reatribuir.
       await store.updateInboundMessage(message.id, { ...basePatch, status: classification.ambiguous ? "REVIEW_REQUIRED" : "PROCESSED", statusReason: classification.ambiguous ? "Classificação ambígua" : "Registrada sem ação formal", requiresHumanReview: classification.ambiguous });
@@ -143,21 +147,71 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
       action: formal,
       actorUserId: authorization.userId,
       origin: "EMAIL",
-      payload: formal === "EXPERT_CONSULTATION" ? { expertId: expertRouting!.expertId, expertRouting: { ...expertRouting }, question: parsed.clean, messageId: message.id } : { text: parsed.clean, messageId: message.id },
+      payload:
+        formal === "EXPERT_CONSULTATION"
+          ? { expertId: expertRouting!.expertId, expertRouting: { ...expertRouting }, question: parsed.clean, messageId: message.id }
+          : {
+              text: parsed.clean,
+              messageId: message.id,
+              forecastAt: forecast?.status === "VALID" ? forecast.iso : null,
+              forecastHasTime: forecast?.status === "VALID" ? forecast.hasTime : undefined,
+              forecastMatched: forecast && forecast.status !== "MISSING" ? forecast.matched : null,
+              forecastReferenceAt: message.receivedAt,
+              forecastProblem: forecast && forecast.status !== "VALID" ? describeForecastProblem(forecast) : null,
+            },
       policy,
       config,
       recipients: snapshot.recipients,
       eligibleForwardUserIds: [],
     });
+    const confirmation = transition.ok ? (transition.outbox.find((entry) => entry.idempotencyKey.includes(":REPLY_CONFIRMATION:")) ?? null) : null;
+
+    // Fora de ordem: já existe informação de status/previsão MAIS RECENTE (pela data de recebimento)
+    // neste alerta => a mensagem antiga fica no histórico (com a sua data, que não vira a vigente)
+    // e NÃO altera estado, responsável nem previsão.
+    if (transition.ok && formal === "TAKING_ACTION" && store.loadCaseForecastEvents && store.recordForecastReply) {
+      const history = await store.loadCaseForecastEvents(correlation.caseId);
+      const newer = history.find((event) => isAfter(event.effectiveAt, message.receivedAt));
+      if (newer) {
+        const forecastAt = transition.forecast?.status === "VALID" ? transition.forecast.forecastAt : null;
+        await store.recordForecastReply({ projectId, caseId: correlation.caseId, actorUserId: authorization.userId, fromState: loaded.snapshot.state, messageId: message.id, forecastAt, text: parsed.clean });
+        await store.audit(projectId, [{ action: "RISK_ALERT_REPLY_OUT_OF_ORDER", entityType: "RISK_ALERT_CASE", entityId: correlation.caseId, detail: `Resposta (mensagem ${message.id}, recebida ${message.receivedAt}) anterior a uma atualização já registrada (${newer.effectiveAt}): mantida no histórico sem alterar estado nem previsão vigente.` }]);
+        if (confirmation && store.enqueueReplyConfirmation) {
+          await store.enqueueReplyConfirmation(projectId, correlation.caseId, { ...confirmation, payloadSummary: { ...confirmation.payloadSummary, outOfOrder: true, statusLabel: "Registrada no histórico — há atualização mais recente neste alerta; nada foi alterado" } });
+        }
+        await store.updateInboundMessage(message.id, { ...basePatch, status: "PROCESSED", statusReason: "Fora de ordem: registrada no histórico sem alterar o alerta" });
+        result.recorded += 1;
+        continue;
+      }
+    }
+
     if (!transition.ok || digestLike) {
-      // LOW/MEDIUM: resposta registrada; sem escalonamento/ação automática.
-      await store.updateInboundMessage(message.id, { ...basePatch, status: "PROCESSED", statusReason: transition.ok ? "Registrada (consolidado LOW/MEDIUM — sem ação automática)" : transition.message });
+      // LOW/MEDIUM: resposta registrada; sem escalonamento/ação automática. A previsão (ou a sua
+      // pendência) é registrada e exibida — sem escalonamento adicional nem novas exigências.
+      let forecastNote = "";
+      if (transition.ok && digestLike && formal === "TAKING_ACTION" && forecastTracking(riskLevel) === "RECORD_ONLY" && store.recordForecastReply) {
+        const forecastAt = transition.forecast?.status === "VALID" ? transition.forecast.forecastAt : null;
+        await store.recordForecastReply({ projectId, caseId: correlation.caseId, actorUserId: authorization.userId, fromState: loaded.snapshot.state, messageId: message.id, forecastAt, text: parsed.clean });
+        forecastNote = forecastAt ? " · previsão de conclusão registrada" : " · previsão de conclusão pendente";
+        await store.audit(projectId, [{ action: forecastAt ? "RISK_ALERT_FORECAST_RECORDED" : "RISK_ALERT_FORECAST_PENDING", entityType: "RISK_ALERT_CASE", entityId: correlation.caseId, detail: forecastAt ? `Previsão de conclusão ${forecastAt} informada por e-mail (mensagem ${message.id}; ${riskLevel}: só registro, sem escalonamento adicional).` : `Resposta "em andamento" sem data válida (mensagem ${message.id}; ${riskLevel}): pendência registrada.` }]);
+      }
+      // Confirmação só depois da persistência acima (resposta registrada).
+      if (transition.ok && confirmation && store.enqueueReplyConfirmation) {
+        await store.enqueueReplyConfirmation(projectId, correlation.caseId, { ...confirmation, payloadSummary: { ...confirmation.payloadSummary, statusLabel: `Resposta registrada (risco ${riskLevel === "LOW" ? "BAIXO" : "MÉDIO"}: sem alteração automática do alerta)` } });
+      }
+      await store.updateInboundMessage(message.id, { ...basePatch, status: "PROCESSED", statusReason: transition.ok ? `Registrada (consolidado LOW/MEDIUM — sem ação automática)${forecastNote}` : transition.message });
       result.recorded += 1;
       continue;
     }
     try {
+      // A confirmação ao responsável está na outbox da transição: gravada na mesma transação (RPC).
       await store.applyTransition(correlation.caseId, transition, authorization.userId);
-      await store.updateInboundMessage(message.id, { ...basePatch, expertId: expertRouting?.expertId ?? null, expertRouting: expertRouting ? { ...expertRouting } : null, status: "PROCESSED", statusReason: `Ação ${formal} aplicada por e-mail` });
+      if (transition.forecast) {
+        const f = transition.forecast;
+        await store.audit(projectId, [{ action: f.status === "VALID" ? "RISK_ALERT_FORECAST_RECORDED" : "RISK_ALERT_FORECAST_PENDING", entityType: "RISK_ALERT_CASE", entityId: correlation.caseId, detail: f.status === "VALID" ? `Previsão de conclusão ${f.forecastAt} informada por e-mail (mensagem ${message.id}); acompanha os escalonamentos. Prazos SLA inalterados.` : `Resposta "em andamento" sem previsão válida (mensagem ${message.id}): ${f.problem ?? "pendência"} Pendência registrada e complementação solicitada; cobranças e escalonamentos mantidos.` }]);
+      }
+      const forecastNote = transition.forecast ? (transition.forecast.status === "VALID" ? " · previsão de conclusão registrada" : " · previsão de conclusão pendente (complementação solicitada)") : "";
+      await store.updateInboundMessage(message.id, { ...basePatch, expertId: expertRouting?.expertId ?? null, expertRouting: expertRouting ? { ...expertRouting } : null, status: "PROCESSED", statusReason: `Ação ${formal} aplicada por e-mail${forecastNote}` });
       result.applied += 1;
     } catch (error) {
       await store.updateInboundMessage(message.id, { ...basePatch, status: "REVIEW_REQUIRED", statusReason: error instanceof Error ? error.message.slice(0, 200) : "Falha ao aplicar", requiresHumanReview: true });

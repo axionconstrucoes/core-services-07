@@ -34,6 +34,8 @@ import type { SlaArea, SlaEscalationLevel, SlaRiskLevel } from "@/lib/sla/types"
 import { actionLinkExpiry, buildActionLink, EMAIL_ACTION_TYPES, generateActionToken, hashActionToken } from "./action-links";
 import { applyForwardTimeout, applyScheduledTopLevel } from "./alert-state-machine";
 import { buildAlertFollowUpEmail, buildImmediateRiskAlertEmail, buildRiskDigestEmail, formatDateTimeBR, type BuiltEmail } from "./build-risk-alert-emails";
+import { forecastTracking, formatForecastLine, resolveForecast } from "./forecast";
+import { buildReplyConfirmationParts, REPLY_CONFIRMATION_TITLE } from "./replies/reply-confirmation";
 import { evaluatePilotReadiness, blockerToSuppressionReason, isSeverityMapComplete } from "./pilot-readiness";
 import { applyEscalationReplyGate, type GateDecision, type ReplyCheck } from "./escalation-reply-gate";
 import { checkRepliesBeforeEscalation, createGmailReadonlyFromEnv, type ReplyCheckRequest, type ReplyLookup } from "./replies/reply-verifier";
@@ -514,6 +516,28 @@ export interface SendContext {
   testCaseBlocked?: number;
 }
 
+/**
+ * Linha "Previsão de conclusão" dos e-mails de ALTO/CRÍTICO (imediato e escalonamento): a previsão
+ * acompanha os escalonamentos — data vigente, alteração, vencimento ou pendência. MÉDIO/BAIXO: null
+ * (só registro e exibição na tela). Falha na leitura nunca bloqueia o envio (linha omitida).
+ */
+export async function forecastLinesForEmail(ctx: SendContext, caseId: string | null, riskLevel: string, caseClosed: boolean): Promise<{ forecastLine: string | null; responderLine: string | null }> {
+  const none = { forecastLine: null, responderLine: null };
+  if (!caseId || forecastTracking(riskLevel) !== "TRACKED" || !ctx.store.loadCaseForecastEvents) return none;
+  try {
+    const events = await ctx.store.loadCaseForecastEvents(caseId);
+    const summary = resolveForecast({ events, riskLevel, caseClosed, nowIso: ctx.nowIso });
+    const fmt = (iso: string) => formatDateTimeBR(iso, ctx.timeZone);
+    const who = summary.lastStatusByUserId ? (ctx.snapshot.recipients.get(summary.lastStatusByUserId)?.name ?? "responsável") : null;
+    return {
+      forecastLine: formatForecastLine(summary, fmt),
+      responderLine: summary.lastStatusAt ? `Em andamento (Tomando providências) — informado por ${who ?? "responsável"} em ${fmt(summary.lastStatusAt)}. A resposta não suspende prazos nem escalonamentos.` : null,
+    };
+  } catch {
+    return none;
+  }
+}
+
 /** Bloqueio fail-closed contra ENVIO TARDIO de mensagens de caso de TESTE (ex.: FORWARD/ESCALATION geradas pelos botões). Não altera a linha. */
 export function isPilotTestCaseSendBlocked(record: { title?: string | null; reference?: string | null } | null, idempotencyKey: string, ctx: SendContext): boolean {
   if (!record || !isPilotTestCase(record)) return false;
@@ -630,8 +654,9 @@ export async function sendPlanned(outboxId: string, caseId: string | null, entry
   if (entry.content.kind === "DIGEST") {
     built = buildRiskDigestEmail({ content: entry.content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: entry.recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso });
   } else {
+    const lines = await forecastLinesForEmail(ctx, caseId, entry.riskLevel, record?.status === "CLOSED");
     built = buildImmediateRiskAlertEmail({
-      content: entry.content,
+      content: lines.forecastLine || lines.responderLine ? { ...entry.content, ...lines } : entry.content,
       projectId: ctx.projectId,
       projectName: ctx.projectName,
       recipientName: entry.recipient.name,
@@ -775,6 +800,7 @@ async function sendPendingRow(row: PendingOutboxRow, ctx: SendContext): Promise<
       requiresJustification: policy.requiresDelayJustification,
       escalationReason: (row.payloadSummary.trigger as string | undefined) ? `Escalonamento imediato por ação ${row.payloadSummary.trigger}` : row.origin === "MANUAL" ? "Escalonamento manual (Processar escalonamentos)" : "Prazo da Matriz vencido",
       changed: false,
+      ...(await forecastLinesForEmail(ctx, record.id, riskLevel, false)),
     };
     built = buildImmediateRiskAlertEmail({ content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, actionButtons: [], actionLinks: await issueActionLinks(ctx, record.id, row.recipientUserId), visibleCode: record.visibleCode });
   } else {
@@ -786,11 +812,16 @@ async function sendPendingRow(row: PendingOutboxRow, ctx: SendContext): Promise<
       if (row.payloadSummary.pilotException) rows.push(["Piloto", "Você recebe apenas este alerta (exceção manual registrada)."]);
     } else if (kind === "RETURNED") {
       rows.push(["Motivo", "Encaminhado sem ação até o prazo para assumir"], ["Encaminhado para", nameOf((row.payloadSummary.forwardedTo as string) ?? null)], ["Prazo expirado em", formatDateTimeBR((row.payloadSummary.timeoutAt as string) ?? null, ctx.timeZone)], ["Responsável atual", nameOf(record.currentResponsibleUserId)]);
+    } else if (kind === "ACTION_CONFIRMATION" && row.payloadSummary.replyConfirmation) {
+      // Confirmação ao autor da resposta: status, previsão interpretada (fuso) e pendências.
+      const parts = buildReplyConfirmationParts(row.payloadSummary, { timeZone: ctx.timeZone, formatDate: (iso) => formatDateTimeBR(iso, ctx.timeZone), responsibleName: nameOf(record.currentResponsibleUserId) });
+      rows.push(...parts.rows);
+      paragraphs.push(...parts.paragraphs);
     } else if (kind === "EXPERT_ANSWER") {
       rows.push(["Expert", (row.payloadSummary.expertId as string) ?? null], ["Confiança", row.payloadSummary.confidence !== undefined ? String(row.payloadSummary.confidence) : null]);
       paragraphs.push((row.payloadSummary.answerPreview as string) ?? "");
     }
-    built = buildAlertFollowUpEmail({ kind, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseId: record.id, caseTitle: record.title, riskLevel, visibleCode: record.visibleCode, rows, paragraphs, requiresHumanReview: kind === "EXPERT_ANSWER", actionLinks: kind === "FORWARD" ? await issueActionLinks(ctx, record.id, row.recipientUserId) : undefined });
+    built = buildAlertFollowUpEmail({ kind, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseId: record.id, caseTitle: record.title, riskLevel, visibleCode: record.visibleCode, rows, paragraphs, requiresHumanReview: kind === "EXPERT_ANSWER", actionLinks: kind === "FORWARD" ? await issueActionLinks(ctx, record.id, row.recipientUserId) : undefined, ...(kind === "ACTION_CONFIRMATION" && row.payloadSummary.replyConfirmation ? { titleOverride: REPLY_CONFIRMATION_TITLE } : {}) });
   }
   const outcome = await deliver(ctx, row.id, record.id, row.recipientUserId, recipient.email, built, row.notificationType, row.escalationLevel, row.idempotencyKey, row.riskLevel);
   return outcome;

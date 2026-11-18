@@ -81,7 +81,13 @@ export function AlertActionForms(props: AlertActionFormsProps) {
           {selected === "TAKING_ACTION" ? (
             <>
               <label className="flex flex-col gap-1">Providência<Textarea name="text" required rows={3} /></label>
-              <label className="flex flex-col gap-1">Previsão<Input type="datetime-local" name="forecastAt" /></label>
+              <label className="flex flex-col gap-1">
+                Previsão de conclusão
+                <Input type="datetime-local" name="forecastAt" data-testid="alert-forecast-input" />
+                <span className="text-xs text-muted-foreground">
+                  Informe a data prevista de conclusão. Sem data, a pendência fica registrada e as cobranças continuam. A previsão não reinicia prazos nem cancela escalonamentos.
+                </span>
+              </label>
             </>
           ) : null}
           {selected === "FORWARD" ? (

@@ -6,7 +6,8 @@ import type { PilotLevelOverride } from "./pilot-level-overrides";
 import type { OutboxHistoryRow, ReissueApproval } from "./communication-ledger";
 import type { SlaArea, SlaAreaResponsibles, SlaMatrixRule, SlaProjectSettings } from "@/lib/sla/types";
 
-import type { ActiveForward, AlertCaseSnapshot, AlertTransition } from "./alert-state-machine";
+import type { ActiveForward, AlertCaseSnapshot, AlertTransition, TransitionOutboxEntry } from "./alert-state-machine";
+import type { ForecastEventInput } from "./forecast";
 import type { CorrelationIndex, InboundHeaders } from "./replies/reply-pipeline";
 import type {
   AlertActionType,
@@ -177,4 +178,15 @@ export interface RiskAlertStore {
   listPendingExpertConsultations(projectId: string): Promise<PendingExpertConsultation[]>;
   recordExpertAnswer(input: { projectId: string; caseId: string; eventId: string; expertId: ExpertId; answerText: string; confidence: number; requiresHumanReview: boolean; askedByUserId: string | null }): Promise<void>;
   createActionLinks(projectId: string, caseId: string, recipientUserId: string, links: Array<{ action: AlertActionType; tokenHash: string; expiresAt: string }>): Promise<void>;
+
+  // ---- previsão de término (opcionais: sem eles nada muda — e-mails sem a linha de previsão) ----
+  /** Eventos com previsão ou "em andamento" do alerta, com o momento de origem (recebimento do e-mail). */
+  loadCaseForecastEvents?(caseId: string): Promise<ForecastEventInput[]>;
+  /**
+   * MÉDIO/BAIXO: registra a resposta "em andamento" com (ou sem) a data, como evento REPLY_RECEIVED,
+   * sem mudar estado, nível ou prazos. Idempotente pela mensagem.
+   */
+  /** Confirmação ao autor de uma resposta (caminhos sem RPC: MÉDIO/BAIXO e fora de ordem). Idempotente pela chave. */
+  enqueueReplyConfirmation?(projectId: string, caseId: string, entry: TransitionOutboxEntry): Promise<void>;
+  recordForecastReply?(input: { projectId: string; caseId: string; actorUserId: string; fromState: string; messageId: string; forecastAt: string | null; text: string }): Promise<void>;
 }

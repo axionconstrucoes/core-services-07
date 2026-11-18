@@ -43,6 +43,13 @@ export default async function AlertDetailPage({ params, searchParams }: { params
           <p><span className="text-muted-foreground">Nível atual:</span> {view.currentLevelLabel} · <span className="text-muted-foreground">próximo:</span> {view.nextLevelLabel}</p>
           <p><span className="text-muted-foreground">Prazos (Matriz, {slaTimeUnitLabels[view.policy.timeUnit].toLowerCase()}):</span> assumir {view.policy.assumeDeadlineValue}{view.policy.respondDeadlineValue !== null ? ` · responder ${view.policy.respondDeadlineValue}` : ""}{view.policy.completeDeadlineValue !== null ? ` · concluir ${view.policy.completeDeadlineValue}` : ""}{view.policy.usingDefaultRule ? " (default — simulação)" : ""}</p>
           {view.slaAction ? <p><span className="text-muted-foreground">Ação SLA:</span> {view.slaAction.status} · assumir até {fmt(view.slaAction.assumeDueAt, view.timeZone)}{view.slaAction.acknowledgedAt ? ` · assumida em ${fmt(view.slaAction.acknowledgedAt, view.timeZone)}` : ""}{view.slaAction.completedAt ? ` · concluída em ${fmt(view.slaAction.completedAt, view.timeZone)}` : ""}</p> : null}
+          <p data-testid="alert-forecast">
+            <span className="text-muted-foreground">Previsão de conclusão:</span>{" "}
+            {view.forecast.forecastAt ? fmt(view.forecast.forecastAt, view.timeZone) : "—"} · {view.forecast.statusLabel}
+            {view.forecast.previousForecastAt ? ` · alterada (anterior: ${fmt(view.forecast.previousForecastAt, view.timeZone)})` : ""}
+            {view.forecast.informedByName && view.forecast.informedAt ? ` · informada por ${view.forecast.informedByName} em ${fmt(view.forecast.informedAt, view.timeZone)}` : ""}
+            {view.forecast.tracking === "TRACKED" ? " · acompanha os escalonamentos (ALTO/CRÍTICO)" : " · somente registro (MÉDIO/BAIXO)"}
+          </p>
           {view.nextScheduledEscalation ? <p><span className="text-muted-foreground">Próximo escalonamento por prazo:</span> {view.nextScheduledEscalation.level} — {view.nextScheduledEscalation.reasons.join(" ")}</p> : null}
           <p><span className="text-muted-foreground">Exigências da Matriz:</span> {view.policy.requiresAcknowledgmentConfirmation ? "confirmação obrigatória" : "confirmação não exigida"}; {view.policy.requiresDelayJustification ? "justificativa obrigatória" : "justificativa não exigida"}</p>
           <p><span className="text-muted-foreground">Destinatários suprimidos (piloto):</span> {view.suppressedCount}</p>
@@ -80,6 +87,7 @@ export default async function AlertDetailPage({ params, searchParams }: { params
                   <div className="font-medium">{e.type}{e.targetName ? ` → ${e.targetName}` : ""}{e.expertId ? ` (${e.expertId})` : ""}</div>
                   {e.text ? <p className="whitespace-pre-wrap">{e.text}</p> : null}
                   {e.justification ? <p className="text-xs">Justificativa: {e.justification}</p> : null}
+                  {e.forecastAt ? <p className="text-xs">Previsão de conclusão informada: {fmt(e.forecastAt, view.timeZone)}</p> : e.type === "TAKING_ACTION" ? <p className="text-xs">Previsão de conclusão: pendente</p> : null}
                 </li>
               ))}
             </ul>
