@@ -81,6 +81,8 @@ export interface RiskAlertCycleProjectResult {
   informativeAreas?: string[];
   /** Alertas "detectados com atraso" retidos sem comunicação (aguardam decisão de reemissão). */
   lateDetectionHeld?: Array<{ visibleCode: string | null; reference: string }>;
+  /** Casos com comunicação suspensa (verificação pendente): sem alerta, escalonamento nem reemissão. */
+  communicationSuspended?: Array<{ visibleCode: string | null; reference: string }>;
   /**
    * Livro-razão de comunicação (mascarado: código visível do caso, papéis e status — sem usuário/e-mail).
    * Distingue etapa alcançada, supressão e aceite pelo Gmail; lacunas sem decisão não geram e-mail.
@@ -225,6 +227,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       previousDigestSentAt: snapshot.previousDigestSentAt,
       readinessBlockers: readiness.blockers.map(blockerToSuppressionReason),
       informativeAreas,
+      suspendedCaseIds: new Set(snapshot.suspendedCaseIds ?? []),
       outboxHistory: snapshot.outboxHistory,
       reissueApprovals: snapshot.reissueApprovals,
       reissueDecisionRecordedCaseIds: snapshot.reissueDecisionRecordedCaseIds,
@@ -248,6 +251,10 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       expertAnswers: 0,
       digestWindow: plan.digestWindow,
       informativeAreas: Array.from(informativeAreas),
+      communicationSuspended: (plan.communicationSuspended ?? []).map((caseKey) => ({
+        visibleCode: snapshot.existingCases.find((c) => caseKeyOf(c) === caseKey)?.visibleCode ?? null,
+        reference: snapshot.cases.find((c) => caseKeyOf(c) === caseKey)?.reference ?? caseKey,
+      })),
       lateDetectionHeld: (plan.lateDetectionHeld ?? []).map((caseKey) => ({
         visibleCode: snapshot.existingCases.find((c) => caseKeyOf(c) === caseKey)?.visibleCode ?? null,
         reference: snapshot.cases.find((c) => caseKeyOf(c) === caseKey)?.reference ?? caseKey,
@@ -645,6 +652,11 @@ async function sendPendingRow(row: PendingOutboxRow, ctx: SendContext): Promise<
     // Delimitação da outbox: sem risk_alert_case nada é enviado por aqui
     // (ações SLA comuns permanecem no fluxo antigo).
     await ctx.store.markSkipped(row.id, "RISK_CASE_REQUIRED: entrada sem alerta de risco vinculado — fora da outbox de alertas (fluxo antigo permanece).");
+    return "SKIPPED";
+  }
+  if ((ctx.snapshot.suspendedCaseIds ?? []).includes(record.id)) {
+    // Comunicação suspensa por registro humano auditado (ex.: ausência não comprovada): nada sai deste caso.
+    await ctx.store.markSkipped(row.id, "CASE_COMMUNICATION_SUSPENDED: comunicação do caso suspensa até concluir a verificação — sem envio, repetição ou escalonamento.");
     return "SKIPPED";
   }
   if ((ctx.snapshot.informativeAreas ?? []).includes(record.area)) {

@@ -280,6 +280,8 @@ export interface RiskAlertPlan {
   communicationLedgers?: CaseCommunicationLedger[];
   /** Casos abertos de alertas "detectados com atraso" retidos sem comunicação até decisão de reemissão. */
   lateDetectionHeld?: string[];
+  /** Casos com comunicação suspensa por registro humano auditado (sem alerta/escalonamento/reemissão). */
+  communicationSuspended?: string[];
 }
 
 // ------------------------------------------------------------------

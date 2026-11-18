@@ -216,8 +216,9 @@ await check("6. Curva S e planilha: semana com cronograma recebido e sem Curva S
 });
 
 await check("7. Semana corrente segue o comportamento normal (sem marca de atraso) e nunca é tocada pela recuperação", async () => {
-  const s = memoryStore({ checkpoint: "2026-11-09" });
-  const friday = new Date("2026-11-20T21:05:00Z");
+  // Coleta íntegra ≥6 h após o prazo (critério da semana corrente desde a correção da semana corrente).
+  const s = memoryStore({ checkpoint: "2026-11-09", lastSuccessfulCollectionAt: "2026-11-21T03:30:00Z" });
+  const friday = new Date("2026-11-21T04:00:00Z");
   const current = await absence.createWeeklyAbsenceAlert(s, cfg(), friday);
   assert(current.result === "CREATED" && current.weekStart === "2026-11-16" && !late.isLateDetectedDetail(s.alerts[0].detail));
   const missed = await absence.createMissedWeekAbsenceAlerts(s, cfg(), friday);

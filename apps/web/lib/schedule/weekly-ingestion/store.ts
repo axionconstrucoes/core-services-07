@@ -216,6 +216,8 @@ export interface AbsenceAlertStore {
   /** Última semana já verificada pela recuperação (checkpoint auditável); null = nunca verificada. */
   loadMissedWeeksCheckpoint?(projectId: string): Promise<string | null>;
   saveMissedWeeksCheckpoint?(projectId: string, lastVerifiedWeekStart: string, summary: Record<string, unknown>): Promise<void>;
+  /** true quando já existe auditoria (action, entity_id) cujo detail JSON tem "key" igual (evita repetir a cada execução). */
+  hasAuditEntry?(projectId: string, action: string, entityId: string, key: string): Promise<boolean>;
   writeAudit(entry: AuditEntry): Promise<void>;
 }
 

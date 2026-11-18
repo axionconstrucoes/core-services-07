@@ -35,6 +35,8 @@ export interface RiskAlertProjectSnapshot {
   informativeAreas?: SlaArea[];
   /** Exceções temporárias do piloto por nível (registro humano auditado; a Matriz não muda). */
   pilotLevelOverrides?: PilotLevelOverride[];
+  /** Casos com comunicação suspensa (registro humano auditado): sem alerta/escalonamento/reemissão e sem envio pela outbox. */
+  suspendedCaseIds?: string[];
   settings: SlaProjectSettings | null;
   cases: RiskCaseInput[];
   existingCases: RiskCaseRecord[];
