@@ -35,8 +35,19 @@
 --   (os workflows mantêm o `schedule` do GitHub como reserva.)
 -- =====================================================================
 
-create extension if not exists pg_cron;
-create extension if not exists pg_net with schema extensions;
+-- Extensões: só onde existem (no replay PGlite da CI elas não existem e o
+-- agendamento é pulado; tabela e funções continuam testáveis).
+do $ext$
+begin
+  if exists (select 1 from pg_available_extensions where name = 'pg_cron')
+     and exists (select 1 from pg_available_extensions where name = 'pg_net') then
+    create extension if not exists pg_cron;
+    create extension if not exists pg_net with schema extensions;
+  else
+    raise notice 'acc_scheduler: pg_cron/pg_net indisponíveis neste ambiente; agendamento não instalado.';
+  end if;
+end;
+$ext$;
 
 create table if not exists public.acc_scheduler_heartbeats (
   job text primary key,
@@ -186,11 +197,19 @@ revoke all on function public.acc_scheduler_watchdog() from public, anon, authen
 --   :05/:15/... mpp-worker (cronograma .mpp)
 --   :01/:16/... gmail-sync
 -- ---------------------------------------------------------------------
-select cron.schedule('acc-weekly-all',      '*/10 * * * *',    $$select public.acc_scheduler_dispatch_workflow('weekly-all', '{"phase":"all"}'::jsonb)$$);
-select cron.schedule('acc-document-worker', '2-59/10 * * * *', $$select public.acc_scheduler_dispatch_workflow('document-worker')$$);
-select cron.schedule('acc-mpp-worker',      '5-59/10 * * * *', $$select public.acc_scheduler_dispatch_workflow('mpp-worker')$$);
-select cron.schedule('acc-gmail-sync',      '1-59/15 * * * *', $$select public.acc_scheduler_dispatch_workflow('gmail-sync')$$);
-select cron.schedule('acc-ssma-drive',      '0 */2 * * *',     $$select public.acc_scheduler_dispatch_workflow('ssma-drive')$$);
-select cron.schedule('acc-construmanager',  '17 */6 * * *',    $$select public.acc_scheduler_dispatch_workflow('construmanager')$$);
-select cron.schedule('acc-diario',          '43 0 * * *',      $$select public.acc_scheduler_dispatch_workflow('diario', '{"mode":"incremental"}'::jsonb)$$);
-select cron.schedule('acc-watchdog',        '*/15 * * * *',    $$select public.acc_scheduler_watchdog()$$);
+do $sched$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.schedule('acc-weekly-all',      '*/10 * * * *',    $$select public.acc_scheduler_dispatch_workflow('weekly-all', '{"phase":"all"}'::jsonb)$$);
+    perform cron.schedule('acc-document-worker', '2-59/10 * * * *', $$select public.acc_scheduler_dispatch_workflow('document-worker')$$);
+    perform cron.schedule('acc-mpp-worker',      '5-59/10 * * * *', $$select public.acc_scheduler_dispatch_workflow('mpp-worker')$$);
+    perform cron.schedule('acc-gmail-sync',      '1-59/15 * * * *', $$select public.acc_scheduler_dispatch_workflow('gmail-sync')$$);
+    perform cron.schedule('acc-ssma-drive',      '0 */2 * * *',     $$select public.acc_scheduler_dispatch_workflow('ssma-drive')$$);
+    perform cron.schedule('acc-construmanager',  '17 */6 * * *',    $$select public.acc_scheduler_dispatch_workflow('construmanager')$$);
+    perform cron.schedule('acc-diario',          '43 0 * * *',      $$select public.acc_scheduler_dispatch_workflow('diario', '{"mode":"incremental"}'::jsonb)$$);
+    perform cron.schedule('acc-watchdog',        '*/15 * * * *',    $$select public.acc_scheduler_watchdog()$$);
+  else
+    raise notice 'acc_scheduler: pg_cron ausente; jobs não agendados.';
+  end if;
+end;
+$sched$;
