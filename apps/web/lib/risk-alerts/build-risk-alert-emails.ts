@@ -1,25 +1,25 @@
-// Templates dos e-mails de alerta de risco — puros, sem I/O, mesmo
-// padrão institucional ACC (cartão com fundo pela gravidade do risco,
-// vermelho/amarelo/branco; dados em painel branco com texto preto, remetente "ACC AXION CONTROLE DE CONTRATOS"
-// resolvido pelo provider, assinatura anexada por quem envia).
+// Templates dos e-mails de alerta de risco — puros, sem I/O. Desde o TEMPLATE UNIVERSAL, o desenho (logotipo oficial,
+// cores por gravidade, quatro botões RESOLVIDO / EM ANDAMENTO / ENVIAR PARA / ESPECIALISTA) vive em
+// lib/email/templates/universal-alert-template.ts; aqui só se monta o CONTEÚDO do alerta de risco.
 //
-// Conteúdo mínimo (imediato/escalonamento): projeto, grau de risco,
-// origem, resumo, impacto, prazo aplicável, nível atual, responsável,
-// data/hora, recomendação, link seguro para o ACC (rota do projeto — sem
-// token, sem URL assinada), necessidade de confirmação e de justificativa.
-// Consolidado: resumo executivo, quantidade por risco, itens Médios,
-// itens Baixos, prazos, responsáveis e links individuais.
-// Nunca: tokens, anexos, conteúdo contratual extenso, dados de outro projeto.
+// Conteúdo mínimo (imediato/escalonamento): projeto, grau de risco, origem, resumo, impacto, prazo aplicável, nível
+// atual, responsável, data/hora, recomendação, link seguro para o ACC (rota do projeto — sem token, sem URL assinada),
+// necessidade de confirmação e de justificativa. Consolidado: resumo executivo, quantidade por risco, itens Médios,
+// itens Baixos, prazos, responsáveis e os QUATRO botões em CADA ocorrência.
+// Nunca: tokens no texto, anexos, conteúdo contratual extenso, dados de outro projeto. Os botões são LINKS para a página
+// autenticada do alerta (a ação só é gravada por POST após confirmação); nada é gravado por GET.
 
 import type { AlertSeverity } from "@axion/types";
 
 import type { EmailActionButton } from "@/lib/email-actions/render-buttons";
-import { renderEmailActionButtonsHtml, renderEmailActionButtonsText } from "@/lib/email-actions/render-buttons";
+import { EMAIL_ALERT_ACTION_LABELS } from "@/lib/email-actions/types";
+import { ALERT_TONES, type AlertLogoAvailability } from "@/lib/email/templates/alert-box-style";
 import { alertRiskLevelLabels, buildContractAlertSubject } from "@/lib/email/templates/contract-alert-template";
+import { buildUniversalAlertEmail, buildUniversalDigestEmail, type UniversalActionLinks, type UniversalOccurrence } from "@/lib/email/templates/universal-alert-template";
 import { slaAreaLabels } from "@/lib/labels";
-import type { SlaRiskLevel } from "@/lib/sla/types";
+import type { SlaArea, SlaRiskLevel } from "@/lib/sla/types";
 
-import { ALERT_ACTION_LABELS, type AlertActionType, type DigestContent, type DigestItem, type ImmediateAlertContent } from "./types";
+import { type AlertActionType, type DigestContent, type DigestItem, type ImmediateAlertContent } from "./types";
 
 export const RISK_LEVEL_TO_SEVERITY: Record<SlaRiskLevel, AlertSeverity> = {
   LOW: "BAIXA",
@@ -32,10 +32,8 @@ export interface BuiltEmail {
   subject: string;
   html: string;
   text: string;
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  /** Logotipos que o HTML referencia por Content-ID (o chamador anexa; sem isso, o e-mail não usa logo embutido). */
+  logoNeeds?: { maroon: boolean; inverted: boolean };
 }
 
 export function formatDateTimeBR(iso: string | null, timeZone: string): string {
@@ -44,26 +42,20 @@ export function formatDateTimeBR(iso: string | null, timeZone: string): string {
 }
 
 // ------------------------------------------------------------------
-// Tema OPERACIONAL por grau de risco (alertas reais). Fundo do cartão:
-// vermelho para CRÍTICO, amarelo para ALTO e MÉDIO, branco para BAIXO.
-// Os dados ficam num painel BRANCO interno (texto preto) e as ações numa
-// coluna lateral de caixas brancas — legibilidade (WCAG AA) independe da
-// cor de fundo. Contrastes conferidos em scripts/test-risk-alert-email-theme.mjs.
+// Paleta: UMA só (a aprovada, em alert-box-style.ts). RISK_EMAIL_THEMES continua exportado, derivado dela, para quem
+// precisa das cores por grau de risco (CRÍTICO vermelho, ALTO amarelo, MÉDIO e BAIXO brancos).
 // ------------------------------------------------------------------
 export interface RiskEmailTheme {
-  /** Fundo do cartão (faixa de severidade). */
   background: string;
-  /** Texto sobre o fundo do cartão (título, saudação, rótulo de risco). */
   foreground: string;
-  /** Borda do cartão. */
   border: string;
 }
 
 export const RISK_EMAIL_THEMES: Record<SlaRiskLevel, RiskEmailTheme> = {
-  CRITICAL: { background: "#B91C1C", foreground: "#FFFFFF", border: "#7F1D1D" },
-  HIGH: { background: "#FDE047", foreground: "#111827", border: "#A16207" },
-  MEDIUM: { background: "#FEF08A", foreground: "#111827", border: "#A16207" },
-  LOW: { background: "#FFFFFF", foreground: "#111827", border: "#D1D5DB" },
+  CRITICAL: { background: ALERT_TONES.CRITICA.background, foreground: ALERT_TONES.CRITICA.text, border: ALERT_TONES.CRITICA.border },
+  HIGH: { background: ALERT_TONES.ALTA.background, foreground: ALERT_TONES.ALTA.text, border: ALERT_TONES.ALTA.border },
+  MEDIUM: { background: ALERT_TONES.MEDIA.background, foreground: ALERT_TONES.MEDIA.text, border: ALERT_TONES.MEDIA.border },
+  LOW: { background: ALERT_TONES.BAIXA.background, foreground: ALERT_TONES.BAIXA.text, border: ALERT_TONES.BAIXA.border },
 };
 
 /** Instrução de resposta direta no corpo do e-mail (status + previsão), conforme o grau de risco. */
@@ -74,71 +66,50 @@ export function replyInstructionFor(riskLevel: SlaRiskLevel): string {
     : 'Responda a este e-mail com o status e a DATA prevista de conclusão. Ex.: "Tomando providências. Conclusão prevista para 20/11/2026." A resposta não suspende prazos.';
 }
 
-const PANEL_STYLE = "background-color:#FFFFFF;border:1px solid #E5E7EB;border-radius:6px;";
-const SIDE_BOX_STYLE = "display:block;box-sizing:border-box;width:100%;margin:0 0 8px 0;padding:10px 12px;background-color:#FFFFFF;color:#111827;border:1px solid #111827;border-radius:6px;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:bold;text-decoration:none;text-align:center;";
-const SIDE_PRIMARY_STYLE = "display:block;box-sizing:border-box;width:100%;margin:0 0 8px 0;padding:10px 12px;background-color:#111827;color:#FFFFFF;border:1px solid #111827;border-radius:6px;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:bold;text-decoration:none;text-align:center;";
-
-function sideBox(href: string, label: string, primary = false): string {
-  return `<a href="${escapeHtml(href)}" style="${primary ? SIDE_PRIMARY_STYLE : SIDE_BOX_STYLE}">${escapeHtml(label)}</a>`;
-}
-
-/**
- * Cartão com duas colunas: conteúdo (esquerda) e caixas de ação (direita). Técnica híbrida:
- * as colunas são blocos inline-block que EMPILHAM em telas estreitas (Gmail/Apple Mail no celular);
- * no Outlook (MSO) uma tabela condicional mantém as duas colunas lado a lado.
- */
-function renderAlertCard(theme: RiskEmailTheme, header: string, main: string, side: string, footer: string): string {
-  return `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#F3F4F6;padding:24px 0;">
-  <tr><td align="center">
-    <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;background-color:${theme.background};border:2px solid ${theme.border};border-radius:8px;" data-acc-risk-theme="1">
-      <tr><td style="padding:18px 20px 8px 20px;color:${theme.foreground};font-family:Arial,Helvetica,sans-serif;">${header}</td></tr>
-      <tr><td style="padding:8px 12px 12px 12px;font-size:0;" valign="top">
-        <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0"><tr><td width="400" valign="top"><![endif]-->
-        <div style="display:inline-block;vertical-align:top;width:100%;max-width:400px;font-size:14px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:8px;">${main}</td></tr></table>
-        </div>
-        <!--[if mso]></td><td width="200" valign="top"><![endif]-->
-        <div style="display:inline-block;vertical-align:top;width:100%;max-width:200px;font-size:14px;">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="padding:8px;">${side}</td></tr></table>
-        </div>
-        <!--[if mso]></td></tr></table><![endif]-->
-      </td></tr>
-      <tr><td style="padding:0 20px 16px 20px;"><div style="${PANEL_STYLE}padding:10px 12px;"><p style="margin:0;color:#4B5563;font-family:Arial,Helvetica,sans-serif;font-size:11px;">${footer}</p></div></td></tr>
-    </table>
-  </td></tr>
-</table>`.trim();
-}
-
-function renderCardHeader(theme: RiskEmailTheme, riskText: string, greeting: string, headline: string): string {
-  return (
-    `<p style="margin:0 0 8px 0;font-size:12px;font-weight:bold;letter-spacing:0.04em;color:${theme.foreground};">ACC · AXION CONTROLE DE CONTRATOS</p>` +
-    `<p style="margin:0 0 10px 0;font-size:15px;font-weight:bold;color:${theme.foreground};">${escapeHtml(riskText)}</p>` +
-    `<p style="margin:0 0 6px 0;font-size:14px;color:${theme.foreground};">${escapeHtml(greeting)}</p>` +
-    `<h1 style="margin:0;font-size:18px;line-height:1.3;color:${theme.foreground};">${escapeHtml(headline)}</h1>`
-  );
-}
-
-function renderReplyBox(riskLevel: SlaRiskLevel, visibleCode: string | null | undefined): string {
-  const code = visibleCode ? ` Código do alerta: ${escapeHtml(visibleCode)}.` : "";
-  return `<div style="${PANEL_STYLE}margin:4px 0 0 0;padding:10px 12px;"><p style="margin:0 0 4px 0;color:#111827;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:bold;">Responder pelo e-mail</p><p style="margin:0;color:#111827;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.4;">${escapeHtml(replyInstructionFor(riskLevel))}${code}</p></div>`;
-}
-
-function row(label: string, value: string | null): string {
-  if (!value) return "";
-  return `<tr><td style="padding:6px 0;color:#000000;font-size:13px;font-weight:bold;vertical-align:top;white-space:nowrap;">${escapeHtml(label)}</td><td style="padding:6px 0 6px 12px;color:#000000;font-size:13px;">${escapeHtml(value)}</td></tr>`;
-}
-
-function textRow(label: string, value: string | null): string {
-  return value ? `${label}: ${value}` : "";
-}
-
 /** Link seguro: rota interna do projeto (exige login no ACC) — nunca token/URL assinada. */
 export function buildProjectLink(baseUrl: string, projectId: string, path: string): string {
   const cleanBase = baseUrl.replace(/\/+$/, "");
   const cleanPath = path.replace(/^\/+/, "");
   return `${cleanBase}/${projectId}/${cleanPath}`;
 }
+
+const DEFAULT_NO_LOGOS: AlertLogoAvailability = { maroon: false, inverted: false };
+
+const SPECIALIST_BY_AREA: Partial<Record<SlaArea, string>> = {
+  ESG_SSMA: "Especialista SSMA",
+  ENGENHARIA: "Especialista Engenharia",
+  PLANEJAMENTO: "Especialista Planejamento",
+  JURIDICO: "Especialista Jurídico/Contratos",
+};
+function specialistLabelFor(area: SlaArea): string {
+  return SPECIALIST_BY_AREA[area] ?? `Especialista (${slaAreaLabels[area]}) — consulta geral`;
+}
+
+/**
+ * Links dos quatro botões de um caso. Os três de tratamento usam o link com token (quando emitido) ou o link
+ * autenticado SEM token (?acao=…, só PRÉ-SELECIONA o formulário; a autorização é a sessão + a validação do servidor).
+ * ESPECIALISTA é sempre o link autenticado da consulta (somente leitura). Sem caso registrado, os botões ficam
+ * desativados com o motivo (nunca um link inventado).
+ */
+export function buildCaseActionLinks(baseUrl: string, projectId: string, caseId: string | null | undefined, tokenLinks?: Partial<Record<AlertActionType, string>>): { links: UniversalActionLinks; unavailableReasons: Partial<Record<keyof UniversalActionLinks, string>> } {
+  const plain = (acao: string) => (caseId ? `${buildProjectLink(baseUrl, projectId, `alertas/${caseId}`)}?acao=${acao}` : null);
+  const reason = "Disponível após o registro do caso no ACC.";
+  return {
+    links: {
+      RESOLVIDO: tokenLinks?.RESOLVED ?? plain("RESOLVED"),
+      EM_ANDAMENTO: tokenLinks?.TAKING_ACTION ?? plain("TAKING_ACTION"),
+      ENVIAR_PARA: tokenLinks?.FORWARD ?? plain("FORWARD"),
+      ESPECIALISTA: plain("ESPECIALISTA"),
+    },
+    unavailableReasons: caseId ? {} : { RESOLVIDO: reason, EM_ANDAMENTO: reason, ENVIAR_PARA: reason, ESPECIALISTA: reason },
+  };
+}
+
+function toBuilt(email: { subject: string; html: string; text: string; logoNeeds: { maroon: boolean; inverted: boolean } }, subjectOverride?: string): BuiltEmail {
+  return { subject: subjectOverride ?? email.subject, html: email.html, text: email.text, logoNeeds: email.logoNeeds };
+}
+
+// ------------------------------------------------------------------ imediato / escalonamento
 
 export interface ImmediateEmailInput {
   content: ImmediateAlertContent;
@@ -149,25 +120,14 @@ export interface ImmediateEmailInput {
   timeZone: string;
   generatedAt: string;
   actionButtons: EmailActionButton[];
-  /** Links das 5 ações formais (página autenticada; token curto/expirável). */
+  /** Links das ações formais com token curto/expirável (página autenticada). */
   actionLinks?: Partial<Record<AlertActionType, string>>;
   /** Código visível do alerta (fallback de correlação da resposta por e-mail). */
   visibleCode?: string | null;
-}
-
-const EMAIL_ACTION_ORDER: AlertActionType[] = ["RESOLVED", "TAKING_ACTION", "FORWARD", "EXPERT_CONSULTATION", "OTHER"];
-const EMAIL_ACTION_BUTTON_LABELS: Record<AlertActionType, string> = { ...ALERT_ACTION_LABELS, FORWARD: "ENVIAR PARA", EXPERT_CONSULTATION: "CONSULTAR ESPECIALISTA" };
-
-function renderActionLinksHtml(links: Partial<Record<AlertActionType, string>> | undefined): string {
-  if (!links) return "";
-  return EMAIL_ACTION_ORDER.filter((a) => links[a])
-    .map((a) => sideBox(links[a]!, EMAIL_ACTION_BUTTON_LABELS[a]))
-    .join("");
-}
-
-function renderActionLinksText(links: Partial<Record<AlertActionType, string>> | undefined): string[] {
-  if (!links) return [];
-  return EMAIL_ACTION_ORDER.filter((a) => links[a]).map((a) => `${EMAIL_ACTION_BUTTON_LABELS[a]}: ${links[a]}`);
+  /** Id do caso de risco (monta os links autenticados dos quatro botões). */
+  caseId?: string | null;
+  /** Logotipos disponíveis nesta execução (o chamador carrega os arquivos oficiais). */
+  logos?: AlertLogoAvailability;
 }
 
 export function buildImmediateRiskAlertEmail(input: ImmediateEmailInput): BuiltEmail {
@@ -186,92 +146,82 @@ export function buildImmediateRiskAlertEmail(input: ImmediateEmailInput): BuiltE
         : content.changed
           ? `${subjectBase} - ATUALIZADO`
           : subjectBase) + codeTag;
-  const greeting = input.recipientName ? `Olá, ${input.recipientName}.` : "Olá.";
   const headline = reissue
     ? `REEMISSÃO — risco ${riskLabel} já existente, cuja comunicação anterior NÃO foi entregue: ${content.caseTitle}`
     : isEscalation
-    ? `Risco sem tratamento escalado para ${content.levelLabel}`
-    : content.changed
-      ? `Risco ${riskLabel} atualizado: ${content.caseTitle}`
-      : `Novo risco ${riskLabel}: ${content.caseTitle}`;
+      ? `Risco sem tratamento escalado para ${content.levelLabel}`
+      : content.changed
+        ? `Risco ${riskLabel} atualizado: ${content.caseTitle}`
+        : `Novo risco ${riskLabel}: ${content.caseTitle}`;
   const originUrl = buildProjectLink(input.baseUrl, input.projectId, content.originPath);
   const actionUrl = content.slaActionId ? buildProjectLink(input.baseUrl, input.projectId, `acoes/${content.slaActionId}`) : buildProjectLink(input.baseUrl, input.projectId, "acoes");
   const requirements = [
     content.requiresAcknowledgment ? "confirmação de ciência obrigatória" : "confirmação de ciência não exigida",
     content.requiresJustification ? "justificativa obrigatória em caso de atraso" : "justificativa de atraso não exigida",
   ].join("; ");
-  const rows: Array<[string, string | null]> = [
-    ["Projeto", input.projectName],
-    ["Grau de risco", riskLabel],
-    ["Origem", `${content.reference} · área ${slaAreaLabels[content.area]}`],
-    ["Resumo", content.summary],
-    ["Impacto", content.impact || null],
-    [content.deadlineLabel, formatDateTimeBR(content.deadlineAt, input.timeZone)],
-    ["Nível atual", content.levelLabel],
-    ["Observação do nível", content.levelNote ?? null],
-    ["Nível anterior", content.previousLevelLabel],
-    ["Responsável (Nível 1)", content.responsibleName],
-    ["Motivo do escalonamento", content.escalationReason],
+  const { links, unavailableReasons } = buildCaseActionLinks(input.baseUrl, input.projectId, input.caseId, input.actionLinks);
+
+  const details: Array<{ label: string; value: string | null | undefined }> = [
+    { label: "Grau de risco", value: riskLabel },
+    { label: "Origem", value: `${content.reference} · área ${slaAreaLabels[content.area]}` },
+    { label: "Resumo", value: content.summary },
+    { label: "Impacto", value: content.impact || null },
+    { label: "Tipo de prazo", value: content.deadlineLabel },
+    { label: "Nível atual", value: isEscalation ? `${content.levelLabel}` : content.levelLabel },
+    { label: "Observação do nível", value: content.levelNote ?? null },
+    { label: "Nível anterior", value: content.previousLevelLabel },
+    { label: "Motivo do escalonamento", value: content.escalationReason },
     ...(reissue
-      ? ([
-          ["Reemissão", `Não é um risco novo. ${reissue.note}`],
-          ["Etapa atual do SLA", `${reissue.stageReachedLabel} (alcançada pelos prazos originais; nada foi reiniciado)`],
-          [
-            "Comunicação anterior (NÃO entregue)",
-            reissue.priorCommunications.length === 0
-              ? "Nenhuma comunicação anterior registrada para este caso."
-              : reissue.priorCommunications
-                  .map((p) => `${formatDateTimeBR(p.at, input.timeZone)} — ${p.levelLabel}${p.recipientName ? ` (${p.recipientName})` : ""}: ${p.outcome === "SUPPRESSED" ? `suprimida${p.reason ? ` (${p.reason})` : ""}` : "aceita pelo Gmail, mas entregue em outra caixa"}`)
-                  .join("; "),
-          ],
-        ] as Array<[string, string | null]>)
+      ? [
+          { label: "Reemissão", value: `Não é um risco novo. ${reissue.note}` },
+          { label: "Etapa atual do SLA", value: `${reissue.stageReachedLabel} (alcançada pelos prazos originais; nada foi reiniciado)` },
+          {
+            label: "Comunicação anterior (NÃO entregue)",
+            value:
+              reissue.priorCommunications.length === 0
+                ? "Nenhuma comunicação anterior registrada para este caso."
+                : reissue.priorCommunications
+                    .map((p) => `${formatDateTimeBR(p.at, input.timeZone)} — ${p.levelLabel}${p.recipientName ? ` (${p.recipientName})` : ""}: ${p.outcome === "SUPPRESSED" ? `suprimida${p.reason ? ` (${p.reason})` : ""}` : "aceita pelo Gmail, mas entregue em outra caixa"}`)
+                    .join("; "),
+          },
+        ]
       : []),
-    ["Resposta do responsável", content.responderLine ?? null],
-    ["Previsão de conclusão", content.forecastLine ?? null],
-    ["Recomendação do Expert", content.recommendation],
-    ["Exigências da Matriz", requirements],
-    ["Gerado em", formatDateTimeBR(input.generatedAt, input.timeZone)],
+    { label: "Resposta do responsável", value: content.responderLine ?? null },
+    { label: "Previsão de conclusão", value: content.forecastLine ?? null },
+    { label: "Recomendação do Expert", value: content.recommendation },
+    { label: "Exigências da Matriz", value: requirements },
+    { label: "Gerado em", value: formatDateTimeBR(input.generatedAt, input.timeZone) },
   ];
 
-  const theme = RISK_EMAIL_THEMES[content.riskLevel];
-  const riskText = `RISCO ${riskLabel}${isEscalation ? ` · ${content.levelLabel.toUpperCase()}` : ""}`;
-  const mainHtml = `<div style="${PANEL_STYLE}padding:10px 12px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows.map(([l, v]) => row(l, v)).join("")}</table></div>${renderEmailActionButtonsHtml(input.actionButtons, content.caseTitle)}`;
-  const sideHtml =
-    sideBox(actionUrl, "Abrir no ACC", true) +
-    sideBox(originUrl, "Ver evidência de origem") +
-    (input.actionLinks ? `<p style="margin:6px 0 6px 0;color:${theme.foreground};font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:bold;">Ações (abrem o ACC autenticado):</p>${renderActionLinksHtml(input.actionLinks)}` : "") +
-    renderReplyBox(content.riskLevel, input.visibleCode);
-  const html = renderAlertCard(
-    theme,
-    renderCardHeader(theme, riskText, greeting, headline),
-    mainHtml,
-    sideHtml,
-    "Alerta gerado automaticamente pelo ACC a partir da Matriz de responsabilidades e prazos do projeto — não é uma decisão de IA. Fato, inferência e recomendação estão separados na tela do ACC."
-  );
-
-  const text = [
-    "ACC - AXION Controle de Contratos",
-    `RISCO ${riskLabel}${isEscalation ? ` · ${content.levelLabel.toUpperCase()}` : ""}`,
-    "",
-    greeting,
-    headline,
-    "",
-    ...rows.map(([l, v]) => textRow(l, v)).filter(Boolean),
-    "",
-    `Abrir no ACC: ${actionUrl}`,
-    `Evidência de origem: ${originUrl}`,
-    renderEmailActionButtonsText(input.actionButtons),
-    ...(input.actionLinks ? ["", "Ações sobre este alerta (abrem o ACC autenticado para confirmação):", ...renderActionLinksText(input.actionLinks), input.visibleCode ? `Ou responda a este e-mail (código ${input.visibleCode}).` : "Ou responda a este e-mail."] : []),
-    "",
-    `RESPONDER PELO E-MAIL: ${replyInstructionFor(content.riskLevel)}`,
-    "",
-    "Alerta gerado automaticamente pelo ACC a partir da Matriz de responsabilidades e prazos do projeto.",
-  ]
-    .filter((line) => line !== undefined)
-    .join("\n");
-
-  return { subject, html, text };
+  const occurrence: UniversalOccurrence = {
+    code: input.visibleCode ?? content.reference,
+    projectName: input.projectName,
+    areaLabel: slaAreaLabels[content.area],
+    severity,
+    title: headline,
+    description: content.summary,
+    evidences: [{ label: `Evidência de origem: ${content.reference}`, url: originUrl }],
+    responsibleName: content.responsibleName,
+    originalDeadline: formatDateTimeBR(content.deadlineAt, input.timeZone),
+    stateLabel: isEscalation ? `Escalonado — ${content.levelLabel}` : content.changed ? "Atualizado" : "Aberto",
+    specialistLabel: specialistLabelFor(content.area),
+    openUrl: actionUrl,
+    actions: links,
+    unavailableReasons,
+    details: details.filter((d) => d.label !== "Resumo"),
+    replyInstruction: `${replyInstructionFor(content.riskLevel)}${input.visibleCode ? ` Código do alerta: ${input.visibleCode}.` : ""}`,
+    extraLinks: input.actionButtons.map((b) => ({ label: EMAIL_ALERT_ACTION_LABELS[b.action], url: b.url })),
+  };
+  const built = buildUniversalAlertEmail({
+    recipientName: input.recipientName,
+    occurrence,
+    logos: input.logos ?? DEFAULT_NO_LOGOS,
+    footer: "Alerta gerado automaticamente pelo ACC a partir da Matriz de responsabilidades e prazos do projeto — não é uma decisão de IA. Os botões abrem o ACC autenticado: nada é registrado, transferido ou concluído apenas pelo clique no e-mail.",
+  });
+  return toBuilt(built, subject);
 }
+
+// ------------------------------------------------------------------ consolidado semanal
 
 export interface DigestEmailInput {
   content: DigestContent;
@@ -281,74 +231,56 @@ export interface DigestEmailInput {
   baseUrl: string;
   timeZone: string;
   generatedAt: string;
+  /** caseKey -> id do caso registrado (os quatro botões de cada ocorrência levam ao caso). */
+  caseIdByKey?: ReadonlyMap<string, string>;
+  logos?: AlertLogoAvailability;
 }
 
-function digestItemHtml(item: DigestItem, input: DigestEmailInput): string {
-  const url = buildProjectLink(input.baseUrl, input.projectId, item.slaActionId ? `acoes/${item.slaActionId}` : item.originPath);
-  const state = item.state === "NEW" ? "NOVO" : item.state === "CHANGED" ? "ALTERADO" : item.state === "CLOSED" ? "ENCERRADO" : "EM ABERTO";
-  return `<li style="margin:0 0 10px 0;color:#000000;font-size:13px;"><strong>[${escapeHtml(state)}] ${escapeHtml(item.title)}</strong><br/>${escapeHtml(item.summary)}<br/><span style="color:#4B5563;">Área ${escapeHtml(slaAreaLabels[item.area])} · Prazo para assumir: ${escapeHtml(formatDateTimeBR(item.deadlineAt, input.timeZone))} · Responsável: ${escapeHtml(item.responsibleName ?? "não definido")}</span><br/><a href="${escapeHtml(url)}" style="color:#111827;">Abrir no ACC</a></li>`;
-}
+const DIGEST_STATE_LABEL: Record<DigestItem["state"], string> = { NEW: "Novo", CHANGED: "Alterado", OPEN: "Em aberto", CLOSED: "Encerrado" };
 
-function digestItemText(item: DigestItem, input: DigestEmailInput): string {
+function digestOccurrence(item: DigestItem, input: DigestEmailInput): UniversalOccurrence {
+  const caseId = input.caseIdByKey?.get(item.caseKey) ?? null;
+  const { links, unavailableReasons } = buildCaseActionLinks(input.baseUrl, input.projectId, caseId);
   const url = buildProjectLink(input.baseUrl, input.projectId, item.slaActionId ? `acoes/${item.slaActionId}` : item.originPath);
-  const state = item.state === "NEW" ? "NOVO" : item.state === "CHANGED" ? "ALTERADO" : item.state === "CLOSED" ? "ENCERRADO" : "EM ABERTO";
-  return `- [${state}] ${item.title}\n  ${item.summary}\n  Área ${slaAreaLabels[item.area]} · Prazo para assumir: ${formatDateTimeBR(item.deadlineAt, input.timeZone)} · Responsável: ${item.responsibleName ?? "não definido"}\n  ${url}`;
+  return {
+    code: item.reference,
+    projectName: input.projectName,
+    areaLabel: slaAreaLabels[item.area],
+    severity: RISK_LEVEL_TO_SEVERITY[item.riskLevel],
+    title: item.title,
+    description: item.summary,
+    responsibleName: item.responsibleName,
+    originalDeadline: item.deadlineAt ? formatDateTimeBR(item.deadlineAt, input.timeZone) : null,
+    stateLabel: DIGEST_STATE_LABEL[item.state],
+    specialistLabel: specialistLabelFor(item.area),
+    openUrl: url,
+    actions: links,
+    unavailableReasons,
+    // Encerrado/concluído: tique verde no resumo NOVO (e-mails já entregues não se atualizam).
+    completed: item.state === "CLOSED",
+  };
 }
 
 export function buildRiskDigestEmail(input: DigestEmailInput): BuiltEmail {
   const { content } = input;
   const [year, month, day] = content.window.split("-");
   const subject = `OBRA ${input.projectName.toUpperCase()} - CONSOLIDADO SEMANAL DE RISCOS BAIXO/MÉDIO (${day}/${month}/${year})`;
-  const greeting = input.recipientName ? `Olá, ${input.recipientName}.` : "Olá.";
   const summary = `${content.mediumItems.length} risco(s) MÉDIO(S), ${content.lowItems.length} risco(s) BAIXO(S) em aberto; ${content.closedItems.length} encerrado(s) desde o último consolidado.`;
-  const section = (title: string, items: DigestItem[]) =>
-    items.length === 0
-      ? `<h2 style="margin:16px 0 4px 0;color:#000000;font-size:15px;">${escapeHtml(title)}</h2><p style="margin:0;color:#4B5563;font-size:13px;">Nenhum item.</p>`
-      : `<h2 style="margin:16px 0 4px 0;color:#000000;font-size:15px;">${escapeHtml(title)}</h2><ul style="margin:0;padding-left:18px;">${items.map((i) => digestItemHtml(i, input)).join("")}</ul>`;
-
-  const html = `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;padding:24px 0;">
-  <tr><td align="center">
-    <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border:1px solid #e5e7eb;border-radius:8px;">
-      <tr><td style="padding:20px 24px 8px 24px;"><span style="font-size:12px;font-weight:bold;letter-spacing:0.04em;color:#000000;">ACC · AXION CONTROLE DE CONTRATOS</span></td></tr>
-      <tr><td style="padding:0 24px 16px 24px;">
-        <p style="margin:0 0 12px 0;color:#000000;font-size:14px;">${escapeHtml(greeting)}</p>
-        <h1 style="margin:0 0 8px 0;color:#000000;font-size:18px;">Consolidado semanal de riscos — ${escapeHtml(input.projectName)}</h1>
-        <p style="margin:0 0 4px 0;color:#000000;font-size:14px;"><strong>Resumo executivo:</strong> ${escapeHtml(summary)}</p>
-        <p style="margin:0;color:#4B5563;font-size:12px;">Janela: quarta-feira ${escapeHtml(`${day}/${month}/${year}`)} 07:00 (${escapeHtml(input.timeZone)}) · gerado em ${escapeHtml(formatDateTimeBR(input.generatedAt, input.timeZone))}</p>
-        ${section(`Riscos MÉDIOS (${content.mediumItems.length})`, content.mediumItems)}
-        ${section(`Riscos BAIXOS (${content.lowItems.length})`, content.lowItems)}
-        ${content.closedItems.length > 0 ? section(`Encerrados desde o último consolidado (${content.closedItems.length})`, content.closedItems) : ""}
-      </td></tr>
-      <tr><td style="padding:16px 24px;border-top:1px solid #e5e7eb;"><p style="margin:0;color:#6b7280;font-size:11px;">Riscos BAIXO e MÉDIO não geram e-mail individual: são reunidos neste consolidado às quartas-feiras, 07:00 (${escapeHtml(input.timeZone)}). Alertas ALTO e CRÍTICO são enviados imediatamente.</p></td></tr>
-    </table>
-  </td></tr>
-</table>`.trim();
-
-  const text = [
-    "ACC - AXION Controle de Contratos",
-    `CONSOLIDADO SEMANAL DE RISCOS — ${input.projectName}`,
-    "",
-    greeting,
-    `Resumo executivo: ${summary}`,
-    `Janela: quarta-feira ${day}/${month}/${year} 07:00 (${input.timeZone}) · gerado em ${formatDateTimeBR(input.generatedAt, input.timeZone)}`,
-    "",
-    `RISCOS MÉDIOS (${content.mediumItems.length})`,
-    ...(content.mediumItems.length ? content.mediumItems.map((i) => digestItemText(i, input)) : ["Nenhum item."]),
-    "",
-    `RISCOS BAIXOS (${content.lowItems.length})`,
-    ...(content.lowItems.length ? content.lowItems.map((i) => digestItemText(i, input)) : ["Nenhum item."]),
-    ...(content.closedItems.length ? ["", `ENCERRADOS DESDE O ÚLTIMO CONSOLIDADO (${content.closedItems.length})`, ...content.closedItems.map((i) => digestItemText(i, input))] : []),
-  ].join("\n");
-
-  return { subject, html, text };
+  const occurrences = [...content.mediumItems, ...content.lowItems, ...content.closedItems].map((item) => digestOccurrence(item, input));
+  const built = buildUniversalDigestEmail({
+    recipientName: input.recipientName,
+    projectName: input.projectName,
+    summaryLine: summary,
+    windowLabel: `Janela: quarta-feira ${day}/${month}/${year} 07:00 (${input.timeZone}) · gerado em ${formatDateTimeBR(input.generatedAt, input.timeZone)}`,
+    occurrences,
+    logos: input.logos ?? DEFAULT_NO_LOGOS,
+    footer: `Riscos BAIXO e MÉDIO não geram e-mail individual: são reunidos neste consolidado às quartas-feiras, 07:00 (${input.timeZone}). Alertas ALTO e CRÍTICO são enviados imediatamente. Cada ocorrência é tratada individualmente pelos seus quatro botões.`,
+  });
+  return toBuilt(built, subject);
 }
 
-// ------------------------------------------------------------------
-// E-mails de acompanhamento na MESMA thread do alerta: encaminhamento
-// (ENVIAR P/), devolução por falta de ação, resposta do Expert e
-// confirmação de ação. Mesmo padrão institucional; sem anexos/tokens.
-// ------------------------------------------------------------------
+// ------------------------------------------------------------------ acompanhamento na MESMA thread
+
 export interface FollowUpEmailInput {
   kind: "FORWARD" | "RETURNED" | "EXPERT_ANSWER" | "ACTION_CONFIRMATION";
   projectId: string;
@@ -369,6 +301,9 @@ export interface FollowUpEmailInput {
   actionLinks?: Partial<Record<AlertActionType, string>>;
   /** Título alternativo (ex.: pedido de previsão de conclusão). */
   titleOverride?: string;
+  /** Área do alerta (define o especialista); sem ela, consulta geral. */
+  area?: SlaArea;
+  logos?: AlertLogoAvailability;
 }
 
 const FOLLOW_UP_TITLES: Record<FollowUpEmailInput["kind"], string> = {
@@ -381,40 +316,35 @@ const FOLLOW_UP_TITLES: Record<FollowUpEmailInput["kind"], string> = {
 export function buildAlertFollowUpEmail(input: FollowUpEmailInput): BuiltEmail {
   const title = input.titleOverride ?? FOLLOW_UP_TITLES[input.kind];
   const severity = RISK_LEVEL_TO_SEVERITY[input.riskLevel];
-  const riskLabel = alertRiskLevelLabels[severity];
   const codeTag = input.visibleCode ? ` [ACC-ALERTA:${input.visibleCode}]` : "";
   const subject = `${buildContractAlertSubject(input.projectName, severity)} - ${title.toUpperCase()}${codeTag}`;
-  const greeting = input.recipientName ? `Olá, ${input.recipientName}.` : "Olá.";
   const alertUrl = buildProjectLink(input.baseUrl, input.projectId, `alertas/${input.caseId}`);
-  const rows: Array<[string, string | null]> = [["Projeto", input.projectName], ["Grau de risco", riskLabel], ["Alerta", input.caseTitle], ...input.rows, ["Gerado em", formatDateTimeBR(input.generatedAt, input.timeZone)]];
-  const review = input.requiresHumanReview ? `<p style="margin:0;color:#7F1D1D;font-size:13px;font-weight:bold;">O Expert apenas recomenda: nenhuma ação foi executada e o alerta continua aberto até decisão humana.</p>` : "";
-  const theme = RISK_EMAIL_THEMES[input.riskLevel];
-  const mainHtml =
-    (input.paragraphs ?? []).map((p) => `<div style="${PANEL_STYLE}padding:10px 12px;margin:0 0 8px 0;"><p style="margin:0;color:#000000;font-size:14px;white-space:pre-wrap;">${escapeHtml(p)}</p></div>`).join("") +
-    (review ? `<div style="${PANEL_STYLE}padding:10px 12px;margin:0 0 8px 0;">${review}</div>` : "") +
-    `<div style="${PANEL_STYLE}padding:10px 12px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows.map(([l, v]) => row(l, v)).join("")}</table></div>`;
-  const sideHtml = sideBox(alertUrl, "Abrir alerta no ACC", true) + renderActionLinksHtml(input.actionLinks) + renderReplyBox(input.riskLevel, input.visibleCode);
-  const html = renderAlertCard(
-    theme,
-    renderCardHeader(theme, `RISCO ${riskLabel}`, greeting, title),
-    mainHtml,
-    sideHtml,
-    "Mensagem gerada pelo ACC na conversa deste alerta. Você pode responder diretamente a este e-mail."
-  );
-  const text = [
-    "ACC - AXION Controle de Contratos",
-    `RISCO ${riskLabel} · ${title}`,
-    "",
-    greeting,
-    ...(input.paragraphs ?? []),
-    ...(input.requiresHumanReview ? ["O Expert apenas recomenda: nenhuma ação foi executada e o alerta continua aberto até decisão humana."] : []),
-    "",
-    ...rows.map(([l, v]) => textRow(l, v)).filter(Boolean),
-    "",
-    `Abrir alerta no ACC: ${alertUrl}`,
-    ...renderActionLinksText(input.actionLinks),
-    "",
-    `RESPONDER PELO E-MAIL: ${replyInstructionFor(input.riskLevel)}`,
-  ].join("\n");
-  return { subject, html, text };
+  const { links, unavailableReasons } = buildCaseActionLinks(input.baseUrl, input.projectId, input.caseId, input.actionLinks);
+  const area = input.area ?? null;
+  const occurrence: UniversalOccurrence = {
+    code: input.visibleCode ?? input.caseId.slice(0, 8),
+    projectName: input.projectName,
+    areaLabel: area ? slaAreaLabels[area] : "—",
+    severity,
+    title,
+    description: input.caseTitle,
+    stateLabel: "Aberto",
+    specialistLabel: area ? specialistLabelFor(area) : "Especialista (consulta geral)",
+    openUrl: alertUrl,
+    actions: links,
+    unavailableReasons,
+    details: [...input.rows.map(([label, value]) => ({ label, value })), { label: "Gerado em", value: formatDateTimeBR(input.generatedAt, input.timeZone) }],
+    notices: [
+      ...(input.paragraphs ?? []),
+      ...(input.requiresHumanReview ? ["O Expert apenas recomenda: nenhuma ação foi executada e o alerta continua aberto até decisão humana."] : []),
+    ],
+    replyInstruction: replyInstructionFor(input.riskLevel),
+  };
+  const built = buildUniversalAlertEmail({
+    recipientName: input.recipientName,
+    occurrence,
+    logos: input.logos ?? DEFAULT_NO_LOGOS,
+    footer: "Mensagem gerada pelo ACC na conversa deste alerta. Você pode responder diretamente a este e-mail.",
+  });
+  return toBuilt(built, subject);
 }

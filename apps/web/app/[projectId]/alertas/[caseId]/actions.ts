@@ -41,6 +41,10 @@ export async function applyAlertActionAction(_prev: EmailRegistryActionState, fo
     const caseId = field(formData, "caseId");
     const action = field(formData, "action") as AlertActionType | null;
     if (!projectId || !caseId || !action || !ACTIONS.includes(action)) throw new Error("Ação inválida.");
+    // ESPECIALISTA é SOMENTE consulta (somente leitura, na própria tela): não registra evento, não muda estado e não provoca
+    // escalonamento imediato. A ação histórica EXPERT_CONSULTATION continua existindo na máquina de estados para os registros
+    // antigos e para o fluxo de e-mail legado, mas a interface web não a registra mais.
+    if ((action as string) === "EXPERT_CONSULTATION") throw new Error("A consulta ao especialista é somente leitura: use o botão ESPECIALISTA. Nenhum estado ou escalonamento é alterado por ela.");
 
     // Sessão (RLS) para leitura: só membro do projeto enxerga o alerta.
     const store = createSupabaseRiskAlertStore(supabase);

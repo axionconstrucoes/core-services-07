@@ -22,6 +22,7 @@ export async function loadAlertConsultSubject(
   subject: AlertConsultSubjectKind,
   id: string
 ): Promise<AlertConsultSubject | null> {
+  if (subject === "risco") return loadRiskSubject(supabase, projectId, id);
   return subject === "evento" ? loadEventSubject(supabase, projectId, id) : loadDeliverySubject(supabase, projectId, id);
 }
 
@@ -59,6 +60,46 @@ async function loadEventSubject(supabase: SupabaseClient, projectId: string, eve
     scope: "EVENT",
     contextText: null,
     sources,
+  };
+}
+
+/**
+ * Alerta de RISCO (risk_alert_cases): contexto AUTORIZADO = só os campos do próprio caso (título, área, risco,
+ * estado, resumo, impacto, recomendação). Cliente do usuário (RLS) + filtro por obra: id de outra obra = null.
+ * Somente leitura: a consulta nunca altera estado, responsável, prazo, evidência nem escalonamento.
+ */
+async function loadRiskSubject(supabase: SupabaseClient, projectId: string, caseId: string): Promise<AlertConsultSubject | null> {
+  const [{ data: row }, { data: project }] = await Promise.all([
+    supabase
+      .from("risk_alert_cases")
+      .select("id,project_id,title,summary,impact,recommendation,risk_level,area,reference,state,visible_code")
+      .eq("id", caseId)
+      .eq("project_id", projectId)
+      .maybeSingle(),
+    supabase.from("projects").select("name").eq("id", projectId).maybeSingle(),
+  ]);
+  if (!row || !project) return null;
+
+  const lines = [
+    `Alerta de risco: ${row.title as string}`,
+    `Grau de risco: ${row.risk_level as string}`,
+    `Área: ${row.area as string}`,
+    `Estado vigente: ${row.state as string}`,
+    `Origem: ${(row.reference as string | null) ?? NOT_DEFINED}`,
+    `Resumo: ${(row.summary as string | null)?.trim() || NOT_DEFINED}`,
+    `Impacto: ${(row.impact as string | null)?.trim() || NOT_DEFINED}`,
+    `Recomendação registrada: ${(row.recommendation as string | null)?.trim() || "nenhuma"}`,
+  ];
+
+  return {
+    projectId,
+    subject: "risco",
+    id: caseId,
+    title: row.title as string,
+    projectName: project.name as string,
+    scope: "PROJECT",
+    contextText: lines.join("\n"),
+    sources: [{ kind: "ALERTA", label: `${row.title as string} (${(row.visible_code as string | null) ?? "sem código"})`, href: `/${projectId}/alertas/${caseId}` }],
   };
 }
 

@@ -150,10 +150,18 @@ export function buildAlertHeaderHtml(
 /** Espaço visível entre a linha logo/risco e o primeiro texto abaixo. */
 export const HEADER_GAP_PX = 18;
 
-/** Caixa individual de UM alerta: borda contínua de 2px, cantos arredondados. */
+/**
+ * Indicação de gravidade nos alertas de fundo BRANCO: faixa lateral azul (MÉDIO) ou verde (BAIXO). CRÍTICO e ALTO já se
+ * identificam pelo fundo (vermelho/amarelo). Contraste das cores sobre branco >= 4,5:1 (conferido em teste).
+ */
+export const ALERT_ACCENT: Partial<Record<AlertSeverity, string>> = { MEDIA: "#1D4ED8", BAIXA: "#15803D" };
+
+/** Caixa individual de UM alerta: borda contínua de 2px, cantos arredondados (+ faixa lateral azul/verde em MÉDIO/BAIXO). */
 export function buildAlertBoxHtml(severity: AlertSeverity, innerHtml: string): string {
   const tone = ALERT_TONES[severity];
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${tone.background}" style="width:100%;border-collapse:separate;border-spacing:0;background-color:${tone.background};border:2px solid ${tone.border};border-radius:8px;"><tr><td style="padding:16px 18px;">${innerHtml}</td></tr></table>`;
+  const accent = ALERT_ACCENT[severity];
+  const accentStyle = accent ? `border-left:6px solid ${accent};` : "";
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${tone.background}" style="width:100%;border-collapse:separate;border-spacing:0;background-color:${tone.background};border:2px solid ${tone.border};${accentStyle}border-radius:8px;"><tr><td style="padding:16px 18px;">${innerHtml}</td></tr></table>`;
 }
 
 /** Painel interno branco usado nos blocos de detalhe quando o fundo da caixa é escuro. */

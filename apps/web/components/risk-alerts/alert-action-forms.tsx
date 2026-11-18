@@ -10,18 +10,24 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
 
 import { applyAlertActionAction } from "@/app/[projectId]/alertas/[caseId]/actions";
+import { consultAlertAction } from "@/app/alertas/consulta-ia/[projectId]/[subject]/[id]/actions";
+import { AlertConsultPanel } from "@/app/alertas/consulta-ia/[projectId]/[subject]/[id]/alert-consult-panel";
 import { initialEmailRegistryActionState } from "@/app/[projectId]/documentos/emails/actions-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { ForwardCandidate } from "@/lib/risk-alerts/alert-detail-data";
+import { specialtyForSlaArea } from "@/lib/ai/alert-consult/specialties";
+import { slaAreaLabels } from "@/lib/labels";
 import { type AlertActionType } from "@/lib/risk-alerts/types";
 
 export interface AlertActionFormsProps {
   projectId: string;
   caseId: string;
   riskLevel: string;
+  /** Área SLA do alerta (define o especialista da consulta). */
+  area: string;
   availableActions: AlertActionType[];
   forwardCandidates: ForwardCandidate[];
   expertOptions: Array<{ id: string; label: string; domains: string }>;
@@ -50,10 +56,10 @@ const buttonClass = (action: AlertActionType): string => (action === "EXPERT_CON
 const submitLabel = (action: AlertActionType): string =>
   action === "FORWARD" ? "CONFIRMAR ENVIO" : action === "TAKING_ACTION" ? "CONFIRMAR" : action === "RESOLVED" ? "CONFIRMAR RESOLUÇÃO" : action === "EXPERT_CONSULTATION" ? "CONSULTAR" : `Confirmar ${UI_LABEL[action]}`;
 
-const ESCALATING: AlertActionType[] = ["TAKING_ACTION", "FORWARD", "EXPERT_CONSULTATION", "OTHER"];
+const ESCALATING: AlertActionType[] = ["TAKING_ACTION", "FORWARD", "OTHER"];
 
 export function AlertActionForms(props: AlertActionFormsProps) {
-  const [selected, setSelected] = useState<AlertActionType | null>(props.initialAction && props.availableActions.includes(props.initialAction) ? props.initialAction : null);
+  const [selected, setSelected] = useState<AlertActionType | null>(props.initialAction && (props.initialAction === "EXPERT_CONSULTATION" || props.availableActions.includes(props.initialAction)) ? props.initialAction : null);
   const [state, formAction, pending] = useActionState(applyAlertActionAction, initialEmailRegistryActionState);
   const [search, setSearch] = useState("");
   const immediate = props.riskLevel === "HIGH" || props.riskLevel === "CRITICAL";
@@ -77,25 +83,35 @@ export function AlertActionForms(props: AlertActionFormsProps) {
     return q ? props.forwardCandidates.filter((c) => `${c.name} ${c.email} ${c.area ?? ""} ${c.matrixPosition ?? ""}`.toLowerCase().includes(q)) : props.forwardCandidates;
   }, [props.forwardCandidates, search]);
 
-  if (props.availableActions.length === 0) {
-    return <p className="text-sm text-muted-foreground" data-testid="alert-actions-none">Alerta resolvido — nenhuma ação adicional.</p>;
-  }
-
   return (
     <div className="flex flex-col gap-3" data-testid="alert-actions">
+      {props.availableActions.length === 0 ? <p className="text-sm text-muted-foreground" data-testid="alert-actions-none">Alerta resolvido — nenhuma ação de tratamento adicional. A consulta ao especialista continua disponível.</p> : null}
       <div className="flex flex-wrap gap-2" data-testid="alert-four-buttons">
-        {MAIN_ACTIONS.filter((action) => props.availableActions.includes(action)).map((action) => (
+        {MAIN_ACTIONS.filter((action) => action === "EXPERT_CONSULTATION" || props.availableActions.includes(action)).map((action) => (
           <Button key={action} type="button" size="sm" className={`${buttonClass(action)} ${selected === action ? "ring-2 ring-offset-2 ring-[#1B2A4A]" : ""}`} onClick={() => setSelected(action)} data-testid={`alert-action-${action}`} aria-pressed={selected === action}>
             {UI_LABEL[action]}
           </Button>
         ))}
-        {props.availableActions.filter((action) => !MAIN_ACTIONS.includes(action)).map((action) => (
+        {props.availableActions.filter((action) => !MAIN_ACTIONS.includes(action) && action !== "EXPERT_CONSULTATION").map((action) => (
           <Button key={action} type="button" size="sm" variant={selected === action ? "default" : "outline"} onClick={() => setSelected(action)} data-testid={`alert-action-${action}`}>
             {UI_LABEL[action]}
           </Button>
         ))}
       </div>
-      {selected ? (
+      {selected === "EXPERT_CONSULTATION" ? (
+        <div className="rounded-md border p-3" data-testid="alert-specialist-box">
+          <p className="mb-2 text-sm font-medium">ESPECIALISTA — consulta (somente leitura)</p>
+          <AlertConsultPanel
+            action={consultAlertAction}
+            projectId={props.projectId}
+            subject="risco"
+            id={props.caseId}
+            defaultSpecialtyId={specialtyForSlaArea(props.area)}
+            areaNote={`Especialista da área ${slaAreaLabels[props.area as keyof typeof slaAreaLabels] ?? props.area}.`}
+          />
+        </div>
+      ) : null}
+      {selected && selected !== "EXPERT_CONSULTATION" ? (
         <form ref={formRef} action={formAction} className="flex flex-col gap-2 rounded-md border p-3 text-sm" aria-label={`Ação ${UI_LABEL[selected]}`}>
           <input type="hidden" name="projectId" value={props.projectId} />
           <input type="hidden" name="caseId" value={props.caseId} />
@@ -147,21 +163,6 @@ export function AlertActionForms(props: AlertActionFormsProps) {
               </label>
               <label className="flex flex-col gap-1">Justificativa do encaminhamento (opcional)<Textarea name="text" rows={2} /></label>
               <p className="text-xs text-muted-foreground">O prazo original não é alterado. Ficam registrados quem encaminhou, quem recebeu e a data/hora.</p>
-            </>
-          ) : null}
-          {selected === "EXPERT_CONSULTATION" ? (
-            <>
-              <label className="flex flex-col gap-1">
-                Expert
-                <Select name="expertId" required defaultValue={props.suggestedExpert ?? ""}>
-                  <option value="" disabled>Selecione o Expert…</option>
-                  {props.expertOptions.map((e) => (
-                    <option key={e.id} value={e.id}>{e.label} — {e.domains}</option>
-                  ))}
-                </Select>
-              </label>
-              <label className="flex flex-col gap-1">Pergunta (obrigatória)<Textarea name="question" required rows={3} /></label>
-              <p className="text-xs text-muted-foreground">O Expert apenas recomenda: não executa ações nem resolve o alerta; a resposta exige revisão humana e chega na mesma thread.</p>
             </>
           ) : null}
           {selected === "OTHER" ? <label className="flex flex-col gap-1">Descrição (obrigatória)<Textarea name="text" required rows={3} /></label> : null}

@@ -128,11 +128,12 @@ check("URL insegura (javascript:, data:, relativa) nunca vira link", () => {
   }
 });
 
-check("ocorrência concluída: sinalização CONCLUÍDO e os quatro botões desativados", () => {
+check("ocorrência concluída: tique/sinalização CONCLUÍDO, três botões de tratamento desativados e ESPECIALISTA (só consulta) disponível", () => {
   const html = card("ALTA", { completed: true, completedAtLabel: "21/11/2026 10:00" });
-  assert.ok(html.includes("CONCLUÍDO em 21/11/2026 10:00"));
-  assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, 4);
-  for (const url of Object.values(LINKS)) assert.ok(!html.includes(url));
+  assert.ok(html.includes("CONCLUÍDO em 21/11/2026 10:00") && html.includes("&#10003;"));
+  assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, 3);
+  for (const url of [LINKS.RESOLVIDO, LINKS.EM_ANDAMENTO, LINKS.ENVIAR_PARA]) assert.ok(!html.includes(url));
+  assert.ok(html.includes(LINKS.ESPECIALISTA));
 });
 
 check("texto escapado: HTML injetado em título/descrição/responsável não vira marcação", () => {

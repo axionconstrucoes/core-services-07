@@ -27,6 +27,9 @@ export default async function AlertDetailPage({ params, searchParams }: { params
   const action = typeof query.acao === "string" ? query.acao : null;
   const view = await getAlertDetailView(projectId, caseId, { token, action });
   if (!view) notFound();
+  // Pré-seleção SEM token (links do consolidado e do botão ESPECIALISTA): só ABRE o formulário/consulta; nada é gravado
+  // por GET e a autorização continua sendo a sessão autenticada + a validação do servidor no envio.
+  const preselectedAction: AlertActionType | null = action === "ESPECIALISTA" ? "EXPERT_CONSULTATION" : (["RESOLVED", "TAKING_ACTION", "FORWARD"] as AlertActionType[]).includes(action as AlertActionType) ? (action as AlertActionType) : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -64,13 +67,14 @@ export default async function AlertDetailPage({ params, searchParams }: { params
             projectId={projectId}
             caseId={caseId}
             riskLevel={view.riskLevel}
+            area={view.area}
             availableActions={view.availableActions}
             forwardCandidates={view.forwardCandidates}
             expertOptions={view.expertOptions}
             suggestedExpert={view.suggestedExpert}
             requiresJustification={view.policy.requiresDelayJustification}
             nextLevelLabel={view.nextLevelLabel}
-            initialAction={view.linkAction?.valid ? (view.linkAction.action as AlertActionType) : null}
+            initialAction={view.linkAction?.valid ? (view.linkAction.action as AlertActionType) : preselectedAction}
             token={view.linkAction?.valid ? token : null}
           />
         </CardContent>

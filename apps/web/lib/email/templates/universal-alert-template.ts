@@ -75,12 +75,13 @@ export interface UniversalActionsInput {
   links: UniversalActionLinks;
   /** Motivo exibido quando uma ação não está disponível (ex.: especialista indisponível). */
   unavailableReasons?: Partial<Record<UniversalAction, string>>;
-  /** Ocorrência concluída: os quatro botões continuam no layout, desativados. */
+  /** Ocorrência concluída: os três botões de tratamento continuam no layout, desativados (ESPECIALISTA é só consulta). */
   completed?: boolean;
 }
 
 function actionState(action: UniversalAction, input: UniversalActionsInput): { url: string | null; reason: string } {
-  if (input.completed) return { url: null, reason: "Ocorrência concluída." };
+  // Concluída: os três botões de TRATAMENTO ficam desativados; ESPECIALISTA é só consulta e segue disponível.
+  if (input.completed && action !== "ESPECIALISTA") return { url: null, reason: "Ocorrência concluída." };
   const url = input.links[action];
   if (isSafeActionUrl(url)) return { url: url.trim(), reason: "" };
   return { url: null, reason: input.unavailableReasons?.[action] ?? "Indisponível no momento." };
@@ -132,6 +133,14 @@ export interface UniversalOccurrence {
   unavailableReasons?: Partial<Record<UniversalAction, string>>;
   completed?: boolean;
   completedAtLabel?: string | null;
+  /** Linhas adicionais "rótulo: valor" (nível de escalonamento, impacto, recomendação, exigências…), na ordem informada. */
+  details?: Array<{ label: string; value: string | null | undefined }>;
+  /** Parágrafos livres (ex.: resposta registrada, instrução, aviso de revisão humana). */
+  notices?: string[];
+  /** Instrução de resposta direta por e-mail (painel branco legível em qualquer gravidade). */
+  replyInstruction?: string | null;
+  /** Links secundários textuais (ex.: ações legadas por token), SEM virar botões — o layout tem só os quatro. */
+  extraLinks?: Array<{ label: string; url: string }>;
 }
 
 function actionsOf(o: UniversalOccurrence): UniversalActionsInput {
@@ -171,6 +180,14 @@ function contentHtml(o: UniversalOccurrence): string {
     field("Responsável atual", o.responsibleName ?? "não definido", o.severity),
     field("Prazo original", o.originalDeadline ?? null, o.severity),
     field("Estado", o.stateLabel, o.severity),
+    ...(o.details ?? []).map((d) => field(d.label, d.value, o.severity)),
+    ...(o.notices ?? []).map((n) => `<p style="margin:6px 0 6px 0;${textStyle("regular", tone.text)}">${escapeAttr(n)}</p>`),
+    o.replyInstruction
+      ? `<div style="margin:10px 0 0 0;background-color:#FFFFFF;border:1px solid #E5E7EB;border-radius:6px;padding:10px 12px;"><p style="margin:0 0 4px 0;font-family:${ACC_FONT_FAMILY};font-size:12px;font-weight:700;color:#111827;">Responder pelo e-mail</p><p style="margin:0;font-family:${ACC_FONT_FAMILY};font-size:12px;line-height:17px;color:#111827;">${escapeAttr(o.replyInstruction)}</p></div>`
+      : "",
+    (o.extraLinks ?? []).filter((l) => isSafeActionUrl(l.url)).length > 0
+      ? `<p style="margin:10px 0 0 0;${textStyle("regular", tone.text)}">Outras ações: ${(o.extraLinks ?? []).filter((l) => isSafeActionUrl(l.url)).map((l) => `<a href="${escapeAttr(l.url)}" style="${textStyle("regular", tone.link, "text-decoration:underline;")}">${escapeAttr(l.label)}</a>`).join(" · ")}</p>`
+      : "",
     evidences ? `<p style="margin:6px 0 0 0;${textStyle("bold", tone.text)}">Evidências: ${evidences}</p>` : "",
   ].join("");
 }
@@ -201,6 +218,10 @@ export function buildUniversalOccurrenceText(o: UniversalOccurrence): string[] {
     `Responsável atual: ${o.responsibleName ?? "não definido"}`,
     ...(o.originalDeadline ? [`Prazo original: ${o.originalDeadline}`] : []),
     `Estado: ${o.stateLabel}`,
+    ...(o.details ?? []).filter((d) => d.value).map((d) => `${d.label}: ${d.value}`),
+    ...(o.notices ?? []),
+    ...(o.replyInstruction ? [`RESPONDER PELO E-MAIL: ${o.replyInstruction}`] : []),
+    ...(o.extraLinks ?? []).filter((l) => isSafeActionUrl(l.url)).map((l) => `${l.label}: ${l.url}`),
     ...(o.evidences && o.evidences.length > 0 ? [`Evidências: ${o.evidences.map((e) => (isSafeActionUrl(e.url) ? `${e.label} (${e.url})` : e.label)).join("; ")}`] : []),
     ...(isSafeActionUrl(o.openUrl) ? [`Abrir no ACC: ${o.openUrl}`] : []),
     "Ações (abrem o ACC autenticado; nada é alterado só pelo clique):",
