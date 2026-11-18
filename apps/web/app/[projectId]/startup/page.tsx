@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@axion/db/server";
+import { NewProjectStartupChecklist } from "@/components/startup/new-project-startup-checklist";
 import { CompleteStartupButton } from "@/components/startup/complete-startup-button";
 import { HistoricalFindingCard } from "@/components/startup/historical-finding-card";
 import { StartupConfigForm } from "@/components/startup/startup-config-form";
@@ -54,7 +55,7 @@ export default async function StartupPage({ params }: { params: Promise<{ projec
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Start-up ACC"
-        description="Validação dos riscos históricos antes de ativar o acompanhamento operacional — o ACC conhece todo o passado do projeto, mas nunca trata fato histórico já pacificado como ocorrência nova."
+        description="Checklist de implantação de novos projetos e validação dos riscos históricos antes do início operacional."
         actions={
           <Link href={`/${projectId}/dashboard`} className={buttonVariants({ variant: "outline", size: "sm" })}>
             Dashboard
@@ -96,6 +97,8 @@ export default async function StartupPage({ params }: { params: Promise<{ projec
           </div>
         </CardContent>
       </Card>
+
+      <NewProjectStartupChecklist projectId={projectId} />
 
       <StartupConfigForm projectId={projectId} config={summary.config} />
 
