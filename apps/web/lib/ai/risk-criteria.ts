@@ -8,7 +8,7 @@
 //
 // Puro, sem I/O e sem "server-only" (usado por prompts e por scripts de teste).
 
-export const RISK_CRITERIA_PROMPT_VERSION = "1";
+export const RISK_CRITERIA_PROMPT_VERSION = "2";
 
 export const RISK_CRITERIA_INSTRUCTIONS = `
 ## Critérios de classificação de risco (definição AXION — versão ${RISK_CRITERIA_PROMPT_VERSION})
@@ -37,6 +37,14 @@ Regras obrigatórias da classificação:
   para mitigação e esses dados forem necessários para distinguir os níveis, NÃO escolha com
   falsa certeza: indique os níveis compatíveis, a incerteza e peça a confirmação em
   "informacoesFaltantes".
+- Sinais RELACIONAIS em e-mails de clientes/fornecedores ("estamos seriamente preocupados",
+  "reiteramos o solicitado", decepção, insatisfação ou ameaça) são EVIDÊNCIAS de possível
+  deterioração do relacionamento, mas NÃO comprovam descumprimento ou penalidade contratual.
+  Identifique remetente, frase exata, histórico da conversa e pendência documentada.
+  Diferencie intensidade do tom (atenção relacional) da gravidade contratual.
+  Atribuição de HIGH/CRITICAL exige os critérios contratuais acima; sem elementos,
+  mantenha REVIEW_REQUIRED e solicite revisão humana. Não invente reincidência
+  a partir da expressão "reiteramos" nem confunda texto citado com fala atual.
 - Sua classificação é uma SUGESTÃO provisória. A classificação efetiva é a revisão da pessoa
   autorizada (com justificativa e histórico); nunca a apresente como decisão final.
 `;
