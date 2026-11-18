@@ -296,6 +296,17 @@ export function createInMemoryRiskAlertStore(world) {
     async audit(_projectId, events) {
       for (const e of events) state.audit.push({ ...e, at: clockIso });
     },
+    async latestReadinessAudit(_projectId) {
+      const last = [...state.audit].reverse().find((e) => e.action === "RISK_ALERT_NOT_READY_FOR_REAL_SEND" || e.action === "RISK_ALERT_READY_FOR_REAL_SEND");
+      return last ? { action: last.action, detail: last.detail ?? null } : null;
+    },
+    async recordRepeatedCondition(_projectId, conditionKey, detail, nowIso) {
+      state.repeatedConditions ??= {};
+      const prev = state.repeatedConditions[conditionKey];
+      state.repeatedConditions[conditionKey] = prev && prev.detail === detail
+        ? { ...prev, lastSeenAt: nowIso, occurrences: prev.occurrences + 1 }
+        : { detail, firstSeenAt: nowIso, lastSeenAt: nowIso, occurrences: 1 };
+    },
 
     async ensureConversation(_projectId, caseId) {
       let conv = state.conversations.get(caseId);

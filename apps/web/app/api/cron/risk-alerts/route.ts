@@ -3,6 +3,7 @@ import { isCronRequestAuthorized, RISK_ALERTS_CRON_SECRET_ENV } from "@/lib/cron
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
 import { authorizePilotSingleRequest, runPilotSingleAlert } from "@/lib/risk-alerts/run-pilot-single-alert";
 import { runRiskAlertCycle } from "@/lib/risk-alerts/run-risk-alert-cycle";
+import { startRouteMetrics } from "@/lib/cron/route-metrics";
 
 // Worker horário dos alertas de risco. Disparado pelo workflow GitHub
 // horário (.github/workflows/weekly-schedule-email-ingestion.yml, job
@@ -71,10 +72,11 @@ export async function GET(request: Request) {
   }
 
   inFlight = true;
+  const stopMetrics = startRouteMetrics();
   try {
     const result = await runRiskAlertCycle({ dryRun, projectId: projectId && /^[0-9a-f-]{36}$/i.test(projectId) ? projectId : null });
     const failed = result.projects.reduce((sum, project) => sum + project.failed, 0);
-    return Response.json(result, { status: failed > 0 ? 207 : 200 });
+    return Response.json({ ...result, metrics: stopMetrics() }, { status: failed > 0 ? 207 : 200 });
   } catch {
     // Nunca vaza detalhes (tokens, e-mails) no corpo da resposta.
     return Response.json({ error: "Falha ao processar alertas de risco." }, { status: 500 });
