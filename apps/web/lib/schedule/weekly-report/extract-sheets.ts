@@ -537,13 +537,17 @@ export function extractFinancialSheet(grid: SheetGrid, fileName: string): SheetE
     if (!period) continue;
     last = r;
     const values: FinancialSheetRow["values"] = {};
+    const unavailable: FinancialColumnKey[] = [];
     for (const [key, column] of Object.entries(header.columns) as Array<[FinancialColumnKey, number]>) {
       if (column === periodColumn) continue;
       const cell = cells[column];
-      if (cell?.cachedValueMissing) missing += 1;
+      if (cell?.cachedValueMissing) {
+        missing += 1;
+        unavailable.push(key);
+      }
       values[key] = cellNumber(cell);
     }
-    rows.push({ period: period.period, date: period.date, values });
+    rows.push({ period: period.period, date: period.date, values, sourceRow: r + 1, ...(unavailable.length ? { unavailable } : {}) });
   }
   if (rows.length === 0) return null;
   if (missing > 0) notes.push(`${missing} célula(s) com fórmula sem valor armazenado (não disponíveis).`);

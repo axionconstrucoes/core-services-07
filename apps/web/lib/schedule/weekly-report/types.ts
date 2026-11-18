@@ -136,6 +136,10 @@ export interface FinancialSheetRow {
   period: string;
   date: string | null;
   values: Partial<Record<FinancialColumnKey, number | null>>;
+  /** Colunas desta linha com fórmula SEM valor armazenado (valor indisponível, não zero). */
+  unavailable?: FinancialColumnKey[];
+  /** Linha (1-based) na aba de origem — rastreabilidade até a célula. */
+  sourceRow?: number;
 }
 
 export interface FinancialSheetData {

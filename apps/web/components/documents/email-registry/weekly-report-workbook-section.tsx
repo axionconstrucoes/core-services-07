@@ -180,9 +180,12 @@ function FinancialBody({ sheet }: { sheet: RegistryWorkbookSheet }) {
     <div className="flex flex-col gap-2 text-xs">
       <ul className="grid grid-cols-2 gap-x-3 gap-y-1 md:grid-cols-4">
         <li>Unidade: {v(data.unit)}</li>
-        <li>Previsto (total/acum.): {v(m.plannedTotal)}</li>
-        <li>Realizado (total/acum.): {v(m.actualTotal)}</li>
-        <li>Desvio: {v(m.deviationAbsolute)} ({v(m.deviationPercent, "%")})</li>
+        <li>Data de corte: {v(m.cutoffDate)}</li>
+        <li>Previsto até o corte: {v(m.plannedTotal)}</li>
+        <li>Realizado até o corte: {v(m.actualTotal)}</li>
+        <li>Desvio no corte: {v(m.deviationAbsolute)} ({v(m.deviationPercent, "%")})</li>
+        <li>Natureza: {v(m.valueNature)}</li>
+        <li>Desvio antigo (horizonte total, substituído): {v((m.legacyFullHorizon as { deviationPercent?: unknown } | undefined)?.deviationPercent, "%")}</li>
         <li>Tendência: {v(m.trend)}</li>
         <li>Medido: {v(m.medido)}</li>
         <li>Faturado: {v(m.faturado)}</li>
