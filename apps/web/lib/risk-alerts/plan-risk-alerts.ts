@@ -28,6 +28,7 @@ import { caseKeyOf } from "./collect-risk-cases";
 import {
   buildCaseCommunicationLedger,
   describeReissue,
+  priorCommunicationsOf,
   REISSUE_DECISION_REQUIRED_ACTION,
   reissueIdempotencyKey,
   type CaseCommunicationLedger,
@@ -457,12 +458,18 @@ export function planRiskAlerts(input: PlanRiskAlertsInput): RiskAlertPlan {
               slaActionId: linked.id,
               levelLabel: slaEscalationLevelLabels[isResponsible ? "RESPONSAVEL" : gap.role],
               previousLevelLabel: null,
+              reissue: {
+                approvedAt: approval.approvedAt,
+                stageReachedLabel: slaEscalationLevelLabels[linked.currentEscalationLevel],
+                note: describeReissue(gap, approval),
+                priorCommunications: priorCommunicationsOf(input.outboxHistory, existing.id, input.recipients),
+              },
               responsibleName: input.recipients.get(linked.responsibleUserId ?? "")?.name ?? null,
               deadlineLabel: linked.acknowledgedAt ? "Prazo vencido" : "Prazo para assumir (original)",
               deadlineAt: linked.acknowledgedAt ? (linked.completeDueAt ?? linked.respondDueAt) : linked.assumeDueAt,
               requiresAcknowledgment: policy.requiresAcknowledgmentConfirmation,
               requiresJustification: policy.requiresDelayJustification,
-              escalationReason: describeReissue(gap, approval),
+              escalationReason: null,
               changed: false,
             },
           });

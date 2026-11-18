@@ -308,7 +308,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
       const { data: historyRows, error: historyError } = cycleCaseIds.length
         ? await client
             .from("risk_alert_outbox")
-            .select("case_id,notification_type,escalation_level,recipient_user_id,recipient_email,status,suppression_reason,attempt_count,provider_message_id,created_at,sent_at")
+            .select("case_id,notification_type,escalation_level,recipient_user_id,recipient_email,status,suppression_reason,attempt_count,provider_message_id,created_at,sent_at,idempotency_key")
             .eq("project_id", projectId)
             .in("case_id", cycleCaseIds)
         : { data: [] as Row[], error: null };
@@ -332,6 +332,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         providerMessageId: s(row.provider_message_id),
         createdAt: row.created_at as string,
         sentAt: s(row.sent_at),
+        idempotencyKeyIsReissue: String(row.idempotency_key ?? "").includes(":REISSUE:"),
       }));
       const reissueApprovals = resolveReissueApprovals((reissueRows ?? []) as unknown as ReissueAuditRow[]);
       const reissueDecisionRecordedCaseIds = new Set(

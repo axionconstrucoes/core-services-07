@@ -181,6 +181,17 @@ export interface ImmediateAlertContent {
   requiresJustification: boolean;
   escalationReason: string | null;
   changed: boolean;
+  /**
+   * Reemissão autorizada (decisão humana auditada) de comunicação que NUNCA foi entregue.
+   * O e-mail deixa explícito: não é risco novo, a etapa/prazos originais valem e as comunicações
+   * anteriores foram suprimidas (com datas) ou entregues em outra caixa.
+   */
+  reissue?: {
+    approvedAt: string;
+    stageReachedLabel: string;
+    note: string;
+    priorCommunications: Array<{ at: string; outcome: "SUPPRESSED" | "ACCEPTED_ELSEWHERE"; reason: string | null; levelLabel: string; recipientName: string | null }>;
+  };
 }
 
 export interface DigestItem {

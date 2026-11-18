@@ -41,6 +41,8 @@ export interface OutboxHistoryRow {
   providerMessageId: string | null;
   createdAt: string;
   sentAt: string | null;
+  /** Linha criada por uma reemissão (não entra no histórico "anterior"). */
+  idempotencyKeyIsReissue?: boolean;
 }
 
 export interface ReissueApproval {
@@ -179,6 +181,34 @@ export function buildCaseCommunicationLedger(input: BuildLedgerInput): CaseCommu
   const approval = input.approval;
   const decision: CaseCommunicationLedger["decision"] = gaps.length === 0 ? "INFORMED" : approval ? "REISSUE_APPROVED" : "REISSUE_DECISION_REQUIRED";
   return { caseId: input.caseId, stageReached: stage, responsibleUserId: input.linked.responsibleUserId, recipients, gaps, decision, approval };
+}
+
+/**
+ * Histórico do CASO (todos os destinatários, inclusive responsáveis anteriores) de comunicações que
+ * não chegaram ao destinatário: supressões e aceites em outra caixa — com datas, para o e-mail de
+ * reemissão deixar explícito o que não foi entregue.
+ */
+export interface PriorCommunication {
+  at: string;
+  outcome: "SUPPRESSED" | "ACCEPTED_ELSEWHERE";
+  reason: string | null;
+  levelLabel: string;
+  recipientName: string | null;
+}
+
+export function priorCommunicationsOf(history: OutboxHistoryRow[], caseId: string, recipients: Map<string, RecipientProfile>): PriorCommunication[] {
+  const label = (level: string | null) => (level === "DIRETORIA" || level === "ESCALAO_2" ? "Nível 3 · Diretoria" : level === "ESCALAO_1" ? "Nível 2 · Gestor" : "Nível 1 · Responsável");
+  const out: PriorCommunication[] = [];
+  for (const r of history) {
+    if (r.caseId !== caseId || r.idempotencyKeyIsReissue) continue;
+    const profile = recipients.get(r.recipientUserId);
+    if (r.status === "SUPPRESSED") {
+      out.push({ at: r.createdAt, outcome: "SUPPRESSED", reason: r.suppressionReason, levelLabel: label(r.escalationLevel), recipientName: profile?.name ?? null });
+    } else if (r.status === "SENT" && !sameEmail(r.recipientEmail, profile?.email ?? null)) {
+      out.push({ at: r.sentAt ?? r.createdAt, outcome: "ACCEPTED_ELSEWHERE", reason: null, levelLabel: label(r.escalationLevel), recipientName: profile?.name ?? null });
+    }
+  }
+  return out.sort((a, b) => a.at.localeCompare(b.at));
 }
 
 export function reissueIdempotencyKey(caseKey: string, approvalAuditId: string, userId: string): string {

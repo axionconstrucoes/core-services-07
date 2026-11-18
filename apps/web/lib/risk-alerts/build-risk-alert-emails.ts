@@ -97,9 +97,19 @@ export function buildImmediateRiskAlertEmail(input: ImmediateEmailInput): BuiltE
   const isEscalation = content.kind === "ESCALATION";
   const subjectBase = buildContractAlertSubject(input.projectName, severity);
   const codeTag = input.visibleCode ? ` [ACC-ALERTA:${input.visibleCode}]` : "";
-  const subject = (isEscalation ? `${subjectBase} - ESCALONADO ${content.levelLabel.toUpperCase()}` : content.changed ? `${subjectBase} - ATUALIZADO` : subjectBase) + codeTag;
+  const reissue = content.reissue ?? null;
+  const subject =
+    (reissue
+      ? `${subjectBase} - REEMISSÃO (comunicação anterior não entregue)${isEscalation ? ` - ${content.levelLabel.toUpperCase()}` : ""}`
+      : isEscalation
+        ? `${subjectBase} - ESCALONADO ${content.levelLabel.toUpperCase()}`
+        : content.changed
+          ? `${subjectBase} - ATUALIZADO`
+          : subjectBase) + codeTag;
   const greeting = input.recipientName ? `Olá, ${input.recipientName}.` : "Olá.";
-  const headline = isEscalation
+  const headline = reissue
+    ? `REEMISSÃO — risco ${riskLabel} já existente, cuja comunicação anterior NÃO foi entregue: ${content.caseTitle}`
+    : isEscalation
     ? `Risco sem tratamento escalado para ${content.levelLabel}`
     : content.changed
       ? `Risco ${riskLabel} atualizado: ${content.caseTitle}`
@@ -121,6 +131,20 @@ export function buildImmediateRiskAlertEmail(input: ImmediateEmailInput): BuiltE
     ["Nível anterior", content.previousLevelLabel],
     ["Responsável (Nível 1)", content.responsibleName],
     ["Motivo do escalonamento", content.escalationReason],
+    ...(reissue
+      ? ([
+          ["Reemissão", `Não é um risco novo. ${reissue.note}`],
+          ["Etapa atual do SLA", `${reissue.stageReachedLabel} (alcançada pelos prazos originais; nada foi reiniciado)`],
+          [
+            "Comunicação anterior (NÃO entregue)",
+            reissue.priorCommunications.length === 0
+              ? "Nenhuma comunicação anterior registrada para este caso."
+              : reissue.priorCommunications
+                  .map((p) => `${formatDateTimeBR(p.at, input.timeZone)} — ${p.levelLabel}${p.recipientName ? ` (${p.recipientName})` : ""}: ${p.outcome === "SUPPRESSED" ? `suprimida${p.reason ? ` (${p.reason})` : ""}` : "aceita pelo Gmail, mas entregue em outra caixa"}`)
+                  .join("; "),
+          ],
+        ] as Array<[string, string | null]>)
+      : []),
     ["Recomendação do Expert", content.recommendation],
     ["Exigências da Matriz", requirements],
     ["Gerado em", formatDateTimeBR(input.generatedAt, input.timeZone)],

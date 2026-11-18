@@ -122,7 +122,9 @@ await check("4. Decisão humana auditada: uma reemissão por lacuna elegível, c
     assert(e.idempotencyKey.startsWith(`${CASE_KEY}:REISSUE:aud-approve-1:`), e.idempotencyKey);
     assert(e.recipient.status === "PENDING", `${e.recipient.userId} ${e.recipient.suppressionReason}`);
     assert(e.content.deadlineAt === linked.assumeDueAt, "prazo original preservado");
-    assert(/SLA não reiniciado/.test(e.content.escalationReason ?? ""), "texto da reemissão");
+    assert(e.content.escalationReason === null && /SLA não reiniciado/.test(e.content.reissue?.note ?? ""), "texto da reemissão");
+    assert(e.content.reissue.stageReachedLabel.includes("Diretoria"), "etapa real exibida");
+    assert(e.content.reissue.priorCommunications.length === 2 && e.content.reissue.priorCommunications.every((p) => p.outcome === "SUPPRESSED"), "histórico do caso com datas");
   }
   assert(JSON.stringify(p.outbox.map((e) => [e.notificationType, e.escalationLevel, e.recipient.userId])) === JSON.stringify([["IMMEDIATE", "RESPONSAVEL", U.jaime], ["ESCALATION", "ESCALAO_1", U.carlos], ["ESCALATION", "DIRETORIA", U.rey]]));
   assert(p.escalations.length === 0 && p.slaActionCreates.length === 0, "SLA/cadeia intocados");
@@ -217,6 +219,19 @@ await check("8. Ciclo REAL: supressão por prontidão → etapa avança pelo tem
     for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
     Object.assign(process.env, saved);
   }
+});
+
+await check("9. E-mail de reemissão renderizado: assunto e título dizem REEMISSÃO, etapa real e comunicações anteriores NÃO entregues com data (Brasília)", async () => {
+  const { buildImmediateRiskAlertEmail } = await import("../apps/web/lib/risk-alerts/build-risk-alert-emails");
+  const p = planRiskAlerts(basePlan({ reissueApprovals: ledgerMod.resolveReissueApprovals([approval()]) }));
+  const responsible = p.outbox.find((e) => e.escalationLevel === "RESPONSAVEL");
+  const built = buildImmediateRiskAlertEmail({ content: responsible.content, projectId: WEG, projectName: "P", recipientName: "J", baseUrl: "https://acc.invalid", timeZone: "America/Sao_Paulo", generatedAt: T0, actionButtons: [] });
+  assert(/REEMISSÃO \(comunicação anterior não entregue\)/.test(built.subject), built.subject);
+  assert(/REEMISSÃO — risco/.test(built.text) && !/Novo risco/.test(built.text), "título explícito");
+  assert(/Comunicação anterior \(NÃO entregue\): 22\/10\/2026, 09:00 — Nível 1 · Responsável/.test(built.text) && /suprimida \(CONFIGURATION_REVIEW_REQUIRED\)/.test(built.text), built.text);
+  assert(/Etapa atual do SLA: Nível 3 · Diretoria/.test(built.text), "etapa");
+  const normal = buildImmediateRiskAlertEmail({ content: { ...responsible.content, reissue: undefined }, projectId: WEG, projectName: "P", recipientName: "J", baseUrl: "https://acc.invalid", timeZone: "America/Sao_Paulo", generatedAt: T0, actionButtons: [] });
+  assert(!/REEMISSÃO/.test(normal.subject + normal.text), "sem reemissão, layout anterior");
 });
 
 console.log(`\nResultado: ${passed} OK, ${failed} FAIL`);
