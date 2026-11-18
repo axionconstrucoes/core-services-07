@@ -200,12 +200,12 @@ await check("15. E-mail de ESCALONAMENTO mostra que o responsável respondeu, o 
 });
 
 // ------------------------------------------------------------------ 4. processador real com store em memória
-function makeStore({ riskLevel = "HIGH", inbound, history = [], state = "OPEN" }) {
+function makeStore({ riskLevel = "HIGH", inbound, history = [], state = "OPEN", snapshotExtra = {}, areaResponsibles = responsibles }) {
   const calls = { applied: [], updates: [], audits: [], forecastReplies: [], confirmations: [] };
   const caseRecord = { id: CASE_ID, area: "PLANEJAMENTO", riskLevel, status: "OPEN", state, visibleCode: "ABCD1234" };
   const store = {
     async listInboundToProcess() { return inbound; },
-    async loadProjectSnapshot() { return { config, recipients: recipients(), matrixRules, areaResponsibles: responsibles, settings }; },
+    async loadProjectSnapshot() { return { config, recipients: recipients(), matrixRules, areaResponsibles, settings, ...snapshotExtra }; },
     async loadCorrelationIndex() { return { byMessageId: new Map([["<root@acc>", CASE_ID]]), byReplyTokenHash: new Map(), byVisibleCode: new Map(), seenMessageIds: new Set() }; },
     async updateInboundMessage(id, patch) { calls.updates.push({ id, ...patch }); },
     async loadCaseSnapshotForAction() { return { snapshot: snapshot({ riskLevel, state }), record: caseRecord, alertRecipientUserIds: [U_RESP, U_L2] }; },
@@ -261,6 +261,23 @@ await check("21. MÉDIO: só data => registrada (REPLY_RECEIVED) e exibida; sem 
   await processAlertReplies(store, PROJECT, NOW, ["crm@axion.com.br"]);
   assert(calls.applied.length === 0 && calls.forecastReplies.length === 1 && calls.forecastReplies[0].forecastAt === "2026-11-26T02:59:00.000Z");
   assert(calls.confirmations.length === 1 && !calls.confirmations[0].idempotencyKey.includes("ESCALATION"));
+});
+await check("21b. Exceção do piloto por nível (#219): escalonamento por resposta usa o substituto do Nível 2, como o ciclo", async () => {
+  const noLevel2 = [{ ...responsibles[0], escalation1UserId: null }];
+  const override = { area: "PLANEJAMENTO", level: "LEVEL_2", recipientUserId: U_L2, reason: "piloto", setAt: NOW, setByUserId: U_L3, auditId: "aud-1" };
+  const without = makeStore({ inbound: [inboundMsg()], areaResponsibles: noLevel2 });
+  await processAlertReplies(without.store, PROJECT, NOW, ["crm@axion.com.br"]);
+  assert(without.calls.applied[0].transition.escalation.toLevel === "DIRETORIA", "sem exceção: pula para a Diretoria");
+  const withOverride = makeStore({ inbound: [inboundMsg()], areaResponsibles: noLevel2, snapshotExtra: { pilotLevelOverrides: [override] } });
+  await processAlertReplies(withOverride.store, PROJECT, NOW, ["crm@axion.com.br"]);
+  const t = withOverride.calls.applied[0].transition;
+  const esc = t.outbox.find((e) => e.notificationType === "ESCALATION");
+  assert(t.escalation.toLevel === "ESCALAO_1" && esc.recipientUserId === U_L2 && esc.payloadSummary.forecastStatus === "INFORMED", JSON.stringify(t.escalation));
+});
+await check("21c. Área informativa (FINANCEIRO): resposta só registrada — sem ação, escalonamento nem confirmação", async () => {
+  const { store, calls } = makeStore({ inbound: [inboundMsg()], snapshotExtra: { informativeAreas: ["PLANEJAMENTO"] } });
+  const r = await processAlertReplies(store, PROJECT, NOW, ["crm@axion.com.br"]);
+  assert(r.recorded === 1 && calls.applied.length === 0 && calls.confirmations.length === 0 && /informativa/.test(calls.updates.at(-1).statusReason));
 });
 await check("22. Classificação: 'Tomando providências' e 'Ciente, estamos providenciando' => STATUS_UPDATE inequívoco", () => {
   const a = pipeline.classifyReply("Tomando providências.");

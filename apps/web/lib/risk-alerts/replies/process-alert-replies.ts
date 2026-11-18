@@ -10,6 +10,7 @@ import { resolveMatrixPolicy } from "@/lib/sla/resolve-matrix-policy";
 import type { SlaRiskLevel } from "@/lib/sla/types";
 
 import { applyAlertAction } from "../alert-state-machine";
+import { applyPilotLevelOverride } from "../pilot-level-overrides";
 import { describeForecastProblem, extractForecastFromText, forecastTracking, isAfter } from "../forecast";
 import { routeExpert } from "../experts/route-alert-expert";
 import { DEFAULT_CORPORATE_EMAIL_DOMAIN } from "../plan-risk-alerts";
@@ -131,7 +132,19 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
       result.reviewRequired += 1;
       continue;
     }
-    const policy = resolveMatrixPolicy({ rules: snapshot.matrixRules, responsibles: snapshot.areaResponsibles, settings: snapshot.settings, area: loaded.record.area, riskLevel });
+    if ((snapshot.informativeAreas ?? []).includes(loaded.record.area)) {
+      // Área informativa no projeto (ex.: FINANCEIRO da WEG): a resposta fica registrada, sem ação,
+      // escalonamento, cobrança ou confirmação automática.
+      await store.updateInboundMessage(message.id, { ...basePatch, status: "PROCESSED", statusReason: "Área informativa: registrada sem ação automática" });
+      result.recorded += 1;
+      continue;
+    }
+    // Mesma política do ciclo, inclusive a exceção temporária do piloto por nível (Nível 2) — a Matriz não muda.
+    const policy = applyPilotLevelOverride(
+      resolveMatrixPolicy({ rules: snapshot.matrixRules, responsibles: snapshot.areaResponsibles, settings: snapshot.settings, area: loaded.record.area, riskLevel }),
+      snapshot.pilotLevelOverrides,
+      config.pilotRecipientAllowlistUserIds ?? null
+    );
     // Pergunta ao Expert por resposta livre: roteamento por NOME/TEMA
     // (multidisciplinar => multi-Expert); sem confiança => revisão humana.
     // Nunca cai em Planejamento por falta de classificação.
