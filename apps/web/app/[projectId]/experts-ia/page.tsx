@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ALL_OFFICIAL_EXPERT_DEFINITIONS, type OfficialExpertId } from "@/lib/ai/expert-definitions";
-import { requestedSkillsForExpert, SKILL_DISCOVERY_TOOL } from "@/lib/ai/expert-definitions/requested-skills";
+import { requestedSkillsForExpert, SKILL_DISCOVERY_TOOL, ENGINEERING_SKILL_REQUEST } from "@/lib/ai/expert-definitions/requested-skills";
 import { buildAiProviderUiMetadata } from "@/lib/ai/provider-ui-metadata";
 import { resolveAiProviderNameForExpert } from "@/lib/ai/providers/resolve-provider-for-expert";
 import { expertAccentBorderClassName, expertIconClassName, resolveExpertIcon } from "@/components/ai/expert-visual-identity";
@@ -100,6 +100,17 @@ export default async function ExpertsIaPage({ params }: { params: Promise<{ proj
           );
         })}
       </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Engenharia industrial e logística — especialidade proposta</CardTitle>
+          <p className="text-xs text-muted-foreground">Ainda não existe um Expert oficial próprio de Engenharia neste catálogo. A skill está associada à especialidade futura, sem simular execução pelo Diretor de Planejamento.</p>
+        </CardHeader>
+        <CardContent className="space-y-1">
+          <p className="text-xs font-semibold">{ENGINEERING_SKILL_REQUEST.label}</p>
+          <p className="text-xs text-muted-foreground">{ENGINEERING_SKILL_REQUEST.purpose}</p>
+          <Badge variant="outline" className="text-[10px]">Pendente de integração ao ACC</Badge>
+        </CardContent>
+      </Card>
       <p className="text-xs text-muted-foreground">
         Ferramenta administrativa selecionada: {SKILL_DISCOVERY_TOOL.label} — busca de skills, não é especialista.
         As skills foram informadas como instaladas no Claude Code; essa instalação não ativa automaticamente seu uso
