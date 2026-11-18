@@ -60,7 +60,7 @@ check("perfil: sem a variável do projeto nada muda (configured=false); mensagen
 check("perfil válido: WEG + remetente crm@; sem destino/grupo; Cc institucional; participantes fixos", () => {
   const prof = p.resolveProjectPilotProfile(ENV);
   assert(prof.configured && prof.valid && prof.sender === ACC && prof.projectId === WEG);
-  assert(JSON.stringify(prof.cc) === JSON.stringify([ACC]) && prof.participants.length === 4 && prof.authorizedSenders.length === 0);
+  assert(JSON.stringify(prof.cc) === JSON.stringify([ACC]) && prof.participants.length === 3 && prof.authorizedSenders.length === 0);
   assert(!("destination" in prof), "o perfil não pode mais ter destino único");
 });
 
@@ -110,8 +110,8 @@ check("roteamento: To = colaborador, Cc = [crm@], sem Bcc; remetente = crm@; exi
   // Prefixos de teste herdados são removidos do assunto do alerta real.
   const herdado = p.applyProjectPilotProfile(msg({ subject: "[TESTE CONTROLADO] [PILOTO] Alerta" }), ENV);
   assert(herdado.input.subject === "Alerta", herdado.input.subject);
-  // Gestor do Planejamento (corazza@) é destinatário permitido; outros endereços continuam bloqueados.
-  assert(p.applyProjectPilotProfile(msg({ to: "corazza@axion.com.br" }), ENV).to === "corazza@axion.com.br");
+  // Corazza fora do piloto (decisão de 18/11/2026): corazza@ é bloqueado como qualquer endereço fora dos participantes.
+  throwsSend(() => p.applyProjectPilotProfile(msg({ to: "corazza@axion.com.br" }), ENV), /Destinat/);
 });
 
 check("destinatário fora dos participantes ou proibido => bloqueio (nunca substituição silenciosa)", () => {
@@ -142,7 +142,7 @@ check("perfil inválido + mensagem da WEG => EmailSendError antes de qualquer MI
 });
 
 check("participantes/atividade: resolveProjectPilotParticipants e isProjectPilotActive só valem para a WEG com perfil válido", () => {
-  assert(JSON.stringify(p.resolveProjectPilotParticipants(WEG, ENV)) === JSON.stringify([REY, JAIME, CARLOS, "corazza@axion.com.br"]));
+  assert(JSON.stringify(p.resolveProjectPilotParticipants(WEG, ENV)) === JSON.stringify([REY, JAIME, CARLOS]));
   assert(p.resolveProjectPilotParticipants("22222222-2222-4222-8222-222222222222", ENV) === null);
   assert(p.isProjectPilotActive(WEG, ENV) === true && p.isProjectPilotActive(WEG, {}) === false && p.isProjectPilotActive(WEG, { ...ENV, ACC_PROJECT_PILOT_SENDER: BOX }) === false);
   assert(p.isPilotParticipantAddress(JAIME.toUpperCase()) && !p.isPilotParticipantAddress(ACC) && !p.isPilotParticipantAddress(BOX) && !p.isPilotParticipantAddress(null));
