@@ -98,6 +98,8 @@ export interface SlaMatrixRule {
   requiresDelayJustification: boolean;
   isDefault: boolean;
   active: boolean;
+  /** Criação da linha (desempate determinístico entre regras duplicadas). Opcional: fixtures antigas não têm. */
+  createdAt?: string | null;
 }
 
 export interface SlaAction {
