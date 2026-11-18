@@ -117,6 +117,14 @@ export function createProviderMailer(admin: Admin, provider: EmailProvider = get
         project_id: projectId, from_address: result.from, to_address: to, subject: content.subject, sent_at: result.sentAt, snippet: content.text.slice(0, 280),
       });
       if (logError) console.error("[ssma-notificacoes] registro em emails falhou (o envio já ocorreu).");
+      // Rastreabilidade do envio com resposta habilitada: ids do provedor (Gmail id, Message-ID, thread) para conferência na crm@.
+      if (content.reply) {
+        await admin.from("audit_log_entries").insert({
+          project_id: projectId, actor_type: "SYSTEM", actor_user_id: null, actor_label: null,
+          action: "SSMA_REPLY_NOTICE_SENT", entity_type: SSMA_REPLY_ENTITY_TYPE, entity_id: content.reply.actionId,
+          detail: JSON.stringify({ providerMessageId: result.providerMessageId ?? null, messageIdHeader: result.messageIdHeader ?? null, providerThreadId: result.providerThreadId ?? null, correlationId, sentAt: result.sentAt, confirmation: Boolean(content.thread?.inReplyTo) }),
+        });
+      }
       return { providerMessageId: result.providerMessageId ?? null, sentAt: result.sentAt };
     },
   };
