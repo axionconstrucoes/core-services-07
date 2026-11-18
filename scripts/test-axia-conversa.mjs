@@ -34,7 +34,7 @@ for (const [env, label] of [[SIM, "com IA"], [{}, "sem IA"]]) {
   const hi = await ask("Bom dia!", { env });
   t(`${label}: cumprimento é conversa social, sem fonte nem ADMIN`, hi.kind === "social" && hi.summary.startsWith("Bom dia!") && hi.manualSection === null && hi.coverage === "completa" && hi.steps.length === 0);
   const age = await ask("Quantos anos você tem?", { env });
-  t(`${label}: idade — diz que não tem idade e é assistente virtual`, age.kind === "social" && /Não tenho idade/.test(age.summary) && /assistente virtual/.test(age.summary) && !/\d/.test(age.summary));
+  t(`${label}: idade pessoal — fora do escopo`, age.kind === "scope" && age.summary === "Pergunta fora do escopo deste projeto");
   const who = await ask("Você é uma pessoa de verdade?", { env });
   t(`${label}: identidade — não é pessoa`, who.kind === "social" && /Não sou uma pessoa/.test(who.summary));
   const thx = await ask("Muito obrigado!", { env });
