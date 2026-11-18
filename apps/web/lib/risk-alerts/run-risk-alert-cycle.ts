@@ -76,6 +76,8 @@ export interface RiskAlertCycleProjectResult {
   dryRunPreview?: Array<Record<string, unknown>>;
   /** true quando o dry-run planejou o projeto piloto como se risk_alerts_enabled=true (nada é gravado). */
   dryRunAssumedEnabled?: boolean;
+  /** Substituições temporárias ativas do Nível 1 (sem ids/e-mails): área + situação da titular definitiva. */
+  interimResponsibles?: Array<{ area: string; definitiveStatus: string }>;
 }
 
 export interface RiskAlertCycleResult {
@@ -202,6 +204,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       existingIdempotencyKeys: snapshot.existingIdempotencyKeys,
       previousDigestSentAt: snapshot.previousDigestSentAt,
       readinessBlockers: readiness.blockers.map(blockerToSuppressionReason),
+      interimAreas: new Set((snapshot.interimStatuses ?? []).map((item) => item.area)),
     });
 
     const projectResult: RiskAlertCycleProjectResult = {
@@ -221,6 +224,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       topLevelReached: 0,
       expertAnswers: 0,
       digestWindow: plan.digestWindow,
+      interimResponsibles: (snapshot.interimStatuses ?? []).map((item) => ({ area: item.area, definitiveStatus: item.definitiveStatus })),
     };
 
     if (plan.blockedReason) {
