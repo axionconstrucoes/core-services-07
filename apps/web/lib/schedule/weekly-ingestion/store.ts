@@ -15,6 +15,7 @@ import type { EmailAttachmentClassification, EmailDocumentClassification } from 
 import type { WorkbookProcessingContext } from "../weekly-report/process-workbook";
 import type { ExtractedSheet, WeeklyReportWorkbookStatus, WorkbookSafetyReport, WorkbookSheetIndexEntry } from "../weekly-report/types";
 import type { ScheduleSnapshot } from "./compare-schedule-versions";
+import type { MissedWeekEvidence } from "./missed-week-classification";
 import type {
   EmailAttachmentDescriptor,
   ScheduleComparisonType,
@@ -210,6 +211,11 @@ export interface AbsenceAlertStore {
   listOpenAbsenceAlerts?(projectId: string): Promise<OpenAbsenceAlert[]>;
   /** Marca resolved_at (uma única vez) quando a evidência da semana passou a existir. */
   resolveAbsenceAlert?(alertId: string, detail: string): Promise<boolean>;
+  /** Evidência efetiva de coleta/processamento da semana (recuperação de semanas perdidas). */
+  loadMissedWeekEvidence?(config: WeeklyScheduleIngestionConfig, weekStart: string, deadlineAt: Date): Promise<MissedWeekEvidence>;
+  /** Última semana já verificada pela recuperação (checkpoint auditável); null = nunca verificada. */
+  loadMissedWeeksCheckpoint?(projectId: string): Promise<string | null>;
+  saveMissedWeeksCheckpoint?(projectId: string, lastVerifiedWeekStart: string, summary: Record<string, unknown>): Promise<void>;
   writeAudit(entry: AuditEntry): Promise<void>;
 }
 

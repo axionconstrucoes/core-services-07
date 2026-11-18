@@ -383,7 +383,9 @@ if (phases.has("alerts") && apply) {
     // sem e-mail automático (trava de reemissão no ciclo de alertas). Teto de 4 semanas; idempotente.
     const missed = await createMissedWeekAbsenceAlerts(alertStore, config, new Date());
     summary.alerts.MISSED_WEEKS_CREATED_LATE = (summary.alerts.MISSED_WEEKS_CREATED_LATE ?? 0) + missed.createdLate;
-    console.log(`Projeto ${config.projectId}: semanas anteriores examinadas ${missed.examinedWeeks.length}, detectadas com atraso ${missed.createdLate}`);
+    summary.alerts.MISSED_WEEKS_INTEGRATION_PENDING = (summary.alerts.MISSED_WEEKS_INTEGRATION_PENDING ?? 0) + missed.integrationPending;
+    // Log público: só contagens e semanas (sem pessoas/endereços).
+    console.log(`Projeto ${config.projectId}: semanas verificadas ${missed.examinedWeeks.length} (checkpoint ${missed.checkpointBefore ?? "-"} -> ${missed.checkpointAfter ?? "-"}), ausência atribuível ${missed.createdLate}, pendência de integração ${missed.integrationPending}, mais semanas pendentes ${missed.moreWeeksPending}`);
     // Chegada posterior da evidência resolve os alertas de ausência abertos (encerra o caso de risco).
     const resolution = await resolveAbsenceAlertsWithEvidence(alertStore, config.projectId);
     summary.alerts.RESOLVED_BY_EVIDENCE = (summary.alerts.RESOLVED_BY_EVIDENCE ?? 0) + resolution.resolved;
