@@ -14,6 +14,7 @@ const cases = [
   ["Segue evidência anexa.", "EVIDENCE", true],
   ["Em andamento.", "STATUS", false],
   ["Nova previsão de conclusão: 20/11/2026.", "FORECAST_UPDATE", false],
+  ["Em andamento. Nova previsão de conclusão: 20/11/2026.", "FORECAST_UPDATE", false],
   ["Concluído e encaminhado ao gerente.", "UNDETERMINED", true],
   ["Recebido, obrigado.", "UNDETERMINED", false],
   ["", "UNDETERMINED", true],
