@@ -32,7 +32,7 @@ export interface AlertActionFormsProps {
   token: string | null;
 }
 
-const ESCALATING: AlertActionType[] = ["TAKING_ACTION", "FORWARD", "EXPERT_CONSULTATION", "OTHER"];
+const ESCALATING: AlertActionType[] = ["OTHER"];
 
 export function AlertActionForms(props: AlertActionFormsProps) {
   const [selected, setSelected] = useState<AlertActionType | null>(props.initialAction && props.availableActions.includes(props.initialAction) ? props.initialAction : null);

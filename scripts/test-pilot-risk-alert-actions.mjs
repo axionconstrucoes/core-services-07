@@ -223,9 +223,8 @@ await check("19. Terceiro fora da allowlist recebe SÓ o alerta encaminhado (exc
   const fwd = t.outbox.find((e) => e.notificationType === "FORWARD");
   assert(fwd.recipient === undefined || true);
   assert(fwd.recipientUserId === U_THIRD && fwd.status === "PENDING" && fwd.payloadSummary.pilotException === true);
-  // Escalonamento imediato ao Nível 2 continua respeitando a allowlist (U_L2 permitido).
-  const esc = escalationOf(t);
-  assert(esc && esc.recipientUserId === U_L2 && esc.status === "PENDING");
+  // ENVIAR PARA não provoca escalonamento extraordinário (critério de 18/11/2026): só o e-mail ao encaminhado.
+  assert(!escalationOf(t) && t.escalation === null, "ENVIAR PARA não pode escalonar isoladamente");
   // Um alerta automático posterior ao terceiro continua suprimido.
   const sql = readSource(MIGRATION);
   assert(sql.includes("pilot_exception boolean not null default false"));
@@ -298,7 +297,7 @@ await check("25. Expert não resolve: apenas recomenda (requiresHumanReview), se
 await check("26. Timeline completa: eventos com ator/origem/estados/níveis; tabela de eventos e página exibem tudo", () => {
   const t = act("FORWARD", { targetUserId: U_L2, text: "x", confirmed: true });
   const types = t.events.map((e) => e.actionType);
-  assert(types.includes("FORWARD") && types.includes("IMMEDIATE_ESCALATION"));
+  assert(types.includes("FORWARD") && !types.includes("IMMEDIATE_ESCALATION"), "ENVIAR PARA registra só o encaminhamento");
   for (const e of t.events) assert(e.origin === "WEB" && e.fromState === "OPEN" && e.idempotencyKey.startsWith(CASE_ID));
   const sql = readSource(MIGRATION);
   assert(sql.includes("create table public.risk_alert_action_events") && sql.includes("from_state text") && sql.includes("to_level text") && sql.includes("idempotency_key text not null unique,\n  created_at"));
@@ -310,29 +309,34 @@ await check("26. Timeline completa: eventos com ator/origem/estados/níveis; tab
 
 // ------------------------------------------------------------------ ESCALONAMENTO (27–44)
 const escalates = (action, payload, riskLevel) => act(action, payload, { snap: { riskLevel }, policy: policyFor(riskLevel) });
-await check("27. HIGH + TOMANDO PROVIDÊNCIAS → próximo nível (N2) imediatamente", () => {
+await check("27. HIGH + EM ANDAMENTO NÃO escalona extraordinariamente: nível, prazos e escalonamentos normais ficam como estavam", () => {
   const t = escalates("TAKING_ACTION", { text: "x" }, "HIGH");
-  assert(t.ok && t.escalation && t.escalation.fromLevel === "RESPONSAVEL" && t.escalation.toLevel === "ESCALAO_1" && escalationOf(t).recipientUserId === U_L2);
+  assert(t.ok && t.escalation === null && !escalationOf(t) && !t.events.some((e) => e.actionType === "IMMEDIATE_ESCALATION"));
+  assert(t.caseUpdate.currentLevel === undefined, "não muda o nível do alerta");
+  assert(t.caseUpdate.state === "IN_PROGRESS" && t.caseUpdate.slaActionStatus === "IN_PROGRESS");
+  assert(!("assumeDueAt" in t.caseUpdate) && !("respondDueAt" in t.caseUpdate) && !("completeDueAt" in t.caseUpdate), "não reinicia nem altera prazos");
 });
-await check("28. CRITICAL + TOMANDO PROVIDÊNCIAS → próximo nível", () => {
-  const t = escalates("TAKING_ACTION", { text: "x" }, "CRITICAL");
-  assert(t.ok && t.escalation?.toLevel === "ESCALAO_1" && t.caseUpdate.currentLevel === "ESCALAO_1");
+await check("28. CRITICAL + EM ANDAMENTO NÃO escalona extraordinariamente (a previsão é registrada sem alterar o SLA)", () => {
+  const t = escalates("TAKING_ACTION", { text: "x", forecastAt: "2026-09-25T12:00" }, "CRITICAL");
+  assert(t.ok && t.escalation === null && t.caseUpdate.currentLevel === undefined && !escalationOf(t));
+  assert(t.forecast && t.forecast.forecastAt, "a previsão continua sendo registrada");
 });
-await check("29. HIGH + ENVIAR P/ → próximo nível (envio ao escolhido e escalonamento simultâneos)", () => {
+await check("29. HIGH + ENVIAR PARA: só o envio ao escolhido; sem escalonamento extraordinário", () => {
   const t = escalates("FORWARD", { targetUserId: U_L3, text: "x", confirmed: true }, "HIGH");
-  assert(t.ok && t.escalation?.toLevel === "ESCALAO_1" && t.outbox.some((e) => e.notificationType === "FORWARD") && t.outbox.some((e) => e.notificationType === "ESCALATION"));
+  assert(t.ok && t.escalation === null && t.outbox.some((e) => e.notificationType === "FORWARD") && !t.outbox.some((e) => e.notificationType === "ESCALATION"));
+  assert(t.caseUpdate.currentLevel === undefined, "o nível do alerta não muda; só o responsável");
 });
-await check("30. CRITICAL + ENVIAR P/ → próximo nível", () => {
+await check("30. CRITICAL + ENVIAR PARA: sem escalonamento extraordinário", () => {
   const t = escalates("FORWARD", { targetUserId: U_L3, text: "x", confirmed: true }, "CRITICAL");
-  assert(t.ok && t.escalation?.toLevel === "ESCALAO_1");
+  assert(t.ok && t.escalation === null && !escalationOf(t));
 });
-await check("31. HIGH + ESPECIALISTA → próximo nível (consulta e escalonamento simultâneos)", () => {
+await check("31. HIGH + ação HISTÓRICA de consulta (registros/fluxo legado): sem escalonamento por consulta", () => {
   const t = escalates("EXPERT_CONSULTATION", { expertId: "planning-director", question: "?" }, "HIGH");
-  assert(t.ok && t.escalation?.toLevel === "ESCALAO_1" && t.caseUpdate.state === "EXPERT_CONSULTATION_PENDING");
+  assert(t.ok && t.escalation === null && !escalationOf(t) && t.caseUpdate.state === "EXPERT_CONSULTATION_PENDING");
 });
-await check("32. CRITICAL + ESPECIALISTA → próximo nível", () => {
+await check("32. CRITICAL + consulta histórica: sem escalonamento por consulta", () => {
   const t = escalates("EXPERT_CONSULTATION", { expertId: "esg-director", question: "?" }, "CRITICAL");
-  assert(t.ok && t.escalation?.toLevel === "ESCALAO_1");
+  assert(t.ok && t.escalation === null && !escalationOf(t));
 });
 await check("33. HIGH + OUTRO → próximo nível", () => {
   const t = escalates("OTHER", { text: "x" }, "HIGH");
@@ -342,7 +346,7 @@ await check("34. CRITICAL + OUTRO → próximo nível", () => {
   const t = escalates("OTHER", { text: "x" }, "CRITICAL");
   assert(t.ok && t.escalation?.toLevel === "ESCALAO_1");
 });
-await check("35. LOW não escala imediatamente por essas ações", () => {
+await check("35. LOW não escala imediatamente por nenhuma ação", () => {
   for (const [a, p] of [["TAKING_ACTION", { text: "x" }], ["FORWARD", { targetUserId: U_L3, text: "x", confirmed: true }], ["EXPERT_CONSULTATION", { expertId: "planning-director", question: "?" }], ["OTHER", { text: "x" }]]) {
     const t = escalates(a, p, "LOW");
     assert(t.ok && t.escalation === null && !escalationOf(t), a);
@@ -355,8 +359,12 @@ await check("36. MEDIUM não escala imediatamente por essas ações", () => {
   }
 });
 await check("37. N1 → N2 (pelo nível atual do alerta, não pelo cargo do encaminhado)", () => {
-  const t = act("FORWARD", { targetUserId: U_L3, text: "x", confirmed: true }); // encaminha para Nível 3, mas o alerta está no N1
+  // A mecânica de escalonamento imediato segue na ação OUTRO (única que ainda escalona): sai do nível ATUAL do alerta.
+  const t = act("OTHER", { text: "x" });
   assert(t.ok && t.escalation.fromLevel === "RESPONSAVEL" && t.escalation.toLevel === "ESCALAO_1" && escalationOf(t).recipientUserId === U_L2);
+  // ENVIAR PARA um colega do Nível 3 NÃO move o alerta de nível.
+  const fwd = act("FORWARD", { targetUserId: U_L3, text: "x", confirmed: true });
+  assert(fwd.ok && fwd.escalation === null);
   assert(nextHierarchyLevel("RESPONSAVEL") === "ESCALAO_1");
 });
 await check("38. N2 → N3", () => {
@@ -390,10 +398,12 @@ await check("41. Escalonamento idempotente: nível já escalado não repete; mes
   assert(sql.includes("on conflict (idempotency_key) do nothing"));
 });
 await check("42. Ação e escalonamento ficam separados: dois eventos distintos, ambos auditados; estado da ação não muda pelo escalonamento", () => {
-  const t = act("TAKING_ACTION", { text: "x" });
+  const t = act("OTHER", { text: "x" });
   const types = t.events.map((e) => e.actionType);
-  assert(types[0] === "TAKING_ACTION" && types.includes("IMMEDIATE_ESCALATION") && t.events.length === 2);
-  assert(t.caseUpdate.state === "IN_PROGRESS" && t.caseUpdate.currentLevel === "ESCALAO_1");
+  assert(types[0] === "OTHER" && types.includes("IMMEDIATE_ESCALATION") && t.events.length === 2);
+  assert(t.caseUpdate.currentLevel === "ESCALAO_1");
+  // EM ANDAMENTO isolado gera UM evento só (sem escalonamento extraordinário)
+  assert(act("TAKING_ACTION", { text: "x" }).events.map((e) => e.actionType).join(",") === "TAKING_ACTION");
   const esc = t.events.find((e) => e.actionType === "IMMEDIATE_ESCALATION");
   assert(esc.fromLevel === "RESPONSAVEL" && esc.toLevel === "ESCALAO_1" && esc.idempotencyKey !== t.events[0].idempotencyKey);
   const sql = readSource(MIGRATION);
