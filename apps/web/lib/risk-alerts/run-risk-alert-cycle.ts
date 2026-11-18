@@ -35,6 +35,7 @@ import { actionLinkExpiry, buildActionLink, EMAIL_ACTION_TYPES, generateActionTo
 import { applyForwardTimeout, applyScheduledTopLevel } from "./alert-state-machine";
 import { buildAlertFollowUpEmail, buildImmediateRiskAlertEmail, buildRiskDigestEmail, formatDateTimeBR, type BuiltEmail } from "./build-risk-alert-emails";
 import { evaluatePilotReadiness, blockerToSuppressionReason, isSeverityMapComplete } from "./pilot-readiness";
+import { caseKeyOf } from "./collect-risk-cases";
 import { rebuildDigestContent } from "./rebuild-digest-content";
 import { evaluateRecipient, planRiskAlerts } from "./plan-risk-alerts";
 import { resolveDeliveryAddress } from "@/lib/email/pilot-delivery-override";
@@ -78,6 +79,18 @@ export interface RiskAlertCycleProjectResult {
   dryRunAssumedEnabled?: boolean;
   /** Áreas informativas do projeto (sem alertas, SLA, cobrança ou escalonamento; fora da prontidão). */
   informativeAreas?: string[];
+  /** Alertas "detectados com atraso" retidos sem comunicação (aguardam decisão de reemissão). */
+  lateDetectionHeld?: Array<{ visibleCode: string | null; reference: string }>;
+  /**
+   * Livro-razão de comunicação (mascarado: código visível do caso, papéis e status — sem usuário/e-mail).
+   * Distingue etapa alcançada, supressão e aceite pelo Gmail; lacunas sem decisão não geram e-mail.
+   */
+  communicationLedger?: Array<{
+    visibleCode: string | null;
+    stageReached: string;
+    decision: string;
+    recipients: Array<{ role: string; status: string; suppressions: number; acceptedByGmail: number; deliveredToRecipient: number; eligibleNow: boolean; ineligibleReason: string | null }>;
+  }>;
 }
 
 export interface RiskAlertCycleResult {
@@ -207,6 +220,9 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       previousDigestSentAt: snapshot.previousDigestSentAt,
       readinessBlockers: readiness.blockers.map(blockerToSuppressionReason),
       informativeAreas,
+      outboxHistory: snapshot.outboxHistory,
+      reissueApprovals: snapshot.reissueApprovals,
+      reissueDecisionRecordedCaseIds: snapshot.reissueDecisionRecordedCaseIds,
     });
 
     const projectResult: RiskAlertCycleProjectResult = {
@@ -227,6 +243,10 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       expertAnswers: 0,
       digestWindow: plan.digestWindow,
       informativeAreas: Array.from(informativeAreas),
+      lateDetectionHeld: (plan.lateDetectionHeld ?? []).map((caseKey) => ({
+        visibleCode: snapshot.existingCases.find((c) => caseKeyOf(c) === caseKey)?.visibleCode ?? null,
+        reference: snapshot.cases.find((c) => caseKeyOf(c) === caseKey)?.reference ?? caseKey,
+      })),
     };
 
     if (plan.blockedReason) {
@@ -239,6 +259,20 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       const pilotParticipants = pilotProfile.configured && pilotProfile.valid && pilotProfile.projectId === projectId.toLowerCase() ? pilotProfile.participants : null;
       projectResult.dryRunPreview = plan.outbox.map((entry) => ({ ...buildCycleDryRunPreviewItem(entry, { visibleCodeByCaseId, pilotParticipants }) }));
       projectResult.dryRunAssumedEnabled = assumeEnabled;
+      projectResult.communicationLedger = (plan.communicationLedgers ?? []).map((ledger) => ({
+        visibleCode: visibleCodeByCaseId.get(ledger.caseId) ?? null,
+        stageReached: ledger.stageReached,
+        decision: ledger.decision,
+        recipients: ledger.recipients.map((r) => ({
+          role: r.role,
+          status: r.status,
+          suppressions: r.suppressions.length,
+          acceptedByGmail: r.acceptedByGmail.length,
+          deliveredToRecipient: r.acceptedByGmail.filter((a) => a.deliveredToRecipient).length,
+          eligibleNow: r.eligibleNow,
+          ineligibleReason: r.ineligibleReason,
+        })),
+      }));
       projectResult.slaActionsCreated = plan.slaActionCreates.length;
       projectResult.escalationsApplied = plan.escalations.length;
       result.projects.push(projectResult);

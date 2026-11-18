@@ -46,7 +46,7 @@ import type {
 } from "./store";
 import { DuplicateDocumentVersionError } from "./store";
 import { mppFactsFromComparison, type MppFactsForCrossCheck } from "../s-curve/analyze-s-curve";
-import type { OfficialBaselineFacts } from "../weekly-report/analyze-sheets";
+import { toBrasiliaDate, type OfficialBaselineFacts } from "../weekly-report/analyze-sheets";
 import type { WorkbookProcessingContext } from "../weekly-report/process-workbook";
 import type { BaselineSheetData, WeeklyReportSheetCategory, WeeklyReportSheetData } from "../weekly-report/types";
 import type { ScheduleComparisonMetrics } from "./compare-schedule-versions";
@@ -1090,7 +1090,50 @@ export function createSupabaseWeeklyReportWorkbookStore(supabase: SupabaseClient
         }
       }
 
-      return { workWeekLabel: candidate.workWeekLabel, thresholds, mppFacts, officialBaseline, previousDeviationPp, previousBaselineSheet, criticalActivityCount, humanDecisions };
+      // Data de referência do pacote = envio do e-mail semanal (fuso de Brasília).
+      const { data: sourceEmail } = await supabase.from("emails").select("sent_at,subject").eq("id", candidate.emailId).maybeSingle();
+      const reportReferenceDate = toBrasiliaDate((sourceEmail?.sent_at as string | null) ?? null);
+
+      const emailSubject = (sourceEmail?.subject as string | null) ?? null;
+
+      // Versões anteriores da aba Financeiro (mais antigas primeiro), só leitura: evidência de reprevisão.
+      const { data: financialHistory } = await supabase
+        .from("weekly_report_sheets")
+        .select("data,workbook_id,created_at,weekly_report_workbooks!inner(work_week_label,email_attachment_id,project_id)")
+        .eq("category", "FINANCEIRO")
+        .eq("weekly_report_workbooks.project_id", candidate.projectId)
+        .neq("weekly_report_workbooks.email_attachment_id", candidate.attachmentId)
+        .order("created_at", { ascending: true })
+        .limit(60);
+      const previousFinancialVersions = (financialHistory ?? []).flatMap((row) => {
+        const rows = (row.data as { rows?: Array<{ period: string; values?: { previsto?: number | null } }> } | null)?.rows;
+        if (!Array.isArray(rows)) return [];
+        const workbook = (Array.isArray(row.weekly_report_workbooks) ? row.weekly_report_workbooks[0] : row.weekly_report_workbooks) as { work_week_label?: string | null } | null;
+        return [{ label: workbook?.work_week_label ?? null, rows: rows.map((item) => ({ period: item.period, previsto: typeof item.values?.previsto === "number" ? item.values.previsto : null })) }];
+      });
+
+      return { workWeekLabel: candidate.workWeekLabel, reportReferenceDate, emailSubject, previousFinancialVersions, thresholds, mppFacts, officialBaseline, previousDeviationPp, previousBaselineSheet, criticalActivityCount, humanDecisions };
+    },
+
+    async findRelatedWorkbooks(candidate, sha256) {
+      const { data, error } = await supabase
+        .from("weekly_report_workbooks")
+        .select("id,email_attachment_id,file_sha256,work_week_label,created_at")
+        .eq("project_id", candidate.projectId)
+        .neq("email_attachment_id", candidate.attachmentId)
+        .in("status", ["EXTRACTED", "PARTIAL", "PENDING_HUMAN_REVIEW"])
+        .order("created_at", { ascending: true })
+        .limit(500);
+      if (error) fail("Falha ao verificar planilhas relacionadas", error);
+      return (data ?? [])
+        .filter((row) => row.file_sha256 === sha256 || (candidate.workWeekLabel !== null && row.work_week_label === candidate.workWeekLabel))
+        .map((row) => ({
+          id: row.id as string,
+          emailAttachmentId: row.email_attachment_id as string,
+          sha256: row.file_sha256 as string,
+          workWeekLabel: (row.work_week_label as string | null) ?? null,
+          createdAt: row.created_at as string,
+        }));
     },
 
     async saveWorkbook(candidate, input) {

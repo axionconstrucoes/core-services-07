@@ -9,7 +9,8 @@
 
 import type { MppFactsForCrossCheck } from "../s-curve/analyze-s-curve";
 import type { ScheduleRiskThreshold } from "../weekly-ingestion/types";
-import { analyzeBaselineSheet, analyzeCurvaSSheet, analyzeFinancialSheet, analyzeHistogramSheet, analyzeSsmaSheet, routeSheetToExpert, type OfficialBaselineFacts } from "./analyze-sheets";
+import { analyzeBaselineSheet, analyzeCurvaSSheet, analyzeFinancialSheet, analyzeHistogramSheet, analyzeSsmaSheet, routeSheetToExpert, toBrasiliaDate, type FinancialAnalysisContext, type FinancialPreviousVersion, type OfficialBaselineFacts } from "./analyze-sheets";
+import { resolveReportReference } from "./report-reference";
 import { extractBaselineSheet, extractCurvaSFromBaselineGrid, extractCurvaSSheet, extractFinancialSheet, extractHistogramSheet, extractSsmaSheet } from "./extract-sheets";
 import { identifyWeeklyReportSheets } from "./identify-sheets";
 import type {
@@ -28,6 +29,12 @@ import { WEEKLY_REPORT_SHEET_CATEGORIES } from "./types";
 export interface WorkbookProcessingContext {
   fileName: string;
   workWeekLabel: string | null;
+  /** Envio do e-mail do pacote (AAAA-MM-DD, Brasília) — só FALLBACK da referência do relatório. */
+  reportReferenceDate?: string | null;
+  /** Assunto do e-mail (detecta encaminhamento Fwd/Enc). */
+  emailSubject?: string | null;
+  /** Versões anteriores da aba Financeiro do projeto (evidência de reprevisão). */
+  previousFinancialVersions?: FinancialPreviousVersion[] | null;
   thresholds: ScheduleRiskThreshold[];
   mppFacts: MppFactsForCrossCheck | null;
   officialBaseline: OfficialBaselineFacts | null;
@@ -220,7 +227,23 @@ export function processWorkbookGrids(input: { grids: SheetGrid[]; safety: Workbo
     raw.LINHA_BASE.sheet.alerts.push(...analysis.alerts);
   }
   if (raw.FINANCEIRO) {
-    const analysis = analyzeFinancialSheet(raw.FINANCEIRO.data as Parameters<typeof analyzeFinancialSheet>[0], context.thresholds);
+    const reference = resolveReportReference({
+      emailSentDate: context.reportReferenceDate ?? null,
+      emailSubject: context.emailSubject ?? null,
+      subjectWeekLabel: context.workWeekLabel,
+      fileName: context.fileName,
+      contentWeekLabel: ((raw.CURVA_S?.sheet.metrics as { cutoffPeriod?: string | null } | null) ?? null)?.cutoffPeriod ?? null,
+      documentModifiedDate: toBrasiliaDate(safety.documentModifiedAt ?? null),
+    });
+    const analysis = analyzeFinancialSheet(raw.FINANCEIRO.data as Parameters<typeof analyzeFinancialSheet>[0], context.thresholds, {
+      reference,
+      previousVersions: context.previousFinancialVersions ?? [],
+      referenceDate: context.reportReferenceDate ?? null,
+      reportWeekLabel: context.workWeekLabel,
+      fileName: context.fileName,
+      columnLetters: (raw.FINANCEIRO.sheet.locator.columns ?? null) as FinancialAnalysisContext["columnLetters"],
+    });
+    raw.FINANCEIRO.sheet.cutoffDate = raw.FINANCEIRO.sheet.cutoffDate ?? analysis.metrics.cutoffDate;
     raw.FINANCEIRO.sheet.metrics = analysis.metrics;
     raw.FINANCEIRO.sheet.riskClassification = analysis.risk.classification;
     raw.FINANCEIRO.sheet.riskReasons = analysis.risk.reasons;

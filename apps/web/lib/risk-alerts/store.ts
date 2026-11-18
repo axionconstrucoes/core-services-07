@@ -2,6 +2,7 @@
 // real em supabase-store.ts (worker, service role); implementações em
 // memória nos testes (scripts/test-pilot-risk-alerts.mjs).
 
+import type { OutboxHistoryRow, ReissueApproval } from "./communication-ledger";
 import type { SlaArea, SlaAreaResponsibles, SlaMatrixRule, SlaProjectSettings } from "@/lib/sla/types";
 
 import type { ActiveForward, AlertCaseSnapshot, AlertTransition } from "./alert-state-machine";
@@ -39,6 +40,12 @@ export interface RiskAlertProjectSnapshot {
   linkedActions: Map<string, LinkedSlaActionState>;
   recipients: Map<string, RecipientProfile>;
   existingIdempotencyKeys: Set<string>;
+  /** Histórico completo da outbox dos casos do ciclo (inclui SUPPRESSED) — livro-razão de comunicação. */
+  outboxHistory?: OutboxHistoryRow[];
+  /** Decisões humanas auditadas de reemissão por caso. */
+  reissueApprovals?: Map<string, ReissueApproval>;
+  /** Casos com RISK_ALERT_REISSUE_DECISION_REQUIRED já registrado. */
+  reissueDecisionRecordedCaseIds?: Set<string>;
   previousDigestSentAt: string | null;
   /** Mailbox remetente configurada (Google Workspace) — null = não configurado. */
   senderMailbox: string | null;

@@ -7,6 +7,7 @@
 // versões já superadas). O fingerprint captura nível + motivos + métricas
 // relevantes: qualquer mudança real gera "risco alterado".
 
+import { isLateDetectedDetail } from "@/lib/schedule/weekly-ingestion/late-detection";
 import { createHash } from "node:crypto";
 
 import type { SlaArea } from "@/lib/sla/types";
@@ -225,6 +226,7 @@ export function collectIngestionAlertCases(rows: IngestionAlertSourceRow[], seve
       originPath: "documentos?tab=registro-email",
       closed: Boolean(row.resolved_at),
       reference: `${row.week_start} · ${row.kind}`,
+      ...(isLateDetectedDetail(row.detail) ? { detectedLate: true } : {}),
     };
   });
 }

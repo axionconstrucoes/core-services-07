@@ -82,10 +82,36 @@ export function validateWorkbookFile(input: { buffer: Buffer; fileName: string; 
 interface PackageInspection extends Pick<WorkbookSafetyReport, "macrosDetected" | "externalLinksDetected" | "dataConnectionsDetected"> {
   estimatedUncompressedBytes: number;
   oversizedXmlEntry: string | null;
+  documentCreatedAt: string | null;
+  documentModifiedAt: string | null;
+}
+
+const MAX_CORE_XML_BYTES = 64 * 1024;
+
+/** Datas do próprio arquivo (docProps/core.xml): criação e último salvamento. Ausente/ inválida => null. */
+export function parseCorePropertiesDates(xml: string): { documentCreatedAt: string | null; documentModifiedAt: string | null } {
+  const pick = (tag: string) => {
+    const match = new RegExp(`<dcterms:${tag}[^>]*>([^<]{10,40})</dcterms:${tag}>`, "i").exec(xml);
+    if (!match) return null;
+    const date = new Date(match[1].trim());
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  };
+  return { documentCreatedAt: pick("created"), documentModifiedAt: pick("modified") };
 }
 
 const MAX_XLSX_UNCOMPRESSED_BYTES = 256 * 1024 * 1024;
 const MAX_XLSX_XML_ENTRY_BYTES = 128 * 1024 * 1024;
+
+async function readCoreDates(zip: JSZip): Promise<{ documentCreatedAt: string | null; documentModifiedAt: string | null }> {
+  const entry = zip.file(/^docProps\/core\.xml$/i)[0];
+  const internal = entry as unknown as { _data?: { uncompressedSize?: number } } | undefined;
+  if (!entry || Number(internal?._data?.uncompressedSize ?? 0) > MAX_CORE_XML_BYTES) return { documentCreatedAt: null, documentModifiedAt: null };
+  try {
+    return parseCorePropertiesDates(await entry.async("string"));
+  } catch {
+    return { documentCreatedAt: null, documentModifiedAt: null };
+  }
+}
 
 async function inspectPackage(buffer: Buffer): Promise<PackageInspection> {
   const zip = await JSZip.loadAsync(buffer);
@@ -109,6 +135,7 @@ async function inspectPackage(buffer: Buffer): Promise<PackageInspection> {
     dataConnectionsDetected: names.filter((name) => /^xl\/connections\.xml$/i.test(name) || /^xl\/queryTables\//i.test(name) || /^customXml\/.*connection/i.test(name)).length,
     estimatedUncompressedBytes,
     oversizedXmlEntry,
+    ...(await readCoreDates(zip)),
   };
 }
 

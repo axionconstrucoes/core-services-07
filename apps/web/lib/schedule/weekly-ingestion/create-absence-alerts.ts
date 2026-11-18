@@ -7,10 +7,11 @@
 // (config.alertRecipientUserIds) é etapa posterior, fora deste módulo
 // (ver docs/weekly-schedule-email-ingestion.md).
 
-import type { AbsenceAlertStore, OpenAbsenceAlert } from "./store";
+import type { AbsenceAlertRecord, AbsenceAlertStore, OpenAbsenceAlert } from "./store";
 import type { WeeklyScheduleIngestionConfig } from "./types";
 import { isWithinMonitoringWindow } from "./evaluate-weekly-schedule-email";
-import { resolveCurrentWeekDeadline } from "./week-window";
+import { formatLateDetectionDetail } from "./late-detection";
+import { previousWeekStart, resolveCurrentWeekDeadline, resolveWeeklyDeadline } from "./week-window";
 
 export interface AbsenceAlertOutcome {
   projectId: string;
@@ -199,4 +200,118 @@ export async function createWeeklySCurveAbsenceAlert(
     detail: `Alerta de ausência da Curva S criado para a semana de ${weekStart}.`,
   });
   return { ...base, result: "CREATED", alertId: inserted.id };
+}
+
+/** Teto de semanas anteriores examinadas pela recuperação (evita varrer histórico longo). */
+export const MISSED_WEEKS_MAX = 4;
+
+export interface MissedWeekAlertOutcome {
+  weekStart: string;
+  deadlineAt: string;
+  kind: AbsenceAlertRecord["kind"];
+  result: "CREATED_LATE" | "ALREADY_ALERTED" | "RECEIVED" | "NO_SCHEDULE_YET" | "DISABLED" | "OUTSIDE_WINDOW" | "STORE_UNSUPPORTED";
+  alertId: string | null;
+}
+
+export interface MissedWeeksOutcome {
+  projectId: string;
+  examinedWeeks: string[];
+  createdLate: number;
+  outcomes: MissedWeekAlertOutcome[];
+}
+
+/**
+ * RECUPERAÇÃO DE SEMANAS PERDIDAS. A regra semanal só olha a semana corrente: se o agendador não
+ * executou entre o prazo e a virada da semana, aquela semana ficava sem alerta para sempre. Aqui
+ * examinamos até `maxWeeks` semanas ANTERIORES (já vencidas) com as mesmas condições de cada tipo
+ * (cronograma, Curva S, planilha) e criamos o alerta que faltar, com a marca "detectado com atraso"
+ * (data de detecção + prazo original). Idempotente pelo UNIQUE (projeto, semana, tipo): semana já
+ * alertada (aberta ou resolvida) nunca duplica. Alertas criados aqui NÃO geram e-mail por padrão
+ * (ver late-detection.ts e a trava de reemissão do ciclo de alertas).
+ */
+export async function createMissedWeekAbsenceAlerts(
+  store: AbsenceAlertStore,
+  config: WeeklyScheduleIngestionConfig & { sCurveAlertEnabled?: boolean; workbookAlertEnabled?: boolean },
+  now: Date = new Date(),
+  maxWeeks: number = MISSED_WEEKS_MAX
+): Promise<MissedWeeksOutcome> {
+  const outcome: MissedWeeksOutcome = { projectId: config.projectId, examinedWeeks: [], createdLate: 0, outcomes: [] };
+  if (!config.enabled) return outcome;
+  const limit = Math.max(0, Math.min(Math.floor(maxWeeks), MISSED_WEEKS_MAX));
+  let weekStart = resolveCurrentWeekDeadline(now, config).weekStart;
+
+  for (let i = 0; i < limit; i += 1) {
+    weekStart = previousWeekStart(weekStart);
+    const deadlineAt = resolveWeeklyDeadline(weekStart, config);
+    const deadlineIso = deadlineAt.toISOString();
+    if (deadlineAt.getTime() > now.getTime()) continue;
+    outcome.examinedWeeks.push(weekStart);
+    const push = (kind: MissedWeekAlertOutcome["kind"], result: MissedWeekAlertOutcome["result"], alertId: string | null = null) =>
+      outcome.outcomes.push({ weekStart, deadlineAt: deadlineIso, kind, result, alertId });
+
+    if (!isWithinMonitoringWindow(deadlineIso, config)) {
+      push("MISSING_WEEKLY_SCHEDULE", "OUTSIDE_WINDOW");
+      continue;
+    }
+
+    const scheduleReceived = await store.hasReceivedScheduleForWeek(config.projectId, weekStart);
+    const candidates: Array<{ kind: MissedWeekAlertOutcome["kind"]; detail: string; auditAction: string }> = [];
+
+    if (scheduleReceived) {
+      push("MISSING_WEEKLY_SCHEDULE", "RECEIVED");
+    } else {
+      candidates.push({
+        kind: "MISSING_WEEKLY_SCHEDULE",
+        detail: `Nenhum cronograma semanal (.mpp) autorizado foi recebido na semana de ${weekStart} até o prazo-limite ${deadlineIso} (${config.timezone}).`,
+        auditAction: "WEEKLY_SCHEDULE_MISSING_ALERT_CREATED",
+      });
+    }
+
+    if (config.sCurveAlertEnabled === false) push("MISSING_S_CURVE", "DISABLED");
+    else if (!scheduleReceived) push("MISSING_S_CURVE", "NO_SCHEDULE_YET");
+    else if (await store.hasSCurveForWeek(config.projectId, weekStart)) push("MISSING_S_CURVE", "RECEIVED");
+    else
+      candidates.push({
+        kind: "MISSING_S_CURVE",
+        detail: `Relatório semanal recebido na semana de ${weekStart}, mas nenhuma Curva S foi identificada nos anexos até o prazo-limite ${deadlineIso}.`,
+        auditAction: "WEEKLY_S_CURVE_MISSING_ALERT_CREATED",
+      });
+
+    if (config.workbookAlertEnabled === false) push("MISSING_WEEKLY_REPORT_WORKBOOK", "DISABLED");
+    else if (!store.hasWorkbookForWeek) push("MISSING_WEEKLY_REPORT_WORKBOOK", "STORE_UNSUPPORTED");
+    else if (!scheduleReceived) push("MISSING_WEEKLY_REPORT_WORKBOOK", "NO_SCHEDULE_YET");
+    else if (await store.hasWorkbookForWeek(config.projectId, weekStart)) push("MISSING_WEEKLY_REPORT_WORKBOOK", "RECEIVED");
+    else
+      candidates.push({
+        kind: "MISSING_WEEKLY_REPORT_WORKBOOK",
+        detail: `Cronograma semanal recebido na semana de ${weekStart}, mas nenhuma planilha do relatório semanal (.xlsx) foi identificada nos anexos até o prazo-limite ${deadlineIso}.`,
+        auditAction: "WEEKLY_REPORT_WORKBOOK_MISSING_ALERT_CREATED",
+      });
+
+    for (const candidate of candidates) {
+      const inserted = await store.insertAlert({
+        projectId: config.projectId,
+        configId: config.id,
+        kind: candidate.kind,
+        weekStart,
+        deadlineAt: deadlineIso,
+        recipientUserIds: config.alertRecipientUserIds,
+        detail: formatLateDetectionDetail(now, deadlineAt, candidate.detail),
+      });
+      if (!inserted.created) {
+        push(candidate.kind, "ALREADY_ALERTED");
+        continue;
+      }
+      outcome.createdLate += 1;
+      push(candidate.kind, "CREATED_LATE", inserted.id);
+      await store.writeAudit({
+        projectId: config.projectId,
+        action: "WEEKLY_ABSENCE_ALERT_DETECTED_LATE",
+        entityType: "WEEKLY_SCHEDULE_INGESTION_ALERT",
+        entityId: inserted.id ?? `${config.projectId}:${weekStart}:${candidate.kind}`,
+        detail: `Alerta de ausência ${candidate.kind} da semana de ${weekStart} detectado com atraso em ${now.toISOString()} (prazo original ${deadlineIso}; regra de origem ${candidate.auditAction}). Sem e-mail automático: depende de decisão de reemissão.`,
+      });
+    }
+  }
+  return outcome;
 }
