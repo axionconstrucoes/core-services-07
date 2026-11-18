@@ -32,6 +32,7 @@ import type { ActiveForward, AlertCaseSnapshot } from "./alert-state-machine";
 import { isPilotTestCase } from "./pilot-test-case";
 import { LEVEL_OVERRIDE_ENTITY_TYPE, LEVEL_OVERRIDE_SET_ACTION, LEVEL_OVERRIDE_UNSET_ACTION, resolvePilotLevelOverrides, type LevelOverrideAuditRow } from "./pilot-level-overrides";
 import { INFORMATIVE_ENTITY_TYPE, INFORMATIVE_SET_ACTION, INFORMATIVE_UNSET_ACTION, resolveInformativeAreas, type InformativeAuditRow } from "./informative-areas";
+import { CASE_RESUMED_ACTION, CASE_SUSPENDED_ACTION, CASE_SUSPENSION_ENTITY_TYPE, resolveSuspendedCaseIds, type CaseSuspensionAuditRow } from "./case-communication-suspension";
 import { hashReplyToken, type InboundHeaders } from "./replies/reply-pipeline";
 import type { PersistedOutboxEntry, RiskAlertStore } from "./store";
 import type { ExpertId, IngestionAlertSeverityMap, LinkedSlaActionState, RecipientProfile, RiskCaseRecord } from "./types";
@@ -312,6 +313,15 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         .in("action", [LEVEL_OVERRIDE_SET_ACTION, LEVEL_OVERRIDE_UNSET_ACTION]);
       fail("Falha ao carregar exceções do piloto por nível", overrideError);
       const pilotLevelOverrides = resolvePilotLevelOverrides(projectId, (overrideRows ?? []) as unknown as LevelOverrideAuditRow[]);
+      // Casos com comunicação suspensa (registro humano auditado; sem migration).
+      const { data: suspensionRows, error: suspensionError } = await client
+        .from("audit_log_entries")
+        .select("project_id,occurred_at,actor_type,actor_user_id,action,entity_type,entity_id,detail")
+        .eq("project_id", projectId)
+        .eq("entity_type", CASE_SUSPENSION_ENTITY_TYPE)
+        .in("action", [CASE_SUSPENDED_ACTION, CASE_RESUMED_ACTION]);
+      fail("Falha ao carregar suspensões de comunicação", suspensionError);
+      const suspendedCaseIds = Array.from(resolveSuspendedCaseIds(projectId, (suspensionRows ?? []) as unknown as CaseSuspensionAuditRow[]));
 
       // Livro-razão de comunicação: histórico completo da outbox (SUPPRESSED NÃO é entrega) e
       // decisões humanas de reemissão (audit_log_entries; sem migration).
@@ -368,6 +378,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         areaResponsibles: (responsibles ?? []).map((row) => mapResponsibles(row as Row)),
         informativeAreas,
         pilotLevelOverrides,
+        suspendedCaseIds,
         settings: mapSettings((settings as Row | null) ?? null),
         cases: [...collectComparisonCases(comparisonRows), ...collectSheetCases(sheetRows), ...collectIngestionAlertCases(alertRows, (config?.risk_alert_severity_map as IngestionAlertSeverityMap | null) ?? null)],
         existingCases,

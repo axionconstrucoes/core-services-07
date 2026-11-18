@@ -832,6 +832,25 @@ export function createSupabaseAbsenceAlertStore(supabase: SupabaseClient): Absen
       return (data ?? []).length > 0;
     },
 
+    async hasAuditEntry(projectId, action, entityId, key) {
+      const { data, error } = await supabase
+        .from("audit_log_entries")
+        .select("detail")
+        .eq("project_id", projectId)
+        .eq("action", action)
+        .eq("entity_id", entityId)
+        .order("occurred_at", { ascending: false })
+        .limit(20);
+      if (error) fail("Falha ao verificar auditoria existente", error);
+      return (data ?? []).some((row) => {
+        try {
+          return (JSON.parse(String(row.detail ?? "")) as { key?: unknown }).key === key;
+        } catch {
+          return false;
+        }
+      });
+    },
+
     async loadMissedWeeksCheckpoint(projectId) {
       const { data, error } = await supabase
         .from("audit_log_entries")

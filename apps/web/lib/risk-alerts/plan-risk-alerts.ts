@@ -96,6 +96,12 @@ export interface PlanRiskAlertsInput {
   reissueApprovals?: Map<string, ReissueApproval>;
   /** Casos que já têm RISK_ALERT_REISSUE_DECISION_REQUIRED registrado (não repetir a auditoria). */
   reissueDecisionRecordedCaseIds?: ReadonlySet<string>;
+  /**
+   * Casos com comunicação SUSPENSA (registro humano auditado; ex.: ausência não comprovada por falta de
+   * integração da caixa do responsável à época). Só o registro/atualização do caso; nenhum alerta,
+   * repetição, escalonamento, limite atingido ou reemissão é planejado. Prazos e ação SLA intactos.
+   */
+  suspendedCaseIds?: ReadonlySet<string>;
 }
 
 function emptyPlan(blockedReason: RiskSuppressionReason | null): RiskAlertPlan {
@@ -203,6 +209,13 @@ export function planRiskAlerts(input: PlanRiskAlertsInput): RiskAlertPlan {
     const existing = existingByKey.get(caseKey) ?? null;
     const change = detectChange(existing, caseInput);
     if (change === null) continue;
+
+    if (existing && input.suspendedCaseIds?.has(existing.id)) {
+      // Comunicação suspensa (verificação pendente): registro/apresentação do caso apenas.
+      plan.caseUpserts.push({ caseKey, existingId: existing.id, input: caseInput, change, policy: null, lastDigestWindow: existing.lastDigestWindow ?? null });
+      if (!caseInput.closed) plan.communicationSuspended = [...(plan.communicationSuspended ?? []), caseKey];
+      continue;
+    }
 
     if (input.informativeAreas?.has(caseInput.area)) {
       // Área informativa: só o registro/atualização do caso (apresentação). Nenhuma automação de alerta.

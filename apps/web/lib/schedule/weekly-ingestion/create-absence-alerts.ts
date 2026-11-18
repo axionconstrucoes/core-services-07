@@ -23,8 +23,21 @@ export interface AbsenceAlertOutcome {
   projectId: string;
   weekStart: string;
   deadlineAt: string;
-  result: "NOT_DUE" | "RECEIVED" | "CREATED" | "ALREADY_ALERTED" | "OUTSIDE_WINDOW" | "DISABLED" | "NO_SCHEDULE_YET" | "STORE_UNSUPPORTED";
+  result:
+    | "NOT_DUE"
+    | "RECEIVED"
+    | "CREATED"
+    | "ALREADY_ALERTED"
+    | "OUTSIDE_WINDOW"
+    | "DISABLED"
+    | "NO_SCHEDULE_YET"
+    | "STORE_UNSUPPORTED"
+    | "INTEGRATION_PENDING"
+    | "RECEIVED_NOT_PROCESSED";
   alertId: string | null;
+  /** Semana corrente: classificação pela evidência efetiva (mesmo critério da recuperação de semanas perdidas). */
+  classification?: MissedWeekClassification;
+  reasons?: MissedWeekReason[];
 }
 
 /**
@@ -142,6 +155,44 @@ export async function createWeeklyAbsenceAlert(
     return { ...base, result: "RECEIVED" };
   }
 
+  // Mesmo critério da recuperação de semanas perdidas: ausência só é atribuída ao responsável quando a
+  // coleta está íntegra (execução bem-sucedida ≥ margem após o prazo) e a caixa do responsável da época
+  // está integrada. Caso contrário: pendência de integração/processamento, sem alerta e sem cobrança. A
+  // semana continua sendo reavaliada nas próximas execuções e, depois de encerrada, pela recuperação com
+  // checkpoint — nenhuma semana é descartada. Store sem evidência (testes legados) mantém o comportamento
+  // anterior; o store de produção sempre fornece a evidência.
+  let classificationNote = "";
+  if (store.loadMissedWeekEvidence) {
+    const evidence = await store.loadMissedWeekEvidence(config, weekStart, deadlineAt);
+    const { classification, reasons } = classifyMissedWeek(evidence, deadlineAt);
+    if (classification === "RECEBIDO") return { ...base, result: "RECEIVED", classification, reasons };
+    if (classification !== "CRONOGRAMA_NAO_RECEBIDO") {
+      const result = classification === "RECEBIDO_NAO_PROCESSADO" ? "RECEIVED_NOT_PROCESSED" : "INTEGRATION_PENDING";
+      const entityId = `${config.projectId}:${weekStart}`;
+      const key = `${classification}|${reasons.join(",")}`;
+      const already = store.hasAuditEntry ? await store.hasAuditEntry(config.projectId, CURRENT_WEEK_INTEGRATION_PENDING_ACTION, entityId, key) : false;
+      if (!already) {
+        await store.writeAudit({
+          projectId: config.projectId,
+          action: CURRENT_WEEK_INTEGRATION_PENDING_ACTION,
+          entityType: "WEEKLY_SCHEDULE_INGESTION_CONFIG",
+          entityId,
+          detail: JSON.stringify({
+            key,
+            weekStart,
+            deadlineAt: deadlineAt.toISOString(),
+            classification,
+            reasons,
+            responsibleAtTime: { userId: evidence.responsibleAtTime.userId, source: evidence.responsibleAtTime.source, isCurrent: evidence.responsibleAtTime.isCurrent },
+            note: "Semana corrente: sem alerta de ausência e sem cobrança ao responsável (evidência incompleta). Reavaliada nas próximas execuções.",
+          }),
+        });
+      }
+      return { ...base, result, classification, reasons };
+    }
+    classificationNote = " [CRONOGRAMA_NAO_RECEBIDO: coleta íntegra e caixa do responsável integrada]";
+  }
+
   const inserted = await store.insertAlert({
     projectId: config.projectId,
     configId: config.id,
@@ -151,7 +202,7 @@ export async function createWeeklyAbsenceAlert(
     recipientUserIds: config.alertRecipientUserIds,
     detail:
       `Nenhum cronograma semanal (.mpp) autorizado foi recebido na semana de ${weekStart} ` +
-      `até o prazo-limite ${deadlineAt.toISOString()} (${config.timezone}).`,
+      `até o prazo-limite ${deadlineAt.toISOString()} (${config.timezone}).${classificationNote}`,
   });
 
   if (!inserted.created) return { ...base, result: "ALREADY_ALERTED" };
@@ -213,6 +264,7 @@ export const MISSED_WEEKS_MAX = 4;
 
 export const MISSED_WEEKS_CHECKPOINT_ACTION = "WEEKLY_ABSENCE_WEEKS_VERIFIED_CHECKPOINT";
 export const MISSED_WEEK_INTEGRATION_PENDING_ACTION = "WEEKLY_ABSENCE_INTEGRATION_PENDING";
+export const CURRENT_WEEK_INTEGRATION_PENDING_ACTION = "WEEKLY_ABSENCE_CURRENT_WEEK_INTEGRATION_PENDING";
 
 export interface MissedWeekAlertOutcome {
   weekStart: string;
