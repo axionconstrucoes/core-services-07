@@ -87,6 +87,19 @@ check("cores aprovadas: CRÍTICO vermelho/branco/logo invertido; ALTO amarelo/pr
   assert.equal(T.BAIXA.background, "#FFFFFF");
 });
 
+check("cores dos botões: três de tratamento cinza médio, ESPECIALISTA laranja, todos com texto branco e contraste AA", () => {
+  const S = t.UNIVERSAL_ACTION_STYLES;
+  for (const a of ["RESOLVIDO", "EM_ANDAMENTO", "ENVIAR_PARA"]) assert.equal(S[a].background, "#6B7280", a);
+  assert.equal(S.ESPECIALISTA.background, "#C2410C");
+  for (const a of Object.keys(S)) {
+    assert.equal(S[a].color.toLowerCase(), "#ffffff", a);
+    assert.ok(style.contrastRatio("#FFFFFF", S[a].background) >= 4.5, `${a} ${style.contrastRatio("#FFFFFF", S[a].background)}`);
+  }
+  const html = card("ALTA");
+  assert.equal((html.match(/bgcolor="#6B7280"/g) ?? []).length, 3);
+  assert.equal((html.match(/bgcolor="#C2410C"/g) ?? []).length, 1);
+});
+
 check("estrutura idêntica em todas as áreas (só mudam os dados)", () => {
   const shape = (html) => html.replace(/>[^<]*</g, "><");
   const reference = shape(card("ALTA", { areaLabel: AREAS[0] }));

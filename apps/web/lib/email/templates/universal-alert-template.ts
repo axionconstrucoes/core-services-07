@@ -38,11 +38,14 @@ export type UniversalAction = "RESOLVIDO" | "EM_ANDAMENTO" | "ENVIAR_PARA" | "ES
 
 export const UNIVERSAL_ACTION_ORDER: readonly UniversalAction[] = ["RESOLVIDO", "EM_ANDAMENTO", "ENVIAR_PARA", "ESPECIALISTA"];
 
+// Cores (decisão de produto): os três botões de TRATAMENTO são cinza médio com texto branco; ESPECIALISTA (consulta, não
+// altera o alerta) é laranja com texto branco. Laranja escurecido (#C2410C) para manter contraste WCAG AA (>= 4,5:1) com o
+// branco; o cinza #6B7280 também passa (~4,8:1).
 export const UNIVERSAL_ACTION_STYLES: Record<UniversalAction, { background: string; color: string; label: string }> = {
-  RESOLVIDO: { background: "#1B2A4A", color: "#ffffff", label: "RESOLVIDO" },
-  EM_ANDAMENTO: { background: "#15803D", color: "#ffffff", label: "EM ANDAMENTO" },
-  ENVIAR_PARA: { background: "#F97316", color: "#ffffff", label: "ENVIAR PARA" },
-  ESPECIALISTA: { background: "#7F1D1D", color: "#ffffff", label: "ESPECIALISTA" },
+  RESOLVIDO: { background: "#6B7280", color: "#ffffff", label: "RESOLVIDO" },
+  EM_ANDAMENTO: { background: "#6B7280", color: "#ffffff", label: "EM ANDAMENTO" },
+  ENVIAR_PARA: { background: "#6B7280", color: "#ffffff", label: "ENVIAR PARA" },
+  ESPECIALISTA: { background: "#C2410C", color: "#ffffff", label: "ESPECIALISTA" },
 };
 
 const UNIVERSAL_ACTION_TITLES: Record<UniversalAction, string> = {

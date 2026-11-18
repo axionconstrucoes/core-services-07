@@ -215,7 +215,7 @@ await check("18. ENVIAR P/ filtra usuários: só elegíveis (membership ACTIVE +
   const detail = readSource("apps/web/lib/risk-alerts/alert-detail-data.ts");
   assert(detail.includes('.eq("status", "ACTIVE")') && detail.includes("c.email.split(\"@\")[1] === corporateDomain") && detail.includes("matrixPosition"));
   const form = readSource("apps/web/components/risk-alerts/alert-action-forms.tsx");
-  assert(form.includes("Pesquisar destinatário") && form.includes("Selecione…"), "dropdown pesquisável sem seleção automática");
+  assert(form.includes("Pesquisar colaborador") && form.includes("Selecione…"), "dropdown pesquisável sem seleção automática");
 });
 await check("19. Terceiro fora da allowlist recebe SÓ o alerta encaminhado (exceção manual registrada), sem entrar na allowlist automática", () => {
   const t = act("FORWARD", { targetUserId: U_THIRD, text: "Avaliar frente 3", confirmed: true });
