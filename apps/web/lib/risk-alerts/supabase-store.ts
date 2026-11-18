@@ -259,6 +259,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         requiresDelayJustification: Boolean(row.requires_delay_justification),
         isDefault: Boolean(row.is_default),
         active: Boolean(row.active),
+        createdAt: (row.created_at as string | null) ?? null,
       });
       const mapResponsibles = (row: Row): SlaAreaResponsibles => ({
         id: row.id as string,

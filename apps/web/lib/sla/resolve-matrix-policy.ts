@@ -128,6 +128,8 @@ export function matrixPolicySnapshot(policy: MatrixPolicy): Record<string, unkno
     requiresAcknowledgmentConfirmation: policy.requiresAcknowledgmentConfirmation,
     requiresDelayJustification: policy.requiresDelayJustification,
     usingDefaultRule: policy.usingDefaultRule,
+    ruleId: policy.rule.ruleId ?? null,
+    ignoredDuplicateRuleIds: policy.rule.ignoredDuplicateRuleIds ?? [],
     level1UserId: policy.level1UserId,
     level1SecondaryUserId: policy.level1SecondaryUserId,
     level2UserId: policy.level2UserId,
