@@ -16,5 +16,5 @@ check("quatro botões na ordem, todos com link", () => {
   assert.ok(m.html.includes(`href="${url}"`));
 });
 check("cores padronizadas", () => { assert.ok(m.html.includes("#6B7280") && m.html.includes("#C2410C")); });
-check("rótulo de status não reconhecido é orientativo", () => { assert.ok(!/sem status reconhecido/.test(m.html) && /previsão de conclusão/.test(m.html)); });
+check("rótulo de status não reconhecido é orientativo", () => { assert.ok(!/sem status reconhecido/.test(m.html) && /andamento não identificado/.test(m.html) && /em andamento/.test(m.html)); });
 console.log(fail ? "FALHOU" : "TUDO OK"); process.exit(fail ? 1 : 0);

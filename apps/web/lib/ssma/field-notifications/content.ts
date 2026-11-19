@@ -218,6 +218,7 @@ export function buildSsmaReplyConfirmationEmail(ctx: SsmaReplyConfirmationContex
   ];
   if (ctx.pendingLine) rows.push(["Pendência", ctx.pendingLine]);
   const paragraphs = [
+    ...(ctx.statusLabel.includes("não identificado") ? ["O ACC não identificou o andamento na sua resposta. Responda informando \"em andamento\" e a previsão de conclusão (data e horário), ou registre a ação no ACC."] : []),
     ...(ctx.outOfOrder ? ["Esta mensagem é anterior a uma atualização já registrada: foi guardada no histórico, sem alterar o status nem a previsão vigente."] : []),
     ...(ctx.pendingLine
       ? ["Responda a este e-mail com a informação pendente."]
@@ -240,6 +241,7 @@ export function buildSsmaReplyConfirmationEmail(ctx: SsmaReplyConfirmationContex
     { subject, text, operational: true },
     { ...ctx, severity: ctx.severity ?? null },
     { title: "RESPOSTA REGISTRADA · AÇÃO CORRETIVA SSMA", description: `${ctx.category} — ${ctx.location}`,
-      stateLabel: ctx.statusLabel, facts: rows, notices: paragraphs, footer }
+      // "Status registrado" já aparece no campo Estado: não repetir na lista de fatos.
+      stateLabel: ctx.statusLabel, facts: rows.filter(([k]) => k !== "Status registrado"), notices: paragraphs, footer }
   );
 }

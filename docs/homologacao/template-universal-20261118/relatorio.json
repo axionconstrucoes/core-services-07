@@ -1,5 +1,5 @@
 {
-  "geradoEm": "2026-11-18T19:06:46.153Z",
+  "geradoEm": "2026-11-19T13:00:46.055Z",
   "modelos": [
     {
       "id": "01-critico-engenharia",
@@ -80,6 +80,50 @@
       "subject": "[RISCO CRÍTICO] WEG — Obra de Homologação | 4 alertas | ACC",
       "hasAxia": true,
       "fourButtons": true
+    },
+    {
+      "id": "09-ssma-acao-corretiva-atrasada-alto",
+      "title": "SSMA — ação corretiva em atraso (ALTO)",
+      "subject": "[RISCO ALTO] ACC - WEG — Obra de Homologação - Ação corretiva SSMA em atraso - Proteção coletiva em altura - Galpão C100 [ACC-SSMA:2BF391C1]",
+      "hasAxia": true,
+      "fourButtons": true,
+      "logoNeeds": {
+        "maroon": true,
+        "inverted": false
+      }
+    },
+    {
+      "id": "10-ssma-confirmacao-resposta-sem-status",
+      "title": "SSMA — confirmação de resposta (status não reconhecido)",
+      "subject": "Re: RES: [RISCO ALTO] ACC Ação corretiva SSMA em atraso",
+      "hasAxia": true,
+      "fourButtons": true,
+      "logoNeeds": {
+        "maroon": true,
+        "inverted": false
+      }
+    },
+    {
+      "id": "11-ssma-confirmacao-resposta-em-andamento",
+      "title": "SSMA — confirmação de resposta (em andamento, com previsão)",
+      "subject": "Re: [RISCO ALTO] aviso",
+      "hasAxia": true,
+      "fourButtons": true,
+      "logoNeeds": {
+        "maroon": true,
+        "inverted": false
+      }
+    },
+    {
+      "id": "12-risco-confirmacao-resposta",
+      "title": "Alerta de risco — confirmação de resposta registrada (ALTO)",
+      "subject": "🟡 [RISCO ALTO] ACC - OBRA WEG — OBRA DE HOMOLOGAÇÃO - RESPOSTA REGISTRADA NO ALERTA [ACC-ALERTA:HMLG0002]",
+      "hasAxia": true,
+      "fourButtons": true,
+      "logoNeeds": {
+        "maroon": true,
+        "inverted": false
+      }
     }
   ],
   "capturas": [
@@ -193,6 +237,62 @@
       "viewport": "celular",
       "file": "img/08-contrato-lote-quatro-graus-celular.png",
       "height": 2610,
+      "horizontalScroll": false
+    },
+    {
+      "id": "09-ssma-acao-corretiva-atrasada-alto",
+      "viewport": "desktop",
+      "file": "img/09-ssma-acao-corretiva-atrasada-alto-desktop.png",
+      "height": 985,
+      "horizontalScroll": false
+    },
+    {
+      "id": "09-ssma-acao-corretiva-atrasada-alto",
+      "viewport": "celular",
+      "file": "img/09-ssma-acao-corretiva-atrasada-alto-celular.png",
+      "height": 1387,
+      "horizontalScroll": false
+    },
+    {
+      "id": "10-ssma-confirmacao-resposta-sem-status",
+      "viewport": "desktop",
+      "file": "img/10-ssma-confirmacao-resposta-sem-status-desktop.png",
+      "height": 900,
+      "horizontalScroll": false
+    },
+    {
+      "id": "10-ssma-confirmacao-resposta-sem-status",
+      "viewport": "celular",
+      "file": "img/10-ssma-confirmacao-resposta-sem-status-celular.png",
+      "height": 1121,
+      "horizontalScroll": false
+    },
+    {
+      "id": "11-ssma-confirmacao-resposta-em-andamento",
+      "viewport": "desktop",
+      "file": "img/11-ssma-confirmacao-resposta-em-andamento-desktop.png",
+      "height": 900,
+      "horizontalScroll": false
+    },
+    {
+      "id": "11-ssma-confirmacao-resposta-em-andamento",
+      "viewport": "celular",
+      "file": "img/11-ssma-confirmacao-resposta-em-andamento-celular.png",
+      "height": 1029,
+      "horizontalScroll": false
+    },
+    {
+      "id": "12-risco-confirmacao-resposta",
+      "viewport": "desktop",
+      "file": "img/12-risco-confirmacao-resposta-desktop.png",
+      "height": 900,
+      "horizontalScroll": false
+    },
+    {
+      "id": "12-risco-confirmacao-resposta",
+      "viewport": "celular",
+      "file": "img/12-risco-confirmacao-resposta-celular.png",
+      "height": 1113,
       "horizontalScroll": false
     }
   ]

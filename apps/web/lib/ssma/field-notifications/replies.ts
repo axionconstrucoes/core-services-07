@@ -46,7 +46,7 @@ export function detectSsmaReplyStatus(cleanText: string): SsmaReplyStatus {
 export function ssmaStatusLabel(status: SsmaReplyStatus): string {
   if (status === "IN_PROGRESS") return "Em andamento (tomando providências)";
   if (status === "CONCLUSION_REPORTED") return "Conclusão informada por e-mail — a conclusão formal exige registro no ACC com evidência";
-  return "Resposta registrada — o ACC não identificou o andamento. Informe \"em andamento\" e a previsão de conclusão, ou registre a ação no ACC";
+  return "Resposta registrada — andamento não identificado";
 }
 
 export function ssmaForecastTracked(severity: SsmaSeverityLevel): boolean {

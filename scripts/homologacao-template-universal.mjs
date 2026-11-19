@@ -22,6 +22,9 @@ mkdirSync(path.join(outDir, "img"), { recursive: true });
 const { buildImmediateRiskAlertEmail, buildRiskDigestEmail } = await import("../apps/web/lib/risk-alerts/build-risk-alert-emails.ts");
 const { buildContractAlertEmail } = await import("../apps/web/lib/email/templates/contract-alert-template.ts");
 const { buildContractAlertBatchEmail } = await import("../apps/web/lib/email/templates/contract-alert-batch-template.ts");
+const { buildOperationalOverdueActionEmail, buildSsmaReplyConfirmationEmail } = await import("../apps/web/lib/ssma/field-notifications/content.ts");
+const { ssmaStatusLabel } = await import("../apps/web/lib/ssma/field-notifications/replies.ts");
+const { buildAlertFollowUpEmail } = await import("../apps/web/lib/risk-alerts/build-risk-alert-emails.ts");
 const { applyVeraEmailHeader, loadVeraInlineImage } = await import("../apps/web/lib/email/branding/vera-email-header.ts");
 const { loadAccAlertLogos } = await import("../apps/web/lib/email/branding/load-acc-logo-inline-image.ts");
 
@@ -195,6 +198,14 @@ MODELS.push({
       })),
     }),
 });
+
+const SSMA = { projectName: "WEG — Obra de Homologação", recipientName: "Carlos", category: "Proteção coletiva em altura", location: "Galpão C100", description: "Guarda-corpo ausente na plataforma.", occurredAt: "06/11/2026 10:43", reportedByName: "Fulano", accUrl: `${BASE}/p/ssma-registros`, dueDate: "06/11/2026", daysOverdue: 12, responsibleName: "Carlos", visibleCode: "2BF391C1" };
+MODELS.push(
+  { id: "09-ssma-acao-corretiva-atrasada-alto", title: "SSMA — ação corretiva em atraso (ALTO)", build: () => buildOperationalOverdueActionEmail({ ...SSMA, severity: "ALTA", takeover: { name: "Carlos", date: "18/11/2026" } }) },
+  { id: "10-ssma-confirmacao-resposta-sem-status", title: "SSMA — confirmação de resposta (status não reconhecido)", build: () => buildSsmaReplyConfirmationEmail({ ...SSMA, originalSubject: "RES: [RISCO ALTO] ACC Ação corretiva SSMA em atraso", severity: "ALTA", statusLabel: ssmaStatusLabel("OTHER"), forecastLine: null, pendingLine: "Previsão de conclusão não informada", outOfOrder: false }) },
+  { id: "11-ssma-confirmacao-resposta-em-andamento", title: "SSMA — confirmação de resposta (em andamento, com previsão)", build: () => buildSsmaReplyConfirmationEmail({ ...SSMA, originalSubject: "[RISCO ALTO] aviso", severity: "ALTA", statusLabel: ssmaStatusLabel("IN_PROGRESS"), forecastLine: "20/11/2026 15:00 (horário de Brasília — America/Sao_Paulo)", pendingLine: null, outOfOrder: false }) },
+  { id: "12-risco-confirmacao-resposta", title: "Alerta de risco — confirmação de resposta registrada (ALTO)", build: () => buildAlertFollowUpEmail({ kind: "ACTION_CONFIRMATION", projectId: PROJECT, projectName: "WEG — Obra de Homologação", recipientName: "Ana Souza", baseUrl: BASE, timeZone: TZ, generatedAt: NOW, caseId: "cccccccc-0000-4000-8000-000000000002", caseTitle: "Ação corretiva de SSMA em atraso", riskLevel: "HIGH", visibleCode: "HMLG0002", area: "ESG_SSMA", logos: availability, rows: [["Status registrado", "Em andamento (tomando providências)"], ["Previsão de conclusão interpretada", "20/11/2026 15:00 (horário de Brasília — America/Sao_Paulo)"], ["Responsável atual", "Bruno Lima"]], paragraphs: ["Confira a data e o horário interpretados. Se estiverem incorretos, responda a este e-mail com a previsão correta."], titleOverride: "Resposta registrada no alerta" }) },
+);
 
 const dataUri = (img) => `data:${img.mimeType};base64,${img.contentBase64}`;
 
