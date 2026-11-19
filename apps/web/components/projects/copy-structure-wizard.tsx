@@ -206,7 +206,7 @@ export function CopyStructureWizard({
             {categories.length > 1 ? (
               <label className="flex flex-col gap-1.5 text-sm font-medium">
                 O que copiar
-                <Select className="border-[#94a3b8] text-[#0f172a]" value={categoryId} onChange={(event) => setCategoryId(event.target.value as typeof categoryId)}>
+                <Select className="border-[#94a3b8]" value={categoryId} onChange={(event) => setCategoryId(event.target.value as typeof categoryId)}>
                   {categories.map((item) => (
                     <option key={item.id} value={item.id}>{item.label}</option>
                   ))}
@@ -221,7 +221,7 @@ export function CopyStructureWizard({
             ) : (
               <label className="flex max-w-xl flex-col gap-1.5 text-sm font-medium">
                 Projeto de origem (somente projetos em que você é Administrador)
-                <Select className="border-[#94a3b8] text-[#0f172a]" value={sourceId} onChange={(event) => setSourceId(event.target.value)}>
+                <Select className="border-[#94a3b8]" value={sourceId} onChange={(event) => setSourceId(event.target.value)}>
                   <option value="">Selecione…</option>
                   {sources.map((item) => (
                     <option key={item.id} value={item.id}>{projectLabel(item)}</option>
@@ -337,7 +337,7 @@ export function CopyStructureWizard({
                     </div>
                     <label className="flex flex-col gap-1 text-sm font-medium">
                       Perfil no destino
-                      <Select className="border-[#94a3b8] text-[#0f172a]" value={row.permission} onChange={(event) => updateRow(candidate.userId, { permission: event.target.value as TeamPermission, explicitAdmin: false })}>
+                      <Select className="border-[#94a3b8]" value={row.permission} onChange={(event) => updateRow(candidate.userId, { permission: event.target.value as TeamPermission, explicitAdmin: false })}>
                         {TEAM_PERMISSIONS.map((permission) => (
                           <option key={permission} value={permission}>{permissionLabel(permission)}</option>
                         ))}
@@ -351,7 +351,7 @@ export function CopyStructureWizard({
                     </label>
                     <label className="flex flex-col gap-1 text-sm font-medium">
                       Área no destino
-                      <Select className="border-[#94a3b8] text-[#0f172a]" value={row.area} onChange={(event) => updateRow(candidate.userId, { area: event.target.value })}>
+                      <Select className="border-[#94a3b8]" value={row.area} onChange={(event) => updateRow(candidate.userId, { area: event.target.value })}>
                         <option value="">Selecione…</option>
                         {TEAM_AREAS.map((area) => (
                           <option key={area} value={area}>{areaLabel(area)}</option>
