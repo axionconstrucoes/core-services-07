@@ -17,6 +17,8 @@ import { DEFAULT_CORPORATE_EMAIL_DOMAIN } from "../plan-risk-alerts";
 import type { RiskAlertStore } from "../store";
 import { applyMessageIdAliases } from "./build-correlation-index";
 import { assessReplyTiming } from "./reply-timing";
+import { applyEmailCommand } from "./apply-email-command";
+import { parseOperationalEmailCommand } from "./operational-email-command";
 import { assessOperationalEmailIntent } from "./operational-email-intent";
 import { authorizeReply, classifyReply, correlateReply, filterInboundMessage, parseReplyBody, replyToFormalAction } from "./reply-pipeline";
 
@@ -105,6 +107,29 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
     // Não transformar "resolvido", encaminhamento ou evidências em um simples
     // TAKING_ACTION. Até existir execução transacional específica com autorização,
     // essas intenções ficam rastreadas para revisão humana, sem mexer no SLA.
+    // Comandos EXPLÍCITOS e inequívocos (RESOLVIDO / ENVIAR PARA) de remetente já autorizado: aplicados pela máquina de estados única, com
+    // confirmação (sucesso ou rejeição) ao autor. Qualquer outra intenção sensível continua indo para revisão humana.
+    const emailCommand = parseOperationalEmailCommand(parsed.clean);
+    if (emailCommand.command) {
+      const outcome = await applyEmailCommand({
+        store,
+        projectId,
+        nowIso,
+        message,
+        caseId: correlation.caseId,
+        loaded,
+        senderUserId: authorization.userId,
+        command: emailCommand.command,
+        snapshot,
+        profileByEmail,
+        corporateDomain,
+        basePatch: { caseId: correlation.caseId, senderUserId: authorization.userId, bodyClean: parsed.clean, quotedText: parsed.quoted, signatureText: parsed.signature, correlationMethod: correlation.method },
+      });
+      if (outcome === "APPLIED") result.applied += 1;
+      else if (outcome === "REJECTED" || outcome === "RECORDED") result.recorded += 1;
+      else result.reviewRequired += 1;
+      continue;
+    }
     const operational = assessOperationalEmailIntent(parsed.clean);
     if (operational.requiresReview) {
       await store.updateInboundMessage(message.id, {

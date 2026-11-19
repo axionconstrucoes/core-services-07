@@ -657,10 +657,10 @@ await check("E12 reprocessar o mesmo lote de respostas não repete a ação nem 
   assert(wR.w.store.state.outbox.length === before && wR.w.store.state.events.length === eventsBefore);
 });
 
-await check("E13 comandos sensíveis recebidos por e-mail ficam em revisão, sem alterar o alerta", async () => {
+await check("E13 encaminhamento e evidência sem comando explícito recebidos por e-mail ficam em revisão, sem alterar o alerta", async () => {
   const { w, crit, replyTo } = await replyWorld();
   const before = w.store.state.outbox.length;
-  for (const [i, body] of ["Resolvido. A equipe concluiu o trabalho.", "Encaminho esta pendência para o novo responsável.", "Em andamento. Segue foto como evidência."].entries()) {
+  for (const [i, body] of ["Encaminho esta pendência para o novo responsável.", "Em andamento. Segue foto como evidência."].entries()) {
     const id = w.store.receiveInbound(inboundHeaders({ to: [replyTo], messageId: `<sim-operacional-${i}@axion.test>` }), body, plusMin(T0, 9));
     const result = await process_(w);
     const message = w.store.state.messages.find((entry) => entry.id === id);
@@ -669,6 +669,17 @@ await check("E13 comandos sensíveis recebidos por e-mail ficam em revisão, sem
   }
   assert(w.store.state.cases.get(crit.id).state === "OPEN");
   assert(w.store.state.outbox.length === before && !w.store.state.events.some((event) => event.caseId === crit.id));
+});
+
+await check("E13b RESOLVIDO explícito por remetente autorizado passa pela máquina de estados (resolve ou propõe resolução) e confirma ao autor", async () => {
+  const { w, crit, replyTo } = await replyWorld();
+  const id = w.store.receiveInbound(inboundHeaders({ to: [replyTo], messageId: "<sim-operacional-resolve@axion.test>" }), "Resolvido. A equipe concluiu o trabalho.", plusMin(T0, 9));
+  const result = await process_(w);
+  const message = w.store.state.messages.find((entry) => entry.id === id);
+  assert(result.applied === 1 && result.reviewRequired === 0, JSON.stringify(result));
+  assert(message.status === "PROCESSED" && message.senderUserId === U.RESP, message.status);
+  assert(["RESOLVED", "RESOLUTION_PROPOSED"].includes(w.store.state.cases.get(crit.id).state), w.store.state.cases.get(crit.id).state);
+  assert(w.store.state.events.some((event) => event.caseId === crit.id), "evento registrado");
 });
 
 // ================================================================ G. Concorrência
