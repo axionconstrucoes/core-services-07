@@ -40,20 +40,23 @@ export function NewProjectStartupChecklist({ projectId }: { projectId: string })
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      if (raw) {
-        const parsed: unknown = JSON.parse(raw);
-        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-          const safe: Record<string, boolean> = {};
-          for (const step of STEPS) safe[step.id] = (parsed as Record<string, unknown>)[step.id] === true;
-          setCompleted(safe);
+    const load = window.setTimeout(() => {
+      try {
+        const raw = window.localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed: unknown = JSON.parse(raw);
+          if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            const safe: Record<string, boolean> = {};
+            for (const step of STEPS) safe[step.id] = (parsed as Record<string, unknown>)[step.id] === true;
+            setCompleted(safe);
+          }
         }
+      } catch {
+        // Navegador sem armazenamento: checklist permanece utilizável na sessão.
       }
-    } catch {
-      // Navegador sem armazenamento: checklist permanece utilizável na sessão.
-    }
-    setLoaded(true);
+      setLoaded(true);
+    }, 0);
+    return () => window.clearTimeout(load);
   }, [storageKey]);
 
   function toggle(id: string, checked: boolean) {
@@ -89,7 +92,7 @@ export function NewProjectStartupChecklist({ projectId }: { projectId: string })
           <div className="space-y-2">
             {STEPS.filter((step) => step.group === group).map((step) => (
               <div key={step.id} className="flex gap-3 rounded-md border p-3">
-                <input type="checkbox" id={`startup-check-${step.id}`} checked={Boolean(completed[step.id])}
+                <input type="checkbox" id={`startup-check-${step.id}`} checked={Boolean(completed[step.id])} disabled={!loaded}
                   onChange={(event) => toggle(step.id, event.target.checked)}
                   aria-label={`Marcar como concluído: ${step.title}`}
                   className="mt-1 size-5 shrink-0 cursor-pointer accent-green-600" />
