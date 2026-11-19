@@ -1,7 +1,8 @@
 // Conteúdo (puro) dos e-mails de registro crítico e de ação corretiva em atraso. Sem I/O.
 // Diferencia FATO (o que foi registrado), PRAZO/ESTADO (dados do sistema) e a necessidade de revisão humana.
 
-import { alertRiskLevelLabels, BADGE_STYLES, buildContractAlertSubject } from "@/lib/email/templates/contract-alert-template";
+import { alertRiskLevelLabels, buildContractAlertSubject } from "@/lib/email/templates/contract-alert-template";
+import { buildUniversalAlertEmail } from "@/lib/email/templates/universal-alert-template";
 import type { MailContent } from "./core";
 
 export interface FieldNotificationContext {
@@ -13,18 +14,17 @@ export interface FieldNotificationContext {
   occurredAt: string; // já formatado (pt-BR, America/Sao_Paulo)
   reportedByName: string;
   accUrl: string;
+  visibleCode?: string;
   /** Somente ACTION_OVERDUE */
   dueDate?: string; // já formatado dd/mm/aaaa
   daysOverdue?: number;
   responsibleName?: string | null;
 }
 
-const esc = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const clip = (v: string, n = 400) => (v.length > n ? `${v.slice(0, n - 1)}…` : v);
 
 function build(kind: "CRITICAL_RECORD" | "ACTION_OVERDUE", ctx: FieldNotificationContext): MailContent {
   const severity = kind === "CRITICAL_RECORD" ? "CRITICA" : "ALTA";
-  const badge = BADGE_STYLES[severity];
   const riskLabel = alertRiskLevelLabels[severity];
   const title = kind === "CRITICAL_RECORD" ? "REGISTRO CRÍTICO DE CAMPO · SSMA" : "AÇÃO CORRETIVA EM ATRASO · SSMA";
   const subject = `${kind === "CRITICAL_RECORD" ? "Registro crítico de campo" : "Ação corretiva em atraso"} — ${buildContractAlertSubject(ctx.projectName, severity)}`;
@@ -55,9 +55,11 @@ function build(kind: "CRITICAL_RECORD" | "ACTION_OVERDUE", ctx: FieldNotificatio
     "",
     footer,
   ].join("\n");
-  const rows = facts.map(([k, v]) => `<tr><td style="vertical-align:top"><strong>${esc(k)}</strong></td><td style="padding-left:12px">${esc(v)}</td></tr>`).join("");
-  const html = `<table role="presentation" width="100%" style="background:#fff;color:#000;padding:24px"><tr><td><p style="color:#000;font-weight:700">ACC · AXION CONTROLE DE CONTRATOS</p><p><span style="display:inline-block;background:${badge.background};color:${badge.color};font-weight:700;padding:6px 12px;border-radius:999px">RISCO ${esc(riskLabel)} · ${esc(title)}</span></p><p style="color:#000">${esc(greeting)}</p><p style="color:#000">${esc(lead)}</p><table role="presentation" style="color:#000">${rows}</table><p><a href="${esc(ctx.accUrl)}" style="display:inline-block;background:#111827;color:#fff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:700">ABRIR NO ACC</a></p><p style="color:#6b7280;font-size:11px">${esc(footer)}</p></td></tr></table>`;
-  return { subject, text, html };
+  return renderSsmaAlert(
+    { subject, text },
+    { ...ctx, severity, visibleCode: ctx.visibleCode ?? ctx.category },
+    { title, description: lead, stateLabel: kind === "CRITICAL_RECORD" ? "Registro crítico" : "Prazo vencido", facts, footer }
+  );
 }
 
 export const buildCriticalRecordEmail = (ctx: FieldNotificationContext) => build("CRITICAL_RECORD", ctx);
@@ -69,7 +71,6 @@ export const buildOverdueActionEmail = (ctx: FieldNotificationContext) => build(
 // Diferenças do aviso legado: sem faixa de teste; destinatário = responsável atual; prazo ORIGINAL preservado (nenhum SLA
 // reiniciado); quando o tratamento foi assumido depois do vencimento, informa quem assumiu e quando, sem atribuir a ele o atraso
 // anterior; caixa de ação lateral; instruções para responder no corpo do e-mail (status, providência e previsão de término).
-// Cores: CRÍTICO vermelho, ALTO/MÉDIO amarelo, BAIXO branco (texto escuro, contraste AA).
 
 export type SsmaSeverity = "CRITICA" | "ALTA" | "MEDIA" | "BAIXA";
 
@@ -81,12 +82,63 @@ export interface OperationalOverdueContext extends FieldNotificationContext {
   visibleCode: string;
 }
 
-const SEVERITY_THEME: Record<SsmaSeverity, { label: string; background: string; border: string; text: string }> = {
-  CRITICA: { label: "CRÍTICO", background: "#fde2e1", border: "#b91c1c", text: "#111827" },
-  ALTA: { label: "ALTO", background: "#fef3c7", border: "#b45309", text: "#111827" },
-  MEDIA: { label: "MÉDIO", background: "#fef9c3", border: "#a16207", text: "#111827" },
-  BAIXA: { label: "BAIXO", background: "#ffffff", border: "#6b7280", text: "#111827" },
-};
+interface SsmaAlertDetails {
+  title: string;
+  description: string;
+  stateLabel: string;
+  facts: Array<[string, string]>;
+  footer: string;
+  notices?: string[];
+  replyInstruction?: string;
+}
+
+export function renderSsmaAlert(
+  content: Pick<MailContent, "subject" | "text" | "operational">,
+  ctx: {
+    projectName: string;
+    recipientName: string | null;
+    accUrl: string;
+    severity: SsmaSeverity | null;
+    visibleCode: string;
+    responsibleName?: string | null;
+    dueDate?: string | null;
+  },
+  details: SsmaAlertDetails
+): MailContent {
+  const { severity } = ctx;
+  const unavailable = "Abra a área de SSMA no ACC.";
+  const { html, logoNeeds } = buildUniversalAlertEmail({
+    recipientName: ctx.recipientName,
+    logos: { maroon: true, inverted: true },
+    footer: details.footer,
+    occurrence: {
+      code: ctx.visibleCode,
+      projectName: ctx.projectName,
+      areaLabel: "SSMA",
+      severity: severity ?? "BAIXA",
+      headerLabel: severity === null ? "SSMA" : undefined,
+      title: details.title,
+      description: details.description,
+      stateLabel: details.stateLabel,
+      responsibleName: ctx.responsibleName ?? "",
+      originalDeadline: ctx.dueDate,
+      specialistLabel: "Especialista SSMA",
+      openUrl: ctx.accUrl,
+      actions: {},
+      unavailableReasons: {
+        RESOLVIDO: unavailable,
+        EM_ANDAMENTO: unavailable,
+        ENVIAR_PARA: unavailable,
+        ESPECIALISTA: "Consulta indisponível para esta ocorrência de SSMA.",
+      },
+      details: details.facts.map(([label, value]) => ({ label, value })),
+      notices: details.notices,
+      replyInstruction: details.replyInstruction,
+      extraLinks: [{ label: "ABRIR NO ACC", url: ctx.accUrl }],
+    },
+  });
+  return { ...content, html, logoNeeds };
+}
 
 export function replyInstructionFor(severity: SsmaSeverity): string {
   return severity === "CRITICA" || severity === "ALTA"
@@ -95,8 +147,8 @@ export function replyInstructionFor(severity: SsmaSeverity): string {
 }
 
 export function buildOperationalOverdueActionEmail(ctx: OperationalOverdueContext): MailContent {
-  const theme = SEVERITY_THEME[ctx.severity];
-  const subject = `[RISCO ${theme.label}] ACC - ${ctx.projectName} - Ação corretiva SSMA em atraso - ${ctx.category} - ${ctx.location} [ACC-SSMA:${ctx.visibleCode}]`;
+  const riskLabel = alertRiskLevelLabels[ctx.severity];
+  const subject = `[RISCO ${riskLabel}] ACC - ${ctx.projectName} - Ação corretiva SSMA em atraso - ${ctx.category} - ${ctx.location} [ACC-SSMA:${ctx.visibleCode}]`;
   const greeting = ctx.recipientName ? `Olá, ${ctx.recipientName}.` : "Olá.";
   const lead = `A ação corretiva do registro de SSMA abaixo, na obra ${ctx.projectName}, está com o prazo vencido e não foi concluída.`;
   const takeoverLine = ctx.takeover
@@ -117,7 +169,7 @@ export function buildOperationalOverdueActionEmail(ctx: OperationalOverdueContex
     "Comunicação automática determinística do ACC. Os dados acima são o registro original; a avaliação do risco e as providências exigem revisão humana. A resposta e a previsão não reiniciam prazos nem apagam atrasos.";
   const text = [
     "ACC · AXION CONTROLE DE CONTRATOS",
-    `RISCO ${theme.label} · AÇÃO CORRETIVA SSMA EM ATRASO`,
+    `RISCO ${riskLabel} · AÇÃO CORRETIVA SSMA EM ATRASO`,
     "",
     greeting,
     lead,
@@ -132,32 +184,12 @@ export function buildOperationalOverdueActionEmail(ctx: OperationalOverdueContex
     "",
     footer,
   ].join("\n");
-  const rows = facts
-    .map(
-      ([k, v]) =>
-        `<tr><td style="vertical-align:top;padding:3px 12px 3px 0;color:${theme.text}"><strong>${esc(k)}</strong></td><td style="padding:3px 0;color:${theme.text}">${esc(v)}</td></tr>`
-    )
-    .join("");
-  const side =
-    `<td class="acc-side" width="210" style="vertical-align:top;padding:16px;background:#ffffff;border-left:1px solid #e5e7eb">` +
-    `<p style="margin:0 0 8px;font-weight:700;color:#111827">Ações</p>` +
-    `<p style="margin:0 0 10px"><a href="${esc(ctx.accUrl)}" style="display:block;text-align:center;background:#111827;color:#ffffff;text-decoration:none;padding:10px 12px;border-radius:6px;font-weight:700">ABRIR NO ACC</a></p>` +
-    `<p style="margin:0;color:#111827;font-size:13px"><strong>Responder por e-mail:</strong> use "Responder" e informe status, providência e previsão de término.</p>` +
-    `</td>`;
-  const html =
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;color:#111827;font-family:Arial,sans-serif">` +
-    `<tr><td style="padding:16px 0"><p style="margin:0 0 8px;font-weight:700;color:#111827">ACC · AXION CONTROLE DE CONTRATOS</p></td></tr>` +
-    `<tr><td><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:2px solid ${theme.border}"><tr>` +
-    `<td style="vertical-align:top;padding:16px;background:${theme.background};color:${theme.text}">` +
-    `<p style="margin:0 0 10px;font-weight:700;color:${theme.text}">RISCO ${esc(theme.label)} · AÇÃO CORRETIVA SSMA EM ATRASO</p>` +
-    `<p style="margin:0 0 8px;color:${theme.text}">${esc(greeting)}</p>` +
-    `<p style="margin:0 0 8px;color:${theme.text}">${esc(lead)}</p>` +
-    (takeoverLine ? `<p style="margin:0 0 8px;color:${theme.text}"><strong>${esc(takeoverLine)}</strong></p>` : "") +
-    `<table role="presentation" cellpadding="0" cellspacing="0">${rows}</table>` +
-    `<p style="margin:12px 0 0;color:${theme.text}"><strong>Como responder:</strong> ${esc(instruction)}</p>` +
-    `</td>${side}</tr></table></td></tr>` +
-    `<tr><td style="padding:10px 0"><p style="margin:0;color:#374151;font-size:12px">${esc(footer)}</p></td></tr></table>`;
-  return { subject, text, html, operational: true };
+  return renderSsmaAlert(
+    { subject, text, operational: true },
+    ctx,
+    { title: "AÇÃO CORRETIVA SSMA EM ATRASO", description: lead, stateLabel: "Prazo vencido",
+      facts, footer, notices: takeoverLine ? [takeoverLine] : [], replyInstruction: instruction }
+  );
 }
 
 // ------------------------------------------------------------------
@@ -170,6 +202,7 @@ export interface SsmaReplyConfirmationContext {
   location: string;
   visibleCode: string;
   originalSubject: string;
+  severity?: SsmaSeverity | null;
   statusLabel: string;
   forecastLine: string | null;
   pendingLine: string | null;
@@ -193,8 +226,8 @@ export function buildSsmaReplyConfirmationEmail(ctx: SsmaReplyConfirmationContex
     ...(ctx.pendingLine
       ? ["Responda a este e-mail com a informação pendente."]
       : ["Confira a data e o horário interpretados. Se estiverem incorretos, responda a este e-mail com a previsão correta."]),
-    "A resposta e a previsão não reiniciam prazos, não apagam atrasos e não suspendem as cobranças até a conclusão da ação.",
   ];
+  const footer = "A resposta e a previsão não reiniciam prazos, não apagam atrasos e não suspendem as cobranças até a conclusão da ação.";
   const text = [
     "ACC · AXION CONTROLE DE CONTRATOS",
     "RESPOSTA REGISTRADA · AÇÃO CORRETIVA SSMA",
@@ -203,14 +236,14 @@ export function buildSsmaReplyConfirmationEmail(ctx: SsmaReplyConfirmationContex
     ...rows.map(([k, v]) => `${k}: ${v}`),
     "",
     ...paragraphs,
+    footer,
     "",
     `ABRIR NO ACC: ${ctx.accUrl}`,
   ].join("\n");
-  const html =
-    `<table role="presentation" width="100%" style="background:#ffffff;color:#111827;font-family:Arial,sans-serif;padding:16px"><tr><td>` +
-    `<p style="font-weight:700;color:#111827">ACC · AXION CONTROLE DE CONTRATOS</p><p style="font-weight:700;color:#111827">RESPOSTA REGISTRADA · AÇÃO CORRETIVA SSMA</p>` +
-    `<p style="color:#111827">${esc(greeting)}</p><table role="presentation">${rows.map(([k, v]) => `<tr><td style="padding:3px 12px 3px 0"><strong>${esc(k)}</strong></td><td>${esc(v)}</td></tr>`).join("")}</table>` +
-    paragraphs.map((p) => `<p style="color:#111827">${esc(p)}</p>`).join("") +
-    `<p><a href="${esc(ctx.accUrl)}" style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:700">ABRIR NO ACC</a></p></td></tr></table>`;
-  return { subject, text, html, operational: true };
+  return renderSsmaAlert(
+    { subject, text, operational: true },
+    { ...ctx, severity: ctx.severity ?? null },
+    { title: "RESPOSTA REGISTRADA · AÇÃO CORRETIVA SSMA", description: `${ctx.category} — ${ctx.location}`,
+      stateLabel: ctx.statusLabel, facts: rows, notices: paragraphs, footer }
+  );
 }
