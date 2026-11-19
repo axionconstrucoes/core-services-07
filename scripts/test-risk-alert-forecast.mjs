@@ -119,15 +119,14 @@ await check("6. Campo da tela: datetime-local (Brasília) e AAAA-MM-DD; vazio =>
 });
 
 // ------------------------------------------------------------------ 2. máquina de estados
-await check("7. TELA ALTO: data e horário => evento com forecast_at; escalonamento imediato inalterado (regra vigente) com a previsão no payload", () => {
+await check("7. TELA ALTO: data e horário => evento com forecast_at; EM ANDAMENTO não escalona extraordinariamente (critério de 18/11/2026)", () => {
   const t = act("TAKING_ACTION", { text: "Reprogramando", forecastAt: "2026-11-20T15:00" });
   assert(t.ok, t.message);
   const ev = t.events.find((e) => e.actionType === "TAKING_ACTION");
   assert(ev.forecastAt === "2026-11-20T18:00:00.000Z");
   assert(t.forecast.status === "VALID" && t.forecast.tracking === "TRACKED");
-  const esc = t.outbox.find((e) => e.notificationType === "ESCALATION");
-  assert(esc && esc.payloadSummary.forecastStatus === "INFORMED" && esc.payloadSummary.forecastAt === ev.forecastAt);
-  assert(esc.idempotencyKey === "SCHEDULE_COMPARISON:cmp-1:ESCALATION:ESCALAO_1:" + U_L2, "chave do escalonamento não pode mudar");
+  assert(t.escalation === null && !t.outbox.some((e) => e.notificationType === "ESCALATION"), "sem escalonamento extraordinário");
+  assert(t.forecast.forecastAt === ev.forecastAt, "a previsão continua registrada no evento e no resumo");
 });
 await check("8. TELA ALTO: só data => recusada (exige horário); data passada => recusada; sem data => aceita com pendência", () => {
   const noTime = act("TAKING_ACTION", { text: "x", forecastAt: "2026-11-20" });
@@ -136,13 +135,13 @@ await check("8. TELA ALTO: só data => recusada (exige horário); data passada =
   assert(!past.ok && past.code === "FORECAST_INVALID");
   const none = act("TAKING_ACTION", { text: "x" });
   assert(none.ok && none.forecast.status === "PENDING" && none.events[0].forecastAt === null);
-  assert(none.outbox.some((e) => e.notificationType === "ESCALATION"), "cobranças/escalonamentos mantidos");
+  assert(none.escalation === null && !none.caseUpdate.currentLevel, "sem data: pendência registrada, nenhum escalonamento extraordinário e nenhum prazo alterado");
 });
 await check("9. Previsão NÃO mexe em prazos SLA nem cancela escalonamentos (caseUpdate sem prazos; sem cancelamento)", () => {
   const t = act("TAKING_ACTION", { text: "x", forecastAt: "2026-11-20T15:00" });
   const keys = Object.keys(t.caseUpdate);
   assert(!keys.some((k) => /due|deadline|sla(?!ActionStatus)/i.test(k)), keys.join(","));
-  assert(t.escalation && t.escalation.toLevel === "ESCALAO_1");
+  assert(t.escalation === null && !keys.includes("currentLevel"), "não escalona extraordinariamente nem muda o nível");
   const sm = readSource("apps/web/lib/risk-alerts/alert-state-machine.ts");
   assert(!/assumeDueAt\s*=\s*forecast|respondDueAt.*forecast|completeDueAt.*forecast/.test(sm));
 });
@@ -277,12 +276,13 @@ await check("21b. Exceção do piloto por nível (#219): escalonamento por respo
   const override = { area: "PLANEJAMENTO", level: "LEVEL_2", recipientUserId: U_L2, reason: "piloto", setAt: NOW, setByUserId: U_L3, auditId: "aud-1" };
   const without = makeStore({ inbound: [inboundMsg()], areaResponsibles: noLevel2 });
   await processAlertReplies(without.store, PROJECT, NOW, ["crm@axion.com.br"]);
-  assert(without.calls.applied[0].transition.escalation.toLevel === "DIRETORIA", "sem exceção: pula para a Diretoria");
+  assert(without.calls.applied[0].transition.escalation === null, "sem exceção: a resposta de andamento não escalona");
   const withOverride = makeStore({ inbound: [inboundMsg()], areaResponsibles: noLevel2, snapshotExtra: { pilotLevelOverrides: [override] } });
   await processAlertReplies(withOverride.store, PROJECT, NOW, ["crm@axion.com.br"]);
   const t = withOverride.calls.applied[0].transition;
-  const esc = t.outbox.find((e) => e.notificationType === "ESCALATION");
-  assert(t.escalation.toLevel === "ESCALAO_1" && esc.recipientUserId === U_L2 && esc.payloadSummary.forecastStatus === "INFORMED", JSON.stringify(t.escalation));
+  // EM ANDAMENTO por resposta de e-mail NÃO escalona (critério de 18/11/2026); a exceção do piloto por nível segue valendo
+  // para os escalonamentos NORMAIS e para a ação OUTRO (cobertos em test-pilot-level-overrides).
+  assert(t.escalation === null && !t.outbox.some((e) => e.notificationType === "ESCALATION"), JSON.stringify(t.escalation));
 });
 await check("21c. Área informativa (FINANCEIRO): resposta só registrada — sem ação, escalonamento nem confirmação", async () => {
   const { store, calls } = makeStore({ inbound: [inboundMsg()], snapshotExtra: { informativeAreas: ["PLANEJAMENTO"] } });

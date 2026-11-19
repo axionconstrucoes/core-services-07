@@ -488,7 +488,7 @@ await check("E1 BOTÃO: link do e-mail (GET) não altera estado; token válido, 
   assert(stored && stored.caseId === critE.id && isActionTokenValid(stored, plusMin(T0, 2)));
   assert(wE.store.state.cases.get(critE.id).state === "OPEN", "abrir o link não pode alterar o alerta");
 });
-await check("E2 BOTÃO: POST confirmado (TOMANDO PROVIDÊNCIAS) → IN_PROGRESS, escalonamento imediato ao gestor e entrega só em crm@", async () => {
+await check("E2 BOTÃO: POST confirmado (TOMANDO PROVIDÊNCIAS) → IN_PROGRESS sem escalonamento extraordinário", async () => {
   const now = plusMin(T0, 2);
   wE.store.setClock(now);
   const row = wE.outboxOf("CRITICAL", "IMMEDIATE")[0];
@@ -498,12 +498,10 @@ await check("E2 BOTÃO: POST confirmado (TOMANDO PROVIDÊNCIAS) → IN_PROGRESS,
   await wE.store.applyTransition(critE.id, t, U.RESP, { actionLinkTokenHash: tokenHash });
   assert(wE.store.state.cases.get(critE.id).state === "IN_PROGRESS");
   assert(wE.store.state.actions.get(critE.slaActionId).status === "IN_PROGRESS");
-  const pending = wE.store.state.outbox.find((o) => o.riskLevel === "CRITICAL" && o.escalationLevel === "ESCALAO_1");
-  assert(pending && pending.status === "PENDING" && pending.recipientUserId === U.GESTOR && pending.origin === "EMAIL_REPLY");
+  assert(!wE.store.state.outbox.some((o) => o.riskLevel === "CRITICAL" && o.escalationLevel === "ESCALAO_1"));
   const before = wE.rec.calls.length;
   await wE.run(now);
-  assert(wE.rec.calls.length === before + 1 && wE.rec.calls[before].guarded.to === CRM);
-  assert(wE.store.state.outbox.find((o) => o.id === pending.id).status === "SENT");
+  assert(wE.rec.calls.length === before, "a ação gerou um e-mail de escalonamento antes do prazo");
 });
 await check("E3 BOTÃO: reutilizar o mesmo link, repetir a ação ou usá-lo fora de prazo é rejeitado (sem duplicar e-mail)", async () => {
   const row = wE.outboxOf("CRITICAL", "IMMEDIATE")[0];
@@ -606,7 +604,7 @@ await check("E6b anti-loop preservado: duplicata do mesmo Message-ID no lote, re
 });
 
 const wR = await replyWorld(); // comportamento esperado de uma correção (referência)
-await check("E7 REPLY-TO (token): resposta do responsável a partir do PRÓPRIO e-mail aplica TOMANDO PROVIDÊNCIAS e escala ao gestor", async () => {
+await check("E7 REPLY-TO (token): resposta do responsável a partir do PRÓPRIO e-mail aplica TOMANDO PROVIDÊNCIAS sem escalonamento extraordinário", async () => {
   const id = wR.w.store.receiveInbound(inboundHeaders({ to: [wR.replyTo], messageId: "<sim-resposta-2@axion.test>" }), STATUS_BODY, plusMin(T0, 9));
   const result = await process_(wR.w);
   const msg = wR.w.store.state.messages.find((m) => m.id === id);
@@ -614,7 +612,7 @@ await check("E7 REPLY-TO (token): resposta do responsável a partir do PRÓPRIO 
   assert(msg.status === "PROCESSED" && msg.correlationMethod === "REPLY_TO_TOKEN" && msg.classification === "STATUS_UPDATE" && msg.senderUserId === U.RESP);
   assert(wR.w.store.state.cases.get(wR.crit.id).state === "IN_PROGRESS");
   const esc = wR.w.store.state.outbox.find((o) => o.riskLevel === "CRITICAL" && o.escalationLevel === "ESCALAO_1");
-  assert(esc && esc.recipientUserId === U.GESTOR && esc.origin === "EMAIL_REPLY");
+  assert(!esc, "a resposta gerou um escalonamento extraordinário");
   assert(wR.w.store.state.events.some((e) => e.caseId === wR.crit.id && e.actionType === "TAKING_ACTION" && e.origin === "EMAIL"));
 });
 await check("E8 REPLY-TO (In-Reply-To): correlação pelo Message-ID do alerta enviado", async () => {
@@ -657,6 +655,20 @@ await check("E12 reprocessar o mesmo lote de respostas não repete a ação nem 
   const eventsBefore = wR.w.store.state.events.length;
   await process_(wR.w, plusMin(T0, 11));
   assert(wR.w.store.state.outbox.length === before && wR.w.store.state.events.length === eventsBefore);
+});
+
+await check("E13 comandos sensíveis recebidos por e-mail ficam em revisão, sem alterar o alerta", async () => {
+  const { w, crit, replyTo } = await replyWorld();
+  const before = w.store.state.outbox.length;
+  for (const [i, body] of ["Resolvido. A equipe concluiu o trabalho.", "Encaminho esta pendência para o novo responsável.", "Em andamento. Segue foto como evidência."].entries()) {
+    const id = w.store.receiveInbound(inboundHeaders({ to: [replyTo], messageId: `<sim-operacional-${i}@axion.test>` }), body, plusMin(T0, 9));
+    const result = await process_(w);
+    const message = w.store.state.messages.find((entry) => entry.id === id);
+    assert(result.reviewRequired === 1 && result.applied === 0, JSON.stringify(result));
+    assert(message.status === "REVIEW_REQUIRED" && message.caseId === crit.id && message.senderUserId === U.RESP);
+  }
+  assert(w.store.state.cases.get(crit.id).state === "OPEN");
+  assert(w.store.state.outbox.length === before && !w.store.state.events.some((event) => event.caseId === crit.id));
 });
 
 // ================================================================ G. Concorrência
