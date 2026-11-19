@@ -3,6 +3,7 @@ import { isCronRequestAuthorized, RISK_ALERTS_CRON_SECRET_ENV } from "@/lib/cron
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
 import { authorizePilotSingleRequest, runPilotSingleAlert } from "@/lib/risk-alerts/run-pilot-single-alert";
 import { runRiskAlertCycle } from "@/lib/risk-alerts/run-risk-alert-cycle";
+import { runInboundMailboxCheck } from "@/lib/risk-alerts/replies/inbound-check";
 import { startRouteMetrics } from "@/lib/cron/route-metrics";
 
 // Worker horário dos alertas de risco. Disparado pelo workflow GitHub
@@ -25,6 +26,10 @@ import { startRouteMetrics } from "@/lib/cron/route-metrics";
 //   simula (sem escrita/envio). ?pilotSingleRecipient=<uuid do usuário da allowlist> seleciona UM destinatário lógico (obrigatório
 //   na execução real quando a entrega é a caixa única axion@). Sem dryRun, só envia se o id do caso for IDÊNTICO ao configurado em
 //   ACC_PILOT_SINGLE_ALERT_CASE_ID no servidor (armamento explícito e removível); ausente/divergente => 403.
+// - ?dryRun=1&inboundCheck=1 => acrescenta ao dry-run o bloco `inboundCheck` (inbound-check.ts): prova, com as variáveis
+//   ACC_RISK_ALERTS_INBOUND_* DESTA implantação (Vercel), a renovação do token, o escopo concedido e o perfil da caixa configurada —
+//   mesmo com zero escalonamentos. Só indicadores (nenhum e-mail/token), sem consultar mensagens, sem gravar, sem enviar.
+//   inboundCheck sem dryRun=1 => 400 (nunca acompanha um ciclo real).
 // A janela do consolidado (quarta 07:00 no timezone do projeto) é decidida
 // pelo próprio ciclo a cada hora — o agendamento em UTC nunca fixa o
 // horário local.
@@ -56,6 +61,10 @@ export async function GET(request: Request) {
 
   const dryRun = url.searchParams.get("dryRun") === "1";
   const projectId = url.searchParams.get("projectId");
+  const inboundCheckRequested = url.searchParams.get("inboundCheck") === "1";
+  if (inboundCheckRequested && !dryRun) {
+    return Response.json({ error: "inboundCheck exige dryRun=1." }, { status: 400, headers: { "Cache-Control": "no-store" } });
+  }
 
   const pilotSingle = authorizePilotSingleRequest(url.searchParams);
   if (pilotSingle !== null) {
@@ -74,9 +83,11 @@ export async function GET(request: Request) {
   inFlight = true;
   const stopMetrics = startRouteMetrics();
   try {
+    // Diagnóstico da credencial de leitura de respostas (só dry-run): nunca lança, não depende de haver escalonamentos.
+    const inboundCheck = inboundCheckRequested ? await runInboundMailboxCheck() : null;
     const result = await runRiskAlertCycle({ dryRun, projectId: projectId && /^[0-9a-f-]{36}$/i.test(projectId) ? projectId : null });
     const failed = result.projects.reduce((sum, project) => sum + project.failed, 0);
-    return Response.json({ ...result, metrics: stopMetrics() }, { status: failed > 0 ? 207 : 200 });
+    return Response.json({ ...result, ...(inboundCheck ? { inboundCheck } : {}), metrics: stopMetrics() }, { status: failed > 0 ? 207 : 200 });
   } catch {
     // Nunca vaza detalhes (tokens, e-mails) no corpo da resposta.
     return Response.json({ error: "Falha ao processar alertas de risco." }, { status: 500 });
