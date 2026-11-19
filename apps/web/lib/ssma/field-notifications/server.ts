@@ -6,7 +6,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@axion/db/admin";
 import { getAppBaseUrl } from "@/lib/app-base-url";
 import { appendAccEmailSignature } from "@/lib/email/branding/acc-email-signature";
-import { loadAccLogoInlineImage } from "@/lib/email/branding/load-acc-logo-inline-image";
+import { loadAccAlertLogos } from "@/lib/email/branding/load-acc-logo-inline-image";
 import { EmailSendError, type EmailProvider } from "@/lib/email/email-provider";
 import { getEmailProvider } from "@/lib/email/get-email-provider";
 import {
@@ -84,8 +84,8 @@ export function createSupabaseDeliveryStore(admin: Admin): DeliveryStore {
 export function createProviderMailer(admin: Admin, provider: EmailProvider = getEmailProvider()): Mailer {
   return {
     async deliver({ to, content, projectId, correlationId }) {
-      const inlineLogo = loadAccLogoInlineImage();
-      const signed = appendAccEmailSignature({ text: content.text, html: content.html }, inlineLogo !== null);
+      const inlineImages = loadAccAlertLogos(content.logoNeeds ?? { maroon: true, inverted: false }).images;
+      const signed = appendAccEmailSignature({ text: content.text, html: content.html }, inlineImages.length > 0, !content.logoNeeds);
       // Resposta no corpo: o hash do token é registrado na auditoria da ação ANTES do envio (sem registro, nada sai).
       let replyTo: string | undefined;
       if (content.reply) {
@@ -102,7 +102,7 @@ export function createProviderMailer(admin: Admin, provider: EmailProvider = get
       try {
         result = await provider.send({
           to, subject: content.subject, text: signed.text, html: signed.html,
-          inlineImages: inlineLogo ? [inlineLogo] : undefined, correlationId,
+          inlineImages: inlineImages.length > 0 ? inlineImages : undefined, correlationId,
           // Mensagem operacional: sem o atalho da AXIA (serviço não habilitado) e sem faixa de teste; travas do piloto mantidas.
           ...(content.operational
             ? { pilot: { projectId, participantLabel: content.participantLabel ?? null, escalationLevel: "Responsável" } }
@@ -184,8 +184,9 @@ export async function notifyCriticalRecord(admin: Admin, recordId: string, deps:
     key: { projectId, recordId, actionId: null, event: "CRITICAL_RECORD", eventDate: saoPauloDate(record.occurred_at as string) },
     recipients, withoutEmail, entityLabel: `registro ${recordId}`,
     content: (recipient) => buildCriticalRecordEmail({
-      projectName, recipientName: recipient.name, category: String(record.category), location: String(record.location), description: String(record.description),
-      occurredAt: fmtDateTime(record.occurred_at as string), reportedByName: nameOf(record.reported_by_user_id as string) ?? "Usuário", accUrl: `${getAppBaseUrl()}/${projectId}/ssma-registros`,
+      projectName, visibleCode: recordId.slice(0, 8).toUpperCase(), recipientName: recipient.name, category: String(record.category), location: String(record.location), description: String(record.description),
+      occurredAt: fmtDateTime(record.occurred_at as string), reportedByName: nameOf(record.reported_by_user_id as string) ?? "Usuário",
+      responsibleName: nameOf(record.responsible_user_id as string | null), accUrl: `${getAppBaseUrl()}/${projectId}/ssma-registros`,
     }),
   });
 }
@@ -304,7 +305,7 @@ export async function sweepFieldNotifications(
       const { recipients, withoutEmail } = resolveRecipients({ event: "ACTION_OVERDUE", responsibleUserId: action.responsible_user_id, members, responsibleOnly: scope.responsibleOnly });
       const takeover = scope.operational ? await loadTakeover(admin, action, responsibleName) : null;
       const baseCtx = {
-        projectName, category: String(record.category), location: String(record.location), description: String(record.description),
+        projectName, visibleCode: action.id.slice(0, 8).toUpperCase(), category: String(record.category), location: String(record.location), description: String(record.description),
         occurredAt: fmtDateTime(record.occurred_at as string), reportedByName: nameOf(record.reported_by_user_id as string) ?? "Usuário",
         accUrl: `${getAppBaseUrl()}/${action.project_id}/ssma-registros`, dueDate: fmtDate(dueDate), daysOverdue: days, responsibleName,
       };
@@ -314,7 +315,7 @@ export async function sweepFieldNotifications(
         content: (recipient) => {
           if (!scope.operational) return buildOverdueActionEmail({ ...baseCtx, recipientName: recipient.name });
           const mail = buildOperationalOverdueActionEmail({
-            ...baseCtx, recipientName: recipient.name, severity: ssmaSeverityOf(record.risk_level as string), takeover, visibleCode: action.id.slice(0, 8).toUpperCase(),
+            ...baseCtx, recipientName: recipient.name, severity: ssmaSeverityOf(record.risk_level as string), takeover,
           });
           return {
             ...mail,
@@ -394,6 +395,7 @@ export async function sendPendingSsmaReplyConfirmations(admin: Admin, mailer: Ma
     const content = buildSsmaReplyConfirmationEmail({
       projectName: loaded?.projectName ?? "Obra", recipientName: item.recipientName, category: String(loaded?.record.category ?? "SSMA"),
       location: String(loaded?.record.location ?? "—"), visibleCode: item.actionId.slice(0, 8).toUpperCase(), originalSubject: item.originalSubject,
+      severity: typeof loaded?.record.risk_level === "string" ? ssmaSeverityOf(loaded.record.risk_level) : null,
       statusLabel: item.statusLabel, forecastLine: item.forecastLine, pendingLine: item.pendingLine, outOfOrder: item.outOfOrder,
       accUrl: `${getAppBaseUrl()}/${item.projectId}/ssma-registros`,
     });

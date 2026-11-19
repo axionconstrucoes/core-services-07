@@ -53,6 +53,8 @@ export interface UniversalOccurrence {
   /** Área responsável (ex.: "SSMA", "Planejamento", "Contratos"). */
   areaLabel: string;
   severity: AlertSeverity;
+  /** Cabeçalho neutro para uma confirmação cuja criticidade não está disponível. */
+  headerLabel?: string;
   title: string;
   description: string;
   evidences?: UniversalEvidence[];
@@ -132,7 +134,7 @@ export function buildUniversalOccurrenceHtml(o: UniversalOccurrence, logos: Aler
   const riskWord = alertRiskLevelLabels[o.severity];
   const panel = buildActionsPanelHtml(buildUniversalActionButtonsHtml(actionsOf(o)), null);
   const inner = `
-    ${buildAlertHeaderHtml(o.severity, riskWord, o.projectName, logos)}
+    ${buildAlertHeaderHtml(o.severity, riskWord, o.projectName, logos, o.headerLabel)}
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:${HEADER_GAP_PX}px;">
       <tr>
         <td class="acc-content-col" valign="top" style="padding:0;word-break:break-word;color:${ALERT_TONES[o.severity].text};">${contentHtml(o)}</td>
@@ -144,7 +146,7 @@ export function buildUniversalOccurrenceHtml(o: UniversalOccurrence, logos: Aler
 
 export function buildUniversalOccurrenceText(o: UniversalOccurrence): string[] {
   return [
-    `RISCO ${alertRiskLevelLabels[o.severity]} | ${o.projectName}`,
+    `${o.headerLabel ?? `RISCO ${alertRiskLevelLabels[o.severity]}`} | ${o.projectName}`,
     ...(o.completed ? [`CONCLUÍDO${o.completedAtLabel ? ` em ${o.completedAtLabel}` : ""}`] : []),
     o.title,
     o.description,

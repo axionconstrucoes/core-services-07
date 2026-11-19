@@ -95,6 +95,7 @@ export interface MailContent {
   subject: string;
   text: string;
   html: string;
+  logoNeeds?: { maroon: boolean; inverted: boolean };
   /** Mensagem operacional (sem faixa de teste do piloto). */
   operational?: boolean;
   /** Resposta no corpo do e-mail: token opaco do Reply-To (só o hash é persistido) e a ação a que se refere. */
