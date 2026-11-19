@@ -205,7 +205,7 @@ await check("confirmação: Re: na mesma thread, previsão com fuso, sem faixa d
   assert.match(c.html, /RISCO ALTO \| WEG/);
   assert.match(c.html, /acc-actions-col/);
   assert.match(c.html, /RESOLVIDO.*EM ANDAMENTO.*ENVIAR PARA.*ESPECIALISTA/s);
-  assert.equal((c.html.match(/aria-disabled="true"/g) ?? []).length, 4);
+  assert.equal((c.html.match(/aria-disabled="true"/g) ?? []).length, 0, "os quatro botões levam ao registro no ACC (nenhum desativado)");
   assert.deepEqual(c.logoNeeds, { maroon: true, inverted: false });
   assert.doesNotMatch(c.text, /TESTE|PILOTO/);
 });

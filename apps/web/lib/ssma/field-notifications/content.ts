@@ -106,7 +106,6 @@ export function renderSsmaAlert(
   details: SsmaAlertDetails
 ): MailContent {
   const { severity } = ctx;
-  const unavailable = "Abra a área de SSMA no ACC.";
   const { html, logoNeeds } = buildUniversalAlertEmail({
     recipientName: ctx.recipientName,
     logos: { maroon: true, inverted: true },
@@ -124,13 +123,10 @@ export function renderSsmaAlert(
       originalDeadline: ctx.dueDate,
       specialistLabel: "Especialista SSMA",
       openUrl: ctx.accUrl,
-      actions: {},
-      unavailableReasons: {
-        RESOLVIDO: unavailable,
-        EM_ANDAMENTO: unavailable,
-        ENVIAR_PARA: unavailable,
-        ESPECIALISTA: "Consulta indisponível para esta ocorrência de SSMA.",
-      },
+      // Os quatro botões levam ao registro de SSMA no ACC (exige login; abrir o link NÃO altera estado nenhum):
+      // a ação em si é registrada lá, com confirmação, evidência e auditoria.
+      actions: { RESOLVIDO: ctx.accUrl, EM_ANDAMENTO: ctx.accUrl, ENVIAR_PARA: ctx.accUrl, ESPECIALISTA: ctx.accUrl },
+      unavailableReasons: {},
       details: details.facts.map(([label, value]) => ({ label, value })),
       notices: details.notices,
       replyInstruction: details.replyInstruction,
