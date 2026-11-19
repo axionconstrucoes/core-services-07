@@ -1,5 +1,5 @@
 import { createSupabaseAdminClient } from "@axion/db/admin";
-import { isCronRequestAuthorized } from "@/lib/cron/cron-request-auth";
+import { isCronRequestAuthorized, SCHEDULER_SSMA_CRON_SECRET_ENV } from "@/lib/cron/cron-request-auth";
 import { FakeEmailProvider } from "@/lib/email/fake-email-provider";
 import { resolveSsmaNotificationScope } from "@/lib/ssma/field-notifications/enabled";
 import { startRouteMetrics } from "@/lib/cron/route-metrics";
@@ -15,16 +15,20 @@ let inFlight = false;
 // Escopo WEG_CORRECTIVE_ACTIONS: `?dryRun=1` é uma PRÉVIA sem efeito (nada gravado, nenhum provedor chamado).
 // Modo legado (sem escopo): `?dryRun=1` usa o provedor FALSO e grava as entregas normalmente para conferência.
 export async function GET(request: Request) {
-  if (!isCronRequestAuthorized(request, process.env.CRON_SECRET)) return Response.json({ error: "Não autorizado." }, { status: 401 });
+  const legacyAuthorized = isCronRequestAuthorized(request, process.env.CRON_SECRET);
+  if (!legacyAuthorized && !isCronRequestAuthorized(request, process.env[SCHEDULER_SSMA_CRON_SECRET_ENV])) return Response.json({ error: "Não autorizado." }, { status: 401 });
   if (process.env.ACC_SSMA_NOTIFICATIONS_ENABLED !== "true") return new Response(null, { status: 204 });
   const scope = resolveSsmaNotificationScope();
   if (scope.mode === "DISABLED" || scope.mode === "INVALID_SCOPE") return new Response(null, { status: 204 });
+  const dryRun = new URL(request.url).searchParams.get("dryRun") === "1";
+  if (!legacyAuthorized && dryRun && scope.mode !== "WEG_CORRECTIVE_ACTIONS") {
+    return Response.json({ error: "Prévia do agendador disponível apenas no escopo WEG." }, { status: 400 });
+  }
   if (inFlight) return Response.json({ error: "Execução anterior em andamento." }, { status: 409 });
 
   inFlight = true;
   const stopMetrics = startRouteMetrics();
   try {
-    const dryRun = new URL(request.url).searchParams.get("dryRun") === "1";
     const admin = createSupabaseAdminClient();
     if (dryRun && scope.mode === "WEG_CORRECTIVE_ACTIONS") {
       const preview = await previewOverdueActionNotifications(admin, { scope });

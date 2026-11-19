@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 register("./ts-module-resolver.mjs", import.meta.url);
 
 const { isPublicCronRoute, PUBLIC_CRON_ROUTES } = await import("../apps/web/lib/cron/public-cron-routes");
-const { isCronRequestAuthorized, RISK_ALERTS_CRON_SECRET_ENV } = await import("../apps/web/lib/cron/cron-request-auth");
+const { isCronRequestAuthorized, isRiskSchedulerRequestAuthorized, RISK_ALERTS_CRON_SECRET_ENV, SCHEDULER_RISK_CRON_SECRET_ENV, SCHEDULER_SSMA_CRON_SECRET_ENV } = await import("../apps/web/lib/cron/cron-request-auth");
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..");
@@ -96,7 +96,7 @@ check("7. Rota comum sem sessão continua redirecionando para /login com ?next= 
 check("8. risk-alerts sem Authorization => 401", () => {
   assert(isCronRequestAuthorized(req(), SECRET) === false);
   const src = readSource(ROUTES.risk);
-  assert(src.includes("if (!isCronRequestAuthorized(request, process.env[RISK_ALERTS_CRON_SECRET_ENV])) {") && src.includes('{ status: 401 }'));
+  assert(src.includes("if (!isCronRequestAuthorized(request, process.env[RISK_ALERTS_CRON_SECRET_ENV]) &&") && src.includes('{ status: 401 }'));
 });
 check("9. risk-alerts com Bearer incorreto => 401 (inclui prefixo correto com sufixo, esquema errado e espaços)", () => {
   assert(isCronRequestAuthorized(req({ authorization: "Bearer errado" }), SECRET) === false);
@@ -266,6 +266,26 @@ check("24. Feature desligada + segredo dedicado correto => 204 antes do banco; d
   }
   assert(isCronRequestAuthorized(req({ authorization: `Bearer ${SHARED}` }), SHARED) === true && isCronRequestAuthorized(req({ authorization: `Bearer ${DEDICATED}` }), SHARED) === false);
   assert(!/process\.env\.\w*CRON_SECRET|ACC_RISK_ALERTS_CRON_SECRET/.test(proxy), "proxy inalterado (não lê segredo algum)");
+});
+
+check("25. credenciais do agendador são isoladas e só o ciclo regular de risco é permitido", () => {
+  const risk = "fixture-agendador-riscos";
+  const ssma = "fixture-agendador-ssma";
+  const request = req({ authorization: `Bearer ${risk}` });
+  assert(isRiskSchedulerRequestAuthorized(request, new URLSearchParams(), risk));
+  assert(isRiskSchedulerRequestAuthorized(request, new URLSearchParams("dryRun=1&inboundCheck=1"), risk));
+  assert(!isRiskSchedulerRequestAuthorized(request, new URLSearchParams(), ssma));
+  assert(!isRiskSchedulerRequestAuthorized(request, new URLSearchParams(), undefined));
+  for (const key of ["pilotAuthCheck", "pilotSingleCase", "pilotSingleRecipient", "token"]) {
+    assert(!isRiskSchedulerRequestAuthorized(request, new URLSearchParams([[key, "1"]]), risk));
+  }
+  assert(!isRiskSchedulerRequestAuthorized(req(), new URLSearchParams([["dryRun", "1"]]), risk));
+  assert(SCHEDULER_RISK_CRON_SECRET_ENV === "ACC_SCHEDULER_RISK_CRON_SECRET");
+  assert(SCHEDULER_SSMA_CRON_SECRET_ENV === "ACC_SCHEDULER_SSMA_CRON_SECRET");
+  assert(riskRoute.includes("process.env[SCHEDULER_RISK_CRON_SECRET_ENV]") && !riskRoute.includes("SCHEDULER_SSMA_CRON_SECRET_ENV"));
+  const ssmaRoute = readSource("apps/web/app/api/cron/ssma-notifications/route.ts");
+  assert(ssmaRoute.includes("process.env[SCHEDULER_SSMA_CRON_SECRET_ENV]") && !ssmaRoute.includes("SCHEDULER_RISK_CRON_SECRET_ENV"));
+  assert(ssmaRoute.includes("!legacyAuthorized && dryRun") && ssmaRoute.indexOf('if (!legacyAuthorized && dryRun && scope.mode !== "WEG_CORRECTIVE_ACTIONS")') < ssmaRoute.indexOf("const admin ="));
 });
 
 console.log("");

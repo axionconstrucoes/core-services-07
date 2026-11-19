@@ -43,8 +43,8 @@ ao Gmail; essa duração ainda **não foi medida**.
 
 | Job pg_cron | Cron (UTC) | Destino | Papel |
 |---|---|---|---|
-| acc-risk-alerts | `*/2` | `GET <base>/api/cron/risk-alerts`, `Bearer ACC_RISK_ALERTS_CRON_SECRET` | riscos: planejamento, escalonamento (Gestor/Diretoria), envio pela outbox |
-| acc-ssma-notifications | `3-59/5` | `GET <base>/api/cron/ssma-notifications`, `Bearer CRON_SECRET` (rota pública desde #225) | SSMA: ação corretiva em atraso, rede de segurança de registros críticos, confirmações de resposta |
+| acc-risk-alerts | `*/2` | `GET <base>/api/cron/risk-alerts`, `Bearer ACC_SCHEDULER_RISK_CRON_SECRET` | riscos: planejamento, escalonamento (Gestor/Diretoria), envio pela outbox |
+| acc-ssma-notifications | `3-59/5` | `GET <base>/api/cron/ssma-notifications`, `Bearer ACC_SCHEDULER_SSMA_CRON_SECRET` (rota pública desde #225) | SSMA: ação corretiva em atraso, rede de segurança de registros críticos, confirmações de resposta |
 | acc-weekly-all | `*/10` | `POST …/actions/workflows/weekly-schedule-email-ingestion.yml/dispatches` `{"ref":"main","inputs":{"phase":"all"}}` | intake, promote, compare, classify, workbook, alerts e **replies** (respostas de riscos e de SSMA na crm@) |
 | acc-document-worker | `2-59/10` | `…/document-processing-worker.yml/dispatches` | planilhas e relatórios |
 | acc-mpp-worker | `5-59/10` | `…/mpp-document-worker.yml/dispatches` | cronograma .mpp |
@@ -240,8 +240,8 @@ select cron.schedule('acc-ssma-notifications','3-59/5 * * * *',$$select public.a
 | Nome no Vault | Valor | Escopo mínimo | Onde gravar | Rotação |
 |---|---|---|---|---|
 | `acc_github_actions_dispatch_token` | PAT fine-grained | só `axionconstrucoes/core-services-07`; "Actions: Read and write" (+ "Metadata: Read", obrigatória); nada de Contents, Secrets ou Variables | SQL Editor do Supabase: `select vault.create_secret('<valor>','acc_github_actions_dispatch_token');` | validade de 90 dias; trocar com `vault.update_secret` antes de vencer. Token inválido aparece como `DISPATCH_FAILED` (`DISPATCH_HTTP_401`/`403`) |
-| `acc_risk_alerts_cron_secret` | = `ACC_RISK_ALERTS_CRON_SECRET` | só a rota de riscos | Vault (mesmo comando) | trocar na Vercel, no GitHub e no Vault ao mesmo tempo; divergência gera `ROUTE_HTTP_401` |
-| `acc_cron_secret` | = `CRON_SECRET` | rotas cron da Vercel (SSMA) | Vault | idem |
+| `acc_risk_alerts_cron_secret` | = `ACC_SCHEDULER_RISK_CRON_SECRET` (Vercel Production) | só a rota de riscos, sem os modos manuais | Vault (mesmo comando) | sincronizar Vercel e Vault; divergência gera `ROUTE_HTTP_401` |
+| `acc_cron_secret` | = `ACC_SCHEDULER_SSMA_CRON_SECRET` (Vercel Production) | só a rota de SSMA | Vault | idem |
 | `acc_app_base_url` | `https://acc.axion.com.br` | não é segredo | Vault | só se o domínio mudar (só `https` é aceito) |
 
 ## 9. Consumo estimado
@@ -324,6 +324,8 @@ Nenhum workflow aplica migration: a migration segue **não aplicada** até o pas
 ### Passo 2 — Segredos no Vault (SQL Editor, manual; nunca em chat, log ou repositório)
 PAT + `acc_risk_alerts_cron_secret` + `acc_cron_secret` + `acc_app_base_url` (§8). Sem um segredo a chamada correspondente não acontece
 e o watchdog acusa.
+
+Os workflows do GitHub continuam com seus segredos atuais. As duas credenciais exclusivas do agendador ficam apenas na Vercel e no Vault.
 
 ### Passo 3 — Dry-run preliminar (portão; comandos e aceite no §11.2)
 `gh workflow run "Risk Alerts WEG Dry-Run" --ref main` e `gh workflow run ssma-notifications.yml --ref main -f dry_run=true`.
