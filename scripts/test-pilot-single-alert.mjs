@@ -328,6 +328,22 @@ await check("entrega direta + UM destinatário selecionado: exatamente 1 mensage
     assert(!w.store.state.outbox.some((o) => o.idempotencyKey.endsWith(U.rey) || o.idempotencyKey.endsWith(U.carlos)), "criou linha para destinatário não selecionado");
   }));
 
+await check("destinatária explicitamente selecionada pode estar após o teto; o lote continua limitado", () =>
+  withEnv({}, async () => {
+    const w = await seeded();
+    const carla = "e5555555-0000-4000-8000-000000000015";
+    w.world.config.pilotRecipientAllowlistUserIds.push(carla);
+    const request = { caseId: w.highCase.id, dryRun: true, now: new Date(T0), store: w.store, provider: w.provider };
+    const absent = await runPilotSingleAlert({ ...request, recipientUserId: carla });
+    assert(absent.recipients.length === 1 && absent.recipients[0].outcome === "NAO_ELEGIVEL");
+    w.world.recipients.set(carla, { userId: carla, name: "Carla", email: "carla@axion.com.br", membershipStatus: "ACTIVE" });
+    const selected = await runPilotSingleAlert({ ...request, recipientUserId: carla });
+    assert(selected.recipients.length === 1 && selected.recipients[0].userId === carla && selected.recipients[0].outcome === "WOULD_SEND");
+    const group = await runPilotSingleAlert(request);
+    assert(group.recipients.length === MAX_PILOT_SINGLE_RECIPIENTS && !group.recipients.some((recipient) => recipient.userId === carla));
+    assert(w.store.state.outbox.length === w.seedOutbox && w.rec.guarded.length === 0);
+  }));
+
 await check("seleção inválida: UUID inválido e usuário fora da allowlist (inclusive o responsável da Matriz) => bloqueio, nada enviado", () =>
   withEnv({ ACC_PROJECT_PILOT_TEST_GROUP: "" }, async () => {
     const w = await seeded();

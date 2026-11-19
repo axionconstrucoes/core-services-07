@@ -208,8 +208,7 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
       if (seenAllowlist.has(key)) return false; // mantém a PRIMEIRA ocorrência
       seenAllowlist.add(key);
       return true;
-    })
-    .slice(0, MAX_PILOT_SINGLE_RECIPIENTS);
+    });
   const requestedRecipient = options.recipientUserId?.trim().toLowerCase() || null;
   if (requestedRecipient !== null && !UUID.test(requestedRecipient)) return blocked(caseId, "RECIPIENT_ID_INVALID", base);
   // Entrega direta: sem seleção, cada pessoa da allowlist (no máximo 3 participantes) recebe SUA mensagem na PRÓPRIA caixa. O workflow
@@ -218,7 +217,9 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
   if (requestedRecipient !== null && !fullAllowlist.some((id) => id.toLowerCase() === requestedRecipient)) {
     return blocked(caseId, "RECIPIENT_NOT_IN_ALLOWLIST", base);
   }
-  const allowlist = requestedRecipient === null ? fullAllowlist : fullAllowlist.filter((id) => id.toLowerCase() === requestedRecipient);
+  const allowlist = requestedRecipient === null
+    ? fullAllowlist.slice(0, MAX_PILOT_SINGLE_RECIPIENTS)
+    : fullAllowlist.filter((id) => id.toLowerCase() === requestedRecipient);
   const nowIso = (options.now ?? new Date()).toISOString();
   const linked = record.slaActionId ? snapshot.linkedActions.get(record.slaActionId) : undefined;
   const content: ImmediateAlertContent = {
