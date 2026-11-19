@@ -133,16 +133,16 @@ await check("4. Digest (LOW/MEDIUM, quarta 07:00): um único e-mail, entregue na
   const { guarded } = await simulateDelivery(digest[0], `${digest[0].digestWindow}:DIGEST:-`);
   assert(noPersonal(guarded));
 });
-await check("5. Escalonamento por prazo (N1→N2→N3) e imediato por ação: entrega na caixa institucional; níveis distintos na auditoria", async () => {
+await check("5. Escalonamento por prazo (N1→N2→N3) e imediato pela ação OUTRO: entrega na caixa institucional; níveis distintos na auditoria", async () => {
   const delivered = new Set();
   const late = plan({ now: "2026-09-21T17:00:00.000Z", existingCases: [existingRecord()], linkedActions: new Map([["act-1", linkedAction()]]) });
   const esc = late.outbox.find((e) => e.notificationType === "ESCALATION");
   assert(esc && esc.escalationLevel === "ESCALAO_1" && esc.recipient.userId === U_R);
   const a = await simulateDelivery(esc, `case-1:ESCALATION:${esc.escalationLevel}`, delivered);
   assert(noPersonal(a.guarded));
-  const t = applyAlertAction({ now: NOW, snapshot: snapshot({ currentLevel: "ESCALAO_1" }), action: "TAKING_ACTION", actorUserId: U_R, origin: "WEB", payload: { text: "x" }, policy: policyFor("PLANEJAMENTO", "HIGH"), config: config(), recipients: recipients(), eligibleForwardUserIds: [U_OUT] });
+  const t = applyAlertAction({ now: NOW, snapshot: snapshot({ currentLevel: "ESCALAO_1" }), action: "OTHER", actorUserId: U_R, origin: "WEB", payload: { text: "x" }, policy: policyFor("PLANEJAMENTO", "HIGH"), config: config(), recipients: recipients(), eligibleForwardUserIds: [U_OUT] });
   const imm = t.outbox.find((e) => e.notificationType === "ESCALATION");
-  assert(t.ok && imm.escalationLevel === "DIRETORIA" && imm.recipientUserId === U_R && imm.status === "PENDING");
+  assert(t.ok && imm?.escalationLevel === "DIRETORIA" && imm.recipientUserId === U_R && imm.status === "PENDING");
   const b = await simulateDelivery({ recipient: { email: HUMAN } }, `${CASE_ID}:ESCALATION:DIRETORIA`, delivered);
   assert(!b.skipped && noPersonal(b.guarded), "nível diferente => evento diferente => entregue (não deduplicado)");
   assert(delivered.size === 2);

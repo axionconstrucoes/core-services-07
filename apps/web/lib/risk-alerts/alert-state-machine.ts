@@ -41,7 +41,11 @@ import type {
   RiskSuppressionReason,
 } from "./types";
 
-export const IMMEDIATE_ESCALATION_ACTIONS: ReadonlySet<AlertActionType> = new Set(["TAKING_ACTION", "FORWARD", "EXPERT_CONSULTATION", "OTHER"]);
+// Critério de negócio (18/11/2026): EM ANDAMENTO (TAKING_ACTION), ENVIAR PARA (FORWARD) e a consulta ao especialista NÃO provocam,
+// isoladamente, escalonamento extraordinário. Elas também não reiniciam prazo, não suspendem o SLA e não impedem os escalonamentos
+// NORMAIS por prazo vencido (motor horário / computeEscalation, inalterado). Antes, as quatro ações abaixo escalonavam em ALTO/CRÍTICO.
+// "OTHER" (registro livre) não foi citado no critério e permanece como estava, para decisão separada.
+export const IMMEDIATE_ESCALATION_ACTIONS: ReadonlySet<AlertActionType> = new Set(["OTHER"]);
 
 /**
  * Matriz ÚNICA de ações permitidas por estado — usada pela interface

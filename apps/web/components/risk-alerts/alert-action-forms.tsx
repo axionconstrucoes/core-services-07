@@ -56,7 +56,7 @@ const buttonClass = (action: AlertActionType): string => (action === "EXPERT_CON
 const submitLabel = (action: AlertActionType): string =>
   action === "FORWARD" ? "CONFIRMAR ENVIO" : action === "TAKING_ACTION" ? "CONFIRMAR" : action === "RESOLVED" ? "CONFIRMAR RESOLUÇÃO" : action === "EXPERT_CONSULTATION" ? "CONSULTAR" : `Confirmar ${UI_LABEL[action]}`;
 
-const ESCALATING: AlertActionType[] = ["TAKING_ACTION", "FORWARD", "OTHER"];
+const ESCALATING: AlertActionType[] = ["OTHER"];
 
 export function AlertActionForms(props: AlertActionFormsProps) {
   const [selected, setSelected] = useState<AlertActionType | null>(props.initialAction && (props.initialAction === "EXPERT_CONSULTATION" || props.availableActions.includes(props.initialAction)) ? props.initialAction : null);
