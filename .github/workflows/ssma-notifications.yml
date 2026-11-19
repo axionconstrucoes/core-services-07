@@ -24,6 +24,9 @@ concurrency:
 
 jobs:
   run:
+    # Origem ÚNICA: com o agendador do banco instalado (ACC_SCHEDULER_PG_CRON_ENABLED=true), o pg_cron chama a rota a cada
+    # 15 min e este workflow só roda como PRÉVIA manual (dry_run=true).
+    if: ${{ vars.ACC_SCHEDULER_PG_CRON_ENABLED != 'true' || (github.event_name == 'workflow_dispatch' && inputs.dry_run) }}
     runs-on: ubuntu-latest
 
     steps:

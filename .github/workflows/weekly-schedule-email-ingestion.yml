@@ -57,6 +57,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      # Agendador (docs/operacao-agendador-sla.md): INÍCIO real do job com run_id. Nunca falha o workflow.
+      - name: Heartbeat do agendador (início)
+        continue-on-error: true
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/scheduler-heartbeat.mjs weekly-all started
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -112,10 +119,22 @@ jobs:
           ACC_PROJECT_PILOT_SENDER: ${{ vars.ACC_PROJECT_PILOT_SENDER }}
           ACC_PROJECT_PILOT_AUTHORIZED_SENDERS: ${{ vars.ACC_PROJECT_PILOT_AUTHORIZED_SENDERS }}
 
+      # Agendador: CONCLUSÃO efetiva do job (success|failure|cancelled) com o mesmo run_id. Nunca falha o workflow.
+      - name: Heartbeat do agendador (conclusão)
+        if: always()
+        continue-on-error: true
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/scheduler-heartbeat.mjs weekly-all finished ${{ job.status }}
+
   risk-alerts:
     # Só agendado ou manual com fase "all" — nunca em execuções manuais de
     # uma fase específica da ingestão.
-    if: ${{ !cancelled() && vars.ACC_WEEKLY_REPORTS_ENABLED == 'true' && (github.event_name == 'schedule' || (github.event.inputs.phase || 'all') == 'all') }}
+    # Origem ÚNICA do ciclo de alertas: com o agendador do banco instalado (variável de repositório
+    # ACC_SCHEDULER_PG_CRON_ENABLED=true), o agendador do banco é quem chama o ciclo de alertas
+    # (a cada 2 min) e este job NÃO roda.
+    if: ${{ !cancelled() && vars.ACC_WEEKLY_REPORTS_ENABLED == 'true' && vars.ACC_SCHEDULER_PG_CRON_ENABLED != 'true' && (github.event_name == 'schedule' || (github.event.inputs.phase || 'all') == 'all') }}
     needs: ingest
     runs-on: ubuntu-latest
     timeout-minutes: 10
