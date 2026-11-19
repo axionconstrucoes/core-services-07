@@ -23,8 +23,8 @@
 --
 -- Segredos (Vault; gravados MANUALMENTE no SQL Editor, nunca nesta migration/chat/log/repositório):
 --   acc_github_actions_dispatch_token  PAT fine-grained: só este repositório, só "Actions: Read and write"
---   acc_risk_alerts_cron_secret        = ACC_RISK_ALERTS_CRON_SECRET (Vercel/GitHub)
---   acc_cron_secret                    = CRON_SECRET (Vercel/GitHub) — rota SSMA
+--   acc_risk_alerts_cron_secret        = ACC_SCHEDULER_RISK_CRON_SECRET (Vercel Production)
+--   acc_cron_secret                    = ACC_SCHEDULER_SSMA_CRON_SECRET (Vercel Production) — rota SSMA
 --   acc_app_base_url                   https://acc.axion.com.br (não é segredo; só https é aceito)
 -- Sem um segredo, a chamada correspondente simplesmente não acontece (o watchdog acusa).
 --
