@@ -124,13 +124,9 @@ check("contract-alert-template.ts: BADGE_STYLES.ALTA permanece amarelo de atenç
   assert(altaMatch.includes("#FFD600"), `ALTA deveria continuar #FFD600: "${altaMatch}"`);
 });
 
-check("sla-escalation-template.ts: reaproveita BADGE_STYLES de contract-alert-template.ts — nunca duplica o mapa de cores", () => {
-  assert(
-    slaEscalationSource.includes('BADGE_STYLES } from "./contract-alert-template"') ||
-      /import\s*\{[^}]*BADGE_STYLES[^}]*\}\s*from\s*"\.\/contract-alert-template"/.test(slaEscalationSource),
-    "sla-escalation-template.ts deveria importar BADGE_STYLES, nunca declarar sua própria cópia"
-  );
-  assert(!/MEDIA:\s*\{\s*background:/.test(slaEscalationSource), "sla-escalation-template.ts não deveria ter seu próprio BADGE_STYLES.MEDIA — duplicação reintroduzida");
+check("sla-escalation-template.ts: usa o layout universal (cores por gravidade em ALERT_TONES) — nunca declara um mapa de cores próprio", () => {
+  assert(slaEscalationSource.includes("buildUniversalAlertEmail"), "o escalonamento deve montar o e-mail pelo template universal");
+  assert(!/MEDIA:\s*\{\s*background:/.test(slaEscalationSource), "sla-escalation-template.ts não deveria ter seu próprio mapa de cores — duplicação reintroduzida");
 });
 
 // --- Eliminação de duplicação por página (Análise Contratual) ---

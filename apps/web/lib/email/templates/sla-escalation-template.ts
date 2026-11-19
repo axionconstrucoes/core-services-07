@@ -1,19 +1,22 @@
-// Template do e-mail de escalonamento (seção 12) — mesmo padrão
-// institucional ACC do e-mail de Alerta de Contrato
-// (contract-alert-template.ts): fundo branco, texto preto, badge de
-// risco cor+texto, CRÍTICO com fundo vermelho/texto branco. Reaproveita
-// buildContractAlertSubject/alertRiskLevelLabels — mesmo padrão de
-// assunto e rótulo de risco, nunca duplicado.
+// Template do e-mail de escalonamento (seção 12) — LAYOUT UNIVERSAL de alertas do ACC (universal-alert-template.ts):
+// cabeçalho com o logotipo oficial e a cor da gravidade, conteúdo à esquerda e os quatro botões à direita
+// (RESOLVIDO, EM ANDAMENTO, ENVIAR PARA, ESPECIALISTA). Só o desenho mudou: assunto, destinatários, conteúdo e as ações por
+// token (preservadas como "Outras ações") continuam os mesmos.
+//
+// Escalonamento de SLA não pertence a um caso de risco com formulário de tratamento: os quatro botões ficam NO LAYOUT, porém
+// desativados com o motivo visível (nunca simulam uma ação). O título abre a ação no ACC.
 //
 // Puro, sem I/O — deliberadamente sem "server-only" para ser testável
 // tanto pelo bundler do Next.js quanto por um script Node standalone.
 
 import type { AlertSeverity } from "@axion/types";
 
+import { EMAIL_ALERT_ACTION_LABELS } from "@/lib/email-actions/types";
 import type { EmailActionButton } from "@/lib/email-actions/render-buttons";
-import { renderEmailActionButtonsHtml, renderEmailActionButtonsText } from "@/lib/email-actions/render-buttons";
+import type { AlertLogoAvailability } from "@/lib/email/templates/alert-box-style";
+import { buildUniversalAlertEmail, type UniversalAction } from "@/lib/email/templates/universal-alert-template";
 
-import { alertRiskLevelLabels, buildContractAlertSubject, BADGE_STYLES } from "./contract-alert-template";
+import { alertRiskLevelLabels, buildContractAlertSubject } from "./contract-alert-template";
 
 export interface SlaEscalationEmailInput {
   recipientName: string | null;
@@ -30,123 +33,62 @@ export interface SlaEscalationEmailInput {
   // Ver contract-alert-template.ts — mesmo padrão, mesma infraestrutura
   // central, nunca duplicada.
   actionButtons: EmailActionButton[];
+  /** Logotipos disponíveis como imagem embutida nesta execução (decidido pelo remetente). Ausente = cabeçalho sem imagem. */
+  logos?: AlertLogoAvailability;
+  /** Identificação curta da ação (ex.: início do id). Ausente = "—". */
+  actionCode?: string | null;
 }
 
 export interface SlaEscalationEmail {
   subject: string;
   html: string;
   text: string;
+  /** Imagens do logotipo que o HTML referencia por Content-ID. */
+  logoNeeds: { maroon: boolean; inverted: boolean };
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+const FOOTER =
+  "Este escalonamento foi gerado automaticamente pelo motor determinístico de SLA do ACC — não é uma decisão de IA. Você também pode responder diretamente a este e-mail (Responder do Gmail). Os botões abrem o ACC autenticado: nada é registrado, transferido ou concluído apenas pelo clique no e-mail.";
 
-function htmlRow(label: string, value: string | null): string {
-  if (!value) return "";
-  return `
-    <tr>
-      <td style="padding:6px 0;color:#000000;font-size:13px;font-weight:bold;vertical-align:top;white-space:nowrap;">${escapeHtml(label)}</td>
-      <td style="padding:6px 0 6px 12px;color:#000000;font-size:13px;">${escapeHtml(value)}</td>
-    </tr>`;
-}
-
-function textRow(label: string, value: string | null): string {
-  if (!value) return "";
-  return `${label}: ${value}`;
-}
+const UNAVAILABLE_REASON = "Abra a ação no ACC para tratar este escalonamento.";
 
 export function buildSlaEscalationEmail(input: SlaEscalationEmailInput): SlaEscalationEmail {
-  const subject = buildContractAlertSubject(input.projectName, input.severity);
-  const badge = BADGE_STYLES[input.severity];
   const riskLabel = alertRiskLevelLabels[input.severity];
-  const greeting = input.recipientName ? `Olá, ${input.recipientName}.` : "Olá.";
-
-  const html = `
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;padding:24px 0;">
-  <tr>
-    <td align="center">
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border:1px solid #e5e7eb;border-radius:8px;">
-        <tr>
-          <td style="padding:20px 24px 8px 24px;">
-            <span style="font-size:12px;font-weight:bold;letter-spacing:0.04em;color:#000000;">ACC · AXION CONTROLE DE CONTRATOS</span>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:0 24px 16px 24px;">
-            <span style="display:inline-block;background-color:${badge.background};color:${badge.color};font-size:13px;font-weight:bold;padding:6px 14px;border-radius:999px;">
-              RISCO ${escapeHtml(riskLabel)} · ESCALONADO PARA ${escapeHtml(input.escalationLevelLabel.toUpperCase())}
-            </span>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:0 24px 4px 24px;">
-            <p style="margin:0 0 12px 0;color:#000000;font-size:14px;">${escapeHtml(greeting)}</p>
-            <h1 style="margin:0 0 4px 0;color:#000000;font-size:18px;">Ação sem resolução foi escalada: ${escapeHtml(input.actionTitle)}</h1>
-            <p style="margin:8px 0 16px 0;color:#000000;font-size:14px;">A pendência não foi resolvida por <strong>${escapeHtml(input.previousLevelLabel)}</strong> dentro do prazo e agora exige acompanhamento de <strong>${escapeHtml(input.escalationLevelLabel)}</strong>.</p>
-            <p style="margin:0 0 16px 0;color:#000000;font-size:14px;">Obra: <strong>${escapeHtml(input.projectName)}</strong></p>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:0 24px 16px 24px;">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-              ${htmlRow("Responsável atual", input.currentResponsibleName)}
-              ${htmlRow("Prazo original", input.originalDeadline)}
-              ${htmlRow("Tempo excedido", input.overdueBy)}
-              ${htmlRow("Nível anterior", input.previousLevelLabel)}
-              ${htmlRow("Nível de escalonamento", input.escalationLevelLabel)}
-              ${htmlRow("Ação recomendada", input.recommendedAction)}
-            </table>
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:8px 24px 24px 24px;">
-            <a href="${escapeHtml(input.eventUrl)}" style="display:inline-block;margin:0 8px 8px 0;padding:10px 18px;background-color:#111827;color:#ffffff;font-size:13px;font-weight:bold;text-decoration:none;border-radius:6px;">Abrir ação no ACC</a>
-            ${renderEmailActionButtonsHtml(input.actionButtons, input.actionTitle)}
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:16px 24px;border-top:1px solid #e5e7eb;">
-            <p style="margin:0;color:#6b7280;font-size:11px;">
-              Este escalonamento foi gerado automaticamente pelo motor determinístico de SLA do ACC — não é uma decisão de IA.
-              Você também pode responder diretamente a este e-mail (Responder do Gmail).
-            </p>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-</table>`.trim();
-
-  const fieldRows = [
-    textRow("Responsável atual", input.currentResponsibleName),
-    textRow("Prazo original", input.originalDeadline),
-    textRow("Tempo excedido", input.overdueBy),
-    textRow("Nível anterior", input.previousLevelLabel),
-    textRow("Nível de escalonamento", input.escalationLevelLabel),
-    textRow("Ação recomendada", input.recommendedAction),
-  ].filter((row) => row !== "");
-
-  const text = [
-    `ACC - AXION Controle de Contratos`,
-    `RISCO ${riskLabel} · ESCALONADO PARA ${input.escalationLevelLabel.toUpperCase()}`,
-    "",
-    greeting,
-    `Ação sem resolução foi escalada: ${input.actionTitle}`,
-    `A pendência não foi resolvida por ${input.previousLevelLabel} dentro do prazo e agora exige acompanhamento de ${input.escalationLevelLabel}.`,
-    `Obra: ${input.projectName}`,
-    ...(fieldRows.length > 0 ? ["", ...fieldRows] : []),
-    "",
-    `Abrir ação no ACC: ${input.eventUrl}`,
-    ...(input.actionButtons.length > 0 ? ["", "Ações disponíveis:", renderEmailActionButtonsText(input.actionButtons)] : []),
-    "",
-    "Este escalonamento foi gerado automaticamente pelo motor determinístico de SLA do ACC — não é uma decisão de IA.",
-  ].join("\n");
-
-  return { subject, html, text };
+  const unavailableReasons: Partial<Record<UniversalAction, string>> = {
+    RESOLVIDO: UNAVAILABLE_REASON,
+    EM_ANDAMENTO: UNAVAILABLE_REASON,
+    ENVIAR_PARA: UNAVAILABLE_REASON,
+    ESPECIALISTA: "Consulta ao especialista não disponível neste aviso; abra a ação no ACC.",
+  };
+  const built = buildUniversalAlertEmail({
+    recipientName: input.recipientName,
+    logos: input.logos ?? { maroon: false, inverted: false },
+    footer: FOOTER,
+    occurrence: {
+      code: input.actionCode?.trim() || "—",
+      projectName: input.projectName,
+      areaLabel: "Escalonamento de ação (SLA)",
+      severity: input.severity,
+      headerLabel: `RISCO ${riskLabel} · ESCALONADO PARA ${input.escalationLevelLabel.toUpperCase()}`,
+      title: `Ação sem resolução foi escalada: ${input.actionTitle}`,
+      description: `A pendência não foi resolvida por ${input.previousLevelLabel} dentro do prazo e agora exige acompanhamento de ${input.escalationLevelLabel}.`,
+      responsibleName: input.currentResponsibleName,
+      originalDeadline: input.originalDeadline,
+      stateLabel: `Escalonada — ${input.escalationLevelLabel}`,
+      specialistLabel: "Especialista da área (consulta pelo ACC)",
+      openUrl: input.eventUrl,
+      actions: {},
+      unavailableReasons,
+      details: [
+        { label: "Obra", value: input.projectName },
+        { label: "Tempo excedido", value: input.overdueBy },
+        { label: "Nível anterior", value: input.previousLevelLabel },
+        { label: "Nível de escalonamento", value: input.escalationLevelLabel },
+        { label: "Ação recomendada", value: input.recommendedAction },
+      ],
+      extraLinks: input.actionButtons.map((b) => ({ label: EMAIL_ALERT_ACTION_LABELS[b.action], url: b.url })),
+    },
+  });
+  // Assunto preservado (o universal acrescenta área/título; o escalonamento sempre usou só o padrão institucional).
+  return { subject: buildContractAlertSubject(input.projectName, input.severity), html: built.html, text: built.text, logoNeeds: built.logoNeeds };
 }

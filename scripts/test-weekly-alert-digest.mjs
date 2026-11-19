@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { register } from "node:module";
+
+register("./ts-module-resolver.mjs", import.meta.url);
 
 const { buildWeeklyAlertDigestEmail } = await import(
   "../apps/web/lib/email/templates/weekly-alert-digest-template.ts"
@@ -31,7 +34,7 @@ check("ordem do e-mail é Médio antes de Baixo", () => {
   assert(email.text.indexOf("RFI pendente") < email.text.indexOf("Baixo primeiro"));
 });
 
-check("e-mail é curto e possui um único chamado para responder tudo", () => {
+check("e-mail usa o layout universal e possui um único chamado textual para responder tudo", () => {
   assert.equal((email.html.match(/Responder todos os itens no ACC/g) ?? []).length, 1);
   assert(email.text.includes("Ciente, Estudando solução, Resolvido ou Direcionar"));
 });

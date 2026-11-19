@@ -3,7 +3,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@axion/db/admin";
 
 import { appendAccEmailSignature } from "./branding/acc-email-signature";
-import { loadAccLogoInlineImage } from "./branding/load-acc-logo-inline-image";
+import { loadAccAlertLogos } from "./branding/load-acc-logo-inline-image";
 import { EmailSendError } from "./email-provider";
 import { getEmailProvider } from "./get-email-provider";
 import { buildSlaEscalationEmail, type SlaEscalationEmailInput } from "./templates/sla-escalation-template";
@@ -41,9 +41,13 @@ export interface SendSlaEscalationEmailResult {
 export async function sendSlaEscalationEmail(
   input: SendSlaEscalationEmailInput
 ): Promise<SendSlaEscalationEmailResult> {
-  const { subject, html, text } = buildSlaEscalationEmail(input.email);
-  const inlineLogo = loadAccLogoInlineImage();
-  const signed = appendAccEmailSignature({ text, html }, inlineLogo !== null);
+  // Layout universal: só o logo usado pela caixa desta gravidade (invertido no CRÍTICO, vinho nos demais), carregado ANTES de montar o HTML.
+  const darkTone = input.email.severity === "CRITICA";
+  const logos = loadAccAlertLogos({ maroon: !darkTone, inverted: darkTone });
+  const hasInlineLogo = logos.availability.maroon || logos.availability.inverted;
+  const { subject, html, text } = buildSlaEscalationEmail({ ...input.email, logos: logos.availability, actionCode: input.actionId.slice(0, 8).toUpperCase() });
+  // includeLogoImage=false: o cabeçalho do alerta já mostra o logo (mesmo critério do alerta de contrato).
+  const signed = appendAccEmailSignature({ text, html }, hasInlineLogo, false);
 
   const provider = getEmailProvider();
   const correlationId = crypto.randomUUID();
@@ -55,7 +59,7 @@ export async function sendSlaEscalationEmail(
       subject,
       text: signed.text,
       html: signed.html,
-      inlineImages: inlineLogo ? [inlineLogo] : undefined,
+      inlineImages: logos.images.length > 0 ? logos.images : undefined,
       correlationId,
       vera: { projectId: input.projectId, context: "alerta" },
       pilot: { projectId: input.projectId, participantLabel: `Responsável do ${input.email.escalationLevelLabel}`, escalationLevel: input.email.escalationLevelLabel },

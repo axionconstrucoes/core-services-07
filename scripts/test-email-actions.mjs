@@ -540,9 +540,10 @@ check("contract-alert-template.ts: usa renderEmailActionButtonsHtml/Text — nun
   assert(/renderEmailActionButtonsHtml\(\s*input\.actionButtons,/.test(contractAlertSource));
 });
 
-check("sla-escalation-template.ts: usa a MESMA função central — nunca duplica o HTML do botão", () => {
-  assert(slaEscalationSource.includes('from "@/lib/email-actions/render-buttons"'));
-  assert(/renderEmailActionButtonsHtml\(\s*input\.actionButtons,/.test(slaEscalationSource));
+check("sla-escalation-template.ts: layout universal; as ações por token seguem como \"Outras ações\" — nunca duplica o HTML do botão", () => {
+  assert(slaEscalationSource.includes('from "@/lib/email/templates/universal-alert-template"') && slaEscalationSource.includes("buildUniversalAlertEmail"));
+  assert(/extraLinks:\s*input\.actionButtons\.map/.test(slaEscalationSource));
+  assert(!/<a href=|<table/.test(slaEscalationSource.replace(/\/\/.*$/gm, "")), "o template não monta HTML próprio");
 });
 
 check("action-requests/actions.ts (solicitação de ação): usa a mesma infraestrutura central (issueEmailAlertActionButtons)", () => {
