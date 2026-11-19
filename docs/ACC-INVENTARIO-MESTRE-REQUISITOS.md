@@ -48,10 +48,11 @@ Nenhum item está 🟢 em Production: tudo abaixo está em branch/PR, sem merge 
 | Alertas de risco: imediato, escalonamento, acompanhamento | Sim |
 | Consolidado semanal de risco (MÉDIO/BAIXO) | Sim |
 | Alerta de contrato (individual e em lote) | Sim (painel de quatro botões) |
-| Escalonamento de SLA (`sla-escalation-template`) | Não |
-| SSMA (acidente, notificações de campo) | Não |
-| Resumo semanal de alertas (`weekly-alert-digest-template`) | Não |
-| Lembretes de contrato e de entrega, saúde do sistema | Não |
+| Escalonamento de SLA (`sla-escalation-template`) | Sim |
+| SSMA (acidente, notificações de campo, acompanhamento e confirmações) | Sim |
+| Resumo semanal de alertas (`weekly-alert-digest-template`) | Sim, com resposta conjunta no ACC |
+| Lembretes de contrato e de entrega | Sim, reutilizam os templates de contrato |
+| Supervisão operacional e revisão de versão de Planejamento | Sim |
 
 ## Branches, PRs e worktrees inspecionados
 

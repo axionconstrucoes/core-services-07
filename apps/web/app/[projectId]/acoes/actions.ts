@@ -24,6 +24,7 @@ import {
 import { resolveEscalationDestination } from "@/lib/sla/resolve-escalation-destination";
 import { formatSlaMatrixRuleAuditDetail, validateSlaMatrixRuleValues } from "@/lib/sla/validate-matrix-rule";
 import { formatDurationBetween } from "@/lib/sla/format-duration";
+import { slaAreaLabels } from "@/lib/labels";
 import { buildSlaActionUrl } from "@/lib/sla/build-action-url";
 import {
   getSlaActions,
@@ -722,6 +723,7 @@ export async function processSlaEscalationsAction(
                   projectName: project.name,
                   severity: RISK_LEVEL_TO_ALERT_SEVERITY[action.riskLevel],
                   actionTitle: action.title,
+                  areaLabel: slaAreaLabels[action.area],
                   currentResponsibleName: action.responsibleName,
                   originalDeadline: action.assumeDueAt,
                   overdueBy: formatDurationBetween(action.assumeDueAt, now),
