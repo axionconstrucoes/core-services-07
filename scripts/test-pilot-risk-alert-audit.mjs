@@ -257,7 +257,10 @@ await check("E8. Nenhum default de Planejamento por falta de classificação; no
   assert(detectNamedExpert("Expert Jurídico e Diretor Comercial") === null, "dois nomes => não é inequívoco");
   assert(detectExpertTopics("bom dia").length === 0);
   assert(suggestExpertForArea("ADMINISTRATIVO") === null && suggestExpertForArea("JURIDICO") === "legal-consultant");
-  assert(readSource("apps/web/components/risk-alerts/alert-action-forms.tsx").includes('<option value="" disabled>Selecione o Expert…</option>'));
+  const formSrc = readSource("apps/web/components/risk-alerts/alert-action-forms.tsx");
+  // ESPECIALISTA agora é a consulta somente-leitura (mecanismo existente); a pré-seleção vem da ÁREA e cai em "geral" fora das áreas mapeadas.
+  assert(formSrc.includes("specialtyForSlaArea(props.area)") && !formSrc.includes("Selecione o Expert"));
+  assert(/export function specialtyForSlaArea[\s\S]*default:\s*return "geral";/.test(readSource("apps/web/lib/ai/alert-consult/specialties.ts")));
 });
 
 // ================================================================== OUTBOX
@@ -440,8 +443,8 @@ await check("S3. Logs: corpo/token/e-mail completo nunca em console/auditoria; e
   assert(readSource("apps/web/lib/risk-alerts/store.ts").includes("expertRouting?: Record<string, unknown> | null") && !/replyToken(?!Hash)/.test(readSource("apps/web/lib/risk-alerts/store.ts")));
 });
 await check("S4. HTML: saída escapada nos templates; entrada text/plain preferida, HTML só como fallback sem tags; limite de tamanho; retenção documentada", () => {
-  const tpl = readSource("apps/web/lib/risk-alerts/build-risk-alert-emails.ts");
-  assert(tpl.includes("function escapeHtml(") && (tpl.match(/escapeHtml\(/g) ?? []).length > 10);
+  const tpl = readSource("apps/web/lib/email/templates/universal-alert-template.ts");
+  assert(tpl.includes("escapeAttr(") && (tpl.match(/escapeAttr\(/g) ?? []).length > 10 && readSource("apps/web/lib/risk-alerts/build-risk-alert-emails.ts").includes("universal-alert-template"));
   assert(stripHtml("<script>alert(1)</script><p>ok</p><style>x</style>") === "ok");
   const big = "x".repeat(MAX_INBOUND_BODY_CHARS + 5000);
   assert(limitInboundBody(big).length < big.length && limitInboundBody(big).includes("truncado pelo ACC") && limitInboundBody("a\u0000b") === "ab");

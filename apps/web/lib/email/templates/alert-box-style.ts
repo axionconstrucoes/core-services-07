@@ -150,10 +150,18 @@ export function buildAlertHeaderHtml(
 /** Espaço visível entre a linha logo/risco e o primeiro texto abaixo. */
 export const HEADER_GAP_PX = 18;
 
-/** Caixa individual de UM alerta: borda contínua de 2px, cantos arredondados. */
+/**
+ * Indicação de gravidade nos alertas de fundo BRANCO: faixa lateral azul (MÉDIO) ou verde (BAIXO). CRÍTICO e ALTO já se
+ * identificam pelo fundo (vermelho/amarelo). Contraste das cores sobre branco >= 4,5:1 (conferido em teste).
+ */
+export const ALERT_ACCENT: Partial<Record<AlertSeverity, string>> = { MEDIA: "#1D4ED8", BAIXA: "#15803D" };
+
+/** Caixa individual de UM alerta: borda contínua de 2px, cantos arredondados (+ faixa lateral azul/verde em MÉDIO/BAIXO). */
 export function buildAlertBoxHtml(severity: AlertSeverity, innerHtml: string): string {
   const tone = ALERT_TONES[severity];
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${tone.background}" style="width:100%;border-collapse:separate;border-spacing:0;background-color:${tone.background};border:2px solid ${tone.border};border-radius:8px;"><tr><td style="padding:16px 18px;">${innerHtml}</td></tr></table>`;
+  const accent = ALERT_ACCENT[severity];
+  const accentStyle = accent ? `border-left:6px solid ${accent};` : "";
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${tone.background}" style="width:100%;border-collapse:separate;border-spacing:0;background-color:${tone.background};border:2px solid ${tone.border};${accentStyle}border-radius:8px;"><tr><td style="padding:16px 18px;">${innerHtml}</td></tr></table>`;
 }
 
 /** Painel interno branco usado nos blocos de detalhe quando o fundo da caixa é escuro. */
@@ -239,17 +247,12 @@ export function buildActionsPanelHtml(innerHtml: string, consultAiHref?: string 
 }
 
 /**
- * CSS responsivo comum aos e-mails de alerta (individual e lote). No celular a coluna de ações vai para
- * BAIXO do conteúdo (nunca o cobre) e o CONSULTAR IA fica AO LADO dos três botões, com áreas de toque
- * de 44px (inline-block, sem flex/grid). Sem suporte a <style> no cliente, vale o layout vertical padrão.
+ * CSS responsivo comum aos e-mails de alerta (individual, lote, risco e consolidado). No celular a coluna de ações vai
+ * para BAIXO do conteúdo (nunca o cobre) e os quatro botões ficam empilhados, centralizados, com áreas de toque de 44px
+ * (sem flex/grid). Sem suporte a <style> no cliente, vale o layout vertical padrão.
  */
 export const ALERT_MOBILE_CSS = `
     .acc-actions-panel { width:100% !important; }
-    .acc-consult-wrap, .acc-buttons-wrap { display:inline-block !important; vertical-align:middle !important; box-sizing:border-box !important; margin:0 !important; }
-    .acc-consult-wrap { width:43% !important; padding:0 4px !important; }
-    .acc-buttons-wrap { width:55% !important; padding:0 4px !important; }
-    .acc-consult-ai { width:100% !important; max-width:138px !important; }
-    .acc-consult-ai td { height:48px !important; width:auto !important; }
-    .acc-consult-ai a { height:44px !important; line-height:44px !important; width:auto !important; font-size:12px !important; }
+    .acc-buttons-wrap { display:block !important; width:100% !important; margin:0 !important; }
     .acc-compact-btn td { height:44px !important; }
-    .acc-compact-btn a { height:44px !important; line-height:44px !important; }`;
+    .acc-compact-btn a, .acc-compact-btn span { height:44px !important; line-height:44px !important; }`;

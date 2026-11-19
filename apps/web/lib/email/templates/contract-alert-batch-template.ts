@@ -31,12 +31,11 @@ import {
   BUTTON_COLUMN_WIDTH_PX,
   HEADER_GAP_PX,
   ALERT_MOBILE_CSS,
-  buildActionsPanelHtml,
   buildAlertBoxHtml,
   buildAlertHeaderHtml,
-  buildThreeActionButtonsHtml,
   type ThreeActions,
 } from "@/lib/email/templates/alert-box-style";
+import { buildUniversalActionsPanelHtml } from "@/lib/email/templates/universal-alert-actions";
 import {
   alertClauseHtml,
   alertClauseText,
@@ -157,7 +156,7 @@ function buildItemHtml(
           ${alertRepeatHtml(item.severity)}
         </td>
         <td class="acc-batch-actions-col" valign="top" width="${BUTTON_COLUMN_WIDTH_PX}" style="width:${BUTTON_COLUMN_WIDTH_PX}px;padding:0 0 0 16px;">
-          ${buildActionsPanelHtml(buildThreeActionButtonsHtml((action) => buildRespondActionUrl(item, action)), item.aiConsultUrl)}
+          ${buildUniversalActionsPanelHtml({ links: { RESOLVIDO: buildRespondActionUrl(item, "RESOLVIDO"), EM_ANDAMENTO: buildRespondActionUrl(item, "EM_ANDAMENTO"), ENVIAR_PARA: buildRespondActionUrl(item, "ENVIADO_PARA"), ESPECIALISTA: item.aiConsultUrl }, unavailableReasons: { ESPECIALISTA: "Consulta indisponível para este alerta." } })}
         </td>
       </tr>
     </table>`;
@@ -177,10 +176,10 @@ function buildItemText(item: ContractAlertBatchEmailItem, fallbackProject: strin
     alertClauseText({ label: item.clauseLabel, text: item.clauseText }),
     alertEvidenceText(item.evidence),
     repeatNoticeText(item.severity),
-    ...(item.aiConsultUrl ? [`CONSULTAR IA: ${item.aiConsultUrl}`] : []),
     `RESOLVIDO: ${buildRespondActionUrl(item, "RESOLVIDO")}`,
     `EM ANDAMENTO: ${buildRespondActionUrl(item, "EM_ANDAMENTO")}`,
-    `ENVIADO P/: ${buildRespondActionUrl(item, "ENVIADO_PARA")}`,
+    `ENVIAR PARA: ${buildRespondActionUrl(item, "ENVIADO_PARA")}`,
+    `ESPECIALISTA: ${item.aiConsultUrl ?? "indisponível (consulta indisponível para este alerta)"}`,
   ].join("\n");
 }
 

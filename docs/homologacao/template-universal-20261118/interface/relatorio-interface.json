@@ -1,0 +1,326 @@
+[
+  {
+    "id": "01-resolvido",
+    "title": "Confirmação de resolução (RESOLVIDO)",
+    "path": "/resolver",
+    "viewport": "desktop",
+    "file": "img/01-resolvido-desktop.png",
+    "horizontalScroll": false,
+    "info": {
+      "buttons": [
+        {
+          "t": "RESOLVIDO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "EM ANDAMENTO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ENVIAR PARA",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ESPECIALISTA",
+          "bg": "rgb(194, 65, 12)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "OUTRO",
+          "bg": "rgba(0, 0, 0, 0)",
+          "fg": "rgb(255, 255, 255)"
+        }
+      ],
+      "selectBg": null,
+      "forecastType": null,
+      "active": null
+    }
+  },
+  {
+    "id": "02-em-andamento",
+    "title": "EM ANDAMENTO — campo de previsão (data e horário no ALTO)",
+    "path": "/andamento",
+    "focus": "input[name=\"forecastAt\"]",
+    "viewport": "desktop",
+    "file": "img/02-em-andamento-desktop.png",
+    "horizontalScroll": false,
+    "info": {
+      "buttons": [
+        {
+          "t": "RESOLVIDO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "EM ANDAMENTO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ENVIAR PARA",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ESPECIALISTA",
+          "bg": "rgb(194, 65, 12)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "OUTRO",
+          "bg": "rgba(0, 0, 0, 0)",
+          "fg": "rgb(255, 255, 255)"
+        }
+      ],
+      "selectBg": null,
+      "forecastType": "datetime-local",
+      "active": "forecastAt"
+    }
+  },
+  {
+    "id": "03-enviar-para",
+    "title": "ENVIAR PARA — lista escura de colaboradores",
+    "path": "/enviar",
+    "focus": "select[name=\"targetUserId\"]",
+    "viewport": "desktop",
+    "file": "img/03-enviar-para-desktop.png",
+    "horizontalScroll": false,
+    "info": {
+      "buttons": [
+        {
+          "t": "RESOLVIDO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "EM ANDAMENTO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ENVIAR PARA",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ESPECIALISTA",
+          "bg": "rgb(194, 65, 12)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "OUTRO",
+          "bg": "rgba(0, 0, 0, 0)",
+          "fg": "rgb(255, 255, 255)"
+        }
+      ],
+      "selectBg": "rgb(11, 31, 58)/rgb(255, 255, 255)",
+      "forecastType": null,
+      "active": "targetUserId"
+    }
+  },
+  {
+    "id": "04-especialista",
+    "title": "ESPECIALISTA — caixa de consulta (somente leitura)",
+    "path": "/especialista",
+    "viewport": "desktop",
+    "file": "img/04-especialista-desktop.png",
+    "horizontalScroll": false,
+    "info": {
+      "buttons": [
+        {
+          "t": "RESOLVIDO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "EM ANDAMENTO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ENVIAR PARA",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ESPECIALISTA",
+          "bg": "rgb(194, 65, 12)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "OUTRO",
+          "bg": "rgba(0, 0, 0, 0)",
+          "fg": "rgb(255, 255, 255)"
+        }
+      ],
+      "selectBg": null,
+      "forecastType": null,
+      "active": null
+    }
+  },
+  {
+    "id": "01-resolvido",
+    "title": "Confirmação de resolução (RESOLVIDO)",
+    "path": "/resolver",
+    "viewport": "celular",
+    "file": "img/01-resolvido-celular.png",
+    "horizontalScroll": false,
+    "info": {
+      "buttons": [
+        {
+          "t": "RESOLVIDO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "EM ANDAMENTO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ENVIAR PARA",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ESPECIALISTA",
+          "bg": "rgb(194, 65, 12)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "OUTRO",
+          "bg": "rgba(0, 0, 0, 0)",
+          "fg": "rgb(255, 255, 255)"
+        }
+      ],
+      "selectBg": null,
+      "forecastType": null,
+      "active": null
+    }
+  },
+  {
+    "id": "02-em-andamento",
+    "title": "EM ANDAMENTO — campo de previsão (data e horário no ALTO)",
+    "path": "/andamento",
+    "focus": "input[name=\"forecastAt\"]",
+    "viewport": "celular",
+    "file": "img/02-em-andamento-celular.png",
+    "horizontalScroll": false,
+    "info": {
+      "buttons": [
+        {
+          "t": "RESOLVIDO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "EM ANDAMENTO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ENVIAR PARA",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ESPECIALISTA",
+          "bg": "rgb(194, 65, 12)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "OUTRO",
+          "bg": "rgba(0, 0, 0, 0)",
+          "fg": "rgb(255, 255, 255)"
+        }
+      ],
+      "selectBg": null,
+      "forecastType": "datetime-local",
+      "active": "forecastAt"
+    }
+  },
+  {
+    "id": "03-enviar-para",
+    "title": "ENVIAR PARA — lista escura de colaboradores",
+    "path": "/enviar",
+    "focus": "select[name=\"targetUserId\"]",
+    "viewport": "celular",
+    "file": "img/03-enviar-para-celular.png",
+    "horizontalScroll": false,
+    "info": {
+      "buttons": [
+        {
+          "t": "RESOLVIDO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "EM ANDAMENTO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ENVIAR PARA",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ESPECIALISTA",
+          "bg": "rgb(194, 65, 12)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "OUTRO",
+          "bg": "rgba(0, 0, 0, 0)",
+          "fg": "rgb(255, 255, 255)"
+        }
+      ],
+      "selectBg": "rgb(11, 31, 58)/rgb(255, 255, 255)",
+      "forecastType": null,
+      "active": "targetUserId"
+    }
+  },
+  {
+    "id": "04-especialista",
+    "title": "ESPECIALISTA — caixa de consulta (somente leitura)",
+    "path": "/especialista",
+    "viewport": "celular",
+    "file": "img/04-especialista-celular.png",
+    "horizontalScroll": false,
+    "info": {
+      "buttons": [
+        {
+          "t": "RESOLVIDO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "EM ANDAMENTO",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ENVIAR PARA",
+          "bg": "rgb(107, 114, 128)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "ESPECIALISTA",
+          "bg": "rgb(194, 65, 12)",
+          "fg": "rgb(255, 255, 255)"
+        },
+        {
+          "t": "OUTRO",
+          "bg": "rgba(0, 0, 0, 0)",
+          "fg": "rgb(255, 255, 255)"
+        }
+      ],
+      "selectBg": null,
+      "forecastType": null,
+      "active": null
+    }
+  }
+]

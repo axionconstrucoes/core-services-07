@@ -1,4 +1,4 @@
-// Consolidação dos alertas do piloto — 56 itens: resposta por e-mail
+// Consolidação dos alertas do piloto — 66 itens (57–66: segurança dos quatro botões / template universal): resposta por e-mail
 // (correlação, limpeza, filtros, autorização), ações formais e máquina de
 // estados, regra única de escalonamento imediato, segurança e pendências
 // do piloto. Executa as funções REAIS (pure) com fixtures em memória e
@@ -7,6 +7,7 @@
 // Uso:
 //   node scripts/test-pilot-risk-alert-actions.mjs
 
+import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { register } from "node:module";
 import path from "node:path";
@@ -215,7 +216,7 @@ await check("18. ENVIAR P/ filtra usuários: só elegíveis (membership ACTIVE +
   const detail = readSource("apps/web/lib/risk-alerts/alert-detail-data.ts");
   assert(detail.includes('.eq("status", "ACTIVE")') && detail.includes("c.email.split(\"@\")[1] === corporateDomain") && detail.includes("matrixPosition"));
   const form = readSource("apps/web/components/risk-alerts/alert-action-forms.tsx");
-  assert(form.includes("Pesquisar destinatário") && form.includes("Selecione…"), "dropdown pesquisável sem seleção automática");
+  assert(form.includes("Pesquisar colaborador") && form.includes("Selecione…"), "dropdown pesquisável sem seleção automática");
 });
 await check("19. Terceiro fora da allowlist recebe SÓ o alerta encaminhado (exceção manual registrada), sem entrar na allowlist automática", () => {
   const t = act("FORWARD", { targetUserId: U_THIRD, text: "Avaliar frente 3", confirmed: true });
@@ -566,6 +567,99 @@ await check("56. Outros destinatários globais (Ricardo Silva, Carlos, Rosana) n
   assert(cycle.includes('if (item.entry.recipient.status !== "PENDING") continue;'));
   const email = buildImmediateRiskAlertEmail({ content: entry.content, projectId: PROJECT, projectName: "Obra", recipientName: null, baseUrl: "https://acc.example", timeZone: TZ, generatedAt: NOW, actionButtons: [], actionLinks: { RESOLVED: "https://acc.example/x" }, visibleCode: "ABCD1234" });
   assert(email.text.includes("RESOLVIDO: https://acc.example/x") && email.subject.includes("[ACC-ALERTA:ABCD1234]"));
+});
+
+// ------------------------------------------------------------------ TEMPLATE UNIVERSAL — segurança dos quatro botões (57–66)
+const gitDiffNames = () => {
+  try {
+    return execSync("git diff --name-only origin/main...HEAD", { cwd: repoRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).split("\n").filter(Boolean);
+  } catch {
+    return null; // sem histórico disponível (clone raso): a verificação por diff é pulada, as demais continuam
+  }
+};
+const WRITES = /\.(insert|update|upsert|delete)\(|\.rpc\(/;
+
+await check("57. ESPECIALISTA não altera estado: a consulta é só leitura (nenhuma escrita, sem store, sem máquina de estados) e a tela usa o painel de consulta, não o formulário de ação", () => {
+  for (const file of [
+    "apps/web/lib/ai/alert-consult/run-alert-consult.ts",
+    "apps/web/lib/ai/alert-consult/load-alert-consult-subject.ts",
+    "apps/web/app/alertas/consulta-ia/[projectId]/[subject]/[id]/actions.ts",
+  ]) {
+    const src = readSource(file);
+    assert(!WRITES.test(src), `${file}: escrita encontrada`);
+    assert(!/applyAlertAction|applyTransition|createSupabaseRiskAlertStore/.test(src), `${file}: acesso à máquina de estados/store`);
+  }
+  const form = readSource("apps/web/components/risk-alerts/alert-action-forms.tsx");
+  assert(form.includes('selected === "EXPERT_CONSULTATION" ?') && form.includes("<AlertConsultPanel") && form.includes('selected && selected !== "EXPERT_CONSULTATION"'), "consulta e formulário de ação devem ser caminhos distintos");
+});
+await check("58. ESPECIALISTA não gera escalonamento por consulta: a web recusa EXPERT_CONSULTATION ANTES de qualquer transição; SLA/escalonamento normais seguem na máquina de estados", () => {
+  const actions = readSource("apps/web/app/[projectId]/alertas/[caseId]/actions.ts");
+  const guard = actions.indexOf('(action as string) === "EXPERT_CONSULTATION"');
+  assert(guard > 0 && guard < actions.indexOf("applyAlertAction({"), "recusa precisa vir antes da transição");
+  // histórico preservado: a ação antiga continua existindo na máquina de estados (registros e fluxo legado por e-mail)
+  const machine = readSource("apps/web/lib/risk-alerts/alert-state-machine.ts");
+  assert(machine.includes('case "EXPERT_CONSULTATION"') && machine.includes('IMMEDIATE_ESCALATION_ACTIONS: ReadonlySet<AlertActionType> = new Set(["TAKING_ACTION", "FORWARD", "EXPERT_CONSULTATION", "OTHER"])'));
+  const legacy = act("EXPERT_CONSULTATION", { question: "Isto é recuperável?", expertId: "planning-director" }, { origin: "EMAIL" });
+  assert(legacy.ok === true, "registros/fluxo legado continuam aceitando a ação antiga");
+});
+await check("59. Regras de SLA, cron, migrations, workflows e destinatários permanecem inalterados nesta branch (diff contra origin/main)", () => {
+  const names = gitDiffNames();
+  if (names === null) return;
+  const forbidden = names.filter((n) => /^(apps\/web\/lib\/sla\/|supabase\/migrations\/|\.github\/workflows\/|apps\/web\/vercel\.json$|vercel\.json$)/.test(n) || n === "apps/web/lib/risk-alerts/alert-state-machine.ts" || n === "apps/web/lib/risk-alerts/plan-risk-alerts.ts" || n === "apps/web/lib/risk-alerts/recipients.ts");
+  assert(forbidden.length === 0, `arquivos que não deveriam mudar: ${forbidden.join(", ")}`);
+});
+await check("60. RESOLVIDO exige confirmação explícita e, em ALTO/CRÍTICO, evidência; nada é concluído sem isso", () => {
+  assert(act("RESOLVED", { text: "ok" }).code === "CONFIRMATION_REQUIRED");
+  assert(act("RESOLVED", { text: "ok", confirmed: true, justification: "j" }).code === "EVIDENCE_REQUIRED", "ALTO sem evidência");
+  const ok = act("RESOLVED", { text: "ok", confirmed: true, justification: "j", evidence: "foto-123" });
+  assert(ok.ok === true);
+});
+await check("61. EM ANDAMENTO exige previsão válida na tela (inválida é recusada); a previsão não reinicia prazo nem suspende escalonamento", () => {
+  const bad = act("TAKING_ACTION", { text: "providência", forecastAt: "isto não é data" });
+  assert(bad.ok === false && bad.code === "FORECAST_INVALID", "previsão inválida deve ser recusada na WEB");
+  const form = readSource("apps/web/components/risk-alerts/alert-action-forms.tsx");
+  assert(form.includes('name="forecastAt" required'));
+  assert(form.includes('type={immediate ? "datetime-local" : "date"}'), "ALTO/CRÍTICO data+horário; MÉDIO/BAIXO data");
+});
+await check("62. ENVIAR PARA respeita a participação na obra: só membro ACTIVE da MESMA obra, nunca a si mesmo; prazo original não é reiniciado", () => {
+  assert(act("FORWARD", { targetUserId: "zzzzzzzz-0000-4000-8000-000000000000", text: "x" }).code === "FORWARD_TARGET_INVALID", "fora da obra");
+  assert(act("FORWARD", { targetUserId: U_L1, text: "x" }).code === "FORWARD_SELF");
+  const detail = readSource("apps/web/lib/risk-alerts/alert-detail-data.ts");
+  assert(detail.includes('.eq("status", "ACTIVE")') && /project_memberships/.test(detail), "lista de candidatos vem dos membros ativos da obra");
+  const form = readSource("apps/web/components/risk-alerts/alert-action-forms.tsx");
+  assert(form.includes('Justificativa do encaminhamento (opcional)') && !/Justificativa do encaminhamento[^<]*<Textarea[^>]*required/.test(form));
+});
+await check("63. Nenhuma gravação por GET: a página do alerta e a consulta só leem; o clique do e-mail apenas pré-seleciona o formulário", () => {
+  for (const file of ["apps/web/app/[projectId]/alertas/[caseId]/page.tsx", "apps/web/lib/risk-alerts/alert-detail-data.ts", "apps/web/app/alertas/consulta-ia/[projectId]/[subject]/[id]/page.tsx"]) {
+    assert(!WRITES.test(readSource(file)), `${file}: escrita em caminho de leitura`);
+  }
+  const emails = readSource("apps/web/lib/risk-alerts/build-risk-alert-emails.ts");
+  assert(emails.includes("só PRÉ-SELECIONA") || emails.includes("só PRÉ-SELECIONA o formulário"));
+  const immediate = buildImmediateRiskAlertEmail({ content: { kind: "IMMEDIATE", changed: false, riskLevel: "HIGH", area: "PLANEJAMENTO", caseTitle: "T", reference: "R", summary: "s", impact: "i", originPath: "x", slaActionId: null, deadlineLabel: "Prazo", deadlineAt: null, levelLabel: "Responsável", previousLevelLabel: null, responsibleName: "Fulano", escalationReason: null, recommendation: null, requiresAcknowledgment: false, requiresJustification: false }, projectId: PROJECT, projectName: "Obra", recipientName: null, baseUrl: "https://acc.example", timeZone: TZ, generatedAt: NOW, actionButtons: [], caseId: CASE_ID, logos: { maroon: true, inverted: true } });
+  assert(!/(confirm|apply|execute|resolve|confirmed)=(1|true)/i.test(immediate.html + immediate.text), "o link do e-mail não pode confirmar nada");
+  for (const acao of ["RESOLVED", "TAKING_ACTION", "FORWARD", "ESPECIALISTA"]) assert(immediate.html.includes(`alertas/${CASE_ID}?acao=${acao}`), acao);
+});
+await check("64. Sem dupla execução: a mesma ação aplicada duas vezes produz as MESMAS chaves de idempotência (o banco deduplica); consulta repetida não grava nada", () => {
+  const a = act("TAKING_ACTION", { text: "providência", forecastAt: "2026-09-25T12:00" });
+  const b = act("TAKING_ACTION", { text: "providência", forecastAt: "2026-09-25T12:00" });
+  assert(a.ok && b.ok);
+  assert(JSON.stringify(a.events.map((e) => e.idempotencyKey)) === JSON.stringify(b.events.map((e) => e.idempotencyKey)), "chaves de evento iguais");
+  assert(JSON.stringify(a.outbox.map((e) => e.idempotencyKey)) === JSON.stringify(b.outbox.map((e) => e.idempotencyKey)), "chaves de outbox iguais");
+});
+await check("65. A identidade vem da sessão autenticada: o ator é auth.user.id; o formulário nunca informa quem está agindo", () => {
+  const actions = readSource("apps/web/app/[projectId]/alertas/[caseId]/actions.ts");
+  assert(actions.includes("actorUserId: auth.user.id") && actions.includes("applyTransition(caseId, transition, auth.user.id"));
+  assert(!/formData\.get\("(actorUserId|actor|userId|currentUserId)"\)/.test(actions) && !/field\(formData, "(actorUserId|actor|userId|currentUserId)"\)/.test(actions));
+  const consult = readSource("apps/web/app/alertas/consulta-ia/[projectId]/[subject]/[id]/actions.ts");
+  assert(consult.includes("createSupabaseServerClient") && consult.includes("getCurrentProjectPermission"), "consulta: sessão + permissão da obra");
+});
+await check("66. A integração mantém permissões, isolamento por obra e histórico: o caso é lido por obra (RLS), ação histórica preservada e máquina de estados intacta", () => {
+  const loader = readSource("apps/web/lib/ai/alert-consult/load-alert-consult-subject.ts");
+  assert(/from\("risk_alert_cases"\)[\s\S]*\.eq\("id", caseId\)[\s\S]*\.eq\("project_id", projectId\)/.test(loader), "caso filtrado pela obra");
+  const run = readSource("apps/web/lib/ai/alert-consult/run-alert-consult.ts");
+  assert(run.includes("subject.projectId !== input.projectId") && run.includes("getPermission(input.projectId)"));
+  const names = gitDiffNames();
+  if (names !== null) assert(!names.includes("apps/web/lib/risk-alerts/alert-state-machine.ts"), "máquina de estados não pode mudar");
 });
 
 console.log("");

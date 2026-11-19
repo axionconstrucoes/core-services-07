@@ -333,14 +333,16 @@ check("lote: cada alerta tem a PRÓPRIA caixa e cor (quatro caixas; o lote não 
   assert.ok(batch.html.includes("background-color:#ffffff;border:1px solid #e5e7eb;border-radius:8px"));
 });
 
-check("TRÊS botões: RESOLVIDO / EM ANDAMENTO / ENVIADO P/ (ordem fixa), sem VER EVENTO, mesma largura/altura, sem 100%/min-width", () => {
+check("QUATRO botões: RESOLVIDO / EM ANDAMENTO / ENVIAR PARA / ESPECIALISTA (ordem fixa), sem VER EVENTO, mesma largura/altura, sem 100%/min-width", () => {
   assert.equal(style.EM_ANDAMENTO_TEXT_WIDTH_PX, 114);
   assert.equal(style.BUTTON_SIDE_PADDING_PX, 12);
   assert.equal(style.BUTTON_WIDTH_PX, 114 + 24);
   const w = style.BUTTON_WIDTH_PX;
   const h = style.BUTTON_HEIGHT_PX;
-  const tables = batch.html.match(/<table class="acc-compact-btn"[^>]*>.*?<\/table>/gs) ?? [];
-  assert.equal(tables.length, 12, "3 botões × 4 alertas");
+  const withAi = buildContractAlertBatchEmail({ recipientName: null, projectName: "O", batchUrl: `${BASE}/l`, hasInlineLogo: true,
+    items: batchItems.map((it) => ({ ...it, aiConsultUrl: `${BASE}/alertas/consulta-ia/p/evento/${it.eventId}` })) });
+  const tables = withAi.html.match(/<table class="acc-compact-btn"[^>]*>.*?<\/table>/gs) ?? [];
+  assert.equal(tables.length, 16, "4 botões × 4 alertas");
   for (const t of tables) {
     assert.match(t, new RegExp(`width="${w}"`));
     assert.match(t, new RegExp(`<td width="${w}" height="${h}"`));
@@ -348,10 +350,16 @@ check("TRÊS botões: RESOLVIDO / EM ANDAMENTO / ENVIADO P/ (ordem fixa), sem VE
     assert.match(t, /font-size:14px/);
     assert.ok(!/width:100%|min-width|padding:\d+px \d+px/.test(t));
   }
-  const labels = [...batch.html.matchAll(/white-space:nowrap;overflow:hidden;">([^<]+)<\/a>/g)].map((m) => m[1]);
-  assert.deepEqual(labels.slice(0, 3), ["RESOLVIDO", "EM ANDAMENTO", "ENVIADO P/"]);
-  assert.deepEqual([...new Set(labels)].sort(), ["EM ANDAMENTO", "ENVIADO P/", "RESOLVIDO"]);
-  for (const c of ["#1B2A4A", "#15803D", "#F97316"]) assert.ok(batch.html.includes(`bgcolor="${c}"`), c);
+  const labels = [...withAi.html.matchAll(/white-space:nowrap;overflow:hidden;">([^<]+)<\/a>/g)].map((m) => m[1]);
+  assert.deepEqual(labels.slice(0, 4), ["RESOLVIDO", "EM ANDAMENTO", "ENVIAR PARA", "ESPECIALISTA"]);
+  assert.deepEqual([...new Set(labels)].sort(), ["EM ANDAMENTO", "ENVIAR PARA", "ESPECIALISTA", "RESOLVIDO"]);
+  // três de tratamento em cinza médio; ESPECIALISTA (consulta) em laranja; todos com texto branco
+  for (const c of ["#6B7280", "#C2410C"]) assert.ok(withAi.html.includes(`bgcolor="${c}"`), c);
+  assert.ok(!/bgcolor="#(1B2A4A|15803D|F97316)"/.test(withAi.html), "cores antigas dos botões não podem restar");
+  // sem URL de consulta, o botão continua no layout, DESATIVADO e com o motivo (nunca simula consulta)
+  const noAi = batch.html;
+  assert.equal((noAi.match(/aria-disabled="true"/g) ?? []).length, 4);
+  assert.ok(noAi.includes("Consulta indisponível para este alerta."));
 });
 
 check("coluna dos botões BRANCA, com largura = botões + pequena margem lateral (um pouco maior que os botões)", () => {
@@ -403,34 +411,31 @@ check("e-mail individual não expõe destinatários de outras pessoas", () => {
 });
 
 console.log("");
-check("CONSULTAR IA: link para a página do ACC ACIMA dos três botões, só texto/link (sem formulário), no individual e no lote", () => {
+check("ESPECIALISTA: botão laranja que abre a consulta (somente leitura) no ACC; sem formulário no e-mail; no individual e no lote", () => {
   const link = `${BASE}/alertas/consulta-ia/p1/evento/e1`;
   const withLink = individual("MEDIA", { quickActionUrls: QUICK, aiConsultUrl: link });
   assert.ok(withLink.html.includes(`href="${link}"`));
-  assert.ok(withLink.html.indexOf("CONSULTAR IA") < withLink.html.indexOf(">RESOLVIDO<"), "acima dos botões");
+  assert.ok(withLink.html.indexOf(">RESOLVIDO<") < withLink.html.indexOf(">ESPECIALISTA<"), "ESPECIALISTA é o quarto botão");
   assert.ok(!/<form|<input|<textarea|<select/i.test(withLink.html), "sem controle interativo no e-mail");
-  assert.ok(!individual("MEDIA", { quickActionUrls: QUICK }).html.includes("CONSULTAR IA"), "sem URL, sem link");
+  assert.ok(!/CONSULTAR IA/.test(withLink.html), "o antigo link CONSULTAR IA não existe mais");
+  assert.ok(individual("MEDIA", { quickActionUrls: QUICK }).html.includes("Consulta indisponível para este alerta."), "sem URL, desativado com motivo");
   const b = buildContractAlertBatchEmail({ recipientName: null, projectName: "O", batchUrl: `${BASE}/l`, hasInlineLogo: true,
     items: batchItems.map((it) => ({ ...it, aiConsultUrl: `${BASE}/alertas/consulta-ia/p/evento/${it.eventId}` })) });
-  assert.equal((b.html.match(/CONSULTAR IA<\/a>/g) ?? []).length, 4, "um link por alerta");
+  assert.equal((b.html.match(/>ESPECIALISTA<\/a>/g) ?? []).length, 4, "um botão por alerta");
   for (const it of batchItems) assert.ok(b.html.includes(`/alertas/consulta-ia/p/evento/${it.eventId}`));
-  assert.ok(b.text.includes("CONSULTAR IA:"));
-  // continua exatamente três botões de ação iguais
-  assert.equal((b.html.match(/class="acc-compact-btn"/g) ?? []).length, 12);
+  assert.ok(b.text.includes("ESPECIALISTA:"));
+  assert.equal((b.html.match(/class="acc-compact-btn"/g) ?? []).length, 16);
 });
 
-check("CELULAR: CONSULTAR IA fica AO LADO dos botões (inline-block, sem flex/grid), abaixo do conteúdo, com áreas de toque de 44px; sem CSS o layout vertical continua válido", () => {
+check("CELULAR: os quatro botões empilham ABAIXO do conteúdo, centralizados, com áreas de toque de 44px (sem flex/grid); sem CSS o layout vertical continua válido", () => {
   const html = individual("MEDIA", { quickActionUrls: QUICK, aiConsultUrl: `${BASE}/alertas/consulta-ia/p/evento/e` }).html;
   const css = html.slice(html.indexOf("@media only screen and (max-width:640px)"), html.indexOf("</style>"));
-  assert.match(css, /\.acc-consult-wrap, \.acc-buttons-wrap \{ display:inline-block !important; vertical-align:middle !important/);
-  assert.match(css, /\.acc-consult-wrap \{ width:43% !important/);
-  assert.match(css, /\.acc-buttons-wrap \{ width:55% !important/);
+  assert.match(css, /\.acc-buttons-wrap \{ display:block !important; width:100% !important/);
   assert.match(css, /\.acc-compact-btn td \{ height:44px !important; \}/);
-  assert.match(css, /\.acc-consult-ai a \{ height:44px !important/);
+  assert.match(css, /\.acc-compact-btn a, \.acc-compact-btn span \{ height:44px !important/);
   assert.match(css, /\.acc-content-col, \.acc-actions-col \{ display:block !important; width:100% !important; \}/, "coluna de ações vai para BAIXO do conteúdo (não o cobre)");
   assert.ok(!/display:\s*flex|display:\s*grid/.test(html), "sem flex/grid");
-  const panel = html.slice(html.indexOf('class="acc-actions-panel"'));
-  assert.ok(panel.indexOf("acc-consult-wrap") < panel.indexOf("acc-buttons-wrap"), "layout padrão: consultar acima dos botões, mesma coluna branca");
+  assert.ok(!html.includes("acc-consult-wrap"), "o layout antigo com CONSULTAR IA ao lado não existe mais");
 });
 
 check("ASSUNTO INDIVIDUAL (envio manual): crítico/alto com risco; médio/baixo 'OBRA | ACC' sem risco; prefixo do piloto só pelo guard, sem duplicar", () => {

@@ -20,7 +20,7 @@ export function EmailProjectScopeForm({
   );
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="projectId" value={projectId} />
 
       <label className="flex items-center gap-2 text-sm font-medium">
@@ -37,7 +37,7 @@ export function EmailProjectScopeForm({
         de domínio CLIENTE, palavra-chave configurada ou assunto aprovado.
       </p>
 
-      <label className="flex flex-col gap-1.5 text-sm font-medium">
+      <label className="flex flex-col gap-1 text-sm font-medium">
         Palavras-chave do projeto
         <textarea
           name="scopeKeywords"
@@ -52,7 +52,7 @@ export function EmailProjectScopeForm({
         </span>
       </label>
 
-      <label className="flex flex-col gap-1.5 text-sm font-medium">
+      <label className="flex flex-col gap-1 text-sm font-medium">
         Assuntos explicitamente aprovados
         <textarea
           name="scopeExactSubjects"

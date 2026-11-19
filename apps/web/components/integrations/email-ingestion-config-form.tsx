@@ -128,7 +128,7 @@ export function EmailIngestionConfigForm({
   );
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="clientDomains" value={JSON.stringify(domains)} />
       <input type="hidden" name="participants" value={JSON.stringify(participants)} />
@@ -139,8 +139,8 @@ export function EmailIngestionConfigForm({
         <FeatureInfo helpId="gmail-prefilled-fields" />
       </p>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="flex flex-col gap-1 text-sm font-medium">
           <span className="flex items-center gap-1.5">
             Conta AXION
             <FeatureInfo helpId="gmail-account-connected" />
@@ -164,7 +164,7 @@ export function EmailIngestionConfigForm({
           </Select>
         </label>
 
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
+        <label className="flex flex-col gap-1 text-sm font-medium">
           <span className="flex items-center gap-1.5">
             Período de ingestão
             <FeatureInfo helpId="gmail-ingestion-period" />
@@ -185,8 +185,8 @@ export function EmailIngestionConfigForm({
       </div>
 
       {windowMode === "CUSTOM" ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
+        <div className="grid gap-3 md:grid-cols-2">
+          <label className="flex flex-col gap-1 text-sm font-medium">
             Data inicial
             <Input
               type="date"
@@ -198,7 +198,7 @@ export function EmailIngestionConfigForm({
               title={startAtPrefilled.title}
             />
           </label>
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
+          <label className="flex flex-col gap-1 text-sm font-medium">
             Data final (opcional — nunca ultrapassa hoje)
             <Input
               type="date"

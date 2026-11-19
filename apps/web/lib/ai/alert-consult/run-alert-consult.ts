@@ -19,7 +19,7 @@ import {
 } from "./specialties";
 
 export interface AlertConsultSource {
-  kind: "EVENTO" | "CLAUSULA" | "EVIDENCIA" | "PROVIDENCIA";
+  kind: "EVENTO" | "CLAUSULA" | "EVIDENCIA" | "PROVIDENCIA" | "ALERTA";
   label: string;
   /** Caminho relativo no ACC (exige login e participação na obra); null = pendente de confirmação. */
   href: string | null;

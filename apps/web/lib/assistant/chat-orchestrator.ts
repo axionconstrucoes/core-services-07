@@ -6,7 +6,7 @@
 // O que a IA NÃO faz: escrever regra, prazo, permissão, funcionalidade ou estado de rotina. O corpo da resposta operacional é
 // sempre o texto aprovado das entradas escolhidas; a seção do manual vem da entrada, nunca da IA.
 
-import { SCOPE_REPLY, SCOPE_REPLY_TITLE, SPECIALIST_ENTRY_ID, SPECIALIST_SECTION, SPECIALIST_SUMMARY, SPECIALIST_TITLE, isContractInterpretation, isOutOfScope } from "./scope";
+import { SCOPE_REPLY, SCOPE_REPLY_TITLE, SPECIALIST_ENTRY_ID, SPECIALIST_SECTION, SPECIALIST_SUMMARY, SPECIALIST_TITLE, isContractInterpretation, isOutOfScope, isPersonalOrObsceneOutOfScope } from "./scope";
 import { localRetrieve } from "./local-match";
 import { recordAxiaRoute, type AxiaRoute } from "./metrics";
 import {
@@ -210,6 +210,13 @@ export async function converse(input: ConverseInput): Promise<AssistantAnswer> {
   const repeatedUnresolved = !!lastTurn && isUnresolvedEntry(lastTurn.entryId);
   const now = input.now ?? Date.now();
   const needsProject = projectId === null && dependsOnSpecificProject(rest);
+
+  // Perguntas íntimas/pessoais à AXIA e obscenidades fora do contexto:
+  // recusa determinística ANTES de saudações, Q&A ou IA paga.
+  // Incidentes reais de SSMA e assédio de obra ficam fora deste filtro.
+  if (isPersonalOrObsceneOutOfScope(normalized)) {
+    return done("escopo_local", plainAnswer("scope", "fora-do-escopo", SCOPE_REPLY_TITLE, SCOPE_REPLY, adminHandoff));
+  }
 
   // 1) Tentativa de contornar permissões ou obter dados: limite fixo (a instrução do usuário não altera as regras).
   if (isPermissionBypass(normalized)) return done("bypass_local", withMeta(buildBoundaryAnswer(projectId, readOnlyNotice, adminHandoff), greeting, "base"));

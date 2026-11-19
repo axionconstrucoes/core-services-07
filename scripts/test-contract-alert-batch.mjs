@@ -333,19 +333,17 @@ check("descrição do risco aparece em peso regular, sem rótulo", () => {
   assert(email.text.includes("Constructec Ltda. pediu 45 dias de aditivo."));
 });
 
-check("os 4 botões de ação usam exatamente as cores do layout aprovado", () => {
-  // DEFINIÇÃO FINAL: VER EVENTO foi removido (o TÍTULO é o link do evento); ficam três botões.
-  // Botões compactos: cor de fundo na célula (bgcolor/background-color) e cor do texto no <a>.
+check("os QUATRO botões de cada alerta: três de tratamento em cinza médio (texto branco) e ESPECIALISTA (consulta) separado", () => {
+  // DEFINIÇÃO FINAL: VER EVENTO foi removido (o TÍTULO é o link do evento); ficam quatro botões, sempre na mesma ordem.
   assert(!email.html.includes(">VER EVENTO<") && !email.html.includes('bgcolor="#FFD600"'));
-  assert(email.html.includes('bgcolor="#1B2A4A"') && email.html.includes(">RESOLVIDO<"));
-  assert(email.html.includes('bgcolor="#15803D"') && email.html.includes(">EM ANDAMENTO<"));
-  assert(email.html.includes('bgcolor="#F97316"') && email.html.includes(">ENVIADO P/<"));
-  // Cada evento tem seu próprio conjunto de 3 botões (2 eventos = 2 de cada).
-  assert.equal((email.html.match(/>RESOLVIDO</g) ?? []).length, 2);
-  assert.equal((email.html.match(/>EM ANDAMENTO</g) ?? []).length, 2);
-  assert.equal((email.html.match(/>ENVIADO P\/</g) ?? []).length, 2);
-  // 6 botões + 2 títulos (link do evento) + 2 evidências com link + ... — todos abrem em nova aba com rel seguro.
+  assert(email.html.includes('bgcolor="#6B7280"') && email.html.includes(">RESOLVIDO<"));
+  assert(email.html.includes(">EM ANDAMENTO<") && email.html.includes(">ENVIAR PARA<") && email.html.includes(">ESPECIALISTA<"));
+  assert(!/bgcolor="#(1B2A4A|15803D|F97316)"/.test(email.html), "cores antigas não podem restar");
+  // Cada evento tem seu próprio conjunto de 4 botões (2 eventos = 2 de cada).
+  for (const label of ["RESOLVIDO", "EM ANDAMENTO", "ENVIAR PARA", "ESPECIALISTA"]) assert.equal((email.html.match(new RegExp(`>${label}<`, "g")) ?? []).length, 2, label);
+  // 6 botões de tratamento ativos; ESPECIALISTA sem URL de consulta fica DESATIVADO com o motivo (nunca simula consulta).
   assert((email.html.match(/class="acc-compact-btn"/g) ?? []).length === 6);
+  assert((email.html.match(/class="acc-compact-btn acc-btn-disabled"/g) ?? []).length === 2);
   assert((email.html.match(/target="_blank"/g) ?? []).length >= 8);
   assert.equal((email.html.match(/target="_blank"/g) ?? []).length, (email.html.match(/rel="noopener noreferrer"/g) ?? []).length);
 });

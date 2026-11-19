@@ -21,7 +21,7 @@ import { answerLegalConsultantQuery } from "@/lib/ai/experts/legal-consultant/qu
 import { answerPlanningDirectorQuery } from "@/lib/ai/experts/planning-director/query";
 import { getAppBaseUrl } from "@/lib/app-base-url";
 import { appendAccEmailSignature } from "@/lib/email/branding/acc-email-signature";
-import { loadAccLogoInlineImage } from "@/lib/email/branding/load-acc-logo-inline-image";
+import { loadAccLogoInlineImage, loadAccLogoInvertedInlineImage } from "@/lib/email/branding/load-acc-logo-inline-image";
 import { EmailSendError, type EmailProvider } from "@/lib/email/email-provider";
 import { FakeEmailProvider } from "@/lib/email/fake-email-provider";
 import { getEmailProvider } from "@/lib/email/get-email-provider";
@@ -196,6 +196,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
   const providerConfigured = providerName === "gmail" || Boolean(options.provider);
   const baseUrl = getAppBaseUrl();
   const inlineLogo = loadAccLogoInlineImage();
+  const inlineLogoInverted = loadAccLogoInvertedInlineImage();
   const expert = options.expert ?? (dryRun ? null : createDefaultExpertConsultant());
 
   const projectIds = options.projectId ? [options.projectId] : await store.listEnabledProjectIds();
@@ -465,7 +466,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     }
 
     // ---- envio: entradas planejadas neste ciclo ----
-    const ctx: SendContext = { store, provider, projectId, projectName: snapshot.projectName, baseUrl, timeZone, nowIso, inlineLogo, caseIds, snapshot, policyFor, deliveredKeys: new Set(), readinessBlockers: readiness.blockers };
+    const ctx: SendContext = { store, provider, projectId, projectName: snapshot.projectName, baseUrl, timeZone, nowIso, inlineLogo, inlineLogoInverted, caseIds, snapshot, policyFor, deliveredKeys: new Set(), readinessBlockers: readiness.blockers };
     const sentKeys = new Set<string>();
     for (const item of persisted) {
       if (item.entry.recipient.status !== "PENDING") continue;
@@ -501,6 +502,8 @@ export interface SendContext {
   timeZone: string;
   nowIso: string;
   inlineLogo: ReturnType<typeof loadAccLogoInlineImage>;
+  /** Logotipo oficial INVERTIDO (alerta CRÍTICO, fundo vermelho). Opcional: ausente => o e-mail não referencia a imagem. */
+  inlineLogoInverted?: ReturnType<typeof loadAccLogoInvertedInlineImage>;
   caseIds: Map<string, string>;
   snapshot: RiskAlertProjectSnapshot;
   policyFor: (area: SlaArea, riskLevel: SlaRiskLevel) => MatrixPolicy;
@@ -559,6 +562,11 @@ async function issueActionLinks(ctx: SendContext, caseId: string, recipientUserI
   return links;
 }
 
+/** Logotipos oficiais disponíveis nesta execução (o HTML só referencia por Content-ID o que realmente será anexado). */
+function logosOf(ctx: SendContext): { maroon: boolean; inverted: boolean } {
+  return { maroon: ctx.inlineLogo !== null, inverted: (ctx.inlineLogoInverted ?? null) !== null };
+}
+
 async function deliver(ctx: SendContext, outboxId: string, caseId: string | null, recipientUserId: string, recipientEmail: string, built: BuiltEmail, notificationType: string, escalationLevel: string | null, idempotencyKey: string, riskLevel?: string): Promise<"SENT" | "FAILED" | "SKIPPED"> {
   // Ciclos simultâneos (instâncias/execuções sobrepostas): só quem reivindicar a linha envia.
   // Quem perde NÃO envia nem altera a linha (o vencedor é o dono dela).
@@ -582,13 +590,20 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
     // correlação segue por In-Reply-To/References/código visível.
     const replyToken = generateReplyToken();
     const replyTo = conversation && ctx.snapshot.replyMailbox ? buildOpaqueReplyTo(ctx.snapshot.replyMailbox, replyToken) : undefined;
-    const signed = appendAccEmailSignature({ text: built.text, html: built.html }, ctx.inlineLogo !== null);
+    // E-mails do template universal já levam o logotipo no cabeçalho: a assinatura NÃO repete a imagem (e só se anexa o que o HTML usa).
+    const universal = built.logoNeeds !== undefined;
+    const signed = appendAccEmailSignature({ text: built.text, html: built.html }, ctx.inlineLogo !== null, !universal);
+    const inlineImages = universal
+      ? [built.logoNeeds?.maroon ? ctx.inlineLogo : null, built.logoNeeds?.inverted ? (ctx.inlineLogoInverted ?? null) : null].filter((image): image is NonNullable<typeof image> => image !== null)
+      : ctx.inlineLogo
+        ? [ctx.inlineLogo]
+        : [];
     const sent = await ctx.provider.send({
       to: delivery.deliveryEmail,
       subject: built.subject,
       text: signed.text,
       html: signed.html,
-      inlineImages: ctx.inlineLogo ? [ctx.inlineLogo] : undefined,
+      inlineImages: inlineImages.length > 0 ? inlineImages : undefined,
       replyTo,
       replyToContext: conversation && replyTo ? { kind: "RISK_ALERT_CONVERSATION", outboxId, conversationId: conversation.id } : undefined,
       inReplyTo: conversation?.rootMessageIdHeader ?? undefined,
@@ -652,7 +667,7 @@ export async function sendPlanned(outboxId: string, caseId: string | null, entry
   if (isPilotTestCaseSendBlocked(record, entry.idempotencyKey, ctx)) return "SKIPPED";
   let built: BuiltEmail;
   if (entry.content.kind === "DIGEST") {
-    built = buildRiskDigestEmail({ content: entry.content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: entry.recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso });
+    built = buildRiskDigestEmail({ content: entry.content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: entry.recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseIdByKey: ctx.caseIds, logos: logosOf(ctx) });
   } else {
     const lines = await forecastLinesForEmail(ctx, caseId, entry.riskLevel, record?.status === "CLOSED");
     built = buildImmediateRiskAlertEmail({
@@ -668,6 +683,8 @@ export async function sendPlanned(outboxId: string, caseId: string | null, entry
         : [],
       actionLinks: caseId ? await issueActionLinks(ctx, caseId, entry.recipient.userId) : undefined,
       visibleCode: record?.visibleCode ?? null,
+      caseId,
+      logos: logosOf(ctx),
     });
   }
   const outcome = await deliver(ctx, outboxId, caseId, entry.recipient.userId, recipientEmail, built, entry.notificationType, entry.escalationLevel, entry.idempotencyKey, entry.riskLevel);
@@ -716,7 +733,7 @@ async function sendPendingDigest(row: PendingOutboxRow, ctx: SendContext): Promi
     await ctx.store.markSkipped(row.id, "DIGEST_EMPTY: nenhum item do consolidado permanece disponível — não reenviado.");
     return "SKIPPED";
   }
-  const built = buildRiskDigestEmail({ content: rebuilt.content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso });
+  const built = buildRiskDigestEmail({ content: rebuilt.content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseIdByKey: new Map(ctx.snapshot.existingCases.map((c) => [`${c.sourceType}:${c.sourceId}`, c.id])), logos: logosOf(ctx) });
   const outcome = await deliver(ctx, row.id, null, row.recipientUserId, recipient.email, built, row.notificationType, null, row.idempotencyKey);
   if (outcome === "SENT") {
     const caseKeys = ((row.payloadSummary.caseKeys as string[] | undefined) ?? []);
@@ -802,7 +819,7 @@ async function sendPendingRow(row: PendingOutboxRow, ctx: SendContext): Promise<
       changed: false,
       ...(await forecastLinesForEmail(ctx, record.id, riskLevel, false)),
     };
-    built = buildImmediateRiskAlertEmail({ content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, actionButtons: [], actionLinks: await issueActionLinks(ctx, record.id, row.recipientUserId), visibleCode: record.visibleCode });
+    built = buildImmediateRiskAlertEmail({ content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, actionButtons: [], actionLinks: await issueActionLinks(ctx, record.id, row.recipientUserId), visibleCode: record.visibleCode, caseId: record.id, logos: logosOf(ctx) });
   } else {
     const kind = (["FORWARD", "RETURNED", "EXPERT_ANSWER", "ACTION_CONFIRMATION"] as const).find((k) => k === row.notificationType) ?? "ACTION_CONFIRMATION";
     const rows: Array<[string, string | null]> = [];
@@ -821,7 +838,7 @@ async function sendPendingRow(row: PendingOutboxRow, ctx: SendContext): Promise<
       rows.push(["Expert", (row.payloadSummary.expertId as string) ?? null], ["Confiança", row.payloadSummary.confidence !== undefined ? String(row.payloadSummary.confidence) : null]);
       paragraphs.push((row.payloadSummary.answerPreview as string) ?? "");
     }
-    built = buildAlertFollowUpEmail({ kind, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseId: record.id, caseTitle: record.title, riskLevel, visibleCode: record.visibleCode, rows, paragraphs, requiresHumanReview: kind === "EXPERT_ANSWER", actionLinks: kind === "FORWARD" ? await issueActionLinks(ctx, record.id, row.recipientUserId) : undefined, ...(kind === "ACTION_CONFIRMATION" && row.payloadSummary.replyConfirmation ? { titleOverride: REPLY_CONFIRMATION_TITLE } : {}) });
+    built = buildAlertFollowUpEmail({ kind, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseId: record.id, caseTitle: record.title, riskLevel, visibleCode: record.visibleCode, area: record.area, logos: logosOf(ctx), rows, paragraphs, requiresHumanReview: kind === "EXPERT_ANSWER", actionLinks: kind === "FORWARD" ? await issueActionLinks(ctx, record.id, row.recipientUserId) : undefined, ...(kind === "ACTION_CONFIRMATION" && row.payloadSummary.replyConfirmation ? { titleOverride: REPLY_CONFIRMATION_TITLE } : {}) });
   }
   const outcome = await deliver(ctx, row.id, record.id, row.recipientUserId, recipient.email, built, row.notificationType, row.escalationLevel, row.idempotencyKey, row.riskLevel);
   return outcome;
