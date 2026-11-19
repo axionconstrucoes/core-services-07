@@ -17,15 +17,18 @@ export async function withChrome(fn) {
   ], { stdio: "ignore" });
   let ws;
   try {
-    let targets;
-    for (let i = 0; i < 50; i += 1) {
+    // Espera o Chrome publicar um alvo do tipo "page" (em runners lentos a primeira consulta pode falhar ou vir vazia).
+    let page;
+    let lastError = "sem resposta do Chrome";
+    for (let i = 0; i < 150 && !page; i += 1) {
       try {
-        targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
-        if (targets.length) break;
-      } catch { /* aguardando */ }
-      await new Promise((r) => setTimeout(r, 200));
+        const targets = await (await fetch(`http://127.0.0.1:${port}/json`)).json();
+        page = Array.isArray(targets) ? targets.find((t) => t.type === "page" && t.webSocketDebuggerUrl) : undefined;
+        if (!page) lastError = "nenhuma página aberta";
+      } catch (error) { lastError = String(error?.message ?? error); /* aguardando */ }
+      if (!page) await new Promise((r) => setTimeout(r, 200));
     }
-    const page = targets.find((t) => t.type === "page");
+    if (!page) throw new Error(`Chrome não expôs a página de depuração na porta ${port} em 30 s (${lastError})`);
     ws = new WebSocket(page.webSocketDebuggerUrl);
     await new Promise((res, rej) => { ws.onopen = res; ws.onerror = rej; });
     let id = 0;
