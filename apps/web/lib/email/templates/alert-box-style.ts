@@ -11,7 +11,7 @@
 //   MÉDIO   : fundo branco,                   texto preto,  logo vinho
 //   BAIXO   : fundo branco,                   texto preto,  logo vinho
 //   Borda contínua de 2px: tom mais escuro que o fundo nos coloridos, cinza médio nos brancos.
-//   UM único tamanho de fonte em todo o alerta (14px); só o PESO diferencia (regular ou negrito; nunca black/900); o cabeçalho de risco e o título usam corpo maior,
+//   UM único tamanho de fonte em todo o alerta (16px); só o PESO diferencia (regular ou negrito; nunca black/900); o cabeçalho de risco e o título usam corpo maior,
 //   cabeçalho/cláusula/evidência/"Repete" em negrito, descrição em regular.
 //
 // BADGE_STYLES (contract-alert-template.ts) NÃO é alterado: continua sendo usado pelos demais
@@ -80,12 +80,12 @@ export function contrastRatio(foregroundHex: string, backgroundHex: string): num
 // ---------- tipografia ÚNICA ----------
 
 /** Tamanho de fonte único de todo texto do alerta (cabeçalho, título, descrição, cláusula, evidência, "Repete", botões). */
-export const ALERT_FONT_SIZE = "14px";
-export const ALERT_LINE_HEIGHT = "20px";
+export const ALERT_FONT_SIZE = "16px";
+export const ALERT_LINE_HEIGHT = "24px";
 
-/** Corpo MAIOR (cabeçalho "RISCO … | OBRA" e título do alerta); o restante segue em 14px. */
-export const ALERT_EMPHASIS_FONT_SIZE = "16px";
-export const ALERT_EMPHASIS_LINE_HEIGHT = "22px";
+/** Corpo MAIOR (cabeçalho "RISCO … | OBRA" e título do alerta); o restante segue em 16px (cabeçalho e título em 20px). */
+export const ALERT_EMPHASIS_FONT_SIZE = "20px";
+export const ALERT_EMPHASIS_LINE_HEIGHT = "28px";
 
 export const WEIGHT = { regular: 400, bold: 700 } as const;
 
@@ -100,7 +100,7 @@ export function textStyle(weight: keyof typeof WEIGHT, color: string, extra = ""
 // ---------- logo / cabeçalho ----------
 
 // Logo oficial 44px (quadrado). Mantém proporção 1:1 do arquivo oficial.
-export const ALERT_LOGO_SIZE_PX = 44;
+export const ALERT_LOGO_SIZE_PX = 56;
 
 export function logoCidFor(variant: LogoVariant): string {
   return variant === "inverted" ? ACC_EMAIL_LOGO_INVERTED_CID : ACC_EMAIL_LOGO_CID;
@@ -149,7 +149,7 @@ export function buildAlertHeaderHtml(
 // ---------- caixa ----------
 
 /** Espaço visível entre a linha logo/risco e o primeiro texto abaixo. */
-export const HEADER_GAP_PX = 18;
+export const HEADER_GAP_PX = 24;
 
 /**
  * Indicação de gravidade nos alertas de fundo BRANCO: faixa lateral azul (MÉDIO) ou verde (BAIXO). CRÍTICO e ALTO já se
@@ -162,30 +162,30 @@ export function buildAlertBoxHtml(severity: AlertSeverity, innerHtml: string): s
   const tone = ALERT_TONES[severity];
   const accent = ALERT_ACCENT[severity];
   const accentStyle = accent ? `border-left:6px solid ${accent};` : "";
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${tone.background}" style="width:100%;border-collapse:separate;border-spacing:0;background-color:${tone.background};border:2px solid ${tone.border};${accentStyle}border-radius:8px;"><tr><td style="padding:16px 18px;">${innerHtml}</td></tr></table>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${tone.background}" style="width:100%;border-collapse:separate;border-spacing:0;background-color:${tone.background};border:2px solid ${tone.border};${accentStyle}border-radius:8px;"><tr><td style="padding:20px 22px;">${innerHtml}</td></tr></table>`;
 }
 
 /** Painel interno branco usado nos blocos de detalhe quando o fundo da caixa é escuro. */
 export function panelStyle(severity: AlertSeverity): string {
   return ALERT_TONES[severity].dark
-    ? "background-color:#ffffff;color:#111111;border:1px solid #e5e7eb;border-radius:6px;padding:10px 12px;"
+    ? "background-color:#ffffff;color:#111111;border:1px solid #e5e7eb;border-radius:6px;padding:12px 14px;"
     : "";
 }
 
 // ---------- botões (RESOLVIDO / EM ANDAMENTO / ENVIADO P/) ----------
 
-export const BUTTON_FONT_SIZE_PX = 14;
-// Largura do texto "EM ANDAMENTO" em Arial negrito 14px MEDIDA NO HTML RENDERIZADO (Chrome,
-// escala 1x, getBoundingClientRect): 114px. Largura do botão = texto + 12px de cada lado = 138px.
+export const BUTTON_FONT_SIZE_PX = 16;
+// Largura do texto "EM ANDAMENTO" em Arial negrito 16px MEDIDA NO HTML RENDERIZADO (Chrome,
+// escala 1x, getBoundingClientRect): 130px. Largura do botão = texto + 20px de cada lado = 170px.
 // Observação: a métrica sem hinting pode diferir ~1–5%; a folga lateral varia um pouco, sem cortar
 // o texto (nowrap, largura fixa maior que o texto).
-export const EM_ANDAMENTO_TEXT_WIDTH_PX = 114;
-export const BUTTON_SIDE_PADDING_PX = 12;
+export const EM_ANDAMENTO_TEXT_WIDTH_PX = 130;
+export const BUTTON_SIDE_PADDING_PX = 20;
 export const BUTTON_WIDTH_PX = Math.ceil(EM_ANDAMENTO_TEXT_WIDTH_PX + 2 * BUTTON_SIDE_PADDING_PX); // 138
-export const BUTTON_HEIGHT_PX = 34;
+export const BUTTON_HEIGHT_PX = 48;
 
 /** Coluna branca dos botões: um pouco mais larga que os botões, com pequena margem lateral. */
-export const BUTTON_COLUMN_MARGIN_PX = 8;
+export const BUTTON_COLUMN_MARGIN_PX = 10;
 export const BUTTON_COLUMN_WIDTH_PX = BUTTON_WIDTH_PX + 2 * BUTTON_COLUMN_MARGIN_PX; // 154
 
 export interface AlertActionButtonStyle {
@@ -255,5 +255,5 @@ export function buildActionsPanelHtml(innerHtml: string, consultAiHref?: string 
 export const ALERT_MOBILE_CSS = `
     .acc-actions-panel { width:100% !important; }
     .acc-buttons-wrap { display:block !important; width:100% !important; margin:0 !important; }
-    .acc-compact-btn td { height:44px !important; }
-    .acc-compact-btn a, .acc-compact-btn span { height:44px !important; line-height:44px !important; }`;
+    .acc-compact-btn td { height:52px !important; }
+    .acc-compact-btn a, .acc-compact-btn span { height:52px !important; line-height:52px !important; }`;

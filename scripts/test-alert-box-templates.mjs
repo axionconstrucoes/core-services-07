@@ -159,7 +159,7 @@ check("cabeçalho: logo à esquerda e 'RISCO [NÍVEL] | [OBRA]' na MESMA linha (
     assert.ok(!/border-radius:999px/.test(h) && !/<br/.test(h));
     const cid = style.ALERT_TONES[s].logo === "inverted" ? "cid:acc-logo-inverted" : "cid:acc-logo-signature";
     assert.ok(h.includes(cid), `logo ${cid} para ${s}`);
-    assert.match(h, /width="44" height="44"/);
+    assert.match(h, /width="56" height="56"/);
   }
 });
 
@@ -217,14 +217,14 @@ check("NUNCA mistura obras: dois projetos para o mesmo destinatário geram DOIS 
   assert.throws(() => buildContractAlertBatchEmail({ recipientName: null, projectName: "x", batchUrl: `${BASE}/l`, hasInlineLogo: true, items: all }), /não pode misturar obras/);
 });
 
-check("TIPOGRAFIA: corpo padrão único de 14px; SÓ o cabeçalho 'RISCO | OBRA' (negrito) e o título (black) usam corpo maior (16px)", () => {
+check("TIPOGRAFIA: corpo padrão único de 16px; SÓ o cabeçalho 'RISCO | OBRA' (negrito) e o título (black) usam corpo maior (20px)", () => {
   const first = boxes(batch.html)[0];
   const sizes = new Set(Array.from(first.matchAll(/font-size:(\d+px)/g)).map((m) => m[1]));
-  assert.deepEqual([...sizes].sort(), ["14px", "16px"]);
-  assert.ok(/class="acc-box-risk"[^>]*font-size:16px[^>]*font-weight:700/.test(first) || /class="acc-box-risk"[^>]*font-weight:700[^>]*font-size:16px/.test(first), "cabeçalho 16px negrito");
-  assert.ok(/<a [^>]*font-size:16px[^>]*font-weight:700|<a [^>]*font-weight:700[^>]*font-size:16px/.test(first), "título 16px negrito");
-  const rest = first.replace(/class="acc-box-risk"[^>]*>[^<]*/, "").replace(/<p style="margin:0 0 8px 0;[^"]*font-size:16px[^"]*"><a [^>]*>[^<]*<\/a><\/p>/, "");
-  assert.ok(!/font-size:16px/.test(rest.replace(/<style[\s\S]*?<\/style>/g, "")) , "demais textos continuam em 14px");
+  assert.deepEqual([...sizes].sort(), ["16px", "20px"]);
+  assert.ok(/class="acc-box-risk"[^>]*font-size:20px[^>]*font-weight:700/.test(first) || /class="acc-box-risk"[^>]*font-weight:700[^>]*font-size:20px/.test(first), "cabeçalho 20px negrito");
+  assert.ok(/<a [^>]*font-size:20px[^>]*font-weight:700|<a [^>]*font-weight:700[^>]*font-size:20px/.test(first), "título 20px negrito");
+  const rest = first.replace(/class="acc-box-risk"[^>]*>[^<]*/, "").replace(/<p style="margin:0 0 8px 0;[^"]*font-size:20px[^"]*"><a [^>]*>[^<]*<\/a><\/p>/, "");
+  assert.ok(!/font-size:20px/.test(rest.replace(/<style[\s\S]*?<\/style>/g, "")) , "demais textos continuam em 16px");
   assert.ok(!/font-weight:\s*(800|900)|Arial Black/.test(first), "nenhum peso black/900 nem Arial Black no alerta");
   assert.ok(/<a [^>]*font-weight:700[^>]*>Alerta CRITICA<\/a>/.test(first), "título é link");
   assert.ok(/font-weight:400;color:#FFFFFF;[^"]*">Descrição CRITICA/.test(first), "descrição regular");
@@ -233,7 +233,7 @@ check("TIPOGRAFIA: corpo padrão único de 14px; SÓ o cabeçalho 'RISCO | OBRA'
   assert.ok(/<a [^>]*font-weight:700[^>]*>Cronograma: Linha de base<\/a>/.test(first), "evidência (link) em negrito");
   const ind = individual("MEDIA", { repeatNotice: true }).html;
   const indBox = ind.slice(ind.indexOf("border:2px solid"), ind.indexOf('<td style="padding:16px 24px;border-top'));
-  assert.deepEqual([...new Set(Array.from(indBox.matchAll(/font-size:(\d+px)/g)).map((m) => m[1]))].sort(), ["14px", "16px"]);
+  assert.deepEqual([...new Set(Array.from(indBox.matchAll(/font-size:(\d+px)/g)).map((m) => m[1]))].sort(), ["16px", "20px"]);
 });
 
 check("o TÍTULO é o link do evento (VER EVENTO não existe mais) — individual e lote", () => {
@@ -334,9 +334,9 @@ check("lote: cada alerta tem a PRÓPRIA caixa e cor (quatro caixas; o lote não 
 });
 
 check("QUATRO botões: RESOLVIDO / EM ANDAMENTO / ENVIAR PARA / ESPECIALISTA (ordem fixa), sem VER EVENTO, mesma largura/altura, sem 100%/min-width", () => {
-  assert.equal(style.EM_ANDAMENTO_TEXT_WIDTH_PX, 114);
-  assert.equal(style.BUTTON_SIDE_PADDING_PX, 12);
-  assert.equal(style.BUTTON_WIDTH_PX, 114 + 24);
+  assert.equal(style.EM_ANDAMENTO_TEXT_WIDTH_PX, 130);
+  assert.equal(style.BUTTON_SIDE_PADDING_PX, 20);
+  assert.equal(style.BUTTON_WIDTH_PX, 130 + 40);
   const w = style.BUTTON_WIDTH_PX;
   const h = style.BUTTON_HEIGHT_PX;
   const withAi = buildContractAlertBatchEmail({ recipientName: null, projectName: "O", batchUrl: `${BASE}/l`, hasInlineLogo: true,
@@ -347,7 +347,7 @@ check("QUATRO botões: RESOLVIDO / EM ANDAMENTO / ENVIAR PARA / ESPECIALISTA (or
     assert.match(t, new RegExp(`width="${w}"`));
     assert.match(t, new RegExp(`<td width="${w}" height="${h}"`));
     assert.match(t, new RegExp(`display:block;width:${w}px;height:${h}px;line-height:${h}px;margin:0;padding:0;`));
-    assert.match(t, /font-size:14px/);
+    assert.match(t, /font-size:16px/);
     assert.ok(!/width:100%|min-width|padding:\d+px \d+px/.test(t));
   }
   const labels = [...withAi.html.matchAll(/white-space:nowrap;overflow:hidden;">([^<]+)<\/a>/g)].map((m) => m[1]);
@@ -427,12 +427,12 @@ check("ESPECIALISTA: botão laranja que abre a consulta (somente leitura) no ACC
   assert.equal((b.html.match(/class="acc-compact-btn"/g) ?? []).length, 16);
 });
 
-check("CELULAR: os quatro botões empilham ABAIXO do conteúdo, centralizados, com áreas de toque de 44px (sem flex/grid); sem CSS o layout vertical continua válido", () => {
+check("CELULAR: os quatro botões empilham ABAIXO do conteúdo, centralizados, com áreas de toque de 52px (sem flex/grid); sem CSS o layout vertical continua válido", () => {
   const html = individual("MEDIA", { quickActionUrls: QUICK, aiConsultUrl: `${BASE}/alertas/consulta-ia/p/evento/e` }).html;
   const css = html.slice(html.indexOf("@media only screen and (max-width:640px)"), html.indexOf("</style>"));
   assert.match(css, /\.acc-buttons-wrap \{ display:block !important; width:100% !important/);
-  assert.match(css, /\.acc-compact-btn td \{ height:44px !important; \}/);
-  assert.match(css, /\.acc-compact-btn a, \.acc-compact-btn span \{ height:44px !important/);
+  assert.match(css, /\.acc-compact-btn td \{ height:52px !important; \}/);
+  assert.match(css, /\.acc-compact-btn a, \.acc-compact-btn span \{ height:52px !important/);
   assert.match(css, /\.acc-content-col, \.acc-actions-col \{ display:block !important; width:100% !important; \}/, "coluna de ações vai para BAIXO do conteúdo (não o cobre)");
   assert.ok(!/display:\s*flex|display:\s*grid/.test(html), "sem flex/grid");
   assert.ok(!html.includes("acc-consult-wrap"), "o layout antigo com CONSULTAR IA ao lado não existe mais");

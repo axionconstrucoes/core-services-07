@@ -100,13 +100,13 @@ function actionsOf(o: UniversalOccurrence): UniversalActionsInput {
 function field(label: string, value: string | null | undefined, severity: AlertSeverity): string {
   if (!value) return "";
   const tone = ALERT_TONES[severity];
-  return `<p style="margin:0 0 6px 0;${textStyle("regular", tone.text)}"><span style="${textStyle("bold", tone.text)}">${escapeAttr(label)}:</span> ${escapeAttr(value)}</p>`;
+  return `<p style="margin:0 0 10px 0;${textStyle("regular", tone.text)}"><span style="${textStyle("bold", tone.text)}">${escapeAttr(label)}:</span> ${escapeAttr(value)}</p>`;
 }
 
 function completionBadgeHtml(o: UniversalOccurrence): string {
   if (!o.completed) return "";
   const when = o.completedAtLabel ? ` em ${escapeAttr(o.completedAtLabel)}` : "";
-  return `<p style="margin:0 0 10px 0;"><span style="display:inline-block;background-color:#15803D;color:#ffffff;border:1px solid #14532D;border-radius:4px;padding:3px 10px;font-family:${ACC_FONT_FAMILY};font-size:14px;font-weight:700;">&#10003; CONCLUÍDO${when}</span></p>`;
+  return `<p style="margin:0 0 10px 0;"><span style="display:inline-block;background-color:#15803D;color:#ffffff;border:1px solid #14532D;border-radius:4px;padding:3px 10px;font-family:${ACC_FONT_FAMILY};font-size:16px;font-weight:700;">&#10003; CONCLUÍDO${when}</span></p>`;
 }
 
 function contentHtml(o: UniversalOccurrence): string {
@@ -123,20 +123,20 @@ function contentHtml(o: UniversalOccurrence): string {
     .join(" · ");
   return [
     completionBadgeHtml(o),
-    `<p style="margin:0 0 8px 0;">${title}</p>`,
-    `<p style="margin:0 0 10px 0;${textStyle("regular", tone.text)}">${escapeAttr(o.description)}</p>`,
+    `<p style="margin:0 0 12px 0;">${title}</p>`,
+    `<p style="margin:0 0 16px 0;${textStyle("regular", tone.text)}">${escapeAttr(o.description)}</p>`,
     field("Ocorrência", o.code, o.severity),
     field("Área", o.areaLabel, o.severity),
     field("Responsável atual", o.responsibleName ?? "não definido", o.severity),
     field("Prazo original", o.originalDeadline ?? null, o.severity),
     field("Estado", o.stateLabel, o.severity),
     ...(o.details ?? []).map((d) => field(d.label, d.value, o.severity)),
-    ...(o.notices ?? []).map((n) => `<p style="margin:6px 0 6px 0;${textStyle("regular", tone.text)}">${escapeAttr(n)}</p>`),
+    ...(o.notices ?? []).map((n) => `<p style="margin:12px 0 0 0;${textStyle("regular", tone.text)}">${escapeAttr(n)}</p>`),
     o.replyInstruction
-      ? `<div style="margin:10px 0 0 0;background-color:#FFFFFF;border:1px solid #E5E7EB;border-radius:6px;padding:10px 12px;"><p style="margin:0 0 4px 0;font-family:${ACC_FONT_FAMILY};font-size:14px;line-height:20px;font-weight:700;color:#111827;">Responder pelo e-mail</p><p style="margin:0;font-family:${ACC_FONT_FAMILY};font-size:14px;line-height:20px;color:#111827;">${escapeAttr(o.replyInstruction)}</p></div>`
+      ? `<div style="margin:20px 0 0 0;background-color:#FFFFFF;border:1px solid #D1D5DB;border-left:4px solid #7F1D1D;border-radius:6px;padding:16px 18px;"><p style="margin:0 0 8px 0;font-family:${ACC_FONT_FAMILY};font-size:16px;line-height:24px;font-weight:700;color:#111827;">Responder pelo e-mail</p><p style="margin:0;font-family:${ACC_FONT_FAMILY};font-size:16px;line-height:26px;color:#111827;">${escapeAttr(o.replyInstruction)}</p></div>`
       : "",
     (o.extraLinks ?? []).filter((l) => isSafeActionUrl(l.url)).length > 0
-      ? `<p style="margin:10px 0 0 0;${textStyle("regular", tone.text)}">Outras ações: ${(o.extraLinks ?? []).filter((l) => isSafeActionUrl(l.url)).map((l) => `<a href="${escapeAttr(l.url)}" style="${textStyle("regular", tone.link, "text-decoration:underline;")}">${escapeAttr(l.label)}</a>`).join(" · ")}</p>`
+      ? `<p style="margin:16px 0 0 0;${textStyle("regular", tone.text)}">Outras ações: ${(o.extraLinks ?? []).filter((l) => isSafeActionUrl(l.url)).map((l) => `<a href="${escapeAttr(l.url)}" style="${textStyle("regular", tone.link, "text-decoration:underline;")}">${escapeAttr(l.label)}</a>`).join(" · ")}</p>`
       : "",
     evidences ? `<p style="margin:6px 0 0 0;${textStyle("bold", tone.text)}">Evidências: ${evidences}</p>` : "",
   ].join("");
@@ -151,7 +151,7 @@ export function buildUniversalOccurrenceHtml(o: UniversalOccurrence, logos: Aler
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:${HEADER_GAP_PX}px;">
       <tr>
         <td class="acc-content-col" valign="top" style="padding:0;word-break:break-word;color:${ALERT_TONES[o.severity].text};">${contentHtml(o)}</td>
-        <td class="acc-actions-col" valign="top" width="${BUTTON_COLUMN_WIDTH_PX}" style="width:${BUTTON_COLUMN_WIDTH_PX}px;padding:0 0 0 16px;">${panel}</td>
+        <td class="acc-actions-col" valign="top" width="${BUTTON_COLUMN_WIDTH_PX}" style="width:${BUTTON_COLUMN_WIDTH_PX}px;padding:0 0 0 22px;">${panel}</td>
       </tr>
     </table>`;
   return buildAlertBoxHtml(o.severity, inner);
@@ -187,8 +187,8 @@ const UNIVERSAL_MOBILE_CSS = `
     .acc-actions-col { padding:16px 0 0 0 !important; }
     .acc-actions-panel { width:100% !important; }
     .acc-buttons-wrap { width:100% !important; }
-    .acc-compact-btn td { height:44px !important; }
-    .acc-compact-btn a, .acc-compact-btn span { height:44px !important; line-height:44px !important; }
+    .acc-compact-btn td { height:52px !important; }
+    .acc-compact-btn a, .acc-compact-btn span { height:52px !important; line-height:52px !important; }
     table { max-width:100% !important; }`;
 
 const STYLE_BLOCK = `<style>
@@ -220,7 +220,7 @@ ${STYLE_BLOCK}
     <td align="center">
       <table role="presentation" width="820" cellpadding="0" cellspacing="0" style="width:100%;max-width:820px;background-color:#ffffff;border:1px solid #e5e7eb;border-radius:8px;">
         ${bodyHtml}
-        <tr><td style="padding:16px 24px;border-top:1px solid #e5e7eb;"><p style="margin:0;font-family:${ACC_FONT_FAMILY};color:#4B5563;font-size:12px;">${escapeAttr(footer)}</p></td></tr>
+        <tr><td style="padding:16px 24px;border-top:1px solid #e5e7eb;"><p style="margin:0;font-family:${ACC_FONT_FAMILY};color:#4B5563;font-size:14px;line-height:20px;">${escapeAttr(footer)}</p></td></tr>
       </table>
     </td>
   </tr>
@@ -240,7 +240,7 @@ export interface UniversalAlertEmailInput {
 export function buildUniversalAlertEmail(input: UniversalAlertEmailInput): BuiltUniversalEmail {
   const o = input.occurrence;
   const greeting = input.recipientName ? `Olá, ${input.recipientName}.` : "Olá.";
-  const greetingRow = `<tr><td style="padding:20px 24px 12px 24px;"><p style="margin:0;font-family:${ACC_FONT_FAMILY};color:#111827;font-size:14px;">${escapeAttr(greeting)}</p></td></tr>`;
+  const greetingRow = `<tr><td style="padding:20px 24px 12px 24px;"><p style="margin:0;font-family:${ACC_FONT_FAMILY};color:#111827;font-size:16px;line-height:24px;">${escapeAttr(greeting)}</p></td></tr>`;
   const boxRow = `<tr><td style="padding:0 24px 24px 24px;">${buildUniversalOccurrenceHtml(o, input.logos)}</td></tr>`;
   const html = shell(greetingRow + boxRow, input.footer ?? DEFAULT_FOOTER);
   const text = ["ACC - AXION Controle de Contratos", "", greeting, "", ...buildUniversalOccurrenceText(o), "", input.footer ?? DEFAULT_FOOTER].join("\n");
@@ -273,9 +273,9 @@ export interface UniversalDigestEmailInput {
 export function buildUniversalDigestEmail(input: UniversalDigestEmailInput): BuiltUniversalEmail {
   const greeting = input.recipientName ? `Olá, ${input.recipientName}.` : "Olá.";
   const heading = input.heading ?? `Consolidado de riscos — ${input.projectName}`;
-  const head = `<tr><td style="padding:20px 24px 8px 24px;"><p style="margin:0 0 8px 0;font-family:${ACC_FONT_FAMILY};color:#111827;font-size:14px;">${escapeAttr(greeting)}</p><h1 style="margin:0 0 6px 0;font-family:${ACC_FONT_FAMILY};color:#111827;font-size:18px;">${escapeAttr(heading)}</h1><p style="margin:0;font-family:${ACC_FONT_FAMILY};color:#111827;font-size:14px;"><strong>Resumo executivo:</strong> ${escapeAttr(input.summaryLine)}</p><p style="margin:4px 0 0 0;font-family:${ACC_FONT_FAMILY};color:#4B5563;font-size:12px;">${escapeAttr(input.windowLabel)}</p></td></tr>`;
+  const head = `<tr><td style="padding:20px 24px 8px 24px;"><p style="margin:0 0 8px 0;font-family:${ACC_FONT_FAMILY};color:#111827;font-size:16px;line-height:24px;">${escapeAttr(greeting)}</p><h1 style="margin:0 0 6px 0;font-family:${ACC_FONT_FAMILY};color:#111827;font-size:22px;line-height:30px;">${escapeAttr(heading)}</h1><p style="margin:0;font-family:${ACC_FONT_FAMILY};color:#111827;font-size:16px;line-height:24px;"><strong>Resumo executivo:</strong> ${escapeAttr(input.summaryLine)}</p><p style="margin:4px 0 0 0;font-family:${ACC_FONT_FAMILY};color:#4B5563;font-size:14px;line-height:20px;">${escapeAttr(input.windowLabel)}</p></td></tr>`;
   const boxes = input.occurrences.map((o) => `<tr><td style="padding:0 24px 16px 24px;">${buildUniversalOccurrenceHtml(o, input.logos)}</td></tr>`).join("");
-  const empty = input.occurrences.length === 0 ? `<tr><td style="padding:0 24px 16px 24px;"><p style="margin:0;font-family:${ACC_FONT_FAMILY};color:#4B5563;font-size:13px;">Nenhuma ocorrência no período.</p></td></tr>` : "";
+  const empty = input.occurrences.length === 0 ? `<tr><td style="padding:0 24px 16px 24px;"><p style="margin:0;font-family:${ACC_FONT_FAMILY};color:#4B5563;font-size:14px;">Nenhuma ocorrência no período.</p></td></tr>` : "";
   const link = input.responseLink;
   const response = link && isSafeActionUrl(link.url)
     ? `<tr><td style="padding:0 24px 16px 24px;"><a href="${escapeAttr(link.url)}" style="display:inline-block;padding:10px 16px;background-color:#7F1D1D;color:#FFFFFF;border-radius:6px;text-decoration:none;font-weight:700;font-family:${ACC_FONT_FAMILY};">${escapeAttr(link.label)}</a></td></tr>`
