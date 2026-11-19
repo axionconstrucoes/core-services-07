@@ -21,6 +21,15 @@ export function buildReplyConfirmationParts(payload: Record<string, unknown>, in
   const paragraphs: string[] = [];
   const status = str(payload.statusLabel) ?? "Resposta registrada";
   rows.push(["Status registrado", status]);
+  if (payload.rejected === true) {
+    // Rejeição/complementação: nunca afirma sucesso; o alerta permanece como estava.
+    const reason = str(payload.rejectionReason);
+    rows.push(["Resultado", "NÃO aplicado — o alerta permanece como estava"]);
+    if (reason) rows.push(["Motivo", reason]);
+    paragraphs.push("Responda a este e-mail com o comando corrigido ou complementado (ex.: \"RESOLVIDO: descrição e evidência\" ou \"ENVIAR PARA: nome@dominio\"). Nenhum prazo foi alterado.");
+    rows.push(["Responsável atual", input.responsibleName]);
+    return { title: REPLY_CONFIRMATION_TITLE, rows, paragraphs };
+  }
   const forecastStatus = str(payload.forecastStatus);
   const forecastAt = str(payload.forecastAt);
   const tracked = payload.forecastTracking === "TRACKED";

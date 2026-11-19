@@ -254,6 +254,46 @@ function recipientEntry(userId: string, config: RiskAlertProjectConfig, recipien
   return evaluated;
 }
 
+/**
+ * Confirmação ao autor de uma resposta por e-mail cujo comando NÃO foi aplicado (rejeição ou necessidade de complementação).
+ * Mesma chave idempotente da confirmação de sucesso (uma por mensagem): nunca há as duas, e o e-mail nunca afirma sucesso.
+ * Destinatário avaliado pela allowlist do piloto, como as demais confirmações.
+ */
+export function buildEmailRejectionConfirmation(input: {
+  snapshot: AlertCaseSnapshot;
+  policy: MatrixPolicy;
+  config: RiskAlertProjectConfig;
+  recipients: Map<string, RecipientProfile>;
+  actorUserId: string;
+  messageId: string;
+  action: string;
+  code: string;
+  message: string;
+}): TransitionOutboxEntry {
+  const recipient = recipientEntry(input.actorUserId, input.config, input.recipients, false);
+  return {
+    idempotencyKey: `${input.snapshot.id}:REPLY_CONFIRMATION:msg-${input.messageId}`,
+    notificationType: "ACTION_CONFIRMATION",
+    origin: "EMAIL_REPLY",
+    escalationLevel: null,
+    riskLevel: input.snapshot.riskLevel,
+    recipientUserId: input.actorUserId,
+    status: recipient.status,
+    suppressionReason: recipient.suppressionReason,
+    matrixRuleSnapshot: matrixPolicySnapshot(input.policy),
+    payloadSummary: {
+      replyConfirmation: true,
+      rejected: true,
+      messageId: input.messageId,
+      action: input.action,
+      statusLabel: "Comando NÃO aplicado",
+      rejectionCode: input.code,
+      rejectionReason: input.message.slice(0, 300),
+      toState: input.snapshot.state,
+    },
+  };
+}
+
 export function applyAlertAction(input: ApplyAlertActionInput): ApplyAlertActionResult {
   const { snapshot, action, payload, policy } = input;
   const caseId = snapshot.id;
