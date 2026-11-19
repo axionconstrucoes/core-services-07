@@ -308,7 +308,7 @@ export function buildContractAlertEmail(input: ContractAlertEmailInput): Contrac
   if (quick) {
     actionsColumnHtml = `<td class="acc-actions-col" valign="top" width="${BUTTON_COLUMN_WIDTH_PX}" style="width:${BUTTON_COLUMN_WIDTH_PX}px;padding:0 0 0 16px;">${buildUniversalActionsPanelHtml({ links: { RESOLVIDO: quick.RESOLVIDO, EM_ANDAMENTO: quick.EM_ANDAMENTO, ENVIAR_PARA: quick.ENVIADO_PARA, ESPECIALISTA: input.aiConsultUrl }, unavailableReasons: { ESPECIALISTA: "Consulta indisponível para este alerta." } })}</td>`;
   } else if (input.actionButtons.length > 0) {
-    actionsColumnHtml = `<td class="acc-actions-col" valign="top" width="36%" style="width:36%;padding:0 0 0 16px;"><div style="background-color:#FFFFFF;border:1px solid #E5E7EB;border-radius:6px;padding:8px;">${renderEmailActionButtonsHtml(input.actionButtons, input.summary, "#4B5563", "14px")}</div></td>`;
+    actionsColumnHtml = `<td class="acc-actions-col" valign="top" width="36%" style="width:36%;padding:0 0 0 16px;"><div style="background-color:#FFFFFF;border:1px solid #E5E7EB;border-radius:6px;padding:8px;">${renderEmailActionButtonsHtml(input.actionButtons, input.summary, "#4B5563", "16px")}</div></td>`;
   }
 
   const boxInner = `

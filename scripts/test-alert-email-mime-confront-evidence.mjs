@@ -472,11 +472,11 @@ check("título principal (h1) com a cor de texto da caixa; painéis internos man
 });
 
 // DEFINIÇÃO FINAL: UM único tamanho (14px) em todo o alerta; só o peso diferencia.
-check("alerta usa corpo padrão de 14px (16px só no cabeçalho de risco e no título); evidência e cláusula em negrito, descrição em regular", () => {
+check("alerta usa corpo padrão de 16px (20px só no cabeçalho de risco e no título); evidência e cláusula em negrito, descrição em regular", () => {
   const { html } = buildContractAlertEmail({ ...baseAlertInput, severity: "MEDIA", keyEvidence: [], impactedClause: { label: "Cláusula 8.2 – Prazos", text: null } });
   const box = html.slice(html.indexOf("border:2px solid"), html.indexOf('<td style="padding:16px 24px;border-top'));
   const sizes = new Set(Array.from(box.matchAll(/font-size:(\d+px)/g)).map((m) => m[1]));
-  assert(JSON.stringify([...sizes].sort()) === JSON.stringify(["14px", "16px"]), `tamanhos no alerta: ${[...sizes].join(", ")}`);
+  assert(JSON.stringify([...sizes].sort()) === JSON.stringify(["16px", "20px"]), `tamanhos no alerta: ${[...sizes].join(", ")}`);
   assert(/font-weight:700;color:#000000;[^"]*">Cláusula 8\.2 – Prazos</.test(html));
   assert(/font-weight:400;color:#000000;[^"]*">O cliente notificou atraso de 20 dias\.</.test(html));
 });

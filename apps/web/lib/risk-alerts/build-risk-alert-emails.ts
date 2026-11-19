@@ -329,11 +329,13 @@ export function buildAlertFollowUpEmail(input: FollowUpEmailInput): BuiltEmail {
     title,
     description: input.caseTitle,
     stateLabel: "Aberto",
+    // "Responsável atual" vai no campo próprio da ocorrência (sem repetir na lista de detalhes).
+    responsibleName: input.rows.find(([label]) => label === "Responsável atual")?.[1] ?? undefined,
     specialistLabel: area ? specialistLabelFor(area) : "Especialista (consulta geral)",
     openUrl: alertUrl,
     actions: links,
     unavailableReasons,
-    details: [...input.rows.map(([label, value]) => ({ label, value })), { label: "Gerado em", value: formatDateTimeBR(input.generatedAt, input.timeZone) }],
+    details: [...input.rows.filter(([label]) => label !== "Responsável atual").map(([label, value]) => ({ label, value })), { label: "Gerado em", value: formatDateTimeBR(input.generatedAt, input.timeZone) }],
     notices: [
       ...(input.paragraphs ?? []),
       ...(input.requiresHumanReview ? ["O Expert apenas recomenda: nenhuma ação foi executada e o alerta continua aberto até decisão humana."] : []),

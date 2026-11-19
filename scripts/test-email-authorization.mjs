@@ -133,10 +133,10 @@ await check("URL da AXIA: contexto da autorização, da obra ou ajuda geral; só
 const image = { cid: vera.VERA_EMAIL_IMAGE_CID, filename: "ajuda-acc-email.png", mimeType: "image/png", contentBase64: "AAAA" };
 const baseInput = { to: "a@axion.com.br", subject: "S", text: "Corpo", html: "<html><body style=\"x\"><p>Conteúdo</p></body></html>", correlationId: "c1" };
 
-await check("cabeçalho: foto circular + 'Fale com a AXIA' à direita, link, alt legível; conteúdo preservado", () => {
+await check("cabeçalho: faixa com foto circular 56px + 'Fale com a AXIA' e apoio, link, alt legível; conteúdo preservado", () => {
   const out = vera.applyVeraEmailHeader({ ...baseInput, vera: { projectId: PROJECT, context: "alerta" } }, { baseUrl: BASE, loadImage: () => image, axiaAvailable: true });
-  ok(out.html.includes('align="right"') && out.html.includes("FALE COM A AXIA") && out.html.includes(`cid:${image.cid}`), "cabeçalho incompleto");
-  ok(out.html.includes("border-radius:20px") && out.html.includes('alt="AXIA — Assistente ACC"'), "foto circular/alt");
+  ok(out.html.includes("FALE COM A AXIA") && out.html.includes("tire dúvidas sobre este alerta") && out.html.includes(`cid:${image.cid}`), "cabeçalho incompleto");
+  ok(out.html.includes("border-radius:28px") && out.html.includes('width="56" height="56"') && out.html.includes('alt="AXIA — Assistente ACC"'), "foto circular/alt");
   ok(out.html.includes(`href="${BASE}/${PROJECT}/ajuda?vera=abrir&amp;contexto=alerta"`), "link");
   ok(out.html.includes("<p>Conteúdo</p>") && out.html.indexOf("data-vera-header") < out.html.indexOf("<p>Conteúdo</p>"), "conteúdo preservado e cabeçalho antes");
   ok(out.html.startsWith("<html><body"), "estrutura do documento");

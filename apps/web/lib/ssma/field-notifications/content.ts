@@ -106,7 +106,6 @@ export function renderSsmaAlert(
   details: SsmaAlertDetails
 ): MailContent {
   const { severity } = ctx;
-  const unavailable = "Abra a área de SSMA no ACC.";
   const { html, logoNeeds } = buildUniversalAlertEmail({
     recipientName: ctx.recipientName,
     logos: { maroon: true, inverted: true },
@@ -124,13 +123,10 @@ export function renderSsmaAlert(
       originalDeadline: ctx.dueDate,
       specialistLabel: "Especialista SSMA",
       openUrl: ctx.accUrl,
-      actions: {},
-      unavailableReasons: {
-        RESOLVIDO: unavailable,
-        EM_ANDAMENTO: unavailable,
-        ENVIAR_PARA: unavailable,
-        ESPECIALISTA: "Consulta indisponível para esta ocorrência de SSMA.",
-      },
+      // Os quatro botões levam ao registro de SSMA no ACC (exige login; abrir o link NÃO altera estado nenhum):
+      // a ação em si é registrada lá, com confirmação, evidência e auditoria.
+      actions: { RESOLVIDO: ctx.accUrl, EM_ANDAMENTO: ctx.accUrl, ENVIAR_PARA: ctx.accUrl, ESPECIALISTA: ctx.accUrl },
+      unavailableReasons: {},
       details: details.facts.map(([label, value]) => ({ label, value })),
       notices: details.notices,
       replyInstruction: details.replyInstruction,
@@ -222,6 +218,7 @@ export function buildSsmaReplyConfirmationEmail(ctx: SsmaReplyConfirmationContex
   ];
   if (ctx.pendingLine) rows.push(["Pendência", ctx.pendingLine]);
   const paragraphs = [
+    ...(ctx.statusLabel.includes("não identificado") ? ["O ACC não identificou o andamento na sua resposta. Responda informando \"em andamento\" e a previsão de conclusão (data e horário), ou registre a ação no ACC."] : []),
     ...(ctx.outOfOrder ? ["Esta mensagem é anterior a uma atualização já registrada: foi guardada no histórico, sem alterar o status nem a previsão vigente."] : []),
     ...(ctx.pendingLine
       ? ["Responda a este e-mail com a informação pendente."]
@@ -244,6 +241,7 @@ export function buildSsmaReplyConfirmationEmail(ctx: SsmaReplyConfirmationContex
     { subject, text, operational: true },
     { ...ctx, severity: ctx.severity ?? null },
     { title: "RESPOSTA REGISTRADA · AÇÃO CORRETIVA SSMA", description: `${ctx.category} — ${ctx.location}`,
-      stateLabel: ctx.statusLabel, facts: rows, notices: paragraphs, footer }
+      // "Status registrado" já aparece no campo Estado: não repetir na lista de fatos.
+      stateLabel: ctx.statusLabel, facts: rows.filter(([k]) => k !== "Status registrado"), notices: paragraphs, footer }
   );
 }

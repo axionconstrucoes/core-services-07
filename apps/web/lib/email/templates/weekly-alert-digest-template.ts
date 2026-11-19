@@ -55,6 +55,7 @@ export function buildWeeklyAlertDigestEmail(input: WeeklyAlertDigestEmailInput) 
       responsibleName: "",
       stateLabel: "Aguardando resposta",
       specialistLabel: "Especialista da área",
+      openUrl: input.responseUrl,
       actions: {},
     })),
   });
