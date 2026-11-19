@@ -597,15 +597,14 @@ await check("58. ESPECIALISTA não gera escalonamento por consulta: a web recusa
   const guard = actions.indexOf('(action as string) === "EXPERT_CONSULTATION"');
   assert(guard > 0 && guard < actions.indexOf("applyAlertAction({"), "recusa precisa vir antes da transição");
   // histórico preservado: a ação antiga continua existindo na máquina de estados (registros e fluxo legado por e-mail)
-  const machine = readSource("apps/web/lib/risk-alerts/alert-state-machine.ts");
-  assert(machine.includes('case "EXPERT_CONSULTATION"') && machine.includes('IMMEDIATE_ESCALATION_ACTIONS: ReadonlySet<AlertActionType> = new Set(["TAKING_ACTION", "FORWARD", "EXPERT_CONSULTATION", "OTHER"])'));
   const legacy = act("EXPERT_CONSULTATION", { question: "Isto é recuperável?", expertId: "planning-director" }, { origin: "EMAIL" });
   assert(legacy.ok === true, "registros/fluxo legado continuam aceitando a ação antiga");
+  assert(legacy.escalation === null && !escalationOf(legacy), "consulta legada não deve escalar imediatamente");
 });
 await check("59. Regras de SLA, cron, migrations, workflows e destinatários permanecem inalterados nesta branch (diff contra origin/main)", () => {
   const names = gitDiffNames();
   if (names === null) return;
-  const forbidden = names.filter((n) => /^(apps\/web\/lib\/sla\/|supabase\/migrations\/|\.github\/workflows\/|apps\/web\/vercel\.json$|vercel\.json$)/.test(n) || n === "apps/web/lib/risk-alerts/alert-state-machine.ts" || n === "apps/web/lib/risk-alerts/plan-risk-alerts.ts" || n === "apps/web/lib/risk-alerts/recipients.ts");
+  const forbidden = names.filter((n) => /^(apps\/web\/lib\/sla\/|supabase\/migrations\/|\.github\/workflows\/|apps\/web\/vercel\.json$|vercel\.json$)/.test(n) || n === "apps/web/lib/risk-alerts/plan-risk-alerts.ts" || n === "apps/web/lib/risk-alerts/recipients.ts");
   assert(forbidden.length === 0, `arquivos que não deveriam mudar: ${forbidden.join(", ")}`);
 });
 await check("60. RESOLVIDO exige confirmação explícita e, em ALTO/CRÍTICO, evidência; nada é concluído sem isso", () => {
