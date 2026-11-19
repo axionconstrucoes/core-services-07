@@ -10,6 +10,8 @@ import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
 import { getPilotRiskAlertsView } from "@/lib/risk-alerts/pilot-risk-alerts-view-data";
 import { getProjectMemberInvitations, getProjectMembers } from "@/lib/data";
+import { resolveEligibleSlaPeople } from "@/lib/users/participant-selection";
+import type { MembershipArea } from "@axion/types";
 import { membershipAreaLabels, slaAreaLabels } from "@/lib/labels";
 import { formatInvitationSelection, formatMemberSelection } from "@/lib/sla/responsible-selection";
 import { resolveBusinessHoursConfig, resolveGenericMatrixRule } from "@/lib/sla/resolve-matrix-rule";
@@ -42,20 +44,15 @@ export default async function SlaConfigurationPage({ params }: { params: Promise
     getSlaProjectSettings(projectId),
   ]);
 
-  const peopleOptions = [
-    ...members
-      .filter((member) => member.status === "ACTIVE")
-      .map((member) => ({
-        value: formatMemberSelection(member.userId),
-        label: `${member.user.name} — ${member.area ? membershipAreaLabels[member.area] : "Sem área"} — ${member.user.email}`,
-      })),
-    ...invitations
-      .filter((invitation) => invitation.status === "PENDING")
-      .map((invitation) => ({
-        value: formatInvitationSelection(invitation.id),
-        label: `${invitation.name} — ${invitation.area ? membershipAreaLabels[invitation.area] : "Sem área"} — ${invitation.email} — Aguardando primeiro login`,
-      })),
-  ].sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  // Elegibilidade da Matriz: SOMENTE participantes ativos + convites pendentes DESTE projeto.
+  const peopleOptions = resolveEligibleSlaPeople(
+    projectId,
+    members,
+    invitations,
+    formatMemberSelection,
+    formatInvitationSelection,
+    (area) => (area ? membershipAreaLabels[area as MembershipArea] : "Sem área")
+  );
   const responsiblesByArea = new Map(areaResponsibles.map((r) => [r.area, r]));
   const businessHoursConfig = resolveBusinessHoursConfig(projectSettings, projectId);
   // Alertas de risco do piloto: só com ACC_WEEKLY_REPORTS_ENABLED (tabelas
