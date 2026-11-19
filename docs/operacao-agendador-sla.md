@@ -123,6 +123,32 @@ um único chamador agendado, o pg_cron. Sem a variável, tudo continua como hoje
 | `escalate_sla_action_system(p_expected_current_level, …)` (compare-and-set) | `applyEscalations` | escalonamento aplicado duas vezes |
 | Aviso SSMA único por ação, prazo e destinatário | `sweepFieldNotifications` (comentário do workflow) | aviso SSMA repetido |
 
+### 4.1 Disparos do pg_cron que podem coincidir com os `schedule` que continuam no GitHub
+
+O pg_cron só **substitui** as duas rotas (§4). Os workflows de coleta e processamento continuam com o `schedule` do GitHub como reserva **e** passam
+a receber `workflow_dispatch` do pg_cron. Em vários casos os horários coincidem ou se sobrepõem no tempo:
+
+| Workflow (grupo de `concurrency`) | `schedule` do GitHub | `workflow_dispatch` do pg_cron | Coincide? | Segunda rodada, se ocorrer |
+|---|---|---|---|---|
+| `weekly-schedule-email-ingestion` | `20 * * * *` | `*/10 * * * *`, `{"phase":"all"}` | sim (minuto :20) | serializa; o job `risk-alerts` não roda com a flag; as fases leem estado (outbox, chaves idempotentes) |
+| `mpp-document-worker` | `*/5 * * * *` | `5-59/10 * * * *` | sim (:05, :15, …) | serializa; seleciona só versões `AWAITING_PROCESSING`, então a 2ª rodada não encontra nada |
+| `document-processing-worker` | `*/5 * * * *` | `2-59/10 * * * *` | não no minuto; pode sobrepor no tempo | idem (filtro `processing_status = AWAITING_PROCESSING`) |
+| `gmail-inbound-sync` | `*/15 * * * *` | `1-59/15 * * * *` | não (1 min depois) | serializa; coleta documentada como idempotente |
+| `ssma-drive-photo-sync` | `0 */2 * * *` | `0 */2 * * *` | **idêntico** | serializa; escolhe fotos por `drive_sync_status` |
+| `construmanager-metadata-monitoring` (arquivo `construmanager-content-ingestion.yml`) | `17 */6 * * *` | `17 */6 * * *` | **idêntico** | serializa; o lease no banco protege contra workers concorrentes (comentário do workflow) |
+| `diario-de-obra-sync` | `43 0 * * *` | `43 0 * * *`, `mode=incremental` (= padrão do `schedule`) | **idêntico** | serializa; `cancel-in-progress: false` é essencial (comentário do workflow); upsert por hash |
+
+**Como o código evita execuções duplicadas (três camadas, nenhuma nova):**
+1. **`concurrency` com `cancel-in-progress: false`** em todos os workflows acima: no máximo **uma** rodada em execução por grupo e **uma** pendente; uma terceira
+   disparada enquanto há pendente **substitui** a pendente (a fila não cresce) e nunca há duas rodadas em paralelo no mesmo grupo.
+2. **O pg_cron não tem trava própria para workflows.** `acc_scheduler_dispatch_workflow` apenas envia o `dispatch` (HTTP 204) a cada intervalo; a trava "não chamar de novo
+   enquanto a anterior não respondeu" (`start_grace`) existe só em `acc_scheduler_call_route` (rotas). Portanto a barreira dos workflows é a `concurrency` do GitHub.
+3. **Idempotência por estado em cada fluxo** (seleção por status, upsert por chave/hash, lease no banco): uma rodada repetida encontra o trabalho já feito.
+
+**Efeito prático:** coincidências geram uma rodada a mais, serializada e quase vazia, não trabalho duplicado. O custo é um run extra no GitHub Actions nos horários idênticos
+(`ssma-drive`, `construmanager`, `diario`). O `schedule` do GitHub segue como reserva e pode ser removido depois de 7 dias de heartbeats estáveis (§13, item 7),
+o que elimina as coincidências. Os heartbeats gravam `started`/`finished` por `run_id`. Uma rodada pendente que é substituída não inicia e não gera incidente por si só: o watchdog olha o **último** disparo e só acusa `DISPATCH_WITHOUT_START` se ele ficar sem iniciar por mais de `start_grace` (15 min), o que acontece se um run longo segurar o grupo.
+
 ## 5. Auditoria repetitiva: implementada neste PR
 
 - **Antes:** cada ciclo gravava `RISK_ALERT_NOT_READY_FOR_REAL_SEND` com os mesmos
@@ -299,7 +325,7 @@ Nenhum workflow aplica migration: a migration segue **não aplicada** até o pas
 PAT + `acc_risk_alerts_cron_secret` + `acc_cron_secret` + `acc_app_base_url` (§8). Sem um segredo a chamada correspondente não acontece
 e o watchdog acusa.
 
-### Passo 3 — Dry-run imediatamente antes (portão)
+### Passo 3 — Dry-run preliminar (portão; comandos e aceite no §11.2)
 `gh workflow run "Risk Alerts WEG Dry-Run" --ref main` e `gh workflow run ssma-notifications.yml --ref main -f dry_run=true`.
 Aceite: HTTP 200; `inboundCheck.ok=true`; `readinessBlockers: []`; `planned: 0` (ou apenas itens esperados e conferidos); os casos retidos
 continuam `REISSUE_DECISION_REQUIRED`/suspensos; SSMA com `sent: 0`. Qualquer divergência ⇒ parar; nada é ativado.
@@ -330,6 +356,7 @@ Só avançar com **todos** os itens limpos (repetir a cada minuto, no máximo ~1
   `skipped` e nenhum run não-dry-run de `ssma-notifications.yml`. O `schedule` do GitHub é irregular (§1), então isso pode levar horas.
 
 ### Passo 6 — Aplicar a migration (o pg_cron começa)
+**Antes de aplicar, repetir o dry-run de risco e de SSMA do §11.2** (o resultado do Passo 3 é uma fotografia e vale no máximo 10 min). Divergência ⇒ não aplicar.
 Aplicar `20261118093000_scheduler_pg_cron_dispatch.sql`. O primeiro tick de `acc-risk-alerts` ocorre em até 2 min; o de `acc-ssma-notifications` em até 5 min.
 Anotar `t0 = now()` no instante da aplicação (usado nas consultas abaixo).
 
@@ -363,6 +390,31 @@ Qualquer falha ⇒ **reversão do §12** (parar o pg_cron primeiro). Critérios 
 3. **Respostas lidas** na fase `replies` que gerem confirmação (hoje nenhuma pendente).
 4. **SSMA:** nova ação corretiva da WEG vencida ⇒ aviso ao responsável (escopo `WEG_CORRECTIVE_ACTIONS`; 2 já avisadas; escalonamentos históricos seguem travados).
 Nada disso libera casos em `REISSUE_DECISION_REQUIRED` ou suspensos: eles exigem decisão humana auditada.
+
+### 11.2 Dry-run de portão: comandos prontos (risco e SSMA)
+
+O `planned: 0` registrado em 19/11 é **uma fotografia daquele instante**: novos casos, novos prazos vencidos ou respostas lidas mudam o plano. Por isso o portão é
+executado **de novo imediatamente antes do Passo 6** (migration) e vale por **no máximo 10 min**; passou disso, repetir. Nenhum dos dois comandos grava ou envia.
+
+```
+# Risco (WEG; dryRun=1 + inboundCheck=1)
+gh workflow run "Risk Alerts WEG Dry-Run" --ref main
+RID=$(gh run list --workflow "Risk Alerts WEG Dry-Run" --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run watch "$RID" --exit-status
+gh run view "$RID" --log | grep -E '^dry-run' | sed -E 's/^dry-run[^\t]*\t[0-9T:.Z-]+ //' \
+  | grep -E '^HTTP [0-9]+$|"ok":|"tokenRefreshed"|"readonlyScopeGranted"|"excessScopes"|"profileMatchesConfiguredMailbox"|"planned"|"readinessBlockers"|"escalationsApplied"|"decisao"'
+
+# SSMA (prévia; o padrão do input dry_run já é true)
+gh workflow run ssma-notifications.yml --ref main -f dry_run=true
+SID=$(gh run list --workflow ssma-notifications.yml --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run watch "$SID" --exit-status
+gh run view "$SID" --log | grep '{"dryRun":true' | sed -E 's/^[^{]*//' \
+  | node -e 'const j=JSON.parse(require("fs").readFileSync(0,"utf8"));console.log(JSON.stringify({dryRun:j.dryRun,scope:j.preview.scope,itens:j.preview.items.length,novosAEnviar:j.preview.items.filter(i=>!i.alreadySent).length}))'
+```
+
+**Aceite do risco:** `HTTP 200`; `ok: true`, `tokenRefreshed: true`, `readonlyScopeGranted: true`, `excessScopes: false`, `profileMatchesConfiguredMailbox: true`;
+`readinessBlockers: []`; `planned: 0` **ou** apenas itens esperados e conferidos um a um; os casos retidos seguem `REISSUE_DECISION_REQUIRED`.
+**Aceite do SSMA:** `dryRun: true`, `scope: WEG_CORRECTIVE_ACTIONS` e `novosAEnviar: 0` (ou apenas avisos esperados). Qualquer divergência ⇒ **não aplicar a migration**.
 
 ## 12. Reversão passo a passo
 

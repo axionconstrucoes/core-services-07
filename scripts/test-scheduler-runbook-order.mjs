@@ -131,5 +131,56 @@ check("o runbook não contém segredos nem tokens", () => {
   assert(realTokens("Bearer ACC_RISK_ALERTS_CRON_SECRET").length === 0, "nome de variavel nao e segredo");
 });
 
+const PAIRS = [
+  ["weekly-schedule-email-ingestion", "acc-weekly-all"],
+  ["mpp-document-worker", "acc-mpp-worker"],
+  ["document-processing-worker", "acc-document-worker"],
+  ["gmail-inbound-sync", "acc-gmail-sync"],
+  ["ssma-drive-photo-sync", "acc-ssma-drive"],
+  ["construmanager-content-ingestion", "acc-construmanager"],
+  ["diario-de-obra-sync", "acc-diario"],
+];
+const s41 = section("### 4.1 ", "## 5. ");
+const firstFields = (cron) => cron.split(" ").slice(0, cron.split(" ")[1] === "*" ? 1 : 2).join(" ");
+
+check("§4.1: a tabela de coincidências bate com os schedules REAIS dos workflows e com a migration", () => {
+  for (const [workflow, job] of PAIRS) {
+    const yml = read(`.github/workflows/${workflow}.yml`);
+    const gh = yml.match(/- cron: "([^"]+)"/)?.[1];
+    const pg = migration.match(new RegExp("cron[.]schedule[(]'" + job + "',[ ]*'([^']+)'"))?.[1];
+    assert(gh && pg, `cron não encontrado para ${workflow}/${job}`);
+    const row = s41.split(String.fromCharCode(10)).find((line) => line.startsWith("|") && line.includes("`" + gh + "`") && line.includes("`" + workflow.split("-").slice(0, 2).join("-")));
+    assert(row, `linha de ${workflow} (schedule ${gh}) ausente na tabela`);
+    assert(row.includes("`" + pg + "`"), `cron do pg_cron (${pg}) de ${job} diverge da tabela`);
+    assert(/idêntico/.test(row) === (gh === pg), `${workflow}: "idêntico" deve refletir gh=${gh} pg=${pg}`);
+  }
+});
+
+check("§4.1: cita o grupo de concurrency REAL de cada workflow e que o pg_cron não tem trava própria para workflows", () => {
+  for (const [workflow] of PAIRS) {
+    const yml = read(`.github/workflows/${workflow}.yml`);
+    const group = yml.match(/^\s+group:\s*(\S+)/m)?.[1];
+    assert(group && s41.includes(group), `grupo de ${workflow} (${group}) ausente em §4.1`);
+    assert(/cancel-in-progress:\s*false/.test(yml), `${workflow} sem cancel-in-progress: false`);
+  }
+  assert(/não tem trava própria para workflows/.test(s41) && /start_grace/.test(s41));
+  assert(/substitui/.test(s41) && /DISPATCH_WITHOUT_START/.test(s41));
+});
+
+check("§11.2: comandos prontos de risco e SSMA, aceite, e o aviso de que planned: 0 é uma fotografia (repetir antes do Passo 6)", () => {
+  const s112 = section("### 11.2 ", "## 12. ");
+  assert(s112.includes('gh workflow run "Risk Alerts WEG Dry-Run" --ref main'));
+  assert(s112.includes("gh workflow run ssma-notifications.yml --ref main -f dry_run=true"));
+  assert(/fotografia/.test(s112) && /no máximo 10 min/.test(s112) && /novosAEnviar: 0/.test(s112) && /readinessBlockers: \[\]/.test(s112));
+  assert(/imediatamente antes do Passo 6/.test(s112));
+  const s6 = section("### Passo 6", "### Passo 7");
+  assert(/repetir o dry-run de risco e de SSMA do §11\.2/.test(s6), "Passo 6 deve repetir o portão");
+});
+
+check("o workflow SSMA tem dry_run como input booleano com padrão true (o comando do §11.2 é seguro)", () => {
+  const ssma = read(".github/workflows/ssma-notifications.yml");
+  assert(/dry_run:[\s\S]{0,200}type: boolean[\s\S]{0,60}default: true/.test(ssma));
+});
+
 console.log(`\nRESULTADO: ${passed} passaram, ${failed} falharam`);
 process.exit(failed > 0 ? 1 : 0);
