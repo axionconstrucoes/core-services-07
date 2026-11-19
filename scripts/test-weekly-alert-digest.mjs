@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { register } from "node:module";
+
+register("./ts-module-resolver.mjs", import.meta.url);
 
 const { buildWeeklyAlertDigestEmail } = await import(
   "../apps/web/lib/email/templates/weekly-alert-digest-template.ts"
@@ -33,6 +36,9 @@ check("ordem do e-mail é Médio antes de Baixo", () => {
 
 check("e-mail é curto e possui um único chamado para responder tudo", () => {
   assert.equal((email.html.match(/Responder todos os itens no ACC/g) ?? []).length, 1);
+  assert.equal((email.html.match(/class="acc-actions-col"/g) ?? []).length, 2);
+  assert.match(email.html, /RISCO MÉDIO \| Obra Piloto/);
+  assert.match(email.html, /RISCO BAIXO \| Obra Piloto/);
   assert(email.text.includes("Ciente, Estudando solução, Resolvido ou Direcionar"));
 });
 

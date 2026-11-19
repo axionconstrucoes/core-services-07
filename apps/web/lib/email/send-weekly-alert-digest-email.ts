@@ -3,7 +3,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@axion/db/admin";
 
 import { appendAccEmailSignature } from "./branding/acc-email-signature";
-import { loadAccLogoInlineImage } from "./branding/load-acc-logo-inline-image";
+import { loadAccAlertLogos } from "./branding/load-acc-logo-inline-image";
 import { EmailSendError } from "./email-provider";
 import { getEmailProvider } from "./get-email-provider";
 import { resolveEffectiveRecipient } from "./pilot-outbound-guard";
@@ -18,9 +18,9 @@ export async function sendWeeklyAlertDigestEmail(input: {
   recipientEmail: string;
   email: WeeklyAlertDigestEmailInput;
 }) {
-  const built = buildWeeklyAlertDigestEmail(input.email);
-  const inlineLogo = loadAccLogoInlineImage();
-  const signed = appendAccEmailSignature(built, inlineLogo !== null);
+  const { images, availability } = loadAccAlertLogos({ maroon: input.email.items.length > 0, inverted: false });
+  const built = buildWeeklyAlertDigestEmail({ ...input.email, logos: availability });
+  const signed = appendAccEmailSignature(built, images.length > 0, false);
   const resolvedRecipient = resolveEffectiveRecipient(input.recipientEmail);
   const correlationId = crypto.randomUUID();
   const provider = getEmailProvider();
@@ -33,7 +33,7 @@ export async function sendWeeklyAlertDigestEmail(input: {
       subject: built.subject,
       text: signed.text,
       html: signed.html,
-      inlineImages: inlineLogo ? [inlineLogo] : undefined,
+      inlineImages: images.length > 0 ? images : undefined,
       correlationId,
       vera: { projectId: input.projectId, context: "alerta" },
     });

@@ -3,10 +3,12 @@ import "server-only";
 import { createSupabaseAdminClient } from "@axion/db/admin";
 import type { AlertSeverity } from "@axion/types";
 import { appendAccEmailSignature } from "./branding/acc-email-signature";
-import { loadAccLogoInlineImage } from "./branding/load-acc-logo-inline-image";
+import { loadAccAlertLogos } from "./branding/load-acc-logo-inline-image";
 import { EmailSendError } from "./email-provider";
 import { getEmailProvider } from "./get-email-provider";
-import { alertRiskLevelLabels, BADGE_STYLES, buildContractAlertSubject } from "./templates/contract-alert-template";
+import { alertRiskLevelLabels, buildContractAlertSubject } from "./templates/contract-alert-template";
+
+import { buildUniversalAlertEmail } from "./templates/universal-alert-template";
 
 export interface SsmaAccidentAlertInput {
   projectId: string;
@@ -22,12 +24,7 @@ export interface SsmaAccidentAlertInput {
   accUrl: string;
 }
 
-function escapeHtml(value: string): string {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;");
-}
-
 export async function sendSsmaAccidentAlertEmail(input: SsmaAccidentAlertInput) {
-  const badge = BADGE_STYLES[input.severity];
   const riskLabel = alertRiskLevelLabels[input.severity];
   const subject = buildContractAlertSubject(input.projectName, input.severity);
   const greeting = input.recipientName ? `Olá, ${input.recipientName}.` : "Olá.";
@@ -46,9 +43,34 @@ export async function sendSsmaAccidentAlertEmail(input: SsmaAccidentAlertInput) 
     "",
     "Comunicação automática determinística. A classificação e a investigação exigem revisão humana.",
   ].join("\n");
-  const html = `<table role="presentation" width="100%" style="background:#fff;color:#000;padding:24px"><tr><td><p style="color:#000;font-weight:700">ACC · AXION CONTROLE DE CONTRATOS</p><p><span style="display:inline-block;background:${badge.background};color:${badge.color};font-weight:700;padding:6px 12px;border-radius:999px">RISCO ${escapeHtml(riskLabel)} · OCORRÊNCIA/ACIDENTE</span></p><p style="color:#000">${escapeHtml(greeting)}</p><p style="color:#000">Foi registrada uma ocorrência de SSMA na obra <strong>${escapeHtml(input.projectName)}</strong>.</p><table role="presentation" style="color:#000"><tr><td><strong>Funcionário</strong></td><td style="padding-left:12px">${escapeHtml(input.employeeName)}</td></tr><tr><td><strong>Classificação</strong></td><td style="padding-left:12px">${escapeHtml(input.leaveClassification)}</td></tr><tr><td><strong>Data e hora</strong></td><td style="padding-left:12px">${escapeHtml(input.occurredAt)}</td></tr><tr><td><strong>Causa informada</strong></td><td style="padding-left:12px">${escapeHtml(input.informedCause)}</td></tr></table><p><a href="${escapeHtml(input.accUrl)}" style="display:inline-block;background:#111827;color:#fff;text-decoration:none;padding:10px 18px;border-radius:6px;font-weight:700">RESPONDER AO ACC</a></p><p style="color:#6b7280;font-size:11px">Comunicação automática determinística. A classificação e a investigação exigem revisão humana.</p></td></tr></table>`;
-  const inlineLogo = loadAccLogoInlineImage();
-  const signed = appendAccEmailSignature({ text, html }, inlineLogo !== null);
+  const critical = input.severity === "CRITICA";
+  const { images, availability } = loadAccAlertLogos({ maroon: !critical, inverted: critical });
+  const { html } = buildUniversalAlertEmail({
+    recipientName: input.recipientName,
+    logos: availability,
+    footer: "Comunicação automática determinística. A classificação e a investigação exigem revisão humana.",
+    occurrence: {
+      code: input.submissionId.slice(0, 8).toUpperCase(),
+      projectName: input.projectName,
+      areaLabel: "SSMA",
+      severity: input.severity,
+      title: "OCORRÊNCIA/ACIDENTE",
+      description: `Foi registrada uma ocorrência de SSMA na obra ${input.projectName}.`,
+      stateLabel: "Ocorrência registrada",
+      responsibleName: "",
+      specialistLabel: "Especialista SSMA",
+      openUrl: input.accUrl,
+      actions: {},
+      details: [
+        { label: "Funcionário", value: input.employeeName },
+        { label: "Classificação", value: input.leaveClassification },
+        { label: "Data e hora", value: input.occurredAt },
+        { label: "Causa informada", value: input.informedCause },
+      ],
+      extraLinks: [{ label: "RESPONDER AO ACC", url: input.accUrl }],
+    },
+  });
+  const signed = appendAccEmailSignature({ text, html }, images.length > 0, false);
   const provider = getEmailProvider();
 
   let result;
@@ -58,7 +80,7 @@ export async function sendSsmaAccidentAlertEmail(input: SsmaAccidentAlertInput) 
       subject,
       text: signed.text,
       html: signed.html,
-      inlineImages: inlineLogo ? [inlineLogo] : undefined,
+      inlineImages: images.length > 0 ? images : undefined,
       correlationId: crypto.randomUUID(),
       vera: { projectId: input.projectId, context: "ssma" },
     });

@@ -3,9 +3,8 @@ import "server-only";
 import { appendAccEmailSignature } from "./branding/acc-email-signature";
 import { getEmailProvider } from "./get-email-provider";
 
-function escapeHtml(value: string) {
-  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\"/g, "&quot;");
-}
+import { loadAccAlertLogos } from "./branding/load-acc-logo-inline-image";
+import { buildUniversalAlertEmail } from "./templates/universal-alert-template";
 
 export async function sendVersionImpactReviewEmail(input: {
   recipientEmail: string;
@@ -24,27 +23,48 @@ export async function sendVersionImpactReviewEmail(input: {
 }) {
   const isHigh = input.scheduleImpact !== "NAO" || input.priceImpact !== "NAO";
   const label = isHigh ? "ALTO" : "MÉDIO";
-  const color = isHigh ? "#FFD600" : "#2563eb";
-  const badgeTextColor = isHigh ? "#000000" : "#ffffff";
   const subject = `${isHigh ? "🟡" : "🔵"} [RISCO ${label}] ACC - NOVA VERSÃO - OBRA ${input.projectName.toUpperCase()}`;
-  const summary = [
-    `Arquivo: ${input.documentName}`,
-    `Versão: ${input.previousRevision ?? "—"} → ${input.newRevision}`,
-    `Impacto no prazo: ${input.scheduleImpact}`,
-    `Impacto no preço: ${input.priceImpact}`,
-    `Resposta do Planejamento: ${input.response}`,
-    `Encaminhado ao Orçamento: ${input.sentToBudget ? "Sim" : "Não"}`,
+  const details = [
+    { label: "Arquivo", value: input.documentName },
+    { label: "Versão", value: `${input.previousRevision ?? "—"} → ${input.newRevision}` },
+    { label: "Impacto no prazo", value: input.scheduleImpact },
+    { label: "Impacto no preço", value: input.priceImpact },
+    { label: "Resposta do Planejamento", value: input.response },
+    { label: "Encaminhado ao Orçamento", value: input.sentToBudget ? "Sim" : "Não" },
   ];
   const greeting = input.recipientName ? `Olá, ${input.recipientName}.` : "Olá.";
-  const body = appendAccEmailSignature({
-    text: [`ACC · AXION CONTROLE DE CONTRATOS`, `RISCO ${label} · NOVA VERSÃO`, "", greeting, ...summary, "", `RESPONDER AO ACC: ${input.accUrl}`].join("\n"),
-    html: `<div style="background:#fff;color:#000;padding:24px;font-family:Arial,sans-serif"><p><strong>ACC · AXION CONTROLE DE CONTRATOS</strong></p><p><span style="background:${color};color:${badgeTextColor};padding:6px 12px;border-radius:999px;font-weight:700">RISCO ${label} · NOVA VERSÃO</span></p><p>${escapeHtml(greeting)}</p>${summary.map((line) => `<p style="margin:6px 0">${escapeHtml(line)}</p>`).join("")}<p><a href="${escapeHtml(input.accUrl)}" title="Causa do alerta: ${escapeHtml(input.response)}" style="background:#111827;color:#fff;padding:10px 18px;text-decoration:none;border-radius:6px;font-weight:700">RESPONDER AO ACC</a></p><p style="color:#6b7280;font-size:11px">Aviso obrigatório à gestão, mesmo quando a análise não identifica impacto. Decisão sujeita à revisão humana.</p></div>`,
-  }, false);
+  const { images, availability } = loadAccAlertLogos({ maroon: true, inverted: false });
+  const { html } = buildUniversalAlertEmail({
+    recipientName: input.recipientName,
+    logos: availability,
+    footer: "Aviso obrigatório à gestão, mesmo quando a análise não identifica impacto. Decisão sujeita à revisão humana.",
+    occurrence: {
+      code: "",
+      projectName: input.projectName,
+      areaLabel: "Planejamento",
+      severity: isHigh ? "ALTA" : "MEDIA",
+      title: "Nova versão de documento",
+      description: input.documentName,
+      stateLabel: "Análise de impacto registrada",
+      responsibleName: "",
+      specialistLabel: "Especialista Planejamento",
+      openUrl: input.accUrl,
+      actions: {},
+      details,
+      extraLinks: [{ label: "RESPONDER AO ACC", url: input.accUrl }],
+    },
+  });
+  const text = [
+    "ACC · AXION CONTROLE DE CONTRATOS", `RISCO ${label} · NOVA VERSÃO`, "", greeting,
+    ...details.map(({ label, value }) => `${label}: ${value}`), "", `RESPONDER AO ACC: ${input.accUrl}`,
+  ].join("\n");
+  const body = appendAccEmailSignature({ text, html }, images.length > 0, false);
   return getEmailProvider().send({
     to: input.recipientEmail,
     subject,
     text: body.text,
     html: body.html,
+    inlineImages: images.length > 0 ? images : undefined,
     correlationId: crypto.randomUUID(),
     pilot: { projectId: input.projectId, participantLabel: "destinatário da revisão de versão", escalationLevel: null },
   });

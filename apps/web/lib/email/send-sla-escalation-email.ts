@@ -3,7 +3,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@axion/db/admin";
 
 import { appendAccEmailSignature } from "./branding/acc-email-signature";
-import { loadAccLogoInlineImage } from "./branding/load-acc-logo-inline-image";
+import { loadAccAlertLogos } from "./branding/load-acc-logo-inline-image";
 import { EmailSendError } from "./email-provider";
 import { getEmailProvider } from "./get-email-provider";
 import { buildSlaEscalationEmail, type SlaEscalationEmailInput } from "./templates/sla-escalation-template";
@@ -41,9 +41,14 @@ export interface SendSlaEscalationEmailResult {
 export async function sendSlaEscalationEmail(
   input: SendSlaEscalationEmailInput
 ): Promise<SendSlaEscalationEmailResult> {
-  const { subject, html, text } = buildSlaEscalationEmail(input.email);
-  const inlineLogo = loadAccLogoInlineImage();
-  const signed = appendAccEmailSignature({ text, html }, inlineLogo !== null);
+  const critical = input.email.severity === "CRITICA";
+  const { images, availability } = loadAccAlertLogos({ maroon: !critical, inverted: critical });
+  const { subject, html, text } = buildSlaEscalationEmail({
+    ...input.email,
+    code: input.actionId.slice(0, 8).toUpperCase(),
+    logos: availability,
+  });
+  const signed = appendAccEmailSignature({ text, html }, images.length > 0, false);
 
   const provider = getEmailProvider();
   const correlationId = crypto.randomUUID();
@@ -55,7 +60,7 @@ export async function sendSlaEscalationEmail(
       subject,
       text: signed.text,
       html: signed.html,
-      inlineImages: inlineLogo ? [inlineLogo] : undefined,
+      inlineImages: images.length > 0 ? images : undefined,
       correlationId,
       vera: { projectId: input.projectId, context: "alerta" },
       pilot: { projectId: input.projectId, participantLabel: `Responsável do ${input.email.escalationLevelLabel}`, escalationLevel: input.email.escalationLevelLabel },

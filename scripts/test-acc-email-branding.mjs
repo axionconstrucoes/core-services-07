@@ -440,7 +440,9 @@ check("banner institucional dos templates usa o nome atual da marca (AXION CONTR
     eventUrl: "http://localhost:3000/proj-1/ledger/evt-1",
     actionButtons: [{ action: "RESPOND", url: "http://localhost:3000/email-actions/tok-respond" }],
   });
-  assert(sla.html.includes("AXION CONTROLE DE CONTRATOS"));
+  assert(appendAccEmailSignature(sla, true, false).html.includes("AXION CONTROLE DE CONTRATOS"));
+  assert(sla.html.includes('class="acc-actions-col"'));
+  assert(sla.html.includes('href="http://localhost:3000/email-actions/tok-respond"'));
   assert(!sla.html.includes("ACOMPANHAMENTO") && !sla.text.includes("Acompanhamento"));
 });
 

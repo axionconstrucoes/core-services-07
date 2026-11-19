@@ -248,6 +248,8 @@ export interface UniversalDigestEmailInput {
   occurrences: UniversalOccurrence[];
   logos: AlertLogoAvailability;
   footer?: string;
+  heading?: string;
+  responseLink?: { label: string; url: string };
 }
 
 /**
@@ -257,10 +259,15 @@ export interface UniversalDigestEmailInput {
  */
 export function buildUniversalDigestEmail(input: UniversalDigestEmailInput): BuiltUniversalEmail {
   const greeting = input.recipientName ? `Olá, ${input.recipientName}.` : "Olá.";
-  const head = `<tr><td style="padding:20px 24px 8px 24px;"><p style="margin:0 0 8px 0;font-family:${ACC_FONT_FAMILY};color:#111827;font-size:14px;">${escapeAttr(greeting)}</p><h1 style="margin:0 0 6px 0;font-family:${ACC_FONT_FAMILY};color:#111827;font-size:18px;">Consolidado de riscos — ${escapeAttr(input.projectName)}</h1><p style="margin:0;font-family:${ACC_FONT_FAMILY};color:#111827;font-size:14px;"><strong>Resumo executivo:</strong> ${escapeAttr(input.summaryLine)}</p><p style="margin:4px 0 0 0;font-family:${ACC_FONT_FAMILY};color:#4B5563;font-size:12px;">${escapeAttr(input.windowLabel)}</p></td></tr>`;
+  const heading = input.heading ?? `Consolidado de riscos — ${input.projectName}`;
+  const head = `<tr><td style="padding:20px 24px 8px 24px;"><p style="margin:0 0 8px 0;font-family:${ACC_FONT_FAMILY};color:#111827;font-size:14px;">${escapeAttr(greeting)}</p><h1 style="margin:0 0 6px 0;font-family:${ACC_FONT_FAMILY};color:#111827;font-size:18px;">${escapeAttr(heading)}</h1><p style="margin:0;font-family:${ACC_FONT_FAMILY};color:#111827;font-size:14px;"><strong>Resumo executivo:</strong> ${escapeAttr(input.summaryLine)}</p><p style="margin:4px 0 0 0;font-family:${ACC_FONT_FAMILY};color:#4B5563;font-size:12px;">${escapeAttr(input.windowLabel)}</p></td></tr>`;
   const boxes = input.occurrences.map((o) => `<tr><td style="padding:0 24px 16px 24px;">${buildUniversalOccurrenceHtml(o, input.logos)}</td></tr>`).join("");
   const empty = input.occurrences.length === 0 ? `<tr><td style="padding:0 24px 16px 24px;"><p style="margin:0;font-family:${ACC_FONT_FAMILY};color:#4B5563;font-size:13px;">Nenhuma ocorrência no período.</p></td></tr>` : "";
-  const html = shell(head + boxes + empty, input.footer ?? DEFAULT_FOOTER);
+  const link = input.responseLink;
+  const response = link && isSafeActionUrl(link.url)
+    ? `<tr><td style="padding:0 24px 16px 24px;"><a href="${escapeAttr(link.url)}" style="display:inline-block;padding:10px 16px;background-color:#7F1D1D;color:#FFFFFF;border-radius:6px;text-decoration:none;font-weight:700;font-family:${ACC_FONT_FAMILY};">${escapeAttr(link.label)}</a></td></tr>`
+    : "";
+  const html = shell(head + boxes + empty + response, input.footer ?? DEFAULT_FOOTER);
   const text = [
     "ACC - AXION Controle de Contratos",
     `CONSOLIDADO DE RISCOS — ${input.projectName}`,
@@ -270,6 +277,7 @@ export function buildUniversalDigestEmail(input: UniversalDigestEmailInput): Bui
     input.windowLabel,
     "",
     ...input.occurrences.flatMap((o) => [...buildUniversalOccurrenceText(o), "", "----", ""]),
+    ...(response && link ? [`${link.label}: ${link.url}`, ""] : []),
     input.footer ?? DEFAULT_FOOTER,
   ].join("\n");
   return {
