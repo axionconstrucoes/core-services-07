@@ -132,7 +132,8 @@ export function buildAlertHeaderHtml(
   severity: AlertSeverity,
   riskWord: string,
   projectName: string,
-  logos: AlertLogoAvailability
+  logos: AlertLogoAvailability,
+  headerLabel = `RISCO ${riskWord}`
 ): string {
   const tone = ALERT_TONES[severity];
   const hasLogo = tone.logo === "inverted" ? logos.inverted : logos.maroon;
@@ -142,7 +143,7 @@ export function buildAlertHeaderHtml(
     ? `<td class="acc-box-logo" width="${size + 12}" valign="middle" style="width:${size + 12}px;vertical-align:middle;padding:0 12px 0 0;"><img src="cid:${logoCidFor(tone.logo)}" alt="ACC" width="${size}" height="${size}" style="display:block;border:0;width:${size}px;height:${size}px;" /></td>`
     : "";
 
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr>${logoCell}<td class="acc-box-risk" valign="middle" align="center" style="vertical-align:middle;text-align:center;${textStyle("bold", tone.label, "letter-spacing:0.03em;word-break:break-word;overflow-wrap:anywhere;", true)}">RISCO ${escapeAttr(riskWord)} | ${escapeAttr(projectName)}</td></tr></table>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;"><tr>${logoCell}<td class="acc-box-risk" valign="middle" align="center" style="vertical-align:middle;text-align:center;${textStyle("bold", tone.label, "letter-spacing:0.03em;word-break:break-word;overflow-wrap:anywhere;", true)}">${escapeAttr(headerLabel)} | ${escapeAttr(projectName)}</td></tr></table>`;
 }
 
 // ---------- caixa ----------

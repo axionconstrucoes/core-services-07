@@ -153,6 +153,11 @@ await check("mensagens: nível identificado (Gestor x Diretoria), prazos origina
   const f = buildSsmaForecastExpiredEmail({ ...ctx, recipientName: "Carlos", forecastAt: "20/11/2026 15:00", escalationState: "Nível 3 · Diretoria" });
   assert.match(f.subject, /PREVISÃO DE CONCLUSÃO VENCIDA/);
   assert.match(f.text, /VENCIDA/);
+  for (const mail of [d, g, f]) {
+    assert.match(mail.html, /RISCO ALTO \| WEG/);
+    assert.match(mail.html, /acc-actions-col/);
+    assert.match(mail.html, /Responder pelo e-mail/);
+  }
 });
 
 console.log(`\n${passed} ok, ${failed} falha(s)`);

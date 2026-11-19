@@ -79,10 +79,10 @@ await check("aviso operacional: sem faixa de teste, prazo original, assunção s
   assert.match(high.text, /assumido por Carlos em 18\/11\/2026/);
   assert.match(high.text, /não é atribuído ao responsável atual/);
   assert.match(high.text, /DATA E HORÁRIO/);
-  assert.match(high.html, /#fef3c7/); // ALTO amarelo
-  assert.match(high.html, /acc-side/); // caixa de ação lateral
-  assert.match(buildOperationalOverdueActionEmail({ ...baseCtx, severity: "CRITICA" }).html, /#fde2e1/);
-  assert.match(buildOperationalOverdueActionEmail({ ...baseCtx, severity: "BAIXA" }).html, /background:#ffffff;color:#111827">/);
+  assert.match(high.html, /#FFC700/); // ALTO amarelo
+  assert.match(high.html, /acc-actions-col/); // caixa de ação lateral
+  assert.match(buildOperationalOverdueActionEmail({ ...baseCtx, severity: "CRITICA" }).html, /#CC0000/);
+  assert.match(buildOperationalOverdueActionEmail({ ...baseCtx, severity: "BAIXA" }).html, /background-color:#FFFFFF/);
   const medium = buildOperationalOverdueActionEmail({ ...baseCtx, severity: "MEDIA", takeover: null });
   assert.doesNotMatch(medium.text, /assumido por/);
   assert.doesNotMatch(medium.text, /DATA E HORÁRIO/);
@@ -197,10 +197,16 @@ await check("status: conclusão informada sem previsão; texto sem status => OTH
 await check("confirmação: Re: na mesma thread, previsão com fuso, sem faixa de teste", () => {
   const c = buildSsmaReplyConfirmationEmail({
     projectName: "WEG", recipientName: "Carlos", category: "Ato inseguro", location: "Galpao", visibleCode: "2BF391C1", originalSubject: "[RISCO ALTO] aviso",
-    statusLabel: "Em andamento", forecastLine: "20/11/2026 15:00 (horário de Brasília — America/Sao_Paulo)", pendingLine: null, outOfOrder: false, accUrl: "https://acc",
+    severity: "ALTA", statusLabel: "Em andamento", forecastLine: "20/11/2026 15:00 (horário de Brasília — America/Sao_Paulo)", pendingLine: null, outOfOrder: false, accUrl: "https://acc",
   });
   assert.equal(c.subject, "Re: [RISCO ALTO] aviso");
   assert.match(c.text, /America\/Sao_Paulo/);
+  assert.match(c.html, /RESPOSTA REGISTRADA · AÇÃO CORRETIVA SSMA/);
+  assert.match(c.html, /RISCO ALTO \| WEG/);
+  assert.match(c.html, /acc-actions-col/);
+  assert.match(c.html, /RESOLVIDO.*EM ANDAMENTO.*ENVIAR PARA.*ESPECIALISTA/s);
+  assert.equal((c.html.match(/aria-disabled="true"/g) ?? []).length, 4);
+  assert.deepEqual(c.logoNeeds, { maroon: true, inverted: false });
   assert.doesNotMatch(c.text, /TESTE|PILOTO/);
 });
 
