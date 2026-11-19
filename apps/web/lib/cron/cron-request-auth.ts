@@ -8,6 +8,8 @@ import { timingSafeEqual } from "node:crypto";
 
 /** Segredo DEDICADO do ciclo de alertas de risco (piloto) — nunca o CRON_SECRET dos crons Vercel. */
 export const RISK_ALERTS_CRON_SECRET_ENV = "ACC_RISK_ALERTS_CRON_SECRET";
+export const SCHEDULER_RISK_CRON_SECRET_ENV = "ACC_SCHEDULER_RISK_CRON_SECRET";
+export const SCHEDULER_SSMA_CRON_SECRET_ENV = "ACC_SCHEDULER_SSMA_CRON_SECRET";
 
 export function isCronRequestAuthorized(request: Pick<Request, "headers">, cronSecret: string | undefined): boolean {
   const expectedSecret = cronSecret?.trim();
@@ -17,4 +19,17 @@ export function isCronRequestAuthorized(request: Pick<Request, "headers">, cronS
   const presented = Buffer.from(header.slice("Bearer ".length));
   const expected = Buffer.from(expectedSecret);
   return presented.length === expected.length && timingSafeEqual(presented, expected);
+}
+
+
+// O agendador pode executar o ciclo regular e a prévia, sem acesso aos modos do piloto.
+export function isRiskSchedulerRequestAuthorized(
+  request: Pick<Request, "headers">,
+  params: URLSearchParams,
+  cronSecret: string | undefined,
+): boolean {
+  for (const key of params.keys()) {
+    if (key !== "dryRun" && key !== "projectId" && key !== "inboundCheck") return false;
+  }
+  return isCronRequestAuthorized(request, cronSecret);
 }
