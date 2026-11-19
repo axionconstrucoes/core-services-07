@@ -23,6 +23,7 @@ const SOURCE_KIND_LABELS: Record<AlertConsultSource["kind"], string> = {
   CLAUSULA: "Cláusula",
   EVIDENCIA: "Evidência",
   PROVIDENCIA: "Providência",
+  ALERTA: "Alerta",
 };
 
 export function AlertConsultPanel({
@@ -36,7 +37,7 @@ export function AlertConsultPanel({
 }: {
   action: ConsultAction;
   projectId: string;
-  subject: "evento" | "providencia";
+  subject: "evento" | "providencia" | "risco";
   id: string;
   defaultSpecialtyId: AlertConsultSpecialtyId;
   /** Por que esta especialidade veio selecionada (área cadastrada ou geral). */

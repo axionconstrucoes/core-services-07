@@ -97,6 +97,26 @@ export function preselectSpecialtyForArea(area: MembershipArea | string | null |
   }
 }
 
+/**
+ * Especialidade inicial pela ÁREA SLA do alerta de risco (a mesma que define o responsável na Matriz).
+ * Áreas sem especialista dedicado (Financeiro, Comercial, Orçamento, Administrativo, Diretoria) voltam
+ * "geral" — nunca uma suposição; o usuário pode trocar.
+ */
+export function specialtyForSlaArea(area: string | null | undefined): AlertConsultSpecialtyId {
+  switch (area) {
+    case "ENGENHARIA":
+      return "engenharia";
+    case "PLANEJAMENTO":
+      return "planejamento";
+    case "ESG_SSMA":
+      return "ssma";
+    case "JURIDICO":
+      return "juridico";
+    default:
+      return "geral";
+  }
+}
+
 /** Critérios de risco (texto exato da definição AXION) — mesmo texto dos prompts dos Experts. */
 export const CONSULT_RISK_CRITERIA_TEXT =
   "Critérios de risco AXION: CRÍTICO = risco iminente de descumprimento e penalização contratual, exigindo ação imediata; " +
@@ -123,7 +143,7 @@ export function composeSpecialtyQuestion(
   return parts.join("\n\n");
 }
 
-export type AlertConsultSubjectKind = "evento" | "providencia";
+export type AlertConsultSubjectKind = "evento" | "providencia" | "risco";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -145,7 +165,7 @@ export function parseAlertConsultForm(formData: FormData): ParsedAlertConsultFor
   const specialty = getAlertConsultSpecialty(get("specialty"));
   const question = get("question");
 
-  if (!UUID_RE.test(projectId) || !UUID_RE.test(id) || (subject !== "evento" && subject !== "providencia")) {
+  if (!UUID_RE.test(projectId) || !UUID_RE.test(id) || (subject !== "evento" && subject !== "providencia" && subject !== "risco")) {
     return { ok: false, error: CONSULT_INVALID_CONTEXT_MESSAGE };
   }
   if (!specialty) return { ok: false, error: "Selecione uma especialidade." };

@@ -1,0 +1,199 @@
+{
+  "geradoEm": "2026-11-18T19:06:46.153Z",
+  "modelos": [
+    {
+      "id": "01-critico-engenharia",
+      "title": "E-mail CRÍTICO — Engenharia",
+      "subject": "🔴 [RISCO CRÍTICO] ACC - OBRA WEG — OBRA DE HOMOLOGAÇÃO [ACC-ALERTA:HMLG0001]",
+      "hasAxia": true,
+      "fourButtons": true,
+      "logoNeeds": {
+        "maroon": false,
+        "inverted": true
+      }
+    },
+    {
+      "id": "02-alto-ssma",
+      "title": "E-mail ALTO — SSMA",
+      "subject": "🟡 [RISCO ALTO] ACC - OBRA WEG — OBRA DE HOMOLOGAÇÃO [ACC-ALERTA:HMLG0002]",
+      "hasAxia": true,
+      "fourButtons": true,
+      "logoNeeds": {
+        "maroon": true,
+        "inverted": false
+      }
+    },
+    {
+      "id": "03-medio-planejamento",
+      "title": "E-mail MÉDIO — Planejamento",
+      "subject": "🔵 [RISCO MÉDIO] ACC - OBRA WEG — OBRA DE HOMOLOGAÇÃO [ACC-ALERTA:HMLG0003]",
+      "hasAxia": true,
+      "fourButtons": true,
+      "logoNeeds": {
+        "maroon": true,
+        "inverted": false
+      }
+    },
+    {
+      "id": "04-baixo-contratos",
+      "title": "E-mail BAIXO — Contratos (Jurídico)",
+      "subject": "🟢 [RISCO BAIXO] ACC - OBRA WEG — OBRA DE HOMOLOGAÇÃO [ACC-ALERTA:HMLG0004]",
+      "hasAxia": true,
+      "fourButtons": true,
+      "logoNeeds": {
+        "maroon": true,
+        "inverted": false
+      }
+    },
+    {
+      "id": "05-consolidado-varias",
+      "title": "Consolidado — várias ocorrências",
+      "subject": "OBRA WEG — OBRA DE HOMOLOGAÇÃO - CONSOLIDADO SEMANAL DE RISCOS BAIXO/MÉDIO (18/11/2026)",
+      "hasAxia": true,
+      "fourButtons": true,
+      "logoNeeds": {
+        "maroon": true,
+        "inverted": false
+      }
+    },
+    {
+      "id": "06-consolidado-concluida",
+      "title": "Consolidado — com ocorrência concluída (tique verde)",
+      "subject": "OBRA WEG — OBRA DE HOMOLOGAÇÃO - CONSOLIDADO SEMANAL DE RISCOS BAIXO/MÉDIO (18/11/2026)",
+      "hasAxia": true,
+      "fourButtons": true,
+      "logoNeeds": {
+        "maroon": true,
+        "inverted": false
+      }
+    },
+    {
+      "id": "07-contrato-critico-individual",
+      "title": "Alerta contratual individual — CRÍTICO",
+      "subject": "[RISCO CRÍTICO] WEG — Obra de Homologação | ACC",
+      "hasAxia": true,
+      "fourButtons": true
+    },
+    {
+      "id": "08-contrato-lote-quatro-graus",
+      "title": "Alertas contratuais em lote — CRÍTICO, ALTO, MÉDIO e BAIXO",
+      "subject": "[RISCO CRÍTICO] WEG — Obra de Homologação | 4 alertas | ACC",
+      "hasAxia": true,
+      "fourButtons": true
+    }
+  ],
+  "capturas": [
+    {
+      "id": "01-critico-engenharia",
+      "viewport": "desktop",
+      "file": "img/01-critico-engenharia-desktop.png",
+      "height": 997,
+      "horizontalScroll": false
+    },
+    {
+      "id": "01-critico-engenharia",
+      "viewport": "celular",
+      "file": "img/01-critico-engenharia-celular.png",
+      "height": 1421,
+      "horizontalScroll": false
+    },
+    {
+      "id": "02-alto-ssma",
+      "viewport": "desktop",
+      "file": "img/02-alto-ssma-desktop.png",
+      "height": 935,
+      "horizontalScroll": false
+    },
+    {
+      "id": "02-alto-ssma",
+      "viewport": "celular",
+      "file": "img/02-alto-ssma-celular.png",
+      "height": 1379,
+      "horizontalScroll": false
+    },
+    {
+      "id": "03-medio-planejamento",
+      "viewport": "desktop",
+      "file": "img/03-medio-planejamento-desktop.png",
+      "height": 915,
+      "horizontalScroll": false
+    },
+    {
+      "id": "03-medio-planejamento",
+      "viewport": "celular",
+      "file": "img/03-medio-planejamento-celular.png",
+      "height": 1359,
+      "horizontalScroll": false
+    },
+    {
+      "id": "04-baixo-contratos",
+      "viewport": "desktop",
+      "file": "img/04-baixo-contratos-desktop.png",
+      "height": 957,
+      "horizontalScroll": false
+    },
+    {
+      "id": "04-baixo-contratos",
+      "viewport": "celular",
+      "file": "img/04-baixo-contratos-celular.png",
+      "height": 1381,
+      "horizontalScroll": false
+    },
+    {
+      "id": "05-consolidado-varias",
+      "viewport": "desktop",
+      "file": "img/05-consolidado-varias-desktop.png",
+      "height": 1500,
+      "horizontalScroll": false
+    },
+    {
+      "id": "05-consolidado-varias",
+      "viewport": "celular",
+      "file": "img/05-consolidado-varias-celular.png",
+      "height": 2647,
+      "horizontalScroll": false
+    },
+    {
+      "id": "06-consolidado-concluida",
+      "viewport": "desktop",
+      "file": "img/06-consolidado-concluida-desktop.png",
+      "height": 1256,
+      "horizontalScroll": false
+    },
+    {
+      "id": "06-consolidado-concluida",
+      "viewport": "celular",
+      "file": "img/06-consolidado-concluida-celular.png",
+      "height": 2198,
+      "horizontalScroll": false
+    },
+    {
+      "id": "07-contrato-critico-individual",
+      "viewport": "desktop",
+      "file": "img/07-contrato-critico-individual-desktop.png",
+      "height": 977,
+      "horizontalScroll": false
+    },
+    {
+      "id": "07-contrato-critico-individual",
+      "viewport": "celular",
+      "file": "img/07-contrato-critico-individual-celular.png",
+      "height": 1421,
+      "horizontalScroll": false
+    },
+    {
+      "id": "08-contrato-lote-quatro-graus",
+      "viewport": "desktop",
+      "file": "img/08-contrato-lote-quatro-graus-desktop.png",
+      "height": 1537,
+      "horizontalScroll": false
+    },
+    {
+      "id": "08-contrato-lote-quatro-graus",
+      "viewport": "celular",
+      "file": "img/08-contrato-lote-quatro-graus-celular.png",
+      "height": 2610,
+      "horizontalScroll": false
+    }
+  ]
+}
