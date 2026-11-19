@@ -99,7 +99,7 @@ const CASES = [
   // saudações, identidade, idade
   ["social-bom-dia", "Bom dia!", [], (a) => isSocial(a) && /^Bom dia/.test(a.summary)],
   ["social-tudo-bem", "Oi, tudo bem?", [], (a) => isSocial(a) && !/\d/.test(a.summary)],
-  ["social-idade", "Quantos anos você tem?", [], (a) => isSocial(a) && !/\d/.test(a.summary) && /(não tenho idade|assistente virtual|programa|não sou)/i.test(a.summary)],
+  ["pessoal-idade", "Quantos anos você tem?", [], (a) => a.kind === "scope" && a.summary === "Pergunta fora do escopo deste projeto"],
   ["social-identidade", "Você é uma pessoa de verdade ou um robô?", [], (a) => isSocial(a) && !/(?<!não )sou (uma )?(pessoa de verdade|humana|mulher)/i.test(a.summary) && /(assistente virtual|não sou uma pessoa|programa)/i.test(a.summary)],
   ["social-agradecimento", "Obrigado, ajudou muito!", [], (a) => isSocial(a)],
   ["social-capacidades", "O que você consegue fazer por mim?", [], (a) => isSocial(a) && !/\d/.test(a.summary)],
