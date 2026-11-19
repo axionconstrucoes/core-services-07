@@ -142,8 +142,8 @@ await check("máquina de estados (sla_action_id nulo): TAKING_ACTION, FORWARD, a
   let s = snapshotOf();
   const t1 = act(s, "TAKING_ACTION", U.rey, { text: "Assumindo o caso de teste." });
   assert(t1.ok && t1.caseUpdate.state === "IN_PROGRESS" && t1.caseUpdate.currentResponsibleUserId === U.rey, JSON.stringify(t1));
-  // HIGH: ação humana escala (Matriz: sem Nível 2 => Diretoria = Reynaldo). Nunca Ricardo; saída só PENDING (sem ciclo não envia).
-  assert(t1.escalation?.toLevel === "DIRETORIA", `escalonamento ${t1.escalation?.toLevel}`);
+  // HIGH: EM ANDAMENTO NÃO escalona extraordinariamente (critério de 18/11/2026); saída só PENDING (sem ciclo não envia).
+  assert(t1.escalation === null, `escalonamento ${t1.escalation?.toLevel}`);
   assert(t1.outbox.every((o) => o.recipientUserId === U.rey && o.status === "PENDING"), JSON.stringify(t1.outbox));
   transitions.push(t1);
   s = next(s, t1);

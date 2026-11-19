@@ -135,7 +135,7 @@ const baseInput = { to: "a@axion.com.br", subject: "S", text: "Corpo", html: "<h
 
 await check("cabeçalho: foto circular + 'Fale com a AXIA' à direita, link, alt legível; conteúdo preservado", () => {
   const out = vera.applyVeraEmailHeader({ ...baseInput, vera: { projectId: PROJECT, context: "alerta" } }, { baseUrl: BASE, loadImage: () => image, axiaAvailable: true });
-  ok(out.html.includes('align="right"') && out.html.includes("Fale com a AXIA") && out.html.includes(`cid:${image.cid}`), "cabeçalho incompleto");
+  ok(out.html.includes('align="right"') && out.html.includes("FALE COM A AXIA") && out.html.includes(`cid:${image.cid}`), "cabeçalho incompleto");
   ok(out.html.includes("border-radius:20px") && out.html.includes('alt="AXIA — Assistente ACC"'), "foto circular/alt");
   ok(out.html.includes(`href="${BASE}/${PROJECT}/ajuda?vera=abrir&amp;contexto=alerta"`), "link");
   ok(out.html.includes("<p>Conteúdo</p>") && out.html.indexOf("data-vera-header") < out.html.indexOf("<p>Conteúdo</p>"), "conteúdo preservado e cabeçalho antes");
@@ -147,7 +147,7 @@ await check("cabeçalho: foto circular + 'Fale com a AXIA' à direita, link, alt
 
 await check("cabeçalho: sem imagem disponível, o texto-link continua (alternativa legível)", () => {
   const out = vera.applyVeraEmailHeader(baseInput, { baseUrl: BASE, loadImage: () => null, axiaAvailable: true });
-  ok(out.html.includes("Fale com a AXIA") && !out.html.includes("cid:"), "sem imagem: texto deve permanecer");
+  ok(out.html.includes("FALE COM A AXIA") && !out.html.includes("cid:"), "sem imagem: texto deve permanecer");
   eq(out.inlineImages, undefined, "sem anexo");
 });
 
@@ -168,14 +168,16 @@ await check("e-mail só em texto e HTML sem <body> também recebem a AXIA", () =
   ok(noBody.html.startsWith("<table role=\"presentation\"") && noBody.html.endsWith("</table>"), "sem body");
 });
 
-await check("AXIA desligada (AXIA_CHAT_PROVIDER=off/ausente/inválida): nenhum e-mail apresenta o acesso à AXIA", () => {
-  for (const env of [{}, { AXIA_CHAT_PROVIDER: "off" }, { AXIA_CHAT_PROVIDER: "xyz" }, { AXIA_CHAT_PROVIDER: "anthropic" }]) ok(vera.isAxiaEmailAccessAvailable(env) === false, JSON.stringify(env));
-  ok(vera.isAxiaEmailAccessAvailable({ AXIA_CHAT_PROVIDER: "simulated" }) === true, "simulated fora da Vercel conta como ligada");
-  eq(vera.applyVeraEmailHeader(baseInput, { baseUrl: BASE, loadImage: () => image, axiaAvailable: false }), baseInput, "desligada: e-mail intocado");
+await check("AXIA no cabeçalho independe da IA generativa: com AXIA_CHAT_PROVIDER off/ausente/inválida o acesso continua; só ACC_AXIA_EMAIL_HEADER=off remove", () => {
+  for (const env of [{}, { AXIA_CHAT_PROVIDER: "off" }, { AXIA_CHAT_PROVIDER: "xyz" }, { AXIA_CHAT_PROVIDER: "anthropic" }, { AXIA_CHAT_PROVIDER: "simulated" }]) ok(vera.isAxiaEmailAccessAvailable(env) === true, JSON.stringify(env));
+  for (const flag of ["off", "OFF", "0", "false", " off "]) ok(vera.isAxiaEmailAccessAvailable({ ACC_AXIA_EMAIL_HEADER: flag }) === false, flag);
+  eq(vera.applyVeraEmailHeader(baseInput, { baseUrl: BASE, loadImage: () => image, axiaAvailable: false }), baseInput, "chave desligada: e-mail intocado");
   const prev = process.env.AXIA_CHAT_PROVIDER;
   process.env.AXIA_CHAT_PROVIDER = "off";
   try {
-    eq(vera.applyVeraEmailHeader(baseInput, { baseUrl: BASE, loadImage: () => image }), baseInput, "padrão do ambiente desligado: intocado");
+    const out = vera.applyVeraEmailHeader(baseInput, { baseUrl: BASE, loadImage: () => image });
+    ok(out.html.includes("FALE COM A AXIA"), "com a IA generativa desligada o cabeçalho deve aparecer");
+    ok(process.env.AXIA_CHAT_PROVIDER === "off", "não pode ligar nenhum provedor");
   } finally {
     if (prev === undefined) delete process.env.AXIA_CHAT_PROVIDER;
     else process.env.AXIA_CHAT_PROVIDER = prev;
@@ -193,7 +195,7 @@ await check("pelo provider (guarda do piloto + AXIA): o destino continua redirec
     let seen = null;
     const provider = new FakeEmailProvider({ onGuardedInput: (input) => (seen = input) });
     await provider.send({ ...baseInput, to: "cliente.externo@exemplo.com", vera: { projectId: PROJECT, context: "alerta" } });
-    ok(seen && seen.html.includes("Fale com a AXIA"), "provider não aplicou a AXIA");
+    ok(seen && seen.html.includes("FALE COM A AXIA"), "provider não aplicou a AXIA");
     eq(seen.to, "crm@axion.com.br", "destino redirecionado à caixa de teste");
     ok(seen.subject.startsWith("[TESTE CONTROLADO]") || process.env.ACC_OUTBOUND_MODE === "production", "guarda do piloto alterada");
   } finally {

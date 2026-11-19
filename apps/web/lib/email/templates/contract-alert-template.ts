@@ -18,13 +18,12 @@ import {
   BUTTON_COLUMN_WIDTH_PX,
   HEADER_GAP_PX,
   ALERT_MOBILE_CSS,
-  buildActionsPanelHtml,
   buildAlertBoxHtml,
   buildAlertHeaderHtml,
-  buildThreeActionButtonsHtml,
   textStyle,
   type ThreeActions,
 } from "@/lib/email/templates/alert-box-style";
+import { buildUniversalActionsPanelHtml } from "@/lib/email/templates/universal-alert-actions";
 import {
   alertClauseHtml,
   alertClauseText,
@@ -307,7 +306,7 @@ export function buildContractAlertEmail(input: ContractAlertEmailInput): Contrac
   // a coluna anterior com os botões por token (preservada).
   let actionsColumnHtml = "";
   if (quick) {
-    actionsColumnHtml = `<td class="acc-actions-col" valign="top" width="${BUTTON_COLUMN_WIDTH_PX}" style="width:${BUTTON_COLUMN_WIDTH_PX}px;padding:0 0 0 16px;">${buildActionsPanelHtml(buildThreeActionButtonsHtml((action) => quick[action]), input.aiConsultUrl)}</td>`;
+    actionsColumnHtml = `<td class="acc-actions-col" valign="top" width="${BUTTON_COLUMN_WIDTH_PX}" style="width:${BUTTON_COLUMN_WIDTH_PX}px;padding:0 0 0 16px;">${buildUniversalActionsPanelHtml({ links: { RESOLVIDO: quick.RESOLVIDO, EM_ANDAMENTO: quick.EM_ANDAMENTO, ENVIAR_PARA: quick.ENVIADO_PARA, ESPECIALISTA: input.aiConsultUrl }, unavailableReasons: { ESPECIALISTA: "Consulta indisponível para este alerta." } })}</td>`;
   } else if (input.actionButtons.length > 0) {
     actionsColumnHtml = `<td class="acc-actions-col" valign="top" width="36%" style="width:36%;padding:0 0 0 16px;"><div style="background-color:#FFFFFF;border:1px solid #E5E7EB;border-radius:6px;padding:8px;">${renderEmailActionButtonsHtml(input.actionButtons, input.summary, "#4B5563", "14px")}</div></td>`;
   }
@@ -381,7 +380,7 @@ export function buildContractAlertEmail(input: ContractAlertEmailInput): Contrac
     "",
     alertEvidenceText(input.keyEvidence),
     ...(input.repeatNotice ? ["", repeatNoticeText(input.severity)] : []),
-    ...(quick ? ["", "Ações:", `RESOLVIDO: ${quick.RESOLVIDO}`, `EM ANDAMENTO: ${quick.EM_ANDAMENTO}`, `ENVIADO P/: ${quick.ENVIADO_PARA}`] : []),
+    ...(quick ? ["", "Ações (abrem o ACC autenticado; nada é alterado só pelo clique):", `RESOLVIDO: ${quick.RESOLVIDO}`, `EM ANDAMENTO: ${quick.EM_ANDAMENTO}`, `ENVIAR PARA: ${quick.ENVIADO_PARA}`, `ESPECIALISTA: ${input.aiConsultUrl ?? "indisponível (consulta indisponível para este alerta)"}`] : []),
     ...(input.actionButtons.length > 0 ? ["", quick ? "Outras ações:" : "Ações disponíveis:", renderEmailActionButtonsText(input.actionButtons)] : []),
     "",
     "Este alerta é uma sugestão de análise automatizada e exige revisão humana — não é uma decisão contratual ou jurídica definitiva.",

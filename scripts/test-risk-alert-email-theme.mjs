@@ -1,5 +1,5 @@
 // Template OPERACIONAL dos e-mails de alerta de risco (imediato, escalonamento e acompanhamento):
-// fundo vermelho (CRÍTICO), amarelo (ALTO/MÉDIO) e branco (BAIXO); caixas de ação na coluna lateral;
+// paleta única aprovada: vermelho (CRÍTICO), amarelo (ALTO), branco com faixa azul (MÉDIO) e verde (BAIXO); quatro botões na coluna lateral;
 // instrução de resposta direta no corpo (status + previsão); contraste WCAG AA; sem faixa de TESTE/PILOTO no
 // alerta real. Funções REAIS, dados fictícios, nenhum envio.
 //
@@ -88,12 +88,14 @@ function immediate(riskLevel, kind = "IMMEDIATE") {
     actionButtons: [],
     actionLinks: LINKS,
     visibleCode: "EXEMPLO1",
+    caseId: "case-exemplo",
+    logos: { maroon: true, inverted: true },
   });
 }
 
 const LEVELS = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
 
-check("temas: CRÍTICO vermelho, ALTO e MÉDIO amarelos, BAIXO branco", () => {
+check("temas (paleta ÚNICA aprovada): CRÍTICO vermelho, ALTO amarelo, MÉDIO e BAIXO brancos", () => {
   const isRed = (hex) => {
     const h = hex.replace("#", "");
     const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
@@ -102,11 +104,11 @@ check("temas: CRÍTICO vermelho, ALTO e MÉDIO amarelos, BAIXO branco", () => {
   const isYellow = (hex) => {
     const h = hex.replace("#", "");
     const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
-    return r > 230 && g > 200 && b < 160;
+    return r > 230 && g > 180 && b < 160;
   };
   assert(isRed(RISK_EMAIL_THEMES.CRITICAL.background), "CRÍTICO não é vermelho");
-  assert(isYellow(RISK_EMAIL_THEMES.HIGH.background) && isYellow(RISK_EMAIL_THEMES.MEDIUM.background), "ALTO/MÉDIO não são amarelos");
-  assert(RISK_EMAIL_THEMES.LOW.background.toUpperCase() === "#FFFFFF", "BAIXO não é branco");
+  assert(isYellow(RISK_EMAIL_THEMES.HIGH.background), "ALTO não é amarelo");
+  assert(RISK_EMAIL_THEMES.MEDIUM.background.toUpperCase() === "#FFFFFF" && RISK_EMAIL_THEMES.LOW.background.toUpperCase() === "#FFFFFF", "MÉDIO/BAIXO não são brancos");
 });
 
 check("contraste WCAG AA (≥ 4,5:1) do texto sobre o fundo de cada grau e dos painéis/caixas brancos", () => {
@@ -118,17 +120,21 @@ check("contraste WCAG AA (≥ 4,5:1) do texto sobre o fundo de cada grau e dos p
   assert(contrast("#000000", "#FFFFFF") >= 4.5 && contrast("#111827", "#FFFFFF") >= 4.5 && contrast("#FFFFFF", "#111827") >= 4.5 && contrast("#4B5563", "#FFFFFF") >= 4.5);
 });
 
-check("imediato: fundo do cartão pelo grau, painel branco de dados e caixas de ação na coluna LATERAL (Outlook e celular)", () => {
+check("imediato (template universal): fundo pelo grau, logotipo oficial, quatro botões na coluna lateral, faixa azul/verde em MÉDIO/BAIXO", () => {
+  const ACCENT = { MEDIUM: "#1D4ED8", LOW: "#15803D" };
   for (const level of LEVELS) {
     const e = immediate(level);
     const t = RISK_EMAIL_THEMES[level];
     assert(e.html.includes(`background-color:${t.background}`), `${level}: sem fundo do tema`);
-    assert(e.html.includes("data-acc-risk-theme=\"1\""));
-    assert(e.html.includes("max-width:400px") && e.html.includes("max-width:200px"), "sem duas colunas");
-    assert(e.html.includes("<!--[if mso]>"), "sem coluna lateral no Outlook");
-    const side = e.html.slice(e.html.indexOf("max-width:200px"));
-    for (const label of ["Abrir no ACC", "Ver evidência de origem", "RESOLVIDO", "ENVIAR PARA", "Responder pelo e-mail"]) assert(side.includes(label), `${level}: coluna lateral sem ${label}`);
-    for (const url of Object.values(LINKS)) assert(e.html.includes(url) && e.text.includes(url), "link de ação ausente");
+    assert(e.html.includes("acc-actions-col") && e.html.includes("acc-content-col"), "sem duas colunas (conteúdo e botões)");
+    assert(e.html.includes("cid:acc-logo-" + (level === "CRITICAL" ? "inverted" : "signature")), `${level}: logotipo oficial ausente`);
+    const side = e.html.slice(e.html.indexOf("acc-actions-col"));
+    const order = ["RESOLVIDO", "EM ANDAMENTO", "ENVIAR PARA", "ESPECIALISTA"].map((label) => side.indexOf(`>${label}<`));
+    assert(order.every((i) => i > 0) && [...order].sort((a, b) => a - b).join() === order.join(), `${level}: quatro botões fora de ordem/ausentes`);
+    for (const url of [LINKS.RESOLVED, LINKS.TAKING_ACTION, LINKS.FORWARD]) assert(e.html.includes(url) && e.text.includes(url), "link de ação ausente");
+    assert(e.html.includes("Responder pelo e-mail") && e.text.includes("RESPONDER PELO E-MAIL:"));
+    if (ACCENT[level]) assert(e.html.includes(`border-left:6px solid ${ACCENT[level]}`), `${level}: sem faixa de identificação`);
+    else assert(!e.html.includes("border-left:6px"), `${level}: não deveria ter faixa`);
   }
 });
 
@@ -145,9 +151,9 @@ check("instrução de resposta: ALTO/CRÍTICO pedem data E horário; MÉDIO/BAIX
   }
 });
 
-check("escalonamento e acompanhamento usam o mesmo tema e a coluna lateral", () => {
+check("escalonamento e acompanhamento usam o mesmo template (cabeçalho com logo, quatro botões, estado)", () => {
   const esc = immediate("CRITICAL", "ESCALATION");
-  assert(esc.html.includes(RISK_EMAIL_THEMES.CRITICAL.background) && esc.html.includes("RISCO CRÍTICO · GESTOR"));
+  assert(esc.html.includes(RISK_EMAIL_THEMES.CRITICAL.background) && esc.html.includes("RISCO CRÍTICO | Obra Exemplo") && esc.html.includes("Escalonado — Gestor"));
   const fu = buildAlertFollowUpEmail({
     kind: "ACTION_CONFIRMATION",
     projectId: PROJECT,
@@ -162,8 +168,9 @@ check("escalonamento e acompanhamento usam o mesmo tema e a coluna lateral", () 
     visibleCode: "EXEMPLO1",
     rows: [["Status", "Em andamento"]],
     actionLinks: LINKS,
+    logos: { maroon: true, inverted: true },
   });
-  assert(fu.html.includes(RISK_EMAIL_THEMES.HIGH.background) && fu.html.includes("max-width:200px") && fu.html.includes("Abrir alerta no ACC"));
+  assert(fu.html.includes(RISK_EMAIL_THEMES.HIGH.background) && fu.html.includes("acc-actions-col") && fu.html.includes(">ESPECIALISTA<") && fu.html.includes("alertas/case-exemplo?acao=ESPECIALISTA"));
   assert(fu.text.includes("RESPONDER PELO E-MAIL:"));
 });
 

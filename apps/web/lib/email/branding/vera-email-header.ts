@@ -11,15 +11,15 @@
 // Alternativa legível: se o cliente de e-mail não carregar imagens ou ignorar estilos, ainda aparecem o texto do
 // link "Fale com a AXIA" e o texto alternativo da foto; a versão em texto simples ganha uma linha com o endereço.
 //
-// DISPONIBILIDADE: o cabeçalho só entra quando a AXIA conversacional está LIGADA (AXIA_CHAT_PROVIDER diferente de "off",
-// ver lib/assistant/chat-config.ts). Com a AXIA desligada (estado atual de produção), nenhum e-mail apresenta o acesso à
-// AXIA como funcional — o e-mail segue sem o cabeçalho, sem falhar o envio. Este módulo NUNCA liga provedores de IA.
+// DISPONIBILIDADE: o acesso "FALE COM A AXIA" é a ajuda DETERMINÍSTICA (Q&A aprovado, login e escopo por obra) e por isso
+// NÃO depende de a IA generativa estar ligada: AXIA_CHAT_PROVIDER=off (estado de produção) continua exibindo o acesso, e a
+// AXIA responde só com a base aprovada (ver lib/assistant/chat-orchestrator.ts). Este módulo NUNCA liga provedores de IA e
+// não lê AXIA_CHAT_PROVIDER. Chave de desligamento explícita: ACC_AXIA_EMAIL_HEADER=off remove o cabeçalho de todos os e-mails.
 //
 // Sem "server-only": testável por script Node.
 
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { loadAxiaChatConfig } from "../../assistant/chat-config";
 import type { InlineImageAttachment, SendEmailInput, VeraEmailHint } from "../email-provider";
 
 export const VERA_EMAIL_IMAGE_CID = "vera-assistente-acc";
@@ -61,7 +61,7 @@ function escapeAttribute(value: string): string {
 
 export function buildVeraHeaderHtml(url: string, hasImage: boolean): string {
   const href = escapeAttribute(url);
-  const label = "Fale com a AXIA";
+  const label = "FALE COM A AXIA";
   const image = hasImage
     ? `&nbsp;<img src="cid:${VERA_EMAIL_IMAGE_CID}" width="40" height="40" alt="AXIA — Assistente ACC" style="vertical-align:middle;border-radius:20px;border:2px solid #7F1D1D;width:40px;height:40px;">`
     : "";
@@ -74,13 +74,14 @@ export function buildVeraHeaderHtml(url: string, hasImage: boolean): string {
   );
 }
 
-/** true só quando a AXIA conversacional está configurada e ligada (fail closed: "off", inválida ou incompleta => false). */
+/** true por padrão (ajuda determinística sempre disponível); só "off"/"0"/"false" em ACC_AXIA_EMAIL_HEADER desliga o cabeçalho. */
 export function isAxiaEmailAccessAvailable(env: Record<string, string | undefined> = process.env): boolean {
-  return loadAxiaChatConfig(env).mode !== "off";
+  const flag = (env.ACC_AXIA_EMAIL_HEADER ?? "").trim().toLowerCase();
+  return !(flag === "off" || flag === "0" || flag === "false");
 }
 
 export interface ApplyVeraOptions {
-  /** Disponibilidade da AXIA; padrão = isAxiaEmailAccessAvailable(process.env). false => e-mail sem cabeçalho da AXIA. */
+  /** Exibição do cabeçalho; padrão = isAxiaEmailAccessAvailable(process.env). false => e-mail sem cabeçalho da AXIA. */
   axiaAvailable?: boolean;
   /** URL base do ACC; padrão AXION_APP_BASE_URL. Sem ela, o e-mail segue sem o cabeçalho (nunca falha o envio). */
   baseUrl?: string | null;

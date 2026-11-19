@@ -6,6 +6,10 @@ import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
+import { ProjectParticipantsPanel } from "@/components/users/project-participants-panel";
+import { getAddableProfiles } from "@/lib/users/addable-profiles";
+import { buildParticipantRows, resolveEligibleSlaPeople } from "@/lib/users/participant-selection";
+import type { MembershipArea } from "@axion/types";
 import { ManageMembersPanel } from "@/components/users/manage-members-panel";
 import { MemberRowActions } from "@/components/users/member-row-actions";
 import { MemberWhatsappForm } from "@/components/users/member-whatsapp-form";
@@ -82,19 +86,18 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
   }
   const currentUserId = authData.data.user?.id ?? null;
   const projectLabel = project ? `${project.code} — ${project.name}` : "";
+  const addable = canManage ? await getAddableProfiles(projectId) : { available: false, candidates: [] };
+  const participantRows = buildParticipantRows(projectId, members, invitations, addable.candidates);
   const pendingInvitations = invitations.filter((invitation) => invitation.status === "PENDING");
-  const peopleOptions = [
-    ...members
-      .filter((member) => member.status === "ACTIVE")
-      .map((member) => ({
-        value: formatMemberSelection(member.userId),
-        label: `${member.user.name} — ${member.area ? membershipAreaLabels[member.area] : "Sem área"} — ${member.user.email}`,
-      })),
-    ...pendingInvitations.map((invitation) => ({
-      value: formatInvitationSelection(invitation.id),
-      label: `${invitation.name} — ${invitation.area ? membershipAreaLabels[invitation.area] : "Sem área"} — ${invitation.email} — Aguardando primeiro login`,
-    })),
-  ].sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  // Elegibilidade da Matriz: SOMENTE participantes ativos + convites pendentes DESTE projeto.
+  const peopleOptions = resolveEligibleSlaPeople(
+    projectId,
+    members,
+    invitations,
+    formatMemberSelection,
+    formatInvitationSelection,
+    (area) => (area ? membershipAreaLabels[area as MembershipArea] : "Sem área")
+  );
   const responsiblesByArea = new Map(areaResponsibles.map((responsible) => [responsible.area, responsible]));
   const businessHoursConfig = resolveBusinessHoursConfig(projectSettings, projectId);
 
@@ -105,6 +108,17 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
       {allProjects.length > 1 ? <ProjectSourceSelector currentProjectId={projectId} projects={allProjects.map((item) => ({ id: item.id, label: `${item.code} — ${item.name}` }))} /> : null}
 
       {canManage ? <ManageMembersPanel projectId={projectId} projectLabel={projectLabel} /> : null}
+
+      {canManage ? (
+        <ProjectParticipantsPanel
+          key={participantRows.map((r) => `${r.id}:${r.status}`).join("|")}
+          projectId={projectId}
+          rows={participantRows}
+          members={members}
+          currentUserId={currentUserId}
+          candidatesAvailable={addable.available}
+        />
+      ) : null}
 
       {members.length === 0 && pendingInvitations.length === 0 ? (
         <EmptyState message="Nenhum usuário com acesso a este projeto." />

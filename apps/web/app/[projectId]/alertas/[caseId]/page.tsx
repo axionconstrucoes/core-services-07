@@ -27,13 +27,16 @@ export default async function AlertDetailPage({ params, searchParams }: { params
   const action = typeof query.acao === "string" ? query.acao : null;
   const view = await getAlertDetailView(projectId, caseId, { token, action });
   if (!view) notFound();
+  // Pré-seleção SEM token (links do consolidado e do botão ESPECIALISTA): só ABRE o formulário/consulta; nada é gravado
+  // por GET e a autorização continua sendo a sessão autenticada + a validação do servidor no envio.
+  const preselectedAction: AlertActionType | null = action === "ESPECIALISTA" ? "EXPERT_CONSULTATION" : (["RESOLVED", "TAKING_ACTION", "FORWARD"] as AlertActionType[]).includes(action as AlertActionType) ? (action as AlertActionType) : null;
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={`Alerta de risco — ${view.title}`} description={`${view.reference} · área ${slaAreaLabels[view.area as keyof typeof slaAreaLabels] ?? view.area} · código ${view.visibleCode}`} />
 
       <Card>
-        <CardHeader><CardTitle className="flex flex-wrap items-center gap-2">Situação {view.isTestCase ? <Badge variant="destructive" data-testid="test-case-badge">TESTE — caso isolado do piloto, não é risco real</Badge> : null}<Badge>{view.riskLevel}</Badge><Badge variant="outline" data-testid="alert-state">{view.stateLabel}</Badge>{view.topLevelReachedAt ? <Badge variant="destructive">Limite de escalonamento atingido</Badge> : null}</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex flex-wrap items-center gap-2">Situação {view.isTestCase ? <Badge variant="destructive" data-testid="test-case-badge">TESTE — caso isolado do piloto, não é risco real</Badge> : null}<Badge>{view.riskLevel}</Badge><Badge variant="outline" data-testid="alert-state">{view.state === "RESOLVED" ? <span aria-hidden="true" className="mr-1 font-bold text-green-700" data-testid="alert-resolved-badge-tick">&#10003;</span> : null}{view.stateLabel}</Badge>{view.topLevelReachedAt ? <Badge variant="destructive">Limite de escalonamento atingido</Badge> : null}</CardTitle></CardHeader>
         <CardContent className="grid gap-2 text-sm sm:grid-cols-2">
           <p><span className="text-muted-foreground">Resumo:</span> {view.summary}</p>
           <p><span className="text-muted-foreground">Impacto:</span> {view.impact || "—"}</p>
@@ -64,13 +67,14 @@ export default async function AlertDetailPage({ params, searchParams }: { params
             projectId={projectId}
             caseId={caseId}
             riskLevel={view.riskLevel}
+            area={view.area}
             availableActions={view.availableActions}
             forwardCandidates={view.forwardCandidates}
             expertOptions={view.expertOptions}
             suggestedExpert={view.suggestedExpert}
             requiresJustification={view.policy.requiresDelayJustification}
             nextLevelLabel={view.nextLevelLabel}
-            initialAction={view.linkAction?.valid ? (view.linkAction.action as AlertActionType) : null}
+            initialAction={view.linkAction?.valid ? (view.linkAction.action as AlertActionType) : preselectedAction}
             token={view.linkAction?.valid ? token : null}
           />
         </CardContent>

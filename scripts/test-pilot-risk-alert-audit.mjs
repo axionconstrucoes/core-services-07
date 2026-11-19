@@ -257,7 +257,10 @@ await check("E8. Nenhum default de Planejamento por falta de classificação; no
   assert(detectNamedExpert("Expert Jurídico e Diretor Comercial") === null, "dois nomes => não é inequívoco");
   assert(detectExpertTopics("bom dia").length === 0);
   assert(suggestExpertForArea("ADMINISTRATIVO") === null && suggestExpertForArea("JURIDICO") === "legal-consultant");
-  assert(readSource("apps/web/components/risk-alerts/alert-action-forms.tsx").includes('<option value="" disabled>Selecione o Expert…</option>'));
+  const formSrc = readSource("apps/web/components/risk-alerts/alert-action-forms.tsx");
+  // ESPECIALISTA agora é a consulta somente-leitura (mecanismo existente); a pré-seleção vem da ÁREA e cai em "geral" fora das áreas mapeadas.
+  assert(formSrc.includes("specialtyForSlaArea(props.area)") && !formSrc.includes("Selecione o Expert"));
+  assert(/export function specialtyForSlaArea[\s\S]*default:\s*return "geral";/.test(readSource("apps/web/lib/ai/alert-consult/specialties.ts")));
 });
 
 // ================================================================== OUTBOX
@@ -277,7 +280,7 @@ await check("O2. Ação SLA comum (sem risk_alert_case) não entra na outbox de 
   assert(legacy.includes("actor_label: null") && !legacy.includes("risk_alert_outbox"), "correção só na auditoria SYSTEM; sem migrar a funcionalidade antiga");
 });
 await check("O3. Botão manual não duplica: mesma chave sourceType:sourceId:ESCALATION:nível:usuário do motor e da ação humana; on conflict do nothing", () => {
-  const t = act("TAKING_ACTION", { text: "x" });
+  const t = act("OTHER", { text: "x" });
   const key = t.outbox.find((e) => e.notificationType === "ESCALATION").idempotencyKey;
   assert(key === `SCHEDULE_COMPARISON:cmp-1:ESCALATION:ESCALAO_1:${U_L2}`);
   assert(sql.includes("v_key := v_case.source_type || ':' || v_case.source_id::text || ':ESCALATION:' || p_level || ':' || p_recipient_user_id::text;"));
@@ -290,12 +293,13 @@ await check("O4. Automático não duplica: nível já escalado não gera nova en
   assert(again.ok && again.escalation === null && !again.outbox.some((e) => e.notificationType === "ESCALATION"));
   const top = act("OTHER", { text: "x" }, { snap: { currentLevel: "DIRETORIA" } });
   assert(top.topLevelReached && !top.outbox.some((e) => e.notificationType === "ESCALATION") && nextHierarchyLevel("DIRETORIA") === null);
-  const t = act("TAKING_ACTION", { text: "x" });
-  assert(t.events.map((e) => e.actionType).join(",") === "TAKING_ACTION,IMMEDIATE_ESCALATION");
+  const t = act("OTHER", { text: "x" });
+  assert(t.events.map((e) => e.actionType).join(",") === "OTHER,IMMEDIATE_ESCALATION");
+  assert(act("TAKING_ACTION", { text: "x" }).events.map((e) => e.actionType).join(",") === "TAKING_ACTION", "EM ANDAMENTO não escalona extraordinariamente");
 });
 await check("O5. Resposta por e-mail não duplica: mesma chave da ação web; origem EMAIL_REPLY; RPC força origem por caller", () => {
-  const web = act("TAKING_ACTION", { text: "estamos tratando" });
-  const mail = act("TAKING_ACTION", { text: "estamos tratando" }, { origin: "EMAIL" });
+  const web = act("OTHER", { text: "estamos tratando" });
+  const mail = act("OTHER", { text: "estamos tratando" }, { origin: "EMAIL" });
   const k = (t) => t.outbox.find((e) => e.notificationType === "ESCALATION");
   assert(k(web).idempotencyKey === k(mail).idempotencyKey && k(web).origin === "WEB_ACTION" && k(mail).origin === "EMAIL_REPLY");
   assert(sql.includes("case when v_auth_uid is not null then 'WEB_ACTION' else coalesce(v_outbox ->> 'origin', 'EMAIL_REPLY') end"), "cliente web não escolhe a origem");
@@ -439,8 +443,8 @@ await check("S3. Logs: corpo/token/e-mail completo nunca em console/auditoria; e
   assert(readSource("apps/web/lib/risk-alerts/store.ts").includes("expertRouting?: Record<string, unknown> | null") && !/replyToken(?!Hash)/.test(readSource("apps/web/lib/risk-alerts/store.ts")));
 });
 await check("S4. HTML: saída escapada nos templates; entrada text/plain preferida, HTML só como fallback sem tags; limite de tamanho; retenção documentada", () => {
-  const tpl = readSource("apps/web/lib/risk-alerts/build-risk-alert-emails.ts");
-  assert(tpl.includes("function escapeHtml(") && (tpl.match(/escapeHtml\(/g) ?? []).length > 10);
+  const tpl = readSource("apps/web/lib/email/templates/universal-alert-template.ts");
+  assert(tpl.includes("escapeAttr(") && (tpl.match(/escapeAttr\(/g) ?? []).length > 10 && readSource("apps/web/lib/risk-alerts/build-risk-alert-emails.ts").includes("universal-alert-template"));
   assert(stripHtml("<script>alert(1)</script><p>ok</p><style>x</style>") === "ok");
   const big = "x".repeat(MAX_INBOUND_BODY_CHARS + 5000);
   assert(limitInboundBody(big).length < big.length && limitInboundBody(big).includes("truncado pelo ACC") && limitInboundBody("a\u0000b") === "ab");

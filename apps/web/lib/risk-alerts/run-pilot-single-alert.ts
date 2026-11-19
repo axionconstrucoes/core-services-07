@@ -23,7 +23,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@axion/db/admin";
 
 import { getAppBaseUrl } from "@/lib/app-base-url";
-import { loadAccLogoInlineImage } from "@/lib/email/branding/load-acc-logo-inline-image";
+import { loadAccLogoInlineImage, loadAccLogoInvertedInlineImage } from "@/lib/email/branding/load-acc-logo-inline-image";
 import type { EmailProvider } from "@/lib/email/email-provider";
 import { getEmailProvider } from "@/lib/email/get-email-provider";
 import { resolveEmailProviderName } from "@/lib/email/gmail-auth";
@@ -329,6 +329,7 @@ export async function runPilotSingleAlert(options: RunPilotSingleAlertOptions): 
     timeZone,
     nowIso,
     inlineLogo: loadAccLogoInlineImage(),
+    inlineLogoInverted: loadAccLogoInvertedInlineImage(),
     caseIds: new Map([[caseId, caseId]]),
     snapshot,
     policyFor,

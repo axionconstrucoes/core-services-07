@@ -50,9 +50,25 @@ export function isOutOfScope(normalized: string): boolean {
   return GENERAL_TOPICS.some((pattern) => pattern.test(normalized));
 }
 
-export const SCOPE_REPLY_TITLE = "Esse assunto está fora do que eu faço";
-export const SCOPE_REPLY =
-  "Sou a AXIA, assistente virtual especializada apenas no ACC: eu explico como usar o sistema — alertas, prazos e escalonamento, documentos, permissões, especialistas e a Ajuda. Para esse outro assunto, o melhor é consultar uma fonte adequada. Se tiver uma dúvida sobre o ACC, é só perguntar!";
+/**
+ * Perguntas pessoais à própria AXIA e pedidos obscenos alheios ao projeto.
+ * Filtro conservador: não bloquear relatos de assédio/violência, questões
+ * profissionais de SSMA, cadastros ou nomes de responsáveis pela obra.
+ * Texto já normalizado por normalizeText().
+ */
+export function isPersonalOrObsceneOutOfScope(normalized: string): boolean {
+  const text = normalized.trim();
+  if (!text) return false;
+  // Menções explícitas a ocorrências de obra, assédio e SSMA precisam seguir
+  // o caminho de orientação/encaminhamento, nunca ser silenciosamente recusadas.
+  if (/\b(assedio|denuncia|ocorrencia|violencia|vitima|seguranca do trabalho|ssma|esg|rdo|acidente|obra|projeto|cliente|fornecedor|colaborador|funcionario|responsavel|relato|evidencia|investigacao)\b/.test(text)) return false;
+  const personal = /\b(quantos anos (voce|vc|a axia) (tem|possui)|qual (e )?(a )?sua idade|qual (e )?(o )?nome (dos seus|de seus|dos teus) pais|quem (sao|e) (seus|os seus) pais|voce (tem|possui) (pais|mae|pai|filhos|marido|esposa|namorado|namorada)|voce (e|esta) (casad[ao]|solteir[ao])|onde voce mora|qual (e )?(o )?seu endereco|com quem voce mora|quantos (filhos|irmaos|anos) voce tem|quantos voce tem|voce (ja )?(namorou|beijou|transou))\b/;
+  const obscene = /\b(me (mostre|mande|envie) (nudes|pornografia|fotos intimas)|quero (sexo|pornografia|nudes)|conte (uma )?piada (sexual|obscena)|fale (sobre )?(sexo explicito|pornografia)|descreva (um )?ato sexual|me excite|mensagem erotica|conteudo pornografico)\b/;
+  return personal.test(text) || obscene.test(text);
+}
+
+export const SCOPE_REPLY_TITLE = "Fora do escopo";
+export const SCOPE_REPLY = "Pergunta fora do escopo deste projeto";
 
 // ───────── interpretação de contratos, documentos e cláusulas ─────────
 
