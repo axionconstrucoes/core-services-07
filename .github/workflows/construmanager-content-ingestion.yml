@@ -63,6 +63,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      # Agendador (docs/operacao-agendador-sla.md): INÍCIO real do job com run_id. Nunca falha o workflow.
+      - name: Heartbeat do agendador (início)
+        continue-on-error: true
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/scheduler-heartbeat.mjs construmanager started
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -120,3 +127,12 @@ jobs:
       # governa a deteccao DENTRO do worker. O interruptor nao mudou de
       # significado, mudou de lugar. E scripts/construmanager-version-
       # monitor.mjs segue no repositorio, sem chamador.
+
+      # Agendador: CONCLUSÃO efetiva do job (success|failure|cancelled) com o mesmo run_id. Nunca falha o workflow.
+      - name: Heartbeat do agendador (conclusão)
+        if: always()
+        continue-on-error: true
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/scheduler-heartbeat.mjs construmanager finished ${{ job.status }}

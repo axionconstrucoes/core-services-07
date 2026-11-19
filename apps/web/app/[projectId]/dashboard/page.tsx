@@ -293,6 +293,14 @@ export default async function DashboardPage({
   ]);
 
   const supabase = await createSupabaseServerClient();
+  // Datas oficiais da obra exibidas exclusivamente no Dashboard, não no Start-up.
+  const { data: projectDates, error: projectDatesError } = await supabase
+    .from("projects")
+    .select("project_start_date,baseline_end_date,acc_operational_start_date")
+    .eq("id", projectId)
+    .maybeSingle();
+  if (projectDatesError) throw projectDatesError;
+
 
   /*
    * Leitura do pacote semanal diretamente das tabelas persistidas.
@@ -813,14 +821,19 @@ export default async function DashboardPage({
                 status={data.slaSummary.escalated > 0 ? "warning" : "ok"}
               />
               <StatusLine
-                label="Data de início"
-                value={formatDashboardDate(contractStartDate)}
-                status={contractStartDate ? "ok" : "neutral"}
+                label="Início da obra"
+                value={formatDashboardDate(projectDates?.project_start_date ?? contractStartDate)}
+                status={(projectDates?.project_start_date ?? contractStartDate) ? "ok" : "neutral"}
               />
               <StatusLine
-                label="Data de término"
-                value={formatDashboardDate(dashboardContractEndDate)}
-                status={dashboardContractEndDate ? "ok" : "neutral"}
+                label="Término da baseline"
+                value={formatDashboardDate(projectDates?.baseline_end_date ?? dashboardContractEndDate)}
+                status={(projectDates?.baseline_end_date ?? dashboardContractEndDate) ? "ok" : "neutral"}
+              />
+              <StatusLine
+                label="Início operacional ACC"
+                value={formatDashboardDate(projectDates?.acc_operational_start_date ?? null)}
+                status={projectDates?.acc_operational_start_date ? "ok" : "neutral"}
               />
             </Panel>
 

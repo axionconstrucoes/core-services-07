@@ -37,7 +37,7 @@ export function EmailAccountsPanel({ projectId, accounts, canManage }: { project
           </span>
         ) : null}
       </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+      <CardContent className="flex flex-col gap-2">
         {adding ? <RegisterAccountForm projectId={projectId} onCancel={() => setAdding(false)} /> : null}
 
         {accounts.length === 0 ? (
@@ -62,14 +62,14 @@ function RegisterAccountForm({ projectId, onCancel }: { projectId: string; onCan
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-3 rounded-md border p-3">
+    <form action={formAction} className="flex flex-col gap-2 rounded-md border p-3">
       <input type="hidden" name="projectId" value={projectId} />
-      <div className="grid gap-3 md:grid-cols-2">
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
+      <div className="grid gap-2 md:grid-cols-2">
+        <label className="flex flex-col gap-1 text-sm font-medium">
           Endereço @axion.com.br
           <Input name="emailAddress" type="email" required placeholder="nome@axion.com.br" pattern=".+@axion\.com\.br" />
         </label>
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
+        <label className="flex flex-col gap-1 text-sm font-medium">
           Nome de exibição (opcional)
           <Input name="displayName" />
         </label>

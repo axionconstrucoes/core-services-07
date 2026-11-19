@@ -1,3 +1,7 @@
+import { ALL_OFFICIAL_EXPERT_DEFINITIONS } from "@/lib/ai/expert-definitions";
+import { requestedSkillsForExpert, ENGINEERING_SKILL_REQUEST, SKILL_DISCOVERY_TOOL } from "@/lib/ai/expert-definitions/requested-skills";
+import { resolveAiProviderNameForExpert } from "@/lib/ai/providers/resolve-provider-for-expert";
+import { buildAiProviderUiMetadata } from "@/lib/ai/provider-ui-metadata";
 import { requireProjectAdminPage } from "@/lib/email-authorization/guard";
 import type { Metadata } from "next";
 import { createSupabaseServerClient } from "@axion/db/server";
@@ -71,12 +75,67 @@ export default async function IntegracoesPage({
   const sharedSourceRows = buildSharedSourceRows(userIntegrationEvidence);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageHeader title="Administração de Integrações" description="Status operacional das fontes configuradas para este projeto." />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>IA e skills dos especialistas</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Fonte configurada de IA e skills selecionadas para cada especialista.
+            Passe o mouse sobre o nome da skill (ou use o foco pelo teclado) para ler a descrição.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {ALL_OFFICIAL_EXPERT_DEFINITIONS.map((expert) => {
+            const provider = buildAiProviderUiMetadata(resolveAiProviderNameForExpert(expert.expertId), null);
+            return (
+              <div key={expert.expertId} className="flex flex-wrap items-start justify-between gap-3 rounded-md border p-3">
+                <div className="min-w-0 space-y-1">
+                  <p className="font-semibold">{expert.expertName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Fonte configurada: {provider.providerLabel}
+                    {!provider.isRealProvider ? " — modo simulado ou sem IA real" : " — modelo confirmado somente na resposta"}
+                  </p>
+                </div>
+                <div className="flex max-w-full flex-wrap gap-2">
+                  {requestedSkillsForExpert(expert.expertId).map((skill) => (
+                    <span key={skill.id} className="inline-flex flex-col gap-1">
+                      <span
+                        tabIndex={0}
+                        title={skill.purpose}
+                        aria-label={`${skill.label}: ${skill.purpose}`}
+                        className="cursor-help rounded-md border px-2 py-1 text-xs font-semibold outline-offset-2 focus-visible:outline"
+                      >
+                        {skill.id}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">Pendente de integração ao ACC</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          <div className="rounded-md border p-3">
+            <p className="font-semibold">Engenharia Industrial e Logística — especialidade proposta</p>
+            <p className="text-xs text-muted-foreground">Fonte de IA: não configurada; especialista ainda não cadastrado no ACC.</p>
+            <span tabIndex={0} title={ENGINEERING_SKILL_REQUEST.purpose} aria-label={ENGINEERING_SKILL_REQUEST.purpose}
+              className="mt-2 inline-block cursor-help rounded-md border px-2 py-1 text-xs font-semibold outline-offset-2 focus-visible:outline">
+              {ENGINEERING_SKILL_REQUEST.id}
+            </span>
+            <p className="text-[10px] text-muted-foreground">Pendente de integração ao ACC</p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {SKILL_DISCOVERY_TOOL.label}: ferramenta de descoberta e administração de skills no Claude Code.
+            A instalação no Claude Code não ativa automaticamente uma skill no runtime do ACC.
+            Esta lista mostra associações selecionadas, não skills efetivamente executadas.
+          </p>
+        </CardContent>
+      </Card>
 
       <UserIntegrationMatrix rows={userSourceRows} shared={sharedSourceRows} warnings={userIntegrationEvidence.warnings} measuredAt={userIntegrationEvidence.measuredAt} unassignedEmails={userIntegrationEvidence.unassignedEmails} systemOutputEmails={userIntegrationEvidence.systemOutputEmails} />
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
         {sources.map((source) => {
           const config = configs.find((item) => item.sourceType === source.type);
 
