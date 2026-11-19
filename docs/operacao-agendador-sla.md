@@ -271,12 +271,98 @@ select cron.schedule('acc-ssma-notifications','3-59/5 * * * *',$$select public.a
 A fila do GitHub (4–13 s) já está incluída. Para alertas e SSMA, a camada de rota
 não passa pelo GitHub.
 
-## 11. Instalação, se aprovada (ordem)
+## 11. Ativação, se aprovada (ordem) — alinhada à reversão do §12
 
-1. Criar o PAT com o escopo da §8 e gravar os 4 valores no Vault.
-2. Aplicar a migration. Os jobs começam imediatamente.
-3. Definir `ACC_SCHEDULER_PG_CRON_ENABLED=true` (variável de repositório no GitHub) logo em seguida. Entre os passos 2 e 3 há duas origens por alguns minutos; as travas da §4 evitam duplicidade.
-4. Acompanhar `acc_scheduler_heartbeats` e `acc_system_health_incidents` por 24 h.
+**Princípio (espelho do §12):** na ativação, **o GitHub para de chamar as rotas ANTES de o pg_cron começar**; na reversão,
+o pg_cron para antes de o GitHub voltar. Em nenhum momento há duas origens chamando as mesmas rotas. Cada passo abaixo exige
+autorização própria; nada é executado por este documento.
+
+### 11.0 Pré-condições (todas verificáveis; sem elas, não iniciar)
+1. **Credencial de leitura de respostas na Vercel comprovada:** dry-run com `inboundCheck.ok=true`
+   (`gh workflow run "Risk Alerts WEG Dry-Run" --ref main`; PR #237). Sem isso o escalonamento segue "não verificado" (§3).
+2. **Plano Vercel decidido (§9):** Hobby com monitoramento (risco) ou Pro (recomendado). Medido em 18–19/11: a rota de riscos
+   gasta 0,39–0,49 s de CPU por chamada em dry-run e a de SSMA ~0,05 s. A 2 min/5 min: 21.600 + 8.640 chamadas/30 dias ⇒
+   **≈ 2,5–3,1 h dos 4 h** do Hobby (62–77%), ~30 mil invocações (3% de 1 milhão). Não há métrica do uso normal do app nem de ciclos
+   com envio real (o dry-run não envia). Estourar o limite suspende as funções por 30 dias. Portanto: **risco, não bloqueio técnico**;
+   a 5 min de cadência o agendador cairia para ≈ 1,1–1,3 h (27–33%). Os termos do Hobby (uso pessoal/não comercial) devem ser conferidos pela empresa.
+3. **Segredos prontos para gravar no Vault (§8):** PAT fine-grained (só este repositório, "Actions: Read and write" + "Metadata: Read")
+   e os 4 valores. Nada disso é criado por este PR.
+4. **Travas do piloto preservadas:** alerta `PILOT_SINGLE` pendente sem retentativa; casos de reemissão (detectados com atraso, Diretoria
+   e suspensos por ausência não comprovada) **sem decisão = sem envio**. A ativação não os libera.
+5. **#236 mesclado com a flag AUSENTE** (passo 1). Antes do merge a flag não tem efeito algum: o GitHub executa o workflow **da `main`**.
+
+### Passo 1 — Merge do #236 (flag ausente; nada muda)
+A condição `vars.ACC_SCHEDULER_PG_CRON_ENABLED != 'true'` é verdadeira com a variável ausente, então os workflows se comportam como hoje.
+Nenhum workflow aplica migration: a migration segue **não aplicada** até o passo 6.
+
+### Passo 2 — Segredos no Vault (SQL Editor, manual; nunca em chat, log ou repositório)
+PAT + `acc_risk_alerts_cron_secret` + `acc_cron_secret` + `acc_app_base_url` (§8). Sem um segredo a chamada correspondente não acontece
+e o watchdog acusa.
+
+### Passo 3 — Dry-run imediatamente antes (portão)
+`gh workflow run "Risk Alerts WEG Dry-Run" --ref main` e `gh workflow run ssma-notifications.yml --ref main -f dry_run=true`.
+Aceite: HTTP 200; `inboundCheck.ok=true`; `readinessBlockers: []`; `planned: 0` (ou apenas itens esperados e conferidos); os casos retidos
+continuam `REISSUE_DECISION_REQUIRED`/suspensos; SSMA com `sent: 0`. Qualquer divergência ⇒ parar; nada é ativado.
+
+### Passo 4 — O GitHub deixa de chamar as rotas: `ACC_SCHEDULER_PG_CRON_ENABLED=true`
+Variável de repositório. Efeito após o merge + flag:
+
+| Chamada | Quem fazia | Depois da flag |
+|---|---|---|
+| `GET /api/cron/risk-alerts` — job `risk-alerts` do `weekly-schedule-email-ingestion.yml` (`schedule` `20 * * * *` e `workflow_dispatch` fase `all`) | GitHub | **GitHub não chama mais** (job fica `skipped`); chama o pg_cron a cada 2 min |
+| `GET /api/cron/ssma-notifications` — `ssma-notifications.yml` (`schedule` `15 * * * *`) | GitHub | **GitHub não chama mais**; só roda como prévia manual `dry_run=true`; chama o pg_cron a cada 5 min |
+
+**Continua no GitHub (a flag não altera):** o job `ingest` do semanal (fases intake→replies, inclusive a leitura de respostas), `gmail-inbound-sync`,
+`document-processing-worker`, `mpp-document-worker`, `ssma-drive-photo-sync`, `construmanager-content-ingestion` e `diario-de-obra-sync`, por `schedule`
+(reserva) e agora também por `workflow_dispatch` do pg_cron; duplicatas são absorvidas por `concurrency` (`cancel-in-progress: false`) e pela idempotência.
+O pg_cron só passa a chamar as **duas rotas** depois do passo 6.
+
+### Passo 5 — Confirmar que as chamadas e os runs antigos terminaram (antes de iniciar o pg_cron)
+Só avançar com **todos** os itens limpos (repetir a cada minuto, no máximo ~15 min):
+- `gh variable get ACC_SCHEDULER_PG_CRON_ENABLED` retorna `true` e a `main` contém a condição nos dois workflows.
+- Nenhum run ativo: `gh run list --workflow weekly-schedule-email-ingestion.yml --status in_progress` e `--status queued`; idem
+  `--workflow ssma-notifications.yml`. Um run do semanal iniciado **antes** da flag continua a executar o job `risk-alerts`:
+  esperar terminar (`gh run view <id> --json jobs --jq '.jobs[]|select(.name=="risk-alerts")|.status'` = `completed`).
+- **≥ 6 min** desde o fim do último run que chamou a rota (a rota tem `maxDuration` de 300 s; o `curl` do workflow tem `--max-time 120`).
+- Nenhum envio em curso: `select count(*) from public.risk_alert_outbox where claimed_at > now() - interval '10 minutes';` = 0
+  (lease de 10 min). Os logs de runtime do Hobby duram 1 h; não dependa deles.
+- Prova de que o GitHub parou, quando ocorrer (não bloquear a espera): o próximo run `schedule` do semanal mostra o job `risk-alerts` como
+  `skipped` e nenhum run não-dry-run de `ssma-notifications.yml`. O `schedule` do GitHub é irregular (§1), então isso pode levar horas.
+
+### Passo 6 — Aplicar a migration (o pg_cron começa)
+Aplicar `20261118093000_scheduler_pg_cron_dispatch.sql`. O primeiro tick de `acc-risk-alerts` ocorre em até 2 min; o de `acc-ssma-notifications` em até 5 min.
+Anotar `t0 = now()` no instante da aplicação (usado nas consultas abaixo).
+
+### Passo 7 — Comprovar os dois primeiros ciclos, sem duplicidade
+Ciclo 1 ≈ `t0`+2 min e ciclo 2 ≈ `t0`+4 min (rota de riscos). Evidências (todas somente leitura):
+1. **Disparo e resposta (heartbeat):**
+   `select job, last_dispatch_at, last_dispatch_request_id, last_dispatch_http_status, last_success_at, last_failure_code from public.acc_scheduler_heartbeats where job in ('risk-alerts','ssma-notifications');`
+   e `select id, status_code, timed_out, created from net._http_response order by id desc limit 6;` — dois `request_id` distintos para `risk-alerts`,
+   HTTP **200** (não 204/409/401), `created` separados por ~2 min, `last_failure_code` nulo.
+2. **Execução do cron:** `select j.jobname, d.status, d.start_time, d.end_time from cron.job_run_details d join cron.job j using (jobid) where j.jobname in ('acc-risk-alerts','acc-ssma-notifications') order by d.start_time desc limit 6;` — `succeeded`, sem sobreposição
+   (o 2º disparo só ocorre depois da resposta do 1º; ver `acc_scheduler_call_route`).
+3. **Uma única origem:** `gh run list --workflow weekly-schedule-email-ingestion.yml --created ">=<t0>"` não mostra job `risk-alerts` executado, e
+   `gh run list --workflow ssma-notifications.yml --created ">=<t0>"` não mostra run que não seja prévia manual.
+4. **Sem duplicidade na outbox:** `select idempotency_key, count(*) from public.risk_alert_outbox group by 1 having count(*) > 1;` = 0 linhas;
+   `select count(*) from public.risk_alert_outbox where claimed_at > '<t0>' and attempt_count > 1;` = 0; a contagem por `status` só muda por linhas novas esperadas.
+5. **Sem repetição na auditoria:** `select action, entity_id, count(*) from public.audit_log_entries where occurred_at > '<t0>' and action like 'RISK_ALERT%' group by 1,2 having count(*) > 1;` = 0 linhas
+   (a 1ª rodada pode gravar **uma** linha nova da deduplicação do §5).
+6. **Se houve envio:** cada `provider_message_id` da outbox corresponde a **um** e-mail (`CRM Sent Copy Check`, manual) e a nenhum endereço fora do escopo do piloto.
+7. **Heartbeats dos workflows:** `weekly-all` com disparo aceito (204) → `started` → `finished` do mesmo `run_id` na janela de 10 min.
+Qualquer falha ⇒ **reversão do §12** (parar o pg_cron primeiro). Critérios de reversão: ver o fim do §12.
+
+### Passo 8 — Acompanhar 24 h
+`acc_scheduler_heartbeats` e `acc_system_health_incidents` (o watchdog roda a cada 5 min e não envia e-mail).
+
+### 11.1 O que pode gerar e-mail REAL no primeiro ciclo (estado de 18–19/11)
+**Esperado: nenhum.** Dry-run de 19/11 (01:30Z): `planned: 0`; as 25 ações SLA estão vencidas e nenhuma "a vencer" (15 já no nível máximo, 1 BAIXO desde 03/09 e
+9 pendentes no Responsável desde 10/10 que o planejador **não** escala hoje). O ciclo real usa o mesmo planejamento do dry-run. O pendente `PILOT_SINGLE` não é retentado
+(o ciclo normal nunca recria essa chave). O que **pode** enviar, para destinatários do piloto, quando acontecer:
+1. **Caso novo ALTO/CRÍTICO** criado pelos workers de coleta (planilha/cronograma) ⇒ alerta imediato ao Responsável, em até ~2 min da criação (hoje o ciclo é horário e irregular).
+2. **Caso novo MÉDIO/BAIXO** na janela do consolidado (próxima: quarta 07:00 no fuso do projeto; a de 18/11 já foi enviada e é idempotente).
+3. **Respostas lidas** na fase `replies` que gerem confirmação (hoje nenhuma pendente).
+4. **SSMA:** nova ação corretiva da WEG vencida ⇒ aviso ao responsável (escopo `WEG_CORRECTIVE_ACTIONS`; 2 já avisadas; escalonamentos históricos seguem travados).
+Nada disso libera casos em `REISSUE_DECISION_REQUIRED` ou suspensos: eles exigem decisão humana auditada.
 
 ## 12. Reversão passo a passo
 
