@@ -33,7 +33,7 @@ function walk(dir, out = []) {
   }
   return out;
 }
-const ID_RE = /\b(?:shared|dashboard|comercial|planejamento|juridico|ssma|integracoes|experts|admin|engenharia)\.[a-z0-9-]+(?:\.[a-z0-9-]+){1,3}\b/g;
+const ID_RE = /\b(?:shared|dashboard|comercial|planejamento|juridico|ssma|integracoes|experts|admin|engenharia|qualidade|garantias|seguros|pilares|fontes)\.[a-z0-9-]+(?:\.[a-z0-9-]+){1,3}\b/g;
 const MARKER_RE = /help-exempt:\s*(\S.*)/;
 const markers = [];
 for (const f of walk(path.join(root, "apps/web"))) {
