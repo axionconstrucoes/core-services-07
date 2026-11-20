@@ -33,6 +33,7 @@ const { answerEsgDirectorQuery } = await import("../apps/web/lib/ai/experts/esg-
 const { LEGAL_CONSULTANT_INSTRUCTIONS } = await import("../apps/web/lib/ai/experts/legal-consultant/identity");
 const { answerLegalConsultantQuery } = await import("../apps/web/lib/ai/experts/legal-consultant/query");
 const { PLANNING_DIRECTOR_INSTRUCTIONS } = await import("../apps/web/lib/ai/experts/planning-director/identity");
+const { ENGINEERING_DIRECTOR_INSTRUCTIONS } = await import("../apps/web/lib/ai/experts/engineering-director/identity");
 const { answerPlanningDirectorQuery } = await import("../apps/web/lib/ai/experts/planning-director/query");
 const { CEO_INSTRUCTIONS } = await import("../apps/web/lib/ai/experts/ceo/identity");
 const { answerCeoQuery } = await import("../apps/web/lib/ai/experts/ceo/query");
@@ -112,12 +113,13 @@ async function assertRejects(promise, messageSubstring, label) {
   throw new Error(`${label ?? "esperado rejeição"}, mas resolveu`);
 }
 
-const OFFICIAL_IDS = ["ceo", "commercial-director", "legal-consultant", "planning-director", "esg-director"];
+const OFFICIAL_IDS = ["ceo", "commercial-director", "legal-consultant", "planning-director", "engineering-director", "esg-director"];
 const INSTRUCTIONS_BY_ID = {
   ceo: CEO_INSTRUCTIONS,
   "commercial-director": COMMERCIAL_DIRECTOR_INSTRUCTIONS,
   "legal-consultant": LEGAL_CONSULTANT_INSTRUCTIONS,
   "planning-director": PLANNING_DIRECTOR_INSTRUCTIONS,
+  "engineering-director": ENGINEERING_DIRECTOR_INSTRUCTIONS,
   "esg-director": ESG_DIRECTOR_INSTRUCTIONS,
 };
 
@@ -133,13 +135,13 @@ check("os 5 Experts oficiais estão status=IMPLEMENTED (nenhum PLANNED restante)
   for (const id of OFFICIAL_IDS) {
     assert(OFFICIAL_EXPERT_DEFINITIONS[id].status === "IMPLEMENTED", `${id} deveria estar IMPLEMENTED`);
   }
-  assert(ALL_OFFICIAL_EXPERT_DEFINITIONS.length === 5);
+  assert(ALL_OFFICIAL_EXPERT_DEFINITIONS.length === 6);
 });
 
 check("as 5 instruções (system prompts) são todas diferentes entre si — nunca alias do mesmo prompt", () => {
   const texts = OFFICIAL_IDS.map((id) => INSTRUCTIONS_BY_ID[id]);
   const uniqueTexts = new Set(texts);
-  assert(uniqueTexts.size === 5, "esperava 5 prompts distintos");
+  assert(uniqueTexts.size === 6, "esperava 6 prompts distintos");
 });
 
 check("cada instrução cita o próprio expertId/nome — nunca o prompt de outro Expert", () => {
@@ -154,7 +156,7 @@ check("isolamento de fontes: cada Expert declara authorizedSources coerente com 
   const sourceListsBySignature = new Set(
     OFFICIAL_IDS.map((id) => OFFICIAL_EXPERT_DEFINITIONS[id].authorizedSources.map((s) => s.sourceId).sort().join(","))
   );
-  assert(sourceListsBySignature.size === 5, "cada Expert deveria ter uma composição própria de fontes autorizadas");
+  assert(sourceListsBySignature.size === 6, "cada Expert deveria ter uma composição própria de fontes autorizadas");
 
   const legalSources = OFFICIAL_EXPERT_DEFINITIONS["legal-consultant"].authorizedSources.map((s) => s.sourceId);
   assert(legalSources.includes("legal_sources"), "Consultor Jurídico IA deveria declarar a fonte legal oficial (mesmo FUTURE_SOURCE)");
@@ -187,7 +189,7 @@ check("EXPERT_PROVIDER_ENV_VAR define uma variável própria para cada um dos 5 
     assert(typeof EXPERT_PROVIDER_ENV_VAR[id] === "string" && EXPERT_PROVIDER_ENV_VAR[id].length > 0);
   }
   const varNames = new Set(Object.values(EXPERT_PROVIDER_ENV_VAR));
-  assert(varNames.size === 5, "cada Expert deveria ter sua própria variável — nunca compartilhada");
+  assert(varNames.size === 6, "cada Expert deveria ter sua própria variável — nunca compartilhada");
 });
 
 check("resolveAiProviderNameForExpert usa a variável específica do Expert quando presente, mesmo com AXION_AI_PROVIDER diferente", () => {
@@ -523,7 +525,7 @@ if (!supabaseUrl || !serviceKey) {
       eventId: REFERENCE_EVENT_ID,
       sourceType: "EVENT",
       description: "Cliente solicitou escopo adicional e reajuste de preço.",
-    });
+    }, { reserve: async () => ({ ok: true }) });
 
     assert(curation.routing.topic === "NEGOCIAÇÃO");
     const consultedIds = curation.expertResults.map((r) => r.expertId).sort();
@@ -539,7 +541,7 @@ if (!supabaseUrl || !serviceKey) {
       eventId: REFERENCE_EVENT_ID,
       sourceType: "EVENT",
       description: "Situação genérica sem palavra-chave reconhecida.",
-    });
+    }, { reserve: async () => ({ ok: true }) });
     assert(curation.routing.primaryExpertIds.includes("ceo"));
     assert(!curation.expertResults.some((r) => r.expertId === "ceo"), "CEO nunca deveria aparecer em expertResults — ele é sempre a consolidação, nunca um especialista");
   });
@@ -551,7 +553,7 @@ if (!supabaseUrl || !serviceKey) {
       eventId: REFERENCE_EVENT_ID,
       sourceType: "EVENT",
       description: "Atraso identificado no cronograma, com pedido de extensão de prazo.",
-    });
+    }, { reserve: async () => ({ ok: true }) });
     const after = await supabase.from("contract_events").select("id", { count: "exact", head: true }).eq("project_id", REFERENCE_PROJECT_ID);
     assert(before.count === after.count, "uma rodada de curadoria nunca pode criar/apagar um contract_event");
   });

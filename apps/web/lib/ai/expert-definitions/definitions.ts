@@ -7,6 +7,7 @@
 
 import { CEO_EXPERT_ID, CEO_VERSION } from "../experts/ceo/identity";
 import { COMMERCIAL_DIRECTOR_EXPERT_ID, COMMERCIAL_DIRECTOR_VERSION } from "../experts/commercial-director/identity";
+import { ENGINEERING_DIRECTOR_EXPERT_ID, ENGINEERING_DIRECTOR_VERSION } from "../experts/engineering-director/identity";
 import { ESG_DIRECTOR_EXPERT_ID, ESG_DIRECTOR_VERSION } from "../experts/esg-director/identity";
 import { LEGAL_CONSULTANT_EXPERT_ID, LEGAL_CONSULTANT_VERSION } from "../experts/legal-consultant/identity";
 import { PLANNING_DIRECTOR_EXPERT_ID, PLANNING_DIRECTOR_VERSION } from "../experts/planning-director/identity";
@@ -162,9 +163,10 @@ export const LEGAL_CONSULTANT_DEFINITION: ExpertDefinition = {
 };
 
 // ============================================================
-// Seção 5 — Diretor de Planejamento IA (identificador técnico legado
-// planning-director; operacional — consulta
-// conversacional via experts/planning-director/query.ts).
+// Seção 5 — Diretor de Planejamento IA (planning-director; operacional —
+// consulta conversacional via experts/planning-director/query.ts). Desde a
+// v6 do prompt, engenharia (solução técnica, construtibilidade,
+// compatibilização) é do engineering-director — ver seção 5-A.
 // ============================================================
 
 export const PLANNING_DIRECTOR_DEFINITION: ExpertDefinition = {
@@ -174,9 +176,18 @@ export const PLANNING_DIRECTOR_DEFINITION: ExpertDefinition = {
   status: "IMPLEMENTED",
   visualIdentity: { icon: "CalendarClock", colorToken: "cyan" },
   mission:
-    "Amparar decisões de planejamento e prazo em construções industriais, logística e saúde, com foco em cronograma, execução, desvios e consequência contratual relevante.",
+    "Amparar decisões de planejamento e prazo em obras logísticas, industriais e de saúde: cronograma, linha de base, caminho crítico, desvios, recuperação e consequência contratual relevante.",
   authorizedSources: [SOURCE_SCHEDULE_ACTIVITIES, SOURCE_CONTRACT_EVENTS, SOURCE_CONTRACT_CHANGES, SOURCE_DOCUMENTS, SOURCE_TIMELINE],
   capabilities: [
+    "Analisar cronogramas e linhas de base (baseline x atual)",
+    "Analisar CPM, caminho crítico e folgas",
+    "Ler curva S e histogramas de recursos",
+    "Avaliar produtividade e recursos como premissas de duração",
+    "Analisar sequenciamento e frentes de serviço",
+    "Comparar acompanhamento físico com o planejado",
+    "Analisar atrasos e suas atividades afetadas",
+    "Propor alternativas de recuperação ou aceleração de prazo",
+    "Considerar planejamento 4D quando o modelo estiver no contexto",
     "Identificar atraso ou aceleração relevante",
     "Identificar impacto potencial sobre prazo contratual",
     "Identificar risco de multa/penalidade por atraso",
@@ -188,12 +199,12 @@ export const PLANNING_DIRECTOR_DEFINITION: ExpertDefinition = {
     "Preparar resumo de impacto (prazo → impacto econômico/contratual → recomendação)",
     "Analisar novas versões de projeto e separar indícios de impacto em cronograma e preço",
     "Encaminhar verificação de possível item fora de escopo ao orçamento",
-    "Analisar não conformidades de compras que afetem a execução",
   ],
   typicalQuestions: ["Este atraso pode gerar penalidade?"],
   outputTypes: ["ANALYSIS", "RECOMMENDATION", "RISK_ASSESSMENT", "ACTION_SUGGESTION", "TIMELINE_ANALYSIS"],
   limitations: [
     "Não substitui projetistas, responsáveis técnicos, SSMA, orçamento, Jurídico ou decisão da Diretoria",
+    "Não analisa solução técnica de engenharia (fundações, estruturas, pisos, coberturas, métodos construtivos, compatibilização) — encaminha ao Diretor de Engenharia e Construção IA",
     "Não implementa Lean Construction, Last Planner System, PPC, Pull Planning ou Lookahead nesta fase",
     "Não realiza gestão operacional de produção nem planejamento de produção amplo",
     "Se não houver consequência econômica ou contratual identificável, não aprofunda a análise",
@@ -205,6 +216,67 @@ export const PLANNING_DIRECTOR_DEFINITION: ExpertDefinition = {
   confidenceRules: [
     { description: "Só aprofunda uma análise de atraso/aceleração quando há consequência econômica ou contratual identificável nas fontes (PRAZO → IMPACTO ECONÔMICO/CONTRATUAL → RECOMENDAÇÃO)." },
     { description: "Toda correlação evento-cronograma deve citar a atividade/evento de origem." },
+  ],
+  requiresHumanReview: true,
+};
+
+// ============================================================
+// Seção 5-A — Diretor de Engenharia e Construção IA (engineering-director;
+// operacional — consulta conversacional via
+// experts/engineering-director/query.ts). Expert independente do
+// Diretor de Planejamento IA.
+// ============================================================
+
+export const ENGINEERING_DIRECTOR_DEFINITION: ExpertDefinition = {
+  expertId: ENGINEERING_DIRECTOR_EXPERT_ID,
+  expertName: "Diretor de Engenharia e Construção IA",
+  version: ENGINEERING_DIRECTOR_VERSION,
+  status: "IMPLEMENTED",
+  visualIdentity: { icon: "HardHat", colorToken: "amber" },
+  mission:
+    "Amparar decisões técnicas de engenharia e construção em obras logísticas, industriais e de saúde — solução técnica, construtibilidade, alternativas e consequência técnico-econômica — sem substituir projetista ou responsável técnico.",
+  authorizedSources: [
+    SOURCE_DOCUMENTS,
+    SOURCE_CONTRACT_EVENTS,
+    SOURCE_EVENT_EVIDENCE,
+    SOURCE_EVENT_NOTES,
+    SOURCE_CLAUSES,
+    SOURCE_EMAILS,
+    SOURCE_CONTRACT_CHANGES,
+    SOURCE_CONSTRUMANAGER,
+    SOURCE_DIARIO_OBRA,
+  ],
+  capabilities: [
+    "Engenharia civil e industrial",
+    "Fundações e geotecnia",
+    "Estruturas de concreto, metálicas e pré-moldadas",
+    "Pisos industriais e coberturas",
+    "Métodos e processos construtivos",
+    "Alternativas técnicas por sistema, comparadas em matriz",
+    "Construtibilidade",
+    "Engenharia de valor",
+    "Sistemas construtivos logísticos, industriais e hospitalares",
+    "Compatibilização de projetos e interferências entre disciplinas",
+    "Análise técnico-econômica de soluções",
+    "Analisar não conformidades de compras e execução que afetem a qualidade técnica",
+  ],
+  typicalQuestions: ["Qual alternativa de fundação ou estrutura é mais adequada e quais os riscos de execução?"],
+  outputTypes: ["ANALYSIS", "RECOMMENDATION", "RISK_ASSESSMENT", "ACTION_SUGGESTION", "DRAFT_EMAIL", "DOCUMENT_GAP_ANALYSIS"],
+  limitations: [
+    "Não substitui projetistas nem responsáveis técnicos (ART/RRT); nunca apresenta dimensionamento ou cálculo definitivo",
+    "Não analisa cronograma, caminho crítico ou recuperação de prazo — encaminha ao Diretor de Planejamento IA",
+    "Nunca inventa preço, quantidade, especificação ou norma ausente do contexto",
+    "Consulta conversacional apenas (answerQuery, escopo PROJECT/EVENT) — sem generateAssessment/ExpertAssessment dedicado nesta fase",
+  ],
+  escalationRules: [
+    ...CORE_ESCALATION_RULES,
+    { situation: "Decisão que depende de projeto, cálculo ou laudo de profissional habilitado", requiredDeclaration: "DECISÃO HUMANA NECESSÁRIA" },
+  ],
+  collaborationRules: getCollaborationRulesForExpert("engineering-director"),
+  confidenceRules: [
+    { description: "Toda conclusão técnica cita o documento, evento ou evidência que a sustenta; conhecimento técnico geral é apenas premissa declarada." },
+    { description: "Alternativas são comparadas com premissas explícitas; sem preço/quantidade no contexto, o valor é informação ausente." },
+    { description: "Todo rascunhoSugerido é sempre status: \"DRAFT_PENDING_REVIEW\" — validado por validateExpertQueryResponse." },
   ],
   requiresHumanReview: true,
 };
@@ -271,7 +343,7 @@ export const CEO_DEFINITION: ExpertDefinition = {
     "Solicitar e receber análises dos demais Experts",
     "Consolidar conclusões de múltiplos Experts",
     "Identificar divergências entre Experts",
-    "Identificar conflitos entre áreas (comercial, jurídico, planejamento, ESG)",
+    "Identificar conflitos entre áreas (comercial, jurídico, planejamento, engenharia, ESG)",
     "Priorizar riscos entre os temas analisados",
     "Identificar decisões pendentes",
     "Comparar cenários e alternativas",
@@ -286,7 +358,7 @@ export const CEO_DEFINITION: ExpertDefinition = {
   limitations: [
     "Nunca substitui a análise de um Expert especializado — sempre consolida, nunca reinterpreta a fundo o domínio de outro Expert",
     "Nunca executa uma decisão — apenas recomenda; a decisão e a execução são sempre humanas",
-    "Formato de saída obrigatório, nesta ordem: SITUAÇÃO / FATOS PRINCIPAIS / POSIÇÃO DO DIRETOR COMERCIAL IA / POSIÇÃO DO CONSULTOR JURÍDICO IA / POSIÇÃO DO DIRETOR DE PLANEJAMENTO IA / POSIÇÃO DO DIRETOR DE ESG IA / DIVERGÊNCIAS / RISCOS / ALTERNATIVAS / RECOMENDAÇÃO / DECISÕES HUMANAS NECESSÁRIAS",
+    "Formato de saída obrigatório, nesta ordem: SITUAÇÃO / FATOS PRINCIPAIS / POSIÇÃO DO DIRETOR COMERCIAL IA / POSIÇÃO DO CONSULTOR JURÍDICO IA / POSIÇÃO DO DIRETOR DE PLANEJAMENTO IA / POSIÇÃO DO DIRETOR DE ENGENHARIA E CONSTRUÇÃO IA / POSIÇÃO DO DIRETOR DE ESG IA / DIVERGÊNCIAS / RISCOS / ALTERNATIVAS / RECOMENDAÇÃO / DECISÕES HUMANAS NECESSÁRIAS",
     "Nunca produz rascunho de comunicação — essa é competência exclusiva dos Experts especializados",
   ],
   escalationRules: [...CORE_ESCALATION_RULES],
@@ -303,6 +375,7 @@ export const OFFICIAL_EXPERT_DEFINITIONS: Record<OfficialExpertId, ExpertDefinit
   "commercial-director": COMMERCIAL_DIRECTOR_DEFINITION,
   "legal-consultant": LEGAL_CONSULTANT_DEFINITION,
   "planning-director": PLANNING_DIRECTOR_DEFINITION,
+  "engineering-director": ENGINEERING_DIRECTOR_DEFINITION,
   "esg-director": ESG_DIRECTOR_DEFINITION,
 };
 

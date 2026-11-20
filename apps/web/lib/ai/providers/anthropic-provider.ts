@@ -18,6 +18,7 @@
 // parcialmente validada é tratada como análise oficial.
 
 import Anthropic from "@anthropic-ai/sdk";
+import { SPECIALIST_FRAMEWORK_INSTRUCTIONS, SPECIALIST_FRAMEWORK_MARKER } from "../specialist-framework";
 import type { ExpertId } from "../types";
 import { loadAnthropicConfig, type AnthropicProviderConfig } from "./anthropic-config";
 import type {
@@ -33,6 +34,7 @@ const ANTHROPIC_ALLOWED_EXPERT_IDS: ExpertId[] = [
   "esg-director",
   "legal-consultant",
   "planning-director",
+  "engineering-director",
   "ceo",
 ];
 const ANTHROPIC_MAX_RETRIES = 2;
@@ -116,8 +118,16 @@ nunca com prosa antes ou depois da chamada de ferramenta.
 `.trim();
 }
 
-function buildSystemPrompt(instructions: string): string {
-  return `${instructions}\n\n${buildGovernanceReminder()}`;
+/**
+ * O Framework Comum (specialist-framework.ts) entra no prompt de TODO Expert técnico. Os Experts que
+ * já o interpolam em identity.ts não o recebem duas vezes (marcador); os que ainda não o fazem
+ * (ex.: prompt mantido por outra frente) passam a recebê-lo aqui — nunca um Expert sem o framework.
+ */
+export function buildSystemPrompt(instructions: string): string {
+  const withFramework = instructions.includes(SPECIALIST_FRAMEWORK_MARKER)
+    ? instructions
+    : `${instructions}\n\n${SPECIALIST_FRAMEWORK_INSTRUCTIONS.trim()}`;
+  return `${withFramework}\n\n${buildGovernanceReminder()}`;
 }
 
 function serializeContext(payload: unknown): string {

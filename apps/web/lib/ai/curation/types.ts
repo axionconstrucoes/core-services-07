@@ -34,6 +34,12 @@ export interface CurationInput {
    * PRE_CONTRATUAL, onde todos devem analisar a mesma minuta/contrato.
    */
   includeContractualDocuments?: boolean;
+  /**
+   * Experts já identificados pelo roteamento por assunto de quem chama (ex.: ESPECIALISTA do caso de
+   * risco com dois ou mais temas). Quando presente, substitui a classificação por palavra-chave desta
+   * curadoria — o CEO IA nunca entra aqui (é sempre a consolidação final).
+   */
+  requestedExpertIds?: OfficialExpertId[];
 }
 
 /**
@@ -68,6 +74,11 @@ export interface MultiExpertCuration {
   input: CurationInput;
   routing: ExpertRoutingDecision;
   expertResults: ExpertCurationResult[];
+  /**
+   * Experts roteados que NÃO produziram parecer por bloqueio determinístico redigido para a tela (ex.: análise
+   * formal de prazo sem MPP estruturado). Nunca uma posição inventada: o CEO IA só consolida `expertResults`.
+   */
+  unavailableExperts?: { expertId: OfficialExpertId; reason: string }[];
   executiveCuration: ExecutiveCuration;
   /** Metadata compacta para auditoria (AI_MULTI_EXPERT_CURATION_CREATED) — nunca prompts/texto integral. */
   audit: {

@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getEmailAttachmentsForEmail } from "../../email/attachments/get-email-attachments";
 import { EXPERT_COLLABORATION_MATRIX } from "../expert-definitions/shared";
 import type { OfficialExpertId } from "../expert-definitions/types";
+import { detectTopicExperts } from "../routing/expert-topics";
 import type { CurationInput, ExpertRoutingDecision } from "./types";
 
 const NEGOTIATION_KEYWORDS = [
@@ -58,7 +59,7 @@ function findMatrixRow(topic: string) {
  * Nunca lê o banco para classificar — só a checagem de anexos (seção 7)
  * é I/O, e é sempre separada da classificação por palavra-chave.
  */
-function classifyTopic(description: string): { topic: string; primaryExpertIds: OfficialExpertId[]; supportingExpertIds: OfficialExpertId[]; reason: string } {
+export function classifyCurationTopic(description: string): { topic: string; primaryExpertIds: OfficialExpertId[]; supportingExpertIds: OfficialExpertId[]; reason: string } {
   const normalized = description.toLowerCase();
 
   if (containsAny(normalized, DISPUTE_KEYWORDS)) {
@@ -72,12 +73,14 @@ function classifyTopic(description: string): { topic: string; primaryExpertIds: 
   }
 
   if (containsAny(normalized, SUPPLY_CHAIN_KEYWORDS)) {
-    const row = findMatrixRow("ATRASO COM MULTA")!;
+    const row = findMatrixRow("NÃO CONFORMIDADE DE COMPRAS")!;
     return {
-      topic: "NÃO CONFORMIDADE DE COMPRAS",
-      primaryExpertIds: ["planning-director"],
-      supportingExpertIds: Array.from(new Set([...row.supportingExpertIds, "commercial-director"])),
-      reason: "Não conformidade da cadeia de suprimentos detectada — Diretor de Engenharia IA analisa o efeito na execução e Comercial/Jurídico apoiam os impactos.",
+      topic: row.topic,
+      primaryExpertIds: [row.primaryExpertId],
+      supportingExpertIds: row.supportingExpertIds,
+      reason:
+        "Não conformidade da cadeia de suprimentos detectada — Diretor de Engenharia e Construção IA analisa o efeito técnico na execução, " +
+        "Planejamento o efeito em prazo e Comercial/Jurídico os impactos.",
     };
   }
 
@@ -88,6 +91,18 @@ function classifyTopic(description: string): { topic: string; primaryExpertIds: 
       primaryExpertIds: [row.primaryExpertId],
       supportingExpertIds: row.supportingExpertIds,
       reason: `Palavra-chave de negociação/escopo adicional/preço detectada — roteado por EXPERT_COLLABORATION_MATRIX (tema "${row.topic}").`,
+    };
+  }
+
+  // Engenharia (fundações, estruturas, pisos, coberturas, método construtivo, compatibilização) antes de
+  // prazo: a questão técnica é do engineering-director; o efeito em prazo entra como apoio do planning-director.
+  if (detectTopicExperts(normalized).includes("engineering-director")) {
+    const row = findMatrixRow("ENGENHARIA E CONSTRUÇÃO")!;
+    return {
+      topic: row.topic,
+      primaryExpertIds: [row.primaryExpertId],
+      supportingExpertIds: row.supportingExpertIds,
+      reason: `Tema de engenharia e construção detectado — roteado por EXPERT_COLLABORATION_MATRIX (tema "${row.topic}").`,
     };
   }
 
@@ -138,7 +153,18 @@ function classifyTopic(description: string): { topic: string; primaryExpertIds: 
  * conteúdo de um anexo só porque conhece o filename.
  */
 export async function decideExpertRouting(supabase: SupabaseClient, input: CurationInput): Promise<ExpertRoutingDecision> {
-  const classification = classifyTopic(input.description);
+  const preRouted = (input.requestedExpertIds ?? []).filter((expertId) => expertId !== "ceo");
+  const classification =
+    preRouted.length > 0
+      ? {
+          topic: "MULTIDISCIPLINAR",
+          primaryExpertIds: Array.from(new Set(preRouted)),
+          supportingExpertIds: [] as OfficialExpertId[],
+          reason:
+            "Temas já identificados pelo roteamento por assunto do caminho de origem (lib/ai/routing/expert-topics.ts) — " +
+            "um parecer por Expert e consolidação pelo CEO IA.",
+        }
+      : classifyCurationTopic(input.description);
 
   let sourceRequiresProcessing = false;
   let unprocessedAttachmentFileNames: string[] = [];

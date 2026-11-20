@@ -62,7 +62,7 @@ const ALLOWED_OUTPUT_TYPES = new Set([
   "DOCUMENT_GAP_ANALYSIS",
 ]);
 const DRAFT_OUTPUT_TYPES = new Set(["DRAFT_EMAIL", "DRAFT_LETTER", "DRAFT_NOTIFICATION", "DRAFT_PROPOSAL", "DRAFT_COUNTERPROPOSAL"]);
-const OFFICIAL_IDS = ["ceo", "commercial-director", "legal-consultant", "planning-director", "esg-director"];
+const OFFICIAL_IDS = ["ceo", "commercial-director", "legal-consultant", "planning-director", "engineering-director", "esg-director"];
 
 console.log("");
 console.log("======================================");
@@ -70,12 +70,12 @@ console.log("CATÁLOGO FORMAL DOS EXPERTS — TESTES");
 console.log("======================================");
 console.log("");
 
-check("os cinco ExpertIds oficiais estão todos presentes no registro", () => {
+check("os seis ExpertIds oficiais (inclui engineering-director) estão todos presentes no registro", () => {
   for (const id of OFFICIAL_IDS) {
     assert(OFFICIAL_EXPERT_DEFINITIONS[id] !== undefined, `faltando ${id}`);
     assert(OFFICIAL_EXPERT_DEFINITIONS[id].expertId === id, `expertId inconsistente para ${id}`);
   }
-  assert(ALL_OFFICIAL_EXPERT_DEFINITIONS.length === 5, "esperado exatamente 5 definições");
+  assert(ALL_OFFICIAL_EXPERT_DEFINITIONS.length === 6, "esperado exatamente 6 definições");
 });
 
 check('"contract-lawyer" (nome de Expert rejeitado anteriormente) não existe em nenhum lugar do catálogo', () => {

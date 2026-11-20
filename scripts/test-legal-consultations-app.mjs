@@ -50,7 +50,8 @@ const adminTouching = adminFiles.filter((f) => /lib\/legal\/consultations|legal_
 t(`rotas/jobs com service_role (${adminFiles.length} arquivos) NÃO importam nem consultam o histórico jurídico: ${adminTouching.join(", ") || "nenhum"}`, adminTouching.length === 0);
 const importers = walk("apps/web").filter((f) => /from "@\/lib\/legal\/consultations"/.test(rd(f))).map((f) => f.replaceAll("\\", "/"));
 t(`só estes arquivos importam o módulo do histórico (todos com sessão de usuário): ${importers.length}`, importers.length > 0 && importers.every((f) => !adminFiles.map((x) => x.replaceAll("\\", "/")).includes(f)));
-const cycle = rd("apps/web/lib/risk-alerts/run-risk-alert-cycle.ts");
+// O mapa de Experts do ciclo vive em experts/cycle-expert-consultant.ts (chamado pelo ciclo).
+const cycle = rd("apps/web/lib/risk-alerts/run-risk-alert-cycle.ts") + rd("apps/web/lib/risk-alerts/experts/cycle-expert-consultant.ts");
 t("ciclo automático de alertas (service_role) chama o especialista direto e NÃO grava histórico de consulta", cycle.includes("answerLegalConsultantQuery") && !cycle.includes("saveLegalConsultation"));
 
 const mig = rd("supabase/migrations/20261104120000_legal_consultations_private.sql");

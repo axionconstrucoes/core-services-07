@@ -1,5 +1,5 @@
 import { ALL_OFFICIAL_EXPERT_DEFINITIONS } from "@/lib/ai/expert-definitions";
-import { requestedSkillsForExpert, ENGINEERING_SKILL_REQUEST, SKILL_DISCOVERY_TOOL } from "@/lib/ai/expert-definitions/requested-skills";
+import { requestedSkillsForExpert, SKILL_DISCOVERY_TOOL, SKILL_STATE_LABEL } from "@/lib/ai/expert-definitions/requested-skills";
 import { resolveAiProviderNameForExpert } from "@/lib/ai/providers/resolve-provider-for-expert";
 import { buildAiProviderUiMetadata } from "@/lib/ai/provider-ui-metadata";
 import { requireProjectAdminPage } from "@/lib/email-authorization/guard";
@@ -109,22 +109,13 @@ export default async function IntegracoesPage({
                       >
                         {skill.id}
                       </span>
-                      <span className="text-[10px] text-muted-foreground">Pendente de integração ao ACC</span>
+                      <span className="text-[10px] text-muted-foreground">{SKILL_STATE_LABEL[skill.state]}</span>
                     </span>
                   ))}
                 </div>
               </div>
             );
           })}
-          <div className="rounded-md border p-3">
-            <p className="font-semibold">Engenharia Industrial e Logística — especialidade proposta</p>
-            <p className="text-xs text-muted-foreground">Fonte de IA: não configurada; especialista ainda não cadastrado no ACC.</p>
-            <span tabIndex={0} title={ENGINEERING_SKILL_REQUEST.purpose} aria-label={ENGINEERING_SKILL_REQUEST.purpose}
-              className="mt-2 inline-block cursor-help rounded-md border px-2 py-1 text-xs font-semibold outline-offset-2 focus-visible:outline">
-              {ENGINEERING_SKILL_REQUEST.id}
-            </span>
-            <p className="text-[10px] text-muted-foreground">Pendente de integração ao ACC</p>
-          </div>
           <p className="text-xs text-muted-foreground">
             {SKILL_DISCOVERY_TOOL.label}: ferramenta de descoberta e administração de skills no Claude Code.
             A instalação no Claude Code não ativa automaticamente uma skill no runtime do ACC.

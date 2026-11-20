@@ -277,7 +277,7 @@ await check("23. ESPECIALISTA exige pergunta em texto e Expert cadastrado; rotea
   assert(routeExpert({ question: "acidente ssma" }).expertId === "esg-director");
   assert(routeExpert({ question: "prazo e cláusula contratual" }).expertId === "ceo", "multidisciplinar => multi-Expert");
   assert(routeExpert({ question: "pode me ajudar?" }).reviewRequired === true, "sem tema => revisão humana, nunca Planejamento");
-  assert(isKnownExpert("planning-director") && !isKnownExpert("expert-inventado") && ALERT_EXPERT_OPTIONS.length === 5);
+  assert(isKnownExpert("planning-director") && !isKnownExpert("expert-inventado") && ALERT_EXPERT_OPTIONS.length === 6 && isKnownExpert("engineering-director"));
 });
 await check("24. OUTRO exige texto; registra usuário/data/contexto; não resolve", () => {
   assert(act("OTHER", {}).code === "TEXT_REQUIRED");

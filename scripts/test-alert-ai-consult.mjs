@@ -46,10 +46,10 @@ console.log("\n======================================");
 console.log("CONSULTAR IA — ALERTAS");
 console.log("======================================\n");
 
-await check("cinco especialidades pedidas + Geral, com os rótulos exatos", () => {
+await check("especialidades (Engenharia e Construção separada de Planejamento; Comercial criada) + Geral pelo assunto, com os rótulos exatos", () => {
   assert.deepEqual(
     spec.ALERT_CONSULT_SPECIALTIES.map((s) => s.label),
-    ["Contratual/Jurídico", "Engenharia", "Planejamento e Prazo", "SSMA", "Documentação e Entrega", "Geral"]
+    ["Contratual/Jurídico", "Engenharia e Construção", "Planejamento e Prazo", "Comercial/Financeiro/Orçamento", "SSMA", "Documentação e Entrega", "Geral (pelo assunto)"]
   );
 });
 
@@ -57,11 +57,12 @@ await check("cada especialidade usa um Expert EXISTENTE (sem arquitetura paralel
   const byId = Object.fromEntries(spec.ALERT_CONSULT_SPECIALTIES.map((s) => [s.id, s.expertId]));
   assert.deepEqual(byId, {
     juridico: "legal-consultant",
-    engenharia: "planning-director",
+    engenharia: "engineering-director",
     planejamento: "planning-director",
+    comercial: "commercial-director",
     ssma: "esg-director",
     documentacao: "legal-consultant",
-    geral: "legal-consultant",
+    geral: "AUTO",
   });
 });
 
@@ -79,7 +80,8 @@ await check("pré-seleção pela área cadastrada; sem área ou sem correspondê
   assert.equal(spec.preselectSpecialtyForArea("JURÍDICO"), "juridico");
   assert.equal(spec.preselectSpecialtyForArea(null), "geral");
   assert.equal(spec.preselectSpecialtyForArea(undefined), "geral");
-  for (const area of ["DIRETORIA", "ADMINISTRATIVO", "COMERCIAL", "FINANCEIRO", "ORÇAMENTO", "COMPRAS", "qualquer"]) {
+  for (const area of ["COMERCIAL", "FINANCEIRO", "ORÇAMENTO"]) assert.equal(spec.preselectSpecialtyForArea(area), "comercial", area);
+  for (const area of ["DIRETORIA", "ADMINISTRATIVO", "COMPRAS", "qualquer"]) {
     assert.equal(spec.preselectSpecialtyForArea(area), "geral", area);
   }
 });
