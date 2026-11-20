@@ -2,8 +2,10 @@
 // não concluído/cancelado; "vencidas" = status OVERDUE OU algum prazo
 // aplicável (assume/respond/complete, o que ainda não ocorreu) já
 // passou; "vencem hoje" = o próximo prazo aplicável cai no dia de
-// `today`; "escalonadas" = currentEscalationLevel acima do nível-base
-// (RESPONSAVEL) OU status ESCALATED.
+// `today`; "escalonadas" = ação AINDA ABERTA com currentEscalationLevel
+// acima do nível-base (RESPONSAVEL) OU status ESCALATED. Ação concluída ou
+// cancelada não conta como escalonada (antes contava, misturando histórico
+// com posição atual; o histórico segue em sla_action_escalations).
 //
 // Puro, sem I/O — `today` é sempre injetado pelo caller.
 
@@ -36,10 +38,11 @@ export function computeSlaActionsSummary(actions: SlaAction[], today: Date): Sla
   let escalated = 0;
 
   for (const action of actions) {
+    // Concluída/cancelada não é pendente, vencida nem escalonada.
+    if (action.status === "COMPLETED" || action.status === "CANCELLED") continue;
+
     if (OPEN_STATUSES.has(action.status)) pending += 1;
     if (action.status === "ESCALATED" || action.currentEscalationLevel !== "RESPONSAVEL") escalated += 1;
-
-    if (action.status === "COMPLETED" || action.status === "CANCELLED") continue;
 
     if (action.status === "OVERDUE") {
       overdue += 1;
