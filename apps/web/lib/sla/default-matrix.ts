@@ -10,6 +10,8 @@ export type DefaultSlaMatrixRule = Omit<
   "id" | "projectId" | "area" | "isDefault" | "active"
 > & { isDefault: true };
 
+// Prazos DEFINITIVOS aprovados (prazo para assumir): CRÍTICO 1 hora corrida; ALTO 4 horas úteis;
+// MÉDIO 2 dias úteis; BAIXO 5 dias úteis. Os intervalos de escalonamento (Nível 2/Diretoria) não mudam.
 // CRÍTICO usa CLOCK_HOURS (não "horas úteis", diferente de ALTO) — o
 // requisito descreve "1 hora"/"até 2 horas" sem o qualificador "útil"
 // usado explicitamente para BAIXO/MÉDIO/ALTO; risco crítico não deveria
@@ -18,7 +20,7 @@ export const DEFAULT_SLA_MATRIX: Record<SlaRiskLevel, DefaultSlaMatrixRule> = {
   LOW: {
     riskLevel: "LOW",
     timeUnit: "BUSINESS_DAYS",
-    assumeDeadlineValue: 3,
+    assumeDeadlineValue: 5,
     respondDeadlineValue: null,
     completeDeadlineValue: null,
     escalation2AfterValue: 3,
@@ -31,7 +33,7 @@ export const DEFAULT_SLA_MATRIX: Record<SlaRiskLevel, DefaultSlaMatrixRule> = {
   MEDIUM: {
     riskLevel: "MEDIUM",
     timeUnit: "BUSINESS_DAYS",
-    assumeDeadlineValue: 1,
+    assumeDeadlineValue: 2,
     respondDeadlineValue: null,
     completeDeadlineValue: null,
     escalation2AfterValue: 1,

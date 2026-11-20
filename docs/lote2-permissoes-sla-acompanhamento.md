@@ -2,7 +2,7 @@
 
 Branch `feat/lote2-acompanhamento-sla` (base `integration/acc-noturna` 64c0889). Homologação **local** (PGlite e PostgreSQL 17 real em 127.0.0.1); nada foi aplicado no banco operacional (só `SELECT` leve). Migrations novas: `20261121170000`, `20261121171000`, `20261121172000`.
 
-## 1. SLAs aprovados × código × banco — DIVERGÊNCIA (decisão pendente do usuário)
+## 1. SLAs aprovados × código × banco — DIVERGÊNCIA (registro do Lote 2; CORRIGIDA localmente na FRENTE A: ver `docs/sla-medio-baixo-aprovados.md`)
 
 | Risco | Aprovado | Código (`apps/web/lib/sla/default-matrix.ts`) | Banco operacional (`sla_matrix_rules`, regra ativa) |
 |---|---|---|---|
