@@ -65,6 +65,8 @@ export interface ProcessRepliesOptions {
   senderRateLimiter?: SenderRateLimiter;
   /** authserv-id confiáveis para a autenticação do remetente (padrão mx.google.com). */
   trustedAuthservIds?: readonly string[];
+  /** Domínios com o fallback do locatário Workspace (mesma regra do caminho de token por item). Ausente => fail-closed. */
+  workspaceTenantDomains?: readonly string[];
   /** Registro (log/auditoria) do resultado de CADA mensagem; falha aqui nunca bloqueia o processamento. */
   onMessageProcessed?: (entry: { message: InboundMessageRow; caseId: string | null; status: string; statusReason: string | null }) => Promise<void>;
 }
@@ -172,6 +174,7 @@ export async function processAlertReplies(baseStore: RiskAlertStore, projectId: 
       corporateDomain,
       authenticationResults: message.headers.authenticationResults ?? null,
       trustedAuthservIds: options.trustedAuthservIds,
+      workspaceTenantDomains: options.workspaceTenantDomains,
     });
     const authorization: { authorized: true; userId: string; note: string | null } | { authorized: false; reason: string } = baseAuthorization;
     const unauthorizedPatch = { caseId: correlation.caseId, correlationMethod: correlation.method, bodyClean: parsed.clean, quotedText: parsed.quoted, signatureText: parsed.signature };

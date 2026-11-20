@@ -146,6 +146,7 @@ export function decideSsmaReply(input: {
   processedMessageIds: ReadonlySet<string>;
   corporateDomain?: string;
   trustedAuthservIds?: readonly string[];
+  workspaceTenantDomains?: readonly string[];
 }): SsmaReplyDecision {
   const { message, target } = input;
   if (input.processedMessageIds.has(message.providerMessageId)) return { kind: "IGNORE", reason: "ALREADY_PROCESSED" };
@@ -158,7 +159,7 @@ export function decideSsmaReply(input: {
   if (from.split("@")[1] !== domain) return { kind: "UNAUTHORIZED", reason: "SENDER_NOT_CORPORATE", explainTo: null, explanation: null };
   const member = input.members.find((m) => (m.email ?? "").trim().toLowerCase() === from && m.status === "ACTIVE");
   if (!member) return { kind: "UNAUTHORIZED", reason: "SENDER_NOT_MEMBER", explainTo: null, explanation: null };
-  const auth = verifySenderAuthentication({ fromEmail: from, authenticationResults: message.headers.authenticationResults ?? null, trustedAuthservIds: input.trustedAuthservIds });
+  const auth = verifySenderAuthentication({ fromEmail: from, authenticationResults: message.headers.authenticationResults ?? null, trustedAuthservIds: input.trustedAuthservIds, workspaceTenantDomains: input.workspaceTenantDomains });
   if (!auth.ok) return { kind: "UNAUTHORIZED", reason: auth.reason, explainTo: member.userId, explanation: senderAuthenticationMessage(auth.reason) };
   const isAdmin = member.permission === "ADMINISTRADOR" || member.permission === "ADMIN";
   if (member.userId !== target.responsibleUserId && !isAdmin) {

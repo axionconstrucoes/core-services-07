@@ -183,6 +183,8 @@ export interface ReplySenderContext {
   authenticationResults: string | null;
   /** authserv-id confiáveis (padrão mx.google.com; ACC_EMAIL_TRUSTED_AUTHSERV_IDS). */
   trustedAuthservIds?: readonly string[];
+  /** Domínios com o fallback do locatário Workspace (ACC_EMAIL_WORKSPACE_TENANT_DOMAINS). Ausente/vazio => fail-closed (só DMARC/DKIM alinhado). */
+  workspaceTenantDomains?: readonly string[];
 }
 
 export type ReplyAuthFailureReason = "AUTH_MISSING" | "AUTH_UNTRUSTED" | "AUTH_FAILED" | "AUTH_NOT_ALIGNED";
@@ -224,7 +226,7 @@ export function authorizeReply(ctx: ReplySenderContext): ReplyAuthorization {
   if (ctx.membershipStatus !== "ACTIVE") return { authorized: false, reason: "MEMBERSHIP_INACTIVE" };
   // P2: autenticação OBRIGATÓRIA — DMARC=pass ou DKIM=pass alinhado ao domínio do From, registrado por servidor confiável.
   // Sem cabeçalho, servidor não confiável, falha ou desalinhamento => rejeição (o processador responde explicando).
-  const auth = verifySenderAuthentication({ fromEmail: sender, authenticationResults: ctx.authenticationResults, trustedAuthservIds: ctx.trustedAuthservIds });
+  const auth = verifySenderAuthentication({ fromEmail: sender, authenticationResults: ctx.authenticationResults, trustedAuthservIds: ctx.trustedAuthservIds, workspaceTenantDomains: ctx.workspaceTenantDomains });
   if (!auth.ok) return { authorized: false, reason: AUTH_FAILURE_REASON[auth.reason] };
   const userId = ctx.profile.userId;
   const isRecipient = ctx.alertRecipientUserIds.includes(userId) || ctx.activeForwardToUserId === userId;
