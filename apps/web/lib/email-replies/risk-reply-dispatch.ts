@@ -13,7 +13,7 @@ import { extractReplyTokens, hashReplyToken } from "@/lib/risk-alerts/replies/re
 import { decodeGmailData, listGmailAttachments, MAX_EVIDENCE_ATTACHMENT_BYTES, MAX_EVIDENCE_ATTACHMENTS, riskEvidenceStoragePath, sha256Hex, type StoredEvidenceAttachment } from "./inbound-attachments";
 import type { TargetCandidate } from "./member-target";
 import { createSupabaseEmailReplyTokenStore, type EmailReplyTokenRow, type EmailReplyTokenStore } from "./reply-tokens";
-import { resolveTrustedAuthservIds } from "./sender-authentication";
+import { resolveTrustedAuthservIds, resolveWorkspaceTenantDomains } from "./sender-authentication";
 import { SenderRateLimiter, resolveSenderRateLimit } from "./sender-rate-limit";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -40,6 +40,7 @@ export interface RiskReplyDispatch {
   targetCandidates(): Promise<TargetCandidate[]>;
   senderRateLimiter(): Promise<SenderRateLimiter>;
   trustedAuthservIds: string[];
+  workspaceTenantDomains: string[];
   attachmentsFor(message: InboundMessageRow, caseId: string): Promise<StoredEvidenceAttachment[]>;
   onMessageProcessed(entry: { message: InboundMessageRow; caseId: string | null; status: string; statusReason: string | null }): Promise<void>;
 }
@@ -68,6 +69,7 @@ export function createRiskReplyDispatch(input: RiskReplyDispatchInput): RiskRepl
   return {
     tokenStore,
     trustedAuthservIds: resolveTrustedAuthservIds(env),
+    workspaceTenantDomains: resolveWorkspaceTenantDomains(env),
 
     async resolveItemToken(addresses) {
       const rows = await resolveRows(addresses);

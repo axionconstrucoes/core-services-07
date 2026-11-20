@@ -642,11 +642,12 @@ if (phases.has("replies") && (apply || repliesDryRun)) {
         targetCandidates: await dispatch.targetCandidates(),
         senderRateLimiter: await dispatch.senderRateLimiter(),
         trustedAuthservIds: dispatch.trustedAuthservIds,
+        workspaceTenantDomains: dispatch.workspaceTenantDomains,
         attachmentsFor: (message, caseId) => dispatch.attachmentsFor(message, caseId),
         onMessageProcessed: (entry) => dispatch.onMessageProcessed(entry),
       });
     } catch {
-      Object.assign(replyOptions, { trustedAuthservIds: dispatch.trustedAuthservIds });
+      Object.assign(replyOptions, { trustedAuthservIds: dispatch.trustedAuthservIds, workspaceTenantDomains: dispatch.workspaceTenantDomains });
     }
     if (repliesDryRun) {
       const dry = createDryRunReplyStore(riskStore, dryInbound);

@@ -183,6 +183,8 @@ export interface ReplySenderContext {
   authenticationResults: string | null;
   /** authserv-id confiáveis (padrão mx.google.com; ACC_EMAIL_TRUSTED_AUTHSERV_IDS). */
   trustedAuthservIds?: readonly string[];
+  /** Domínios com o fallback do locatário Workspace (ACC_EMAIL_WORKSPACE_TENANT_DOMAINS). Ausente/vazio => fail-closed (só DMARC/DKIM alinhado). */
+  workspaceTenantDomains?: readonly string[];
 }
 
 export type ReplyAuthFailureReason = "AUTH_MISSING" | "AUTH_UNTRUSTED" | "AUTH_FAILED" | "AUTH_NOT_ALIGNED";
@@ -224,7 +226,7 @@ export function authorizeReply(ctx: ReplySenderContext): ReplyAuthorization {
   if (ctx.membershipStatus !== "ACTIVE") return { authorized: false, reason: "MEMBERSHIP_INACTIVE" };
   // P2: autenticação OBRIGATÓRIA — DMARC=pass ou DKIM=pass alinhado ao domínio do From, registrado por servidor confiável.
   // Sem cabeçalho, servidor não confiável, falha ou desalinhamento => rejeição (o processador responde explicando).
-  const auth = verifySenderAuthentication({ fromEmail: sender, authenticationResults: ctx.authenticationResults, trustedAuthservIds: ctx.trustedAuthservIds });
+  const auth = verifySenderAuthentication({ fromEmail: sender, authenticationResults: ctx.authenticationResults, trustedAuthservIds: ctx.trustedAuthservIds, workspaceTenantDomains: ctx.workspaceTenantDomains });
   if (!auth.ok) return { authorized: false, reason: AUTH_FAILURE_REASON[auth.reason] };
   const userId = ctx.profile.userId;
   const isRecipient = ctx.alertRecipientUserIds.includes(userId) || ctx.activeForwardToUserId === userId;
@@ -244,10 +246,12 @@ export interface ParsedReplyBody {
 }
 
 const QUOTE_HEADER_PATTERNS = [
-  /^Em .{3,80} escreveu:\s*$/im,
-  /^On .{3,80} wrote:\s*$/im,
+  // Gmail/Apple/Outlook mobile: "Em ... escreveu:" / "On ... wrote:" — o cliente pode quebrar a linha (nome longo + e-mail) uma vez.
+  /^Em [^\n]{3,120}(?:\n[^\n]{0,120})?escreveu:\s*$/im,
+  /^On [^\n]{3,120}(?:\n[^\n]{0,120})?wrote:\s*$/im,
   /^-{2,}\s*(Original Message|Mensagem original)\s*-{2,}\s*$/im,
-  /^(De|From):\s.+\n(Enviad[oa]|Sent|Date|Data):\s.+/im,
+  // Outlook (desktop/web/mobile) PT-BR e EN: "De:" + "Enviado:"/"Enviado em:"/"Enviada em:"/"Sent:"/"Date:" (linhas em branco entre eles toleradas).
+  /^(De|From):[ \t]*[^\n]+\n(?:[ \t]*\n)*(Enviad[oa](?:[ \t]+em)?|Sent|Date|Data)[ \t]*:[ \t]*[^\n]+/im,
   /^_{10,}\s*$/m,
   // Encaminhamentos (Gmail/Outlook/Apple Mail, PT e EN): o conteúdo encaminhado nunca é texto novo do remetente.
   /^-{2,}\s*(Forwarded message|Mensagem encaminhada|Mensaje reenviado)\s*-{2,}\s*$/im,

@@ -33,7 +33,7 @@ const { extractInboundFromGmail } = await import("../../apps/web/lib/risk-alerts
 const { extractReplyTokens, hashReplyToken } = await import("../../apps/web/lib/risk-alerts/replies/reply-pipeline");
 const { createSupabaseEmailReplyTokenStore, tokenUsability } = await import("../../apps/web/lib/email-replies/reply-tokens");
 const { SenderRateLimiter, resolveSenderRateLimit } = await import("../../apps/web/lib/email-replies/sender-rate-limit");
-const { resolveTrustedAuthservIds } = await import("../../apps/web/lib/email-replies/sender-authentication");
+const { resolveTrustedAuthservIds, resolveWorkspaceTenantDomains } = await import("../../apps/web/lib/email-replies/sender-authentication");
 const { decodeGmailData, ssmaPhotoStoragePath, validateSsmaEvidencePhoto, MAX_EVIDENCE_ATTACHMENTS } = await import("../../apps/web/lib/email-replies/inbound-attachments");
 
 const WEG_PROJECT_ID = "00000000-0000-4000-8000-000000000001";
@@ -87,6 +87,7 @@ export async function runSsmaRepliesPhase({ supabase, gmail, mailbox, projectId 
   const auditRows = await loadSsmaReplyAuditRows(supabase, projectId);
   const tokenStore = createSupabaseEmailReplyTokenStore(supabase);
   const trustedAuthservIds = resolveTrustedAuthservIds(env);
+  const workspaceTenantDomains = resolveWorkspaceTenantDomains(env);
 
   const actionByTokenHash = new Map();
   const processedIds = new Set();
@@ -224,6 +225,7 @@ export async function runSsmaRepliesPhase({ supabase, gmail, mailbox, projectId 
           processedMessageIds: processedIds,
           corporateDomain,
           trustedAuthservIds,
+          workspaceTenantDomains,
         });
 
         if (decision.kind === "IGNORE") {

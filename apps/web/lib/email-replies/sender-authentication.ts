@@ -137,13 +137,19 @@ export function verifySenderAuthentication(input: { fromEmail: string; authentic
   if (parsed.length === 0) return { ok: false, reason: "AUTH_RESULTS_MISSING" };
   const fromTrusted = parsed.filter((p) => trusted.has(p.authservId));
   if (fromTrusted.length === 0) return { ok: false, reason: "AUTH_UNTRUSTED_SERVER" };
+  // Endurecimento: o servidor que RECEBEU a mensagem adiciona o seu Authentication-Results ACIMA dos já existentes. Entre os
+  // cabeçalhos de servidores confiáveis só o PRIMEIRO (o mais ao topo) pode dar aceitação; um cabeçalho confiável abaixo dele
+  // foi escrito antes (pelo remetente ou por um salto anterior) e pode forjar "mx.google.com". Os demais continuam valendo só
+  // para RECUSAR (conflito nunca vira aceitação). Cabeçalhos não confiáveis seguem ignorados.
+  const topTrusted = fromTrusted[0];
 
   let dmarcPass: string | null = null;
   let dkimPass: string | null = null;
   let tenantPass: string | null = null;
   const tenantEnabled = (input.workspaceTenantDomains ?? []).map((d) => d.toLowerCase()).includes(fromDomain);
   for (const header of fromTrusted) {
-    if (tenantEnabled) {
+    const isTop = header === topTrusted;
+    if (tenantEnabled && isTop) {
       const tenantDkim = header.results.some((r) => r.method === "dkim" && r.result === "pass" && isWorkspaceTenantSigningDomain(dkimSigningDomain(r.props), fromDomain));
       const spfAligned = header.results.some((r) => r.method === "spf" && r.result === "pass" && isAlignedDomain(spfMailFromDomain(r.props), fromDomain));
       if (tenantDkim && spfAligned) tenantPass = tenantPass ?? header.authservId;
@@ -152,11 +158,11 @@ export function verifySenderAuthentication(input: { fromEmail: string; authentic
       if (r.method === "dmarc") {
         const headerFrom = r.props["header.from"] ?? null;
         if (r.result === "fail" || r.result === "permerror") return { ok: false, reason: "AUTH_FAILED" };
-        if (r.result === "pass" && headerFrom === fromDomain) dmarcPass = dmarcPass ?? header.authservId;
+        if (isTop && r.result === "pass" && headerFrom === fromDomain) dmarcPass = dmarcPass ?? header.authservId;
       } else if (r.method === "dkim") {
         const aligned = isAlignedDomain(dkimSigningDomain(r.props), fromDomain);
         if (aligned && (r.result === "fail" || r.result === "permerror")) return { ok: false, reason: "AUTH_FAILED" };
-        if (aligned && r.result === "pass") dkimPass = dkimPass ?? header.authservId;
+        if (isTop && aligned && r.result === "pass") dkimPass = dkimPass ?? header.authservId;
       }
     }
   }
