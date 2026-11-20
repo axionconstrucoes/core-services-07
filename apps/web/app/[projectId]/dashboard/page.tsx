@@ -14,6 +14,13 @@ import {
 } from "lucide-react";
 
 import { createSupabaseServerClient } from "@axion/db/server";
+import { getCurrentProjectPermission } from "@/lib/contract-review";
+import { computeClimateImpact, computeElapsedDays } from "@/lib/dashboard/elapsed-and-climate";
+import { resolveEmailDisplayStatus, resolveEmailPipelineStages, type EmailStageState } from "@/lib/dashboard/email-pipeline-stages";
+import { getDashboardOperationalFacts } from "@/lib/dashboard/get-dashboard-operational-facts";
+import { resolveDashboardRiskLevel, summarizeRiskAlertCases } from "@/lib/dashboard/risk-alert-cases-summary";
+import { computeSlaEscalationBreakdown } from "@/lib/dashboard/sla-escalation-breakdown";
+import { baselineStage, mppFileStage, scheduleUpdatedStage, sheetStage, weeklyReportStage } from "@/lib/dashboard/weekly-planning-stages";
 import type { EsgSummary } from "@/lib/dashboard-visual/compute-esg-summary";
 import { getDashboardVisualData } from "@/lib/dashboard-visual/get-dashboard-visual-data";
 import { getEvents } from "@/lib/data";
@@ -254,31 +261,20 @@ function formatDashboardDate(value: string | null): string {
   return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
 }
 
-function inclusiveDaysBetween(
-  startDate: string | null,
-  endDate: string | null
-): number | null {
-  if (!startDate || !endDate) return null;
+const STAGE_STATE_TONE: Record<EmailStageState, "ok" | "warning" | "error" | "neutral"> = {
+  OK: "ok",
+  PENDENTE: "warning",
+  ATENCAO: "warning",
+  ERRO: "error",
+  NAO_VERIFICAVEL: "neutral",
+};
 
-  const start = Date.parse(`${startDate}T00:00:00Z`);
-  const end = Date.parse(`${endDate}T00:00:00Z`);
-
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
-    return null;
-  }
-
-  return Math.floor((end - start) / 86400000) + 1;
+/** Linha secund\u00e1ria (detalhe/motivo) sob um StatusLine \u2014 evid\u00eancia da contagem ou motivo da indisponibilidade. */
+function SubNote({ children }: { children: React.ReactNode }) {
+  return <p className="pb-0.5 pl-4 text-[10px] leading-tight text-[#b8c7dc]">{children}</p>;
 }
 
-function isImpraticavel(value: unknown): boolean {
-  return (
-    typeof value === "string" &&
-    value
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase() === "impraticavel"
-  );
-}
+const LEVEL_LABEL: Record<string, string> = { RESPONSAVEL: "Respons\u00e1vel", ESCALAO_1: "Escal\u00e3o 1", ESCALAO_2: "Escal\u00e3o 2", DIRETORIA: "Diretoria" };
 
 export default async function DashboardPage({
   params,
@@ -472,46 +468,30 @@ export default async function DashboardPage({
       .filter((value): value is string => Boolean(value))
       .sort()[0] ?? null;
 
-  const { data: rdoRows } = mppStartDate
+  // Dias decorridos: calendário desde o início da obra (project_start_date, senão start_date contratual) até hoje
+  // (fuso America/Sao_Paulo). Antes dependia do MPP + último RDO e ficava indisponível sem cronograma processado.
+  const dashboardToday = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const elapsed = computeElapsedDays({
+    projectStartDate: projectDates?.project_start_date ?? null,
+    contractStartDate,
+    today: dashboardToday,
+  });
+
+  // Clima (RDO): janela a partir do início do MPP vinculado ou, sem MPP, do início da obra. Sem RDO => indisponível (nunca 0).
+  const climateWindowStart = mppStartDate ?? (elapsed.available ? elapsed.value.startDate : null);
+  const { data: rdoRows, error: rdoError } = climateWindowStart
     ? await supabase
         .from("diario_de_obra_reports")
         .select("reference_date,weather")
         .eq("project_id", projectId)
-        .gte("reference_date", mppStartDate)
+        .gte("reference_date", climateWindowStart)
         .lte("reference_date", mppEndDate ?? "9999-12-31")
         .order("reference_date", { ascending: true })
-    : { data: [] };
+    : { data: [], error: null };
 
-  const latestRdoDate =
-    (rdoRows ?? [])
-      .map((row) => row.reference_date)
-      .filter((value): value is string => typeof value === "string")
-      .at(-1) ?? null;
-
-  const elapsedDays = inclusiveDaysBetween(mppStartDate, latestRdoDate);
-
-  const equivalentNonWorkedDays = (rdoRows ?? []).reduce((total, row) => {
-    const weather = asObject(row.weather);
-    const morning = asObject(weather?.manha);
-    const afternoon = asObject(weather?.tarde);
-
-    let equivalent = 0;
-
-    if (morning?.ativo !== false && isImpraticavel(morning?.condicao)) {
-      equivalent += 0.5;
-    }
-
-    if (afternoon?.ativo !== false && isImpraticavel(afternoon?.condicao)) {
-      equivalent += 0.5;
-    }
-
-    return total + equivalent;
-  }, 0);
-
-  const climateImpactPercent =
-    elapsedDays && elapsedDays > 0
-      ? (equivalentNonWorkedDays / elapsedDays) * 100
-      : null;
+  const climate = rdoError
+    ? ({ available: false, reason: "leitura do Diário de Obra indisponível" } as const)
+    : computeClimateImpact({ rows: rdoRows ?? [], windowStart: climateWindowStart });
 
   const indicators = Array.isArray(ssmaMetrics?.indicators)
     ? ssmaMetrics.indicators
@@ -661,29 +641,84 @@ export default async function DashboardPage({
   const dashboardSafetyOccurrences = ssmaDash.occurrences;
   const dashboardDaysWithoutAccident = ssmaDash.daysWithoutAccident;
 
-  const activeIntegrations =
-    data.integrationStatusGroups.find(
-      (group) => group.status === "CONECTADO"
-    )?.count ?? 0;
+  // ----------------------------------------------------------
+  // Fatos operacionais (somente leitura, RLS da sessão): casos de risco, escalonamentos, outbox, e-mails.
+  // ----------------------------------------------------------
+  const permission = await getCurrentProjectPermission(projectId);
+  const opFacts = await getDashboardOperationalFacts(supabase, projectId, { isAdmin: permission === "ADMINISTRADOR" });
 
-  const totalIntegrations = data.integrationStatusGroups.reduce(
-    (sum, group) => sum + group.count,
-    0
-  );
+  // Alertas de risco = risk_alert_cases abertos (os mesmos de /alertas/{caseId} e dos e-mails de alerta).
+  // Achados de IA (ai_findings) continuam exibidos, mas SEPARADOS — nunca somados aos alertas.
+  const riskCases = opFacts.riskCases ? summarizeRiskAlertCases(opFacts.riskCases) : null;
+  const riskCaseActionIds = opFacts.riskCases
+    ? new Set(opFacts.riskCases.map((row) => row.sla_action_id).filter((id): id is string => Boolean(id)))
+    : null;
+  const slaBreakdown = computeSlaEscalationBreakdown({
+    actions: data.slaActions,
+    escalations: opFacts.escalations ?? [],
+    riskCaseActionIds,
+  });
+  const consistencyIssuesTotal = opFacts.consistencyIssues
+    ? Object.values(opFacts.consistencyIssues).reduce((sum, value) => sum + value, 0)
+    : null;
 
+  // E-mail por etapa: farol verde só com todas as etapas comprovadas.
+  const emailPipeline = resolveEmailPipelineStages({
+    ...data.emailFacts,
+    individualCollectionsEnabled: opFacts.individualCollections?.enabled ?? null,
+    individualCollectionsTotal: opFacts.individualCollections?.total ?? null,
+    persistedEmails: opFacts.persistedEmails,
+    latestEmailAt: opFacts.latestEmailAt,
+    outbox: opFacts.outbox,
+    emailReplyOrigins: opFacts.emailReplyOrigins,
+  });
+  const emailDisplayStatus = resolveEmailDisplayStatus(data.emailFacts.serviceStatus, emailPipeline);
+  const integrationRows = data.integrationEntries.map((entry) => ({
+    ...entry,
+    displayStatus: entry.sourceType === "EMAIL" ? emailDisplayStatus : entry.status,
+  }));
+
+  const activeIntegrations = integrationRows.filter((row) => row.displayStatus === "CONECTADO").length;
+  const partialIntegrations = integrationRows.filter((row) => row.displayStatus === "PARCIAL").length;
+  const totalIntegrations = integrationRows.length;
+
+  const dashboardRisk = resolveDashboardRiskLevel(data.generalSituation, riskCases);
   const highestRisk =
-    data.generalSituation === "SEM_RISCO_ATIVO"
+    dashboardRisk === "SEM_RISCO_ATIVO"
       ? "SEM RISCO"
-      : data.generalSituation === "CRITICA"
-        ? "CRÍTICO"
-        : data.generalSituation === "ALTA"
-          ? "ALTO"
-          : data.generalSituation === "MEDIA"
-            ? "MÉDIO"
-            : "BAIXO";
+      : dashboardRisk === "EM_REVISAO"
+        ? "EM REVISÃO"
+        : dashboardRisk === "CRITICA"
+          ? "CRÍTICO"
+          : dashboardRisk === "ALTA"
+            ? "ALTO"
+            : dashboardRisk === "MEDIA"
+              ? "MÉDIO"
+              : "BAIXO";
 
+  const systemStatusBase = resolveSystemStatus(data.integrationStatusGroups);
+  // Nenhum verde global quando o e-mail só está parcialmente comprovado (etapas acima).
+  const systemStatus =
+    systemStatusBase.level === "OPERACIONAL" && emailDisplayStatus === "PARCIAL"
+      ? {
+          level: "PARCIAL" as const,
+          label: "INTEGRAÇÕES PARCIAIS",
+          reason: `E-mail com ${emailPipeline.proven} de ${emailPipeline.total} etapas comprovadas.`,
+        }
+      : systemStatusBase;
 
-  const systemStatus = resolveSystemStatus(data.integrationStatusGroups);
+  // Planejamento semanal por etapa (recebido × processado × extraído × reconhecido × atualizado).
+  const cronogramaEvaluated = data.cronogramaResolution.cause !== null || data.cronogramaResolution.status !== "PENDENTE";
+  const planningStages = {
+    weeklyReport: weeklyReportStage({ attachmentReceived: Boolean(weeklyAttachment), workbookStatus: latestWorkbook?.status ?? null }),
+    mppFile: mppFileStage({ attachmentReceived: Boolean(scheduleAttachment), processingStatus: scheduleAttachment?.processing_status ?? null }),
+    baseline: baselineStage({ configRead: opFacts.weeklyConfig.read, baselineScheduleVersionId: opFacts.weeklyConfig.baselineScheduleVersionId }),
+    scheduleUpdated: scheduleUpdatedStage({
+      status: data.cronogramaResolution.status,
+      detail: data.cronogramaResolution.detail,
+      evaluated: cronogramaEvaluated,
+    }),
+  };
   const projectName = data.project?.name ?? "Projeto não disponível";
   const projectCode = data.project?.code ?? "Código não disponível";
   // Se o nome cadastrado já termina com o código (ex.: "… Goiânia · 0079"), não repete o código.
@@ -739,9 +774,9 @@ export default async function DashboardPage({
         {/* KPIs — números centralizados */}
         <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
           <ExecutiveKpi
-            label="Alertas ativos"
-            value={data.activeFindingsSummary.totalActive}
-            subtitle="Achados ainda ativos"
+            label="Alertas de risco"
+            value={riskCases ? riskCases.open : "—"}
+            subtitle={riskCases ? "Casos de risco abertos" : "Leitura indisponível"}
             icon={AlertTriangle}
           />
 
@@ -756,7 +791,7 @@ export default async function DashboardPage({
                     ? "text-red-400"
                     : highestRisk === "ALTO"
                       ? "text-orange-400"
-                      : highestRisk === "MÉDIO"
+                      : highestRisk === "MÉDIO" || highestRisk === "EM REVISÃO"
                         ? "text-amber-300"
                         : "text-[#2fbf71]"
                 }
@@ -764,14 +799,14 @@ export default async function DashboardPage({
                 {highestRisk}
               </span>
             }
-            subtitle="Situação consolidada"
+            subtitle={riskCases ? "Alertas de risco + achados de IA" : "Só achados de IA (alertas indisponíveis)"}
             icon={TriangleAlert}
           />
 
           <ExecutiveKpi
             label="Integrações"
             value={`${activeIntegrations}/${totalIntegrations}`}
-            subtitle="Fontes conectadas"
+            subtitle={partialIntegrations > 0 ? `Comprovadas · ${partialIntegrations} parcial(is)` : "Fontes comprovadas"}
             icon={CheckCircle2}
           />
 
@@ -805,21 +840,92 @@ export default async function DashboardPage({
           <div className="flex flex-col gap-2">
             <Panel title="Situação contratual">
               <StatusLine
-                label="Alertas ativos"
+                label="Alertas de risco abertos"
+                value={riskCases ? riskCases.open : "Indisponível"}
+                status={riskCases ? (riskCases.open > 0 ? "warning" : "ok") : "neutral"}
+              />
+              {riskCases ? (
+                <SubNote>
+                  Casos de risco (status aberto, não resolvidos) · {riskCases.openWithSlaAction} com ação SLA ·{" "}
+                  {riskCases.closed} encerrado(s){riskCases.testOpen > 0 ? ` · ${riskCases.testOpen} de teste fora da contagem` : ""}
+                </SubNote>
+              ) : (
+                <SubNote>Não foi possível ler os casos de risco (permissão ou falha de leitura).</SubNote>
+              )}
+              {riskCases && riskCases.openHighCriticalWithoutSlaAction > 0 ? (
+                <StatusLine
+                  label="Alto/crítico sem ação SLA"
+                  value={riskCases.openHighCriticalWithoutSlaAction}
+                  status="error"
+                />
+              ) : null}
+              <StatusLine
+                label="Achados de IA ativos"
                 value={data.activeFindingsSummary.totalActive}
                 status={data.activeFindingsSummary.totalActive > 0 ? "warning" : "ok"}
               />
-              <StatusLine label="Ações pendentes" value={data.slaSummary.pending} status={data.slaSummary.pending > 0 ? "warning" : "ok"} />
+              <StatusLine
+                label="Ações abertas (SLA)"
+                value={data.slaSummary.pending}
+                status={data.slaSummary.pending > 0 ? "warning" : "ok"}
+              />
+              {slaBreakdown.openActions > 0 ? (
+                <SubNote>
+                  Status:{" "}
+                  {Object.entries(slaBreakdown.openByStatus)
+                    .map(([status, count]) => `${status} ${count}`)
+                    .join(", ")}
+                  {riskCaseActionIds ? ` · ${slaBreakdown.openLinkedToRiskCase} vinculada(s) a caso de risco` : ""}
+                </SubNote>
+              ) : null}
               <StatusLine
                 label="Ações vencidas"
                 value={data.slaSummary.overdue}
                 status={data.slaSummary.overdue > 0 ? "error" : "ok"}
               />
               <StatusLine
-                label="Escalonamentos"
+                label="Ações escalonadas (abertas)"
                 value={data.slaSummary.escalated}
                 status={data.slaSummary.escalated > 0 ? "warning" : "ok"}
               />
+              {slaBreakdown.openEscalated > 0 ? (
+                <SubNote>
+                  Nível atual:{" "}
+                  {(["ESCALAO_1", "ESCALAO_2", "DIRETORIA"] as const)
+                    .filter((level) => slaBreakdown.openByLevel[level] > 0)
+                    .map((level) => `${LEVEL_LABEL[level]} ${slaBreakdown.openByLevel[level]}`)
+                    .join(", ")}
+                </SubNote>
+              ) : null}
+              <StatusLine
+                label="Registros de escalonamento"
+                value={opFacts.escalations ? slaBreakdown.escalationRecords : "Indisponível"}
+                status="neutral"
+              />
+              {opFacts.escalations && slaBreakdown.escalationRecords > 0 ? (
+                <SubNote>
+                  Histórico (uma ação pode subir mais de um nível):{" "}
+                  {(["ESCALAO_1", "ESCALAO_2", "DIRETORIA"] as const)
+                    .filter((level) => slaBreakdown.recordsByToLevel[level] > 0)
+                    .map((level) => `→ ${LEVEL_LABEL[level]} ${slaBreakdown.recordsByToLevel[level]}`)
+                    .join(", ")}
+                  {slaBreakdown.recordsOnClosedOrUnknownActions > 0 ? ` · ${slaBreakdown.recordsOnClosedOrUnknownActions} de ações encerradas` : ""}
+                  {slaBreakdown.openEscalatedWithMultipleRecords > 0 ? ` · ${slaBreakdown.openEscalatedWithMultipleRecords} ação(ões) com mais de um registro` : ""}
+                  {slaBreakdown.openEscalatedWithoutRecord > 0 ? ` · ${slaBreakdown.openEscalatedWithoutRecord} escalonada(s) sem registro` : ""}
+                </SubNote>
+              ) : null}
+              <StatusLine
+                label="Divergências caso × ação"
+                value={consistencyIssuesTotal ?? "Indisponível"}
+                status={consistencyIssuesTotal === null ? "neutral" : consistencyIssuesTotal > 0 ? "warning" : "ok"}
+              />
+              {opFacts.consistencyIssues && consistencyIssuesTotal ? (
+                <SubNote>
+                  {Object.entries(opFacts.consistencyIssues)
+                    .map(([code, count]) => `${code} ${count}`)
+                    .join(", ")}
+                </SubNote>
+              ) : null}
               <StatusLine
                 label="Início da obra"
                 value={formatDashboardDate(projectDates?.project_start_date ?? contractStartDate)}
@@ -837,23 +943,28 @@ export default async function DashboardPage({
               />
             </Panel>
 
-            <Panel title="Distribuição dos alertas">
+            <Panel title="Distribuição dos alertas de risco abertos">
               <div className="grid grid-cols-4 gap-2">
                 {[
-                  ["Baixo", data.activeFindingsSummary.countsBySeverity.BAIXA, "bg-[#166534]", "text-[#ffffff]"],
-                  ["Médio", data.activeFindingsSummary.countsBySeverity.MEDIA, "bg-yellow-400", "text-[#000000]"],
-                  ["Alto", data.activeFindingsSummary.countsBySeverity.ALTA, "bg-[#c2410c]", "text-[#ffffff]"],
-                  ["Crítico", data.activeFindingsSummary.countsBySeverity.CRITICA, "bg-[#b91c1c]", "text-[#ffffff]"],
+                  ["Baixo", riskCases?.openBySeverity.BAIXA ?? null, "bg-[#166534]", "text-[#ffffff]"],
+                  ["Médio", riskCases?.openBySeverity.MEDIA ?? null, "bg-yellow-400", "text-[#000000]"],
+                  ["Alto", riskCases?.openBySeverity.ALTA ?? null, "bg-[#c2410c]", "text-[#ffffff]"],
+                  ["Crítico", riskCases?.openBySeverity.CRITICA ?? null, "bg-[#b91c1c]", "text-[#ffffff]"],
                 ].map(([label, value, color, textColor]) => (
                   <div
                     key={String(label)}
                     className={`flex h-11 flex-col items-center justify-center rounded-[5px] ${color} ${textColor}`}
                   >
                     <span className="text-[12px] font-normal leading-none">{label}</span>
-                    <span className="mt-1 text-xl font-normal leading-none">{Number(value)}</span>
+                    <span className="mt-1 text-xl font-normal leading-none">{value === null ? "—" : Number(value)}</span>
                   </div>
                 ))}
               </div>
+              <p className="pt-1 text-[10px] leading-tight text-[#b8c7dc]">
+                {riskCases
+                  ? `${riskCases.reviewRequired > 0 ? `${riskCases.reviewRequired} caso(s) em revisão (sem nível definido) fora das colunas. ` : ""}Achados de IA ativos por severidade: baixo ${data.activeFindingsSummary.countsBySeverity.BAIXA}, médio ${data.activeFindingsSummary.countsBySeverity.MEDIA}, alto ${data.activeFindingsSummary.countsBySeverity.ALTA}, crítico ${data.activeFindingsSummary.countsBySeverity.CRITICA}.`
+                  : "Casos de risco indisponíveis: “—” significa sem dado, não zero."}
+              </p>
             </Panel>
           </div>
 
@@ -927,6 +1038,12 @@ export default async function DashboardPage({
                 value={dashboardDaysWithoutAccident !== null ? dashboardDaysWithoutAccident : "—"}
                 status={dashboardDaysWithoutAccident !== null ? "ok" : "neutral"}
               />
+              {dashboardDaysWithoutAccident === null && ssmaDash.hasData ? (
+                <SubNote>
+                  Indisponível: nenhum acidente registrado em formulário SSMA, logo não há data-base para a contagem
+                  (ausência de registro não prova ausência de acidente).
+                </SubNote>
+              ) : null}
               <StatusLine
                 label="Ações corretivas em aberto"
                 value={ssmaDash.openCorrectiveActions !== null ? ssmaDash.openCorrectiveActions : "—"}
@@ -1023,72 +1140,89 @@ export default async function DashboardPage({
           {/* COLUNA 4 */}
           <div className="flex flex-col gap-2">
             <Panel title="Status das integrações">
-              {data.integrationStatusGroups.flatMap((group) =>
-                group.labels.map((label) => (
-                  <div
-                    key={`${group.status}-${label}`}
-                    className="flex items-center justify-between gap-3 border-b border-white/[0.07] py-px last:border-b-0"
-                  >
+              {integrationRows.map((row) => (
+                <div key={row.sourceType} className="border-b border-white/[0.07] py-px last:border-b-0">
+                  <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2">
                       <span
                         className={`size-2 shrink-0 rounded-full ${
-                          group.status === "CONECTADO"
+                          row.displayStatus === "CONECTADO"
                             ? "bg-emerald-400"
-                            : group.status === "ATENCAO"
+                            : row.displayStatus === "ATENCAO" || row.displayStatus === "PARCIAL"
                               ? "bg-amber-400"
-                              : group.status === "ERRO"
+                              : row.displayStatus === "ERRO"
                                 ? "bg-red-400"
                                 : "bg-slate-400"
                         }`}
                       />
-                      <span className="break-words text-[12px] font-normal leading-[18px] text-white">{label}</span>
+                      <span className="break-words text-[12px] font-normal leading-[18px] text-white">{row.label}</span>
                     </div>
 
                     <StatusBadge
                       tone={
-                        group.status === "CONECTADO"
+                        row.displayStatus === "CONECTADO"
                           ? "ok"
-                          : group.status === "ATENCAO"
+                          : row.displayStatus === "ATENCAO" || row.displayStatus === "PARCIAL"
                             ? "warning"
-                            : group.status === "ERRO"
+                            : row.displayStatus === "ERRO"
                               ? "error"
                               : "pending"
                       }
                     >
-                      {group.status === "CONECTADO"
+                      {row.displayStatus === "CONECTADO"
                         ? "ATIVO"
-                        : group.status === "ATENCAO"
-                          ? "ATENÇÃO"
-                          : group.status === "ERRO"
-                            ? "ERRO"
-                            : "PENDENTE"}
+                        : row.displayStatus === "PARCIAL"
+                          ? "PARCIAL"
+                          : row.displayStatus === "ATENCAO"
+                            ? "ATENÇÃO"
+                            : row.displayStatus === "ERRO"
+                              ? "ERRO"
+                              : "PENDENTE"}
                     </StatusBadge>
                   </div>
-                ))
-              )}
+                  {row.sourceType === "EMAIL" ? (
+                    <div className="pb-0.5 pl-4" data-testid="email-pipeline-stages">
+                      {emailPipeline.stages.map((stage) => (
+                        <div key={stage.key} className="flex items-start justify-between gap-2 text-[10px] leading-tight">
+                          <span className="flex min-w-0 items-center gap-1 text-[#c9d6e8]">
+                            <span
+                              className={`size-1.5 shrink-0 rounded-full ${
+                                STAGE_STATE_TONE[stage.state] === "ok"
+                                  ? "bg-emerald-400"
+                                  : STAGE_STATE_TONE[stage.state] === "warning"
+                                    ? "bg-amber-400"
+                                    : STAGE_STATE_TONE[stage.state] === "error"
+                                      ? "bg-red-400"
+                                      : "bg-slate-400"
+                              }`}
+                            />
+                            {stage.label}
+                          </span>
+                          <span className="text-right text-[#b8c7dc]">{stage.detail}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
             </Panel>
 
-            <Panel title="Relatório semanal processado">
-              <StatusLine
-                label="Curva S"
-                value={sheetByCategory.get("CURVA_S")?.status ?? "Ausente"}
-                status={sheetByCategory.get("CURVA_S") ? "ok" : "neutral"}
-              />
-              <StatusLine
-                label="Linha de Base"
-                value={sheetByCategory.get("LINHA_BASE")?.status ?? "Ausente"}
-                status={sheetByCategory.get("LINHA_BASE") ? "ok" : "neutral"}
-              />
-              <StatusLine
-                label="Financeiro"
-                value={sheetByCategory.get("FINANCEIRO")?.status ?? "Ausente"}
-                status={sheetByCategory.get("FINANCEIRO") ? "ok" : "neutral"}
-              />
-              <StatusLine
-                label="SSMA"
-                value={sheetByCategory.get("SSMA")?.status ?? "Ausente"}
-                status={sheetByCategory.get("SSMA") ? "ok" : "neutral"}
-              />
+            <Panel title="Relatório semanal — abas extraídas">
+              {(
+                [
+                  ["CURVA_S", "Curva S"],
+                  ["LINHA_BASE", "Linha de base (aba do Excel)"],
+                  ["FINANCEIRO", "Financeiro"],
+                  ["SSMA", "SSMA"],
+                ] as const
+              ).map(([category, label]) => {
+                const stage = sheetStage(sheetByCategory.get(category)?.status ?? null);
+                return <StatusLine key={category} label={label} value={stage.text} status={stage.tone} />;
+              })}
+              <p className="pt-1 text-[10px] leading-tight text-[#b8c7dc]">
+                Abas lidas da planilha do relatório semanal. Extrair a Curva S ou a aba de linha de base não atualiza o
+                cronograma: isso exige o MPP da semana processado.
+              </p>
             </Panel>
 
             <div className="rounded-[7px] border border-[#263b5c] bg-[#182941] px-3 py-1.5">
@@ -1109,10 +1243,13 @@ export default async function DashboardPage({
           <div className="flex flex-col gap-2">
             <Panel title="Planejamento — recebimento por e-mail">
               <StatusLine
-                label="Cronograma atualizado"
-                value={scheduleAttachment ? scheduleAttachment.processing_status : "Não recebido"}
-                status={scheduleAttachment ? "ok" : "warning"}
+                label="Cronograma atualizado (semana)"
+                value={planningStages.scheduleUpdated.tone === "ok" ? "PROCESSED" :planningStages.scheduleUpdated.tone === "neutral" ? "Não verificável" : "PENDING"}
+                status={planningStages.scheduleUpdated.tone}
               />
+              {planningStages.scheduleUpdated.tone !== "ok" ? <SubNote>{planningStages.scheduleUpdated.text}</SubNote> : null}
+              <StatusLine label="Arquivo de cronograma (MPP)" value={planningStages.mppFile.text} status={planningStages.mppFile.tone} />
+              <StatusLine label="Baseline oficial do cronograma" value={planningStages.baseline.text} status={planningStages.baseline.tone} />
 
               {scheduleEmail ? (
                 <details className="pb-1 pl-4 text-[11px] leading-snug text-[#c9d6e8]">
@@ -1128,9 +1265,9 @@ export default async function DashboardPage({
               ) : null}
 
               <StatusLine
-                label="Relatório semanal"
-                value={latestWorkbook?.status ?? weeklyAttachment?.processing_status ?? "Não recebido"}
-                status={weeklyAttachment ? "ok" : "warning"}
+                label="Relatório semanal (Excel)"
+                value={planningStages.weeklyReport.text}
+                status={planningStages.weeklyReport.tone}
               />
 
               {weeklyEmail ? (
@@ -1151,29 +1288,40 @@ export default async function DashboardPage({
               <div className="mt-1 border-t border-[#263b5c] pt-1">
                 <StatusLine
                   label="Dias decorridos"
-                  value={elapsedDays ?? "Não disponível"}
-                  status={elapsedDays !== null ? "ok" : "neutral"}
+                  value={elapsed.available ? elapsed.value.days : "Não disponível"}
+                  status={elapsed.available ? "ok" : "neutral"}
                 />
+                <SubNote>
+                  {elapsed.available
+                    ? `Calendário, desde ${formatDashboardDate(elapsed.value.startDate)} (${elapsed.value.startSource === "PROJECT_START_DATE" ? "início da obra" : "início contratual"}) até hoje.`
+                    : `Motivo: ${elapsed.reason}.`}
+                </SubNote>
                 <StatusLine
-                  label="Dias não trabalhados"
-                  value={equivalentNonWorkedDays.toLocaleString("pt-BR", {
-                    minimumFractionDigits: 1,
-                    maximumFractionDigits: 1,
-                  })}
-                  status={equivalentNonWorkedDays > 0 ? "warning" : "ok"}
+                  label="Dias não trabalhados (clima)"
+                  value={
+                    climate.available
+                      ? climate.value.nonWorkedDays.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+                      : "Não disponível"
+                  }
+                  status={climate.available ? (climate.value.nonWorkedDays > 0 ? "warning" : "ok") : "neutral"}
                 />
                 <StatusLine
                   label="Impacto climático"
                   value={
-                    climateImpactPercent !== null
-                      ? `${climateImpactPercent.toLocaleString("pt-BR", {
+                    climate.available
+                      ? `${climate.value.percent.toLocaleString("pt-BR", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}%`
                       : "Não disponível"
                   }
-                  status={climateImpactPercent !== null && climateImpactPercent > 0 ? "warning" : "ok"}
+                  status={climate.available ? (climate.value.percent > 0 ? "warning" : "ok") : "neutral"}
                 />
+                <SubNote>
+                  {climate.available
+                    ? `${climate.value.rdoCount} RDO(s) de ${formatDashboardDate(climate.value.windowStart)} a ${formatDashboardDate(climate.value.lastRdoDate)} (${climate.value.windowDays} dias); turno impraticável = 0,5 dia.`
+                    : `Motivo: ${climate.reason}.`}
+                </SubNote>
                 <StatusLine
                   label="Efetivo atual"
                   value={
