@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
 
 import { Button } from "@/components/ui/button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Select } from "@/components/ui/select";
 import { slaAreaLabels } from "@/lib/labels";
 import { formatInvitationSelection, formatMemberSelection } from "@/lib/sla/responsible-selection";
@@ -50,6 +51,7 @@ export function SlaAreaResponsiblesForm({
     configureSlaAreaResponsiblesAction,
     initialConfigureSlaResponsiblesState
   );
+  const uid = useId();
 
   return (
     <form
@@ -63,9 +65,13 @@ export function SlaAreaResponsiblesForm({
 
       <p className="text-sm font-medium sm:col-span-1">{slaAreaLabels[area]}</p>
 
-      <label className="flex flex-col gap-1 text-xs sm:col-span-1">
-        Nível 1 · Responsável
+      <div className="flex flex-col gap-1 text-xs sm:col-span-1">
+        <span className="inline-flex items-center gap-1">
+          <label htmlFor={`${uid}-n1`}>Nível 1 · Responsável</label>
+          <FeatureInfo helpId="planejamento.acoes-config.campo-nivel1-responsavel" />
+        </span>
         <Select
+          id={`${uid}-n1`}
           name="responsibleDirectUserId"
           defaultValue={selectionValue(responsibleDirectUserId, responsibleDirectInvitationId)}
         >
@@ -76,12 +82,16 @@ export function SlaAreaResponsiblesForm({
             </option>
           ))}
         </Select>
-      </label>
+      </div>
 
       {supportsSecondaryResponsible ? (
-        <label className="flex flex-col gap-1 text-xs sm:col-span-1">
-          Nível 1 · Corresponsável
+        <div className="flex flex-col gap-1 text-xs sm:col-span-1">
+          <span className="inline-flex items-center gap-1">
+            <label htmlFor={`${uid}-n1c`}>Nível 1 · Corresponsável</label>
+            <FeatureInfo helpId="planejamento.acoes-config.campo-nivel1-corresponsavel" />
+          </span>
           <Select
+            id={`${uid}-n1c`}
             name="secondaryResponsibleUserId"
             defaultValue={selectionValue(secondaryResponsibleUserId, secondaryResponsibleInvitationId)}
           >
@@ -92,12 +102,16 @@ export function SlaAreaResponsiblesForm({
               </option>
             ))}
           </Select>
-        </label>
+        </div>
       ) : null}
 
-      <label className="flex flex-col gap-1 text-xs sm:col-span-1">
-        Nível 2 · Gerência
+      <div className="flex flex-col gap-1 text-xs sm:col-span-1">
+        <span className="inline-flex items-center gap-1">
+          <label htmlFor={`${uid}-n2`}>Nível 2 · Gerência</label>
+          <FeatureInfo helpId="planejamento.acoes-config.campo-nivel2-gerencia" />
+        </span>
         <Select
+          id={`${uid}-n2`}
           name="escalation1UserId"
           defaultValue={selectionValue(escalation1UserId, escalation1InvitationId)}
         >
@@ -108,11 +122,14 @@ export function SlaAreaResponsiblesForm({
             </option>
           ))}
         </Select>
-      </label>
+      </div>
 
-      <label className="flex flex-col gap-1 text-xs sm:col-span-1">
-        Nível 3 · Diretoria
-        <Select name="boardUserId" defaultValue={selectionValue(boardUserId, boardInvitationId)}>
+      <div className="flex flex-col gap-1 text-xs sm:col-span-1">
+        <span className="inline-flex items-center gap-1">
+          <label htmlFor={`${uid}-n3`}>Nível 3 · Diretoria</label>
+          <FeatureInfo helpId="planejamento.acoes-config.campo-nivel3-diretoria" />
+        </span>
+        <Select id={`${uid}-n3`} name="boardUserId" defaultValue={selectionValue(boardUserId, boardInvitationId)}>
           <option value="">Não definido</option>
           {people.map((person) => (
             <option key={person.value} value={person.value}>
@@ -120,12 +137,15 @@ export function SlaAreaResponsiblesForm({
             </option>
           ))}
         </Select>
-      </label>
+      </div>
 
       <div className="sm:col-span-1">
-        <Button type="submit" size="sm" disabled={pending}>
-          {pending ? "Salvando…" : "Salvar"}
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button type="submit" size="sm" disabled={pending}>
+            {pending ? "Salvando…" : "Salvar"}
+          </Button>
+          <FeatureInfo helpId="planejamento.acoes-config.salvar-area" />
+        </div>
       </div>
 
       <p className={`text-xs text-muted-foreground ${fullRowClassName}`}>

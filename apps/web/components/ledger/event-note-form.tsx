@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,6 +13,7 @@ const CATEGORY_OPTIONS = Object.keys(eventNoteCategoryLabels) as EventNoteCatego
 
 export function EventNoteForm({ projectId, eventId }: { projectId: string; eventId: string }) {
   const [state, formAction, pending] = useActionState(createEventNoteAction, initialCreateEventNoteState);
+  const uid = useId();
 
   return (
     <form action={formAction} className="flex flex-col gap-3 rounded-md border border-dashed p-4">
@@ -19,33 +21,43 @@ export function EventNoteForm({ projectId, eventId }: { projectId: string; event
       <input type="hidden" name="eventId" value={eventId} />
 
       <div className="grid gap-3 sm:grid-cols-[200px_1fr]">
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Categoria
-          <Select name="category" defaultValue="CONTEXTO_OPERACIONAL" required>
+        <div className="flex flex-col gap-1.5 text-sm font-medium">
+          <span className="inline-flex items-center gap-1">
+            <label htmlFor={`${uid}-category`}>Categoria</label>
+            <FeatureInfo helpId="planejamento.ledger-evento.anotacao-categoria" />
+          </span>
+          <Select id={`${uid}-category`} name="category" defaultValue="CONTEXTO_OPERACIONAL" required>
             {CATEGORY_OPTIONS.map((category) => (
               <option key={category} value={category}>
                 {eventNoteCategoryLabels[category]}
               </option>
             ))}
           </Select>
-        </label>
+        </div>
 
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Nova anotação
+        <div className="flex flex-col gap-1.5 text-sm font-medium">
+          <span className="inline-flex items-center gap-1">
+            <label htmlFor={`${uid}-text`}>Nova anotação</label>
+            <FeatureInfo helpId="planejamento.ledger-evento.anotacao-texto" />
+          </span>
           <Textarea
+            id={`${uid}-text`}
             name="text"
             required
             rows={3}
             placeholder="Ex.: Não temos um contrato assinado, mas o cliente já está medindo os serviços e pagando regularmente."
           />
-        </label>
+        </div>
       </div>
 
       {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
 
-      <Button type="submit" disabled={pending} className="self-start">
-        {pending ? "Salvando…" : "Adicionar anotação"}
-      </Button>
+      <div className="flex items-center gap-1 self-start">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Salvando…" : "Adicionar anotação"}
+        </Button>
+        <FeatureInfo helpId="planejamento.ledger-evento.anotacao-adicionar" />
+      </div>
     </form>
   );
 }

@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useId } from "react";
 
 import { Button } from "@/components/ui/button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Input } from "@/components/ui/input";
 import { configureSlaProjectSettingsAction } from "@/app/[projectId]/acoes/actions";
 import { initialConfigureSlaProjectSettingsState } from "@/app/[projectId]/acoes/actions-state";
@@ -28,26 +29,36 @@ export function SlaProjectSettingsForm({
     configureSlaProjectSettingsAction,
     initialConfigureSlaProjectSettingsState
   );
+  const uid = useId();
 
   return (
     <form action={formAction} className="flex flex-col gap-3 rounded-md border p-3">
       <input type="hidden" name="projectId" value={projectId} />
 
       <div className="grid gap-3 sm:grid-cols-3 sm:items-end">
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Timezone do projeto
-          <Input name="timezone" defaultValue={timezone} required placeholder="America/Sao_Paulo" />
-        </label>
+        <div className="flex flex-col gap-1.5 text-sm font-medium">
+          <span className="inline-flex items-center gap-1">
+            <label htmlFor={`${uid}-timezone`}>Timezone do projeto</label>
+            <FeatureInfo helpId="planejamento.acoes-config.campo-timezone" />
+          </span>
+          <Input id={`${uid}-timezone`} name="timezone" defaultValue={timezone} required placeholder="America/Sao_Paulo" />
+        </div>
 
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Início do expediente
-          <Input type="number" min="0" max="23" name="businessDayStartHour" defaultValue={businessDayStartHour} required />
-        </label>
+        <div className="flex flex-col gap-1.5 text-sm font-medium">
+          <span className="inline-flex items-center gap-1">
+            <label htmlFor={`${uid}-inicio`}>Início do expediente</label>
+            <FeatureInfo helpId="planejamento.acoes-config.campo-inicio-expediente" />
+          </span>
+          <Input id={`${uid}-inicio`} type="number" min="0" max="23" name="businessDayStartHour" defaultValue={businessDayStartHour} required />
+        </div>
 
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Fim do expediente
-          <Input type="number" min="0" max="23" name="businessDayEndHour" defaultValue={businessDayEndHour} required />
-        </label>
+        <div className="flex flex-col gap-1.5 text-sm font-medium">
+          <span className="inline-flex items-center gap-1">
+            <label htmlFor={`${uid}-fim`}>Fim do expediente</label>
+            <FeatureInfo helpId="planejamento.acoes-config.campo-fim-expediente" />
+          </span>
+          <Input id={`${uid}-fim`} type="number" min="0" max="23" name="businessDayEndHour" defaultValue={businessDayEndHour} required />
+        </div>
       </div>
 
       <p className="text-xs text-muted-foreground">
@@ -68,9 +79,12 @@ export function SlaProjectSettingsForm({
       {state.error ? <p className="text-xs text-destructive">{state.error}</p> : null}
       {state.success ? <p className="text-xs text-emerald-600">Salvo.</p> : null}
 
-      <Button type="submit" size="sm" disabled={pending} className="self-start">
-        {pending ? "Salvando…" : "Salvar"}
-      </Button>
+      <div className="flex items-center gap-1 self-start">
+        <Button type="submit" size="sm" disabled={pending}>
+          {pending ? "Salvando…" : "Salvar"}
+        </Button>
+        <FeatureInfo helpId="planejamento.acoes-config.salvar-fuso-expediente" />
+      </div>
     </form>
   );
 }

@@ -46,24 +46,35 @@ function CurationResult({ curation }: { curation: AlertConsultCurationResult }) 
   const { consolidacao } = curation;
   return (
     <div className="flex flex-col gap-3" data-testid="alert-consult-curation">
-      <p className="text-xs text-muted-foreground">
+      <p className="flex items-center gap-1 text-xs text-muted-foreground">
         Análise multidisciplinar ({curation.topic}): {curation.pareceres.length} parecer(es) de especialistas e consolidação do CEO IA.
+        <FeatureInfo helpId="experts.curadoria.resumo" />
       </p>
       {curation.pareceres.map((parecer) => (
         <section key={parecer.expertId} className="rounded-md border p-3" aria-label={`Parecer de ${parecer.expertName}`}>
-          <h3 className="mb-2 text-sm font-semibold">Parecer de {parecer.expertName}</h3>
+          <h3 className="mb-2 flex items-center gap-1 text-sm font-semibold">
+            Parecer de {parecer.expertName}
+            <FeatureInfo helpId="experts.curadoria.parecer" />
+          </h3>
           <ExpertResponseDetails response={parecer.response} showClauseComparison={false} />
         </section>
       ))}
       {curation.indisponiveis.map((item) => (
         <p key={item.expertId} className="rounded-md border border-dashed p-2 text-xs text-muted-foreground">
           Sem parecer de {item.expertId} nesta consulta: {item.reason}
+          <FeatureInfo helpId="experts.curadoria.sem-parecer" className="ml-1 align-middle" />
         </p>
       ))}
       <section className="flex flex-col gap-2 rounded-md border border-primary/30 p-3" aria-label="Consolidação do CEO IA">
-        <h3 className="text-sm font-semibold">Consolidação do CEO IA</h3>
+        <h3 className="flex items-center gap-1 text-sm font-semibold">
+          Consolidação do CEO IA
+          <FeatureInfo helpId="experts.curadoria.consolidacao-ceo" />
+        </h3>
         <p className="text-sm">{consolidacao.situacao}</p>
-        <h4 className="text-xs font-semibold">Divergências entre especialistas</h4>
+        <h4 className="flex items-center gap-1 text-xs font-semibold">
+          Divergências entre especialistas
+          <FeatureInfo helpId="experts.curadoria.divergencias" />
+        </h4>
         {consolidacao.divergencias.length ? (
           <ul className="list-disc space-y-1 pl-5 text-sm">
             {consolidacao.divergencias.map((conflict, index) => (
@@ -75,11 +86,20 @@ function CurationResult({ curation }: { curation: AlertConsultCurationResult }) 
         ) : (
           <p className="text-sm text-muted-foreground">Nenhuma divergência registrada.</p>
         )}
-        <h4 className="text-xs font-semibold">Riscos</h4>
+        <h4 className="flex items-center gap-1 text-xs font-semibold">
+          Riscos
+          <FeatureInfo helpId="experts.curadoria.riscos-consolidados" />
+        </h4>
         <BulletList items={consolidacao.riscos} empty="Nenhum risco consolidado." />
-        <h4 className="text-xs font-semibold">Recomendação (sujeita a revisão humana)</h4>
+        <h4 className="flex items-center gap-1 text-xs font-semibold">
+          Recomendação (sujeita a revisão humana)
+          <FeatureInfo helpId="experts.curadoria.recomendacao" />
+        </h4>
         <p className="text-sm">{consolidacao.recomendacao}</p>
-        <h4 className="text-xs font-semibold">Incertezas e decisões humanas necessárias</h4>
+        <h4 className="flex items-center gap-1 text-xs font-semibold">
+          Incertezas e decisões humanas necessárias
+          <FeatureInfo helpId="experts.curadoria.decisoes-humanas" />
+        </h4>
         <BulletList items={consolidacao.decisoesHumanasNecessarias} empty="Nenhuma registrada." />
       </section>
     </div>
@@ -180,14 +200,19 @@ export function AlertConsultPanel({
             <p className="flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs text-amber-800">
               <FlaskConical className="size-3.5 shrink-0" aria-hidden="true" />
               Resposta de TESTE ({result.meta.providerLabel}) — nenhuma análise real de IA foi realizada.
+              <FeatureInfo helpId="experts.painel.provider" />
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">
               Provedor: {result.meta.providerLabel}
               {result.meta.model ? ` · ${result.meta.model}` : ""}
+              <FeatureInfo helpId="experts.painel.provider" className="ml-1 align-middle" />
             </p>
           )}
-          <p className="text-[11px] text-muted-foreground">Roteamento: {result.routingReason}</p>
+          <p className="text-[11px] text-muted-foreground">
+            Roteamento: {result.routingReason}
+            <FeatureInfo helpId="planejamento.consulta-ia.roteamento" className="ml-1 align-middle" />
+          </p>
           {result.response ? <ExpertResponseDetails response={result.response} showClauseComparison={false} /> : null}
           {result.curation ? <CurationResult curation={result.curation} /> : null}
 

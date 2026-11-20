@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import type { TimelineArchiveHit } from "@/app/[projectId]/timeline/timeline-search-actions";
 
 function formatHitDate(value: string): string {
@@ -43,9 +44,12 @@ export function TimelineArchiveResults({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="text-sm font-semibold">
-        Timeline temática — {hits.length} ocorrência
-        {hits.length === 1 ? "" : "s"}
+      <div className="flex items-center gap-1 text-sm font-semibold">
+        <span>
+          Timeline temática — {hits.length} ocorrência
+          {hits.length === 1 ? "" : "s"}
+        </span>
+        <FeatureInfo helpId="planejamento.timeline.resultados-acervo" />
       </div>
 
       <ol className="flex flex-col border-l border-border pl-6">

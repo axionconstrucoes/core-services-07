@@ -22,6 +22,10 @@ export default async function ActionRequestsPage({ params }: { params: Promise<{
         <EmptyState message="Nenhuma solicitação registrada para este projeto." />
       ) : (
         <div className="flex flex-col gap-2">
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+            Cada linha mostra o título e, à direita, o selo de status da solicitação.
+            <FeatureInfo helpId="planejamento.solicitacoes.status" />
+          </p>
           {actionRequests.map((actionRequest) => (
             <Link
               key={actionRequest.id}

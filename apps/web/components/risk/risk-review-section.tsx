@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 
 import { reviewRiskClassificationAction } from "@/app/[projectId]/risco/actions";
 import { RiskReviewPanel, type RiskReviewHistoryItem } from "@/components/risk/risk-review-panel";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { getUser } from "@/lib/data";
@@ -41,7 +42,10 @@ export async function EventRiskReviewSection({ projectId, eventId }: { projectId
   return (
     <Card>
       <CardHeader className="space-y-0">
-        <CardTitle>Classificação de risco</CardTitle>
+        <CardTitle className="flex items-center gap-1">
+          Classificação de risco
+          <FeatureInfo helpId="planejamento.risco.painel" />
+        </CardTitle>
       </CardHeader>
       <CardContent className="pt-0">
         <RiskReviewPanel
@@ -85,7 +89,10 @@ export async function EventRiskPreSendNotice({ projectId, eventId }: { projectId
       data-testid="pre-send-risk-notice"
       className={`max-w-prose rounded-md border p-3 text-xs ${notice.needsConfirmation ? "border-amber-400 bg-amber-50 text-amber-900" : "border-emerald-300 bg-emerald-50 text-emerald-900"}`}
     >
-      <p className="font-semibold">{notice.headline}</p>
+      <p className="font-semibold">
+        {notice.headline}
+        <FeatureInfo helpId="planejamento.risco.aviso-pre-envio" className="ml-1 align-middle" />
+      </p>
       {notice.needsConfirmation ? (
         <>
           <p className="mt-1">
