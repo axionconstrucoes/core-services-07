@@ -54,6 +54,7 @@ export function SlaAreaResponsiblesForm({
   const uid = useId();
 
   return (
+    // help-exempt: formulário por área; cada campo (campo-nivel1-*, campo-nivel2-gerencia, campo-nivel3-diretoria) e o salvar (salvar-area) têm ícone próprio
     <form
       action={formAction}
       className={`grid gap-2 rounded-md border p-3 sm:items-end ${

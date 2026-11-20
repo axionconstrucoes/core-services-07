@@ -112,43 +112,56 @@ export default async function ActionRequestDetailPage({
                   <input type="hidden" name="projectId" value={projectId} />
                   <input type="hidden" name="actionRequestId" value={actionRequestId} />
 
-                  <label className="flex flex-col gap-1.5 text-sm font-medium">
-                    Destinatário
+                  <div className="flex flex-col gap-1.5">
+                    <span className="inline-flex items-center gap-1 text-sm font-medium">
+                      <label htmlFor="action-request-recipient">Destinatário</label>
+                      <FeatureInfo helpId="planejamento.solicitacao-detalhe.campo-destinatario" />
+                    </span>
                     <input
+                      id="action-request-recipient"
                       type="email"
                       name="recipientEmail"
                       required
                       placeholder="destinatario@exemplo.com"
                       className="h-10 rounded-md border bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
                     />
-                  </label>
+                  </div>
 
-                  <label className="flex flex-col gap-1.5 text-sm font-medium">
-                    Assunto
+                  <div className="flex flex-col gap-1.5">
+                    <span className="inline-flex items-center gap-1 text-sm font-medium">
+                      <label htmlFor="action-request-subject">Assunto</label>
+                      <FeatureInfo helpId="planejamento.solicitacao-detalhe.campo-assunto" />
+                    </span>
                     <input
+                      id="action-request-subject"
                       name="subject"
                       required
                       defaultValue={`Solicitação: ${actionRequest.title}`}
                       className="h-10 rounded-md border bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
                     />
-                  </label>
+                  </div>
 
-                  <label className="flex flex-col gap-1.5 text-sm font-medium">
-                    Mensagem
+                  <div className="flex flex-col gap-1.5">
+                    <span className="inline-flex items-center gap-1 text-sm font-medium">
+                      <label htmlFor="action-request-body">Mensagem</label>
+                      <FeatureInfo helpId="planejamento.solicitacao-detalhe.campo-mensagem" />
+                    </span>
                     <textarea
+                      id="action-request-body"
                       name="body"
                       required
                       rows={6}
                       defaultValue={actionRequest.description}
                       className="resize-y rounded-md border bg-background p-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
                     />
-                  </label>
+                  </div>
 
                   <p className="text-xs text-muted-foreground">
                     Revise o destinatário e o conteúdo antes de confirmar — o envio é uma ação explícita e não pode
                     ser desfeito.
                   </p>
 
+                  {/* help-exempt: ação descrita pelo ícone planejamento.solicitacao-detalhe.envio-email no cabeçalho deste mesmo cartão */}
                   <button
                     type="submit"
                     className="inline-flex h-10 w-fit items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"

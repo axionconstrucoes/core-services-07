@@ -122,6 +122,7 @@ export function AddProjectMemberForm({
         </form>
 
         {candidate ? (
+          // help-exempt: formulário de inclusão; Permissão e Área têm ícone próprio e Confirmar também (admin.usuarios.confirmar-adicao)
           <form
             action={(formData) => {
               setSelected(candidate);
@@ -174,9 +175,12 @@ export function AddProjectMemberForm({
             ) : null}
 
             <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={addPending}>
-                {addPending ? "Confirmando…" : "Confirmar"}
-              </Button>
+              <span className="inline-flex items-center gap-1">
+                <Button type="submit" size="sm" disabled={addPending}>
+                  {addPending ? "Confirmando…" : "Confirmar"}
+                </Button>
+                <FeatureInfo helpId="admin.usuarios.confirmar-adicao" />
+              </span>
               <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
                 Cancelar
               </Button>
@@ -199,10 +203,10 @@ export function AddProjectMemberForm({
             </p>
             <p className="text-xs text-muted-foreground">Projeto atual: {projectLabel}</p>
 
-            <label className="flex flex-col gap-1.5 text-sm font-medium">
-              Nome
-              <Input name="name" required placeholder="Nome completo" />
-            </label>
+            <div className="flex flex-col gap-1.5">
+              <FieldLabel htmlFor="pre-register-name" helpId="admin.usuarios.pre-cadastro-nome">Nome</FieldLabel>
+              <Input id="pre-register-name" name="name" required placeholder="Nome completo" />
+            </div>
 
             <label className="flex flex-col gap-1.5 text-sm font-medium">
               Cargo (opcional)
@@ -239,6 +243,7 @@ export function AddProjectMemberForm({
             {preRegisterState.error ? <p className="text-sm text-destructive">{preRegisterState.error}</p> : null}
 
             <div className="flex gap-2">
+              {/* help-exempt: ação descrita pelo ícone admin.usuarios.pre-cadastro no título deste mesmo formulário */}
               <Button type="submit" size="sm" disabled={preRegisterPending}>
                 {preRegisterPending ? "Pré-cadastrando…" : "Pré-cadastrar"}
               </Button>

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { FeatureInfo } from "@/components/shared/feature-info";
 import { cn } from "@/lib/utils";
 
+// help-exempt: menção a <button> em comentário de código, o componente apenas posiciona o ícone ao lado do rótulo
 // Rótulo de campo com o ícone de ajuda (Hover Text) AO LADO — nunca dentro do <label>, porque um <button> dentro de <label>
 // é HTML inválido (elemento rotulável aninhado). O controle associado deve receber o mesmo `htmlFor` como `id`.
 // Usado pelas telas administrativas (projetos, usuários, autorizações). O texto explicativo vem do catálogo (helpId).

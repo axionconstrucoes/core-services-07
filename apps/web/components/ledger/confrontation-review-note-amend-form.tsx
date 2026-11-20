@@ -2,6 +2,7 @@
 
 import { useActionState, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Textarea } from "@/components/ui/textarea";
 import { amendConfrontationReviewNoteAction } from "@/app/[projectId]/ledger/[eventId]/actions";
 import { initialReviewEventClauseConfrontationCandidateState } from "@/app/[projectId]/ledger/[eventId]/actions-state";
@@ -33,9 +34,12 @@ export function ConfrontationReviewNoteAmendForm({
 
   if (!open) {
     return (
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Complementar justificativa
-      </Button>
+      <span className="inline-flex items-center gap-1">
+        <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+          Complementar justificativa
+        </Button>
+        <FeatureInfo helpId="planejamento.ledger-evento.complementar-justificativa" />
+      </span>
     );
   }
 
@@ -55,18 +59,24 @@ export function ConfrontationReviewNoteAmendForm({
       <input type="hidden" name="eventId" value={eventId} />
       <input type="hidden" name="candidateId" value={candidateId} />
 
-      <label className="flex flex-col gap-1.5 text-sm font-medium">
-        Justificativa complementada
-        <Textarea name="reviewNote" required minLength={20} rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
-      </label>
+      <div className="flex flex-col gap-1.5">
+        <span className="inline-flex items-center gap-1 text-sm font-medium">
+          <label htmlFor={`amend-note-${candidateId}`}>Justificativa complementada</label>
+          <FeatureInfo helpId="planejamento.ledger-evento.campo-justificativa-complemento" />
+        </span>
+        <Textarea id={`amend-note-${candidateId}`} name="reviewNote" required minLength={20} rows={3} value={note} onChange={(e) => setNote(e.target.value)} />
+      </div>
 
       {clientError ? <p className="text-sm text-destructive">{clientError}</p> : null}
       {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
 
       <div className="flex gap-2">
-        <Button type="submit" size="sm" disabled={pending}>
-          {pending ? "Salvando…" : "Salvar complemento"}
-        </Button>
+        <span className="inline-flex items-center gap-1">
+          <Button type="submit" size="sm" disabled={pending}>
+            {pending ? "Salvando…" : "Salvar complemento"}
+          </Button>
+          <FeatureInfo helpId="planejamento.ledger-evento.complementar-justificativa" />
+        </span>
         <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)} disabled={pending}>
           Cancelar
         </Button>

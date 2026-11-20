@@ -43,6 +43,7 @@ export function RunMultiExpertCurationButton({ projectId, eventId }: { projectId
         <form action={formAction} className="flex flex-col gap-1.5">
           <input type="hidden" name="projectId" value={projectId} />
           <input type="hidden" name="eventId" value={eventId} />
+          {/* help-exempt: ação descrita pelo ícone planejamento.ledger-evento.curadoria do cabeçalho deste mesmo cartão */}
           <Button type="submit" variant="outline" size="sm" disabled={pending} className="self-start">
             {pending ? (
               <>

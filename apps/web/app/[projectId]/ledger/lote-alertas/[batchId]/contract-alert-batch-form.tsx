@@ -105,6 +105,7 @@ export function ContractAlertBatchForm({
   }
 
   return (
+    // help-exempt: formulário do lote; cada campo (alerta-lote.acao, enviado-para) e botão (salvar-acao, responder) tem ícone próprio
     <form action={formAction} className={compact ? "flex flex-col gap-2" : "flex flex-col gap-4"}>
       {items.map((item) => (
         <section
@@ -180,9 +181,7 @@ export function ContractAlertBatchForm({
                 return (
                   <div className="flex flex-wrap items-center gap-2">
                     <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
+                      type="button" size="sm" variant="outline"
                       disabled={!ready || alreadySaved || savingEventId === item.eventId}
                       onClick={() => saveItem(item.eventId)}
                     >

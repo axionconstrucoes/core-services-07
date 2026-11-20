@@ -19,6 +19,7 @@ export function SlaProcessEscalationsButton({ projectId }: { projectId: string }
   return (
     <form action={formAction} className="flex items-center gap-2">
       <input type="hidden" name="projectId" value={projectId} />
+      {/* help-exempt: o ícone planejamento.acoes.verificar-escalonamentos é renderizado ao lado deste componente em acoes/page.tsx */}
       <Button type="submit" variant="outline" size="sm" disabled={pending}>
         {pending ? "Verificando…" : "Verificar escalonamentos"}
       </Button>

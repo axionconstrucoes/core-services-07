@@ -94,6 +94,7 @@ export function ProjectParticipantsPanel({
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 sm:flex-row">
+          {/* help-exempt: busca da lista de participantes, descrita pelo ícone admin.usuarios.participantes-filtros logo após os controles */}
           <Input
             type="search"
             aria-label="Buscar participante por nome, e-mail ou área"
@@ -101,6 +102,7 @@ export function ProjectParticipantsPanel({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
+          {/* help-exempt: filtro de situação, descrito pelo ícone admin.usuarios.participantes-filtros logo após os controles */}
           <Select
             aria-label="Filtrar por situação"
             value={statusFilter}
@@ -134,6 +136,7 @@ export function ProjectParticipantsPanel({
             return (
               <li key={row.id} className="flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
                 <div className="flex flex-1 items-start gap-3">
+                  {/* help-exempt: caixa de participação por pessoa, descrita em admin.usuarios.participantes (marcar adiciona ou reativa, desmarcar desativa) */}
                   <input
                     id={inputId}
                     type="checkbox"
@@ -155,6 +158,7 @@ export function ProjectParticipantsPanel({
                 <Badge variant={row.status === "ACTIVE" ? "default" : "outline"}>{STATUS_LABEL[row.status]}</Badge>
                 {needsDetails ? (
                   <div className="flex gap-2">
+                    {/* help-exempt: papel da pessoa a adicionar, descrito em admin.usuarios.participantes (Papel e Área) e em admin.usuarios.permissao-novo */}
                     <Select
                       aria-label={`Papel de ${row.name}`}
                       value={additions[row.id]?.permission ?? ""}
@@ -168,6 +172,7 @@ export function ProjectParticipantsPanel({
                         </option>
                       ))}
                     </Select>
+                    {/* help-exempt: área da pessoa a adicionar, descrita em admin.usuarios.participantes e em admin.usuarios.area-novo */}
                     <Select
                       aria-label={`Área de ${row.name}`}
                       value={additions[row.id]?.area ?? ""}
@@ -223,6 +228,7 @@ export function ProjectParticipantsPanel({
 
           {reviewing && plan.operations.length > 0 && plan.blocked.length === 0 ? (
             <label className="flex items-start gap-2 text-sm">
+              {/* help-exempt: confirmação explícita do resumo, descrita em admin.usuarios.participantes (marque a confirmação e clique em Confirmar e salvar) */}
               <input type="checkbox" name="confirmed" className="mt-1 size-4 accent-[hsl(var(--primary))]" required />
               <span>Confirmo as alterações acima neste projeto.</span>
             </label>
@@ -230,10 +236,12 @@ export function ProjectParticipantsPanel({
 
           <div className="flex flex-wrap items-center gap-2">
             {reviewing ? (
+              // help-exempt: Confirmar e salvar, descrito em admin.usuarios.participantes (howToUse)
               <Button type="submit" disabled={pending || plan.operations.length === 0 || plan.blocked.length > 0}>
                 {pending ? "Salvando…" : "Confirmar e salvar"}
               </Button>
             ) : (
+              // help-exempt: Salvar alterações abre a revisão, descrito em admin.usuarios.participantes (howToUse)
               <Button
                 type="button"
                 disabled={plan.operations.length === 0 || plan.blocked.length > 0}
@@ -243,6 +251,7 @@ export function ProjectParticipantsPanel({
               </Button>
             )}
             {dirty ? (
+              // help-exempt: Descartar desfaz as marcações pendentes, descrito em admin.usuarios.participantes (howToUse)
               <Button
                 type="button"
                 variant="ghost"

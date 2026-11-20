@@ -52,6 +52,7 @@ export function DeliveryAdminControls({ projectId, hasItems }: { projectId: stri
             <option value="ENTREGA">Entrega</option>
           </Select>
         </label>
+        {/* help-exempt: ação descrita pelo ícone planejamento.providencias.nova-providencia ao lado do campo de título deste mesmo formulário */}
         <Button type="submit" size="sm" variant="outline" disabled={addPending}>
           {addPending ? "Adicionando…" : "Adicionar"}
         </Button>

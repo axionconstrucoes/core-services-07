@@ -26,6 +26,7 @@ export function MemberWhatsappForm({
     <form action={action} className="flex flex-col gap-1">
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="userId" value={userId} />
+      {/* help-exempt: campo repetido por linha; telefone internacional descrito pelo ícone do cabeçalho da coluna WhatsApp (admin.usuarios.col-whatsapp) */}
       <Input
         name="phone"
         defaultValue={currentPhone ?? ""}
@@ -35,10 +36,12 @@ export function MemberWhatsappForm({
         className="h-7 w-40 text-xs"
       />
       <label className="flex items-center gap-1 text-xs text-muted-foreground">
+        {/* help-exempt: caixa repetida por linha; autorização do canal descrita em admin.usuarios.col-whatsapp */}
         <input type="checkbox" name="channelAuthorized" defaultChecked={currentAuthorized} />
         Canal autorizado pelo participante
       </label>
       <div className="flex items-center gap-2">
+        {/* help-exempt: salvar repetido por linha; ação descrita em admin.usuarios.col-whatsapp (a tela confirma com Salvo) */}
         <Button type="submit" size="sm" variant="ghost" className="h-7 px-2 text-xs" disabled={pending}>
           {pending ? "…" : "Salvar"}
         </Button>

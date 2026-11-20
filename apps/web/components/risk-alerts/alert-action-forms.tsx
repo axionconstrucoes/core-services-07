@@ -99,6 +99,7 @@ export function AlertActionForms(props: AlertActionFormsProps) {
       <div className="flex flex-wrap gap-2" data-testid="alert-four-buttons">
         {MAIN_ACTIONS.filter((action) => action === "EXPERT_CONSULTATION" || props.availableActions.includes(action)).map((action) => (
           <span key={action} className="inline-flex items-center gap-1">
+            {/* help-exempt: o ícone ao lado do botão usa helpId dinâmico ACTION_HELP_ID[action] (btn-resolvido, btn-em-andamento, btn-enviar-para, btn-especialista) */}
             <Button type="button" size="sm" className={`${buttonClass(action)} ${selected === action ? "ring-2 ring-offset-2 ring-[#1B2A4A]" : ""}`} onClick={() => setSelected(action)} data-testid={`alert-action-${action}`} aria-pressed={selected === action}>
               {UI_LABEL[action]}
             </Button>
@@ -107,6 +108,7 @@ export function AlertActionForms(props: AlertActionFormsProps) {
         ))}
         {props.availableActions.filter((action) => !MAIN_ACTIONS.includes(action) && action !== "EXPERT_CONSULTATION").map((action) => (
           <span key={action} className="inline-flex items-center gap-1">
+            {/* help-exempt: o ícone ao lado do botão usa helpId dinâmico ACTION_HELP_ID[action] (btn-outro e demais ações secundárias) */}
             <Button type="button" size="sm" variant={selected === action ? "default" : "outline"} onClick={() => setSelected(action)} data-testid={`alert-action-${action}`}>
               {UI_LABEL[action]}
             </Button>
