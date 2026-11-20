@@ -54,11 +54,17 @@ export function IntegrationOriginForm({
       {sourceType !== "ESG_SSMA" ? (
         <div className="grid gap-3 md:grid-cols-2">
           <label className="flex flex-col gap-1.5 text-xs font-medium">
-            Sistema
+            <span className="flex items-center gap-1.5">
+              Sistema
+              <FeatureInfo helpId="integracoes.integracoes.origem-sistema" />
+            </span>
             <Input name="externalSystemReference" defaultValue={config?.externalSystemReference ?? ""} placeholder="Ex.: Construmanager" />
           </label>
           <label className="flex flex-col gap-1.5 text-xs font-medium">
-            Projeto/Obra
+            <span className="flex items-center gap-1.5">
+              Projeto/Obra
+              <FeatureInfo helpId="integracoes.integracoes.origem-projeto" />
+            </span>
             <Input
               name="externalProjectReference"
               defaultValue={config?.externalProjectReference ?? ""}
@@ -70,11 +76,17 @@ export function IntegrationOriginForm({
 
       <div className="grid gap-3 md:grid-cols-2">
         <label className="flex flex-col gap-1.5 text-xs font-medium">
-          {labels.account}
+          <span className="flex items-center gap-1.5">
+            {labels.account}
+            <FeatureInfo helpId="integracoes.integracoes.origem-conta" />
+          </span>
           <Input name="accountReference" defaultValue={config?.accountReference ?? ""} placeholder="nome@axion.com.br" />
         </label>
         <label className="flex flex-col gap-1.5 text-xs font-medium">
-          {labels.responsible}
+          <span className="flex items-center gap-1.5">
+            {labels.responsible}
+            <FeatureInfo helpId="integracoes.integracoes.origem-responsavel" />
+          </span>
           <Input name="responsibleReference" defaultValue={config?.responsibleReference ?? ""} placeholder="nome@axion.com.br" />
         </label>
       </div>
@@ -102,7 +114,10 @@ export function IntegrationOriginForm({
 
       <div className="grid gap-3 md:grid-cols-2">
         <label className="flex flex-col gap-1.5 text-xs font-medium">
-          Pasta/Local
+          <span className="flex items-center gap-1.5">
+            Pasta/Local
+            <FeatureInfo helpId="integracoes.integracoes.origem-pasta" />
+          </span>
           <Input
             name="folderReference"
             defaultValue={config?.folderReference ?? ""}
@@ -111,7 +126,10 @@ export function IntegrationOriginForm({
         </label>
         {sourceType !== "ESG_SSMA" ? (
           <label className="flex flex-col gap-1.5 text-xs font-medium">
-            Arquivo
+            <span className="flex items-center gap-1.5">
+              Arquivo
+              <FeatureInfo helpId="integracoes.integracoes.origem-arquivo" />
+            </span>
             <Input name="fileReference" defaultValue={config?.fileReference ?? ""} placeholder="Ex.: cronograma-baseline.mpp" />
           </label>
         ) : null}

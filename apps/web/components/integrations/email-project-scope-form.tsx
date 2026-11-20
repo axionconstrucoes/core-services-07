@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { saveEmailProjectScopeAction } from "@/app/[projectId]/integracoes/actions";
 import { initialSaveEmailProjectScopeState } from "@/app/[projectId]/integracoes/actions-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import type { ProjectEmailIngestionConfig } from "@/lib/email/inbound/ingestion-controls/types";
 
@@ -29,7 +30,10 @@ export function EmailProjectScopeForm({
           name="requireProjectScopeMatch"
           defaultChecked={config.requireProjectScopeMatch}
         />
-        Exigir correspondência com o projeto
+        <span className="inline-flex items-center gap-1.5">
+          Exigir correspondência com o projeto
+          <FeatureInfo helpId="integracoes.integracoes.escopo-exigir-correspondencia" />
+        </span>
       </label>
 
       <p className="text-xs text-muted-foreground">
@@ -38,7 +42,10 @@ export function EmailProjectScopeForm({
       </p>
 
       <label className="flex flex-col gap-1 text-sm font-medium">
-        Palavras-chave do projeto
+        <span className="inline-flex items-center gap-1.5">
+          Palavras-chave do projeto
+          <FeatureInfo helpId="integracoes.integracoes.escopo-palavras-chave" />
+        </span>
         <textarea
           name="scopeKeywords"
           defaultValue={config.scopeKeywords.join("\n")}
@@ -53,7 +60,10 @@ export function EmailProjectScopeForm({
       </label>
 
       <label className="flex flex-col gap-1 text-sm font-medium">
-        Assuntos explicitamente aprovados
+        <span className="inline-flex items-center gap-1.5">
+          Assuntos explicitamente aprovados
+          <FeatureInfo helpId="integracoes.integracoes.escopo-assuntos" />
+        </span>
         <textarea
           name="scopeExactSubjects"
           defaultValue={config.scopeExactSubjects.join("\n")}

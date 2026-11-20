@@ -268,29 +268,33 @@ function SavedContext({
       <p className="flex items-center gap-2 text-xs font-semibold text-green-700">
         <CheckCircle2 className="size-5 fill-green-700 text-white" /> Carregado automaticamente do cadastro da obra
       </p>
-      <label className="block text-sm font-bold text-slate-900">
-        Data e hora
+      <div className="block text-sm font-bold text-slate-900">
+        <span className="inline-flex items-center gap-1.5">
+          <label htmlFor="ssma-occurred-at">Data e hora</label>
+          <FeatureInfo helpId="ssma.form.contexto" />
+        </span>
         <input
+          id="ssma-occurred-at"
           name="occurredAt"
           type="datetime-local"
           defaultValue={initialDateTime}
           className="mt-1 block w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-3 text-base font-medium"
         />
-      </label>
+      </div>
     </section>
   );
 }
 
-function DynamicField({ field }: { field: SsmaFieldDefinition }) {
+function DynamicField({ field, inputId }: { field: SsmaFieldDefinition; inputId: string }) {
   const className = "mt-1 block min-h-12 w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-3 text-base outline-none focus:border-[#7f1d1d]";
 
   if (field.type === "textarea") {
-    return <textarea name={field.id} placeholder={field.placeholder} rows={3} required={field.required} className={className} />;
+    return <textarea id={inputId} name={field.id} placeholder={field.placeholder} rows={3} required={field.required} className={className} />;
   }
 
   if (field.type === "select") {
     return (
-      <select name={field.id} defaultValue="" required={field.required} className={className}>
+      <select id={inputId} name={field.id} defaultValue="" required={field.required} className={className}>
         <option value="" disabled>
           Selecione
         </option>
@@ -303,7 +307,7 @@ function DynamicField({ field }: { field: SsmaFieldDefinition }) {
     );
   }
 
-  return <input name={field.id} type={field.type} placeholder={field.placeholder} required={field.required} className={className} />;
+  return <input id={inputId} name={field.id} type={field.type} placeholder={field.placeholder} required={field.required} className={className} />;
 }
 
 function ChecklistForm({
@@ -564,11 +568,17 @@ function ChecklistForm({
         <>
         <section className="space-y-4">
           {formFields.map((field) => (
-            <label key={field.id} className="block text-sm font-bold text-slate-900">
-              {field.label}
-              {field.required ? <span aria-hidden="true"> *</span> : null}
-              <DynamicField field={field} />
-            </label>
+            <div key={field.id} className="block text-sm font-bold text-slate-900">
+              {/* Rótulo e ícone de ajuda lado a lado; o ícone fica FORA do <label> para não roubar a associação rótulo-campo. */}
+              <span className="inline-flex items-center gap-1.5">
+                <label htmlFor={`ssma-field-${field.id}`}>
+                  {field.label}
+                  {field.required ? <span aria-hidden="true"> *</span> : null}
+                </label>
+                {field.helpId ? <FeatureInfo helpId={field.helpId} /> : null}
+              </span>
+              <DynamicField field={field} inputId={`ssma-field-${field.id}`} />
+            </div>
           ))}
         </section>
 

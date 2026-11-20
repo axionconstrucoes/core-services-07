@@ -47,30 +47,35 @@ export function SsmaHeader({ title, onBack, helpId }: { title: string; onBack?: 
   );
 }
 
-const TABS: Array<{ tab: SsmaTab; label: string; Icon: typeof Home }> = [
-  { tab: "home", label: "Início", Icon: Home },
-  { tab: "registros", label: "Registros", Icon: History },
-  { tab: "sync", label: "Sincronização", Icon: CloudUpload },
-  { tab: "perfil", label: "Perfil", Icon: UserRound },
+const TABS: Array<{ tab: SsmaTab; label: string; Icon: typeof Home; helpId: string }> = [
+  { tab: "home", label: "Início", Icon: Home, helpId: "ssma.app.aba-inicio" },
+  { tab: "registros", label: "Registros", Icon: History, helpId: "ssma.app.aba-registros" },
+  { tab: "sync", label: "Sincronização", Icon: CloudUpload, helpId: "ssma.app.aba-sincronizacao" },
+  { tab: "perfil", label: "Perfil", Icon: UserRound, helpId: "ssma.app.aba-perfil" },
 ];
 
 export function SsmaBottomNav({ active, onChange, pendingCount = 0 }: { active: SsmaTab; onChange: (tab: SsmaTab) => void; pendingCount?: number }) {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-4 border-t border-slate-300 bg-white px-2 py-2 text-[11px] font-semibold text-slate-600" aria-label="Navegação do app de campo">
-      {TABS.map(({ tab, label, Icon }) => (
-        <button
-          key={tab}
-          type="button"
-          onClick={() => onChange(tab)}
-          aria-current={active === tab ? "page" : undefined}
-          className={cn("relative flex min-h-12 flex-col items-center gap-1", active === tab && "text-red-700")}
-        >
-          <Icon className="size-5" />
-          {label}
-          {tab === "sync" && pendingCount > 0 ? (
-            <span className="absolute right-[22%] top-0 flex min-w-4 items-center justify-center rounded-full bg-[#7f1d1d] px-1 text-[10px] font-bold text-white">{pendingCount}</span>
-          ) : null}
-        </button>
+      {TABS.map(({ tab, label, Icon, helpId }) => (
+        // O ícone de ajuda fica ao lado do botão da aba (nunca dentro dele): o botão continua sendo só a navegação.
+        <div key={tab} className="relative flex flex-col">
+          <button
+            type="button"
+            onClick={() => onChange(tab)}
+            aria-current={active === tab ? "page" : undefined}
+            className={cn("relative flex min-h-12 flex-col items-center gap-1", active === tab && "text-red-700")}
+          >
+            <Icon className="size-5" />
+            {label}
+            {tab === "sync" && pendingCount > 0 ? (
+              <span className="absolute right-[22%] top-0 flex min-w-4 items-center justify-center rounded-full bg-[#7f1d1d] px-1 text-[10px] font-bold text-white">{pendingCount}</span>
+            ) : null}
+          </button>
+          <span className="absolute left-[12%] top-0">
+            <FeatureInfo helpId={helpId} />
+          </span>
+        </div>
       ))}
     </nav>
   );

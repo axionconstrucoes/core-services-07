@@ -49,7 +49,10 @@ export function EsgReviewForm({
         </Button>
       </div>
 
-      <Textarea name="reviewNote" rows={2} placeholder="Observação da revisão (obrigatória para Não aplicável/Dispensado)" />
+      <div className="flex items-start gap-1.5">
+        <Textarea name="reviewNote" rows={2} aria-label="Observação da revisão" placeholder="Observação da revisão (obrigatória para Não aplicável/Dispensado)" />
+        <FeatureInfo helpId="ssma.esg.revisao-nota" className="mt-2" />
+      </div>
 
       {state.error ? <p className="text-xs text-destructive">{state.error}</p> : null}
       {state.success ? <p className="text-xs text-emerald-600">Revisão registrada.</p> : null}
