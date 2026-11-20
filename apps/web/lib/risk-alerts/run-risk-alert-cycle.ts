@@ -57,6 +57,7 @@ import { isPilotTestCase } from "./pilot-test-case";
 import { buildCycleDryRunPreviewItem, dryRunEffectiveConfig, shouldAssumeRiskAlertsEnabledForDryRun } from "./cycle-dry-run";
 import type { PendingOutboxRow, RiskAlertProjectSnapshot, RiskAlertStore } from "./store";
 import { createSupabaseRiskAlertStore, sanitizeError } from "./supabase-store";
+import { applyReissueSendGate } from "./reissue-send-gate";
 import type { AlertActionType, ExpertId, ImmediateAlertContent, PlannedOutboxEntry, RiskAlertPlan } from "./types";
 import { DEFAULT_PROJECT_TIMEZONE } from "./types";
 
@@ -89,6 +90,10 @@ export interface RiskAlertCycleProjectResult {
   informativeAreas?: string[];
   /** Alertas "detectados com atraso" retidos sem comunicação (aguardam decisão de reemissão). */
   lateDetectionHeld?: Array<{ visibleCode: string | null; reference: string }>;
+  /** Aprovações de reemissão retidas pelo interruptor ACC_RISK_ALERT_REISSUE_SEND_ENABLED (desligado = nenhuma reemissão planejada). */
+  reissueApprovalsHeldByFlag?: number;
+  /** Estado do interruptor de envio das reemissões aprovadas neste ciclo. */
+  reissueSendFlagEnabled?: boolean;
   /** Casos com comunicação suspensa (verificação pendente): sem alerta, escalonamento nem reemissão. */
   communicationSuspended?: Array<{ visibleCode: string | null; reference: string }>;
   /**
@@ -237,6 +242,9 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       })(),
     });
 
+    // Aprovar só registra a decisão: no ciclo REAL as aprovações só valem com o interruptor de envio ligado (dry-run sempre vê).
+    const reissueGate = applyReissueSendGate(snapshot.reissueApprovals, { dryRun });
+
     const plannedRaw: RiskAlertPlan = planRiskAlerts({
       now: nowIso,
       projectId,
@@ -257,7 +265,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       informativeAreas,
       suspendedCaseIds: new Set(snapshot.suspendedCaseIds ?? []),
       outboxHistory: snapshot.outboxHistory,
-      reissueApprovals: snapshot.reissueApprovals,
+      reissueApprovals: reissueGate.approvals,
       reissueDecisionRecordedCaseIds: snapshot.reissueDecisionRecordedCaseIds,
     });
 
@@ -300,6 +308,8 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       digestWindow: plan.digestWindow,
       ...(replyGate.length ? { replyGate } : {}),
       informativeAreas: Array.from(informativeAreas),
+      reissueSendFlagEnabled: reissueGate.sendFlagEnabled,
+      ...(reissueGate.held > 0 ? { reissueApprovalsHeldByFlag: reissueGate.held } : {}),
       communicationSuspended: (plan.communicationSuspended ?? []).map((caseKey) => ({
         visibleCode: snapshot.existingCases.find((c) => caseKeyOf(c) === caseKey)?.visibleCode ?? null,
         reference: snapshot.cases.find((c) => caseKeyOf(c) === caseKey)?.reference ?? caseKey,

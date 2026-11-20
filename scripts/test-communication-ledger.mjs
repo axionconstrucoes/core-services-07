@@ -221,6 +221,75 @@ await check("8. Ciclo REAL: supressão por prontidão → etapa avança pelo tem
   }
 });
 
+await check("8b. INTERRUPTOR no ciclo REAL: com decisão humana registrada, o ciclo NÃO reemite com ACC_RISK_ALERT_REISSUE_SEND_ENABLED desligado (padrão); ligado, reemite; dry-run mostra sem enviar", async () => {
+  const saved = { ...process.env };
+  Object.assign(process.env, { ACC_PROJECT_PILOT_PROJECT_ID: WEG, ACC_PROJECT_PILOT_SENDER: CRM, GOOGLE_GMAIL_INBOUND_MAILBOX: CRM, AXION_EMAIL_PROVIDER: "fake", ACC_OUTBOUND_MODE: "pilot", ACC_PILOT_RECIPIENT: CRM });
+  delete process.env.ACC_RISK_ALERT_REISSUE_SEND_ENABLED;
+  try {
+    const world = {
+      projectId: WEG, projectName: "[ENSAIO] Obra", config: config(), matrixRules: ["LOW", "MEDIUM", "HIGH", "CRITICAL"].map(rule),
+      areaResponsibles: [resp(), { ...resp({ responsibleDirectUserId: null }), id: "resp-ADM", area: "ADMINISTRATIVO" }],
+      informativeAreas: [], settings: null, recipients: recipients(), senderMailbox: CRM, replyMailbox: CRM,
+      sourceCases: [{ ...caseInput, riskLevel: "HIGH" }, { ...caseInput, sourceId: "src-adm", area: "ADMINISTRATIVO", riskLevel: "MEDIUM", fingerprint: "fp-adm", reference: "ADM" }],
+      legacyNoClaim: false,
+    };
+    const store = createInMemoryRiskAlertStore(world);
+    const baseLoad = store.loadProjectSnapshot.bind(store);
+    store.loadProjectSnapshot = async (id) => {
+      const snap = await baseLoad(id);
+      const auditRows = (store.state.audit ?? []).map((a, i) => ({ id: `aud-${i}`, occurred_at: a.at ?? T0, actor_type: a.actorType ?? "SYSTEM", actor_user_id: a.actorUserId ?? null, action: a.action, entity_type: a.entityType, entity_id: a.entityId }));
+      return {
+        ...snap,
+        outboxHistory: store.state.outbox.filter((o) => o.caseId).map((o) => ({ caseId: o.caseId, notificationType: o.notificationType, escalationLevel: o.escalationLevel, recipientUserId: o.recipientUserId, recipientEmail: o.deliveredTo ?? null, status: o.status, suppressionReason: o.suppressionReason, attemptCount: o.attemptCount, providerMessageId: o.provider ?? null, createdAt: T0, sentAt: o.sentAt })),
+        reissueApprovals: ledgerMod.resolveReissueApprovals(auditRows),
+        reissueDecisionRecordedCaseIds: new Set(auditRows.filter((a) => a.action === ledgerMod.REISSUE_DECISION_REQUIRED_ACTION).map((a) => a.entity_id)),
+      };
+    };
+    const provider = new FakeEmailProvider();
+    const expert = { answer: async () => ({ answerText: "x", confidence: 0.5, requiresHumanReview: true }) };
+    store.setClock(T0);
+    await runRiskAlertCycle({ now: new Date(T0), store, provider, dryRun: false, projectId: WEG, expert }); // bloqueado: tudo suprimido
+    world.areaResponsibles = [resp(), { ...resp(), id: "resp-ADM", area: "ADMINISTRATIVO" }];
+    const later = "2026-11-18T13:00:00.000Z";
+    store.setClock(later);
+    await runRiskAlertCycle({ now: new Date(later), store, provider, dryRun: false, projectId: WEG, expert });
+    const caseId = [...store.state.cases.values()].find((c) => c.area === "PLANEJAMENTO")?.id;
+    assert(caseId, "caso criado");
+    // Decisão humana no formato gravado pela RPC risk_alert_reissue_approve.
+    store.state.audit.push({ action: ledgerMod.REISSUE_APPROVED_ACTION, entityType: "RISK_ALERT_CASE", entityId: caseId, actorType: "USER", actorUserId: U.rey, at: "2026-11-18T13:30:00.000Z", detail: "{}" });
+    const keysBefore = store.state.outbox.filter((o) => o.idempotencyKey.includes(":REISSUE:")).length;
+    assert(keysBefore === 0, "nenhuma reemissão antes");
+
+    // 1) interruptor DESLIGADO (padrão): aprovação existe, nada é reemitido nem planejado.
+    const t1 = "2026-11-18T14:00:00.000Z";
+    store.setClock(t1);
+    const off = await runRiskAlertCycle({ now: new Date(t1), store, provider, dryRun: false, projectId: WEG, expert });
+    assert(store.state.outbox.filter((o) => o.idempotencyKey.includes(":REISSUE:")).length === 0, "flag desligada: sem reemissão");
+    assert(off.projects[0].reissueApprovalsHeldByFlag === 1 && off.projects[0].reissueSendFlagEnabled === false, JSON.stringify([off.projects[0].reissueApprovalsHeldByFlag, off.projects[0].reissueSendFlagEnabled]));
+
+    // 2) dry-run com a flag desligada: mostra a reemissão prevista (conferência) sem gravar nem enviar.
+    const outboxLen = store.state.outbox.length;
+    const dry = await runRiskAlertCycle({ now: new Date(t1), store, provider, dryRun: true, projectId: WEG, expert });
+    assert((dry.projects[0].dryRunPreview ?? []).length > 0, "dry-run enxerga as reemissões aprovadas");
+    assert(store.state.outbox.length === outboxLen, "dry-run não grava");
+
+    // 3) interruptor LIGADO explicitamente: o ciclo passa a reemitir, uma vez por decisão (as travas do piloto continuam valendo).
+    process.env.ACC_RISK_ALERT_REISSUE_SEND_ENABLED = "true";
+    const t2 = "2026-11-18T15:00:00.000Z";
+    store.setClock(t2);
+    const on = await runRiskAlertCycle({ now: new Date(t2), store, provider, dryRun: false, projectId: WEG, expert });
+    const reissued = store.state.outbox.filter((o) => o.idempotencyKey.includes(":REISSUE:"));
+    assert(reissued.length > 0 && on.projects[0].reissueApprovalsHeldByFlag === undefined, `flag ligada reemite: ${reissued.length}`);
+    store.setClock("2026-11-18T16:00:00.000Z");
+    await runRiskAlertCycle({ now: new Date("2026-11-18T16:00:00.000Z"), store, provider, dryRun: false, projectId: WEG, expert });
+    assert(store.state.outbox.filter((o) => o.idempotencyKey.includes(":REISSUE:")).length === reissued.length, "uma reemissão por decisão (idempotente)");
+  } finally {
+    for (const k of Object.keys(process.env)) if (!(k in saved)) delete process.env[k];
+    Object.assign(process.env, saved);
+    delete process.env.ACC_RISK_ALERT_REISSUE_SEND_ENABLED;
+  }
+});
+
 await check("9. E-mail de reemissão renderizado: assunto e título dizem REEMISSÃO, etapa real e comunicações anteriores NÃO entregues com data (Brasília)", async () => {
   const { buildImmediateRiskAlertEmail } = await import("../apps/web/lib/risk-alerts/build-risk-alert-emails");
   const p = planRiskAlerts(basePlan({ reissueApprovals: ledgerMod.resolveReissueApprovals([approval()]) }));
