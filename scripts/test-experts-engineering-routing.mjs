@@ -266,7 +266,7 @@ await check("CONSULTAR IA 'Geral': um único tema → Expert do tema (engenharia
       getPermission: async () => "COLABORADOR",
       loadSubject: async () => subject,
       reserve: async (_p, _s, _i, expertId) => (log.push(`reserve:${expertId}`), { ok: true }),
-      runExpert: (expertId, request, q) => runAlertConsultExpert(stubSupabase(), expertId, request, q, recordingProvider(log)),
+      runExpert: (expertId, request, q, reserve) => runAlertConsultExpert(stubSupabase(), expertId, request, q, recordingProvider(log), reserve),
     },
     { projectId: P1, subject: "risco", id: P1, specialtyId: "geral", question: "Qual a melhor solução para o piso industrial?" }
   );
@@ -308,7 +308,7 @@ await check("ciclo: Expert único reserva com o usuário que perguntou ANTES do 
     reserve: async () => ({ ok: false, error: "Limite." }),
     provider: recordingProvider(denied),
   });
-  await assert.rejects(refused.answer({ expertId: "planning-director", projectId: P1, question: "Qual a folga?", askedByUserId: U1, subjectId: "c" }), /Limite de IA não reservado/);
+  await assert.rejects(refused.answer({ expertId: "planning-director", projectId: P1, question: "Quem coordena a frente de serviço?", askedByUserId: U1, subjectId: "c" }), /Limite de IA não reservado/);
   await assert.rejects(refused.answer({ expertId: "ceo", projectId: P1, question: "fundação e cláusula", askedByUserId: U1, subjectId: "c" }));
   assert.deepEqual(denied, [], "sem reserva nenhum provedor é chamado");
 });
@@ -457,7 +457,9 @@ await check("reserveAiConsult: Expert informado usa ai_consult_reserve_expert; e
   assert.equal(thrown.ok, false);
 });
 
-await check("painéis (experts-ia, /juridico, /esg, Diretor Comercial) e curadorias (Event Ledger, pré-contratual) reservam ANTES do provedor", () => {
+await check("painéis (experts-ia, /juridico, /esg, Diretor Comercial) e curadorias (Event Ledger, pré-contratual) reservam na fronteira do provedor", () => {
+  // Frente N6: pré-verificação somente leitura → provedor embrulhado (gatedProviderForExpert) com a reserva
+  // EXPERT_PANEL → chamada do Expert com esse provedor.
   const panels = [
     ["apps/web/lib/ai/engineering-query-action.ts", "answerEngineeringDirectorQuery(supabase"],
     ["apps/web/lib/ai/planning-query-action.ts", "answerPlanningDirectorQuery(supabase"],
@@ -467,10 +469,11 @@ await check("painéis (experts-ia, /juridico, /esg, Diretor Comercial) e curador
   ];
   for (const [file, call] of panels) {
     const code = src(file);
-    const reserveAt = code.search(/reserveAiConsult\([\s\S]*?"EXPERT_PANEL"/);
+    const precheckAt = code.indexOf("precheckAiConsult(supabase");
+    const gateAt = code.search(/gatedProviderForExpert\([\s\S]*?reserveAiConsult\([\s\S]*?"EXPERT_PANEL"/);
     const callAt = code.lastIndexOf(call);
-    assert.ok(reserveAt > 0 && callAt > reserveAt, `${file}: reserva antes do provedor`);
-    assert.match(code, /if \(!reservation\.ok\)/, `${file}: recusa interrompe`);
+    assert.ok(precheckAt > 0 && gateAt > precheckAt && callAt > precheckAt, `${file}: pré-verificação → provedor com reserva`);
+    assert.match(code, /if \(!precheck\.ok\)/, `${file}: recusa interrompe`);
   }
   for (const file of ["apps/web/lib/ai/precontract-curation-action.ts", "apps/web/app/[projectId]/ledger/[eventId]/run-multi-expert-curation-actions.ts"]) {
     assert.match(src(file), /reserve: \(expertId\) => reserveAiConsult\(supabase, projectId, "CURATION"/, file);

@@ -10,13 +10,23 @@
 //   CURATION              — curadoria multi-Expert: 1 unidade por Expert chamado (cada especialista e a consolidação CEO);
 //   RISK_CYCLE            — ESPECIALISTA do caso de risco respondido pelo ciclo (sem sessão: variante service_role com
 //                           o usuário que fez a pergunta; mesma contagem por usuário e por obra).
+//   AUTOMATIC_CURATION    — curadoria automática de fonte do cliente (sem sessão: variante service_role com o usuário
+//                           que originou a fonte; sem solicitante identificável a IA não é chamada). Migration
+//                           20261121150000.
+//
+// Política N6 (docs/ai/governanca-consumo-ia.md): a unidade é reservada na FRONTEIRA DO PROVEDOR
+// (lib/ai/governance/quota-gated-provider.ts) — depois dos guards determinísticos (MPP ausente, contrato ilegível,
+// validação) e imediatamente antes da chamada. Recusa determinística = nenhuma unidade consumida, sem estorno.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export type AiConsultKind = "ALERTA" | "RISCO" | "SSMA" | "EXPERT_PANEL" | "CURATION" | "RISK_CYCLE";
+export type AiConsultKind = "ALERTA" | "RISCO" | "SSMA" | "EXPERT_PANEL" | "CURATION" | "RISK_CYCLE" | "AUTOMATIC_CURATION";
+/** Tipos exclusivos da variante service_role (ai_consult_reserve_for_actor). */
+export type AiConsultActorKind = Extract<AiConsultKind, "RISK_CYCLE" | "AUTOMATIC_CURATION">;
 export type AiConsultReservation = { ok: true } | { ok: false; error: string };
 
 const QUOTA_ERRORS: Array<[RegExp, string]> = [
+  [/AI_CONSULT_BUDGET_/, "O orçamento de consultas ao especialista de IA foi atingido. Fale com o ADMINISTRADOR da obra."],
   [/AI_CONSULT_USER_LIMIT/, "Você atingiu o limite diário de consultas ao especialista de IA. Tente novamente amanhã ou fale com o ADMINISTRADOR da obra."],
   [/AI_CONSULT_PROJECT_LIMIT/, "Esta obra atingiu o limite diário de consultas ao especialista de IA. Tente novamente amanhã ou fale com o ADMINISTRADOR da obra."],
   [/PROJECT_ACCESS_DENIED/, "Você não possui acesso ativo a esta obra."],
@@ -62,7 +72,7 @@ export async function reserveAiConsultForActor(
   adminClient: SupabaseClient,
   actorUserId: string | null | undefined,
   projectId: string,
-  kind: AiConsultKind,
+  kind: AiConsultActorKind,
   subjectId: string,
   expertId: string
 ): Promise<AiConsultReservation> {
@@ -81,4 +91,41 @@ export async function reserveAiConsultForActor(
   } catch {
     return { ok: false, error: QUOTA_UNAVAILABLE };
   }
+}
+
+/**
+ * Pré-verificação SOMENTE LEITURA (ai_consult_precheck, sessão): recusa cedo quem já esgotou o limite, ANTES dos
+ * guards e da montagem de contexto. Não grava nada e não substitui a reserva na fronteira do provedor.
+ */
+export async function precheckAiConsult(supabase: SupabaseClient, projectId: string): Promise<AiConsultReservation> {
+  try {
+    const { error } = await supabase.rpc("ai_consult_precheck", { p_project_id: projectId });
+    return toReservation(error);
+  } catch {
+    return { ok: false, error: QUOTA_UNAVAILABLE };
+  }
+}
+
+/** Reserva de UMA unidade para um Expert (assinatura usada pelas curadorias e pelo provedor com limite). */
+export type ExpertReserve = (expertId: string) => Promise<AiConsultReservation>;
+
+/** Sessão: reserva por Expert para um tipo/assunto fixos. */
+export function sessionExpertReserve(
+  supabase: SupabaseClient,
+  projectId: string,
+  kind: Exclude<AiConsultKind, AiConsultActorKind>,
+  subjectId: string
+): ExpertReserve {
+  return (expertId) => reserveAiConsult(supabase, projectId, kind, subjectId, expertId);
+}
+
+/** Sem sessão (service_role): reserva por Expert em nome do usuário solicitante explícito. */
+export function actorExpertReserve(
+  adminClient: SupabaseClient,
+  actorUserId: string | null | undefined,
+  projectId: string,
+  kind: AiConsultActorKind,
+  subjectId: string
+): ExpertReserve {
+  return (expertId) => reserveAiConsultForActor(adminClient, actorUserId, projectId, kind, subjectId, expertId);
 }

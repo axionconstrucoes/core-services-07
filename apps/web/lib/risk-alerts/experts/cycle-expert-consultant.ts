@@ -8,8 +8,10 @@
 //     autoria, e consolidação do CEO IA com divergências e incertezas — nunca o CEO sozinho
 //     simulando as várias áreas;
 //   - limite de IA: ai_consult_reserve_for_actor (service_role) com o USUÁRIO que fez a pergunta,
-//     1 unidade por Expert chamado, reservada ANTES de cada chamada; sem usuário ou sem reserva,
-//     nenhuma chamada (falha fechada — o ciclo audita a falha e tenta de novo no próximo ciclo);
+//     1 unidade por Expert chamado, reservada na FRONTEIRA DO PROVEDOR (frente N6): depois dos guards
+//     determinísticos do Expert (ex.: MPP ausente) e imediatamente antes da chamada — um guard que
+//     recusa não consome unidade, mesmo com o ciclo tentando de novo a cada execução; sem usuário ou
+//     sem reserva, nenhuma chamada (falha fechada — o ciclo audita a falha e tenta de novo depois);
 //   - somente recomenda: não altera estado do caso, responsável, SLA nem escalonamento (quem grava a
 //     resposta é o ciclo, via store.recordExpertAnswer, com requiresHumanReview = true).
 // A AXIA nunca participa.
@@ -25,6 +27,7 @@ import { answerEngineeringDirectorQuery } from "@/lib/ai/experts/engineering-dir
 import { answerEsgDirectorQuery } from "@/lib/ai/experts/esg-director/query";
 import { answerLegalConsultantQuery } from "@/lib/ai/experts/legal-consultant/query";
 import { answerPlanningDirectorQuery } from "@/lib/ai/experts/planning-director/query";
+import { gatedProviderForExpert } from "@/lib/ai/governance/quota-gated-provider";
 import type { AiProvider } from "@/lib/ai/providers/types";
 import type { ExpertQueryRequest, ExpertQueryResponse } from "@/lib/ai/query/types";
 import { detectTopicExperts } from "@/lib/ai/routing/expert-topics";
@@ -107,9 +110,9 @@ export function formatCurationAnswer(curation: MultiExpertCuration): string {
 }
 
 export function createCycleExpertConsultant(supabase: SupabaseClient, deps: CycleExpertConsultantDeps) {
-  const reserveOrThrow = async (q: CycleExpertQuestion, expertId: OfficialExpertId) => {
+  const reserveFor = (q: CycleExpertQuestion) => async (expertId: OfficialExpertId): Promise<AiConsultReservation> => {
     const reservation = await deps.reserve({ actorUserId: q.askedByUserId, projectId: q.projectId, subjectId: q.subjectId, expertId });
-    if (!reservation.ok) throw new Error(`Limite de IA não reservado (${expertId}): ${reservation.error}`);
+    return reservation.ok ? reservation : { ok: false, error: `Limite de IA não reservado (${expertId}): ${reservation.error}` };
   };
 
   return {
@@ -126,7 +129,7 @@ export function createCycleExpertConsultant(supabase: SupabaseClient, deps: Cycl
             description: q.question,
             requestedExpertIds: topics.length > 1 ? topics : undefined,
           },
-          { reserve: async (expertId) => deps.reserve({ actorUserId: q.askedByUserId, projectId: q.projectId, subjectId: q.subjectId, expertId }), provider: deps.provider }
+          { reserve: reserveFor(q), provider: deps.provider }
         );
         const confidences = curation.expertResults.map((item) => item.response.confidence);
         return {
@@ -139,8 +142,8 @@ export function createCycleExpertConsultant(supabase: SupabaseClient, deps: Cycl
 
       const fn = CYCLE_SINGLE_EXPERT_QUERIES[q.expertId];
       if (!fn) throw new Error(`Expert "${q.expertId}" não disponível no ciclo.`);
-      await reserveOrThrow(q, q.expertId);
-      const result = await fn(supabase, request, deps.provider);
+      // Reserva na fronteira do provedor do Expert (depois dos guards dele).
+      const result = await fn(supabase, request, gatedProviderForExpert(q.expertId, reserveFor(q), deps.provider));
       return { answerText: formatSingleAnswer(result.response), confidence: result.response.confidence, requiresHumanReview: true };
     },
   };

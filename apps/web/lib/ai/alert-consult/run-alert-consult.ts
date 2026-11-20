@@ -6,7 +6,9 @@
 //   3. roteamento: especialidade explícita → o Expert dela; "Geral (pelo assunto)" → assunto concreto
 //      (lib/ai/routing/expert-topics.ts): um tema → um Expert; multidisciplinar → curadoria multi-Expert
 //      (um parecer por Expert + consolidação CEO IA); a AXIA nunca participa;
-//   4. limite de IA reservado ANTES de cada chamada de Expert (1 unidade por Expert chamado);
+//   4. limite de IA: pré-verificação somente leitura (precheck) antes de carregar contexto e reserva de 1 unidade por
+//      Expert na FRONTEIRA DO PROVEDOR — depois dos guards determinísticos (MPP ausente etc.), imediatamente antes da
+//      chamada; recusa determinística não consome unidade (docs/ai/governanca-consumo-ia.md);
 //   5. o Expert roda com o contexto SOMENTE dessa obra;
 //   6. nada é gravado: a consulta não altera o alerta, responsável, SLA nem escalonamento.
 
@@ -61,11 +63,18 @@ export interface AlertConsultDeps {
    * chamada (falha fechada). Na curadoria é chamada uma vez por Expert (especialistas + CEO IA).
    */
   reserve?(projectId: string, subject: AlertConsultSubjectKind, id: string, expertId: OfficialExpertId): Promise<Reservation>;
+  /** Pré-verificação SOMENTE LEITURA do limite (nada é gravado); recusada = nenhum contexto é montado. */
+  precheck?(projectId: string): Promise<Reservation>;
   runExpert(
     expertId: ExpertId,
     request: ExpertQueryRequest,
     /** Pergunta ORIGINAL do usuário (guards que inspecionam a pergunta não devem ver o texto de apoio). */
-    userQuestion: string
+    userQuestion: string,
+    /**
+     * Reserva de 1 unidade a ser feita na FRONTEIRA DO PROVEDOR (imediatamente antes da chamada, depois dos guards).
+     * Quem implementa DEVE chamá-la antes do provedor e não chamar o provedor se recusada.
+     */
+    reserve?: () => Promise<Reservation>
   ): Promise<{ response: ExpertQueryResponse; audit: { providerId: string; model: string | null } }>;
   /** Curadoria multi-Expert (assunto multidisciplinar). Ausente = o assunto multidisciplinar é recusado, nunca simulado. */
   runCuration?(input: {
@@ -140,6 +149,11 @@ export async function runAlertConsult(deps: AlertConsultDeps, input: AlertConsul
       return { ok: false, error: CONSULT_NOT_FOUND_MESSAGE };
     }
 
+    if (deps.precheck) {
+      const precheck = await deps.precheck(input.projectId);
+      if (!precheck.ok) return precheck;
+    }
+
     const userQuestion = input.question.trim();
     const request: ExpertQueryRequest = {
       scope: subject.scope,
@@ -156,11 +170,13 @@ export async function runAlertConsult(deps: AlertConsultDeps, input: AlertConsul
         : ({ kind: "SINGLE", expertId: specialty.expertId, topics: [], reason: `Especialidade escolhida: ${specialty.label}.` } as const);
 
     if (routing.kind === "SINGLE") {
-      if (deps.reserve) {
-        const reservation = await deps.reserve(input.projectId, input.subject, input.id, routing.expertId as OfficialExpertId);
-        if (!reservation.ok) return reservation;
-      }
-      const result = await deps.runExpert(routing.expertId, request, userQuestion);
+      const reserve = deps.reserve;
+      const result = await deps.runExpert(
+        routing.expertId,
+        request,
+        userQuestion,
+        reserve ? () => reserve(input.projectId, input.subject, input.id, routing.expertId as OfficialExpertId) : undefined
+      );
       return {
         ok: true,
         // A pergunta exibida é a do usuário; o restante da resposta é o validado pelo Expert.

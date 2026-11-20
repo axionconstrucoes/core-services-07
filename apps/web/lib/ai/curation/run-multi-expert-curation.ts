@@ -7,13 +7,16 @@
 //
 // Limite de IA (ai_consult_reserve, tipo CURATION): a curadoria reserva
 // 1 unidade por Expert chamado — cada especialista E a consolidação do
-// CEO IA — sempre imediatamente ANTES da chamada daquele Expert. Reserva
-// recusada interrompe a rodada (falha fechada): nenhum Expert seguinte é
-// chamado e nenhuma consolidação parcial é apresentada como completa.
+// CEO IA — na FRONTEIRA DO PROVEDOR daquele Expert (frente N6): depois
+// dos guards determinísticos dele e imediatamente antes da chamada. Um
+// Expert recusado por guard (ex.: Planejamento sem MPP) não consome
+// unidade. Reserva recusada interrompe a rodada (falha fechada): nenhum
+// Expert seguinte é chamado e nenhuma consolidação parcial é apresentada
+// como completa.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AiConsultReservation } from "../alert-consult/consult-quota";
-import { ExpertQuerySafeError } from "../expert-query-request";
+import { gatedProviderForExpert } from "../governance/quota-gated-provider";
 import { answerCommercialDirectorQuery } from "../experts/commercial-director/query";
 import { runExecutiveCuration } from "../experts/ceo/consolidate";
 import { answerEngineeringDirectorQuery } from "../experts/engineering-director/query";
@@ -87,6 +90,11 @@ async function runSpecialist(
   }
 }
 
+function gated(options: MultiExpertCurationOptions, expertId: OfficialExpertId): AiProvider {
+  // Mensagem de recusa redigida para a tela (consult-quota.ts) — chega como ExpertQuerySafeError.
+  return gatedProviderForExpert(expertId, options.reserve, options.provider);
+}
+
 function toPosition(expertId: OfficialExpertId, response: ExpertQueryResponse): AiProviderExpertPosition {
   return {
     expertId,
@@ -97,14 +105,6 @@ function toPosition(expertId: OfficialExpertId, response: ExpertQueryResponse): 
     recomendacoes: response.recomendacoes,
     informacoesFaltantes: response.informacoesFaltantes,
   };
-}
-
-async function reserveOrFail(options: MultiExpertCurationOptions, expertId: OfficialExpertId): Promise<void> {
-  const reservation = await options.reserve(expertId);
-  if (!reservation.ok) {
-    // Mensagem redigida para a tela (consult-quota.ts) — pode ser exibida.
-    throw new ExpertQuerySafeError(reservation.error);
-  }
 }
 
 /**
@@ -149,9 +149,8 @@ export async function runMultiExpertCuration(
       question,
     };
 
-    await reserveOrFail(options, expertId);
     try {
-      const result = await runSpecialist(supabase, expertId, request, options.provider, { includeContractualDocuments });
+      const result = await runSpecialist(supabase, expertId, request, gated(options, expertId), { includeContractualDocuments });
       expertResults.push({ expertId, response: result.response });
     } catch (error) {
       if (expertId === "planning-director" && error instanceof Error && PLANNING_BLOCKING_MESSAGES.includes(error.message)) {
@@ -163,8 +162,24 @@ export async function runMultiExpertCuration(
   }
 
   const positions = expertResults.map((result) => toPosition(result.expertId, result.response));
-  await reserveOrFail(options, "ceo");
-  const { curation } = await runExecutiveCuration(input.description, positions, options.provider);
+  // Incerteza preservada (frente N6): Expert roteado sem parecer (bloqueio determinístico) é informado ao CEO IA e
+  // vira, de forma determinística, uma decisão humana — a consolidação nunca se apresenta como completa sem ele.
+  const unavailableNotes = unavailableExperts.map(
+    (item) => `Parecer de ${item.expertId} indisponível nesta rodada: ${item.reason}`
+  );
+  const situation = unavailableNotes.length
+    ? `${input.description}\n\nEspecialistas roteados SEM parecer nesta rodada (não presumir posição deles):\n- ${unavailableNotes.join("\n- ")}`
+    : input.description;
+  const { curation: consolidated } = await runExecutiveCuration(situation, positions, gated(options, "ceo"));
+  const curation = unavailableNotes.length
+    ? {
+        ...consolidated,
+        decisoesHumanasNecessarias: [
+          ...consolidated.decisoesHumanasNecessarias,
+          ...unavailableNotes.filter((note) => !consolidated.decisoesHumanasNecessarias.includes(note)),
+        ],
+      }
+    : consolidated;
 
   return {
     input,

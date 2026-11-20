@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import type { AlertConsultState } from "@/lib/ai/alert-consult/alert-consult-state";
 import { runAlertConsultCuration, runAlertConsultExpert } from "@/lib/ai/alert-consult/alert-consult-experts";
-import { reserveAiConsult } from "@/lib/ai/alert-consult/consult-quota";
+import { precheckAiConsult, reserveAiConsult } from "@/lib/ai/alert-consult/consult-quota";
 import { loadAlertConsultSubject } from "@/lib/ai/alert-consult/load-alert-consult-subject";
 import { runAlertConsult } from "@/lib/ai/alert-consult/run-alert-consult";
 import { parseAlertConsultForm } from "@/lib/ai/alert-consult/specialties";
@@ -16,7 +16,8 @@ import { resolveAiProviderNameForExpert } from "@/lib/ai/providers/resolve-provi
 // aqui; só o envio explícito do formulário. Autorização (login + vínculo ativo com a obra) e
 // isolamento por obra são conferidos no servidor; o navegador nunca vê chave nem outro projeto.
 // Limite de IA: 1 unidade por Expert chamado (assunto multidisciplinar → curadoria: cada especialista
-// e a consolidação do CEO IA), sempre reservada antes da chamada.
+// e a consolidação do CEO IA), reservada na FRONTEIRA DO PROVEDOR (depois dos guards determinísticos;
+// recusa antes do provedor não consome). Pré-verificação somente leitura antes de montar o contexto.
 export async function consultAlertAction(_previous: AlertConsultState, formData: FormData): Promise<AlertConsultState> {
   const parsed = parseAlertConsultForm(formData);
   const echo = {
@@ -32,7 +33,9 @@ export async function consultAlertAction(_previous: AlertConsultState, formData:
       loadSubject: (projectId, subject, id) => loadAlertConsultSubject(supabase, projectId, subject, id),
       reserve: (projectId, subject, id, expertId) =>
         reserveAiConsult(supabase, projectId, subject === "risco" ? "RISCO" : "ALERTA", `${subject}:${id}`, expertId),
-      runExpert: (expertId, request, userQuestion) => runAlertConsultExpert(supabase, expertId, request, userQuestion),
+      precheck: (projectId) => precheckAiConsult(supabase, projectId),
+      runExpert: (expertId, request, userQuestion, reserve) =>
+        runAlertConsultExpert(supabase, expertId, request, userQuestion, undefined, reserve),
       runCuration: async ({ request, expertIds, reserve }) => ({
         curation: await runAlertConsultCuration(supabase, { request, expertIds, reserve }),
         providerId: resolveAiProviderNameForExpert("ceo"),

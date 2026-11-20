@@ -27,7 +27,9 @@ check("Server Action estratégica: permissão ativa, sessão do usuário e reser
   const reserve = action.indexOf('reserveAiConsult(supabase, projectId, "EXPERT_PANEL"');
   const call = action.indexOf("answerCommercialStrategyQuery(supabase");
   assert.ok(perm > 0 && reserve > perm && call > reserve, "ordem permissão → reserva → provedor");
-  assert.ok(action.includes("COMMERCIAL_DIRECTOR_EXPERT_ID") && action.includes("if (!reservation.ok) return"));
+  // Frente N6: pré-verificação somente leitura + reserva na fronteira do provedor (gatedProviderForExpert).
+  assert.ok(action.includes("COMMERCIAL_DIRECTOR_EXPERT_ID") && action.includes("if (!precheck.ok) return"));
+  assert.ok(action.includes("gatedProviderForExpert(COMMERCIAL_DIRECTOR_EXPERT_ID") && action.includes("}, provider);"));
   assert.ok(action.includes("createSupabaseServerClient()") && !action.includes("createSupabaseAdminClient"), "só a sessão do usuário");
 });
 check("ciclo de risco (sem sessão) consulta o Comercial sem carregar o contexto comercial", () => {

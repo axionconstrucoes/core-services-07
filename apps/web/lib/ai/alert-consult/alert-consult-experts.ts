@@ -18,6 +18,8 @@ import { scheduleSourceBlockingMessage } from "../experts/planning-director/sche
 import type { AiProvider } from "../providers/types";
 import type { ExpertQueryRequest, ExpertQueryResponse } from "../query/types";
 import type { ExpertId } from "../types";
+import { withQuotaGate, type ReserveUnit } from "../governance/quota-gated-provider";
+import { resolveAiProviderForExpert } from "../providers/resolve-provider-for-expert";
 import type { AiConsultReservation } from "./consult-quota";
 
 export interface AlertConsultExpertRun {
@@ -34,14 +36,20 @@ const PLANNING_BLOCKING_MESSAGES: readonly string[] = [
 /**
  * `provider` só é informado por testes (provedor simulado); em produção cada Expert resolve o seu
  * (resolveAiProviderForExpert) — nunca um fallback silencioso para "fake" por erro de configuração.
+ * `reserve`: 1 unidade do limite de IA reservada na FRONTEIRA DO PROVEDOR (depois dos guards do Expert).
  */
 export async function runAlertConsultExpert(
   supabase: SupabaseClient,
   expertId: ExpertId,
   request: ExpertQueryRequest,
   userQuestion: string,
-  provider?: AiProvider
+  baseProvider?: AiProvider,
+  reserve?: ReserveUnit
 ): Promise<AlertConsultExpertRun> {
+  const provider =
+    reserve && expertId !== "ceo"
+      ? withQuotaGate(baseProvider ?? resolveAiProviderForExpert(expertId), reserve)
+      : baseProvider;
   switch (expertId) {
     case "legal-consultant":
       return answerLegalConsultantQuery(supabase, request, provider);

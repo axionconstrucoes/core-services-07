@@ -10,12 +10,24 @@
 // additional_proposal_drive_sources) já foi persistida ANTES desta
 // função ser chamada — se a IA falhar aqui, a fonte permanece
 // disponível normalmente, só o ai_curation_runs fica FAILED_PENDING_RETRY.
+//
+// Limite de IA (frente N6 — antes esta curadoria chamava os Experts SEM
+// reserva): por ser automática (sem sessão), usa a variante service_role
+// ai_consult_reserve_for_actor, tipo AUTOMATIC_CURATION, em nome do usuário
+// que originou a fonte (createdByUserId) — ver actorExpertReserve em
+// lib/ai/alert-consult/consult-quota.ts. 1 unidade por Expert chamado
+// (Jurídico do confronto, Comercial/Planejamento roteados e CEO IA),
+// reservada na FRONTEIRA DO PROVEDOR de cada um. Sem solicitante
+// identificável (ou sem mecanismo de reserva) a IA NÃO é chamada e a
+// recusa fica registrada em ai_curation_runs (status BLOCKED_NO_REQUESTER).
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { runExecutiveCuration } from "../../ai/experts/ceo/consolidate";
 import { answerCommercialDirectorQuery } from "../../ai/experts/commercial-director/query";
 import { answerPlanningDirectorQuery } from "../../ai/experts/planning-director/query";
+import type { AiConsultReservation } from "../../ai/alert-consult/consult-quota";
 import type { OfficialExpertId } from "../../ai/expert-definitions/types";
+import { gatedProviderForExpert } from "../../ai/governance/quota-gated-provider";
 import type { AiProvider, AiProviderExpertPosition } from "../../ai/providers/types";
 import type { ExpertId, ExpertSeverity } from "../../ai/types";
 import { runClientSourceConfrontation } from "../confrontation/run-client-source-confrontation";
@@ -35,9 +47,17 @@ export interface RunAutomaticCurationInput {
   /** Hash real do conteúdo quando já disponível (ex.: sha256 do arquivo processado); cai para hash do resumo quando ausente. */
   contentHash?: string;
   hasCostOrScheduleImpact?: boolean;
+  /** Usuário que originou a fonte — é o SOLICITANTE em nome de quem o limite de IA é reservado. Sem ele, nada é chamado. */
   createdByUserId?: string;
+  /**
+   * OBRIGATÓRIO para chamar a IA: reserva 1 unidade para o Expert (produção: actorExpertReserve(admin,
+   * createdByUserId, projectId, "AUTOMATIC_CURATION", ...), grant só service_role). Ausente = nada é chamado.
+   */
+  reserve?: (expertId: OfficialExpertId) => Promise<AiConsultReservation>;
   /** Só para testes — injeta o provider do confronto Jurídico sem depender de resolução por env var. */
   confrontationProvider?: AiProvider;
+  /** Só para testes — provider simulado dos Experts roteados e do CEO IA. */
+  expertProvider?: AiProvider;
   /**
    * Data documental/de evento da fonte (Start-up ACC — seção 5/6 do
    * requisito de revisão histórica). Quando informada e anterior a
@@ -49,7 +69,7 @@ export interface RunAutomaticCurationInput {
 }
 
 export interface RunAutomaticCurationResult {
-  status: "SKIPPED_UNCHANGED" | "COMPLETED" | "FAILED_PENDING_RETRY";
+  status: "SKIPPED_UNCHANGED" | "COMPLETED" | "FAILED_PENDING_RETRY" | "BLOCKED_NO_REQUESTER";
   finding: AiFinding | null;
   findingCreated: boolean;
   runStatus: AiCurationRunStatus;
@@ -59,6 +79,10 @@ export interface RunAutomaticCurationResult {
 function toPosition(expertId: OfficialExpertId, expertName: string, severity: ExpertSeverity, interpretacao: string, riscos: string[], recomendacoes: string[], informacoesFaltantes: string[]): AiProviderExpertPosition {
   return { expertId, expertName, severity, interpretacao, riscos, recomendacoes, informacoesFaltantes };
 }
+
+/** Mensagem registrada em ai_curation_runs.error_message quando não há solicitante identificável. */
+export const AUTOMATIC_CURATION_NO_REQUESTER_MESSAGE =
+  "BLOCKED_NO_REQUESTER: curadoria automática sem usuário solicitante identificável (ou sem reserva do limite de IA) — nenhum Expert foi chamado.";
 
 export async function runAutomaticCurationForClientSource(
   supabase: SupabaseClient,
@@ -90,11 +114,19 @@ export async function runAutomaticCurationForClientSource(
     createdByUserId: input.createdByUserId,
   });
 
+  // Sem solicitante identificável (ou sem reserva): não chama a IA e registra a recusa.
+  const reserve = input.reserve;
+  if (!input.createdByUserId || typeof reserve !== "function") {
+    await failCurationRun(supabase, run.id, AUTOMATIC_CURATION_NO_REQUESTER_MESSAGE);
+    return { status: "BLOCKED_NO_REQUESTER", finding: null, findingCreated: false, runStatus: "FAILED_PENDING_RETRY", routedExpertIds: [] };
+  }
+  const gated = (expertId: OfficialExpertId, base?: AiProvider) => gatedProviderForExpert(expertId, reserve, base);
+
   try {
     const { confrontation } = await runClientSourceConfrontation(
       supabase,
       { projectId: input.projectId, sourceLabel: input.sourceLabel, sourceSummary: input.sourceSummary },
-      input.confrontationProvider
+      gated("legal-consultant", input.confrontationProvider)
     );
 
     const routing = routeExpertsForConfrontation({
@@ -119,11 +151,11 @@ export async function runAutomaticCurationForClientSource(
 
     for (const expertId of routing.additionalExpertIds) {
       if (expertId === "commercial-director") {
-        const result = await answerCommercialDirectorQuery(supabase, { scope: "PROJECT", projectId: input.projectId, question });
+        const result = await answerCommercialDirectorQuery(supabase, { scope: "PROJECT", projectId: input.projectId, question }, gated(expertId, input.expertProvider));
         positions.push(toPosition(expertId, result.response.expertName, result.response.severity, result.response.interpretacao, result.response.riscos, result.response.recomendacoes, result.response.informacoesFaltantes));
         routedExpertIds.push(expertId);
       } else if (expertId === "planning-director") {
-        const result = await answerPlanningDirectorQuery(supabase, { scope: "PROJECT", projectId: input.projectId, question });
+        const result = await answerPlanningDirectorQuery(supabase, { scope: "PROJECT", projectId: input.projectId, question }, gated(expertId, input.expertProvider));
         positions.push(toPosition(expertId, result.response.expertName, result.response.severity, result.response.interpretacao, result.response.riscos, result.response.recomendacoes, result.response.informacoesFaltantes));
         routedExpertIds.push(expertId);
       }
@@ -140,7 +172,7 @@ export async function runAutomaticCurationForClientSource(
     let recommendation = confrontation.recommendedActions[0] ?? confrontation.executiveSummary;
 
     if (isMaterial) {
-      const { curation } = await runExecutiveCuration(question, positions);
+      const { curation } = await runExecutiveCuration(question, positions, gated("ceo", input.expertProvider));
       routedExpertIds.push("ceo");
       interpretation = curation.situacao;
       recommendation = curation.recomendacao;

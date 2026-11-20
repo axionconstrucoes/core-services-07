@@ -11,6 +11,7 @@ register("./ts-module-resolver.mjs", import.meta.url);
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const { runAlertConsult } = await import("../apps/web/lib/ai/alert-consult/run-alert-consult.ts");
 const { runSsmaRecordConsult } = await import("../apps/web/lib/ssma/field-records/run-record-consult.ts");
+const { withQuotaGate } = await import("../apps/web/lib/ai/governance/quota-gated-provider.ts");
 
 let failed = 0;
 const check = async (name, fn) => {
@@ -39,8 +40,14 @@ function alertDeps(overrides = {}) {
         calls.reserve += 1;
         return { ok: true };
       },
-      runExpert: async () => {
-        calls.expert += 1;
+      // Frente N6: a reserva é feita na FRONTEIRA DO PROVEDOR — o Expert recebe a reserva e o provedor
+      // (aqui simulado) só é chamado depois dela.
+      runExpert: async (_expertId, _request, _q, reserve) => {
+        const provider = withQuotaGate(
+          { id: "fake", answerQuery: async () => ((calls.expert += 1), {}), generateAssessment: async () => ({}), consolidateExecutiveCuration: async () => ({}) },
+          reserve ?? (async () => ({ ok: true }))
+        );
+        await provider.answerQuery({});
         return expertResult;
       },
       ...overrides(calls),

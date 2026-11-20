@@ -6,7 +6,8 @@
 
 import { createSupabaseServerClient } from "@axion/db/server";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
-import { reserveAiConsult } from "./alert-consult/consult-quota";
+import { precheckAiConsult, reserveAiConsult } from "./alert-consult/consult-quota";
+import { gatedProviderForExpert } from "./governance/quota-gated-provider";
 import { answerPlanningDirectorQuery } from "./experts/planning-director/query";
 import { PLANNING_DIRECTOR_EXPERT_ID } from "./experts/planning-director/identity";
 import { scheduleSourceBlockingMessage } from "./experts/planning-director/schedule-source-guard";
@@ -36,20 +37,18 @@ export async function askPlanningDirectorAction(
 
   const supabase = await createSupabaseServerClient();
 
-  // Falha fechada: sem reserva confirmada, o provedor não é chamado.
-  const reservation = await reserveAiConsult(
-    supabase,
-    request.projectId,
-    "EXPERT_PANEL",
-    request.eventId ?? request.projectId,
-    PLANNING_DIRECTOR_EXPERT_ID
-  );
-  if (!reservation.ok) {
-    return { response: null, error: reservation.error, meta: null };
+  // Limite de IA (EXPERT_PANEL): pré-verificação somente leitura; a unidade é reservada na FRONTEIRA DO PROVEDOR,
+  // depois dos guards determinísticos (recusa antes do provedor não consome). Sem reserva, o provedor não é chamado.
+  const precheck = await precheckAiConsult(supabase, request.projectId);
+  if (!precheck.ok) {
+    return { response: null, error: precheck.error, meta: null };
   }
 
   try {
-    const result = await answerPlanningDirectorQuery(supabase, request);
+    const provider = gatedProviderForExpert(PLANNING_DIRECTOR_EXPERT_ID, (expertId) =>
+      reserveAiConsult(supabase, request.projectId, "EXPERT_PANEL", request.eventId ?? request.projectId, expertId)
+    );
+    const result = await answerPlanningDirectorQuery(supabase, request, provider);
     return {
       response: result.response,
       error: null,
