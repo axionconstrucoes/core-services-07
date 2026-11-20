@@ -375,14 +375,22 @@ interface PendingConfirmation {
 export async function sendPendingSsmaReplyConfirmations(admin: Admin, mailer: Mailer, scope: SsmaNotificationScope) {
   const summary = { pending: 0, sent: 0, failed: 0, uncertain: 0 };
   if (!scope.replyEnabled || scope.projectIds === null) return summary;
-  const { data: rows } = await admin
-    .from("audit_log_entries")
-    .select("project_id,action,detail,occurred_at")
-    .in("project_id", scope.projectIds)
-    .eq("entity_type", SSMA_REPLY_ENTITY_TYPE)
-    .in("action", [SSMA_REPLY_CONFIRMATION_PENDING, SSMA_REPLY_CONFIRMATION_CLAIMED, SSMA_REPLY_CONFIRMATION_SENT])
-    .order("occurred_at", { ascending: true })
-    .limit(500);
+  // Leitura PAGINADA (mesmo defeito do antigo teto de 2000 da fase replies: com limit fixo em ordem crescente, confirmações
+  // novas deixavam de ser lidas depois de 500 linhas).
+  const rows: Array<{ project_id: unknown; action: unknown; detail: unknown; occurred_at: unknown }> = [];
+  for (let from = 0; from < 200_000; from += 1000) {
+    const { data: page } = await admin
+      .from("audit_log_entries")
+      .select("id,project_id,action,detail,occurred_at")
+      .in("project_id", scope.projectIds)
+      .eq("entity_type", SSMA_REPLY_ENTITY_TYPE)
+      .in("action", [SSMA_REPLY_CONFIRMATION_PENDING, SSMA_REPLY_CONFIRMATION_CLAIMED, SSMA_REPLY_CONFIRMATION_SENT])
+      .order("occurred_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + 999);
+    rows.push(...(page ?? []));
+    if ((page ?? []).length < 1000) break;
+  }
   const parse = (detail: unknown): Record<string, unknown> | null => {
     try { return JSON.parse(String(detail ?? "")) as Record<string, unknown>; } catch { return null; }
   };

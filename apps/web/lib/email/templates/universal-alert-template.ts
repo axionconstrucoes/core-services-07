@@ -101,7 +101,7 @@ function replyByEmailHtml(o: UniversalOccurrence): string {
   if (!links) return "";
   const anchors = REPLY_MAILTO_ORDER.map(
     (action) =>
-      `<a href="${escapeAttr(links[action])}" style="display:inline-block;margin:0 8px 8px 0;padding:8px 12px;border:1px solid #6B7280;border-radius:6px;background-color:#FFFFFF;color:#111827;font-family:${ACC_FONT_FAMILY};font-size:15px;line-height:20px;font-weight:700;text-decoration:none;">${escapeAttr(REPLY_MAILTO_LABELS[action])}</a>`
+      `<a href="${escapeAttr(links[action])}" style="display:inline-block;margin:0 8px 8px 0;padding:8px 12px;border:1px solid #6B7280;border-radius:6px;background-color:#FFFFFF;color:#111827;font-family:${ACC_FONT_FAMILY};font-size:15px;line-height:20px;font-weight:700;text-decoration:none;">${escapeAttr(`${REPLY_MAILTO_LABELS[action]} por e-mail`)}</a>`
   ).join("");
   return `<div class="acc-reply-by-email" style="margin:16px 0 0 0;background-color:#FFFFFF;border:1px solid #D1D5DB;border-radius:6px;padding:14px 16px;"><p style="margin:0 0 8px 0;font-family:${ACC_FONT_FAMILY};font-size:16px;line-height:24px;font-weight:700;color:#111827;">${escapeAttr(REPLY_BY_EMAIL_HEADING)}</p><p style="margin:0 0 10px 0;">${anchors}</p><p style="margin:0;font-family:${ACC_FONT_FAMILY};font-size:14px;line-height:20px;color:#374151;">${escapeAttr(REPLY_BY_EMAIL_NOTE)}</p></div>`;
 }
