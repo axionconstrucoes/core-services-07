@@ -18,6 +18,7 @@ export type InsuranceOp =
   | "other_update"
   | "endorsement_request"
   | "endorsement_advance"
+  | "endorsement_review"
   | "advance_register"
   | "advance_amortize"
   | "claim_open"
@@ -65,8 +66,10 @@ const BANK_KEYS = ["bank_name", "guarantee_number", "beneficiary_name", "princip
 const BANK_UPDATE_KEYS = ["amount", "end_date", "calls_on_first_demand", "claim_procedure_note", "status", "notes"];
 const OTHER_KEYS = ["guarantee_type", "caucao_form", "issuer_name", "beneficiary_name", "principal_name", "amount", "start_date", "end_date", "release_conditions", "contract_document_id", "contract_number", "source_document_id", "source_ref", "status", "notes"];
 const OTHER_UPDATE_KEYS = ["amount", "end_date", "release_conditions", "status", "notes"];
-const ENDORSEMENT_REQUEST_KEYS = ["requested_text", "request_document_id", "request_ref"];
-const ENDORSEMENT_ADVANCE_KEYS = ["issued_text", "issued_number", "issued_document_id", "issued_at", "divergence_note", "refusal_note"];
+const ENDORSEMENT_REQUEST_KEYS = ["requested_text", "request_document_id", "request_ref", "change_kinds"];
+const ENDORSEMENT_ADVANCE_KEYS = ["issued_text", "issued_number", "issued_document_id", "issued_at", "divergence_note", "refusal_note", "change_kinds"];
+const ENDORSEMENT_REVIEW_KEYS = ["note", "divergence_note"];
+const ENDORSEMENT_REVIEW_OUTCOMES = ["APROVADO", "RECUSADO"];
 const ADVANCE_KEYS = ["policy_id", "contract_document_id", "contract_number", "advanced_amount", "advance_date", "purpose", "application_document_id", "guaranteed_limit", "balance_due_informed", "indemnifiable_informed", "source_document_id", "source_ref", "notes"];
 const AMORTIZE_KEYS = ["amount", "amortized_on", "source_document_id", "source_ref", "note"];
 const CLAIM_OPEN_KEYS = ["stage", "claim_kind", "title", "policy_id", "bank_guarantee_id", "other_guarantee_id", "advance_id", "protocol", "occurrence_date", "claimed_amount", "notice_deadline_at", "notice_deadline_basis", "contractual_basis_clause_id", "contractual_basis_note", "no_instrument_reason", "source_document_id", "source_ref"];
@@ -118,6 +121,7 @@ export function levelForOp(op: InsuranceOp, input?: Pick<InsuranceActionInput, "
     case "other_register":
     case "other_update":
     case "dossier_sync":
+    case "endorsement_review":
       return "MANAGE";
     case "endorsement_advance":
       return input?.args?.toState === "EM_ANALISE" ? "REGISTER" : "MANAGE";
@@ -169,6 +173,12 @@ export function buildRpcCall(input: InsuranceActionInput): RpcCall {
       if (!to || !ENDORSEMENT_TARGETS.includes(to)) throw new InsuranceInputError("Estado de destino do endosso inválido.");
       return call("insurance_endorsement_advance", { p_id: uuid(input.id, "endosso"), p_expected_row_version: rowVersion(input.expectedRowVersion), p_to_state: to, p_data: pick(data, ENDORSEMENT_ADVANCE_KEYS) });
     }
+    case "endorsement_review": {
+      // Conferência humana (simples ou dupla): sempre pela RPC de conferência; a independência é imposta pelo banco.
+      const outcome = str(args.outcome);
+      if (!outcome || !ENDORSEMENT_REVIEW_OUTCOMES.includes(outcome)) throw new InsuranceInputError("Resultado da conferência inválido.");
+      return call("insurance_endorsement_review", { p_id: uuid(input.id, "endosso"), p_expected_row_version: rowVersion(input.expectedRowVersion), p_outcome: outcome, p_data: pick(data, ENDORSEMENT_REVIEW_KEYS) });
+    }
     case "advance_register":
       return call("insurance_advance_register", { p_project_id: projectId, p_data: pick(data, ADVANCE_KEYS) });
     case "advance_amortize":
@@ -216,7 +226,7 @@ export function buildRpcCall(input: InsuranceActionInput): RpcCall {
 
 export const ALL_INSURANCE_OPS: InsuranceOp[] = [
   "policy_create", "policy_new_version", "party_add", "party_set_active", "clause_add", "channel_register", "channel_verify",
-  "bank_register", "bank_update", "other_register", "other_update", "endorsement_request", "endorsement_advance",
+  "bank_register", "bank_update", "other_register", "other_update", "endorsement_request", "endorsement_advance", "endorsement_review",
   "advance_register", "advance_amortize", "claim_open", "claim_advance", "dossier_sync", "dossier_item_set",
   "draft_create", "draft_update", "draft_approve", "draft_cancel", "draft_attempt_send",
 ];

@@ -4,12 +4,12 @@ import { useState } from "react";
 import { HelpHint } from "@/components/shared/help-hint";
 import { SELECT_CLASS } from "@/components/ui/select";
 import { ActionButton, Callout, DataTable, NoData, Section, SourceLink, SpecForm, StatusBadge, buildOptionSets, useWorkspace, type Column } from "@/components/insurance/kit";
-import { bankGuaranteeExecutionStatus } from "@/lib/insurance/index";
+import { bankGuaranteeExecutionStatus, reviewBlockText } from "@/lib/insurance/index";
 import { FORMS, validateEndorsementVerify } from "@/lib/insurance-ui/forms";
 import { formatDate, formatDateTime, formatMoney, textOrNoData, NO_DATA } from "@/lib/insurance-ui/format";
-import { ENDORSEMENT_STATE_LABEL, GUARANTEE_STATUS_LABEL, OTHER_GUARANTEE_TYPE_LABEL, CAUCAO_FORM_LABEL, labelOf } from "@/lib/insurance-ui/labels";
+import { CHANGE_KIND_LABEL, DUAL_REVIEW_REASON_LABEL, ENDORSEMENT_STATE_LABEL, GUARANTEE_STATUS_LABEL, OTHER_GUARANTEE_TYPE_LABEL, CAUCAO_FORM_LABEL, labelOf } from "@/lib/insurance-ui/labels";
 import { advanceView, endorsementView, prepareEndorsementDraft } from "@/lib/insurance-ui/model";
-import type { AdvanceRow, BankGuaranteeRow, EndorsementRow, OtherGuaranteeRow } from "@/lib/insurance-ui/types";
+import type { AdvanceRow, BankGuaranteeRow, EndorsementReviewRow, EndorsementRow, OtherGuaranteeRow } from "@/lib/insurance-ui/types";
 
 /* ------------------------------------------------------------- fianças e garantias ------------------------------------------------------------- */
 
@@ -99,6 +99,7 @@ export function EndorsementsPanel() {
   const cols: Column<EndorsementRow>[] = [
     { key: "pol", label: "Apólice / nº do pedido", render: (e) => `${policyName(e.policy_id)} / #${e.endorsement_seq}` },
     { key: "st", label: "Estado", helpId: "seguros.status.endosso", render: (e) => <StatusBadge text={labelOf(ENDORSEMENT_STATE_LABEL, e.state)} variant={e.state === "CONFERIDO" ? "success" : e.state === "RECUSADO" ? "destructive" : "warning"} /> },
+    { key: "rev", label: "Conferências", helpId: "seguros.endossos.coluna-conferencias", render: (e) => reviewsCell(e, data.endorsementReviews) },
     { key: "eff", label: "Efeito de cobertura", render: (e) => (endorsementView(e).extendsCoverage ? <StatusBadge text="Efetivo (conferido)" variant="success" /> : <StatusBadge text="SEM efeito" variant="secondary" />) },
     { key: "req", label: "Solicitado em", render: (e) => formatDateTime(e.requested_at) },
     { key: "iss", label: "Emitido", render: (e) => (e.issued_number ? `nº ${e.issued_number} em ${formatDateTime(e.issued_at)}` : <NoData text="SEM DADOS (não emitido)" />) },
@@ -128,11 +129,20 @@ export function EndorsementsPanel() {
   );
 }
 
+function reviewsCell(e: EndorsementRow, reviews: EndorsementReviewRow[]) {
+  const v = endorsementView(e, reviews);
+  if (v.reviewState.legacySingleReview) return "Única (histórico)";
+  if (e.state === "SOLICITADO" || e.state === "EM_ANALISE" || e.state === "RECUSADO") return <NoData text="Não se aplica" />;
+  return `${v.progress.approved} de ${v.progress.required} aprovada(s)${v.progress.refused ? " — 1 recusada" : ""}`;
+}
+
 function EndorsementDetail({ e, goTo }: { e: EndorsementRow; goTo: (tab: string, t?: { endorsementId?: string }) => void }) {
-  const { data } = useWorkspace();
+  const { data, caps, currentUserId } = useWorkspace();
   const options = buildOptionSets(data);
-  const v = endorsementView(e);
-  const [mode, setMode] = useState<null | "EMITIDO" | "RECUSADO" | "CONFERIDO" | "EM_ANALISE">(null);
+  const v = endorsementView(e, data.endorsementReviews, currentUserId, caps.manage);
+  const nameOf = (id: string) => data.actors[id] ?? `usuário ${id.slice(0, 8)}`;
+  const kinds = e.change_kinds && e.change_kinds.length ? e.change_kinds.map((k) => labelOf(CHANGE_KIND_LABEL, k)).join("; ") : null;
+  const [mode, setMode] = useState<null | "EMITIDO" | "RECUSADO" | "CONFERIDO" | "EM_ANALISE" | "REVISAO_RECUSA">(null);
   const prep = prepareEndorsementDraft(e, data);
   return (
     <Section title={`Endosso #${e.endorsement_seq}`} helpId="seguros.endossos.detalhe">
@@ -161,11 +171,35 @@ function EndorsementDetail({ e, goTo }: { e: EndorsementRow; goTo: (tab: string,
           <p className="mt-1 text-xs text-muted-foreground">Revisão humana obrigatória. {e.divergence_note ? `Nota de divergência registrada: ${e.divergence_note}` : ""}</p>
         </div>
       ) : null}
+      <div className="mt-3 rounded-md border border-border p-3 text-sm">
+        <h3 className="mb-1 flex items-center gap-1 font-semibold">Conferência humana independente<HelpHint helpId="seguros.endossos.conferencias" /></h3>
+        <p>
+          <strong>{v.reviewState.legacySingleReview ? "Conferência única (histórico)" : v.reviewState.requiresDualReview ? "Dupla conferência exigida" : "Conferência simples"}</strong>
+          <HelpHint helpId="seguros.endossos.status-dupla" />
+          {v.reviewState.requiresDualReview && !v.reviewState.legacySingleReview ? ` — ${labelOf(DUAL_REVIEW_REASON_LABEL, e.dual_review_reason ?? "SEM_CLASSIFICACAO")}` : ""}
+        </p>
+        <p className="mt-1 text-muted-foreground">Itens que o endosso altera (declarado): {kinds ?? "SEM CLASSIFICAÇÃO (tratado como crítico)"}.</p>
+        <p className="mt-1">{v.progressText}</p>
+        {v.currentReviews.length ? (
+          <ul className="mt-2 list-disc pl-5">
+            {v.currentReviews.map((r) => (
+              <li key={r.id}>
+                Conferência {r.review_no}: {r.outcome === "APROVADO" ? "APROVADA" : "RECUSADA"} por {nameOf(r.reviewer_id)} em {formatDateTime(r.reviewed_at)}{r.note ? ` — nota: ${r.note}` : ""}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-1 text-muted-foreground">Nenhuma conferência registrada nesta rodada (rodada {v.progress.round}).</p>
+        )}
+        {e.state === "EMITIDO" && v.reviewBlock ? <p className="mt-2 font-medium" role="status">Conferir está bloqueado para você: {reviewBlockText(v.reviewBlock)}</p> : null}
+        <p className="mt-1 text-xs text-muted-foreground">Quem solicitou e quem registrou a emissão não conferem; a mesma pessoa não confere duas vezes. O banco impõe essas regras; a tela apenas as antecipa.</p>
+      </div>
       {e.refusal_note ? <p className="mt-3 text-sm">Motivo da recusa: {e.refusal_note}</p> : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {v.nextActions.includes("EM_ANALISE") ? <ActionButton label="Registrar em análise" helpId="seguros.acoes.endosso-analise" level="REGISTER" variant="outline" onClick={() => setMode("EM_ANALISE")} /> : null}
         {v.nextActions.includes("EMITIDO") ? <ActionButton label="Registrar emissão" helpId="seguros.acoes.endosso-emitir-abrir" level="MANAGE" variant="outline" onClick={() => setMode("EMITIDO")} /> : null}
-        {v.nextActions.includes("CONFERIDO") ? <ActionButton label="Conferir texto emitido" helpId="seguros.acoes.endosso-conferir-abrir" level="MANAGE" variant="outline" onClick={() => setMode("CONFERIDO")} /> : null}
+        {v.nextActions.includes("CONFERIDO") ? <ActionButton label="Conferir texto emitido" helpId="seguros.acoes.endosso-conferir-abrir" level="MANAGE" variant="outline" extraDisabled={Boolean(v.reviewBlock)} extraReason={v.reviewBlock ? reviewBlockText(v.reviewBlock) : undefined} onClick={() => setMode("CONFERIDO")} /> : null}
+        {v.nextActions.includes("CONFERIDO") ? <ActionButton label="Recusar conferência" helpId="seguros.acoes.endosso-conferencia-recusar-abrir" level="MANAGE" variant="outline" extraDisabled={Boolean(v.reviewBlock)} extraReason={v.reviewBlock ? reviewBlockText(v.reviewBlock) : undefined} onClick={() => setMode("REVISAO_RECUSA")} /> : null}
         {v.nextActions.includes("RECUSADO") ? <ActionButton label="Registrar recusa" helpId="seguros.acoes.endosso-recusar-abrir" level="MANAGE" variant="outline" onClick={() => setMode("RECUSADO")} /> : null}
         <ActionButton label="Preparar minuta de endosso" helpId="seguros.acoes.endosso-minuta" level="REGISTER" variant="outline" onClick={() => goTo("minutas", { endorsementId: e.id })} />
       </div>
@@ -175,7 +209,8 @@ function EndorsementDetail({ e, goTo }: { e: EndorsementRow; goTo: (tab: string,
       ) : null}
       {mode === "EMITIDO" ? <div className="mt-3"><SpecForm spec={FORMS.endorsementIssue} options={options} level="MANAGE" okMessage="Emissão registrada: confira o texto emitido para torná-lo efetivo." onCancel={() => setMode(null)} onDone={() => setMode(null)} toInput={(b) => ({ op: "endorsement_advance", id: e.id, expectedRowVersion: e.row_version, data: b.data, args: { toState: "EMITIDO" } })} /></div> : null}
       {mode === "RECUSADO" ? <div className="mt-3"><SpecForm spec={FORMS.endorsementRefuse} level="MANAGE" okMessage="Recusa registrada." onCancel={() => setMode(null)} onDone={() => setMode(null)} toInput={(b) => ({ op: "endorsement_advance", id: e.id, expectedRowVersion: e.row_version, data: b.data, args: { toState: "RECUSADO" } })} /></div> : null}
-      {mode === "CONFERIDO" ? <div className="mt-3"><SpecForm spec={FORMS.endorsementVerify} level="MANAGE" extraValidate={(vals) => validateEndorsementVerify(vals, e.texts_match)} okMessage="Endosso conferido: efeito de cobertura conforme o TEXTO EMITIDO." onCancel={() => setMode(null)} onDone={() => setMode(null)} toInput={(b) => ({ op: "endorsement_advance", id: e.id, expectedRowVersion: e.row_version, data: b.data, args: { toState: "CONFERIDO" } })} /></div> : null}
+      {mode === "CONFERIDO" ? <div className="mt-3"><SpecForm spec={FORMS.endorsementVerify} level="MANAGE" extraValidate={(vals) => validateEndorsementVerify(vals, e.texts_match)} okMessage={v.progress.required - v.progress.approved > 1 ? "Conferência registrada: falta a conferência independente de outra pessoa; ainda SEM efeito de cobertura." : "Conferência registrada. O efeito de cobertura só vale quando o endosso aparecer como Conferido."} onCancel={() => setMode(null)} onDone={() => setMode(null)} toInput={(b) => ({ op: "endorsement_review", id: e.id, expectedRowVersion: e.row_version, data: b.data, args: { outcome: "APROVADO" } })} /></div> : null}
+      {mode === "REVISAO_RECUSA" ? <div className="mt-3"><SpecForm spec={FORMS.endorsementReviewRefuse} level="MANAGE" okMessage="Conferência recusada: o endosso foi para revisão, sem efeito de cobertura." onCancel={() => setMode(null)} onDone={() => setMode(null)} toInput={(b) => ({ op: "endorsement_review", id: e.id, expectedRowVersion: e.row_version, data: b.data, args: { outcome: "RECUSADO" } })} /></div> : null}
     </Section>
   );
 }

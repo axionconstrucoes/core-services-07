@@ -71,6 +71,30 @@ export const ENDORSEMENT_STATE_LABEL: Record<string, string> = {
   EMITIDO: "Emitido",
   CONFERIDO: "Conferido",
   RECUSADO: "Recusado",
+  EM_REVISAO: "Em revisão (conferência recusada)",
+};
+
+export const CHANGE_KIND_LABEL: Record<string, string> = {
+  SEGURADO: "Segurado (crítico)",
+  BENEFICIARIO_PARTES: "Beneficiário ou partes (crítico)",
+  OBRIGACAO_GARANTIDA: "Obrigação garantida (crítico)",
+  VALOR_IMPORTANCIA_SEGURADA: "Valor: importância segurada (crítico)",
+  VALOR_LIMITE: "Valor: limite (crítico)",
+  VALOR_PREMIO: "Valor: prêmio (crítico)",
+  VALOR_GARANTIDO: "Valor: valor garantido (crítico)",
+  COBERTURA_CLAUSULA: "Cobertura: cláusula de cobertura (crítico)",
+  COBERTURA_EXCLUSAO: "Cobertura: exclusão (crítico)",
+  COBERTURA_SUBLIMITE: "Cobertura: sublimite (crítico)",
+  COBERTURA_FRANQUIA: "Cobertura: franquia ou participação obrigatória (crítico)",
+  PRORROGACAO_VIGENCIA: "Prorrogação de vigência (não crítico)",
+  DADOS_CADASTRAIS: "Dados cadastrais (não crítico)",
+  OUTRO_NAO_CRITICO: "Outro, comprovadamente sem item crítico (não crítico)",
+};
+
+export const DUAL_REVIEW_REASON_LABEL: Record<string, string> = {
+  SEM_CLASSIFICACAO: "Sem classificação declarada (tratado como crítico)",
+  CLASSIFICACAO_CRITICA: "Altera item crítico",
+  TEXTO_DIVERGENTE: "Texto emitido diverge do solicitado",
 };
 
 export const CLAIM_STAGE_LABEL: Record<string, string> = {

@@ -12,6 +12,12 @@ import {
   dossierProgress,
   endorsementExtendsCoverage,
   endorsementStatusLabel,
+  reviewBlock,
+  reviewProgress,
+  reviewProgressLabel,
+  type EndorsementReviewState,
+  type ReviewBlockCode,
+  type ReviewProgress,
   evaluateNoticeDeadline,
   evaluateSendAttempt,
   isRealSendFlagOn,
@@ -31,7 +37,7 @@ import { formatMoney, NO_DATA, toNumber } from "./format";
 import { CLAIM_KIND_LABEL, MODALITY_LABEL, labelOf } from "./labels";
 import type {
   AdvanceRow, AmortizationRow, ChannelRow, ClauseRow, ClaimRow, DashboardItemRow, DocumentRef, DossierItemRow, DraftRow,
-  EndorsementRow, InsuranceWorkspaceData, PartyRow, PolicyRow,
+  EndorsementReviewRow, EndorsementRow, InsuranceWorkspaceData, PartyRow, PolicyRow,
 } from "./types";
 
 /* ------------------------------------------------------------------ apólice ------------------------------------------------------------------ */
@@ -105,13 +111,41 @@ export interface EndorsementView {
   /** Próximas ações possíveis (espelham a máquina de estados do banco). */
   nextActions: Array<"EM_ANALISE" | "EMITIDO" | "CONFERIDO" | "RECUSADO">;
   comparison: ReturnType<typeof compareEndorsementTexts> | null;
+  /** Fase 3/C: andamento da conferência (simples ou dupla) e por que o usuário atual não pode conferir (null = pode). */
+  reviewState: EndorsementReviewState;
+  progress: ReviewProgress;
+  progressText: string;
+  reviewBlock: ReviewBlockCode | null;
+  /** Conferências da rodada atual, da mais antiga para a mais recente. */
+  currentReviews: EndorsementReviewRow[];
 }
 
-export function endorsementView(e: EndorsementRow): EndorsementView {
+export function endorsementReviewState(e: EndorsementRow): EndorsementReviewState {
+  return {
+    // fail-closed: linha sem o campo (banco antigo) é tratada como dupla conferência
+    requiresDualReview: e.requires_dual_review !== false,
+    legacySingleReview: e.legacy_single_review === true,
+    state: e.state,
+    reviewRound: e.review_round ?? 1,
+    requestedBy: e.requested_by ?? null,
+    issuedBy: e.issued_by ?? null,
+  };
+}
+
+export function endorsementView(e: EndorsementRow, reviews: EndorsementReviewRow[] = [], userId: string | null = null, canManage = false): EndorsementView {
   const summary = toEndorsementSummary(e);
   const nextActions: EndorsementView["nextActions"] =
-    e.state === "SOLICITADO" ? ["EM_ANALISE", "EMITIDO", "RECUSADO"] : e.state === "EM_ANALISE" ? ["EMITIDO", "RECUSADO"] : e.state === "EMITIDO" ? ["CONFERIDO"] : [];
+    e.state === "SOLICITADO" ? ["EM_ANALISE", "EMITIDO", "RECUSADO"] : e.state === "EM_ANALISE" || e.state === "EM_REVISAO" ? ["EMITIDO", "RECUSADO"] : e.state === "EMITIDO" ? ["CONFERIDO"] : [];
+  const reviewState = endorsementReviewState(e);
+  const mine = reviews.filter((r) => r.endorsement_id === e.id);
+  const lite = mine.map((r) => ({ reviewRound: r.review_round, reviewNo: r.review_no, reviewerId: r.reviewer_id, outcome: r.outcome }));
+  const progress = reviewProgress(reviewState, lite);
   return {
+    reviewState,
+    progress,
+    progressText: reviewProgressLabel(reviewState, progress),
+    reviewBlock: reviewBlock(userId, canManage, reviewState, lite),
+    currentReviews: mine.filter((r) => r.review_round === reviewState.reviewRound).sort((a, b) => a.review_no - b.review_no),
     statusText: endorsementStatusLabel(summary),
     extendsCoverage: endorsementExtendsCoverage(summary),
     nextActions,
@@ -373,7 +407,7 @@ export function overviewKpis(data: InsuranceWorkspaceData, today: string): Kpi[]
   const policies = data.policies;
   const inForce = policies.filter((p) => p.status === "VIGENTE" && policyValidity(p, today) === "EM_VIGENCIA").length;
   const expiring = data.dashboardItems.filter((i) => i.kind === "VENCIMENTO");
-  const pendingEnd = data.endorsements.filter((e) => ["SOLICITADO", "EM_ANALISE", "EMITIDO"].includes(e.state)).length;
+  const pendingEnd = data.endorsements.filter((e) => ["SOLICITADO", "EM_ANALISE", "EMITIDO", "EM_REVISAO"].includes(e.state)).length;
   const openClaims = data.claims.filter((c) => c.stage !== "ENCERRADO").length;
   const insufficient = data.dashboardItems.filter((i) => i.kind === "GARANTIA_INSUFICIENTE").length;
   const hasInstruments = policies.length + data.bankGuarantees.length + data.otherGuarantees.length > 0;

@@ -154,6 +154,32 @@ export interface EndorsementRow {
   coverage_effective: boolean;
   refusal_note: string | null;
   row_version: number;
+  /** Fase 3/C: quem solicitou / registrou a emissão / conferiu por último (independência da dupla conferência). */
+  requested_by: InsuranceUuid | null;
+  issued_by: InsuranceUuid | null;
+  verified_by: InsuranceUuid | null;
+  /** Classificação declarada (itens críticos exigem dupla conferência); null = sem classificação = crítico (fail-closed). */
+  change_kinds: string[] | null;
+  requires_dual_review: boolean;
+  dual_review_reason: "SEM_CLASSIFICACAO" | "CLASSIFICACAO_CRITICA" | "TEXTO_DIVERGENTE" | null;
+  /** Endosso CONFERIDO antes da dupla conferência (conferência única histórica, permanece válido). */
+  legacy_single_review: boolean;
+  review_round: number;
+}
+
+/** Uma conferência humana (append-only): autor, instante, resultado e nota. */
+export interface EndorsementReviewRow {
+  id: InsuranceUuid;
+  project_id: InsuranceUuid;
+  endorsement_id: InsuranceUuid;
+  review_round: number;
+  review_no: number;
+  reviewer_id: InsuranceUuid;
+  outcome: "APROVADO" | "RECUSADO";
+  note: string | null;
+  texts_match: boolean | null;
+  dual_required: boolean;
+  reviewed_at: string;
 }
 
 export interface AdvanceRow {
@@ -307,6 +333,7 @@ export interface InsuranceWorkspaceData {
   otherGuarantees: OtherGuaranteeRow[];
   channels: ChannelRow[];
   endorsements: EndorsementRow[];
+  endorsementReviews: EndorsementReviewRow[];
   advances: AdvanceRow[];
   amortizations: AmortizationRow[];
   claims: ClaimRow[];

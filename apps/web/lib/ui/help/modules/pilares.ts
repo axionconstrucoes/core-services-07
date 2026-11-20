@@ -502,9 +502,9 @@ export const PILARES_HELP: FeatureHelpDefinition[] = [
   kpi({
     id: "pilares.juridico.kpi-endossos",
     title: "Endossos pendentes (sem efeito de cobertura)",
-    shortDescription: "Endossos solicitados, em análise ou emitidos e ainda não conferidos; pedido não é endosso emitido.",
-    description: "Conta os endossos nos estados SOLICITADO, EM_ANALISE e EMITIDO. Só depois de CONFERIDO o endosso passa a produzir efeito de cobertura.",
-    formula: "contagem de itens ENDOSSO_PENDENTE em insurance_dashboard_items (insurance_endorsements com state em SOLICITADO, EM_ANALISE, EMITIDO).",
+    shortDescription: "Endossos solicitados, em análise, emitidos ou em revisão e ainda não conferidos; pedido não é endosso emitido.",
+    description: "Conta os endossos nos estados SOLICITADO, EM_ANALISE, EMITIDO e EM_REVISAO. Só depois de CONFERIDO o endosso passa a produzir efeito de cobertura.",
+    formula: "contagem de itens ENDOSSO_PENDENTE em insurance_dashboard_items (insurance_endorsements com state em SOLICITADO, EM_ANALISE, EMITIDO, EM_REVISAO).",
     source: "insurance_dashboard_items (insurance_endorsements).",
     unit: "endossos",
     missingData: "Sem nenhum endosso registrado mostra SEM DADOS.",

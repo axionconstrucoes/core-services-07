@@ -283,7 +283,7 @@ await check("CASO 32: tentativa de envio real bloqueada — nenhuma operação e
   const call = OPS.buildRpcCall({ projectId: P1, op: "draft_attempt_send", id: id(90) });
   assert.equal(call.rpc, "insurance_draft_attempt_send");
   assert.deepEqual(Object.keys(call.params), ["p_id"]);
-  const rpcs = OPS.ALL_INSURANCE_OPS.map((op) => OPS.buildRpcCall({ projectId: P1, op, id: id(1), expectedRowVersion: 1, args: { toState: "EMITIDO", toStage: "AVISO", status: "PENDENTE", items: [{ key: "a" }], reason: "motivo suficiente" }, data: {} }).rpc);
+  const rpcs = OPS.ALL_INSURANCE_OPS.map((op) => OPS.buildRpcCall({ projectId: P1, op, id: id(1), expectedRowVersion: 1, args: { toState: "EMITIDO", outcome: "APROVADO", toStage: "AVISO", status: "PENDENTE", items: [{ key: "a" }], reason: "motivo suficiente" }, data: {} }).rpc);
   assert.ok(rpcs.every((r) => !/settings/.test(r)), "nenhuma RPC liga a trava de envio");
   // mesmo com TUDO satisfeito (flag ligada, aprovada, canal verificado) o resultado é bloqueio
   const d = { state: "APROVADA_PARA_ENVIO", approved_body_hash: "abc" };
@@ -328,8 +328,8 @@ await check("CASO 33: dados insuficientes — dado ausente é SEM DADOS (nunca z
 
 /* ---------------------------------------------------------- casos 37 (auditoria), 38 (concorrência), 39 (isolamento) ---------------------------------------------------------- */
 await check("CASO 37: auditoria — toda RPC da UI grava insurance_int_audit; a aba lê a trilha append-only; rótulos cobrem os objetos auditados", () => {
-  const sql = read("supabase/migrations/20261122201000_seguros_garantias_rpcs.sql");
-  const rpcNames = new Set(OPS.ALL_INSURANCE_OPS.map((op) => OPS.buildRpcCall({ projectId: P1, op, id: id(1), expectedRowVersion: 1, args: { toState: "EMITIDO", toStage: "AVISO", status: "PENDENTE", items: [{ key: "a" }] }, data: {} }).rpc));
+  const sql = read("supabase/migrations/20261122201000_seguros_garantias_rpcs.sql") + " " + read("supabase/migrations/20261123200000_endorsement_dual_review.sql"); // RPCs da Fase 3/C (conferência) incluídas
+  const rpcNames = new Set(OPS.ALL_INSURANCE_OPS.map((op) => OPS.buildRpcCall({ projectId: P1, op, id: id(1), expectedRowVersion: 1, args: { toState: "EMITIDO", outcome: "APROVADO", toStage: "AVISO", status: "PENDENTE", items: [{ key: "a" }] }, data: {} }).rpc));
   for (const name of rpcNames) {
     const start = sql.indexOf(`create or replace function public.${name}(`);
     assert.ok(start >= 0, `RPC ${name} existe`);
@@ -350,9 +350,9 @@ await check("CASO 38: concorrência — VERSION_CONFLICT vira aviso de conflito;
   assert.equal(e.code, "VERSION_CONFLICT");
   assert.ok(e.message.includes("Nada foi gravado"));
   assert.equal(ERR.mapInsuranceError({ message: "INVALID_TRANSITION: EMITIDO -> EM_ANALISE" }).conflict, false);
-  const versioned = ["policy_new_version", "party_add", "party_set_active", "clause_add", "bank_update", "other_update", "endorsement_advance", "advance_amortize", "claim_advance", "dossier_item_set", "draft_update", "draft_approve", "draft_cancel"];
+  const versioned = ["policy_new_version", "party_add", "party_set_active", "clause_add", "bank_update", "other_update", "endorsement_advance", "endorsement_review", "advance_amortize", "claim_advance", "dossier_item_set", "draft_update", "draft_approve", "draft_cancel"];
   for (const op of versioned) {
-    assert.throws(() => OPS.buildRpcCall({ projectId: P1, op, id: id(1), args: { toState: "EMITIDO", toStage: "AVISO", status: "PENDENTE" }, data: {} }), OPS.InsuranceInputError, `${op} sem row_version deve falhar`);
+    assert.throws(() => OPS.buildRpcCall({ projectId: P1, op, id: id(1), args: { toState: "EMITIDO", outcome: "APROVADO", toStage: "AVISO", status: "PENDENTE" }, data: {} }), OPS.InsuranceInputError, `${op} sem row_version deve falhar`);
     const sqlText = read("supabase/migrations/20261122201000_seguros_garantias_rpcs.sql");
     assert.ok(sqlText.includes("VERSION_CONFLICT"));
   }

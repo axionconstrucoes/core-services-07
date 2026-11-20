@@ -21,6 +21,7 @@ export default async function SegurosPage({ params }: { params: Promise<{ projec
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
   const supabase = await createSupabaseServerClient();
   const load = await loadInsuranceWorkspace(supabase, projectId, today);
+  const { data: authData } = await supabase.auth.getUser();
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
@@ -28,7 +29,7 @@ export default async function SegurosPage({ params }: { params: Promise<{ projec
         description="Apólices, fianças e garantias, endossos, adiantamentos, sinistros, dossiês e minutas. Tudo com fonte rastreável; nada é enviado por este sistema."
         actions={<FeatureInfo helpId="seguros.pagina.visao-geral" />}
       />
-      <SegurosWorkspace projectId={projectId} load={load} caps={insuranceCapabilities(permission)} today={today} nowIso={now.toISOString()} />
+      <SegurosWorkspace projectId={projectId} load={load} caps={insuranceCapabilities(permission)} today={today} nowIso={now.toISOString()} currentUserId={authData.user?.id ?? null} />
     </div>
   );
 }
