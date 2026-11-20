@@ -77,3 +77,16 @@ pelo decisor do canal; ESPECIALISTA mostra o Expert acionado.
 | SSMA/ESG, Diretoria/TI | acidente SSMA, falha operacional, impacto de versão (informativos) | n/a | n/a | n/a | n/a — decisão pendente |
 
 (*) Financeiro é **área informativa no piloto** (política existente): a resposta é registrada sem ação automática.
+
+## Configuração: servidor e worker (Frente C)
+
+As chaves `ACC_EMAIL_SPECIALIST_ENABLED`, `ACC_EMAIL_TOKEN_OWNER_STRICT`, `ACC_EMAIL_WORKSPACE_TENANT_DOMAINS`,
+`ACC_EMAIL_TRUSTED_AUTHSERV_IDS` e `ACC_EMAIL_REPLY_MAX_PER_SENDER_HOUR` são lidas pela fase `replies` do **worker**
+(`weekly-schedule-email-ingestion.yml`) e, as duas primeiras, também pelo **servidor** (atalho no e-mail, rota `cron/risk-alerts`).
+O workflow agora repassa as cinco como `vars.*` do GitHub (vazio = padrão seguro); os valores devem ser IDÊNTICOS aos do servidor.
+Teste: `scripts/test-email-worker-env-wiring.mjs` (no `test:email`).
+
+A allowlist do provider em modo piloto é fixa em código (`crm@axion.com.br`); `ACC_PILOT_ADDITIONAL_RECIPIENTS` é inerte e
+`ACC_PILOT_ALLOWED_RECIPIENTS` não é variável de ambiente. A allowlist de respostas de risco no piloto vem do banco
+(`project_weekly_schedule_ingestion_configs.pilot_recipient_allowlist_user_ids`). A migration do ESPECIALISTA é a
+`20261121173000_email_specialist_consultations.sql`.
