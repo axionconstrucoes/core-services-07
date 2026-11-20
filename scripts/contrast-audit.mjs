@@ -386,6 +386,7 @@ function evalLiteral(text, file, theme, R) {
       if (bgColor && bgColor.a >= 0.6 && C.isLightBackground(C.compositeOver(bgColor, surfaces[0].rgb))) results.lightBg = true;
       if (!bgColor && fgSel && fgSel.color.a === 1 && C.relativeLuminance(fgSel.color) < 0.2) results.darkFgOnly = true;
     }
+    if (op === 0) continue; // oculto até o hover/foco (tooltip opacity-0): o estado visível é avaliado em group-hover:/focus:
     // só avalia texto se há cor de texto OU fundo declarado neste estado/base
     const stateChangesText = st === "base" || sp.fg || sp.bg || sp.phfg || st === "disabled";
     if (!stateChangesText) { /* só ring/border */ }
