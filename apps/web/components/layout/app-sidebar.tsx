@@ -26,7 +26,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { getFeatureHelp } from "@/lib/ui/feature-help";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { NAV_ITEMS } from "@/lib/ui/nav-items";
 import { cn } from "@/lib/utils";
 
@@ -52,6 +52,9 @@ const ICONS_BY_NAME: Record<string, LucideIcon> = {
   Users,
   Wallet,
 };
+
+// Ícone (i) sobre o fundo bordô da sidebar: claro sobre escuro (o padrão text-muted-foreground não tem contraste aqui).
+const SIDEBAR_HINT_CLASS = "text-white/85 hover:text-white focus-visible:text-white focus-visible:ring-white";
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "acc.sidebar.collapsed";
 
@@ -107,65 +110,65 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
         <img src="/branding/acc-logo.png" alt="ACC" className="h-[55px] w-auto shrink-0" />
       </div>
 
-      <nav className="flex flex-1 flex-col gap-0 p-2">
+      <nav className={cn("flex flex-1 flex-col gap-0 p-2", collapsed && "px-1.5", "max-md:px-1.5")}>
         {visibleItems.map((item) => {
           const href = `/${projectId}/${item.href}`;
           const active = pathname?.startsWith(href);
           const Icon = ICONS_BY_NAME[item.icon];
-          const help = getFeatureHelp(item.helpId);
-          // Ajuda via hover/focus no próprio item (title nativo), nunca um
-          // ⓘ separado poluindo a sidebar — mesmo tooltip em qualquer
-          // estado (recolhida ou expandida).
-          const itemTitle = help ? `${item.label} — ${help.shortDescription}` : item.label;
 
           return (
-            <Link
-              key={item.href}
-              href={href}
-              aria-label={item.label}
-              title={itemTitle}
-              // Sem prefetch automático: os ~16 itens deste menu, todos
-              // visíveis ao mesmo tempo, disparavam uma rajada de
-              // requisições RSC simultâneas a cada render (observado
-              // causando 503 intermitente em segmentos aleatórios do
-              // lote, por limite de concorrência da infraestrutura —
-              // nunca erro de aplicação). A navegação em si (clique)
-              // continua buscando os dados normalmente, só deixa de
-              // adiantar rotas que o usuário ainda não pediu.
-              prefetch={false}
-              className={cn(
-                "flex min-h-9 items-center gap-2 rounded-[5px] px-3 py-1.5 text-[15px] font-medium transition-colors",
-                collapsed && "justify-center px-0",
-                "max-md:justify-center max-md:px-0",
-                active ? "bg-[#f7f3ea] font-semibold text-[#5e1414]" : "text-white/85 hover:bg-white/10 hover:text-white"
-              )}
-            >
-              {Icon ? <Icon className="size-4 shrink-0" /> : null}
-              {!collapsed ? <span className="leading-tight break-words max-md:hidden">{item.label}</span> : null}
-            </Link>
+            // Ajuda universal (Hover Text): o ícone (i) fica AO LADO do link (nunca dentro do <a>), então funciona por mouse, teclado
+            // (Tab + Enter/Espaço) e toque, também com o menu recolhido (só ícones) — nunca depende de hover nem do atributo title.
+            <div key={item.href} className="flex items-center">
+              <Link
+                href={href}
+                aria-label={item.label}
+                // Sem prefetch automático: os ~16 itens deste menu, todos
+                // visíveis ao mesmo tempo, disparavam uma rajada de
+                // requisições RSC simultâneas a cada render (observado
+                // causando 503 intermitente em segmentos aleatórios do
+                // lote, por limite de concorrência da infraestrutura —
+                // nunca erro de aplicação). A navegação em si (clique)
+                // continua buscando os dados normalmente, só deixa de
+                // adiantar rotas que o usuário ainda não pediu.
+                prefetch={false}
+                className={cn(
+                  "flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-[5px] px-3 py-1.5 text-[15px] font-medium transition-colors",
+                  collapsed && "justify-center px-0",
+                  "max-md:justify-center max-md:px-0",
+                  active ? "bg-[#f7f3ea] font-semibold text-[#5e1414]" : "text-white/85 hover:bg-white/10 hover:text-white"
+                )}
+              >
+                {Icon ? <Icon className="size-4 shrink-0" /> : null}
+                {!collapsed ? <span className="leading-tight break-words max-md:hidden">{item.label}</span> : null}
+              </Link>
+              <FeatureInfo helpId={item.helpId} className="ml-1 shrink-0 max-md:ml-0" iconClassName={SIDEBAR_HINT_CLASS} />
+            </div>
           );
         })}
       </nav>
 
-      <div className="border-t border-white/15 p-2">
-        <button
-          type="button"
-          onClick={() => setSidebarCollapsed(!collapsed)}
-          aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
-          title={collapsed ? "Expandir menu" : "Recolher menu"}
-          className={cn(
-            "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white",
-            "max-md:justify-center max-md:px-0",
-            collapsed && "justify-center px-0"
-          )}
-        >
-          {collapsed ? (
-            <PanelLeftOpen className="size-4 shrink-0" />
-          ) : (
-            <PanelLeftClose className="size-4 shrink-0" />
-          )}
-          {!collapsed && <span className="max-md:hidden">Recolher</span>}
-        </button>
+      <div className={cn("border-t border-white/15 p-2", collapsed && "px-1.5", "max-md:px-1.5")}>
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(!collapsed)}
+            aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+            className={cn(
+              "flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white",
+              "max-md:justify-center max-md:px-0",
+              collapsed && "justify-center px-0"
+            )}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="size-4 shrink-0" />
+            ) : (
+              <PanelLeftClose className="size-4 shrink-0" />
+            )}
+            {!collapsed && <span className="max-md:hidden">Recolher</span>}
+          </button>
+          <FeatureInfo helpId="shared.global.menu-recolher" className="ml-1 shrink-0 max-md:ml-0" iconClassName={SIDEBAR_HINT_CLASS} />
+        </div>
       </div>
     </aside>
   );

@@ -270,19 +270,52 @@ check("FeatureInfo: nunca renderiza nada quando helpId é desconhecido (nunca qu
   assert(featureInfoSource.includes("return null;"));
 });
 
-// --- Sidebar: expanded mostra ⓘ, collapsed mantém UX limpa (ajuda dentro do tooltip nativo) ---
+// --- Sidebar: Hover Text universal (HelpHint/FeatureInfo) AO LADO de cada item e do botão Recolher/Expandir ---
+// Mudança de regra (fechamento do Hover Text): antes a trava exigia NENHUM ícone (i) e a dica nativa title; agora exige o ícone universal
+// (que funciona por mouse, teclado e toque, inclusive com a sidebar recolhida) e PROÍBE o atributo title como ajuda.
 
 const sidebarSource = readSource("apps/web/components/layout/app-sidebar.tsx");
 
-check("sidebar: NUNCA renderiza um ⓘ separado (expandida ou recolhida) — ajuda via hover/focus no próprio item, reduz poluição visual (ACC — AJUSTES FINAIS, seção 5/7)", () => {
-  assert(!sidebarSource.includes("<FeatureInfo"), "a sidebar não deveria mais importar/renderizar o componente FeatureInfo");
-  assert(!sidebarSource.includes("import { FeatureInfo }"), "import de FeatureInfo deveria ter sido removido da sidebar");
+check("sidebar: cada item de menu renderiza o Hover Text universal (FeatureInfo) com o helpId do item, FORA do <Link>", () => {
+  assert(sidebarSource.includes('import { FeatureInfo } from "@/components/shared/feature-info"'), "a sidebar deveria importar FeatureInfo");
+  assert(sidebarSource.includes("<FeatureInfo helpId={item.helpId}"), "cada item deveria renderizar <FeatureInfo helpId={item.helpId} />");
+  const linkBlock = sidebarSource.slice(sidebarSource.indexOf("<Link"), sidebarSource.indexOf("</Link>"));
+  assert(!linkBlock.includes("FeatureInfo") && !linkBlock.includes("HelpHint"), "o ícone de ajuda não pode ficar dentro do <a> (HTML inválido e clique navegaria)");
 });
 
-check("sidebar: tooltip nativo (title) com label + shortDescription do registry, no MESMO item, em qualquer estado (recolhida ou expandida)", () => {
-  assert(sidebarSource.includes("itemTitle"));
-  assert(sidebarSource.includes("help.shortDescription"));
-  assert(sidebarSource.includes("title={itemTitle}"), "o tooltip deveria valer para os dois estados (nunca condicional a collapsed)");
+check("sidebar: o botão Recolher/Expandir tem o Hover Text (shared.global.menu-recolher) ao lado, fora do <button>", () => {
+  assert(sidebarSource.includes('helpId="shared.global.menu-recolher"'));
+  const buttonBlock = sidebarSource.slice(sidebarSource.indexOf("<button"), sidebarSource.indexOf("</button>"));
+  assert(!buttonBlock.includes("FeatureInfo"), "o ícone de ajuda não pode ficar dentro do <button> de recolher");
+  assert(ACC_FEATURE_HELP["shared.global.menu-recolher"], "entrada shared.global.menu-recolher ausente do registry");
+});
+
+check("sidebar: NUNCA usa o atributo title como ajuda (nem itemTitle/shortDescription nativo); aria-label e navegação preservados", () => {
+  assert(!/title=/.test(sidebarSource), "a sidebar não deve usar o atributo title");
+  assert(!sidebarSource.includes("itemTitle"));
+  assert(sidebarSource.includes("aria-label={item.label}"), "aria-label do item preservado");
+  assert(sidebarSource.includes("aria-label={collapsed"), "aria-label do botão de recolher preservado");
+  assert(sidebarSource.includes("prefetch={false}") && sidebarSource.includes("pathname?.startsWith(href)"));
+});
+
+check("sidebar recolhida (só ícones): o ícone de ajuda continua presente em todos os itens (não depende de collapsed nem de hover)", () => {
+  const feature = sidebarSource.indexOf("<FeatureInfo helpId={item.helpId}");
+  const before = sidebarSource.slice(Math.max(0, feature - 300), feature);
+  assert(!/collapsed\s*(\?|&&)\s*\(?\s*<FeatureInfo/.test(before), "FeatureInfo não pode ser condicional a collapsed");
+  assert(!sidebarSource.includes("{!collapsed ? <FeatureInfo"), "FeatureInfo não pode ser escondido quando recolhida");
+});
+
+check("cabeçalho (top-bar): renderiza shared.global.cabecalho ao lado do título e não usa title nativo", () => {
+  const topBar = readSource("apps/web/components/layout/top-bar.tsx");
+  assert(topBar.includes('helpId="shared.global.cabecalho"'));
+  assert(!/title=/.test(topBar), "o cabeçalho não deve usar o atributo title");
+});
+
+check("tela Ajuda e tutorial: expõe icone-ajuda, menu-lateral e status-global (pontos de renderização globais)", () => {
+  const ajuda = readSource("apps/web/app/[projectId]/ajuda/page.tsx");
+  for (const id of ["shared.global.icone-ajuda", "shared.global.menu-lateral", "shared.global.status-global"]) {
+    assert(ajuda.includes(`helpId="${id}"`), `${id} não renderizado na tela Ajuda`);
+  }
 });
 
 // --- Seção 12: inventário de TODAS as abas/seções reais mapeadas ---
