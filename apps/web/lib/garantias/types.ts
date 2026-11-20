@@ -48,6 +48,10 @@ export interface WarrantyCaseView {
   criticality: Criticality;
   acceptedAt: string | null;
   acceptedByName: string | null;
+  /** Fonte dos valores de custo do caso (obrigatória nas RPCs quando há valor). */
+  costSourceRef: string | null;
+  /** Evidência que sustenta o aceite do cliente (null em aceites legados). */
+  acceptedEvidenceId: string | null;
   stateJustification: string | null;
   closedAt: string | null;
   reopenCount: number;
@@ -88,6 +92,8 @@ export function mapWarrantyCaseRow(r: Row): WarrantyCaseView {
     criticality: (str(r.criticality) ?? "SEM_DADOS") as Criticality,
     acceptedAt: str(r.accepted_at),
     acceptedByName: str(r.accepted_by_name),
+    costSourceRef: str(r.cost_source_ref),
+    acceptedEvidenceId: str(r.accepted_evidence_id),
     stateJustification: str(r.state_justification),
     closedAt: str(r.closed_at),
     reopenCount: Number(r.reopen_count ?? 0),

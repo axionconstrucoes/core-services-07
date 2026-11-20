@@ -1,8 +1,9 @@
 // Comandos de ESCRITA do módulo Qualidade (fase 2). Lógica das Server Actions, isolada para ser testável com um cliente simulado.
 //  - RNC (criar e transicionar) escreve SOMENTE por RPC (quality_ncr_create / quality_ncr_transition): a máquina de estados é do banco.
 //  - Registros-filhos (evidência, CAPA, inspeção, reclamação, ensaio, requisito, consequência, custo, recorrência, verificação de eficácia)
-//    não têm RPC na fase 1: o INSERT/UPDATE acontece sob RLS com o JWT do usuário (nunca com credencial administrativa), com project_id fixado pela rota e
-//    FK composta (id, project_id) no banco; auditoria por trigger. Decisão registrada no relatório.
+//    escrevem SOMENTE por RPC transacional SECURITY DEFINER (fase 3/D: quality_evidence_register, quality_capa_*, quality_verification_register, ...):
+//    o INSERT/UPDATE direto de `authenticated` foi revogado no banco. Cada RPC valida no servidor, trava a linha-mãe, audita na mesma transação e usa
+//    o JWT do usuário (nunca credencial administrativa), com project_id fixado pela rota.
 //  - Concorrência: toda alteração de RNC/evidência/ação envia a row_version lida; divergência => VERSION_CONFLICT.
 // A UI nunca é a autoridade: a checagem de papel aqui só evita uma ida ao banco; RLS/RPC recusam de qualquer forma.
 
@@ -126,23 +127,31 @@ export async function transitionNcrCommand(ctx: CommandCtx, fd: FormLike): Promi
   return success(`Transição registrada: ${d?.from ?? "?"} → ${d?.to ?? to}.`, ncrId);
 }
 
+/** Chamada de RPC com tradução de erro estável; devolve o `data` (objeto jsonb) ou o estado de falha. */
+async function callRpc(ctx: CommandCtx, fn: string, args: Record<string, unknown>): Promise<{ data: Record<string, unknown> } | { failure: QualityActionState }> {
+  const res = await ctx.db.rpc(fn, args);
+  if (res.error) return { failure: failFrom(res.error.message) };
+  return { data: (res.data as Record<string, unknown> | null) ?? {} };
+}
+const idOf = (d: Record<string, unknown>): string | null => (typeof d.id === "string" ? d.id : null);
+const versionOf = (fd: FormLike): number => Number(str(fd, "expectedVersion"));
+
+/** Causa raiz e prazo: decisão de gestão (MANAGE). Alterar valores já definidos exige justificativa (a RPC também exige). */
 export async function updateNcrCommand(ctx: CommandCtx, fd: FormLike): Promise<QualityActionState> {
-  const denied = guard(ctx, "REGISTER");
+  const denied = guard(ctx, "MANAGE");
   if (denied) return denied;
   const ncrId = str(fd, "ncrId");
-  const version = Number(str(fd, "expectedVersion"));
+  const version = versionOf(fd);
   if (!isUuid(ncrId)) return fail("INVALID_DATA", "RNC inválida.");
   if (!Number.isInteger(version) || version < 1) return fail("VERSION_REQUIRED", describeQualityError("VERSION_REQUIRED").message);
-  const res = await ctx.db
-    .from("quality_ncrs")
-    .update({ root_cause: str(fd, "rootCause"), due_date: dateOnly(str(fd, "dueDate")) })
-    .eq("id", ncrId)
-    .eq("project_id", ctx.projectId)
-    .eq("row_version", version)
-    .select("id");
-  if (res.error) return failFrom(res.error.message);
-  if (!((res.data as unknown[] | null)?.length)) return failFrom("VERSION_CONFLICT: o registro foi alterado ou não existe neste projeto");
-  return success("Dados da RNC atualizados.", ncrId);
+  const r = await callRpc(ctx, "quality_ncr_update_fields", {
+    p_ncr_id: ncrId,
+    p_expected_version: version,
+    p_changes: { root_cause: str(fd, "rootCause"), due_date: dateOnly(str(fd, "dueDate")) },
+    p_justification: str(fd, "justification"),
+  });
+  if ("failure" in r) return r.failure;
+  return success(r.data.unchanged ? "Nada a alterar: os dados já estavam assim." : "Dados da RNC atualizados.", ncrId);
 }
 
 // ------------------------------------------------------------ evidências ----
@@ -160,43 +169,46 @@ export async function addEvidenceCommand(ctx: CommandCtx, fd: FormLike): Promise
   };
   const errors = validateEvidenceDraft(draft);
   if (errors.length) return fail("INVALID_DATA", errors.join(" "));
-  const res = await ctx.db.from("quality_evidence").insert({
-    project_id: ctx.projectId,
-    ncr_id: ncrId,
-    source_type: draft.sourceType,
-    source_ref: draft.sourceRef,
-    source_url: str(fd, "sourceUrl", 2000),
-    description: str(fd, "description"),
-    classification: draft.classification,
-    epistemic: draft.epistemic,
-    captured_at: dateTime(str(fd, "capturedAt")),
-  }).select("id").single();
-  if (res.error) return failFrom(res.error.message);
-  return success("Evidência registrada com referência à fonte original.", (res.data as { id: string } | null)?.id ?? null);
+  const r = await callRpc(ctx, "quality_evidence_register", {
+    p_project_id: ctx.projectId,
+    p_source_type: draft.sourceType,
+    p_source_ref: draft.sourceRef,
+    p_classification: draft.classification,
+    p_epistemic: draft.epistemic,
+    p_ncr_id: ncrId,
+    p_source_url: str(fd, "sourceUrl", 2000),
+    p_description: str(fd, "description"),
+    p_captured_at: dateTime(str(fd, "capturedAt")),
+  });
+  if ("failure" in r) return r.failure;
+  return success("Evidência registrada com referência à fonte original.", idOf(r.data));
 }
 
+/** Reclassificar evidência já registrada é decisão de gestão (MANAGE), com justificativa; a fonte original é imutável. */
 export async function setEvidenceClassificationCommand(ctx: CommandCtx, fd: FormLike): Promise<QualityActionState> {
-  const denied = guard(ctx, "REGISTER");
+  const denied = guard(ctx, "MANAGE");
   if (denied) return denied;
   const id = str(fd, "evidenceId");
-  const version = Number(str(fd, "expectedVersion"));
+  const version = versionOf(fd);
   const classification = oneOf(str(fd, "classification"), Object.keys(CLASSIFICATION_LABEL) as string[]);
   const epistemic = oneOf(str(fd, "epistemic"), Object.keys(EPISTEMIC_LABEL) as string[]);
+  const justification = str(fd, "justification");
   if (!isUuid(id) || !classification || !epistemic) return fail("INVALID_DATA", "Evidência, classificação ou tipo epistêmico inválido.");
   if (!Number.isInteger(version) || version < 1) return fail("VERSION_REQUIRED", describeQualityError("VERSION_REQUIRED").message);
   if (classification === "NC_COMPROVADA" && epistemic !== "FATO") {
     return fail("INVALID_DATA", "NC comprovada exige tipo epistêmico FATO: inferência ou recomendação não comprovam uma não conformidade.");
   }
-  const res = await ctx.db
-    .from("quality_evidence")
-    .update({ classification, epistemic })
-    .eq("id", id)
-    .eq("project_id", ctx.projectId)
-    .eq("row_version", version)
-    .select("id");
-  if (res.error) return failFrom(res.error.message);
-  if (!((res.data as unknown[] | null)?.length)) return failFrom("VERSION_CONFLICT: o registro foi alterado ou não existe neste projeto");
-  return success("Classificação da evidência atualizada (a fonte original permanece imutável).", id);
+  if (!justification || justification.length < 10) return fail("JUSTIFICATION_REQUIRED", describeQualityError("JUSTIFICATION_REQUIRED").message);
+  const r = await callRpc(ctx, "quality_evidence_revise", {
+    p_evidence_id: id,
+    p_expected_version: version,
+    p_classification: classification,
+    p_epistemic: epistemic,
+    p_description: str(fd, "description"),
+    p_justification: justification,
+  });
+  if ("failure" in r) return r.failure;
+  return success("Classificação da evidência revisada e auditada (a fonte original permanece imutável).", id);
 }
 
 // ---------------------------------------------------------------- CAPA ----
@@ -209,34 +221,34 @@ export async function addActionCommand(ctx: CommandCtx, fd: FormLike): Promise<Q
   const description = str(fd, "description");
   if (!isUuid(ncrId) || !kind) return fail("INVALID_DATA", "RNC ou tipo de ação inválido.");
   if (!description || description.length < 3) return fail("INVALID_DATA", "Descreva a ação (mínimo de 3 caracteres).");
-  const res = await ctx.db.from("quality_corrective_actions").insert({
-    project_id: ctx.projectId,
-    ncr_id: ncrId,
-    kind,
-    description,
-    due_date: dateOnly(str(fd, "dueDate")),
-  }).select("id").single();
-  if (res.error) return failFrom(res.error.message);
-  return success("Ação registrada.", (res.data as { id: string } | null)?.id ?? null);
+  const r = await callRpc(ctx, "quality_capa_register", {
+    p_ncr_id: ncrId,
+    p_warranty_case_id: null,
+    p_kind: kind,
+    p_description: description,
+    p_due_date: dateOnly(str(fd, "dueDate")),
+    p_responsible_user_id: null,
+  });
+  if ("failure" in r) return r.failure;
+  return success("Ação registrada.", idOf(r.data));
 }
 
+/** Atualizar status é REGISTER; CANCELAR a ação é MANAGE e, como desfazer uma ação executada, exige justificativa. */
 export async function setActionStatusCommand(ctx: CommandCtx, fd: FormLike): Promise<QualityActionState> {
-  const denied = guard(ctx, "REGISTER");
-  if (denied) return denied;
   const id = str(fd, "actionId");
   const status = oneOf(str(fd, "status"), ["PLANEJADA", "EM_ANDAMENTO", "EXECUTADA", "CANCELADA"] as const);
-  const version = Number(str(fd, "expectedVersion"));
+  const denied = guard(ctx, status === "CANCELADA" ? "MANAGE" : "REGISTER");
+  if (denied) return denied;
+  const version = versionOf(fd);
   if (!isUuid(id) || !status) return fail("INVALID_DATA", "Ação ou status inválido.");
   if (!Number.isInteger(version) || version < 1) return fail("VERSION_REQUIRED", describeQualityError("VERSION_REQUIRED").message);
-  const res = await ctx.db
-    .from("quality_corrective_actions")
-    .update({ status, executed_at: status === "EXECUTADA" ? new Date().toISOString() : null })
-    .eq("id", id)
-    .eq("project_id", ctx.projectId)
-    .eq("row_version", version)
-    .select("id");
-  if (res.error) return failFrom(res.error.message);
-  if (!((res.data as unknown[] | null)?.length)) return failFrom("VERSION_CONFLICT: o registro foi alterado ou não existe neste projeto");
+  const r = await callRpc(ctx, "quality_capa_update_status", {
+    p_action_id: id,
+    p_expected_version: version,
+    p_status: status,
+    p_justification: str(fd, "justification"),
+  });
+  if ("failure" in r) return r.failure;
   return success("Status da ação atualizado. Ação executada NÃO equivale a RNC conforme: falta a verificação de eficácia.", id);
 }
 
@@ -249,24 +261,23 @@ export async function addVerificationCommand(ctx: CommandCtx, fd: FormLike): Pro
   const result = oneOf(str(fd, "result"), ["EFICAZ", "INEFICAZ", "PARCIAL"] as const);
   const criteria = str(fd, "criteria", 2000);
   const evidenceId = str(fd, "evidenceId");
+  const version = versionOf(fd);
   if (!isUuid(ncrId) || !result) return fail("INVALID_DATA", "RNC ou resultado inválido.");
   if (!criteria || criteria.length < 5) return fail("INVALID_DATA", "Descreva o critério de verificação (mínimo de 5 caracteres).");
   if (!isUuid(evidenceId)) return fail("EVIDENCE_REQUIRED", "Evidência obrigatória: selecione a evidência que sustenta a verificação.");
-  // marca de ciclo: último evento de estado conhecido (invalida verificações anteriores a uma nova correção/reabertura)
-  const last = await ctx.db.from("quality_state_events").select("seq").eq("project_id", ctx.projectId).eq("entity_type", "NCR").eq("entity_id", ncrId).order("seq", { ascending: false }).limit(1);
-  if (last.error) return failFrom(last.error.message);
-  const seq = Number(((last.data as Array<{ seq: number | string }> | null) ?? [])[0]?.seq ?? 0);
-  const res = await ctx.db.from("quality_effectiveness_verifications").insert({
-    project_id: ctx.projectId,
-    ncr_id: ncrId,
-    result,
-    criteria,
-    notes: str(fd, "notes"),
-    evidence_id: evidenceId,
-    event_seq_at: seq,
-  }).select("id").single();
-  if (res.error) return failFrom(res.error.message);
-  return success(`Verificação de eficácia registrada: ${result}.`, (res.data as { id: string } | null)?.id ?? null);
+  if (!Number.isInteger(version) || version < 1) return fail("VERSION_REQUIRED", describeQualityError("VERSION_REQUIRED").message);
+  // o banco trava a RNC, grava a marca de ciclo (último evento de estado) e detecta verificação desatualizada após nova correção/reabertura
+  const r = await callRpc(ctx, "quality_verification_register", {
+    p_ncr_id: ncrId,
+    p_warranty_case_id: null,
+    p_expected_version: version,
+    p_result: result,
+    p_criteria: criteria,
+    p_evidence_id: evidenceId,
+    p_notes: str(fd, "notes"),
+  });
+  if ("failure" in r) return r.failure;
+  return success(`Verificação de eficácia registrada: ${result}.`, idOf(r.data));
 }
 
 // ------------------------------------------------------- consequências ----
@@ -283,20 +294,21 @@ export async function addConsequenceCommand(ctx: CommandCtx, fd: FormLike): Prom
   if (!isUuid(ncrId) || !pillar || !severity) return fail("INVALID_DATA", "RNC, pilar ou severidade inválido.");
   if (!sourceRef) return fail("INVALID_DATA", "Toda consequência precisa da fonte (documento, foto, laudo ou decisão que a sustenta).");
   if (probability && (!basis || basis.length < 5)) return fail("INVALID_DATA", "Probabilidade só pode ser registrada com fundamento (mínimo de 5 caracteres).");
-  const res = await ctx.db.from("quality_consequences").insert({
-    project_id: ctx.projectId,
-    ncr_id: ncrId,
-    pillar,
-    severity,
-    probability: probability ?? null,
-    probability_basis: probability ? basis : null,
-    description: str(fd, "description"),
-    source_type: str(fd, "sourceType", 100) ?? "MANUAL",
-    source_ref: sourceRef,
-    measures: str(fd, "measures"),
-  }).select("id").single();
-  if (res.error) return failFrom(res.error.message);
-  return success(`Consequência de ${PILLAR_LABEL[pillar]} registrada; a criticidade da RNC é recalculada pelo banco (pior pilar domina).`, (res.data as { id: string } | null)?.id ?? null);
+  const r = await callRpc(ctx, "quality_consequence_register", {
+    p_ncr_id: ncrId,
+    p_warranty_case_id: null,
+    p_pillar: pillar,
+    p_severity: severity,
+    p_source_type: str(fd, "sourceType", 100) ?? "MANUAL",
+    p_source_ref: sourceRef,
+    p_probability: probability ?? null,
+    p_probability_basis: probability ? basis : null,
+    p_description: str(fd, "description"),
+    p_measures: str(fd, "measures"),
+    p_responsible_user_id: null,
+  });
+  if ("failure" in r) return r.failure;
+  return success(`Consequência de ${PILLAR_LABEL[pillar]} registrada; a criticidade da RNC é recalculada pelo banco (pior pilar domina).`, idOf(r.data));
 }
 
 // -------------------------------------------------------------- custos ----
@@ -312,17 +324,17 @@ export async function addCostCommand(ctx: CommandCtx, fd: FormLike): Promise<Qua
   if (est === "INVALID" || act === "INVALID") return fail("INVALID_DATA", "Valor inválido: use números positivos (ex.: 1500,00).");
   const sourceRef = str(fd, "sourceRef", 1000);
   if ((est !== null || act !== null) && !sourceRef) return fail("INVALID_DATA", "Valor sem fonte não é aceito: informe a fonte (nota, orçamento, medição…). Sem valor, o custo fica SEM DADOS.");
-  const res = await ctx.db.from("quality_nonquality_costs").insert({
-    project_id: ctx.projectId,
-    ncr_id: ncrId,
-    category,
-    description: str(fd, "description"),
-    estimated_amount: est,
-    actual_amount: act,
-    source_ref: sourceRef,
-  }).select("id").single();
-  if (res.error) return failFrom(res.error.message);
-  return success("Custo de não qualidade registrado.", (res.data as { id: string } | null)?.id ?? null);
+  const r = await callRpc(ctx, "quality_cost_register", {
+    p_ncr_id: ncrId,
+    p_warranty_case_id: null,
+    p_category: category,
+    p_description: str(fd, "description"),
+    p_estimated_amount: est,
+    p_actual_amount: act,
+    p_source_ref: sourceRef,
+  });
+  if ("failure" in r) return r.failure;
+  return success("Custo de não qualidade registrado.", idOf(r.data));
 }
 
 // ---------------------------------------------------------- recorrências ----
@@ -336,9 +348,15 @@ export async function addRecurrenceCommand(ctx: CommandCtx, fd: FormLike): Promi
   if (!isUuid(ncrId) || !isUuid(related)) return fail("INVALID_DATA", "Selecione a RNC relacionada.");
   if (ncrId === related) return fail("INVALID_DATA", "Uma RNC não pode ser recorrência dela mesma.");
   if (!basis || basis.length < 5) return fail("INVALID_DATA", "Informe o fundamento da recorrência (mínimo de 5 caracteres).");
-  const res = await ctx.db.from("quality_recurrences").insert({ project_id: ctx.projectId, ncr_id: ncrId, related_ncr_id: related, basis }).select("id").single();
-  if (res.error) return failFrom(res.error.message);
-  return success("Recorrência registrada.", (res.data as { id: string } | null)?.id ?? null);
+  const r = await callRpc(ctx, "quality_recurrence_register", {
+    p_ncr_id: ncrId,
+    p_warranty_case_id: null,
+    p_related_ncr_id: related,
+    p_related_warranty_case_id: null,
+    p_basis: basis,
+  });
+  if ("failure" in r) return r.failure;
+  return success("Recorrência registrada.", idOf(r.data));
 }
 
 // --------------------------------------- reclamação / inspeção / ensaio / requisito ----
@@ -355,19 +373,20 @@ export async function addComplaintCommand(ctx: CommandCtx, fd: FormLike): Promis
   if (!subject || subject.length < 3) return fail("INVALID_DATA", "Informe o assunto (mínimo de 3 caracteres).");
   if (!sourceRef) return fail("INVALID_DATA", "Informe a fonte original (ex.: assunto/ID do e-mail, protocolo).");
   const ncrId = str(fd, "ncrId");
-  const res = await ctx.db.from("quality_customer_complaints").insert({
-    project_id: ctx.projectId,
-    channel,
-    received_at: receivedAt,
-    complainant: str(fd, "complainant", 300),
-    subject,
-    description: str(fd, "description"),
-    source_ref: sourceRef,
-    source_url: str(fd, "sourceUrl", 2000),
-    ncr_id: isUuid(ncrId) ? ncrId : null,
-  }).select("id").single();
-  if (res.error) return failFrom(res.error.message);
-  return success("Reclamação registrada com a fonte original.", (res.data as { id: string } | null)?.id ?? null);
+  const r = await callRpc(ctx, "quality_complaint_register", {
+    p_project_id: ctx.projectId,
+    p_channel: channel,
+    p_received_at: receivedAt,
+    p_subject: subject,
+    p_source_ref: sourceRef,
+    p_complainant: str(fd, "complainant", 300),
+    p_description: str(fd, "description"),
+    p_source_url: str(fd, "sourceUrl", 2000),
+    p_ncr_id: isUuid(ncrId) ? ncrId : null,
+    p_warranty_case_id: null,
+  });
+  if ("failure" in r) return r.failure;
+  return success("Reclamação registrada com a fonte original.", idOf(r.data));
 }
 
 export async function addInspectionCommand(ctx: CommandCtx, fd: FormLike): Promise<QualityActionState> {
@@ -379,21 +398,21 @@ export async function addInspectionCommand(ctx: CommandCtx, fd: FormLike): Promi
   if (!result) return fail("INVALID_DATA", "Resultado inválido.");
   const ncrId = str(fd, "ncrId");
   const requirementId = str(fd, "requirementId");
-  const res = await ctx.db.from("quality_inspections").insert({
-    project_id: ctx.projectId,
-    title,
-    inspection_type: str(fd, "inspectionType", 200),
-    location: str(fd, "location", 300),
-    planned_at: dateTime(str(fd, "plannedAt")),
-    performed_at: dateTime(str(fd, "performedAt")),
-    result,
-    notes: str(fd, "notes"),
-    source_ref: str(fd, "sourceRef", 1000),
-    ncr_id: isUuid(ncrId) ? ncrId : null,
-    requirement_id: isUuid(requirementId) ? requirementId : null,
-  }).select("id").single();
-  if (res.error) return failFrom(res.error.message);
-  return success("Inspeção registrada.", (res.data as { id: string } | null)?.id ?? null);
+  const r = await callRpc(ctx, "quality_inspection_register", {
+    p_project_id: ctx.projectId,
+    p_title: title,
+    p_result: result,
+    p_inspection_type: str(fd, "inspectionType", 200),
+    p_location: str(fd, "location", 300),
+    p_planned_at: dateTime(str(fd, "plannedAt")),
+    p_performed_at: dateTime(str(fd, "performedAt")),
+    p_notes: str(fd, "notes"),
+    p_source_ref: str(fd, "sourceRef", 1000),
+    p_ncr_id: isUuid(ncrId) ? ncrId : null,
+    p_requirement_id: isUuid(requirementId) ? requirementId : null,
+  });
+  if ("failure" in r) return r.failure;
+  return success("Inspeção registrada.", idOf(r.data));
 }
 
 export async function addTestCommand(ctx: CommandCtx, fd: FormLike): Promise<QualityActionState> {
@@ -409,21 +428,21 @@ export async function addTestCommand(ctx: CommandCtx, fd: FormLike): Promise<Qua
   }
   const ncrId = str(fd, "ncrId");
   const requirementId = str(fd, "requirementId");
-  const res = await ctx.db.from("quality_tests").insert({
-    project_id: ctx.projectId,
-    test_type: testType,
-    laboratory: str(fd, "laboratory", 300),
-    sample_ref: str(fd, "sampleRef", 300),
-    performed_at: dateTime(str(fd, "performedAt")),
-    result,
-    report_ref: reportRef,
-    report_url: str(fd, "reportUrl", 2000),
-    notes: str(fd, "notes"),
-    ncr_id: isUuid(ncrId) ? ncrId : null,
-    requirement_id: isUuid(requirementId) ? requirementId : null,
-  }).select("id").single();
-  if (res.error) return failFrom(res.error.message);
-  return success("Ensaio registrado.", (res.data as { id: string } | null)?.id ?? null);
+  const r = await callRpc(ctx, "quality_test_register", {
+    p_project_id: ctx.projectId,
+    p_test_type: testType,
+    p_result: result,
+    p_laboratory: str(fd, "laboratory", 300),
+    p_sample_ref: str(fd, "sampleRef", 300),
+    p_performed_at: dateTime(str(fd, "performedAt")),
+    p_report_ref: reportRef,
+    p_report_url: str(fd, "reportUrl", 2000),
+    p_notes: str(fd, "notes"),
+    p_ncr_id: isUuid(ncrId) ? ncrId : null,
+    p_requirement_id: isUuid(requirementId) ? requirementId : null,
+  });
+  if ("failure" in r) return r.failure;
+  return success("Ensaio registrado.", idOf(r.data));
 }
 
 export async function addRequirementCommand(ctx: CommandCtx, fd: FormLike): Promise<QualityActionState> {
@@ -433,13 +452,13 @@ export async function addRequirementCommand(ctx: CommandCtx, fd: FormLike): Prom
   const sourceRef = str(fd, "sourceRef", 1000);
   if (!title || title.length < 3) return fail("INVALID_DATA", "Informe o título (mínimo de 3 caracteres).");
   if (!sourceRef) return fail("INVALID_DATA", "Todo requisito aponta para a fonte (norma, projeto, especificação, contrato).");
-  const res = await ctx.db.from("quality_requirements").insert({
-    project_id: ctx.projectId,
-    title,
-    description: str(fd, "description"),
-    source_ref: sourceRef,
-    source_url: str(fd, "sourceUrl", 2000),
-  }).select("id").single();
-  if (res.error) return failFrom(res.error.message);
-  return success("Requisito técnico registrado.", (res.data as { id: string } | null)?.id ?? null);
+  const r = await callRpc(ctx, "quality_requirement_register", {
+    p_project_id: ctx.projectId,
+    p_title: title,
+    p_source_ref: sourceRef,
+    p_description: str(fd, "description"),
+    p_source_url: str(fd, "sourceUrl", 2000),
+  });
+  if ("failure" in r) return r.failure;
+  return success("Requisito técnico registrado.", idOf(r.data));
 }

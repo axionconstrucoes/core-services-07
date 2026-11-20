@@ -48,6 +48,10 @@ export function LinkedQualityNotice({ projectId, view }: { projectId: string; vi
                 <Badge variant="outline">{ENTITY_TYPE_LABELS[e.type]}</Badge>
                 <span className="font-medium">{e.code ?? e.title}</span>
                 <span className="text-muted-foreground">estado: {e.state}</span>
+                <span className="text-muted-foreground" data-testid={`origem-${e.origin}`}>
+                  {e.origin === "ESTRUTURADO" ? "vínculo registrado" : "vínculo pelo texto da origem (dado antigo)"}
+                  <FeatureInfo helpId="pilares.alerta.origem-vinculo" className="ml-1 align-middle" />
+                </span>
                 <Link href={`/${projectId}/${e.route}`} className="inline-flex min-h-11 items-center underline underline-offset-2 hover:text-muted-foreground">
                   Abrir {ENTITY_TYPE_LABELS[e.type].toLowerCase()}
                 </Link>

@@ -14,7 +14,8 @@ import { CaseFields, type MemberOption } from "./case-fields";
 import { CoveragePanel } from "./coverage-panel";
 import { CostsPanel, EvidencePanel, MaintenancePanel, RepairsPanel, SurveysPanel, VerificationPanel } from "./records-panels";
 import { TransitionPanel } from "./transition-panel";
-import { CriticalityBadge, Notice, SemDados, SourceLink, StateBadge, formatDay, formatMoney } from "./ui-bits";
+import { cn } from "@/lib/utils";
+import { CriticalityBadge, FIELD_CLASS, FieldLabel, Notice, SemDados, SourceLink, StateBadge, formatDay, formatMoney } from "./ui-bits";
 
 // Detalhe do caso de garantia. Cada aba é uma visão sobre as tabelas quality_warranty_* (leitura sob RLS); toda escrita passa
 // pelas Server Actions (RPC ou INSERT/UPDATE sob RLS). Nenhuma aba envia comunicação a terceiros.
@@ -189,6 +190,16 @@ export function CaseDetail({
                 successMessage="Alterações gravadas."
               >
                 <CaseFields idPrefix="edit" mode="edit" defaults={warranty} members={members} />
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="space-y-1">
+                    <FieldLabel htmlFor="edit-fonte-custo" label="Fonte dos custos (nota, orçamento, medição)" helpId="garantias.detalhe.salvar-fonte-custo" />
+                    <input id="edit-fonte-custo" name="costSourceRef" maxLength={1000} defaultValue={warranty.costSourceRef ?? ""} className={FIELD_CLASS} placeholder="Obrigatória ao informar ou alterar valores de custo" />
+                  </div>
+                  <div className="space-y-1">
+                    <FieldLabel htmlFor="edit-justificativa" label="Justificativa da alteração" helpId="garantias.detalhe.salvar-justificativa" />
+                    <textarea id="edit-justificativa" name="justification" maxLength={2000} className={cn(FIELD_CLASS, "min-h-20")} placeholder="Obrigatória ao mudar dados que definem cobertura ou custos já informados (mín. 10 caracteres)" />
+                  </div>
+                </div>
               </ActionForm>
             </CardContent>
           </Card>
@@ -228,7 +239,7 @@ export function CaseDetail({
         </TabsContent>
 
         <TabsContent value="verificacao">
-          <VerificationPanel projectId={projectId} warranty={warranty} verifications={detail.verifications} evidence={detail.evidence} canRegister={canRegister} canManage={canManage} />
+          <VerificationPanel projectId={projectId} warranty={warranty} verifications={detail.verifications} evidence={detail.evidence} canManage={canManage} />
         </TabsContent>
 
         <TabsContent value="custos">

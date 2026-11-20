@@ -6,8 +6,9 @@ import { createSupabaseServerClient } from "@axion/db/server";
 
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import {
-  buildAcceptancePayload,
+  buildAcceptanceInput,
   buildCaseUpdatePayload,
+  buildEditJustification,
   buildCreateCasePayload,
   buildEvidencePayload,
   buildMaintenancePayload,
@@ -18,7 +19,6 @@ import {
   isUuid,
   translateDbError,
   validateTransitionInput,
-  versionConflict,
   type ActionResult,
 } from "@/lib/garantias/action-logic";
 import { ERROR_MESSAGES } from "@/lib/garantias/labels";
@@ -26,7 +26,9 @@ import { roleSatisfies } from "@/lib/quality/state-machine";
 
 // Este módulo é "use server" — só exporta funções async (Server Actions). Regras e validações vivem em lib/garantias/action-logic.ts.
 // A UI NUNCA é a autoridade: criação e transição passam pelas RPCs quality_warranty_create / quality_warranty_transition (atômicas,
-// com auditoria e controle de versão); os registros filhos usam INSERT/UPDATE sob RLS por projeto (não há RPC dedicada na fase 1).
+// com auditoria e controle de versão); desde a fase 3/D os registros filhos e a edição do caso também passam por RPCs transacionais
+// (quality_warranty_case_update, quality_warranty_acceptance_register, quality_warranty_repair_register, quality_evidence_register, ...):
+// o INSERT/UPDATE direto de `authenticated` foi revogado no banco.
 // Nenhuma ação aqui envia e-mail, aviso ou comunicação a terceiros.
 
 type Raw = Record<string, string | undefined>;
@@ -89,79 +91,125 @@ export async function transitionWarrantyAction(
   return { ok: true, rowVersion: Number(result.rowVersion ?? 0), to: String(result.to ?? input.toState) };
 }
 
-/** UPDATE de campos descritivos com versão otimista: se a versão mudou, nada é gravado (VERSION_CONFLICT). */
-async function updateCaseFields(projectId: string, caseId: string, expectedVersion: number, row: Record<string, unknown>): Promise<ActionResult<{ rowVersion: number }>> {
+/** Edição de campos do caso: RPC com versão otimista, diff no servidor e autoridade por campo (descritivos = REGISTER; cobertura/custos/causa = MANAGE). */
+async function updateCaseFields(projectId: string, caseId: string, expectedVersion: number, changes: Record<string, unknown>, justification: string | null): Promise<ActionResult<{ rowVersion: number }>> {
   const ctx = await context(projectId, "REGISTER");
   if (ctx.error) return ctx.error;
   if (!isUuid(caseId) || !Number.isInteger(expectedVersion) || expectedVersion < 1) return fail("VERSION_REQUIRED", ERROR_MESSAGES.VERSION_REQUIRED);
-  const { data, error } = await ctx.supabase
-    .from("quality_warranty_cases")
-    .update(row)
-    .eq("id", caseId)
-    .eq("project_id", projectId)
-    .eq("row_version", expectedVersion)
-    .select("row_version");
+  const { data, error } = await ctx.supabase.rpc("quality_warranty_case_update", {
+    p_case_id: caseId,
+    p_expected_version: expectedVersion,
+    p_changes: changes,
+    p_justification: justification,
+  });
   if (error) return translateDbError(error);
-  if (!data || data.length === 0) return versionConflict();
   refresh(projectId, caseId);
-  return { ok: true, rowVersion: Number((data[0] as { row_version: number }).row_version) };
+  return { ok: true, rowVersion: Number((data as { rowVersion?: number } | null)?.rowVersion ?? expectedVersion) };
 }
 
 export async function updateWarrantyCaseAction(projectId: string, caseId: string, expectedVersion: number, raw: Raw): Promise<ActionResult<{ rowVersion: number }>> {
   const built = buildCaseUpdatePayload(raw);
   if (!built.ok) return failFromErrors(built.errors);
-  return updateCaseFields(projectId, caseId, expectedVersion, built.row);
+  return updateCaseFields(projectId, caseId, expectedVersion, built.row, buildEditJustification(raw));
 }
 
+/** Aceite do cliente: decisão de gestão (MANAGE), com evidência do caso (FATO); vale para um ciclo (novo reparo/reabertura exige novo aceite). */
 export async function registerAcceptanceAction(projectId: string, caseId: string, expectedVersion: number, raw: Raw): Promise<ActionResult<{ rowVersion: number }>> {
-  const built = buildAcceptancePayload(raw);
+  const built = buildAcceptanceInput(raw);
   if (!built.ok) return failFromErrors(built.errors);
-  return updateCaseFields(projectId, caseId, expectedVersion, built.row);
+  const ctx = await context(projectId, "MANAGE");
+  if (ctx.error) return ctx.error;
+  if (!isUuid(caseId) || !Number.isInteger(expectedVersion) || expectedVersion < 1) return fail("VERSION_REQUIRED", ERROR_MESSAGES.VERSION_REQUIRED);
+  const { data, error } = await ctx.supabase.rpc("quality_warranty_acceptance_register", {
+    p_case_id: caseId,
+    p_expected_version: expectedVersion,
+    p_accepted_at: built.args.acceptedAt,
+    p_accepted_by_name: built.args.acceptedByName,
+    p_evidence_id: built.args.evidenceId,
+  });
+  if (error) return translateDbError(error);
+  refresh(projectId, caseId);
+  return { ok: true, rowVersion: Number((data as { rowVersion?: number } | null)?.rowVersion ?? expectedVersion) };
 }
 
-async function insertChild(projectId: string, caseId: string, table: string, row: Record<string, unknown>, min: "REGISTER" | "MANAGE" = "REGISTER"): Promise<ActionResult<{ id: string }>> {
+async function rpcChild(projectId: string, caseId: string, fn: string, args: Record<string, unknown>, min: "REGISTER" | "MANAGE" = "REGISTER"): Promise<ActionResult<{ id: string }>> {
   const ctx = await context(projectId, min);
   if (ctx.error) return ctx.error;
   if (!isUuid(caseId)) return fail("VALIDATION", "Caso inválido.");
-  const { data, error } = await ctx.supabase
-    .from(table)
-    .insert({ ...row, project_id: projectId, warranty_case_id: caseId, created_by: ctx.userId })
-    .select("id")
-    .single();
+  const { data, error } = await ctx.supabase.rpc(fn, args);
   if (error) return translateDbError(error);
   refresh(projectId, caseId);
-  return { ok: true, id: String((data as { id: string }).id) };
+  return { ok: true, id: String((data as { id?: string } | null)?.id ?? "") };
 }
 
 export async function addMaintenanceAction(projectId: string, caseId: string, raw: Raw) {
   const built = buildMaintenancePayload(raw);
   if (!built.ok) return failFromErrors(built.errors);
-  return insertChild(projectId, caseId, "quality_warranty_maintenance", built.row);
+  return rpcChild(projectId, caseId, "quality_warranty_maintenance_register", {
+    p_case_id: caseId,
+    p_description: built.row.description,
+    p_performed_at: built.row.performed_at,
+    p_performed_by: built.row.performed_by,
+    p_proof_ref: built.row.proof_ref,
+    p_proof_url: built.row.proof_url,
+  });
 }
 
 export async function addSurveyAction(projectId: string, caseId: string, raw: Raw) {
   const built = buildSurveyPayload(raw);
   if (!built.ok) return failFromErrors(built.errors);
-  const ctx = await context(projectId, "REGISTER");
-  if (ctx.error) return ctx.error;
-  return insertChild(projectId, caseId, "quality_warranty_surveys", { ...built.row, surveyor_user_id: ctx.userId });
+  return rpcChild(projectId, caseId, "quality_warranty_survey_register", {
+    p_case_id: caseId,
+    p_surveyed_at: built.row.surveyed_at,
+    p_findings: built.row.findings,
+    p_report_ref: built.row.report_ref,
+  });
 }
 
 export async function addRepairAction(projectId: string, caseId: string, raw: Raw) {
   const built = buildRepairPayload(raw);
   if (!built.ok) return failFromErrors(built.errors);
-  return insertChild(projectId, caseId, "quality_warranty_repairs", built.row);
+  return rpcChild(projectId, caseId, "quality_warranty_repair_register", {
+    p_case_id: caseId,
+    p_description: built.row.description,
+    p_executed_at: built.row.executed_at,
+    p_performed_by: built.row.performed_by,
+    p_estimated_cost: built.row.estimated_cost,
+    p_actual_cost: built.row.actual_cost,
+    p_cost_source_ref: built.row.cost_source_ref,
+    p_is_recurrence: built.row.is_recurrence,
+    p_previous_repair_id: built.row.previous_repair_id,
+  });
 }
 
 export async function addEvidenceAction(projectId: string, caseId: string, raw: Raw) {
   const built = buildEvidencePayload(raw);
   if (!built.ok) return failFromErrors(built.errors);
-  return insertChild(projectId, caseId, "quality_evidence", { ...built.row, source_table: "quality_warranty_cases" });
+  return rpcChild(projectId, caseId, "quality_evidence_register", {
+    p_project_id: projectId,
+    p_source_type: built.row.source_type,
+    p_source_ref: built.row.source_ref,
+    p_classification: built.row.classification,
+    p_epistemic: built.row.epistemic,
+    p_warranty_case_id: caseId,
+    p_source_url: built.row.source_url,
+    p_description: built.row.description,
+    p_source_table: "quality_warranty_cases",
+  });
 }
 
-/** Verificação de eficácia: só quem GERE (RLS) e só com o caso em REPARADA (trigger); append-only. */
-export async function registerVerificationAction(projectId: string, caseId: string, raw: Raw) {
+/** Verificação de eficácia: só quem GERE, com a versão lida do caso, só em REPARADA e com evidência FATO do caso; append-only. */
+export async function registerVerificationAction(projectId: string, caseId: string, expectedVersion: number, raw: Raw) {
   const built = buildVerificationPayload(raw);
   if (!built.ok) return failFromErrors(built.errors);
-  return insertChild(projectId, caseId, "quality_effectiveness_verifications", built.row, "MANAGE");
+  if (!Number.isInteger(expectedVersion) || expectedVersion < 1) return fail("VERSION_REQUIRED", ERROR_MESSAGES.VERSION_REQUIRED);
+  return rpcChild(projectId, caseId, "quality_verification_register", {
+    p_ncr_id: null,
+    p_warranty_case_id: caseId,
+    p_expected_version: expectedVersion,
+    p_result: built.row.result,
+    p_criteria: built.row.criteria,
+    p_evidence_id: built.row.evidence_id,
+    p_notes: built.row.notes,
+  }, "MANAGE");
 }

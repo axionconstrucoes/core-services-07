@@ -129,7 +129,7 @@ export default async function RncDetailPage({ params }: { params: Promise<{ proj
           Encerramento: {d.closureReady?.ready ? "pronto para encerrar." : d.closureReady ? `bloqueado — ${d.closureReady.blockers.map(blockerLabel).join(" ")}` : "indisponível (não foi possível consultar o banco)."}
         </p>
         <NcrTransitionPanel key={version} projectId={projectId} ncrId={ncrId} rowVersion={version} options={d.options} evidence={evidenceOptions} otherNcrs={d.otherNcrs.map((o) => ({ id: s(o.id), code: s(o.code), title: s(o.title), state: s(o.state) }))} canRegister={canRegister} />
-        {canRegister ? <NcrEditForm key={`e${version}`} projectId={projectId} ncrId={ncrId} rowVersion={version} rootCause={s(ncr.root_cause)} dueDate={s(ncr.due_date)} /> : null}
+        {canManage ? <NcrEditForm key={`e${version}`} projectId={projectId} ncrId={ncrId} rowVersion={version} rootCause={s(ncr.root_cause)} dueDate={s(ncr.due_date)} /> : canRegister ? <p className="text-sm text-muted-foreground">Alterar causa raiz e prazo exige perfil de gestão.</p> : null}
       </section>
 
       <section className="flex flex-col gap-3" aria-label="Evidências">
@@ -144,7 +144,7 @@ export default async function RncDetailPage({ params }: { params: Promise<{ proj
                 <Th helpId="qualidade.evidencias.col-classificacao">Classificação</Th>
                 <Th helpId="qualidade.evidencias.col-epistemico">Tipo epistêmico</Th>
                 <Th helpId="qualidade.evidencias.col-descricao">Descrição</Th>
-                {canRegister ? <Th helpId="qualidade.evidencias.col-reclassificar">Reclassificar</Th> : null}
+                {canManage ? <Th helpId="qualidade.evidencias.col-reclassificar">Reclassificar</Th> : null}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -161,7 +161,7 @@ export default async function RncDetailPage({ params }: { params: Promise<{ proj
                     <EpistemicBadge epistemic={s(e.epistemic)} />
                   </TableCell>
                   <TableCell className="min-w-48">{n(e.description) ?? "SEM DADOS"}</TableCell>
-                  {canRegister ? (
+                  {canManage ? (
                     <TableCell>
                       <EvidenceClassifyForm key={`${s(e.id)}-${Number(e.row_version)}`} projectId={projectId} evidenceId={s(e.id)} rowVersion={Number(e.row_version ?? 1)} classification={s(e.classification)} epistemic={s(e.epistemic)} />
                     </TableCell>
@@ -233,7 +233,7 @@ export default async function RncDetailPage({ params }: { params: Promise<{ proj
                   <TableCell>{label(ACTION_STATUS_LABEL, s(a.status))}</TableCell>
                   {canRegister ? (
                     <TableCell>
-                      <ActionStatusForm key={`${s(a.id)}-${Number(a.row_version)}`} projectId={projectId} actionId={s(a.id)} rowVersion={Number(a.row_version ?? 1)} status={s(a.status)} />
+                      <ActionStatusForm key={`${s(a.id)}-${Number(a.row_version)}`} projectId={projectId} actionId={s(a.id)} rowVersion={Number(a.row_version ?? 1)} status={s(a.status)} canManage={canManage} />
                     </TableCell>
                   ) : null}
                 </TableRow>
@@ -268,7 +268,7 @@ export default async function RncDetailPage({ params }: { params: Promise<{ proj
             </TableBody>
           </Table>
         )}
-        {canManage ? <VerificationForm projectId={projectId} ncrId={ncrId} evidence={evidenceOptions} /> : canRegister ? <p className="text-sm text-muted-foreground">Registrar a verificação de eficácia exige perfil de gestão.</p> : null}
+        {canManage ? <VerificationForm projectId={projectId} ncrId={ncrId} rowVersion={version} evidence={evidenceOptions} /> : canRegister ? <p className="text-sm text-muted-foreground">Registrar a verificação de eficácia exige perfil de gestão.</p> : null}
       </section>
 
       <section className="flex flex-col gap-3" aria-label="Custos e recorrências">

@@ -2,6 +2,7 @@
 // Regras de conteúdo: ver lib/ui/help/types.ts e docs/design-system/hover-text-e-contraste.md. Ids novos: "qualidade.tela.elemento".
 // Conteúdo lido do código: migrations 20261122100000/101000, lib/quality/ui-model.ts, ui-commands.ts, ui-queries.ts e os componentes de components/quality.
 import type { FeatureHelpDefinition, HelpElementKind } from "../types";
+import { QUALIDADE_RPC_HELP } from "./qualidade-rpc";
 
 const VERSION = "2026-11-20";
 const REFRESH = "A cada carregamento da página (consulta direta ao banco, sem cache); após cada gravação a página é revalidada.";
@@ -33,7 +34,7 @@ export const QUALIDADE_HELP: FeatureHelpDefinition[] = [
   }),
   def("qualidade.pagina.visao-geral", "page", "Qualidade — visão geral", "Tela do módulo Qualidade. As áreas ficam em abas (parâmetro ?aba= na URL): Dashboard, RNC, Evidências, Inspeções, Reclamações, Ensaios e laudos, Requisitos, Ações (CAPA), Eficácia, Recorrências, Custos e Auditoria.", {
     purpose: "Registrar e acompanhar não conformidades com rastreabilidade até a fonte original e revisão humana.",
-    howItWorks: "A tela só lê tabelas quality_* sob RLS por projeto; toda escrita passa por Server Actions que chamam RPCs (RNC) ou gravam sob RLS com o usuário logado. A interface nunca é a autoridade: o banco recusa o que não é permitido.",
+    howItWorks: "A tela só lê tabelas quality_* sob RLS por projeto; toda escrita passa por Server Actions que chamam RPCs transacionais SECURITY DEFINER (RNC, evidência, ação, verificação, consequência, custo, recorrência, reclamação, inspeção, ensaio e requisito); o INSERT/UPDATE direto nas tabelas foi revogado no banco. A interface nunca é a autoridade: o banco recusa o que não é permitido.",
     humanReview: "Classificar evidência, confirmar NC, verificar eficácia e encerrar são decisões humanas; nenhuma IA altera evidência original nem encerra RNC.",
     limitations: ["Sem IA nesta tela: nada é inferido automaticamente.", "Listas mostram até 200 registros mais recentes."], permissions: PERM_READ,
   }),
@@ -132,7 +133,7 @@ export const QUALIDADE_HELP: FeatureHelpDefinition[] = [
   field("qualidade.rnc.campo-duplicada-de", "Campo RNC original (duplicada)", "RNC original da qual esta é duplicata. Obrigatória ao marcar como DUPLICADA; precisa ser do mesmo projeto e estar ativa.", { consequences: ["Uma RNC duplicada deixa de contar como ativa para a deduplicação por origem."] }),
   field("qualidade.rnc.campo-evidencias-transicao", "Campo Evidências da transição", "Evidências já cadastradas na RNC que sustentam a transição. Obrigatória em NÃO CONFIRMADA, CONFIRMADA e REABERTA; só evidências desta RNC são aceitas.", { howItWorks: "Os ids são enviados à RPC, validados contra a RNC e o projeto, e gravados no evento de estado." }),
   def("qualidade.rnc.conflito-versao", "message", "Conflito de versão", "Aviso exibido quando outra pessoa alterou a RNC (ou o registro) depois que você abriu a tela. A gravação é recusada com VERSION_CONFLICT para não sobrescrever a decisão alheia; recarregue para ver o estado atual e decida de novo.", { howItWorks: "Cada gravação envia a row_version lida; o banco compara com a atual dentro da transação." }),
-  form("qualidade.rnc.form-dados", "Formulário Causa raiz e prazo", "Atualiza a causa raiz e o prazo da RNC. Envia a versão lida; se a RNC mudou, retorna conflito de versão. Não altera estado nem criticidade."),
+  form("qualidade.rnc.form-dados", "Formulário Causa raiz e prazo", "Atualiza a causa raiz e o prazo da RNC pela RPC quality_ncr_update_fields. Decisão de gestão: só GESTOR, GERENTE ou ADMINISTRADOR. Envia a versão lida; se a RNC mudou, retorna conflito de versão. Trocar causa raiz ou prazo já definidos exige justificativa. Não altera estado nem criticidade; RNC encerrada ou cancelada não é editada.", { permissions: PERM_MANAGE }),
   field("qualidade.rnc.campo-causa-raiz", "Campo Causa raiz", "Causa raiz apurada na investigação (até 4000 caracteres). Registre a análise, não a hipótese sem apoio; sem investigação fica vazio (SEM DADOS)."),
   field("qualidade.rnc.campo-prazo", "Campo Prazo da RNC", "Data-limite para tratar a RNC. Alimenta a coluna Prazo da lista. Opcional."),
   def("qualidade.rnc.consequencias", "message", "Consequências por pilar", "Registra o impacto da RNC em cada um dos quatro pilares (prazo, custo, segurança, qualidade). Cada consequência exige fonte; a criticidade da RNC é recalculada pelo banco (pior pilar domina).", { source: "quality_consequences", humanReview: "Severidade e fonte são julgamentos humanos; o sistema não estima números." }),
@@ -169,7 +170,7 @@ export const QUALIDADE_HELP: FeatureHelpDefinition[] = [
   col("qualidade.evidencias.col-epistemico", "Coluna Tipo epistêmico", "Natureza do conteúdo: fato, inferência ou recomendação.", "quality_evidence.epistemic"),
   col("qualidade.evidencias.col-descricao", "Coluna Descrição", "O que a evidência mostra, conforme registrado por quem a cadastrou.", "quality_evidence.description"),
   col("qualidade.evidencias.col-capturada", "Coluna Capturada em", "Data e hora de captura do original, quando informada.", "quality_evidence.captured_at"),
-  col("qualidade.evidencias.col-reclassificar", "Coluna Reclassificar", "Altera a classificação e o tipo epistêmico da evidência, enviando a versão lida (conflito de versão se alguém alterou antes). A fonte original permanece imutável.", "quality_evidence (UPDATE restrito às colunas classification, epistemic, description)"),
+  col("qualidade.evidencias.col-reclassificar", "Coluna Reclassificar", "Revisa a classificação e o tipo epistêmico da evidência (só GESTOR, GERENTE ou ADMINISTRADOR), com justificativa obrigatória de pelo menos 10 caracteres e a versão lida (conflito de versão se alguém alterou antes). O antes e o depois ficam na auditoria. Evidência que já sustenta uma verificação, um aceite ou uma decisão de transição fica travada: registre uma nova evidência. A fonte original permanece imutável e a evidência nunca é apagada.", "quality_evidence (RPC quality_evidence_revise; auditoria com antes/depois)"),
 
   // ---- inspeções
   def("qualidade.inspecoes.lista", "table", "Lista de inspeções", "Inspeções do projeto com código, título, resultado, datas planejada e realizada, RNC vinculada e fonte.", { source: "quality_inspections", refresh: REFRESH, missingData: "Sem inspeção, exibe SEM DADOS." }),
@@ -238,7 +239,7 @@ export const QUALIDADE_HELP: FeatureHelpDefinition[] = [
   col("qualidade.capa.col-descricao", "Coluna Ação", "Descrição da ação registrada.", "quality_corrective_actions.description"),
   col("qualidade.capa.col-prazo", "Coluna Prazo da ação", "Prazo da ação e marca VENCIDA quando passou sem execução.", "quality_corrective_actions.due_date"),
   col("qualidade.capa.col-status", "Coluna Status da ação", "Planejada, em andamento, executada ou cancelada.", "quality_corrective_actions.status"),
-  col("qualidade.capa.col-atualizar", "Coluna Atualizar status", "Muda o status da ação enviando a versão lida (conflito de versão se alguém alterou antes). Executada grava a data de execução.", "quality_corrective_actions (UPDATE sob RLS)"),
+  col("qualidade.capa.col-atualizar", "Coluna Atualizar status", "Muda o status da ação pela RPC quality_capa_update_status, enviando a versão lida (conflito de versão se alguém alterou antes). Executada grava a data de execução. Cancelar exige perfil de gestão e justificativa de pelo menos 10 caracteres; desfazer uma ação executada também exige justificativa. Ação executada NÃO equivale a RNC conforme.", "quality_corrective_actions (RPC quality_capa_update_status; cada mudança é auditada)"),
 
   // ---- eficácia
   def("qualidade.eficacia.lista", "table", "Lista de verificações de eficácia", "Verificações registradas, da mais recente para a mais antiga, com RNC, resultado, critério e data. São append-only: nenhuma é editada ou apagada.", { source: "quality_effectiveness_verifications", refresh: REFRESH, missingData: "Sem verificação, exibe SEM DADOS." }),
@@ -286,4 +287,5 @@ export const QUALIDADE_HELP: FeatureHelpDefinition[] = [
   col("qualidade.auditoria.col-evento", "Coluna Evento", "Descrição do evento, com a RNC quando aplicável.", "quality_state_events.from_state e to_state; audit_log_entries.action"),
   col("qualidade.auditoria.col-ator", "Coluna Quem", "Pessoa que executou o evento (nome do cadastro) ou Sistema.", "quality_state_events.actor_user_id e audit_log_entries.actor_user_id"),
   col("qualidade.auditoria.col-justificativa", "Coluna Justificativa", "Justificativa informada na transição de estado, quando houve.", "quality_state_events.justification"),
+  ...QUALIDADE_RPC_HELP,
 ];

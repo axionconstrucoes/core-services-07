@@ -245,6 +245,10 @@ export function RepairsPanel({ projectId, caseId, items, canRegister }: { projec
                 <FieldLabel htmlFor="rep-real" label="Custo realizado (R$)" helpId="garantias.detalhe.reparo-custo-realizado" />
                 <input id="rep-real" name="actualCost" inputMode="decimal" className={FIELD_CLASS} placeholder="Vazio = SEM DADOS" />
               </div>
+              <div className="space-y-1 md:col-span-2">
+                <FieldLabel htmlFor="rep-fonte" label="Fonte do custo (nota, orçamento, medição)" helpId="garantias.detalhe.reparo-fonte-custo" />
+                <input id="rep-fonte" name="costSourceRef" maxLength={1000} className={FIELD_CLASS} placeholder="Obrigatória quando houver valor" />
+              </div>
               <div className="flex min-h-11 items-center gap-2">
                 <input id="rep-reinc" name="isRecurrence" type="checkbox" className="size-5 accent-[var(--primary)]" />
                 <label htmlFor="rep-reinc" className="text-sm text-foreground">É reincidência</label>
@@ -387,16 +391,19 @@ export function VerificationPanel({
   warranty,
   verifications,
   evidence,
-  canRegister,
   canManage,
 }: {
   projectId: string;
   warranty: WarrantyCaseView;
   verifications: VerificationView[];
   evidence: EvidenceView[];
-  canRegister: boolean;
   canManage: boolean;
 }) {
+  const acceptDisabled = !canManage
+    ? "Registrar o aceite do cliente exige perfil de gestão (Administrador, Gerente ou Gestor)."
+    : warranty.state !== "REPARADA" && warranty.state !== "VERIFICADA"
+      ? "O aceite só pode ser registrado com o caso Reparado ou Verificado."
+      : null;
   const verifyDisabled = !canManage ? "A verificação de eficácia exige perfil de gestão (Administrador, Gerente ou Gestor)." : warranty.state !== "REPARADA" ? "A verificação só pode ser registrada com o caso no estado Reparada." : null;
   return (
     <div className="space-y-4">
@@ -426,9 +433,10 @@ export function VerificationPanel({
         </CardHeader>
         <CardContent>
           <ActionForm
-            action={(raw) => registerVerificationAction(projectId, warranty.id, raw)}
+            action={(raw) => registerVerificationAction(projectId, warranty.id, warranty.rowVersion, raw)}
             submitLabel="Registrar verificação"
             submitHelp={<FeatureInfo helpId="garantias.detalhe.verificacao-registrar" />}
+            conflictHelp={<FeatureInfo helpId="garantias.detalhe.conflito-versao" />}
             disabledReason={verifyDisabled}
           >
             <div className="grid gap-3 md:grid-cols-2">
@@ -487,7 +495,7 @@ export function VerificationPanel({
             submitLabel="Registrar aceite"
             submitHelp={<FeatureInfo helpId="garantias.detalhe.aceite-registrar" />}
             conflictHelp={<FeatureInfo helpId="garantias.detalhe.conflito-versao" />}
-            disabledReason={canRegister ? null : READ_ONLY_REASON}
+            disabledReason={acceptDisabled}
           >
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1">
@@ -497,6 +505,19 @@ export function VerificationPanel({
               <div className="space-y-1">
                 <FieldLabel htmlFor="ace-nome" label="Quem aceitou (nome)" helpId="garantias.detalhe.aceite-nome" required />
                 <input id="ace-nome" name="acceptedByName" required minLength={2} maxLength={200} defaultValue={warranty.acceptedByName ?? ""} className={FIELD_CLASS} />
+              </div>
+              <div className="space-y-1 md:col-span-2">
+                <FieldLabel htmlFor="ace-evi" label="Evidência do aceite (termo, e-mail, ata)" helpId="garantias.detalhe.aceite-evidencia" required />
+                <select id="ace-evi" name="evidenceId" required defaultValue={warranty.acceptedEvidenceId ?? ""} className={cn(SELECT_CLASS, "min-h-11 w-full")}>
+                  <option value="" disabled>
+                    Selecione uma evidência do caso (fato)
+                  </option>
+                  {evidence.filter((e) => e.epistemic === "FATO").map((e) => (
+                    <option key={e.id} value={e.id}>
+                      {e.sourceRef}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
           </ActionForm>

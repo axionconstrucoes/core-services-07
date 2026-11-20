@@ -1,10 +1,14 @@
-// LIGAÇÃO ALERTA -> RNC / GARANTIA / SINISTRO (camada de APLICAÇÃO; nenhum SQL novo, nenhuma alteração em record_risk_alert_action
-// nem nos SLAs). Puro: sem I/O.
+// LIGAÇÃO ALERTA -> RNC / GARANTIA / SINISTRO (camada de APLICAÇÃO; nenhuma alteração em record_risk_alert_action nem nos SLAs).
+// Puro: sem I/O.
 //
-// CONVENÇÃO DE VÍNCULO (não existe FK alerta -> RNC no modelo da fase 1): uma RNC, garantia ou sinistro está vinculado a um caso de
-// alerta quando a referência de origem registrada (origin_ref da RNC/garantia, source_ref de evidência ou de sinistro) contém o id do
-// caso (UUID) ou o código visível do alerta (ex.: "ALERTA:<caseId>" ou a URL /<projeto>/alertas/<caseId>). Sem referência, sem vínculo:
-// a UI nunca presume ligação. Um vínculo por FK explícito é decisão futura do dono (ver relatório).
+// FASE 3/D — VÍNCULO ESTRUTURADO: a tabela `acc_alert_links` (FK composta por projeto, histórico append-only; RPCs acc_alert_link_create /
+// acc_alert_link_unlink) é a FONTE PRIMÁRIA do vínculo. A CONVENÇÃO TEXTUAL abaixo continua valendo como FALLBACK para dados antigos ainda não
+// migrados: um vínculo estruturado ATIVO sempre aparece; um vínculo estruturado DESFEITO por humano EXCLUI a ligação por convenção (a decisão
+// humana prevalece sobre o texto); sem nenhum dos dois, vale a convenção. Veja combineLinkedEntities.
+//
+// CONVENÇÃO DE VÍNCULO (legado): uma RNC, garantia ou sinistro está vinculado a um caso de alerta quando a referência de origem registrada
+// (origin_ref da RNC/garantia, source_ref de evidência ou de sinistro) contém o id do caso (UUID) ou o código visível do alerta
+// (ex.: "ALERTA:<caseId>" ou a URL /<projeto>/alertas/<caseId>). Sem referência, sem vínculo: a UI nunca presume ligação.
 //
 // REGRA (CLAUDE.md 11/12): RESOLVIDO do alerta é decisão de comunicação/SLA e NUNCA encerra a RNC/garantia/sinistro vinculada;
 // o encerramento exige a transição própria (quality_*_transition / insurance_claim_advance) com verificação de eficácia/estágio.
@@ -54,6 +58,62 @@ export function referencesAlert(refs: ReadonlyArray<string | null | undefined>, 
 }
 
 const CLAIM_CLOSED = "ENCERRADO";
+
+// ---------------------------------------------------------------- vínculo estruturado (tabela acc_alert_links)
+export type StructuredEntityType = "RNC" | "GARANTIA" | "SINISTRO";
+export type LinkOrigin = "ESTRUTURADO" | "CONVENCAO";
+
+export interface StructuredLink {
+  entityType: StructuredEntityType;
+  entityId: string;
+  /** false = desvinculado por uma pessoa (com motivo); exclui a ligação por convenção textual. */
+  active: boolean;
+  /** MANUAL (pessoa) ou BACKFILL_CONVENTION (migração conservadora da convenção textual). */
+  linkSource: string;
+}
+
+export const STRUCTURED_TO_ENTITY: Record<StructuredEntityType, LinkedEntityType> = { RNC: "NCR", GARANTIA: "WARRANTY", SINISTRO: "CLAIM" };
+
+export function isStructuredEntityType(v: unknown): v is StructuredEntityType {
+  return v === "RNC" || v === "GARANTIA" || v === "SINISTRO";
+}
+
+const linkKey = (type: LinkedEntityType, id: string): string => `${type}:${id.toLowerCase()}`;
+
+export type LinkedEntityWithOrigin = LinkedEntityRow & { origin: LinkOrigin };
+
+/**
+ * Une o vínculo ESTRUTURADO (já resolvido em linhas de entidade) com o vínculo por CONVENÇÃO TEXTUAL (fallback).
+ *  - ativo estruturado => aparece (origem ESTRUTURADO), sem precisar de texto;
+ *  - desvinculado estruturado => NÃO aparece pela convenção (decisão humana prevalece);
+ *  - sem linha estruturada => vale a convenção (origem CONVENCAO), como antes;
+ *  - só entidades ABERTAS são retornadas; sem duplicidade (tipo + id).
+ */
+export function combineLinkedEntities(
+  links: readonly StructuredLink[],
+  structuredRows: readonly LinkedEntityRow[],
+  conventionRows: readonly LinkedEntityRow[],
+  alert: AlertRef,
+): LinkedEntityWithOrigin[] {
+  const active = new Set<string>();
+  const undone = new Set<string>();
+  for (const l of links) (l.active ? active : undone).add(linkKey(STRUCTURED_TO_ENTITY[l.entityType], l.entityId));
+  const out: LinkedEntityWithOrigin[] = [];
+  const seen = new Set<string>();
+  for (const r of structuredRows) {
+    const k = linkKey(r.type, r.id);
+    if (!active.has(k) || seen.has(k) || !isLinkedEntityOpen(r)) continue;
+    seen.add(k);
+    out.push({ ...r, origin: "ESTRUTURADO" });
+  }
+  for (const r of selectOpenLinkedEntities(conventionRows, alert)) {
+    const k = linkKey(r.type, r.id);
+    if (active.has(k) || undone.has(k) || seen.has(k)) continue;
+    seen.add(k);
+    out.push({ ...r, origin: "CONVENCAO" });
+  }
+  return out;
+}
 
 export function isLinkedEntityOpen(e: Pick<LinkedEntityRow, "type" | "state">): boolean {
   if (e.type === "NCR") return isNcrOpen(e.state);

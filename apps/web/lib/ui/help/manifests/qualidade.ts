@@ -26,7 +26,7 @@ const TAB_BY_SEGMENT: Record<string, string> = {
 const DETAIL_ONLY = new Set<string>([
   "qualidade.rnc.pagina-detalhe", "qualidade.rnc.resumo", "qualidade.rnc.estado-atual", "qualidade.rnc.criticidade", "qualidade.rnc.transicoes",
   "qualidade.rnc.botao-transicao", "qualidade.rnc.campo-justificativa", "qualidade.rnc.campo-duplicada-de", "qualidade.rnc.campo-evidencias-transicao",
-  "qualidade.rnc.conflito-versao", "qualidade.rnc.form-dados", "qualidade.rnc.campo-causa-raiz", "qualidade.rnc.campo-prazo", "qualidade.rnc.consequencias",
+  "qualidade.rnc.conflito-versao", "qualidade.rnc.form-dados", "qualidade.rnc.campo-justificativa-dados", "qualidade.rnc.campo-causa-raiz", "qualidade.rnc.campo-prazo", "qualidade.rnc.consequencias",
   "qualidade.rnc.form-consequencia", "qualidade.rnc.campo-pilar", "qualidade.rnc.campo-severidade", "qualidade.rnc.campo-probabilidade",
   "qualidade.rnc.campo-fundamento", "qualidade.rnc.campo-medidas", "qualidade.rnc.col-pilar", "qualidade.rnc.col-severidade", "qualidade.rnc.col-probabilidade",
   "qualidade.rnc.col-fonte-consequencia", "qualidade.rnc.col-status-consequencia", "qualidade.rnc.linha-do-tempo",

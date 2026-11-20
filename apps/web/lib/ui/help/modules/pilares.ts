@@ -3,6 +3,7 @@
 // Regras de conteúdo: ver lib/ui/help/types.ts e docs/design-system/hover-text-e-contraste.md. Ids novos: "pilares.tela.elemento".
 // Todo texto descreve o que o código de lib/pilares/model.ts, lib/pilares/data.ts, lib/pilares/alert-links*.ts e
 // app/[projectId]/pilares/page.tsx faz hoje; nenhuma fórmula, fonte ou prazo é inventada.
+import { PILARES_VINCULOS_HELP } from "./vinculos";
 import type { FeatureHelpDefinition } from "../types";
 
 const VERSION = "2026-11-20";
@@ -609,14 +610,14 @@ export const PILARES_HELP: FeatureHelpDefinition[] = [
     purpose: "Evitar que o fechamento de um alerta seja confundido com o fechamento da não conformidade, da garantia ou do sinistro.",
     howToUse: ["Leia a lista de pendências ('Falta: ...') de cada item vinculado.", "Use 'Abrir' para ir ao módulo que trata o item e registrar a transição própria."],
     howItWorks:
-      "Camada de aplicação, somente leitura. O vínculo existe quando a referência de origem da RNC, da garantia ou do sinistro (origin_ref/source_ref, inclusive de evidências) cita o id do caso do alerta ou o código visível dele. Para RNC e garantia, o que falta vem da RPC quality_alert_resolved_guard (alertResolutionClosesEntity é sempre falso). Não grava nada e não altera o fluxo RESOLVIDO / EM ANDAMENTO / ENVIAR PARA / ESPECIALISTA nem os SLAs.",
-    data: ["quality_ncrs.origin_ref, quality_warranty_cases.origin_ref, insurance_claims.source_ref, quality_evidence.source_ref", "quality_alert_resolved_guard(entity_type, entity_id)"],
+      "Camada de aplicação, somente leitura. O vínculo vem da tabela estruturada acc_alert_links (fonte primária) e, para dados antigos, da referência de origem da RNC, da garantia ou do sinistro (origin_ref/source_ref, inclusive de evidências) que cita o id do caso do alerta ou o código visível dele; um vínculo desfeito por pessoa impede que o texto antigo o traga de volta. Para RNC e garantia, o que falta vem da RPC quality_alert_resolved_guard (alertResolutionClosesEntity é sempre falso). Não grava nada e não altera o fluxo RESOLVIDO / EM ANDAMENTO / ENVIAR PARA / ESPECIALISTA nem os SLAs.",
+    data: ["acc_alert_links (vínculo estruturado)", "quality_ncrs.origin_ref, quality_warranty_cases.origin_ref, insurance_claims.source_ref, quality_evidence.source_ref (reserva para dados antigos)", "quality_alert_resolved_guard(entity_type, entity_id)"],
     criteria: ["Só entidades abertas geram o aviso (RNC fora de ENCERRADA/NAO_CONFIRMADA/DUPLICADA/CANCELADA; garantia fora de ENCERRADA/CANCELADA; sinistro fora de ENCERRADO).", "Sem referência de origem ao alerta, não há vínculo presumido."],
     source: "Tabelas quality_* e insurance_claims lidas sob RLS, mais a RPC quality_alert_resolved_guard.",
     refresh: "A cada abertura da tela do alerta.",
     missingData: "Se a leitura falhar, a tela informa que o vínculo está indisponível; se a guarda de encerramento falhar, informa SEM DADOS para o que falta. Sem módulo provisionado ou sem vínculo, nada é exibido.",
     permissions: "Membros do projeto, conforme a RLS; o aviso não concede nem remove nenhuma permissão.",
-    limitations: ["Não há chave estrangeira entre alerta e RNC no modelo; o vínculo depende da referência de origem registrada.", "O sinistro não tem guarda de encerramento no banco: o aviso só informa que o alerta não o encerra."],
+    limitations: ["Vínculos antigos que só existem no texto da origem continuam valendo como reserva até serem registrados; casos ambíguos não são vinculados automaticamente.", "O sinistro não tem guarda de encerramento no banco: o aviso só informa que o alerta não o encerra."],
     humanReview: "O encerramento da RNC, garantia ou sinistro é sempre decisão humana registrada com justificativa e evidência.",
   }),
   entry("message", {
@@ -634,4 +635,5 @@ export const PILARES_HELP: FeatureHelpDefinition[] = [
     validity: SLA_VALIDITY,
     limitations: ["Esta tela só rotula e exibe os prazos; não calcula nem altera nenhum SLA."],
   }),
+  ...PILARES_VINCULOS_HELP,
 ];

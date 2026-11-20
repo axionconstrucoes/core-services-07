@@ -1,6 +1,7 @@
 // Leitura (SELECT sob RLS + RPC de leitura quality_alert_resolved_guard) das entidades ABERTAS vinculadas a um caso de alerta.
 // Não escreve nada e não altera o fluxo RESOLVIDO / EM ANDAMENTO / ENVIAR PARA / ESPECIALISTA (record_risk_alert_action intacto).
-// Convenção de vínculo: ver lib/pilares/alert-links.ts.
+// Fase 3/D: o vínculo vem da tabela estruturada acc_alert_links (fonte primária) COM fallback à convenção textual para dados antigos
+// (ver lib/pilares/alert-links.ts › combineLinkedEntities).
 
 import "server-only";
 
@@ -8,13 +9,16 @@ import { createSupabaseServerClient } from "@axion/db/server";
 
 import {
   ENTITY_ROUTE,
+  combineLinkedEntities,
   isSearchableVisibleCode,
+  isStructuredEntityType,
   parseGuardPayload,
-  selectOpenLinkedEntities,
   type AlertRef,
   type ClosureGuard,
+  type LinkOrigin,
   type LinkedEntityRow,
   type LinkedEntityType,
+  type StructuredLink,
 } from "./alert-links";
 
 export interface LinkedEntityView {
@@ -27,6 +31,8 @@ export interface LinkedEntityView {
   dueDate: string | null;
   /** Rota relativa ao projeto da tela da entidade. */
   route: string;
+  /** ESTRUTURADO = vínculo registrado em acc_alert_links; CONVENCAO = ligação inferida do texto (dado antigo, fallback). */
+  origin: LinkOrigin;
   /** Guarda de encerramento (RNC/garantia); null para sinistro ou quando a RPC está indisponível. */
   guard: ClosureGuard | null;
 }
@@ -56,9 +62,48 @@ async function query(client: Client, table: string, columns: string, projectId: 
   return (data ?? []) as unknown as Array<Record<string, unknown>>;
 }
 
+/** Vínculos estruturados do alerta (ativos e desfeitos). Tabela ausente (migration pendente) => sem vínculos estruturados, só convenção. */
+async function loadStructuredLinks(client: Client, projectId: string, alert: AlertRef): Promise<StructuredLink[]> {
+  const { data, error } = await client.from("acc_alert_links").select("entity_type,entity_id,link_source,unlinked_at").eq("project_id", projectId).eq("alert_case_id", alert.caseId).limit(200);
+  if (error) {
+    if (error.code && MISSING_RELATION_CODES.has(error.code)) return [];
+    throw Object.assign(new Error(error.message), { code: error.code });
+  }
+  return ((data ?? []) as Array<Record<string, unknown>>)
+    .filter((r) => isStructuredEntityType(r.entity_type))
+    .map((r): StructuredLink => ({
+      entityType: r.entity_type as StructuredLink["entityType"],
+      entityId: String(r.entity_id),
+      active: r.unlinked_at == null,
+      linkSource: String(r.link_source ?? "MANUAL"),
+    }));
+}
+
+/** Linhas de entidade (RNC/garantia/sinistro) dos vínculos estruturados ATIVOS, lidas pelo id e sempre dentro do projeto. */
+async function loadStructuredRows(client: Client, projectId: string, links: readonly StructuredLink[]): Promise<LinkedEntityRow[]> {
+  const ids = (type: StructuredLink["entityType"]) => Array.from(new Set(links.filter((l) => l.active && l.entityType === type).map((l) => l.entityId)));
+  const [ncrIds, warrantyIds, claimIds] = [ids("RNC"), ids("GARANTIA"), ids("SINISTRO")];
+  const rows: LinkedEntityRow[] = [];
+  if (ncrIds.length) {
+    const { data } = await client.from("quality_ncrs").select("id,code,title,state,due_date").eq("project_id", projectId).in("id", ncrIds);
+    for (const r of (data ?? []) as Array<Record<string, unknown>>) rows.push({ type: "NCR", id: String(r.id), code: String(r.code), title: String(r.title), state: String(r.state), refs: [], dueDate: (r.due_date as string | null) ?? null });
+  }
+  if (warrantyIds.length) {
+    const { data } = await client.from("quality_warranty_cases").select("id,code,service_system,state,due_date").eq("project_id", projectId).in("id", warrantyIds);
+    for (const r of (data ?? []) as Array<Record<string, unknown>>) rows.push({ type: "WARRANTY", id: String(r.id), code: String(r.code), title: String(r.service_system), state: String(r.state), refs: [], dueDate: (r.due_date as string | null) ?? null });
+  }
+  if (claimIds.length) {
+    const { data } = await client.from("insurance_claims").select("id,title,stage").eq("project_id", projectId).in("id", claimIds);
+    for (const r of (data ?? []) as Array<Record<string, unknown>>) rows.push({ type: "CLAIM", id: String(r.id), code: null, title: String(r.title), state: String(r.stage), refs: [], dueDate: null });
+  }
+  return rows;
+}
+
 export async function getAlertLinkedQuality(projectId: string, alert: AlertRef): Promise<AlertLinkedQualityView> {
   try {
     const client = await createSupabaseServerClient();
+    const structuredLinks = await loadStructuredLinks(client, projectId, alert);
+    const structuredRows = await loadStructuredRows(client, projectId, structuredLinks);
     const [ncrs, warranties, claims, evidence] = await Promise.all([
       query(client, "quality_ncrs", "id,code,title,state,origin_ref,origin_url,due_date", projectId, "origin_ref", alert),
       query(client, "quality_warranty_cases", "id,code,service_system,state,origin_ref,due_date", projectId, "origin_ref", alert),
@@ -91,7 +136,7 @@ export async function getAlertLinkedQuality(projectId: string, alert: AlertRef):
       }
     }
 
-    const open = selectOpenLinkedEntities(rows, alert).slice(0, 10);
+    const open = combineLinkedEntities(structuredLinks, structuredRows, rows, alert).slice(0, 10);
     const entities = await Promise.all(
       open.map(async (e): Promise<LinkedEntityView> => {
         let guard: ClosureGuard | null = null;
@@ -103,7 +148,7 @@ export async function getAlertLinkedQuality(projectId: string, alert: AlertRef):
             guard = null;
           }
         }
-        return { type: e.type, id: e.id, code: e.code, title: e.title, state: e.state, dueDate: e.dueDate, route: ENTITY_ROUTE[e.type], guard };
+        return { type: e.type, id: e.id, code: e.code, title: e.title, state: e.state, dueDate: e.dueDate, route: ENTITY_ROUTE[e.type], origin: e.origin, guard };
       }),
     );
     return { available: true, entities };

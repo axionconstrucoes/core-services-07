@@ -70,25 +70,37 @@ await check("CASO 02 NC em foto SSMA: RNC nasce por RPC com origem SSMA_FOTO ras
   const sem = await C.createNcrCommand(ctx("GESTOR", mockDb()), fd({ title: "Sem fonte", originType: "SSMA_FOTO", originRef: "" }));
   ok(!sem.ok && sem.code === "ORIGIN_REQUIRED", "origem obrigatória");
 });
-await check("CASO 02 (cont.) evidência: fonte obrigatória; NC COMPROVADA só com FATO (inferência nunca comprova); fonte imutável (update só classificação/epistêmico)", async () => {
-  const db = mockDb({ tables: { quality_evidence: () => ({ data: { id: EV }, error: null }) } });
+await check("CASO 02 (cont.) evidência: fonte obrigatória; NC COMPROVADA só com FATO (inferência nunca comprova); reclassificar é MANAGE com justificativa (RPC); fonte imutável", async () => {
+  const db = mockDb({ rpc: { quality_evidence_register: () => ({ data: { ok: true, id: EV }, error: null }) } });
   const base = { ncrId: NCR, sourceType: "SSMA_FOTO", sourceRef: "IMG_0042.jpg", classification: "INDICIO", epistemic: "FATO" };
   ok((await C.addEvidenceCommand(ctx("COLABORADOR", db), fd(base))).ok, "indício ok");
   const bad = await C.addEvidenceCommand(ctx("COLABORADOR", mockDb()), fd({ ...base, classification: "NC_COMPROVADA", epistemic: "INFERENCIA" }));
   ok(!bad.ok && /FATO/.test(bad.error), "NC comprovada + inferência");
   ok(!(await C.addEvidenceCommand(ctx("COLABORADOR", mockDb()), fd({ ...base, sourceRef: "  " }))).ok, "sem fonte");
-  const upd = mockDb({ tables: { quality_evidence: () => ({ data: [{ id: EV }], error: null }) } });
-  await C.setEvidenceClassificationCommand(ctx("GESTOR", upd), fd({ evidenceId: EV, expectedVersion: "1", classification: "NC_COMPROVADA", epistemic: "FATO" }));
-  const op = upd.calls.find((c) => c.table === "quality_evidence");
-  const payload = op.ops.find((o) => o[0] === "update")[1];
-  ok(Object.keys(payload).sort().join() === "classification,epistemic", "update restrito: " + Object.keys(payload));
+  const reg = db.calls.find((c) => c.rpc === "quality_evidence_register");
+  ok(reg && reg.args.p_project_id === P1 && reg.args.p_ncr_id === NCR && reg.args.p_source_ref === "IMG_0042.jpg", "registro por RPC com project_id do contexto: " + JSON.stringify(reg?.args));
+  ok(db.calls.every((c) => !c.table), "nenhum INSERT/UPDATE direto em tabela");
+  // reclassificar: fase 3/D = decisão de gestão com justificativa; COLABORADOR nunca chega ao banco
+  const colabDb = mockDb();
+  const colab = await C.setEvidenceClassificationCommand(ctx("COLABORADOR", colabDb), fd({ evidenceId: EV, expectedVersion: "1", classification: "NC_COMPROVADA", epistemic: "FATO", justification: "Foto confirma o defeito." }));
+  ok(!colab.ok && colab.code === "FORBIDDEN" && colabDb.calls.length === 0, "COLABORADOR não reclassifica: " + colab.code);
+  const semJust = await C.setEvidenceClassificationCommand(ctx("GESTOR", mockDb()), fd({ evidenceId: EV, expectedVersion: "1", classification: "NC_COMPROVADA", epistemic: "FATO" }));
+  ok(!semJust.ok && semJust.code === "JUSTIFICATION_REQUIRED", "sem justificativa: " + semJust.code);
+  const upd = mockDb({ rpc: { quality_evidence_revise: () => ({ data: { ok: true, id: EV, rowVersion: 2 }, error: null }) } });
+  const rev = await C.setEvidenceClassificationCommand(ctx("GESTOR", upd), fd({ evidenceId: EV, expectedVersion: "1", classification: "NC_COMPROVADA", epistemic: "FATO", justification: "Foto confirma o defeito." }));
+  ok(rev.ok, rev.error);
+  const call = upd.calls.find((c) => c.rpc === "quality_evidence_revise");
+  ok(call.args.p_expected_version === 1 && call.args.p_justification === "Foto confirma o defeito." && Object.keys(call.args).sort().join() === "p_classification,p_description,p_epistemic,p_evidence_id,p_expected_version,p_justification", "RPC de revisão: " + Object.keys(call.args));
+  const locked = mockDb({ rpc: { quality_evidence_revise: () => ({ data: null, error: { message: "EVIDENCE_LOCKED: a evidência sustenta uma verificação" } }) } });
+  const lk = await C.setEvidenceClassificationCommand(ctx("GESTOR", locked), fd({ evidenceId: EV, expectedVersion: "1", classification: "INDICIO", epistemic: "FATO", justification: "Reclassificar depois da verificação." }));
+  ok(!lk.ok && lk.code === "EVIDENCE_LOCKED", "evidência travada: " + lk.code);
 });
 await check("CASO 05 indício em diário de obra: evidência DIARIO_OBRA classificada INDÍCIO/FATO com a referência do diário", async () => {
-  const db = mockDb({ tables: { quality_evidence: () => ({ data: { id: EV }, error: null }) } });
+  const db = mockDb({ rpc: { quality_evidence_register: () => ({ data: { ok: true, id: EV }, error: null }) } });
   const r = await C.addEvidenceCommand(ctx("COLABORADOR", db), fd({ ncrId: NCR, sourceType: "DIARIO_OBRA", sourceRef: "Diário 14/11 p.3", classification: "INDICIO", epistemic: "FATO" }));
   ok(r.ok, r.error);
-  const ins = db.calls.find((c) => c.table === "quality_evidence").ops.find((o) => o[0] === "insert")[1];
-  ok(ins.source_type === "DIARIO_OBRA" && ins.project_id === P1 && ins.classification === "INDICIO", JSON.stringify(ins));
+  const ins = db.calls.find((c) => c.rpc === "quality_evidence_register").args;
+  ok(ins.p_source_type === "DIARIO_OBRA" && ins.p_project_id === P1 && ins.p_classification === "INDICIO" && ins.p_source_ref === "Diário 14/11 p.3", JSON.stringify(ins));
   ok(M.ORIGIN_LABEL.DIARIO_OBRA === "Diário de obra", "rótulo");
 });
 await check("CASO 06 relatório de fiscalização: origem FISCALIZACAO aceita na criação da RNC e como fonte de evidência", async () => {
@@ -100,16 +112,16 @@ await check("CASO 06 relatório de fiscalização: origem FISCALIZACAO aceita na
 
 // ------------------------------------------------------------ CASOS 03, 04 ----
 await check("CASO 03 reclamação de cliente por e-mail: canal EMAIL_CLIENTE, recebimento e fonte original obrigatórios", async () => {
-  const db = mockDb({ tables: { quality_customer_complaints: () => ({ data: { id: U(30) }, error: null }) } });
+  const db = mockDb({ rpc: { quality_complaint_register: () => ({ data: { ok: true, id: U(30), code: "REC-0001" }, error: null }) } });
   const input = { channel: "EMAIL_CLIENTE", receivedAt: "2026-03-10T10:00", subject: "Infiltração no banheiro", sourceRef: "E-mail 'Infiltração' 10/03" };
   ok((await C.addComplaintCommand(ctx("COLABORADOR", db), fd(input))).ok, "ok");
-  const ins = db.calls.find((c) => c.table === "quality_customer_complaints").ops.find((o) => o[0] === "insert")[1];
-  ok(ins.channel === "EMAIL_CLIENTE" && ins.source_ref && ins.project_id === P1, JSON.stringify(ins));
+  const ins = db.calls.find((c) => c.rpc === "quality_complaint_register").args;
+  ok(ins.p_channel === "EMAIL_CLIENTE" && ins.p_source_ref && ins.p_project_id === P1, JSON.stringify(ins));
   ok(!(await C.addComplaintCommand(ctx("COLABORADOR", mockDb()), fd({ ...input, sourceRef: "" }))).ok, "sem fonte");
 });
 await check("CASO 04 reclamação por e-mail AXION: canal EMAIL_AXION distinto do e-mail do cliente", async () => {
   ok(M.COMPLAINT_CHANNEL_LABEL.EMAIL_AXION === "E-mail AXION" && M.COMPLAINT_CHANNEL_LABEL.EMAIL_CLIENTE === "E-mail do cliente", "rótulos");
-  const db = mockDb({ tables: { quality_customer_complaints: () => ({ data: { id: U(31) }, error: null }) } });
+  const db = mockDb({ rpc: { quality_complaint_register: () => ({ data: { ok: true, id: U(31) }, error: null }) } });
   const r = await C.addComplaintCommand(ctx("GESTOR", db), fd({ channel: "EMAIL_AXION", receivedAt: "2026-03-11T09:30", subject: "Reclamação encaminhada", sourceRef: "E-mail AXION 11/03" }));
   ok(r.ok, r.error);
   ok(!(await C.addComplaintCommand(ctx("GESTOR", mockDb()), fd({ channel: "WHATSAPP", receivedAt: "2026-03-11T09:30", subject: "x y z", sourceRef: "a" }))).ok, "canal inválido");
@@ -155,7 +167,7 @@ await check("CASO 34 impactos simultâneos nos 4 pilares: cada pilar registrado;
   const part = K.computeCriticality([{ pillar: "QUALIDADE", severity: "LOW", sourceRef: "f" }]);
   ok(part.pillarsWithoutData.length === 3, "3 pilares SEM DADOS");
   ok(Object.keys(M.PILLAR_LABEL).join() === "PRAZO,CUSTO,SEGURANCA,QUALIDADE", "4 pilares na UI");
-  const db = mockDb({ tables: { quality_consequences: () => ({ data: { id: U(40) }, error: null }) } });
+  const db = mockDb({ rpc: { quality_consequence_register: () => ({ data: { ok: true, id: U(40) }, error: null }) } });
   for (const p of Object.keys(M.PILLAR_LABEL)) ok((await C.addConsequenceCommand(ctx("COLABORADOR", db), fd({ ncrId: NCR, pillar: p, severity: "HIGH", sourceRef: "laudo" }))).ok, p);
 });
 
@@ -208,9 +220,13 @@ await check("CASO 38 concorrência: a transição envia a versão lida; VERSION_
   ok(db.calls.find((c) => c.rpc).args.p_expected_version === 3, "versão enviada");
   const semVersao = await C.transitionNcrCommand(ctx("GESTOR", mockDb()), fd({ ncrId: NCR, toState: "INVESTIGACAO" }));
   ok(semVersao.code === "VERSION_REQUIRED", semVersao.code);
-  const zero = mockDb({ tables: { quality_ncrs: () => ({ data: [], error: null }) } });
+  const zero = mockDb({ rpc: { quality_ncr_update_fields: () => ({ data: null, error: { message: "VERSION_CONFLICT: versão esperada 2 mas a atual é 3" } }) } });
   const u = await C.updateNcrCommand(ctx("GESTOR", zero), fd({ ncrId: NCR, expectedVersion: "2", rootCause: "x" }));
-  ok(u.conflict && eqOf(zero.calls[0], "row_version")[0] === 2 && eqOf(zero.calls[0], "project_id")[0] === P1, "update otimista");
+  ok(u.conflict && zero.calls[0].rpc === "quality_ncr_update_fields" && zero.calls[0].args.p_expected_version === 2, "edição otimista por RPC (versão enviada; conflito vem do banco)");
+  const colabEdit = await C.updateNcrCommand(ctx("COLABORADOR", mockDb()), fd({ ncrId: NCR, expectedVersion: "2", rootCause: "x" }));
+  ok(colabEdit.code === "FORBIDDEN", "causa raiz e prazo são decisão de gestão");
+  const verSem = await C.addVerificationCommand(ctx("GESTOR", mockDb()), fd({ ncrId: NCR, result: "EFICAZ", criteria: "critério definido", evidenceId: EV }));
+  ok(verSem.code === "VERSION_REQUIRED", "verificação exige a versão lida da RNC: " + verSem.code);
   const form = rd("apps/web/components/quality/ncr-transition-panel.tsx");
   ok(/key=\{version\}/.test(rd("apps/web/app/[projectId]/qualidade/rnc/[ncrId]/page.tsx")) && /state\.conflict/.test(form) && /expectedVersion/.test(form), "painel remonta por versão e bloqueia após conflito");
   ok(/Recarregar a página/.test(rd("apps/web/components/quality/form-kit.tsx")), "ação de recarga");
@@ -227,9 +243,11 @@ await check("CASO 39 isolamento entre projetos: toda consulta e escrita é escop
   await Q.loadInspections(rec, P1); await Q.loadTests(rec, P1); await Q.loadComplaints(rec, P1); await Q.loadRequirements(rec, P1); await Q.loadNcrCodes(rec, P1);
   const tablesCalls = rec.calls.filter((c) => c.table);
   ok(tablesCalls.length >= 14 && tablesCalls.every((c) => eqOf(c, "project_id")[0] === P1), "toda consulta com eq(project_id)");
-  const writes = mockDb({ tables: { quality_corrective_actions: () => ({ data: { id: U(50) }, error: null } ) } });
+  const writes = mockDb({ rpc: { quality_capa_register: () => ({ data: { ok: true, id: U(50) }, error: null }), quality_evidence_register: () => ({ data: { ok: true, id: EV }, error: null }) } });
   await C.addActionCommand(ctx("COLABORADOR", writes, P1), fd({ ncrId: NCR, kind: "CORRETIVA", description: "Refazer a camada", projectId: P2 }));
-  ok(writes.calls[0].ops.find((o) => o[0] === "insert")[1].project_id === P1, "project_id vem do contexto autenticado, nunca do formulário");
+  ok(writes.calls[0].rpc === "quality_capa_register" && !JSON.stringify(writes.calls[0].args).includes(P2), "a CAPA vai por RPC e o projeto do formulário é ignorado (o banco deriva o projeto da RNC)");
+  await C.addEvidenceCommand(ctx("COLABORADOR", writes, P1), fd({ ncrId: NCR, sourceType: "DOCUMENTO", sourceRef: "doc-1", classification: "INDICIO", epistemic: "FATO", projectId: P2 }));
+  ok(writes.calls[1].args.p_project_id === P1, "project_id vem do contexto autenticado, nunca do formulário");
   const actions = rd("apps/web/app/[projectId]/qualidade/actions.ts");
   ok(/getCurrentProjectPermission\(projectId\)/.test(actions) && !/service_role|createSupabaseAdmin|client-admin/.test(actions), "papel por projeto; sem service_role");
   ok(!(await C.createNcrCommand({ db: mockDb(), role: "GESTOR", projectId: "não-é-uuid" }, fd({ title: "abc", originType: "MANUAL", originRef: "x" }))).ok, "projeto inválido recusado");
