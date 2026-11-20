@@ -1,6 +1,6 @@
 // Catálogo do módulo "seguros": campos de formulário e formulários. Cada campo descreve a coluna/argumento real da RPC e o CHECK do banco.
 import type { FeatureHelpDefinition } from "../types";
-import { P_MANAGE, P_REGISTER, seg } from "./seguros-base";
+import { P_CLAIM_STAGE, P_MANAGE, P_REGISTER, seg } from "./seguros-base";
 
 const f = (id: string, title: string, short: string, description: string, extra: Partial<FeatureHelpDefinition> = {}) => seg(id, "field", title, short, description, extra);
 const form = (id: string, title: string, short: string, description: string, extra: Partial<FeatureHelpDefinition> = {}) => seg(id, "button", title, short, description, extra);
@@ -102,7 +102,7 @@ export const SEGUROS_CAMPOS: FeatureHelpDefinition[] = [
 
   /* ------------------------------------------------------------------ sinistros ------------------------------------------------------------------ */
   form("sinistros.form-abrir", "Formulário: abrir sinistro ou evento", "Abre um evento como expectativa, aviso ou reclamação, com fonte.", "Chama insurance_claim_open. Expectativa de sinistro só é aberta quando contratualmente prevista (cláusula da própria apólice ou nota fundamentada). Sem instrumento é aceito apenas com motivo explícito.", { permissions: P_REGISTER }),
-  form("sinistros.form-avancar", "Formulário: avançar o evento", "Registra a nova etapa do evento, com nota, protocolo e documento.", "Chama insurance_claim_advance com a row_version lida. Só estágios permitidos pela máquina de estados; negativa, contestação, documentação complementar e encerramento exigem nota; decisão exige resultado.", { permissions: P_REGISTER, consequences: ["Grava etapa imutável na linha do tempo e auditoria."] }),
+  form("sinistros.form-avancar", "Formulário: avançar o evento", "Registra a nova etapa do evento, com nota, protocolo e documento.", "Chama insurance_claim_advance com a row_version lida. Só estágios permitidos pela máquina de estados; negativa, contestação, documentação complementar e encerramento exigem nota; decisão exige resultado.", { permissions: P_CLAIM_STAGE, consequences: ["Grava etapa imutável na linha do tempo e auditoria."] }),
   f("sinistros.campo-estagio-inicial", "Estágio inicial", "Expectativa, aviso ou reclamação.", "A RPC só aceita esses três estágios na abertura (INVALID_INITIAL_STAGE).", {}),
   f("sinistros.campo-tipo", "Tipo de evento", "Inadimplemento, atraso, adiantamento não amortizado, RC cruzada, dano à própria obra, defeito pós-entrega, fiança bancária ou outro.", "Tipo (CHECK do banco) usado para casar com as cláusulas na avaliação de cobertura.", {}),
   f("sinistros.campo-titulo", "Título do evento", "Resumo curto do evento.", "Texto obrigatório; vira a descrição do evento nas minutas, que o humano deve revisar e complementar.", {}),

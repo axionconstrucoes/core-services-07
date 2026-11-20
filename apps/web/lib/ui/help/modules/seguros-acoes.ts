@@ -1,6 +1,6 @@
 // Catálogo do módulo "seguros": botões de ação. Cada ação chama UMA RPC allowlistada (lib/insurance-ui/rpc-ops.ts) ou apenas abre um formulário.
 import type { FeatureHelpDefinition } from "../types";
-import { P_ADMIN, P_MANAGE, P_REGISTER, seg } from "./seguros-base";
+import { P_ADMIN, P_CLAIM_STAGE, P_MANAGE, P_REGISTER, seg } from "./seguros-base";
 
 type A = [id: string, title: string, short: string, description: string, permissions?: string];
 
@@ -47,8 +47,8 @@ const ACTIONS: A[] = [
 
   ["acoes.sinistro-novo", "Abrir sinistro ou evento (abrir)", "Abre o formulário de evento.", OPEN("de sinistro ou evento"), P_REGISTER],
   ["acoes.sinistro-abrir", "Abrir evento", "Grava o evento e sua primeira etapa.", RPC("insurance_claim_open", "Expectativa exige base contratual; sem instrumento exige motivo."), P_REGISTER],
-  ["acoes.sinistro-avancar-abrir", "Avançar para o estágio (abrir)", "Abre o formulário da próxima etapa permitida.", "Cada botão corresponde a um estágio permitido pela máquina de estados a partir do estágio atual; apenas abre o formulário da etapa.", P_REGISTER],
-  ["acoes.sinistro-avancar", "Registrar nova etapa", "Grava a nova etapa do evento com nota, protocolo e documento.", RPC("insurance_claim_advance", `Valida a transição, a nota e o resultado da decisão. ${CONFLICT}`), P_REGISTER],
+  ["acoes.sinistro-avancar-abrir", "Avançar para o estágio (abrir)", "Abre o formulário da próxima etapa permitida.", "Cada botão corresponde a um estágio permitido pela máquina de estados a partir do estágio atual; apenas abre o formulário da etapa.", P_CLAIM_STAGE],
+  ["acoes.sinistro-avancar", "Registrar nova etapa", "Grava a nova etapa do evento com nota, protocolo e documento.", RPC("insurance_claim_advance", `Valida a transição, a nota e o resultado da decisão. ${CONFLICT}`), P_CLAIM_STAGE],
   ["acoes.acionamento-preparar", "Preparar acionamento", "Leva à aba de minutas com este evento para montar o fluxo e a minuta.", "Navega para a aba Minutas e acionamento com o evento escolhido. Nada é gravado nem enviado nesse clique.", P_REGISTER],
 
   ["acoes.dossie-gerar", "Gerar checklist do dossiê", "Cria os itens do roteiro da modalidade que ainda não existem.", RPC("insurance_dossier_sync", "Cria somente os itens faltantes (não sobrescreve nem apaga os existentes)."), P_MANAGE],

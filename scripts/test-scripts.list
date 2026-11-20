@@ -104,3 +104,5 @@ scripts/test-quality-ui.mjs
 scripts/test-seguros-ui.mjs
 scripts/test-seguros-browser.mjs
 scripts/test-implantacao-plano.mjs
+scripts/test-permissoes-tier.mjs
+scripts/test-permissoes-unificadas-realpg.mjs

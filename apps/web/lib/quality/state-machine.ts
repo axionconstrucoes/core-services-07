@@ -3,6 +3,7 @@
 // Regra: "correção executada" NÃO equivale a conformidade. Encerrar exige verificação de eficácia EFICAZ,
 // com evidência, posterior ao último ciclo de correção/reabertura (e, na garantia, aceite do cliente).
 
+import { projectTierFor, tierAtLeast } from "../permissions/project-tier";
 import type {
   ActionStatus,
   EvidenceRef,
@@ -91,9 +92,8 @@ export function isTerminal(entity: QualityEntityType, state: string): boolean {
 
 /** Papéis do projeto (padrão ESG existente). LEITURA nunca muda estado. */
 export function roleSatisfies(role: QualityRole | null | undefined, min: QualityMinRole): boolean {
-  if (!role) return false;
-  if (min === "MANAGE") return role === "ADMINISTRADOR" || role === "GERENTE" || role === "GESTOR";
-  return role === "ADMINISTRADOR" || role === "GERENTE" || role === "GESTOR" || role === "COLABORADOR";
+  // Fase 3: espelho de acc_project_tier (lib/permissions/project-tier.ts). REGISTER = COLABORADOR+; MANAGE = GESTOR/GERENTE/ADMINISTRADOR.
+  return tierAtLeast(projectTierFor(role), min);
 }
 
 /** Contexto lido do banco para avaliar uma transição (puro). */

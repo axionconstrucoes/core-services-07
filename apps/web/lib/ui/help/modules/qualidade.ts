@@ -5,9 +5,9 @@ import type { FeatureHelpDefinition, HelpElementKind } from "../types";
 
 const VERSION = "2026-11-20";
 const REFRESH = "A cada carregamento da página (consulta direta ao banco, sem cache); após cada gravação a página é revalidada.";
-const PERM_READ = "Consulta: qualquer membro ativo do projeto (RLS quality_can_read). Registro: ADMINISTRADOR, GERENTE, GESTOR e COLABORADOR. LEITURA só consulta.";
-const PERM_MANAGE = "ADMINISTRADOR, GERENTE ou GESTOR (quality_can_manage). COLABORADOR e LEITURA não executam esta ação.";
-const PERM_REGISTER = "ADMINISTRADOR, GERENTE, GESTOR ou COLABORADOR (quality_can_register).";
+const PERM_READ = "Consulta: qualquer membro ativo do projeto (RLS quality_can_read). Registro: ADMINISTRADOR, GERENTE, GESTOR e COLABORADOR. LEITURA só consulta. Regra única: acc_project_tier.";
+const PERM_MANAGE = "ADMINISTRADOR, GERENTE ou GESTOR (quality_can_manage). COLABORADOR e LEITURA não executam esta ação. Regra única: acc_project_tier.";
+const PERM_REGISTER = "ADMINISTRADOR, GERENTE, GESTOR ou COLABORADOR (quality_can_register). Regra única: acc_project_tier.";
 
 const firstSentence = (t: string): string => {
   const s = t.split(/(?<=\.)\s/)[0];

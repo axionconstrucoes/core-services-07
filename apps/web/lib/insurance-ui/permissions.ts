@@ -5,11 +5,14 @@
 //   MANAGE   ADMINISTRADOR, ADMIN, GESTOR, GERENTE
 //   ADMIN    ADMINISTRADOR, ADMIN
 
+// Fase 3: a tabela papel -> nível vive em lib/permissions/project-tier.ts (espelho de public.acc_project_tier).
+import { projectTierFor, rolesAtLeast, tierAtLeast } from "../permissions/project-tier";
+
 export type InsuranceLevel = "READ" | "REGISTER" | "MANAGE" | "ADMIN";
 
-const REGISTER = ["ADMINISTRADOR", "ADMIN", "GESTOR", "GERENTE", "COLABORADOR", "EDITOR"];
-const MANAGE = ["ADMINISTRADOR", "ADMIN", "GESTOR", "GERENTE"];
-const ADMIN = ["ADMINISTRADOR", "ADMIN"];
+const REGISTER = rolesAtLeast("REGISTER");
+const MANAGE = rolesAtLeast("MANAGE");
+const ADMIN = rolesAtLeast("ADMIN");
 
 export const INSURANCE_LEVEL_ROLES: Record<InsuranceLevel, readonly string[] | "ANY_ACTIVE_MEMBER"> = {
   READ: "ANY_ACTIVE_MEMBER",
@@ -20,9 +23,15 @@ export const INSURANCE_LEVEL_ROLES: Record<InsuranceLevel, readonly string[] | "
 
 /** `permission` = papel do membro ACTIVE no projeto; null/undefined = sem membership ativa (fail-closed). */
 export function hasInsuranceLevel(permission: string | null | undefined, level: InsuranceLevel): boolean {
-  if (!permission) return false;
-  const allowed = INSURANCE_LEVEL_ROLES[level];
-  return allowed === "ANY_ACTIVE_MEMBER" ? true : allowed.includes(permission);
+  return tierAtLeast(projectTierFor(permission), level);
+}
+
+/** Etapas do sinistro que registram DECISÃO/encerramento = ato de gestão (espelha insurance_claim_advance, 20261123102000). */
+export const INSURANCE_CLAIM_MANAGE_STAGES: readonly string[] = ["DECISAO", "NEGATIVA", "CONTESTACAO", "INDENIZACAO_CUMPRIMENTO", "ENCERRADO"];
+
+/** Nível exigido para avançar o sinistro até a etapa informada. */
+export function claimStageLevel(toStage: string | null | undefined): InsuranceLevel {
+  return toStage && INSURANCE_CLAIM_MANAGE_STAGES.includes(toStage) ? "MANAGE" : "REGISTER";
 }
 
 export interface InsuranceCapabilities {
