@@ -76,6 +76,7 @@ check("getFeatureHelp devolve null (nunca lança) para um helpId desconhecido", 
 // "Análise Contratual"/"Análise de Cláusulas" saíram do menu (o Expert Jurídico é o ponto único; rotas e ajuda preservadas).
 const EXPECTED_SIDEBAR_LABELS = [
   "Dashboard",
+  "Quatro Pilares",
   "Timeline",
   "Eventos",
   "Solicitações",
