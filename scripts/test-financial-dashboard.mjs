@@ -452,7 +452,7 @@ await check("29. Estado sem dados funciona (sem relatório, aba ausente/ambígua
 });
 await check("30. Mobile/sidebar/recolhido funcionam (lista única filtrada; ícone; tooltip; item ativo; sem grupos vazios)", () => {
   const sidebar = readSource("apps/web/components/layout/app-sidebar.tsx");
-  assert(sidebar.includes("Wallet") && sidebar.includes("visibleItems.map") && !/Separator|navGroups/.test(sidebar) && sidebar.includes("title={itemTitle}") && sidebar.includes("pathname?.startsWith(href)"));
+  assert(sidebar.includes("Wallet") && sidebar.includes("visibleItems.map") && !/Separator|navGroups/.test(sidebar) && sidebar.includes("<FeatureInfo helpId={item.helpId}") && sidebar.includes("pathname?.startsWith(href)"));
   assert(NAV_ITEMS.length === 15 && !NAV_ITEMS.some((item) => item.label === "Análise Contratual" || item.label === "Análise de Cláusulas") && NAV_ITEMS.some((item) => item.href === "juridico"));
   const financeiroIndex = NAV_ITEMS.findIndex((item) => item.href === "financeiro");
   const documentosIndex = NAV_ITEMS.findIndex((item) => item.href === "documentos");

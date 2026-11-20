@@ -338,7 +338,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Metadados do e-mail</CardTitle>
+            <CardTitle className="flex items-center gap-1.5">
+              Metadados do e-mail
+              <FeatureInfo helpId="juridico.emails.metadados" />
+            </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2 text-xs sm:grid-cols-2">
             <div><span className="text-muted-foreground">Projeto:</span> {projectId}</div>
@@ -366,7 +369,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
 
         <Card>
           <CardHeader>
-            <CardTitle>Envio semanal (ingestão)</CardTitle>
+            <CardTitle className="flex items-center gap-1.5">
+              Envio semanal (ingestão)
+              <FeatureInfo helpId="juridico.emails.envio-semanal" />
+            </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2 text-xs">
             {intake ? (
@@ -396,7 +402,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
 
       <Card>
         <CardHeader>
-          <CardTitle>Anexos ({attachments.length})</CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
+            Anexos ({attachments.length})
+            <FeatureInfo helpId="juridico.emails.anexos" />
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {attachments.length === 0 ? (
@@ -412,8 +421,18 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
                     <TableHead className="text-right">Tamanho</TableHead>
                     <TableHead>SHA-256</TableHead>
                     <TableHead>Storage</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Classificação</TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        Status
+                        <FeatureInfo helpId="shared.global.status-global" />
+                      </span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        Classificação
+                        <FeatureInfo helpId="juridico.emails.classificacao-anexo" />
+                      </span>
+                    </TableHead>
                     <TableHead>Ação</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -472,7 +491,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
         <>
           <Card>
             <CardHeader>
-              <CardTitle>Cronograma MPP e comparações</CardTitle>
+              <CardTitle className="flex items-center gap-1.5">
+                Cronograma MPP e comparações
+                <FeatureInfo helpId="juridico.emails.cronograma-mpp" />
+              </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-xs">
               {scheduleVersion ? (
@@ -545,7 +567,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
           {detail.otherSendsSameWeek.length > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>Outros envios da mesma semana da obra ({email.workWeekLabel})</CardTitle>
+                <CardTitle className="flex items-center gap-1.5">
+                  Outros envios da mesma semana da obra ({email.workWeekLabel})
+                  <FeatureInfo helpId="juridico.emails.outros-envios" />
+                </CardTitle>
               </CardHeader>
               <CardContent className="text-xs">
                 <ul className="list-disc pl-4">
@@ -565,7 +590,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
       {isAdmin && intake ? (
         <Card>
           <CardHeader>
-            <CardTitle>Revisão humana</CardTitle>
+            <CardTitle className="flex items-center gap-1.5">
+              Revisão humana
+              <FeatureInfo helpId="juridico.emails.revisao-humana" />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <IntakeReviewForm projectId={projectId} emailId={email.id} intakeId={intake.id} intakeStatus={intake.status} attachments={attachments.map((item) => ({ id: item.id, fileName: item.fileName }))} otherProjects={otherProjects} />
@@ -576,7 +604,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
       {isAdmin && isWeeklyReport ? (
         <Card>
           <CardHeader>
-            <CardTitle>Baseline oficial</CardTitle>
+            <CardTitle className="flex items-center gap-1.5">
+              Baseline oficial
+              <FeatureInfo helpId="juridico.emails.baseline-oficial" />
+            </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2 text-xs">
             <p>
@@ -589,7 +620,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
 
       <Card>
         <CardHeader>
-          <CardTitle>Histórico de revisão e auditoria</CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
+            Histórico de revisão e auditoria
+            <FeatureInfo helpId="juridico.emails.historico-revisao" />
+          </CardTitle>
         </CardHeader>
         <CardContent className="text-xs">
           {reviewEvents.length === 0 ? (

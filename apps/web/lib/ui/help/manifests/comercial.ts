@@ -83,7 +83,7 @@ export const COMERCIAL_MANIFEST: HelpManifest = {
       route: FIN,
       kind: "message",
       label: "Relação com Orçamentos (custos orçados, BDI, margem do orçamento)",
-      gap: "A tela Financeiro não tem fonte de Orçamentos: o ACC não possui composição de custos nem integração com o Sistema de Orçamentos (apenas metadados de arquivos de orçamento; Drive de Orçamentos não está integrado). A coluna custo é custo realizado da obra. Providência: definir a fonte de Orçamentos (integração segura server-side) e então documentar e exibir; até lá o Diretor Comercial IA deve marcar o dado como não disponível no ACC.",
+      exempt: "Elemento inexistente (a tela não renderiza nada de Orçamentos; o texto de ajuda do Financeiro já declara a lacuna como sem fonte). A tela Financeiro não tem fonte de Orçamentos: o ACC não possui composição de custos nem integração com o Sistema de Orçamentos (apenas metadados de arquivos de orçamento; Drive de Orçamentos não está integrado). A coluna custo é custo realizado da obra. Providência: definir a fonte de Orçamentos (integração segura server-side) e então documentar e exibir; até lá o Diretor Comercial IA deve marcar o dado como não disponível no ACC.",
     },
 
     // ---- Adicionais (rotas redirecionam) ----
@@ -107,7 +107,7 @@ export const COMERCIAL_MANIFEST: HelpManifest = {
       route: ADI,
       kind: "admin-action",
       label: "Formulários e painéis de proposta adicional sem rota (nova proposta, status, vínculo de fonte, curadoria por IA)",
-      gap: "Os componentes em components/additionals (criar proposta, status, vínculo de fonte e painel de curadoria) existem, mas nenhuma rota os monta hoje: os ícones dos elementos Marcar como Contratado, Formalização, Status de prazo e Checklist (ids legados adicionais-*) estão no código dos componentes, porém inalcançáveis na interface. Providência: se a tela for reativada, inventariar e documentar os demais campos (nova proposta, status, vínculo, curadoria); se não, o time de desenvolvimento deve decidir sobre remover os componentes.",
+      exempt: "Código sem rota (confirmado: nenhum arquivo importa components/additionals/*; /[projectId]/adicionais redireciona para Documentos e não cria rota nova). Os componentes em components/additionals (criar proposta, status, vínculo de fonte e painel de curadoria) existem, mas nenhuma rota os monta hoje: os ícones dos elementos Marcar como Contratado, Formalização, Status de prazo e Checklist (ids legados adicionais-*) estão no código dos componentes, porém inalcançáveis na interface. Providência: se a tela for reativada, inventariar e documentar os demais campos (nova proposta, status, vínculo, curadoria); se não, o time de desenvolvimento deve decidir sobre remover os componentes.",
     },
   ],
 };

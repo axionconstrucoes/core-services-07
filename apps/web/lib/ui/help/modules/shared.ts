@@ -136,7 +136,8 @@ export const SHARED_HELP: FeatureHelpDefinition[] = [
     howItWorks:
       "O texto de cada ajuda vem do catálogo único; só um painel fica aberto por vez. Clicar no ícone nunca navega, seleciona linha ou executa a ação do elemento ao lado. O número da versão do texto aparece no rodapé do painel.",
     limitations: [
-      "O menu lateral não exibe o ícone: o resumo de cada item aparece como dica nativa do navegador ao pairar ou focar o item.",
+      "No menu lateral, cada item tem o seu próprio ícone (i) ao lado do link (com o menu recolhido ele continua ao lado do ícone do item); o ícone não é o link: abrir a ajuda não navega.",
+      "O ícone nunca usa a dica nativa do navegador (atributo title); em toque, a ajuda abre como folha inferior e não depende de pairar o mouse.",
     ],
   },
   {
@@ -149,7 +150,11 @@ export const SHARED_HELP: FeatureHelpDefinition[] = [
     description:
       "Barra lateral com os itens de navegação do projeto atual (Dashboard, Timeline, Eventos, Solicitações, Ações e Escalonamentos, Jurídico, Documentos, Providências, Financeiro, ESG/SSMA, Experts IA, Integrações, Usuários, Autorizações, Reemissão de alertas, Auditoria, Ajuda e tutorial e Start-up ACC). O botão no rodapé recolhe ou expande o menu e a escolha fica salva neste navegador.",
     purpose: "Levar a cada área do projeto com um clique.",
-    howToUse: ["Clique no item para abrir a área.", "Pairar sobre o item mostra o nome e um resumo.", "Use Recolher para liberar espaço; em telas estreitas o menu fica sempre recolhido."],
+    howToUse: [
+      "Clique no item para abrir a área.",
+      "Use o ícone (i) ao lado de cada item para ler o resumo da área: pairar o mouse, Tab + Enter/Espaço ou um toque abrem a ajuda, inclusive com o menu recolhido.",
+      "Use Recolher para liberar espaço; em telas estreitas o menu fica sempre recolhido.",
+    ],
     howItWorks:
       "Os itens vêm de NAV_ITEMS (lib/ui/nav-items.ts). Eventos, Integrações, Usuários, Autorizações, Reemissão de alertas e Start-up ACC só aparecem para administrador; Financeiro só para quem passa na regra de acesso financeiro. Esconder o item não é a única barreira: rota, carregamento de dados, ações e RLS aplicam a mesma regra.",
     permissions: "Itens restritos conforme o perfil do usuário no projeto (administrador ou acesso financeiro).",
@@ -168,5 +173,24 @@ export const SHARED_HELP: FeatureHelpDefinition[] = [
     howItWorks:
       "A AXIA é exclusivamente o assistente de dúvidas sobre o uso do ACC; ela não é um especialista e não se confunde com os Experts IA. O avatar exibe um texto fixo (AS) e não as iniciais do usuário logado.",
     permissions: "Editar projeto só aparece para quem tem permissão de edição do projeto.",
+  },
+  {
+    id: "shared.global.menu-recolher",
+    title: "Recolher / Expandir menu lateral",
+    shortDescription: "Alterna o menu lateral entre completo (ícone e nome) e recolhido (só ícones); a escolha fica salva neste navegador.",
+    kind: "button",
+    module: M,
+    version: V,
+    description:
+      "Botão no rodapé do menu lateral. Com o menu completo ele aparece como Recolher; com o menu recolhido, como um ícone que expande de volta. Não altera dados do projeto, só a largura da barra.",
+    purpose: "Liberar espaço na tela sem perder a navegação.",
+    howToUse: [
+      "Clique em Recolher para deixar só os ícones (cada item continua com o seu ícone (i) de ajuda e o nome acessível pelo leitor de tela).",
+      "Clique de novo para expandir e voltar a ver os nomes dos itens.",
+    ],
+    howItWorks:
+      "O estado recolhido é gravado no armazenamento local deste navegador (chave acc.sidebar.collapsed); outro navegador ou dispositivo começa com o menu expandido. Em telas estreitas (celular) o menu fica sempre recolhido, independentemente da escolha.",
+    data: ["Preferência de exibição do usuário neste navegador; nada é enviado ao servidor."],
+    permissions: "Disponível a qualquer usuário autenticado.",
   },
 ];

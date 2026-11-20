@@ -13,9 +13,6 @@ const ANEXO = "/[projectId]/documentos/emails/[emailId]/anexos/[attachmentId]";
 const VERSAO = "/[projectId]/documentos/versoes/[documentVersionId]";
 const STARTUP = "/[projectId]/startup";
 
-const WEEKLY_GAP =
-  "Bloco do relatório semanal/ingestão de e-mail (rota condicionada à flag ACC_WEEKLY_REPORTS_ENABLED): regras de classificação, Matriz de escalões, comparação de cronograma MPP, baseline e revisão ainda sem texto próprio; providência: documentar em rodada dedicada junto com o módulo de relatórios semanais/planejamento.";
-
 const elements: HelpManifestElement[] = [
   // ---------------- /[projectId]/juridico ----------------
   { route: JURIDICO, kind: "page", label: "Jurídico", helpId: "juridico.projeto.pagina" },
@@ -89,7 +86,12 @@ const elements: HelpManifestElement[] = [
   { route: DOCUMENTOS, tab: "anexos-email", kind: "table", label: "Anexo de e-mail (situação, e-mail de origem, proveniência, Incorporar aos Documentos)", helpId: "juridico.documentos.anexos-email-linha" },
   { route: DOCUMENTOS, tab: "anexos-email", kind: "status", label: "Considerado pelo ACC", helpId: "anexos-considerado" },
   { route: DOCUMENTOS, tab: "anexos-email", kind: "status", label: "Incorporado aos Documentos", helpId: "anexos-incorporado" },
-  { route: DOCUMENTOS, tab: "registro-email", kind: "table", label: "Registro por e-mail: filtros, lista, painel de revisão e planilha do relatório semanal", gap: WEEKLY_GAP },
+  { route: DOCUMENTOS, tab: "registro-email", kind: "filter", label: "Buscar no registro por e-mail (Busca, De/Até, Remetente, Destinatário, Semana, Direção, Buscar, Limpar)", helpId: "juridico.registro-email.busca" },
+  { route: DOCUMENTOS, tab: "registro-email", kind: "filter", label: "Classificação (filtro e coluna) e selo Enviado ao cliente", helpId: "juridico.registro-email.classificacao" },
+  { route: DOCUMENTOS, tab: "registro-email", kind: "status", label: "Status do envio semanal (filtro e coluna)", helpId: "juridico.registro-email.status-envio" },
+  { route: DOCUMENTOS, tab: "registro-email", kind: "status", label: "Revisão (coluna)", helpId: "juridico.registro-email.revisao" },
+  { route: DOCUMENTOS, tab: "registro-email", kind: "status", label: "Risco (filtro e coluna)", helpId: "juridico.registro-email.risco" },
+  { route: DOCUMENTOS, tab: "registro-email", kind: "table", label: "Lista do registro por e-mail (título, direção, remetente, data, semana, anexos) e paginação", helpId: "juridico.registro-email.lista" },
 
   // ---------------- /[projectId]/documentos/versoes/[documentVersionId] ----------------
   { route: VERSAO, kind: "page", label: "Visualizar documento", helpId: "juridico.versoes.pagina" },
@@ -100,11 +102,25 @@ const elements: HelpManifestElement[] = [
   // ---------------- /[projectId]/documentos/emails/[emailId] ----------------
   { route: EMAIL, kind: "page", label: "E-mail do registro documental", helpId: "juridico.emails.pagina" },
   { route: EMAIL, kind: "table", label: "Anexos do e-mail", helpId: "juridico.emails.anexos" },
-  { route: EMAIL, kind: "table", label: "Metadados do e-mail e classificação", gap: WEEKLY_GAP },
-  { route: EMAIL, kind: "table", label: "Envio semanal (ingestão)", gap: WEEKLY_GAP },
-  { route: EMAIL, kind: "table", label: "Cronograma MPP e comparações; Relatório Semanal (Excel); Outros envios da mesma semana", gap: WEEKLY_GAP },
-  { route: EMAIL, kind: "admin-action", label: "Revisão humana do envio e Baseline oficial", gap: WEEKLY_GAP },
-  { route: EMAIL, kind: "table", label: "Histórico de revisão e auditoria", gap: WEEKLY_GAP },
+  { route: EMAIL, kind: "table", label: "Metadados do e-mail e classificação", helpId: "juridico.emails.metadados" },
+  { route: EMAIL, kind: "admin-action", label: "Confirmar classificação (e-mail e anexo: Classificação, Justificativa, Confirmar, Corrigir)", helpId: "juridico.emails.confirmar-classificacao" },
+  { route: EMAIL, kind: "table", label: "Envio semanal (ingestão)", helpId: "juridico.emails.envio-semanal" },
+  { route: EMAIL, kind: "status", label: "Status do anexo (tabela técnica de anexos)", helpId: "shared.global.status-global" },
+  { route: EMAIL, kind: "table", label: "Classificação do anexo (sugerida, confirmada, Corrigir)", helpId: "juridico.emails.classificacao-anexo" },
+  { route: EMAIL, kind: "table", label: "Cronograma MPP e comparações", helpId: "juridico.emails.cronograma-mpp" },
+  { route: EMAIL, kind: "table", label: "Relatório Semanal (Excel): Resumo e arquivo original", helpId: "juridico.emails.relatorio-excel" },
+  { route: EMAIL, kind: "chart", label: "Aba Curva S do relatório", helpId: "juridico.emails.aba-curva-s" },
+  { route: EMAIL, kind: "table", label: "Aba Linha de Base do relatório", helpId: "juridico.emails.aba-linha-base" },
+  { route: EMAIL, kind: "table", label: "Aba Financeiro do relatório", helpId: "juridico.emails.aba-financeiro" },
+  { route: EMAIL, kind: "chart", label: "Aba Histograma do relatório", helpId: "juridico.emails.aba-histograma" },
+  { route: EMAIL, kind: "table", label: "Aba SSMA do relatório", helpId: "juridico.emails.aba-ssma" },
+  { route: EMAIL, kind: "admin-action", label: "Mapear aba do arquivo (aba, justificativa, Mapear aba)", helpId: "juridico.emails.mapear-aba" },
+  { route: EMAIL, kind: "admin-action", label: "Validar valores da Curva S (data de corte, planejado, realizado, projetado, justificativa)", helpId: "juridico.emails.validar-curva-s" },
+  { route: EMAIL, kind: "table", label: "Dados de origem da planilha", helpId: "juridico.emails.dados-origem" },
+  { route: EMAIL, kind: "table", label: "Outros envios da mesma semana da obra", helpId: "juridico.emails.outros-envios" },
+  { route: EMAIL, kind: "admin-action", label: "Revisão humana do envio (Ação, Semana, Anexo principal, Projeto de destino, Classificação, Justificativa, Registrar decisão)", helpId: "juridico.emails.revisao-humana" },
+  { route: EMAIL, kind: "admin-action", label: "Baseline oficial (versão extraída, justificativa, Definir/Substituir baseline)", helpId: "juridico.emails.baseline-oficial" },
+  { route: EMAIL, kind: "table", label: "Histórico de revisão e auditoria", helpId: "juridico.emails.historico-revisao" },
 
   // ---------------- /[projectId]/documentos/emails/[emailId]/anexos/[attachmentId] ----------------
   { route: ANEXO, kind: "page", label: "Visualizar anexo de e-mail", helpId: "juridico.emails.anexo-pagina" },
