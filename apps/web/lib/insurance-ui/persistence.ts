@@ -234,6 +234,8 @@ export function mapRccGet(raw: unknown): RccLoad {
 
 export interface ExpectedSubjectView {
   id: string;
+  /** apólice a que pertence (presente quando lido das tabelas; a RPC de leitura já filtra por apólice) */
+  policyId?: string;
   partyRole: PartyRole;
   expectation: "ESPERADO" | "NAO_ESPERADO";
   expectedName: string | null;

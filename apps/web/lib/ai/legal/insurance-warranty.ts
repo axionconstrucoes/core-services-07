@@ -194,7 +194,12 @@ export const FORBIDDEN_COVERAGE_RECOGNITION = [
   /\bindeniza[çc][ãa]o (garantida|assegurada)\b/i,
   /\bdireito (l[ií]quido e certo )?(à|a) indeniza[çc][ãa]o\b/i,
 ];
-export const FIVE_YEARS_UNIVERSAL = [/\btodo (e qualquer )?(defeito|v[ií]cio)[^.]{0,80}\b(5|cinco) anos\b/i, /\b(sempre|em qualquer caso|universalmente)[^.]{0,60}\b(5|cinco) anos\b/i];
+export const FIVE_YEARS_UNIVERSAL = [
+  /\btodo (e qualquer )?(defeito|v[ií]cio)[^.]{0,80}\b(5|cinco) anos\b/i,
+  /\b(sempre|em qualquer caso|universalmente)[^.]{0,60}\b(5|cinco) anos\b/i,
+  // ordem inversa ("prazo de cinco anos para todo e qualquer defeito"): mesma presunção proibida, antes não detectada (Fase 3/E)
+  /\b(5|cinco) anos\b[^.]{0,80}\b(para|a|em) (todo|qualquer|toda)( e qualquer)? (defeito|v[ií]cio|caso)\b/i,
+];
 export const AUTO_EXCLUSION_BY_EXPIRY = [
   /\bgarantia (contratual )?(expirou|venceu|encerrada|expirada)[^.]{0,80}\b(portanto|logo|assim)[^.]{0,60}(n[ãa]o (h[áa]|existe)|exclu[ií]d|sem) (cobertura|direito|responsabilidade)/i,
   /\bpor ter (expirado|vencido) a garantia[^.]{0,60}(n[ãa]o (h[áa]|existe)|exclu[ií]d)/i,

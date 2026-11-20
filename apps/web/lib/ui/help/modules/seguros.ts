@@ -4,6 +4,7 @@
 import type { FeatureHelpDefinition } from "../types";
 import { SEGUROS_ACOES } from "./seguros-acoes";
 import { SEGUROS_CAMPOS } from "./seguros-campos";
+import { SEGUROS_PERSISTENCIA_HELP } from "./seguros-persistencia";
 import { SEGUROS_TELAS } from "./seguros-telas";
 
-export const SEGUROS_HELP: FeatureHelpDefinition[] = [...SEGUROS_TELAS, ...SEGUROS_CAMPOS, ...SEGUROS_ACOES];
+export const SEGUROS_HELP: FeatureHelpDefinition[] = [...SEGUROS_TELAS, ...SEGUROS_CAMPOS, ...SEGUROS_ACOES, ...SEGUROS_PERSISTENCIA_HELP];

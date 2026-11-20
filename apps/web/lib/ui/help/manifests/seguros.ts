@@ -2,6 +2,7 @@
 // Rota única: /[projectId]/seguros (abas por estado interno). Cada elemento aponta o helpId renderizado no código (components/insurance/*, lib/insurance-ui/forms.ts, lib/insurance-ui/tabs.ts).
 // Colunas de tabela: descritas no helpId da tabela (campo `data`) ou, quando relevantes, com helpId próprio (status.*).
 import type { HelpManifest } from "../types";
+import { SEGUROS_PERSISTENCIA_MANIFEST } from "../modules/seguros-persistencia";
 
 export const SEGUROS_MANIFEST: HelpManifest = {
   module: "seguros",
@@ -251,5 +252,6 @@ export const SEGUROS_MANIFEST: HelpManifest = {
     { route: "/[projectId]/seguros", tab: "Canais oficiais", kind: "button", label: "Cadastrar canal (abrir)", helpId: "seguros.acoes.canal-novo" },
     { route: "/[projectId]/seguros", tab: "Canais oficiais", kind: "button", label: "Cadastrar canal", helpId: "seguros.acoes.canal-cadastrar" },
     { route: "/[projectId]/seguros", tab: "Canais oficiais", kind: "button", label: "Marcar canal como verificado", helpId: "seguros.acoes.canal-verificar" },
+    ...SEGUROS_PERSISTENCIA_MANIFEST,
   ],
 };
