@@ -54,6 +54,7 @@ export const EXPERTS_MANIFEST: HelpManifest = {
     { route: HUB, kind: "expert", label: "Diretor de ESG IA (ícone ao lado do nome)", helpId: "experts.ssma-esg.perfil" },
     { route: HUB, kind: "expert", label: "Diretor de Engenharia e Construção IA (ícone ao lado do nome)", helpId: "experts.engenharia.perfil" },
     { route: HUB, kind: "expert", label: "Diretor Comercial IA (ícone ao lado do nome)", helpId: "experts.comercial.perfil" },
+    { route: HUB, kind: "expert", label: "Analista IA de Qualidade (ícone ao lado do nome)", helpId: "experts.qualidade.perfil" },
     { route: HUB, kind: "expert", label: "CEO IA (ícone ao lado do nome)", helpId: "experts.gestao-executiva.perfil" },
     { route: HUB, kind: "status", label: "Ativo / Em implantação", helpId: "experts.hub.status-expert" },
     { route: HUB, kind: "status", label: "Provider: …", helpId: "experts.hub.provider" },

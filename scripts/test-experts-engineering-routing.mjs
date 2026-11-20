@@ -252,11 +252,12 @@ await check("CONSULTAR IA 'Geral (pelo assunto)': assunto multidisciplinar → c
   assert.equal(out.response, null);
   assert.equal(out.expertId, "ceo");
   const authors = out.curation.pareceres.map((p) => p.expertId).sort();
-  assert.deepEqual(authors, ["engineering-director", "legal-consultant"]);
+  // "defeito" e "garantia" agora também são tema de QUALIDADE (Analista IA de Qualidade, fase 1): 3 pareceres, não 2.
+  assert.deepEqual(authors, ["engineering-director", "legal-consultant", "quality-analyst"]);
   assert.ok(out.curation.pareceres.every((p) => p.expertName && p.response.expertId === p.expertId), "autoria preservada");
   assert.ok(Array.isArray(out.curation.consolidacao.divergencias) && Array.isArray(out.curation.consolidacao.decisoesHumanasNecessarias));
   // reserva antes de cada chamada, inclusive a consolidação do CEO
-  assert.deepEqual(log, ["reserve:engineering-director", "provider:engineering-director", "reserve:legal-consultant", "provider:legal-consultant", "reserve:ceo", "provider:ceo"]);
+  assert.deepEqual(log, ["reserve:engineering-director", "provider:engineering-director", "reserve:legal-consultant", "provider:legal-consultant", "reserve:quality-analyst", "provider:quality-analyst", "reserve:ceo", "provider:ceo"]);
 });
 
 await check("CONSULTAR IA 'Geral': um único tema → Expert do tema (engenharia), uma reserva e uma chamada", async () => {

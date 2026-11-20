@@ -132,6 +132,15 @@ export {
 } from "./experts/engineering-director";
 export type { EngineeringDirectorQueryResult } from "./experts/engineering-director";
 
+export {
+  QUALITY_ANALYST_EXPERT_ID,
+  QUALITY_ANALYST_INSTRUCTIONS,
+  QUALITY_ANALYST_NAME,
+  QUALITY_ANALYST_VERSION,
+  answerQualityAnalystQuery,
+} from "./experts/quality-analyst";
+export type { QualityAnalystQueryResult } from "./experts/quality-analyst";
+
 export { SPECIALIST_FRAMEWORK_INSTRUCTIONS, SPECIALIST_FRAMEWORK_VERSION } from "./specialist-framework";
 
 export {

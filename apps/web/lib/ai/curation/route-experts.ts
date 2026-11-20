@@ -44,6 +44,15 @@ const SUPPLY_CHAIN_KEYWORDS = [
 
 const PENALTY_KEYWORDS = ["multa", "penalidade", "paralisação", "paralisacao", "retenção", "retencao"];
 
+// Seguros, garantias financeiras e sinistros (competência do Consultor Jurídico IA; apoio de Qualidade quando houver defeito).
+const INSURANCE_KEYWORDS = [
+  "apólice", "apolice", "seguro", "sinistro", "seguradora", "fiança", "fianca", "endosso", "caução", "caucao",
+  "performance bond", "resseguro", "susep",
+];
+
+// Garantia contratual/legal e assistência técnica (pós-entrega) — competência do Analista IA de Qualidade.
+const WARRANTY_KEYWORDS = ["garantia", "assistência técnica", "assistencia tecnica", "pós-entrega", "pos-entrega", "pós entrega", "pos entrega"];
+
 const ESG_KEYWORDS = ["ssma", "segurança do trabalho", "seguranca do trabalho", "meio ambiente", "esg", "acidente", "epi", "licença ambiental", "licenca ambiental"];
 
 function containsAny(haystack: string, keywords: string[]): boolean {
@@ -61,6 +70,17 @@ function findMatrixRow(topic: string) {
  */
 export function classifyCurationTopic(description: string): { topic: string; primaryExpertIds: OfficialExpertId[]; supportingExpertIds: OfficialExpertId[]; reason: string } {
   const normalized = description.toLowerCase();
+
+  // Seguros/sinistros antes de disputa: o tema é jurídico-securitário, com Qualidade como apoio quando há defeito.
+  if (containsAny(normalized, INSURANCE_KEYWORDS)) {
+    const row = findMatrixRow("SEGUROS, GARANTIAS, ENDOSSOS E SINISTROS")!;
+    return {
+      topic: row.topic,
+      primaryExpertIds: [row.primaryExpertId],
+      supportingExpertIds: row.supportingExpertIds,
+      reason: `Tema de seguro/garantia financeira/sinistro detectado — roteado por EXPERT_COLLABORATION_MATRIX (tema "${row.topic}").`,
+    };
+  }
 
   if (containsAny(normalized, DISPUTE_KEYWORDS)) {
     const row = findMatrixRow("DISPUTA")!;
@@ -81,6 +101,19 @@ export function classifyCurationTopic(description: string): { topic: string; pri
       reason:
         "Não conformidade da cadeia de suprimentos detectada — Diretor de Engenharia e Construção IA analisa o efeito técnico na execução, " +
         "Planejamento o efeito em prazo e Comercial/Jurídico os impactos.",
+    };
+  }
+
+  // Qualidade/garantia: não conformidade, defeito, vício, inspeção, assistência técnica. Antes de negociação/prazo,
+  // porque o achado de qualidade é o fato gerador; custo e prazo entram como apoio.
+  // Não conformidade de SSMA/ESG continua sendo do Diretor de ESG IA (tratada mais abaixo).
+  if (detectTopicExperts(normalized).includes("quality-analyst") && !containsAny(normalized, ESG_KEYWORDS)) {
+    const row = findMatrixRow(containsAny(normalized, WARRANTY_KEYWORDS) ? "GARANTIA E ASSISTÊNCIA TÉCNICA" : "QUALIDADE E NÃO CONFORMIDADE")!;
+    return {
+      topic: row.topic,
+      primaryExpertIds: [row.primaryExpertId],
+      supportingExpertIds: row.supportingExpertIds,
+      reason: `Tema de qualidade/garantia detectado — roteado por EXPERT_COLLABORATION_MATRIX (tema "${row.topic}").`,
     };
   }
 

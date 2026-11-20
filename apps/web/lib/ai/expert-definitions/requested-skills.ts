@@ -39,6 +39,7 @@ export const SKILL_STATE_LABEL: Record<SkillAssociationState, string> = {
 };
 
 const requested: Record<OfficialExpertId, readonly ExpertSkillAssociation[]> = {
+  "quality-analyst": [],
   "legal-consultant": [{
     id: "juridico-contratos-construcao", label: "/juridico-contratos-construcao",
     purpose: "Contratos de obra, empreitada, EPC, FIDIC, Lei 14.133, pleitos, aditivos e reequilíbrio",

@@ -54,11 +54,13 @@ const ids = {
   "esg-director": (await import("../apps/web/lib/ai/experts/esg-director/identity.ts")).ESG_DIRECTOR_INSTRUCTIONS,
   "legal-consultant": (await import("../apps/web/lib/ai/experts/legal-consultant/identity.ts")).LEGAL_CONSULTANT_INSTRUCTIONS,
   "planning-director": (await import("../apps/web/lib/ai/experts/planning-director/identity.ts")).PLANNING_DIRECTOR_INSTRUCTIONS,
+  "quality-analyst": (await import("../apps/web/lib/ai/experts/quality-analyst/identity.ts")).QUALITY_ANALYST_INSTRUCTIONS,
 };
-const SIX = ["ceo", "commercial-director", "engineering-director", "esg-director", "legal-consultant", "planning-director"];
+// Sete Experts oficiais desde a entrada do Analista IA de Qualidade (quality-analyst); antes eram seis.
+const SIX = ["ceo", "commercial-director", "engineering-director", "esg-director", "legal-consultant", "planning-director", "quality-analyst"];
 
 // ---------------------------------------------------------------- 1. seis Experts independentes
-await check("1.1 seis Experts oficiais, IMPLEMENTED, cada um com identidade, missão, fontes, limites e escalonamento próprios", () => {
+await check("1.1 sete Experts oficiais, IMPLEMENTED, cada um com identidade, missão, fontes, limites e escalonamento próprios", () => {
   const all = defs.ALL_OFFICIAL_EXPERT_DEFINITIONS;
   assert.deepEqual(all.map((d) => d.expertId).sort(), [...SIX].sort());
   for (const d of all) {
@@ -70,12 +72,12 @@ await check("1.1 seis Experts oficiais, IMPLEMENTED, cada um com identidade, mis
     assert.ok(d.limitations.length > 0 && d.escalationRules.length > 0 && d.confidenceRules.length > 0, d.expertId);
     assert.ok(d.capabilities.length > 0 && d.typicalQuestions.length > 0, d.expertId);
   }
-  assert.equal(new Set(all.map((d) => d.expertName)).size, 6, "nomes distintos");
-  assert.equal(new Set(all.map((d) => d.mission)).size, 6, "missões distintas");
+  assert.equal(new Set(all.map((d) => d.expertName)).size, 7, "nomes distintos");
+  assert.equal(new Set(all.map((d) => d.mission)).size, 7, "missões distintas");
 });
 
 await check("1.2 cada Expert tem instruções próprias com o Framework Comum (fato/inferência/ausente/recomendação) e anti-alucinação", () => {
-  assert.equal(new Set(Object.values(ids)).size, 6, "instruções distintas");
+  assert.equal(new Set(Object.values(ids)).size, 7, "instruções distintas");
   for (const id of SIX) {
     // Framework no próprio prompt OU injetado de forma única pelo provedor (anthropic-provider: marcador).
     const injected = /instructions\.includes\(SPECIALIST_FRAMEWORK_MARKER\)/.test(src("apps/web/lib/ai/providers/anthropic-provider.ts"));
@@ -98,7 +100,7 @@ await check("1.3 Experts nunca chamam a AXIA e a AXIA não recebe o framework de
 
 await check("1.4 provedor e variável de ambiente independentes por Expert (nenhum compartilha o 'default Planejamento')", () => {
   const vars = Object.values(resolver.EXPERT_PROVIDER_ENV_VAR);
-  assert.equal(new Set(vars).size, 6);
+  assert.equal(new Set(vars).size, 7);
   assert.deepEqual(Object.keys(resolver.EXPERT_PROVIDER_ENV_VAR).sort(), [...SIX].sort());
   assert.equal(resolver.EXPERT_PROVIDER_ENV_VAR["engineering-director"], "AXION_AI_PROVIDER_ENGINEERING_DIRECTOR");
 });

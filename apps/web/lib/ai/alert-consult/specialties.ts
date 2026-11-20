@@ -8,6 +8,8 @@
 //   Planejamento e Prazo              → planning-director
 //   Comercial/Financeiro/Orçamento    → commercial-director
 //   SSMA                              → esg-director
+//   Qualidade e Garantias             → quality-analyst
+//   Seguros e Garantias Financeiras   → legal-consultant (foco: seguros, garantias, endossos e sinistros)
 //   Documentação e Entrega            → legal-consultant (documentos contratuais/evidências) com foco próprio
 //   Geral (pelo assunto)              → AUTO: roteamento pelo ASSUNTO concreto (lib/ai/routing/expert-topics.ts):
 //                                       um tema → o Expert do tema; dois ou mais (ou nenhum) → curadoria
@@ -18,7 +20,16 @@ import type { MembershipArea } from "@axion/types";
 
 import type { ExpertId } from "../types";
 
-export type AlertConsultSpecialtyId = "juridico" | "engenharia" | "planejamento" | "comercial" | "ssma" | "documentacao" | "geral";
+export type AlertConsultSpecialtyId =
+  | "juridico"
+  | "engenharia"
+  | "planejamento"
+  | "comercial"
+  | "ssma"
+  | "qualidade"
+  | "seguros"
+  | "documentacao"
+  | "geral";
 
 /** "AUTO" = roteamento pelo assunto (um Expert ou curadoria multi-Expert), decidido no servidor. */
 export type AlertConsultSpecialtyTarget = ExpertId | "AUTO";
@@ -66,6 +77,20 @@ export const ALERT_CONSULT_SPECIALTIES: readonly AlertConsultSpecialty[] = [
     expertId: "esg-director",
     focus:
       "Responda sob a ótica de segurança, saúde e meio ambiente: riscos às pessoas e ao ambiente, controles e medidas corretivas, licenças e registros exigidos, indicando evidências necessárias.",
+  },
+  {
+    id: "qualidade",
+    label: "Qualidade e Garantias",
+    expertId: "quality-analyst",
+    focus:
+      "Responda sob a ótica da qualidade: não conformidades, inspeções, conformidade executiva, garantia e assistência técnica, causas apenas como hipótese, recorrência e a necessidade de inspeção em campo. Foto ou relato sozinhos não comprovam conformidade nem resistência; não emita diagnóstico estrutural definitivo; separe fato, inferência e recomendação e indique o impacto em prazo, custo, segurança e qualidade (o pior pilar domina).",
+  },
+  {
+    id: "seguros",
+    label: "Seguros e Garantias Financeiras",
+    expertId: "legal-consultant",
+    focus:
+      "Responda sob a ótica de seguros, garantias, endossos e sinistros: documento de origem, versão/data, cláusula, fatos conhecidos, hipóteses, dados faltantes, limitações e próxima providência. Distinga garantia legal, garantia contratual, seguro-garantia, RC e fiança. Conclua cobertura apenas como POTENCIALMENTE COBERTO, POTENCIALMENTE NÃO COBERTO, COBERTURA CONDICIONADA ou INFORMAÇÕES INSUFICIENTES; nunca reconheça cobertura em nome da seguradora, não exclua por expiração da garantia contratual, não aplique 5 anos universalmente e não invente canal de atendimento.",
   },
   {
     id: "documentacao",

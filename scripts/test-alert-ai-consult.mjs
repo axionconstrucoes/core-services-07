@@ -49,7 +49,7 @@ console.log("======================================\n");
 await check("especialidades (Engenharia e Construção separada de Planejamento; Comercial criada) + Geral pelo assunto, com os rótulos exatos", () => {
   assert.deepEqual(
     spec.ALERT_CONSULT_SPECIALTIES.map((s) => s.label),
-    ["Contratual/Jurídico", "Engenharia e Construção", "Planejamento e Prazo", "Comercial/Financeiro/Orçamento", "SSMA", "Documentação e Entrega", "Geral (pelo assunto)"]
+    ["Contratual/Jurídico", "Engenharia e Construção", "Planejamento e Prazo", "Comercial/Financeiro/Orçamento", "SSMA", "Qualidade e Garantias", "Seguros e Garantias Financeiras", "Documentação e Entrega", "Geral (pelo assunto)"]
   );
 });
 
@@ -61,6 +61,8 @@ await check("cada especialidade usa um Expert EXISTENTE (sem arquitetura paralel
     planejamento: "planning-director",
     comercial: "commercial-director",
     ssma: "esg-director",
+    qualidade: "quality-analyst",
+    seguros: "legal-consultant",
     documentacao: "legal-consultant",
     geral: "AUTO",
   });

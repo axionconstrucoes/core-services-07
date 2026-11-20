@@ -23,6 +23,7 @@ import { answerEngineeringDirectorQuery } from "../experts/engineering-director/
 import { answerEsgDirectorQuery } from "../experts/esg-director/query";
 import { answerLegalConsultantQuery } from "../experts/legal-consultant/query";
 import { answerPlanningDirectorQuery } from "../experts/planning-director/query";
+import { answerQualityAnalystQuery } from "../experts/quality-analyst/query";
 import { scheduleSourceBlockingMessage } from "../experts/planning-director/schedule-source-guard";
 import type { OfficialExpertId } from "../expert-definitions/types";
 import type { AiProvider, AiProviderExpertPosition } from "../providers/types";
@@ -47,6 +48,13 @@ export const CURATION_SPECIALIST_IDS: readonly SpecialistExpertId[] = [
   "planning-director",
   "engineering-director",
 ];
+
+/**
+ * Especialistas que podem ser ROTEADOS por tema (inclui o Analista IA de Qualidade). A composição "geral/consultar
+ * todos" continua sendo CURATION_SPECIALIST_IDS (cinco): o Analista de Qualidade só entra quando o assunto é de
+ * qualidade/garantia — não aumenta o consumo do limite de IA das curadorias gerais existentes.
+ */
+export const CURATION_ROUTABLE_SPECIALIST_IDS: readonly SpecialistExpertId[] = [...CURATION_SPECIALIST_IDS, "quality-analyst"];
 
 export interface MultiExpertCurationOptions {
   /**
@@ -87,6 +95,8 @@ async function runSpecialist(
       return answerPlanningDirectorQuery(supabase, request, provider, { includeContractualDocuments });
     case "engineering-director":
       return answerEngineeringDirectorQuery(supabase, request, provider, { includeContractualDocuments });
+    case "quality-analyst":
+      return answerQualityAnalystQuery(supabase, request, provider, { includeContractualDocuments });
   }
 }
 
@@ -140,7 +150,7 @@ export async function runMultiExpertCuration(
   const expertResults: ExpertCurationResult[] = [];
   const unavailableExperts: { expertId: OfficialExpertId; reason: string }[] = [];
   for (const expertId of routedExpertIds) {
-    if (!CURATION_SPECIALIST_IDS.includes(expertId)) continue;
+    if (!CURATION_ROUTABLE_SPECIALIST_IDS.includes(expertId)) continue;
 
     const request: ExpertQueryRequest = {
       scope,

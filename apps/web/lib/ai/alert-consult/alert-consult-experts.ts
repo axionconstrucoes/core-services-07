@@ -14,6 +14,7 @@ import { answerEngineeringDirectorQuery } from "../experts/engineering-director/
 import { answerEsgDirectorQuery } from "../experts/esg-director/query";
 import { answerLegalConsultantQuery } from "../experts/legal-consultant/query";
 import { answerPlanningDirectorQuery } from "../experts/planning-director/query";
+import { answerQualityAnalystQuery } from "../experts/quality-analyst/query";
 import { scheduleSourceBlockingMessage } from "../experts/planning-director/schedule-source-guard";
 import type { AiProvider } from "../providers/types";
 import type { ExpertQueryRequest, ExpertQueryResponse } from "../query/types";
@@ -59,6 +60,8 @@ export async function runAlertConsultExpert(
       return answerCommercialDirectorQuery(supabase, request, provider);
     case "engineering-director":
       return answerEngineeringDirectorQuery(supabase, request, provider);
+    case "quality-analyst":
+      return answerQualityAnalystQuery(supabase, request, provider);
     case "planning-director":
       try {
         return await answerPlanningDirectorQuery(supabase, request, provider, { guardQuestion: userQuestion });

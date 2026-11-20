@@ -64,6 +64,7 @@ export function routeSpecialistByEmail(input: { area: string | null | undefined;
 export const SPECIALIST_EXPERT_LABEL: Record<SpecialistExpertId, string> = {
   "planning-director": "Diretor de Planejamento",
   "engineering-director": "Diretor de Engenharia e Construção",
+  "quality-analyst": "Analista de Qualidade",
   "legal-consultant": "Expert Jurídico",
   "commercial-director": "Diretor Comercial/Financeiro",
   "esg-director": "ESG/SSMA",
