@@ -156,6 +156,20 @@ export function HelpHint({
     };
   }, [open, close]);
 
+  // Reposicionamento: enquanto aberto, acompanha rolagem (de qualquer ancestral) e redimensionamento; só assina eventos
+  // (o setState acontece dentro dos callbacks, nunca de forma síncrona no corpo do efeito).
+  useEffect(() => {
+    if (!open) return;
+    const raf = requestAnimationFrame(reposition); // refina com a altura real do painel já montado
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
+    };
+  }, [open, reposition]);
+
   // Abrir por clique/teclado leva o foco ao painel (rolagem por teclado); por hover, não rouba o foco.
   useEffect(() => {
     if (open && pinned && placement) panelRef.current?.focus({ preventScroll: true });
@@ -206,6 +220,8 @@ export function HelpHint({
               onPointerEnter={cancelClose}
               onPointerLeave={scheduleClose}
               onClick={(event) => event.stopPropagation()}
+              onPointerDown={(event) => event.stopPropagation()}
+              onMouseDown={(event) => event.stopPropagation()}
               onKeyDown={(event) => {
                 event.stopPropagation();
                 if (event.key === "Tab" && !event.shiftKey && placement.mode === "floating" && document.activeElement === panelRef.current) {
@@ -219,10 +235,11 @@ export function HelpHint({
                 if (pinned && next) close(false);
               }}
             >
-              <div className="mb-2 flex items-start justify-between gap-2">
-                <p id={titleId} className="text-sm font-semibold text-foreground">
+              {/* Cabeçalho fixo no topo da área rolável: o botão Fechar nunca sai da vista (folha do celular, conteúdo longo). */}
+              <div className="sticky -top-3 z-10 -mx-3 -mt-3 mb-2 flex items-start justify-between gap-2 border-b border-border bg-popover px-3 pb-2 pt-3">
+                <h2 id={titleId} className="text-sm font-semibold text-foreground">
                   {help.title}
-                </p>
+                </h2>
                 <button
                   type="button"
                   aria-label="Fechar ajuda"
