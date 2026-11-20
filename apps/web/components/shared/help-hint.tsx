@@ -259,6 +259,7 @@ export function HelpHint({
 
   return (
     <span className={cn("relative inline-flex", className)}>
+      {/* help-exempt: este é o próprio gatilho do ícone de ajuda; ele não tem ícone de ajuda sobre si mesmo */}
       <button
         ref={triggerRef}
         type="button"

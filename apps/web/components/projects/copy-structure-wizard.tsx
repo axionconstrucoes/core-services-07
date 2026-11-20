@@ -289,6 +289,7 @@ export function CopyStructureWizard({
                     return (
                       <tr key={candidate.userId} className="border-t border-[#cbd5e1] align-top">
                         <td className="p-2">
+                          {/* help-exempt: seleção por pessoa, descrita em admin.copiar.etapa-pessoas (marque ou desmarque pessoas) */}
                           <input
                             type="checkbox"
                             aria-label={`Selecionar ${candidate.name}`}
@@ -302,6 +303,7 @@ export function CopyStructureWizard({
                           <p className="text-xs text-[#475569]">{candidate.email ?? "sem e-mail"}{candidate.title ? ` · ${candidate.title}` : ""}</p>
                           {needsOverride ? (
                             <label className="mt-1 flex items-center gap-1.5 text-xs">
+                              {/* help-exempt: Incluir mesmo assim está descrito em admin.copiar.etapa-pessoas (contas compartilhadas, CRM e teste) */}
                               <input
                                 type="checkbox"
                                 checked={row?.includeExcluded ?? false}
@@ -388,6 +390,7 @@ export function CopyStructureWizard({
             </div>
             <div className="flex justify-between gap-2">
               <Button type="button" variant="outline" className="border-[#94a3b8] text-[#0f172a] hover:bg-[#e2e8f0] hover:text-[#0f172a]" onClick={() => setStep(2)}>Voltar</Button>
+              {/* help-exempt: Gerar prévia, descrito em admin.copiar.etapa-perfis (howToUse e limitações) */}
               <Button type="button" className={PRIMARY} disabled={missingProfile || pending} onClick={runPreview}>
                 {pending ? "Gerando prévia…" : "Gerar prévia"}
               </Button>

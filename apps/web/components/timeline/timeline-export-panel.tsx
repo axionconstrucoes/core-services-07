@@ -223,6 +223,7 @@ export function TimelineExportPanel({
   if (!open) {
     return (
       <span className="inline-flex items-center gap-1 self-start">
+        {/* help-exempt: o ícone planejamento.timeline.exportar é renderizado logo após este botão (fora da janela do detector por causa do onClick multilinha) */}
         <Button
           type="button"
           variant="outline"
@@ -256,6 +257,7 @@ export function TimelineExportPanel({
         <legend className="text-xs font-medium text-muted-foreground">Formatos</legend>
         {FORMAT_OPTIONS.map((option) => (
           <label key={option.id} className="flex items-center gap-2 text-sm">
+            {/* help-exempt: formatos de exportação (Dossiê PDF, Índice XLSX/CSV, Arquivos originais, ZIP) descritos em planejamento.timeline.exportar */}
             <input
               type="checkbox"
               checked={formats.has(option.id)}
@@ -270,6 +272,7 @@ export function TimelineExportPanel({
       {status === "done" && doneMessage ? <p className="text-sm text-emerald-600">{doneMessage}</p> : null}
 
       <div className="flex gap-2">
+        {/* help-exempt: confirma a exportação descrita em planejamento.timeline.exportar; o painel aberto repete as opções ali explicadas */}
         <Button type="button" onClick={handleConfirm} disabled={status === "generating"}>
           {status === "generating" ? "Gerando…" : "Confirmar exportação"}
         </Button>

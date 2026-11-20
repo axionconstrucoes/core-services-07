@@ -65,6 +65,7 @@ function MultiCheckGroup<T extends string>({
       </legend>
 
       <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
+        {/* help-exempt: marca todas as opções do grupo (sem filtro); o ícone do grupo (helpId recebido por prop) descreve o filtro */}
         <input type="checkbox" checked={allChecked} onChange={() => apply({ type: "all" })} />
         Todos
       </label>
@@ -81,6 +82,7 @@ function MultiCheckGroup<T extends string>({
         ) : (
           options.map((option) => (
             <label key={option.value} className="flex cursor-pointer items-center gap-2 text-sm" title={option.title}>
+              {/* help-exempt: opção de filtro; o ícone do grupo (helpId recebido por prop: filtro-fontes ou filtro-categorias) descreve as opções */}
               <input
                 type="checkbox"
                 checked={allChecked || selected.includes(option.value)}
@@ -266,6 +268,7 @@ export function TimelineFilters({
 
           <label className="flex flex-col gap-1 text-sm">
             De
+            {/* help-exempt: data inicial do período, descrita por planejamento.timeline.filtro-periodo */}
             <input
               type="date"
               className="h-9 rounded-md border border-input bg-transparent px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
@@ -282,6 +285,7 @@ export function TimelineFilters({
 
           <label className="flex flex-col gap-1 text-sm">
             Até
+            {/* help-exempt: data final do período, descrita por planejamento.timeline.filtro-periodo */}
             <input
               type="date"
               className="h-9 rounded-md border border-input bg-transparent px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"

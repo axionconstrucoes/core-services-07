@@ -58,6 +58,7 @@ export function WeeklyDigestForm({
   }
 
   return (
+    // help-exempt: formulário do resumo; cada campo (tratamento, direcionar, nota, evidência) e o envio têm ícone próprio
     <form action={formAction} className="flex flex-col gap-4">
       {initialAnswer ? (
         <p role="status" className="rounded-lg border bg-muted px-4 py-3 text-sm text-muted-foreground">
@@ -106,7 +107,10 @@ export function WeeklyDigestForm({
 
               {answers[item.actionId] === "FORWARDED" ? (
                 <>
-                  <label className="text-xs font-medium" htmlFor={`direction-${item.actionId}`}>Direcionar para</label>
+                  <span className="inline-flex items-center gap-1 text-xs font-medium">
+                    <label htmlFor={`direction-${item.actionId}`}>Direcionar para</label>
+                    <FeatureInfo helpId="planejamento.resumo-semanal.direcionar" />
+                  </span>
                   <Select
                     id={`direction-${item.actionId}`}
                     name={`directedToUserId:${item.actionId}`}
@@ -125,13 +129,16 @@ export function WeeklyDigestForm({
 
               {answers[item.actionId] === "RESOLVED" || answers[item.actionId] === "FORWARDED" || answers[item.actionId] === "STUDYING" ? (
                 <>
-                  <label className="text-xs font-medium" htmlFor={`note-${item.actionId}`}>
-                    {answers[item.actionId] === "RESOLVED"
-                      ? "O que foi feito (obrigatório)"
-                      : answers[item.actionId] === "FORWARDED"
-                        ? "Motivo do direcionamento (obrigatório)"
-                        : "Providências em curso (opcional)"}
-                  </label>
+                  <span className="inline-flex items-center gap-1 text-xs font-medium">
+                    <label htmlFor={`note-${item.actionId}`}>
+                      {answers[item.actionId] === "RESOLVED"
+                        ? "O que foi feito (obrigatório)"
+                        : answers[item.actionId] === "FORWARDED"
+                          ? "Motivo do direcionamento (obrigatório)"
+                          : "Providências em curso (opcional)"}
+                    </label>
+                    <FeatureInfo helpId="planejamento.resumo-semanal.nota" />
+                  </span>
                   <Textarea
                     id={`note-${item.actionId}`}
                     name={`note:${item.actionId}`}
@@ -143,7 +150,10 @@ export function WeeklyDigestForm({
               ) : null}
               {answers[item.actionId] === "RESOLVED" ? (
                 <>
-                  <label className="text-xs font-medium" htmlFor={`evidence-${item.actionId}`}>Evidência (opcional: documento, foto, protocolo ou link)</label>
+                  <span className="inline-flex items-center gap-1 text-xs font-medium">
+                    <label htmlFor={`evidence-${item.actionId}`}>Evidência (opcional: documento, foto, protocolo ou link)</label>
+                    <FeatureInfo helpId="planejamento.resumo-semanal.evidencia" />
+                  </span>
                   <Textarea id={`evidence-${item.actionId}`} name={`evidence:${item.actionId}`} rows={1} />
                 </>
               ) : null}

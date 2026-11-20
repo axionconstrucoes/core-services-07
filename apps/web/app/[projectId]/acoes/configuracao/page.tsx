@@ -98,6 +98,7 @@ export default async function SlaConfigurationPage({ params }: { params: Promise
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {/* help-exempt: comentário de código que cita tags HTML, não é elemento de interface */}
           {/* Tabela SEMÂNTICA real (<table>/<thead>/<tbody>/<th scope>),
               não um CSS Grid disfarçado — cada uma das 4 linhas
               (Baixo/Médio/Alto/Crítico) salva/audita independentemente

@@ -175,6 +175,7 @@ function ClauseRationaleTooltip({ comparison, index }: { comparison: VerifiedLeg
   return (
     <span className="inline-flex items-center gap-1">
     <span className="group relative inline-flex">
+      {/* help-exempt: o botão é o gatilho de um tooltip contextual que exibe o fundamento, o risco e a base jurídica gerados pela própria análise; o conteúdo vem da resposta do especialista, não do catálogo */}
       <button
         type="button"
         aria-describedby={tooltipId}
@@ -469,14 +470,7 @@ export function ExpertQueryPanel({
 
           <div className="flex items-center gap-2 self-start">
             <Button type="submit" disabled={pending || Boolean(disabledReason)}>
-              {pending ? (
-                <>
-                  <Loader2 className="animate-spin" aria-hidden="true" />
-                  Consultando…
-                </>
-              ) : (
-                "Consultar"
-              )}
+              {pending ? <><Loader2 className="animate-spin" aria-hidden="true" />Consultando…</> : "Consultar"}
             </Button>
             <FeatureInfo helpId="experts.painel.consultar" />
           </div>

@@ -64,19 +64,18 @@ export function SendContractAlertForm({
 
       {hasEligibleRecipients ? (
         <div className="flex flex-wrap gap-2">
-          <Select
-            name="recipientEmail"
-            required
-            value={recipientEmail}
-            onChange={(e) => setRecipientEmail(e.target.value)}
-            className="max-w-xs"
-          >
-            {eligibleRecipients.map((r) => (
-              <option key={r.email} value={r.email}>
-                {r.name} — {r.email}
-              </option>
-            ))}
-          </Select>
+          <span className="inline-flex items-center gap-1">
+            <Select
+              name="recipientEmail" required aria-label="Destinatário do alerta"
+              value={recipientEmail} onChange={(e) => setRecipientEmail(e.target.value)} className="max-w-xs"
+            >
+              {eligibleRecipients.map((r) => (
+                <option key={r.email} value={r.email}>{r.name} — {r.email}</option>
+              ))}
+            </Select>
+            <FeatureInfo helpId="planejamento.ledger-evento.alerta-destinatario" />
+          </span>
+          {/* help-exempt: campo somente leitura de conferência visual do nome do destinatário escolhido; não tem name e nunca é enviado */}
           <Input
             type="text"
             value={selectedRecipient?.name ?? ""}
@@ -84,6 +83,7 @@ export function SendContractAlertForm({
             placeholder="Nome"
             className="max-w-xs bg-muted"
           />
+          {/* help-exempt: ação descrita pelo ícone planejamento.ledger-evento.enviar-alerta do cabeçalho deste mesmo formulário */}
           <Button type="submit" disabled={pending} size="sm">
             {pending ? "Enviando…" : "Enviar Alerta"}
           </Button>

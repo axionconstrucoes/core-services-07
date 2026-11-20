@@ -45,9 +45,11 @@ const RISK_LABELS: Record<SlaRiskLevel, string> = {
 
 // As 4 linhas de risco (Baixo/Médio/Alto/Crítico) são <tr> de UMA tabela
 // <table> real (semântica de verdade — cabeçalho <thead>/<th scope="col">
+// help-exempt: menção a tags HTML dentro de comentário de código, não é elemento de interface
 // definido uma vez em configuracao/page.tsx, uma linha por risco aqui),
 // não mais um CSS Grid disfarçado de tabela.
 //
+// help-exempt: menção a tags HTML dentro de comentário de código, não é elemento de interface
 // Um <form> nunca pode envolver <tr>/<td> validamente — a solução aqui é
 // exatamente a segunda opção autorizada: cada linha usa um <form id="...">
 // EXTERNO à tabela (portalado para document.body, invisível, só com os
@@ -85,12 +87,14 @@ export function SlaMatrixConfigForm({
     <>
       {externalForm}
       <tr className="border-t">
+        {/* help-exempt: cabeçalho de linha com o nível de risco, descrito pelo ícone da coluna Risco (planejamento.acoes-config.col-risco) */}
         <th scope="row" className="px-2 py-1.5 text-left text-sm font-medium">
           {RISK_LABELS[riskLevel]}
           {rule.isDefault ? <span className="ml-1 text-[10px] font-normal text-muted-foreground">(default)</span> : null}
         </th>
 
         <td className="px-1 py-1.5">
+          {/* help-exempt: campo da coluna Unidade, descrito pelo ícone do cabeçalho (planejamento.acoes-config.col-unidade) em configuracao/page.tsx */}
           <Select form={formId} name="timeUnit" defaultValue={rule.timeUnit} className="h-8 text-xs" aria-label={`Unidade de tempo — ${RISK_LABELS[riskLevel]}`}>
             {TIME_UNIT_OPTIONS.map((u) => (
               <option key={u} value={u}>
@@ -101,6 +105,7 @@ export function SlaMatrixConfigForm({
         </td>
 
         <td className="px-1 py-1.5">
+          {/* help-exempt: campo da coluna Nível 1: assumir, descrito pelo ícone do cabeçalho (planejamento.acoes-config.col-assumir) em configuracao/page.tsx */}
           <Input
             form={formId}
             type="number"
@@ -115,6 +120,7 @@ export function SlaMatrixConfigForm({
         </td>
 
         <td className="px-1 py-1.5">
+          {/* help-exempt: campo da coluna Responder, descrito pelo ícone do cabeçalho (planejamento.acoes-config.col-responder) em configuracao/page.tsx */}
           <Input
             form={formId}
             type="number"
@@ -127,6 +133,7 @@ export function SlaMatrixConfigForm({
         </td>
 
         <td className="px-1 py-1.5">
+          {/* help-exempt: campo da coluna Concluir, descrito pelo ícone do cabeçalho (planejamento.acoes-config.col-concluir) em configuracao/page.tsx */}
           <Input
             form={formId}
             type="number"
@@ -139,6 +146,7 @@ export function SlaMatrixConfigForm({
         </td>
 
         <td className="px-1 py-1.5">
+          {/* help-exempt: campo da coluna Nível 2, descrito pelo ícone do cabeçalho (planejamento.acoes-config.col-nivel2) em configuracao/page.tsx */}
           <Input
             form={formId}
             type="number"
@@ -153,6 +161,7 @@ export function SlaMatrixConfigForm({
         </td>
 
         <td className="px-1 py-1.5">
+          {/* help-exempt: campo da coluna Nível 3, descrito pelo ícone do cabeçalho (planejamento.acoes-config.col-nivel3) em configuracao/page.tsx */}
           <Input
             form={formId}
             type="number"

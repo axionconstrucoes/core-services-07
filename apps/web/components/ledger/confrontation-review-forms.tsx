@@ -2,6 +2,7 @@
 
 import { useActionState, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Textarea } from "@/components/ui/textarea";
 import { reviewEventClauseConfrontationCandidateAction } from "@/app/[projectId]/ledger/[eventId]/actions";
 import { initialReviewEventClauseConfrontationCandidateState } from "@/app/[projectId]/ledger/[eventId]/actions-state";
@@ -57,6 +58,7 @@ export function ConfrontationReviewForms({
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
+      {/* help-exempt: formulário de aprovação; o campo (campo-justificativa-aprovacao) e o botão (aprovar-relacao) têm ícone próprio */}
       <form
         action={approveAction}
         onSubmit={guardSubmit(approveNote, setApproveClientError)}
@@ -67,10 +69,14 @@ export function ConfrontationReviewForms({
         <input type="hidden" name="candidateId" value={candidateId} />
         <input type="hidden" name="reviewAction" value="APPROVE" />
 
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Justificativa da aprovação
+        <div className="flex flex-col gap-1.5">
+          <span className="inline-flex items-center gap-1 text-sm font-medium">
+            <label htmlFor={`approve-note-${candidateId}`}>Justificativa da aprovação</label>
+            <FeatureInfo helpId="planejamento.ledger-evento.campo-justificativa-aprovacao" />
+          </span>
           <span className="text-xs font-normal text-muted-foreground">{CONFRONTATION_JUSTIFICATION_HELP_TEXT}</span>
           <Textarea
+            id={`approve-note-${candidateId}`}
             name="reviewNote"
             required
             minLength={MIN_JUSTIFICATION_LENGTH}
@@ -79,16 +85,20 @@ export function ConfrontationReviewForms({
             value={approveNote}
             onChange={(e) => setApproveNote(e.target.value)}
           />
-        </label>
+        </div>
 
         {approveClientError ? <p className="text-sm text-destructive">{approveClientError}</p> : null}
         {approveState.error ? <p className="text-sm text-destructive">{approveState.error}</p> : null}
 
-        <Button type="submit" disabled={approvePending}>
-          {approvePending ? "Aprovando…" : "Aprovar relação"}
-        </Button>
+        <span className="inline-flex items-center gap-1">
+          <Button type="submit" disabled={approvePending}>
+            {approvePending ? "Aprovando…" : "Aprovar relação"}
+          </Button>
+          <FeatureInfo helpId="planejamento.ledger-evento.aprovar-relacao" />
+        </span>
       </form>
 
+      {/* help-exempt: formulário de rejeição; o campo (campo-justificativa-rejeicao) e o botão (rejeitar-relacao) têm ícone próprio */}
       <form
         action={rejectAction}
         onSubmit={guardSubmit(rejectNote, setRejectClientError)}
@@ -99,12 +109,16 @@ export function ConfrontationReviewForms({
         <input type="hidden" name="candidateId" value={candidateId} />
         <input type="hidden" name="reviewAction" value="REJECT" />
 
-        <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Justificativa da rejeição
+        <div className="flex flex-col gap-1.5">
+          <span className="inline-flex items-center gap-1 text-sm font-medium">
+            <label htmlFor={`reject-note-${candidateId}`}>Justificativa da rejeição</label>
+            <FeatureInfo helpId="planejamento.ledger-evento.campo-justificativa-rejeicao" />
+          </span>
           <span className="text-xs font-normal text-muted-foreground">
             Explique por que este evento não se relaciona com esta cláusula.
           </span>
           <Textarea
+            id={`reject-note-${candidateId}`}
             name="reviewNote"
             required
             minLength={MIN_JUSTIFICATION_LENGTH}
@@ -113,19 +127,17 @@ export function ConfrontationReviewForms({
             value={rejectNote}
             onChange={(e) => setRejectNote(e.target.value)}
           />
-        </label>
+        </div>
 
         {rejectClientError ? <p className="text-sm text-destructive">{rejectClientError}</p> : null}
         {rejectState.error ? <p className="text-sm text-destructive">{rejectState.error}</p> : null}
 
-        <Button
-          type="submit"
-          variant="outline"
-          className="border-destructive text-destructive hover:bg-destructive/10"
-          disabled={rejectPending}
-        >
-          {rejectPending ? "Rejeitando…" : "Rejeitar"}
-        </Button>
+        <span className="inline-flex items-center gap-1">
+          <Button type="submit" variant="outline" className="border-destructive text-destructive hover:bg-destructive/10" disabled={rejectPending}>
+            {rejectPending ? "Rejeitando…" : "Rejeitar"}
+          </Button>
+          <FeatureInfo helpId="planejamento.ledger-evento.rejeitar-relacao" />
+        </span>
       </form>
     </div>
   );
