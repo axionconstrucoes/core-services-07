@@ -43,6 +43,7 @@ export const NAV_ITEMS: NavItem[] = [
   // passa em evaluateFinancialDashboardAccess (lib/financial/access.ts).
   { href: "financeiro", label: "Financeiro", icon: "Wallet", helpId: "financeiro", restrictedTo: "financial" },
   { href: "esg", label: "ESG/SSMA", icon: "Leaf", helpId: "esg-ssma" },
+  { href: "qualidade", label: "Qualidade", icon: "BadgeCheck", helpId: "qualidade.menu.item" },
   { href: "experts-ia", label: "Experts IA", icon: "Bot", helpId: "experts-ia" },
   { href: "integracoes", label: "Integrações", icon: "Plug", helpId: "integracoes", restrictedTo: "admin" },
   { href: "usuarios", label: "Usuários", icon: "Users", helpId: "usuarios", restrictedTo: "admin" },
