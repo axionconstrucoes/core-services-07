@@ -8,6 +8,10 @@ import { EXPERTS_MANIFEST } from "./experts";
 import { INTEGRACOES_MANIFEST } from "./integracoes";
 import { JURIDICO_MANIFEST } from "./juridico";
 import { PLANEJAMENTO_MANIFEST } from "./planejamento";
+import { GARANTIAS_MANIFEST } from "./garantias";
+import { PILARES_MANIFEST } from "./pilares";
+import { QUALIDADE_MANIFEST } from "./qualidade";
+import { SEGUROS_MANIFEST } from "./seguros";
 import { SHARED_MANIFEST } from "./shared";
 import { SSMA_MANIFEST } from "./ssma";
 
@@ -22,4 +26,8 @@ export const ALL_HELP_MANIFESTS: HelpManifest[] = [
   INTEGRACOES_MANIFEST,
   EXPERTS_MANIFEST,
   ADMIN_MANIFEST,
+  QUALIDADE_MANIFEST,
+  GARANTIAS_MANIFEST,
+  SEGUROS_MANIFEST,
+  PILARES_MANIFEST,
 ];

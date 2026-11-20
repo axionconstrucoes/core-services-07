@@ -11,6 +11,10 @@ import { EXPERTS_HELP } from "./modules/experts";
 import { INTEGRACOES_HELP } from "./modules/integracoes";
 import { JURIDICO_HELP } from "./modules/juridico";
 import { PLANEJAMENTO_HELP } from "./modules/planejamento";
+import { GARANTIAS_HELP } from "./modules/garantias";
+import { PILARES_HELP } from "./modules/pilares";
+import { QUALIDADE_HELP } from "./modules/qualidade";
+import { SEGUROS_HELP } from "./modules/seguros";
 import { SHARED_HELP } from "./modules/shared";
 import { SSMA_HELP } from "./modules/ssma";
 import type { FeatureHelpDefinition } from "./types";
@@ -30,6 +34,10 @@ export const ALL_HELP_ENTRIES: FeatureHelpDefinition[] = [
   ...INTEGRACOES_HELP,
   ...EXPERTS_HELP,
   ...ADMIN_HELP,
+  ...QUALIDADE_HELP,
+  ...GARANTIAS_HELP,
+  ...SEGUROS_HELP,
+  ...PILARES_HELP,
 ];
 
 export const ACC_FEATURE_HELP: Record<string, FeatureHelpDefinition> = (() => {
