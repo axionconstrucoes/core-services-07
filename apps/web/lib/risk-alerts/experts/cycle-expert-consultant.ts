@@ -54,7 +54,8 @@ type SingleExpertFn = (supabase: SupabaseClient, request: ExpertQueryRequest, pr
 export const CYCLE_SINGLE_EXPERT_QUERIES: Record<SingleExpertId, SingleExpertFn> = {
   "planning-director": answerPlanningDirectorQuery,
   "engineering-director": answerEngineeringDirectorQuery,
-  "commercial-director": answerCommercialDirectorQuery,
+  // O ciclo roda sem sessão de usuário: o contexto comercial (RLS da sessão) não seria lido — não carregar.
+  "commercial-director": (supabase, request, provider) => answerCommercialDirectorQuery(supabase, request, provider, { includeCommercialContext: false }),
   "esg-director": answerEsgDirectorQuery,
   "legal-consultant": answerLegalConsultantQuery,
 };

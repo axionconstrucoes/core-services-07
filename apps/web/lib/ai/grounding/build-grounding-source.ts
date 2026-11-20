@@ -99,6 +99,15 @@ export function buildGroundingSource(input: BuildGroundingSourceInput): Groundin
     sourceTexts.push(fact);
   }
 
+  // Contexto comercial × Orçamentos (anexado pelo Diretor Comercial ao contexto do projeto/evento): só os itens
+  // DISPONÍVEIS, com o valor exatamente como lido da fonte, contam como fonte — dado ausente nunca fundamenta nada.
+  const commercialContext = ((eventContext ?? projectContext) as { commercialContext?: { items?: Array<{ label: string; value: string | number | null; availability: string }> } } | null | undefined)?.commercialContext;
+  for (const item of commercialContext?.items ?? []) {
+    if (item.availability === "DISPONIVEL" && item.value !== null && item.value !== undefined) {
+      sourceTexts.push(`${item.label}: ${String(item.value)}`);
+    }
+  }
+
   for (const basis of contractualBasis ?? []) {
     if (basis.clauseNumber) clauseNumbers.add(normalizeClauseNumber(basis.clauseNumber));
     if (basis.excerpt) sourceTexts.push(basis.excerpt);
