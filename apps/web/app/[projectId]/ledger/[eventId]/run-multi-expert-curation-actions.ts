@@ -8,7 +8,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { getEvent, getUser } from "@/lib/data";
-import { reserveAiConsult } from "@/lib/ai/alert-consult/consult-quota";
+import { precheckAiConsult, reserveAiConsult } from "@/lib/ai/alert-consult/consult-quota";
 import { persistCurationAudit } from "@/lib/ai/curation/persist-curation-audit";
 import { runMultiExpertCuration } from "@/lib/ai/curation/run-multi-expert-curation";
 import type { MultiExpertCuration } from "@/lib/ai/curation/types";
@@ -62,6 +62,12 @@ export async function runMultiExpertCurationAction(
     return { error: "Evento não encontrado.", success: null };
   }
 
+  // Pré-verificação somente leitura do limite de IA (nada é gravado; a reserva real é por Expert, na fronteira do provedor).
+  const precheck = await precheckAiConsult(supabase, projectId);
+  if (!precheck.ok) {
+    return { error: precheck.error, success: null };
+  }
+
   let curation: MultiExpertCuration;
   try {
     // description nunca é inventada: é sempre o título + descrição REAIS
@@ -74,7 +80,7 @@ export async function runMultiExpertCurationAction(
       eventId,
       description: `${event.title}\n${event.description}`,
     }, {
-      // Limite de IA: 1 unidade por Expert chamado (especialistas + CEO), reservada antes de cada chamada.
+      // Limite de IA: 1 unidade por Expert chamado (especialistas + CEO), reservada na fronteira do provedor de cada um.
       reserve: (expertId) => reserveAiConsult(supabase, projectId, "CURATION", eventId, expertId),
     });
   } catch (error) {

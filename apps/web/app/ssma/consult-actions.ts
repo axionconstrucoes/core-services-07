@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 
 import { reserveAiConsult } from "@/lib/ai/alert-consult/consult-quota";
 import { consultSsmaSpecialistForRecord } from "@/lib/ai/alert-consult/ssma-consult";
+import { MAX_ALERT_CONSULT_QUESTION_LENGTH } from "@/lib/ai/alert-consult/specialties";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { getFieldRecords } from "@/lib/ssma/field-records/data";
 import { runSsmaRecordConsult, type SsmaConsultState } from "@/lib/ssma/field-records/run-record-consult";
@@ -14,6 +15,11 @@ export async function consultSsmaRecordAction(_previous: SsmaConsultState, formD
   const projectId = String(formData.get("projectId") ?? "");
   const recordId = String(formData.get("recordId") ?? "");
   const question = String(formData.get("question") ?? "");
+  // Validação determinística ANTES da reserva do limite: pergunta longa demais é recusada sem consumir unidade
+  // (frente N6 — recusa antes do provedor nunca consome; ver docs/ai/governanca-consumo-ia.md).
+  if (question.trim().length > MAX_ALERT_CONSULT_QUESTION_LENGTH) {
+    return { result: null, error: `A pergunta deve ter no máximo ${MAX_ALERT_CONSULT_QUESTION_LENGTH} caracteres.` };
+  }
   const supabase = await createSupabaseServerClient();
   const outcome = await runSsmaRecordConsult(
     {

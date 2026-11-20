@@ -20,6 +20,7 @@ import { updateAdditionalProposalApprovals } from "@/lib/additionals/update-addi
 import { updateAdditionalProposalStatus } from "@/lib/additionals/update-additional-proposal-status";
 import { getAdditionalProposal } from "@/lib/additionals/get-additional-proposals";
 import { runAdditionalProposalCuration } from "@/lib/additionals/curation";
+import { precheckAiConsult, reserveAiConsult } from "@/lib/ai/alert-consult/consult-quota";
 import type {
   AdditionalProposalApprovalStatus,
   AdditionalProposalDocumentalState,
@@ -322,7 +323,14 @@ export async function runAdditionalProposalCurationAction(
     const proposal = await getAdditionalProposal(supabase, proposalId);
     if (!proposal) throw new Error("Proposta não encontrada.");
 
-    const result = await runAdditionalProposalCuration(supabase, proposal);
+    // Limite de IA (frente N6 — antes esta curadoria não reservava): pré-verificação somente leitura e 1 unidade
+    // CURATION por Expert chamado (3 especialistas + CEO IA), reservada na fronteira do provedor de cada um.
+    const precheck = await precheckAiConsult(supabase, proposal.projectId);
+    if (!precheck.ok) return { error: precheck.error, result: null };
+
+    const result = await runAdditionalProposalCuration(supabase, proposal, {
+      reserve: (expertId) => reserveAiConsult(supabase, proposal.projectId, "CURATION", `ADICIONAL:${proposal.id}`, expertId),
+    });
     return { error: null, result };
   } catch (error) {
     return { error: error instanceof Error ? error.message : "Falha ao executar a curadoria de Experts IA.", result: null };

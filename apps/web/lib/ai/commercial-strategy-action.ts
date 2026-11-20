@@ -7,7 +7,8 @@
 
 import { createSupabaseServerClient } from "@axion/db/server";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
-import { reserveAiConsult } from "./alert-consult/consult-quota";
+import { precheckAiConsult, reserveAiConsult } from "./alert-consult/consult-quota";
+import { gatedProviderForExpert } from "./governance/quota-gated-provider";
 import { resolveExpertQueryErrorMessage } from "./expert-query-request";
 import { COMMERCIAL_DIRECTOR_EXPERT_ID } from "./experts/commercial-director/identity";
 import { answerCommercialStrategyQuery, type CommercialStrategyQueryResult } from "./experts/commercial-director/strategy-query";
@@ -43,9 +44,13 @@ export async function askCommercialStrategyAction(
   if (permission === null) return { result: null, meta: null, error: "Você não possui acesso ativo a este projeto." };
 
   const supabase = await createSupabaseServerClient();
-  // Falha fechada: sem reserva confirmada, o provedor não é chamado.
-  const reservation = await reserveAiConsult(supabase, projectId, "EXPERT_PANEL", proposalRaw || projectId, COMMERCIAL_DIRECTOR_EXPERT_ID);
-  if (!reservation.ok) return { result: null, meta: null, error: reservation.error };
+  // Limite de IA (EXPERT_PANEL): pré-verificação somente leitura; a unidade é reservada na FRONTEIRA DO PROVEDOR
+  // (recusa determinística antes do provedor não consome). Falha fechada: sem reserva, o provedor não é chamado.
+  const precheck = await precheckAiConsult(supabase, projectId);
+  if (!precheck.ok) return { result: null, meta: null, error: precheck.error };
+  const provider = gatedProviderForExpert(COMMERCIAL_DIRECTOR_EXPERT_ID, () =>
+    reserveAiConsult(supabase, projectId, "EXPERT_PANEL", proposalRaw || projectId, COMMERCIAL_DIRECTOR_EXPERT_ID)
+  );
 
   try {
     const result = await answerCommercialStrategyQuery(supabase, {
@@ -53,7 +58,7 @@ export async function askCommercialStrategyAction(
       question,
       mode: modeRaw as CommercialStrategyMode,
       proposalId: proposalRaw || null,
-    });
+    }, provider);
     return { result, meta: buildAiProviderUiMetadata(result.audit.providerId, result.audit.model), error: null };
   } catch (error) {
     return { result: null, meta: null, error: resolveExpertQueryErrorMessage(error, "Falha ao consultar o Diretor Comercial IA.") };

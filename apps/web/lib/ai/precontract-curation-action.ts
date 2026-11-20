@@ -3,7 +3,7 @@
 import { createSupabaseServerClient } from "@axion/db/server";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { LEGAL_ADMIN_ONLY_MESSAGE, isActiveAdminOfProject } from "@/lib/legal/access";
-import { reserveAiConsult } from "./alert-consult/consult-quota";
+import { precheckAiConsult, reserveAiConsult } from "./alert-consult/consult-quota";
 import { runMultiExpertCuration } from "./curation/run-multi-expert-curation";
 import type { MultiExpertCuration } from "./curation/types";
 import {
@@ -35,6 +35,9 @@ export async function runPrecontractCurationAction(
 
   try {
     const supabase = await createSupabaseServerClient();
+    // Pré-verificação somente leitura (nada gravado): quem já esgotou o limite não dispara montagem de contexto.
+    const precheck = await precheckAiConsult(supabase, projectId);
+    if (!precheck.ok) return { result: null, error: precheck.error };
     const result = await runMultiExpertCuration(supabase, {
       projectId,
       sourceType: "PROJECT",
@@ -42,7 +45,7 @@ export async function runPrecontractCurationAction(
       consultAllExperts: true,
       includeContractualDocuments: true,
     }, {
-      // Limite de IA: 1 unidade por Expert chamado (especialistas + CEO), reservada antes de cada chamada.
+      // Limite de IA: 1 unidade por Expert chamado (especialistas + CEO), reservada na fronteira do provedor de cada um.
       reserve: (expertId) => reserveAiConsult(supabase, projectId, "CURATION", `PRE_CONTRATUAL:${projectId}`, expertId),
     });
     return { result, error: null };
