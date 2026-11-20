@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
 import { ExpertQueryPanel } from "@/components/ai/expert-query-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { initialAskCommercialDirectorState } from "@/lib/ai/expert-query-state";
 import { askPlanningDirectorAction } from "@/lib/ai/planning-query-action";
 
@@ -21,11 +22,20 @@ export default async function DiretorPlanejamentoPage({
       <PageHeader
         title="Diretor de Planejamento IA"
         description="Especialista em planejamento de obras logísticas, industriais e de saúde: cronograma, linha de base, caminho crítico, folgas, curva S, atrasos e recuperação de prazo, com base no MPP estruturado e sempre com revisão humana."
+        actions={
+          <div className="flex items-center gap-1">
+            <FeatureInfo helpId="experts.planejamento.pagina" />
+            <FeatureInfo helpId="experts.planejamento.perfil" />
+          </div>
+        }
       />
 
       <Card>
         <CardHeader>
-          <CardTitle>Consultas recomendadas</CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
+            Consultas recomendadas
+            <FeatureInfo helpId="experts.painel.consultas-recomendadas" />
+          </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
           <p>• Qual é a data final prevista da obra e quais atividades estão no caminho crítico?</p>

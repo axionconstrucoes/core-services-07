@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useId, useState } from "react";
 import { AlertTriangle, FlaskConical, HelpCircle, Loader2 } from "lucide-react";
 import { AiPendingIndicator } from "@/components/ai/ai-pending-indicator";
 import { SeverityBadge } from "@/components/shared/badges";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,10 +26,13 @@ const REQUIREMENT_KIND_LABELS: Record<string, string> = {
   AI_RECOMMENDATION: "Recomendação da IA",
 };
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, helpId, children }: { title: string; helpId?: string; children: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h4>
+      <div className="flex items-center gap-1">
+        <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h4>
+        {helpId ? <FeatureInfo helpId={helpId} /> : null}
+      </div>
       {children}
     </div>
   );
@@ -92,7 +96,7 @@ function GroundingSummary({
   ];
 
   return (
-    <Section title="Checagem de fidelidade (grounding) do rascunho">
+    <Section title="Checagem de fidelidade (grounding) do rascunho" helpId="experts.painel.grounding">
       {grounding.draftSuppressed && (
         <p className="text-sm text-destructive">
           O rascunho original foi removido: continha afirmação sem suporte no contexto que não pôde ser corrigida
@@ -145,6 +149,7 @@ function PartialContentNotice({ coverage }: { coverage: ContextDocumentCoverage 
         <p className="font-medium">
           Análise realizada com conteúdo parcial: parte dos documentos excedeu o limite de contexto. Confirme as
           cláusulas diretamente nos arquivos originais.
+          <FeatureInfo helpId="experts.painel.aviso-conteudo-parcial" />
         </p>
         <p className="text-xs">
           Documentos incluídos: {coverage.includedCount} de {coverage.availableCount}
@@ -198,7 +203,7 @@ function ClauseRationaleTooltip({ comparison, index }: { comparison: VerifiedLeg
 
 function LegalClauseComparison({ comparisons }: { comparisons: VerifiedLegalClauseComparison[] }) {
   return (
-    <Section title="Comparação das cláusulas e sugestões">
+    <Section title="Comparação das cláusulas e sugestões" helpId="experts.painel.comparacao-clausulas">
       {comparisons.length === 0 ? (
         <p className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
           Nenhuma alteração de cláusula foi recomendada para a pergunta atual.
@@ -267,17 +272,18 @@ export function ExpertResponseDetails({ response, showClauseComparison }: { resp
       <div className="flex flex-wrap items-center gap-2">
         <SeverityBadge severity={confrontationSeverityToAlertSeverity[response.severity]} />
         <span className="text-xs text-muted-foreground">Confiança: {Math.round(response.confidence * 100)}%</span>
+        <FeatureInfo helpId="experts.painel.severidade-confianca" />
       </div>
 
       {showClauseComparison && response.analiseClausulas ? (
         <LegalClauseComparison comparisons={response.analiseClausulas} />
       ) : null}
 
-      <Section title="Interpretação (sugestão, não fato)"><p className="text-sm">{response.interpretacao}</p></Section>
-      <Section title="Fatos documentados"><BulletList items={response.fatosDocumentados} /></Section>
+      <Section title="Interpretação (sugestão, não fato)" helpId="experts.painel.interpretacao"><p className="text-sm">{response.interpretacao}</p></Section>
+      <Section title="Fatos documentados" helpId="experts.painel.fatos"><BulletList items={response.fatosDocumentados} /></Section>
 
       {response.contextoInternoDeclarado.length > 0 && (
-        <Section title="Contexto interno declarado (não confirmado documentalmente)">
+        <Section title="Contexto interno declarado (não confirmado documentalmente)" helpId="experts.painel.contexto-declarado">
           <ul className="flex flex-col gap-2">
             {response.contextoInternoDeclarado.map((item) => (
               <li key={item.noteId} className="rounded-md border border-amber-500/30 bg-amber-500/5 p-2 text-sm">
@@ -289,28 +295,28 @@ export function ExpertResponseDetails({ response, showClauseComparison }: { resp
       )}
 
       {response.baseContratual.length > 0 && (
-        <Section title="Base contratual"><ul className="flex flex-col gap-1 text-sm">
+        <Section title="Base contratual" helpId="experts.painel.base-contratual"><ul className="flex flex-col gap-1 text-sm">
           {response.baseContratual.map((basis, i) => <li key={i}>{basis.clauseNumber ? `Cláusula ${basis.clauseNumber} — ` : ""}{basis.clauseTitle ?? "Referência contratual"}</li>)}
         </ul></Section>
       )}
 
-      <Section title="Base legal">
+      <Section title="Base legal" helpId="experts.painel.base-legal">
         {response.baseLegal.length === 0 ? <p className="text-sm text-muted-foreground">Base legal oficial não disponível nesta fase (nenhum corpus normativo versionado no projeto).</p> : <BulletList items={response.baseLegal.map((c) => `${c.source.referencia}: ${c.relationToAnalysis}`)} />}
       </Section>
 
       {response.praticasNegociais.length > 0 && (
-        <Section title="Práticas negociais / classificações"><ul className="flex flex-col gap-1 text-sm">
+        <Section title="Práticas negociais / classificações" helpId="experts.painel.praticas"><ul className="flex flex-col gap-1 text-sm">
           {response.praticasNegociais.map((item, i) => <li key={i}><span className="mr-1 rounded border px-1 text-xs">{REQUIREMENT_KIND_LABELS[item.kind] ?? item.kind}</span>{item.statement}</li>)}
         </ul></Section>
       )}
 
-      <Section title="Riscos"><BulletList items={response.riscos} /></Section>
-      <Section title="Recomendações"><BulletList items={response.recomendacoes} /></Section>
-      {response.acoesSugeridas.length > 0 && <Section title="Ações sugeridas"><BulletList items={response.acoesSugeridas} /></Section>}
-      <Section title="Informações faltantes"><BulletList items={response.informacoesFaltantes} /></Section>
+      <Section title="Riscos" helpId="experts.painel.riscos"><BulletList items={response.riscos} /></Section>
+      <Section title="Recomendações" helpId="experts.painel.recomendacoes"><BulletList items={response.recomendacoes} /></Section>
+      {response.acoesSugeridas.length > 0 && <Section title="Ações sugeridas" helpId="experts.painel.recomendacoes"><BulletList items={response.acoesSugeridas} /></Section>}
+      <Section title="Informações faltantes" helpId="experts.painel.informacoes-faltantes"><BulletList items={response.informacoesFaltantes} /></Section>
 
       {response.rascunhoSugerido && (
-        <Section title={`Rascunho sugerido — ${response.rascunhoSugerido.status}`}>
+        <Section title={`Rascunho sugerido — ${response.rascunhoSugerido.status}`} helpId="experts.painel.rascunho">
           <div className="rounded-md border bg-muted/40 p-3 text-sm">
             {response.rascunhoSugerido.subject && <p className="font-medium">{response.rascunhoSugerido.subject}</p>}
             <p className="mt-1 whitespace-pre-wrap">{response.rascunhoSugerido.body}</p>
@@ -356,6 +362,7 @@ export function ExpertQueryPanel({
   questionPlaceholder?: string;
 }) {
   const [rawState, formAction, pending] = useActionState(action, initialState);
+  const questionId = useId();
   // Consulta jurídica excluída no histórico: limpa a resposta aberta correspondente (mesmo consultationId).
   const [dismissedId, setDismissedId] = useState<string | null>(null);
   useEffect(() => {
@@ -397,7 +404,9 @@ export function ExpertQueryPanel({
         {meta === null ? (
           <div className="flex items-start gap-2 rounded-md border p-2.5 text-xs text-muted-foreground">
             <FlaskConical className="mt-0.5 size-3.5 shrink-0" />
-            <p>O provider será exibido aqui após a primeira consulta.</p>
+            <p>
+              O provider será exibido aqui após a primeira consulta. <FeatureInfo helpId="experts.painel.provider" />
+            </p>
           </div>
         ) : meta.isRealProvider ? (
           <div className="flex items-start gap-2 rounded-md border border-primary/30 bg-primary/5 p-2.5 text-xs text-muted-foreground">
@@ -405,7 +414,8 @@ export function ExpertQueryPanel({
             <p>
               <strong>Provider: {meta.providerLabel}</strong>
               {meta.model ? <> · Modelo: {meta.model}</> : null}. Resposta gerada por IA. Toda sugestão exige
-              revisão humana antes de qualquer ação.
+              revisão humana antes de qualquer ação.{" "}
+              <FeatureInfo helpId="experts.painel.provider" />
             </p>
           </div>
         ) : (
@@ -413,7 +423,8 @@ export function ExpertQueryPanel({
             <FlaskConical className="mt-0.5 size-3.5 shrink-0" />
             <p>
               <strong>Provider: {meta.providerLabel}.</strong> Esta resposta é gerada por um provider
-              determinístico (fake) — não é IA real. Nada aqui deve ser tratado como análise inteligente de fato.
+              determinístico (fake) — não é IA real. Nada aqui deve ser tratado como análise inteligente de fato.{" "}
+              <FeatureInfo helpId="experts.painel.provider" />
             </p>
           </div>
         )}
@@ -430,16 +441,22 @@ export function ExpertQueryPanel({
           <input type="hidden" name="scope" value={scope} />
           {eventId ? <input type="hidden" name="eventId" value={eventId} /> : null}
 
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            {scope === "EVENT" ? "Faça uma pergunta sobre este evento" : "Faça uma pergunta sobre este projeto"}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center gap-1.5 text-sm font-medium">
+              <label htmlFor={questionId}>
+                {scope === "EVENT" ? "Faça uma pergunta sobre este evento" : "Faça uma pergunta sobre este projeto"}
+              </label>
+              <FeatureInfo helpId="experts.painel.pergunta" />
+            </div>
             <Textarea
+              id={questionId}
               name="question"
               required
               rows={2}
               placeholder={questionPlaceholder}
               title="Descreva o contexto e a pergunta. O especialista usará os documentos e dados disponíveis neste projeto; a resposta exige revisão humana."
             />
-          </label>
+          </div>
 
           {!pending && error ? <p className="text-sm text-destructive">{error}</p> : null}
 
@@ -447,16 +464,19 @@ export function ExpertQueryPanel({
             <p className="rounded-md border bg-muted/40 p-2.5 text-sm text-muted-foreground">{disabledReason}</p>
           ) : null}
 
-          <Button type="submit" disabled={pending || Boolean(disabledReason)} className="self-start">
-            {pending ? (
-              <>
-                <Loader2 className="animate-spin" aria-hidden="true" />
-                Consultando…
-              </>
-            ) : (
-              "Consultar"
-            )}
-          </Button>
+          <div className="flex items-center gap-2 self-start">
+            <Button type="submit" disabled={pending || Boolean(disabledReason)}>
+              {pending ? (
+                <>
+                  <Loader2 className="animate-spin" aria-hidden="true" />
+                  Consultando…
+                </>
+              ) : (
+                "Consultar"
+              )}
+            </Button>
+            <FeatureInfo helpId="experts.painel.consultar" />
+          </div>
 
           {/* Enquanto `pending`, a resposta anterior já saiu da tela
               (displayedResponse) — este aviso ocupa o lugar dela. */}
