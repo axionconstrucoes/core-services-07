@@ -8,6 +8,7 @@
 import { createSupabaseServerClient } from "@axion/db/server";
 import { precheckAiConsult, reserveAiConsult } from "./alert-consult/consult-quota";
 import { gatedProviderForExpert } from "./governance/quota-gated-provider";
+import { sessionAuditSink } from "./governance/consult-audit";
 import { ESG_DIRECTOR_EXPERT_ID } from "./experts/esg-director/identity";
 import { answerEsgDirectorQuery } from "./experts/esg-director/query";
 import { parseExpertQueryForm, resolveExpertQueryErrorMessage } from "./expert-query-request";
@@ -41,7 +42,9 @@ export async function askEsgDirectorAction(
 
   try {
     const provider = gatedProviderForExpert(ESG_DIRECTOR_EXPERT_ID, (expertId) =>
-      reserveAiConsult(supabase, parsed.request.projectId, "EXPERT_PANEL", parsed.request.eventId ?? parsed.request.projectId, expertId)
+      reserveAiConsult(supabase, parsed.request.projectId, "EXPERT_PANEL", parsed.request.eventId ?? parsed.request.projectId, expertId),
+    undefined,
+    sessionAuditSink(supabase, parsed.request.projectId, "EXPERT_PANEL", parsed.request.eventId ?? parsed.request.projectId)
     );
     const result = await answerEsgDirectorQuery(supabase, parsed.request, provider);
 

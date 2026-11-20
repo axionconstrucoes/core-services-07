@@ -11,6 +11,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildEventAnalysisContext } from "../../context/build-event-context";
 import { buildProjectAnalysisContext } from "../../context/build-project-context";
+import {
+  adjustConfidenceForGrounding,
+  applySafeGroundingCorrection,
+  buildGroundingSource,
+  buildResponseGroundingSummary,
+  NOT_PERFORMED_GROUNDING_SUMMARY,
+  validateDraftGrounding,
+} from "../../grounding/index";
 import { resolveAiProviderForExpert } from "../../providers/resolve-provider-for-expert";
 import type { AiProvider } from "../../providers/types";
 import { EXPERT_QUERY_RESPONSE_JSON_SCHEMA } from "../../query/json-schema";
@@ -38,6 +46,17 @@ export interface EsgDirectorQueryResult {
     eventId: string | null;
     question: string;
     generatedAt: string;
+    stopReason: string | null;
+    usage: { inputTokens: number | null; outputTokens: number | null } | null;
+    /** Metadata do guardrail de grounding — somente contagens, nunca o texto completo das afirmações. */
+    grounding: {
+      performed: boolean;
+      valid: boolean;
+      supportedClaimCount: number;
+      inferredClaimCount: number;
+      unsupportedClaimCount: number;
+      humanInputRequiredClaimCount: number;
+    };
   };
 }
 
@@ -130,8 +149,63 @@ export async function answerEsgDirectorQuery(
     scope: request.scope,
   });
 
+  // Guardrail de grounding (Lote 4): rascunho de comunicação de provider real só sobrevive se cada afirmação tiver
+  // suporte no contexto fornecido — mesmo critério dos demais Experts (engineering/planning/legal/commercial).
+  let finalResponse = validated;
+  let groundingAudit = { performed: false, valid: true, supportedClaimCount: 0, inferredClaimCount: 0, unsupportedClaimCount: 0, humanInputRequiredClaimCount: 0 };
+
+  if (response.providerId === "anthropic" && validated.rascunhoSugerido) {
+    const draft = validated.rascunhoSugerido;
+    const source = buildGroundingSource({
+      eventContext,
+      projectContext,
+      documentedFacts: validated.fatosDocumentados,
+      contractualBasis: validated.baseContratual,
+      legalCitations: validated.baseLegal,
+    });
+    const result = validateDraftGrounding(draft.body, source);
+
+    let correctedDraft = draft;
+    let draftSuppressed = false;
+    let correctionApplied = false;
+
+    if (!result.valid) {
+      const correction = applySafeGroundingCorrection(draft.body, result);
+      if (correction.stillRequiresRejection) {
+        draftSuppressed = true;
+      } else {
+        correctedDraft = { ...draft, body: correction.correctedBody };
+        correctionApplied = true;
+      }
+    }
+
+    finalResponse = {
+      ...validated,
+      confidence: adjustConfidenceForGrounding(validated.confidence, result, { draftSuppressed, correctionApplied }),
+      rascunhoSugerido: draftSuppressed ? null : correctedDraft,
+      informacoesFaltantes: draftSuppressed
+        ? [
+            ...validated.informacoesFaltantes,
+            "Rascunho de comunicação removido pelo guardrail de grounding: continha afirmação sem suporte no contexto fornecido.",
+          ]
+        : validated.informacoesFaltantes,
+      grounding: buildResponseGroundingSummary(result, { correctionApplied, draftSuppressed }),
+    };
+
+    groundingAudit = {
+      performed: true,
+      valid: result.valid,
+      supportedClaimCount: result.supportedClaims.length,
+      inferredClaimCount: result.inferredClaims.length,
+      unsupportedClaimCount: result.unsupportedClaims.length,
+      humanInputRequiredClaimCount: result.humanInputRequiredClaims.length,
+    };
+  } else {
+    finalResponse = { ...validated, grounding: NOT_PERFORMED_GROUNDING_SUMMARY };
+  }
+
   return {
-    response: validated,
+    response: finalResponse,
     audit: {
       expertId: ESG_DIRECTOR_EXPERT_ID,
       expertVersion: ESG_DIRECTOR_VERSION,
@@ -142,6 +216,9 @@ export async function answerEsgDirectorQuery(
       eventId: request.eventId ?? null,
       question,
       generatedAt: new Date().toISOString(),
+      stopReason: response.stopReason ?? null,
+      usage: response.usage ?? null,
+      grounding: groundingAudit,
     },
   };
 }

@@ -6,6 +6,7 @@ import { getCurrentProjectPermission } from "@/lib/contract-review";
 import type { AlertConsultState } from "@/lib/ai/alert-consult/alert-consult-state";
 import { runAlertConsultCuration, runAlertConsultExpert } from "@/lib/ai/alert-consult/alert-consult-experts";
 import { precheckAiConsult, reserveAiConsult } from "@/lib/ai/alert-consult/consult-quota";
+import { sessionAuditSink } from "@/lib/ai/governance/consult-audit";
 import { loadAlertConsultSubject } from "@/lib/ai/alert-consult/load-alert-consult-subject";
 import { runAlertConsult } from "@/lib/ai/alert-consult/run-alert-consult";
 import { parseAlertConsultForm } from "@/lib/ai/alert-consult/specialties";
@@ -33,6 +34,7 @@ export async function consultAlertAction(_previous: AlertConsultState, formData:
       loadSubject: (projectId, subject, id) => loadAlertConsultSubject(supabase, projectId, subject, id),
       reserve: (projectId, subject, id, expertId) =>
         reserveAiConsult(supabase, projectId, subject === "risco" ? "RISCO" : "ALERTA", `${subject}:${id}`, expertId),
+      audit: (projectId, subject, id) => sessionAuditSink(supabase, projectId, subject === "risco" ? "RISCO" : "ALERTA", `${subject}:${id}`),
       precheck: (projectId) => precheckAiConsult(supabase, projectId),
       runExpert: (expertId, request, userQuestion, reserve) =>
         runAlertConsultExpert(supabase, expertId, request, userQuestion, undefined, reserve),
