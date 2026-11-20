@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import {
   initialValidateSsmaDriveState,
@@ -25,8 +26,9 @@ export function SsmaDriveConnectionCheck({ projectId }: { projectId: string }) {
         </Button>
       </form>
 
-      <p className="text-xs">
+      <p className="flex items-center gap-1.5 text-xs">
         Somente leitura: confirma as 12 subpastas e conta os itens, sem baixar, mover ou alterar arquivos.
+        <FeatureInfo helpId="integracoes.integracoes.validar-drive-ssma" />
       </p>
 
       {state.checkedAt ? (

@@ -15,6 +15,7 @@ import { EmailSyncPanel } from "@/components/integrations/email-sync-panel";
 import { IntegrationCard } from "@/components/integrations/integration-card";
 import { UserIntegrationMatrix } from "@/components/integrations/user-integration-matrix";
 import { PageHeader } from "@/components/layout/page-header";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { getIntegrationConfigs, getProject, getProjectMembers, getSourceDefinitions } from "@/lib/data";
@@ -77,11 +78,19 @@ export default async function IntegracoesPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="Administração de Integrações" description="Status operacional das fontes configuradas para este projeto." />
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <PageHeader title="Administração de Integrações" description="Status operacional das fontes configuradas para este projeto." />
+        </div>
+        <FeatureInfo helpId="integracoes.integracoes.pagina" className="mt-1.5" />
+      </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>IA e skills dos especialistas</CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
+            IA e skills dos especialistas
+            <FeatureInfo helpId="integracoes.integracoes.ia-skills" />
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
             Fonte configurada de IA e skills selecionadas para cada especialista.
             Passe o mouse sobre o nome da skill (ou use o foco pelo teclado) para ler a descrição.
@@ -170,7 +179,10 @@ export default async function IntegracoesPage({
       {canManage ? (
         <Card>
           <CardHeader>
-            <CardTitle>Configuração de ingestão deste projeto</CardTitle>
+            <CardTitle className="flex items-center gap-1.5">
+              Configuração de ingestão deste projeto
+              <FeatureInfo helpId="integracoes.integracoes.email-config" />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {accounts.length === 0 ? (
@@ -185,7 +197,10 @@ export default async function IntegracoesPage({
       {canManage && ingestionConfig ? (
         <Card>
           <CardHeader>
-            <CardTitle>Escopo automático dos e-mails</CardTitle>
+            <CardTitle className="flex items-center gap-1.5">
+              Escopo automático dos e-mails
+              <FeatureInfo helpId="integracoes.integracoes.email-escopo" />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <EmailProjectScopeForm

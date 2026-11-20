@@ -101,6 +101,7 @@ function AccountRow({ projectId, account, canManage }: { projectId: string; acco
       </div>
       <div className="flex items-center gap-2">
         <EmailAccountStatusBadge status={account.status} />
+        <FeatureInfo helpId="integracoes.integracoes.email-desconectar" />
         {canManage && account.status !== "NOT_CONNECTED" ? (
           <form action={formAction}>
             <input type="hidden" name="projectId" value={projectId} />

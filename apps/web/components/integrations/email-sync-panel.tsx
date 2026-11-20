@@ -46,6 +46,10 @@ export function EmailSyncPanel({ run, consideredCount }: { run: EmailSyncRun | n
           <Progress value={progress.percent} />
         </div>
 
+        <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          Contadores da última sincronização
+          <FeatureInfo helpId="integracoes.integracoes.sync-contadores" />
+        </p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Status" value={STATUS_LABELS[run.status] ?? run.status} />
           <Stat label="E-mails encontrados" value={run.emailsFound ?? "—"} />

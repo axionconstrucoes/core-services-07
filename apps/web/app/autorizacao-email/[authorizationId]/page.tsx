@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { createSupabaseServerClient } from "@axion/db/server";
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { AssistantWidget } from "@/components/assistant/assistant-widget";
 import { VeraTrigger } from "@/components/assistant/vera-trigger";
 import { Card, CardContent } from "@/components/ui/card";
@@ -95,6 +96,10 @@ export default async function EmailAuthorizationPage({
 
         <Card>
           <CardContent className="space-y-3 pt-4 text-sm">
+            <p className="flex items-center gap-1.5 text-xs text-gray-500">
+              Sobre esta autorização
+              <FeatureInfo helpId="integracoes.autorizacao.pagina" />
+            </p>
             <dl className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
               <div>
                 <dt className="text-xs text-gray-500">Colaborador</dt>
@@ -113,7 +118,10 @@ export default async function EmailAuthorizationPage({
                 <dd className="font-semibold">{formatDateTime(authorization.requestedAt)}</dd>
               </div>
               <div>
-                <dt className="text-xs text-gray-500">Aceite no ACC</dt>
+                <dt className="flex items-center gap-1.5 text-xs text-gray-500">
+                  Aceite no ACC
+                  <FeatureInfo helpId="integracoes.autorizacao.estado" />
+                </dt>
                 <dd>
                   <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${STATUS_STYLE[authorization.status]}`}>{authorizationStatusLabel(authorization.status)}</span>
                   {authorization.decidedAt ? <span className="ml-2 text-xs text-gray-500">em {formatDateTime(authorization.decidedAt)}</span> : null}
@@ -145,7 +153,10 @@ export default async function EmailAuthorizationPage({
                   ))}
                 </section>
               ))}
-              <p className="text-xs text-gray-500">Versão do texto: {authorization.noticeVersion}</p>
+              <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                Versão do texto: {authorization.noticeVersion}
+                <FeatureInfo helpId="integracoes.autorizacao.texto" />
+              </p>
             </CardContent>
           </Card>
         ) : (
@@ -159,7 +170,10 @@ export default async function EmailAuthorizationPage({
         {isSubject && sections && authorization.status === "PENDENTE" ? (
           <Card>
             <CardContent className="space-y-3 pt-4 text-sm">
-              <h2 className="text-sm font-bold text-brand-sidebar">Sua decisão para esta obra</h2>
+              <h2 className="flex items-center gap-1.5 text-sm font-bold text-brand-sidebar">
+                Sua decisão para esta obra
+                <FeatureInfo helpId="integracoes.autorizacao.decisao" />
+              </h2>
               {!action ? (
                 <>
                   <p className="text-gray-700">Escolha uma opção. Você ainda vai confirmar na próxima etapa; nada é registrado só por abrir esta página.</p>
@@ -203,7 +217,10 @@ export default async function EmailAuthorizationPage({
         {isSubject && authorization.status === "AUTORIZADO" ? (
           <Card>
             <CardContent className="space-y-3 pt-4 text-sm">
-              <h2 className="text-sm font-bold text-brand-sidebar">Revogar autorização desta obra</h2>
+              <h2 className="flex items-center gap-1.5 text-sm font-bold text-brand-sidebar">
+                Revogar autorização desta obra
+                <FeatureInfo helpId="integracoes.autorizacao.revogar" />
+              </h2>
               {action === "revogar" ? (
                 <form action={revokeAuthorizationAction} className="space-y-3 rounded-md border border-gray-300 p-3">
                   <input type="hidden" name="authorizationId" value={authorization.id} />
@@ -245,7 +262,10 @@ export default async function EmailAuthorizationPage({
         {events.length > 0 ? (
           <Card>
             <CardContent className="space-y-2 pt-4 text-sm">
-              <h2 className="text-sm font-bold text-brand-sidebar">Histórico</h2>
+              <h2 className="flex items-center gap-1.5 text-sm font-bold text-brand-sidebar">
+                Histórico
+                <FeatureInfo helpId="integracoes.autorizacao.historico" />
+              </h2>
               <ul className="space-y-1">
                 {events.map((event) => (
                   <li key={event.id} className="text-gray-800">

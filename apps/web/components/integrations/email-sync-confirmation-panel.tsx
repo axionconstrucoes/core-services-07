@@ -50,7 +50,10 @@ export function EmailSyncConfirmationPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Prévia antes de importar</CardTitle>
+        <CardTitle className="flex items-center gap-1.5">
+          Prévia antes de importar
+          <FeatureInfo helpId="integracoes.integracoes.email-previa" />
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3 text-sm">
         <dl className="grid gap-2 sm:grid-cols-2">

@@ -17,6 +17,7 @@
 // e' a afirmacao de que esta area nao consome token, verificavel por
 // quem opera o sistema sem precisar ler codigo.
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { formatDate } from "@/lib/labels";
 import type { DiarioDeObraMonitoringOverview } from "@/lib/integrations/diario-de-obra/get-monitoring-overview";
 import { formatarDataHoraBrasilia } from "@/lib/integrations/diario-de-obra/format-brasilia";
@@ -61,7 +62,10 @@ export function DiarioDeObraMonitoringPanel({
   if (!overview) {
     return (
       <div className="flex flex-col gap-1.5 rounded-md border bg-background/60 p-2">
-        <p className="text-xs font-semibold text-foreground">{DIARIO_PANEL_TITULO}</p>
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+          {DIARIO_PANEL_TITULO}
+          <FeatureInfo helpId="integracoes.integracoes.diario-monitoramento" />
+        </p>
         <p className="text-xs text-muted-foreground">{DIARIO_SEM_SINCRONIZACAO}</p>
         <p className="text-xs text-muted-foreground">{DIARIO_ESCOPO_NOTE}</p>
         <p className="text-xs font-medium text-muted-foreground">{AVISO_IA_DESATIVADA}</p>
@@ -139,7 +143,10 @@ export function DiarioDeObraMonitoringPanel({
 
   return (
     <div className="flex flex-col gap-1.5 rounded-md border bg-background/60 p-2">
-      <p className="text-xs font-semibold text-foreground">{DIARIO_PANEL_TITULO}</p>
+      <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+        {DIARIO_PANEL_TITULO}
+        <FeatureInfo helpId="integracoes.integracoes.diario-monitoramento" />
+      </p>
 
       {/* O aviso vem ANTES dos numeros: quem le precisa saber que eles
           sao de antes, e nao do agora. */}
