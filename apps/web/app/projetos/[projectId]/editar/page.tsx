@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@axion/db/server";
 import { InstitutionalBackground } from "@/components/brand/institutional-background";
 import { EditProjectForm } from "@/components/projects/edit-project-form";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { getProject } from "@/lib/data";
 import { editProjectReturnPath, type EditProjectOrigin } from "../../actions-state";
 
@@ -42,10 +43,11 @@ export default async function EditarProjetoPage({
       <InstitutionalBackground />
       <div className="relative w-full max-w-3xl">
         <EditProjectForm project={project} origin={origin} />
-        <p className="mt-3 text-center text-sm">
+        <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-sm">
           <Link href={`/projetos/${project.id}/copiar-estrutura`} className="font-medium underline underline-offset-2">
             Copiar estrutura de outro projeto (equipe e perfis de acesso)
           </Link>
+          <FeatureInfo helpId="admin.editar.link-copiar" />
         </p>
       </div>
     </main>

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { BookOpen, Download, FileText } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getProject } from "@/lib/data";
 import { TUTORIAL_FILES } from "@/lib/help/tutorial-files";
@@ -17,7 +18,7 @@ export default async function AjudaPage({ params }: { params: Promise<{ projectI
   const base = `/${projectId}/ajuda/tutorial`;
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Ajuda e tutorial" description="Apresentação da suíte e guia de uso do ACC, com imagens das telas e dos e-mails de alerta." />
+      <PageHeader title="Ajuda e tutorial" description="Apresentação da suíte e guia de uso do ACC, com imagens das telas e dos e-mails de alerta." actions={<FeatureInfo helpId="admin.ajuda.pagina" />} />
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-bold">
@@ -39,12 +40,14 @@ export default async function AjudaPage({ params }: { params: Promise<{ projectI
             >
               <FileText className="size-4" /> {TUTORIAL_FILES.pdf.label}
             </a>
+            <FeatureInfo helpId="admin.ajuda.pdf" className="self-center" />
             <a
               href={`${base}/pptx`}
               className="inline-flex min-h-10 items-center gap-2 rounded-md border-2 border-red-900 px-4 text-sm font-bold text-red-900 hover:bg-red-50"
             >
               <Download className="size-4" /> {TUTORIAL_FILES.pptx.label}
             </a>
+            <FeatureInfo helpId="admin.ajuda.pptx" className="self-center" />
           </div>
           <p className="text-xs text-muted-foreground">
             Acesso restrito a usuários autenticados com acesso a esta obra. O PowerPoint é editável; o PDF é para consulta.

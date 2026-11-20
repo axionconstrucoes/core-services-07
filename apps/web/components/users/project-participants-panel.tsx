@@ -9,6 +9,7 @@ import { useActionState, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { saveProjectParticipantsAction } from "@/app/[projectId]/usuarios/actions";
@@ -82,7 +83,10 @@ export function ProjectParticipantsPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Participantes do projeto</CardTitle>
+        <CardTitle className="flex items-center gap-1.5">
+          Participantes do projeto
+          <FeatureInfo helpId="admin.usuarios.participantes" />
+        </CardTitle>
         <p className="text-sm text-muted-foreground">
           Marque quem participa desta obra. Desmarcar apenas desativa a participação (reversível; o histórico é preservado). A Matriz de
           Responsabilidades lista somente participantes ativos e convidados pendentes deste projeto. Nada é alterado até você revisar e confirmar.
@@ -109,6 +113,7 @@ export function ProjectParticipantsPanel({
             <option value="INACTIVE">Inativos</option>
             {candidatesAvailable ? <option value="NOT_MEMBER">Fora do projeto</option> : null}
           </Select>
+          <FeatureInfo helpId="admin.usuarios.participantes-filtros" className="self-center" />
         </div>
 
         {!candidatesAvailable ? (
@@ -192,7 +197,10 @@ export function ProjectParticipantsPanel({
 
           {dirty ? (
             <div className="rounded-md border bg-muted/40 p-3 text-sm" role="status" aria-live="polite">
-              <p className="font-medium">Resumo das alterações</p>
+              <p className="flex items-center gap-1.5 font-medium">
+                Resumo das alterações
+                <FeatureInfo helpId="admin.usuarios.participantes-resumo" />
+              </p>
               <ul className="list-disc pl-5 text-xs">
                 {summary.adds > 0 ? <li>{summary.adds} usuário(s) a adicionar</li> : null}
                 {summary.reactivations > 0 ? <li>{summary.reactivations} participação(ões) a reativar</li> : null}

@@ -12,6 +12,8 @@
 
 import { useActionState, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
+import { FieldLabel } from "@/components/admin/field-label";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -107,15 +109,15 @@ export function AddProjectMemberForm({
       <CardContent className="flex flex-col gap-4">
         <form action={searchAction} className="flex flex-col gap-2">
           <input type="hidden" name="projectId" value={projectId} />
-          <label className="flex flex-col gap-1.5 text-sm font-medium">
-            Buscar por e-mail @axion.com.br
+          <div className="flex flex-col gap-1.5">
+            <FieldLabel htmlFor="add-member-query" helpId="admin.usuarios.busca-email">Buscar por e-mail @axion.com.br</FieldLabel>
             <div className="flex gap-2">
-              <Input name="query" type="email" required placeholder="nome@axion.com.br" defaultValue={searchState.searchedEmail ?? ""} />
+              <Input id="add-member-query" name="query" type="email" required placeholder="nome@axion.com.br" defaultValue={searchState.searchedEmail ?? ""} />
               <Button type="submit" size="sm" variant="outline" disabled={searchPending}>
                 {searchPending ? "Buscando…" : "Buscar"}
               </Button>
             </div>
-          </label>
+          </div>
           {searchState.error ? <p className="text-sm text-destructive">{searchState.error}</p> : null}
         </form>
 
@@ -141,20 +143,20 @@ export function AddProjectMemberForm({
             <p className="text-xs text-muted-foreground">Projeto atual: {projectLabel}</p>
 
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="flex flex-col gap-1.5 text-sm font-medium">
-                Permissão
-                <Select name="permission" defaultValue="COLABORADOR" required>
+              <div className="flex flex-col gap-1.5">
+                <FieldLabel htmlFor="add-member-permission" helpId="admin.usuarios.permissao-novo">Permissão</FieldLabel>
+                <Select id="add-member-permission" name="permission" defaultValue="COLABORADOR" required>
                   {NEW_MEMBER_PERMISSIONS.map((permission) => (
                     <option key={permission} value={permission}>
                       {permissionLabels[permission]}
                     </option>
                   ))}
                 </Select>
-              </label>
+              </div>
 
-              <label className="flex flex-col gap-1.5 text-sm font-medium">
-                Área
-                <Select name="area" defaultValue="" required>
+              <div className="flex flex-col gap-1.5">
+                <FieldLabel htmlFor="add-member-area" helpId="admin.usuarios.area-novo">Área</FieldLabel>
+                <Select id="add-member-area" name="area" defaultValue="" required>
                   <option value="" disabled>
                     Selecione…
                   </option>
@@ -164,7 +166,7 @@ export function AddProjectMemberForm({
                     </option>
                   ))}
                 </Select>
-              </label>
+              </div>
             </div>
 
             {addState.error && selected?.id === candidate.id ? (
@@ -187,7 +189,10 @@ export function AddProjectMemberForm({
             <input type="hidden" name="projectId" value={projectId} />
             <input type="hidden" name="email" value={searchState.searchedEmail ?? ""} />
 
-            <p className="text-sm font-medium">Pré-cadastrar {searchState.searchedEmail}</p>
+            <p className="flex items-center gap-1.5 text-sm font-medium">
+              Pré-cadastrar {searchState.searchedEmail}
+              <FeatureInfo helpId="admin.usuarios.pre-cadastro" />
+            </p>
             <p className="text-xs text-muted-foreground">
               Este e-mail ainda não fez login no ACC. Ele fica &quot;Aguardando primeiro login&quot; e só ganha acesso de fato quando
               entrar pela primeira vez com essa conta Google.
@@ -205,20 +210,20 @@ export function AddProjectMemberForm({
             </label>
 
             <div className="grid gap-3 md:grid-cols-2">
-              <label className="flex flex-col gap-1.5 text-sm font-medium">
-                Permissão
-                <Select name="permission" defaultValue="COLABORADOR" required>
+              <div className="flex flex-col gap-1.5">
+                <FieldLabel htmlFor="pre-register-permission" helpId="admin.usuarios.permissao-novo">Permissão</FieldLabel>
+                <Select id="pre-register-permission" name="permission" defaultValue="COLABORADOR" required>
                   {NEW_MEMBER_PERMISSIONS.map((permission) => (
                     <option key={permission} value={permission}>
                       {permissionLabels[permission]}
                     </option>
                   ))}
                 </Select>
-              </label>
+              </div>
 
-              <label className="flex flex-col gap-1.5 text-sm font-medium">
-                Área
-                <Select name="area" defaultValue="" required>
+              <div className="flex flex-col gap-1.5">
+                <FieldLabel htmlFor="pre-register-area" helpId="admin.usuarios.area-novo">Área</FieldLabel>
+                <Select id="pre-register-area" name="area" defaultValue="" required>
                   <option value="" disabled>
                     Selecione…
                   </option>
@@ -228,7 +233,7 @@ export function AddProjectMemberForm({
                     </option>
                   ))}
                 </Select>
-              </label>
+              </div>
             </div>
 
             {preRegisterState.error ? <p className="text-sm text-destructive">{preRegisterState.error}</p> : null}

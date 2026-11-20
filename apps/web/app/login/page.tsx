@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { InstitutionalBackground } from "@/components/brand/institutional-background";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { sanitizeInternalRedirect } from "@/lib/safe-redirect";
 import { GoogleSignInButton } from "./google-signin-button";
 
@@ -48,14 +49,22 @@ export default async function LoginPage({
           <div className="mb-2 flex items-center justify-center gap-2">
             <Image src="/branding/acc-logo.png" alt="ACC" width={166} height={166} className="h-[83.2px] w-auto" priority />
           </div>
-          <CardTitle className="text-base">AXION Controle de Contratos</CardTitle>
+          <CardTitle className="flex items-center gap-1.5 text-base">
+            AXION Controle de Contratos
+            <FeatureInfo helpId="admin.login.pagina" />
+          </CardTitle>
           <CardDescription>
             Acesso restrito a usuários autorizados por projeto — autenticação exclusiva pela conta Google corporativa.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
           <GoogleSignInButton next={safeNext} />
-          {oauthError && <p className="text-xs text-destructive">{oauthError}</p>}
+          {oauthError && (
+            <p className="flex items-start gap-1 text-xs text-destructive">
+              {oauthError}
+              <FeatureInfo helpId="admin.login.erro-acesso" />
+            </p>
+          )}
         </CardContent>
       </Card>
     </div>

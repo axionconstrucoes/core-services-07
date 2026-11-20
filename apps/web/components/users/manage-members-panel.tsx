@@ -6,6 +6,7 @@
 // servidor pela RPC oficial, nunca confiando só nesta checagem de UI.
 
 import { useState } from "react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { AddProjectMemberForm } from "./add-project-member-form";
 import { ADD_BUTTON_CLASSNAME } from "@/lib/ui/add-button-style";
@@ -25,8 +26,11 @@ export function ManageMembersPanel({ projectId, projectLabel }: { projectId: str
   }
 
   return (
-    <Button type="button" size="sm" variant="outline" className={ADD_BUTTON_CLASSNAME} onClick={() => setAdding(true)}>
-      + Adicionar usuário
-    </Button>
+    <div className="flex items-center gap-1.5">
+      <Button type="button" size="sm" variant="outline" className={ADD_BUTTON_CLASSNAME} onClick={() => setAdding(true)}>
+        + Adicionar usuário
+      </Button>
+      <FeatureInfo helpId="admin.usuarios.adicionar-usuario" />
+    </div>
   );
 }
