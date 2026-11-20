@@ -246,10 +246,12 @@ export interface ParsedReplyBody {
 }
 
 const QUOTE_HEADER_PATTERNS = [
-  /^Em .{3,80} escreveu:\s*$/im,
-  /^On .{3,80} wrote:\s*$/im,
+  // Gmail/Apple/Outlook mobile: "Em ... escreveu:" / "On ... wrote:" — o cliente pode quebrar a linha (nome longo + e-mail) uma vez.
+  /^Em [^\n]{3,120}(?:\n[^\n]{0,120})?escreveu:\s*$/im,
+  /^On [^\n]{3,120}(?:\n[^\n]{0,120})?wrote:\s*$/im,
   /^-{2,}\s*(Original Message|Mensagem original)\s*-{2,}\s*$/im,
-  /^(De|From):\s.+\n(Enviad[oa]|Sent|Date|Data):\s.+/im,
+  // Outlook (desktop/web/mobile) PT-BR e EN: "De:" + "Enviado:"/"Enviado em:"/"Enviada em:"/"Sent:"/"Date:" (linhas em branco entre eles toleradas).
+  /^(De|From):[ \t]*[^\n]+\n(?:[ \t]*\n)*(Enviad[oa](?:[ \t]+em)?|Sent|Date|Data)[ \t]*:[ \t]*[^\n]+/im,
   /^_{10,}\s*$/m,
   // Encaminhamentos (Gmail/Outlook/Apple Mail, PT e EN): o conteúdo encaminhado nunca é texto novo do remetente.
   /^-{2,}\s*(Forwarded message|Mensagem encaminhada|Mensaje reenviado)\s*-{2,}\s*$/im,
