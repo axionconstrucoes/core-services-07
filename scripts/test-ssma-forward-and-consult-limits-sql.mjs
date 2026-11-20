@@ -167,6 +167,24 @@ await check("L3 sem sessão, não membro, tipo inválido: recusado; usuário nã
   const { rows } = await db.query("select has_table_privilege('authenticated', 'public.ai_consult_usage', 'insert') as ins, has_function_privilege('anon', 'public.ai_consult_reserve(uuid,text,text)', 'execute') as anon_exec");
   assert(rows[0].ins === false && rows[0].anon_exec === false, JSON.stringify(rows[0]));
 });
+await check("L4 limite por usuário vale somando TODAS as obras (consultas em obras diferentes contam juntas)", async () => {
+  await db.query("delete from public.ai_consult_usage");
+  await db.query("update public.ai_consult_limits set per_user_day = 2, per_project_day = 100 where scope = 'DEFAULT'");
+  await as(U.RESP); // RESP é membro ativo das obras P e P2
+  await reserve(P);
+  await reserve(P2);
+  await expectError(reserve(P2), "AI_CONSULT_USER_LIMIT");
+  await expectError(reserve(P), "AI_CONSULT_USER_LIMIT");
+  await db.query("update public.ai_consult_limits set per_user_day = 20, per_project_day = 100 where scope = 'DEFAULT'");
+});
+await check("L5 concorrência (migration 20261120140000): a reserva trava usuário+dia ANTES de obra+dia — duas consultas simultâneas do mesmo usuário em obras diferentes são serializadas", async () => {
+  const { rows } = await db.query("select pg_get_functiondef('public.ai_consult_reserve(uuid,text,text)'::regprocedure) as def");
+  const def = rows[0].def;
+  const userLock = def.indexOf("'ai_consult:user:'");
+  const projectLock = def.indexOf("'ai_consult:project:'");
+  assert(userLock > 0 && projectLock > userLock, "trava por usuário ausente ou fora da ordem usuário → obra");
+  assert(def.indexOf("pg_advisory_xact_lock") < def.indexOf("select count(*) into v_user_count"), "contagem antes da trava");
+});
 
 console.log(`\nRESULTADO: ${passed} passaram, ${failed} falharam`);
 process.exit(failed ? 1 : 0);
