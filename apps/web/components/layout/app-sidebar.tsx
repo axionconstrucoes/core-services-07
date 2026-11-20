@@ -24,6 +24,7 @@ import {
   TimerReset,
   Users,
   Wallet,
+  Wrench,
   type LucideIcon,
 } from "lucide-react";
 import { FeatureInfo } from "@/components/shared/feature-info";
@@ -51,6 +52,7 @@ const ICONS_BY_NAME: Record<string, LucideIcon> = {
   TimerReset,
   Users,
   Wallet,
+  Wrench,
 };
 
 // Ícone (i) sobre o fundo bordô da sidebar: claro sobre escuro (o padrão text-muted-foreground não tem contraste aqui).

@@ -85,6 +85,7 @@ const EXPECTED_SIDEBAR_LABELS = [
   "Providências",
   "Financeiro",
   "ESG/SSMA",
+  "Garantias",
   "Experts IA",
   "Integrações",
   "Usuários",
