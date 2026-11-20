@@ -23,7 +23,7 @@
 --   CASE_NOT_FOUND                  caso inexistente ou de OUTRO projeto (sem vazar existência)
 --   CASE_NOT_OPEN                   status <> 'OPEN'
 --   RISK_LEVEL_NOT_ELIGIBLE         risco diferente de CRITICAL/HIGH
---   NO_SLA_ACTION                   sem ação SLA vinculada (sem etapa alcançada)
+--   NO_SLA_ACTION                   sem ação SLA vinculada e sem registro de detecção tardia (sem etapa alcançada)
 --   MANUALLY_SUSPENDED              suspensão manual de comunicação vigente (RISK_ALERT_CASE_COMMUNICATION_SUSPENDED,
 --                                   registro humano mais recente) — nunca aprovado, mesmo a pedido
 --   ALREADY_APPROVED_AWAITING_SEND  decisão vigente ainda sem reemissão (idempotência: não gera nova linha)
@@ -31,6 +31,9 @@
 --   NO_COMMUNICATION_GAP            nenhum destinatário exigido pela etapa alcançada sem aceite no próprio endereço
 -- Uma decisão consumida volta a ser elegível apenas se (a) a reemissão só gerou linhas SUPPRESSED/SKIPPED (nada saiu e a
 -- chave idempotente fica queimada) ou (b) o caso subiu de etapa depois da decisão (a decisão registra "stage").
+--
+-- Detecção tardia: caso HIGH/CRITICAL ainda sem ação SLA mas com o registro SYSTEM RISK_ALERT_REISSUE_DECISION_REQUIRED
+-- (alerta retido por semana perdida do agendador) é elegível: a decisão libera, no ciclo, o alerta imediato ao responsável da Matriz.
 --
 -- Aproximação da lacuna em SQL (o ciclo continua sendo a autoridade e reavalia com a Matriz/overrides do piloto):
 -- destinatários exigidos = responsável da ação SLA (ou responsável direto da área), Nível 2 (escalation_1) se a etapa >= 1,
@@ -81,6 +84,7 @@ declare
   v_reason text;
   v_consumed boolean;
   v_delivered boolean;
+  v_late boolean;
 begin
   for c in
     select rc.*
@@ -98,10 +102,20 @@ begin
     v_state := 'NONE';
     v_susp := false;
     v_rank := 0;
+    v_late := false;
 
     select sa.* into v_sla from public.sla_actions sa where sa.id = c.sla_action_id;
     if v_sla.id is not null then
       v_rank := case v_sla.current_escalation_level when 'DIRETORIA' then 2 when 'ESCALAO_2' then 2 when 'ESCALAO_1' then 1 else 0 end;
+    end if;
+
+    -- Detecção tardia (sem ação SLA ainda): o planejador registrou REISSUE_DECISION_REQUIRED para o caso.
+    if v_sla.id is null then
+      v_late := exists (
+        select 1 from public.audit_log_entries l
+        where l.project_id = p_project_id and l.entity_type = 'RISK_ALERT_CASE' and l.entity_id = c.id::text
+          and l.action = 'RISK_ALERT_REISSUE_DECISION_REQUIRED'
+      );
     end if;
 
     -- Suspensão manual: registro humano MAIS RECENTE por caso decide (mesma regra de case-communication-suspension.ts).
@@ -176,10 +190,12 @@ begin
       );
     end if;
 
+    if v_sla.id is null and v_late then v_gaps := array['RESPONSAVEL']; end if;
+
     v_eligible := false;
     if c.status <> 'OPEN' then v_reason := 'CASE_NOT_OPEN';
     elsif c.risk_level not in ('CRITICAL', 'HIGH') then v_reason := 'RISK_LEVEL_NOT_ELIGIBLE';
-    elsif v_sla.id is null then v_reason := 'NO_SLA_ACTION';
+    elsif v_sla.id is null and not v_late then v_reason := 'NO_SLA_ACTION';
     elsif v_susp then v_reason := 'MANUALLY_SUSPENDED';
     elsif v_state = 'APPROVED_AWAITING_SEND' then v_reason := 'ALREADY_APPROVED_AWAITING_SEND';
     elsif v_state = 'REISSUED' then v_reason := 'ALREADY_REISSUED';

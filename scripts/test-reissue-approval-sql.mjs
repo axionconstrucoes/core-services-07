@@ -378,6 +378,27 @@ await check("R4 a trilha é append-only: a decisão gravada não pode ser altera
   await refused(db.query("delete from public.audit_log_entries where id = $1", [c1AuditId]), "append-only");
 });
 
+await check("L1 detecção tardia: caso ALTO sem ação SLA mas com REISSUE_DECISION_REQUIRED é elegível (libera o alerta imediato no ciclo); sem esse registro é recusado (NO_SLA_ACTION)", async () => {
+  const mk = async (n, withRequired) => {
+    const id = `00000000-0000-4000-8000-0000000d5${String(n).padStart(3, "0")}`;
+    await db.query("insert into public.risk_alert_cases (id, project_id, source_type, source_id, area, risk_level, title, fingerprint, reference, first_seen_at) values ($1,$2,'INGESTION_ALERT',gen_random_uuid(),'PLANEJAMENTO','HIGH',$3,$4,$5, now() - interval '1 day')", [id, P, `Caso tardio ${n}`, `fp-late-${n}`, `REF-L${n}`]);
+    if (withRequired) await db.query("insert into public.audit_log_entries (project_id, actor_type, action, entity_type, entity_id, detail) values ($1,'SYSTEM','RISK_ALERT_REISSUE_DECISION_REQUIRED','RISK_ALERT_CASE',$2,'detecção tardia (sintético)')", [P, id]);
+    return id;
+  };
+  const late = await mk(1, true);
+  const bare = await mk(2, false);
+  await asUser(U.ADMIN);
+  const by = Object.fromEntries((await pending(P)).map((x) => [x.case_id, x]));
+  assert(by[late].eligible && by[late].reason === "ELIGIBLE", JSON.stringify(by[late]));
+  assert(!by[bare].eligible && by[bare].reason === "NO_SLA_ACTION", JSON.stringify(by[bare]));
+  const r = await approve(P, [late, bare]);
+  eq(r.approved.map((x) => x.caseId), [late], "só o tardio");
+  eq(r.ignored.map((x) => x.reason), ["NO_SLA_ACTION"], "o outro");
+  const rows = await approvedRows(late);
+  assert(rows.length === 1 && rows[0].actor_type === "USER" && rows[0].actor_user_id === U.ADMIN, "linha humana");
+  eq((await approve(P, [late])).ignored.map((x) => x.reason), ["ALREADY_APPROVED_AWAITING_SEND"], "idempotente");
+});
+
 await check("M1 migration idempotente: reaplicar não altera funções nem dados e as RPCs seguem funcionando", async () => {
   const before = await totalApproved();
   await db.exec(readFileSync(path.join(dir, TARGET), "utf8"));
