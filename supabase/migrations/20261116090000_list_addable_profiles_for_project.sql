@@ -39,7 +39,5 @@ begin
 end;
 $$;
 
--- O ACL padrao do Supabase concede EXECUTE direto a anon/authenticated/service_role (pg_default_acl);
--- revogar so de public NAO retira o de anon. Revogacao explicita + concessao so a quem usa a funcao.
-revoke all on function public.list_addable_profiles_for_project(uuid) from public, anon;
-grant execute on function public.list_addable_profiles_for_project(uuid) to authenticated, service_role;
+revoke all on function public.list_addable_profiles_for_project(uuid) from public;
+grant execute on function public.list_addable_profiles_for_project(uuid) to authenticated;
