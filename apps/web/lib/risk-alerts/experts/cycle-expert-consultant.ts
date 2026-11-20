@@ -25,6 +25,7 @@ import type { MultiExpertCuration } from "@/lib/ai/curation/types";
 import type { OfficialExpertId } from "@/lib/ai/expert-definitions/types";
 import { answerCommercialDirectorQuery } from "@/lib/ai/experts/commercial-director/query";
 import { answerEngineeringDirectorQuery } from "@/lib/ai/experts/engineering-director/query";
+import { answerQualityAnalystQuery } from "@/lib/ai/experts/quality-analyst/query";
 import { answerEsgDirectorQuery } from "@/lib/ai/experts/esg-director/query";
 import { answerLegalConsultantQuery } from "@/lib/ai/experts/legal-consultant/query";
 import { answerPlanningDirectorQuery } from "@/lib/ai/experts/planning-director/query";
@@ -58,6 +59,7 @@ type SingleExpertFn = (supabase: SupabaseClient, request: ExpertQueryRequest, pr
 export const CYCLE_SINGLE_EXPERT_QUERIES: Record<SingleExpertId, SingleExpertFn> = {
   "planning-director": answerPlanningDirectorQuery,
   "engineering-director": answerEngineeringDirectorQuery,
+  "quality-analyst": answerQualityAnalystQuery,
   // O ciclo roda sem sessão de usuário: o contexto comercial (RLS da sessão) não seria lido — não carregar.
   "commercial-director": (supabase, request, provider) => answerCommercialDirectorQuery(supabase, request, provider, { includeCommercialContext: false }),
   "esg-director": answerEsgDirectorQuery,

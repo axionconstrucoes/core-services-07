@@ -18,10 +18,11 @@ export const EXPERT_PROFILE_HELP_ID = {
   "esg-director": "experts.ssma-esg.perfil",
   "engineering-director": "experts.engenharia.perfil",
   "commercial-director": "experts.comercial.perfil",
+  "quality-analyst": "experts.qualidade.perfil",
   ceo: "experts.gestao-executiva.perfil",
 } as const;
 
-// ---- blocos comuns (texto único, reutilizado pelos seis perfis; nunca reescrito por perfil) ----
+// ---- blocos comuns (texto único, reutilizado pelos sete perfis; nunca reescrito por perfil) ----
 
 export const EXPERT_SIMULATED_NOTICE =
   "Perfil profissional SIMULADO: descreve o papel de apoio que a IA assume nas análises, conforme definido no código do ACC. Não é uma pessoa, não representa um profissional real e não substitui projetista, responsável técnico, Jurídico ou decisão da Diretoria.";
@@ -128,7 +129,7 @@ export const EXPERTS_HELP: FeatureHelpDefinition[] = [
     title: "Consultor Jurídico IA — perfil",
     shortDescription: "Especialista de apoio em contratos, cláusulas e cronologia factual. Perfil simulado; sem base legal carregada.",
     description:
-      `Consultor Jurídico IA (legal-consultant, prompt v6): realiza análise jurídica aprofundada de contratos, fatos, comunicações e evidências dos projetos da AXION. ${EXPERT_SIMULATED_NOTICE}`,
+      `Consultor Jurídico IA (legal-consultant, prompt v7): realiza análise jurídica aprofundada de contratos, fatos, comunicações e evidências dos projetos da AXION. ${EXPERT_SIMULATED_NOTICE}`,
     purpose:
       "Problemas que pode ajudar a resolver: interpretar contrato e aditivos; reconstruir a cronologia factual de um caso; identificar direitos, obrigações e possíveis descumprimentos; localizar lacunas documentais e contradições entre documentos; indicar quais documentos sustentam uma tese; preparar minutas de carta, notificação e resposta a notificação (sempre rascunho).",
     howToUse: [
@@ -145,19 +146,23 @@ export const EXPERTS_HELP: FeatureHelpDefinition[] = [
       "Competência: identificar lacunas documentais e contradições entre documentos; diferenciar fato, interpretação e alegação.",
       "Competência: avaliar posição favorável ou desfavorável à AXION e risco jurídico; preparar estratégia jurídica não vinculante.",
       "Competência: sugerir notificação e resposta a notificação; apoiar litígio, arbitragem e perícia; identificar documentos que sustentam uma tese.",
+      "Competência: SEGUROS, GARANTIAS, ENDOSSOS E SINISTROS — Performance Bond, adiantamento, retenção, pós-entrega, riscos de engenharia, RC Geral, Cruzada e Profissional, máquinas e equipamentos, fiança bancária, cauções, endossos e o trâmite de aviso, reclamação, regulação e indenização; distingue garantia legal, garantia contratual, seguro-garantia, RC e fiança.",
+      "Saída da competência de seguros: documento de origem, versão e data, cláusula, fatos conhecidos, hipóteses, dados faltantes, limitações e próxima providência; conclusão de cobertura somente como POTENCIALMENTE COBERTO, POTENCIALMENTE NÃO COBERTO, COBERTURA CONDICIONADA ou INFORMAÇÕES INSUFICIENTES, derivada de 16 itens de verificação. Na consulta de cobertura de garantia pós-entrega apresenta outros 16 itens, em ordem fixa: natureza do produto ou serviço, tipo do defeito, datas de entrega, descoberta e comunicação, documentos analisados, garantia contratual, garantia legal potencial, vício oculto, prazos de reclamação, decadencial e prescricional, responsabilidade potencial, manutenção e evidências, fundamentação e providência recomendada; os fatos e datas são montados pela Qualidade e a conclusão é do Jurídico.",
       "Especialização declarada: contratos e evidências de obras da AXION; comparação de cláusulas da minuta pré-contratual com sugestões de modificar, excluir ou adicionar.",
       'Experiência técnica representada: nenhuma além da definição acima; a skill "/juridico-contratos-construcao" está apenas associada (pendente de integração) e seu conteúdo NÃO chega ao prompt.',
     ],
     criteria: [
       "Conhecimento normativo: nenhum. O corpus de fontes legais oficiais não está ingerido; o Consultor nunca cita artigo de lei, norma ou jurisprudência de memória e a base legal fica vazia. A skill associada cita, em seu propósito declarado, temas como Lei 14.133, FIDIC, EPC e reequilíbrio, mas está pendente de integração e esse conteúdo não é carregado.",
       "Critério: toda afirmação de base contratual cita a cláusula ou o documento de origem; sem cláusula, não afirma penalidade nem obrigação.",
+      "Critério (seguros e garantias): nunca reconhece cobertura em nome da seguradora; a expiração do prazo de garantia contratual não exclui a cobertura nem a responsabilidade legal por si só; não aplica um prazo único e universal a todo defeito e distingue solidez e segurança, vício aparente, vício oculto, decadência, prescrição e indenização; nunca inventa canal de atendimento; prepara apenas minutas.",
+      "Referências de seguros e garantias: um índice versionado de FONTES a conferir (Lei 15.040/2024 e sua vigência, Código Civil art. 618, CDC, SUSEP/CNSP, Circular SUSEP 662/2022, contratação pública, ABNT NBR 17170:2022, NBR 15575, NBR 5674, NBR 14037 e o Manual do Proprietário do Secovi-SP e SindusCon-SP, referência histórica de edificação habitacional). Não é texto de lei; links de terceiros são fonte secundária e exigem conferência em texto oficial.",
       'Critério: interpretação é apresentada em linguagem condicional ("pode configurar", "sugere") e nunca como fato.',
       EXPERT_COMMON_RISK_CRITERIA,
     ],
     data: [
       "Disponível (consulta pré-contratual): texto extraído dos documentos contratuais legíveis (PDF, DOCX, TXT) com cobertura declarada; se parte do texto não coube no limite de contexto, o painel avisa conteúdo parcial; documento ilegível é informado e sem nenhum documento legível a consulta é recusada sem chamar a IA.",
       "Disponível (consulta de evento/alerta): evento, evidências (rótulo e localizador), cláusulas relacionadas e candidatas de confronto, e-mails (assunto, trecho, remetente, destinatário, metadados de anexos) e anotações declaradas do evento.",
-      "Não disponível: base legal oficial; atas de reunião, Diário de Obra, Construmanager, relatórios semanais e notificações formais como entidades próprias (fontes futuras).",
+      "Não disponível: apólices, garantias e sinistros como entidades estruturadas (fonte futura: hoje só como documento ou e-mail); base legal oficial; atas de reunião, Diário de Obra, Construmanager, relatórios semanais e notificações formais como entidades próprias (fontes futuras).",
     ],
     source:
       "Documentos, cláusulas, e-mails, evidências e eventos da obra montados por lib/ai/context (build-project-context.ts e build-event-context.ts); nenhuma fonte legal externa.",
@@ -297,6 +302,61 @@ export const EXPERTS_HELP: FeatureHelpDefinition[] = [
     humanReview: EXPERT_COMMON_HUMAN_REVIEW,
   },
   {
+    id: "experts.qualidade.perfil",
+    kind: "expert",
+    module: MODULE,
+    version: VERSION,
+    title: "Analista IA de Qualidade — perfil",
+    shortDescription: "Especialista de apoio em qualidade, não conformidades e garantias. Perfil simulado; nunca emite laudo nem diagnóstico definitivo.",
+    description:
+      `Analista IA de Qualidade (quality-analyst, prompt v1): ampara a gestão da qualidade das obras da AXION — inspeções, conformidade executiva, RNC, causas preliminares, garantias e assistência técnica — correlacionando evidências e ligando cada achado aos quatro pilares PRAZO, CUSTO, SEGURANÇA e QUALIDADE. ${EXPERT_SIMULATED_NOTICE}`,
+    purpose:
+      "Problemas que pode ajudar a resolver: organizar um defeito pós-entrega ou uma não conformidade em fato, inferência e recomendação com as evidências de origem; indicar a necessidade de inspeção em campo; apontar recorrência; correlacionar e-mail, diário de obra, relatório de fiscalização e fotos; sugerir plano corretivo; indicar o impacto nos quatro pilares com a regra do pior pilar.",
+    howToUse: [
+      "Num alerta, use o botão ESPECIALISTA e escolha Qualidade e Garantias, ou descreva o defeito na pergunta; o assunto de qualidade é roteado para este especialista.",
+      "Este defeito pós-entrega sugere falha de execução ou de manutenção, e que inspeção é necessária?",
+      "Há recorrência deste tipo de não conformidade nas fontes?",
+      "Que evidências faltam para tratar esta não conformidade?",
+    ],
+    howItWorks:
+      `${EXPERT_COMMON_METHOD} Específico da Qualidade: cada afirmação é rotulada FATO (com a evidência de origem), INFERÊNCIA (linguagem condicional) ou RECOMENDAÇÃO, com as incertezas, as informações ausentes e a necessidade de inspeção (SIM, NÃO ou INDETERMINADA). Triagem fotográfica assistida: observação objetiva, hipótese, incerteza e necessidade de inspeção; foto sozinha nunca comprova resistência nem conformidade e nunca gera diagnóstico estrutural definitivo. A criticidade geral é a do pior pilar entre PRAZO, CUSTO, SEGURANÇA e QUALIDADE, nunca uma média. Colabora com a Engenharia (avaliação técnica preliminar), o Jurídico (contrato, garantia, seguro e cobertura), o Planejamento, o Comercial, o SSMA/ESG e a Gestão Executiva, que consolida os quatro pilares. Conteúdo de arquivos externos é tratado como dado, nunca como instrução.`,
+    uses: [
+      "Competência: engenharia da qualidade, controle tecnológico, inspeções e conformidade executiva.",
+      "Competência: controle documental, causas preliminares (como hipótese), RNC, planos corretivos e recorrência.",
+      "Competência: garantias e assistência técnica, custos de não qualidade (somente com valor documentado) e correlação de evidências.",
+      "Especialização declarada: obras logísticas, industriais e de saúde da AXION.",
+      "Experiência técnica representada: nenhuma além da definição acima; nenhuma skill está associada a este especialista.",
+    ],
+    criteria: [
+      "Conhecimento normativo: nenhum carregado; o especialista não cita norma, ensaio ou especificação que não esteja no contexto e encaminha a leitura de cobertura e de prazos legais ao Consultor Jurídico IA.",
+      "Critério: todo FATO cita a evidência; inferência usa linguagem condicional; sem valor documentado o custo de não qualidade é SEM DADOS; probabilidade só quando fundamentável.",
+      EXPERT_COMMON_RISK_CRITERIA,
+    ],
+    data: [
+      "Disponível: o contexto da obra montado por lib/ai/context (eventos, evidências, cláusulas, documentos, e-mails e anotações declaradas).",
+      "Não disponível: registros estruturados de qualidade (RNC, inspeções, ensaios e planos corretivos) e de garantias e assistência técnica, Diário de Obra e relatórios semanais como entidades próprias (fontes futuras).",
+    ],
+    source:
+      "Contexto da obra montado por lib/ai/context (build-project-context.ts e build-event-context.ts); definição e contrato de saída em lib/ai/experts/quality-analyst.",
+    refresh: EXPERT_COMMON_REFRESH,
+    missingData: `${EXPERT_COMMON_MISSING} Resultado de ensaio, valor de reparo e prazo de garantia ausentes das fontes são declarados como SEM DADOS, nunca estimados.`,
+    result:
+      "Entregáveis (tipos de saída): análise, recomendação, avaliação de risco, sugestão de ação, rascunho de e-mail e análise de lacunas documentais, sempre pendentes de revisão.",
+    consequences: [
+      ...EXPERT_COMMON_NOT_DO,
+      "Não emite laudo, não atesta conformidade, não aprova serviço ou medição e não encerra nem reabre RNC.",
+      "Não substitui o responsável técnico habilitado (ART/RRT) nem o Jurídico.",
+    ],
+    permissions: EXPERT_COMMON_PERMISSIONS,
+    limitations: [
+      "Foto sozinha nunca comprova resistência nem conformidade; não há diagnóstico estrutural definitivo.",
+      "Não conclui sobre cobertura de seguro ou garantia, direito, penalidade ou prazo legal.",
+      "Nesta fase o especialista consulta o contexto genérico da obra; os registros estruturados de qualidade ainda não chegam ao contexto.",
+      EXPERT_COMMON_PROVIDER_NOTE,
+    ],
+    humanReview: EXPERT_COMMON_HUMAN_REVIEW,
+  },
+  {
     id: "experts.gestao-executiva.perfil",
     kind: "expert",
     module: MODULE,
@@ -304,7 +364,7 @@ export const EXPERTS_HELP: FeatureHelpDefinition[] = [
     title: "CEO IA (Gestão Executiva) — perfil",
     shortDescription: "Camada executiva que consolida os demais especialistas. Perfil simulado; nunca decide nem substitui uma análise.",
     description:
-      `CEO IA (ceo, prompt v4) — Gestão Executiva e multi-especialista: camada integradora sobre o Diretor Comercial IA, o Consultor Jurídico IA, o Diretor de Planejamento IA, o Diretor de Engenharia e Construção IA e o Diretor de ESG IA. Consolida, compara e prioriza; nunca substitui uma análise especializada nem executa decisão. ${EXPERT_SIMULATED_NOTICE}`,
+      `CEO IA (ceo, prompt v5) — Gestão Executiva e multi-especialista: camada integradora sobre o Diretor Comercial IA, o Consultor Jurídico IA, o Diretor de Planejamento IA, o Diretor de Engenharia e Construção IA, o Analista IA de Qualidade e o Diretor de ESG IA. Consolida, compara e prioriza; consolida os quatro pilares PRAZO, CUSTO, SEGURANÇA e QUALIDADE com a regra do pior pilar (nunca média simples); nunca substitui uma análise especializada nem executa decisão. ${EXPERT_SIMULATED_NOTICE}`,
     purpose:
       "Problemas que pode ajudar a resolver: ver numa só resposta a situação de um assunto que cruza áreas (comercial, jurídico, prazo, engenharia, ESG/SSMA); identificar divergências entre especialistas; priorizar riscos ALTO e CRÍTICO; listar as decisões humanas pendentes; comparar alternativas executivas; apontar a informação que falta para decidir.",
     howToUse: [
@@ -377,7 +437,7 @@ export const EXPERTS_HELP: FeatureHelpDefinition[] = [
       "Leia a resposta, registre a providência pelas ações do alerta e valide qualquer sugestão antes de agir.",
     ],
     howItWorks:
-      'O roteamento é determinístico (lib/ai/routing/expert-topics.ts): Planejamento → Diretor de Planejamento IA; Engenharia → Diretor de Engenharia e Construção IA; Jurídico → Consultor Jurídico IA; Comercial, Financeiro e Orçamento → Diretor Comercial IA; SSMA/ESG → Diretor de ESG IA; a especialidade "Documentação e Entrega" usa o Consultor Jurídico IA com foco próprio. Em "Geral (pelo assunto)", um único tema leva ao especialista do tema; dois ou mais temas, ou nenhum reconhecido, levam à curadoria multi-especialista (um parecer por especialista e a consolidação do CEO IA). Áreas sem especialista dedicado (Administrativo, Diretoria, Compras) voltam para "Geral". A pergunta enviada inclui o contexto do alerta, o foco da especialidade e regras de resposta (opções práticas, fontes citadas, fato separado de inferência e recomendação).',
+      'O roteamento é determinístico (lib/ai/routing/expert-topics.ts): Planejamento → Diretor de Planejamento IA; Engenharia → Diretor de Engenharia e Construção IA; Jurídico → Consultor Jurídico IA; Comercial, Financeiro e Orçamento → Diretor Comercial IA; SSMA/ESG → Diretor de ESG IA; Qualidade e Garantias (não conformidade, RNC, inspeção, defeito, vício, garantia e assistência técnica) → Analista IA de Qualidade; a especialidade "Seguros e Garantias Financeiras" (apólice, seguro-garantia, fiança, caução, endosso, sinistro) usa o Consultor Jurídico IA; a especialidade "Documentação e Entrega" usa o Consultor Jurídico IA com foco próprio. Em "Geral (pelo assunto)", um único tema leva ao especialista do tema; dois ou mais temas, ou nenhum reconhecido, levam à curadoria multi-especialista (um parecer por especialista e a consolidação do CEO IA). Áreas sem especialista dedicado (Administrativo, Diretoria, Compras) voltam para "Geral". A pergunta enviada inclui o contexto do alerta, o foco da especialidade e regras de resposta (opções práticas, fontes citadas, fato separado de inferência e recomendação).',
     data: [
       "Contexto do alerta (evento, providência ou caso de risco) lido no servidor; o navegador nunca é a fonte final do contexto.",
       "Área SLA do alerta e área cadastrada do colaborador na obra, para a especialidade inicial.",
@@ -402,9 +462,9 @@ export const EXPERTS_HELP: FeatureHelpDefinition[] = [
     module: MODULE,
     version: VERSION,
     title: "AXIA × especialistas",
-    shortDescription: "A AXIA responde dúvidas de uso do ACC; não é um dos seis especialistas e não analisa contratos nem dados da obra.",
+    shortDescription: "A AXIA responde dúvidas de uso do ACC; não é um dos sete especialistas e não analisa contratos nem dados da obra.",
     description:
-      "A AXIA é exclusivamente o assistente de dúvidas sobre o uso do ACC (onde fica cada tela, o que significa cada termo, como executar uma tarefa). Não é um dos seis especialistas (Planejamento, Jurídico, SSMA/ESG, Engenharia, Comercial e Gestão Executiva), não emite parecer sobre contratos, riscos ou dados da obra e não recebe os pedidos do botão ESPECIALISTA.",
+      "A AXIA é exclusivamente o assistente de dúvidas sobre o uso do ACC (onde fica cada tela, o que significa cada termo, como executar uma tarefa). Não é um dos sete especialistas (Planejamento, Jurídico, SSMA/ESG, Engenharia, Qualidade, Comercial e Gestão Executiva), não emite parecer sobre contratos, riscos ou dados da obra e não recebe os pedidos do botão ESPECIALISTA.",
     purpose:
       "Evitar confundir os dois recursos: dúvida de uso do sistema vai para a AXIA; análise técnica, contratual, comercial ou de prazo vai para o especialista da área.",
     howItWorks:
@@ -426,9 +486,9 @@ export const EXPERTS_HELP: FeatureHelpDefinition[] = [
     module: MODULE,
     version: VERSION,
     title: "Experts IA (hub dos especialistas)",
-    shortDescription: "Reúne os seis especialistas oficiais do ACC, o estado de cada um e o acesso à consulta; toda sugestão exige revisão humana.",
+    shortDescription: "Reúne os sete especialistas oficiais do ACC, o estado de cada um e o acesso à consulta; toda sugestão exige revisão humana.",
     description:
-      "Hub central dos seis especialistas oficiais de IA do ACC para este projeto: Planejamento, Jurídico, SSMA/ESG, Engenharia, Comercial e Gestão Executiva. Cada cartão mostra a missão, o estado de implantação, o provedor de IA, as skills associadas e o acesso ao especialista.",
+      "Hub central dos sete especialistas oficiais de IA do ACC para este projeto: Planejamento, Jurídico, SSMA/ESG, Engenharia, Qualidade, Comercial e Gestão Executiva. Cada cartão mostra a missão, o estado de implantação, o provedor de IA, as skills associadas e o acesso ao especialista.",
     purpose:
       "Escolher o especialista certo para a pergunta e entender o que cada um pode e não pode fazer antes de consultar.",
     howToUse: [
@@ -453,7 +513,7 @@ export const EXPERTS_HELP: FeatureHelpDefinition[] = [
     title: "Descrição dos Especialistas",
     shortDescription: "Abre a página com competências, fontes, limitações e perfil de cada especialista.",
     description:
-      "Link para a página Descrição dos Especialistas, que lista, para cada um dos seis especialistas, as competências, as skills selecionadas, as fontes autorizadas, as limitações e o perfil de apoio simulado completo.",
+      "Link para a página Descrição dos Especialistas, que lista, para cada um dos sete especialistas, as competências, as skills selecionadas, as fontes autorizadas, as limitações e o perfil de apoio simulado completo.",
     purpose: "Consultar o manual de cada especialista sem precisar fazer uma consulta de IA.",
     consequences: ["Apenas navega; não consome unidade do limite de IA."],
   },
@@ -465,7 +525,7 @@ export const EXPERTS_HELP: FeatureHelpDefinition[] = [
     title: "Estado do especialista (Ativo / Em implantação)",
     shortDescription: "Informa se o especialista já tem operação real no ACC ou se ainda é só a definição formal.",
     description:
-      "Selo do cartão do especialista: Ativo quando o catálogo formal declara o especialista como implementado (com consulta operacional); Em implantação quando existe só a definição formal, sem operação real. Hoje os seis estão declarados como implementados.",
+      "Selo do cartão do especialista: Ativo quando o catálogo formal declara o especialista como implementado (com consulta operacional); Em implantação quando existe só a definição formal, sem operação real. Hoje os sete estão declarados como implementados.",
     howItWorks:
       "Derivado do campo status da definição oficial (IMPLEMENTED ou PLANNED) em lib/ai/expert-definitions; não mede disponibilidade do provedor em tempo real.",
     limitations: ["Ativo não significa que o provedor de IA esteja respondendo agora nem que haja dados suficientes na obra."],
@@ -532,7 +592,7 @@ export const EXPERTS_HELP: FeatureHelpDefinition[] = [
     module: MODULE,
     version: VERSION,
     title: "Descrição dos Especialistas",
-    shortDescription: "Manual dos seis especialistas: competências, fontes, limitações, perfil simulado e roteamento dos alertas.",
+    shortDescription: "Manual dos sete especialistas: competências, fontes, limitações, perfil simulado e roteamento dos alertas.",
     description:
       "Página de referência dos especialistas oficiais do ACC. Para cada um mostra competências, skills selecionadas, fontes autorizadas, limitações e o perfil de apoio simulado completo, lido do catálogo de ajuda; ao final explica o botão ESPECIALISTA dos alertas e a diferença para a AXIA.",
     purpose: "Entender, antes de consultar, o que cada especialista faz, em que fontes se apoia, o que não faz e quando a revisão humana é obrigatória.",

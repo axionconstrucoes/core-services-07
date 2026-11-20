@@ -34,7 +34,7 @@ async function check(name, fn) {
 const OFFICIAL = new Set(routing.ALERT_EXPERT_OPTIONS.map((o) => o.id));
 
 await check("1. Opções de ESPECIALISTA: só Experts oficiais, nenhuma AXIA", () => {
-  assert(OFFICIAL.size === 6, `esperado 6 Experts, veio ${OFFICIAL.size}`);
+  assert(OFFICIAL.size === 7, `esperado 7 Experts (6 + quality-analyst), veio ${OFFICIAL.size}`);
   for (const option of routing.ALERT_EXPERT_OPTIONS) {
     assert(!/axia|assistente/i.test(`${option.id} ${option.label}`), option.id);
   }

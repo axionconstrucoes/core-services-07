@@ -113,11 +113,19 @@ check("consistência futura: todo item principal de navegação possui helpId v�
 
 // --- Experts individuais têm ajuda ---
 
-check("Experts individuais têm ajuda: os 5 Experts oficiais têm entrada expert-<id> no registry", () => {
+check("Experts individuais têm ajuda: todos os Experts oficiais (7 com o Analista IA de Qualidade) têm entrada expert-<id> no registry", () => {
+  // Os seis especialistas anteriores mantêm a entrada legada expert-<id> (catálogo legado fixo em 91 entradas, ver
+  // test-help-catalog). O Analista IA de Qualidade (quality-analyst) NÃO cria entrada legada: o perfil dele vive no
+  // módulo experts-ia (experts.qualidade.perfil, formato modulo.tela.elemento) e é o que o hub exibe.
   for (const def of ALL_OFFICIAL_EXPERT_DEFINITIONS) {
-    const helpId = `expert-${def.expertId}`;
-    assert(ACC_FEATURE_HELP[helpId], `${helpId} ausente do registry`);
-    assert(ACC_FEATURE_HELP[helpId].title === def.expertName, `título de ${helpId} deveria bater com o nome real do Expert`);
+    const legacyId = `expert-${def.expertId}`;
+    if (def.expertId === "quality-analyst") {
+      const profile = ACC_FEATURE_HELP["experts.qualidade.perfil"];
+      assert(profile && profile.title.startsWith(def.expertName), "perfil do Analista IA de Qualidade ausente ou com nome divergente");
+      continue;
+    }
+    assert(ACC_FEATURE_HELP[legacyId], `${legacyId} ausente do registry`);
+    assert(ACC_FEATURE_HELP[legacyId].title === def.expertName, `título de ${legacyId} deveria bater com o nome real do Expert`);
   }
 });
 

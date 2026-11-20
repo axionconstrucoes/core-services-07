@@ -52,19 +52,19 @@ console.log("EXPERTS IA — HUB E NAVEGAÇÃO — TESTES");
 console.log("======================================");
 console.log("");
 
-check("os 6 Experts oficiais estão disponíveis em ALL_OFFICIAL_EXPERT_DEFINITIONS (fonte única para o hub)", () => {
-  assert(ALL_OFFICIAL_EXPERT_DEFINITIONS.length === 6);
+check("os 7 Experts oficiais estão disponíveis em ALL_OFFICIAL_EXPERT_DEFINITIONS (fonte única para o hub)", () => {
+  assert(ALL_OFFICIAL_EXPERT_DEFINITIONS.length === 7);
   const ids = ALL_OFFICIAL_EXPERT_DEFINITIONS.map((e) => e.expertId).sort();
   assert(
-    JSON.stringify(ids) === JSON.stringify(["ceo", "commercial-director", "engineering-director", "esg-director", "legal-consultant", "planning-director"].sort())
+    JSON.stringify(ids) === JSON.stringify(["ceo", "commercial-director", "engineering-director", "esg-director", "legal-consultant", "planning-director", "quality-analyst"].sort())
   );
 });
 
 // Os 5 Experts oficiais estão IMPLEMENTED (commits 34d6186/6f7d98e/755b96f); nenhum fica PLANNED.
-check("os 6 Experts oficiais têm status IMPLEMENTED (Ativo); nenhum PLANNED", () => {
+check("os 7 Experts oficiais têm status IMPLEMENTED (Ativo); nenhum PLANNED", () => {
   const implemented = ALL_OFFICIAL_EXPERT_DEFINITIONS.filter((e) => e.status === "IMPLEMENTED").map((e) => e.expertId).sort();
   const planned = ALL_OFFICIAL_EXPERT_DEFINITIONS.filter((e) => e.status === "PLANNED").map((e) => e.expertId);
-  assert(JSON.stringify(implemented) === JSON.stringify(["ceo", "commercial-director", "engineering-director", "esg-director", "legal-consultant", "planning-director"]));
+  assert(JSON.stringify(implemented) === JSON.stringify(["ceo", "commercial-director", "engineering-director", "esg-director", "legal-consultant", "planning-director", "quality-analyst"]));
   assert(planned.length === 0);
 });
 

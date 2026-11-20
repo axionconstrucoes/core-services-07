@@ -351,7 +351,7 @@ export const ALERT_STATE_LABELS: Record<AlertState, string> = {
   TOP_LEVEL_REACHED: "Limite de escalonamento atingido",
 };
 
-export type ExpertId = "planning-director" | "engineering-director" | "commercial-director" | "esg-director" | "legal-consultant" | "ceo";
+export type ExpertId = "planning-director" | "engineering-director" | "quality-analyst" | "commercial-director" | "esg-director" | "legal-consultant" | "ceo";
 
 export type ReplyClassification =
   | "ACKNOWLEDGEMENT"

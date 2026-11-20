@@ -38,6 +38,7 @@ export const EXPERT_PROVIDER_ENV_VAR: Record<OfficialExpertId, string> = {
   "legal-consultant": "AXION_AI_PROVIDER_LEGAL_CONSULTANT",
   "planning-director": "AXION_AI_PROVIDER_PLANNING_DIRECTOR",
   "engineering-director": "AXION_AI_PROVIDER_ENGINEERING_DIRECTOR",
+  "quality-analyst": "AXION_AI_PROVIDER_QUALITY_ANALYST",
 };
 
 interface ResolvedProviderName {

@@ -34,6 +34,7 @@ const { LEGAL_CONSULTANT_INSTRUCTIONS } = await import("../apps/web/lib/ai/exper
 const { answerLegalConsultantQuery } = await import("../apps/web/lib/ai/experts/legal-consultant/query");
 const { PLANNING_DIRECTOR_INSTRUCTIONS } = await import("../apps/web/lib/ai/experts/planning-director/identity");
 const { ENGINEERING_DIRECTOR_INSTRUCTIONS } = await import("../apps/web/lib/ai/experts/engineering-director/identity");
+const { QUALITY_ANALYST_INSTRUCTIONS } = await import("../apps/web/lib/ai/experts/quality-analyst/identity");
 const { answerPlanningDirectorQuery } = await import("../apps/web/lib/ai/experts/planning-director/query");
 const { CEO_INSTRUCTIONS } = await import("../apps/web/lib/ai/experts/ceo/identity");
 const { answerCeoQuery } = await import("../apps/web/lib/ai/experts/ceo/query");
@@ -113,13 +114,14 @@ async function assertRejects(promise, messageSubstring, label) {
   throw new Error(`${label ?? "esperado rejeição"}, mas resolveu`);
 }
 
-const OFFICIAL_IDS = ["ceo", "commercial-director", "legal-consultant", "planning-director", "engineering-director", "esg-director"];
+const OFFICIAL_IDS = ["ceo", "commercial-director", "legal-consultant", "planning-director", "engineering-director", "quality-analyst", "esg-director"];
 const INSTRUCTIONS_BY_ID = {
   ceo: CEO_INSTRUCTIONS,
   "commercial-director": COMMERCIAL_DIRECTOR_INSTRUCTIONS,
   "legal-consultant": LEGAL_CONSULTANT_INSTRUCTIONS,
   "planning-director": PLANNING_DIRECTOR_INSTRUCTIONS,
   "engineering-director": ENGINEERING_DIRECTOR_INSTRUCTIONS,
+  "quality-analyst": QUALITY_ANALYST_INSTRUCTIONS,
   "esg-director": ESG_DIRECTOR_INSTRUCTIONS,
 };
 
@@ -135,13 +137,13 @@ check("os 5 Experts oficiais estão status=IMPLEMENTED (nenhum PLANNED restante)
   for (const id of OFFICIAL_IDS) {
     assert(OFFICIAL_EXPERT_DEFINITIONS[id].status === "IMPLEMENTED", `${id} deveria estar IMPLEMENTED`);
   }
-  assert(ALL_OFFICIAL_EXPERT_DEFINITIONS.length === 6);
+  assert(ALL_OFFICIAL_EXPERT_DEFINITIONS.length === 7); // 7: inclui quality-analyst (Analista IA de Qualidade)
 });
 
 check("as 5 instruções (system prompts) são todas diferentes entre si — nunca alias do mesmo prompt", () => {
   const texts = OFFICIAL_IDS.map((id) => INSTRUCTIONS_BY_ID[id]);
   const uniqueTexts = new Set(texts);
-  assert(uniqueTexts.size === 6, "esperava 6 prompts distintos");
+  assert(uniqueTexts.size === 7, "esperava 7 prompts distintos");
 });
 
 check("cada instrução cita o próprio expertId/nome — nunca o prompt de outro Expert", () => {
@@ -156,7 +158,7 @@ check("isolamento de fontes: cada Expert declara authorizedSources coerente com 
   const sourceListsBySignature = new Set(
     OFFICIAL_IDS.map((id) => OFFICIAL_EXPERT_DEFINITIONS[id].authorizedSources.map((s) => s.sourceId).sort().join(","))
   );
-  assert(sourceListsBySignature.size === 6, "cada Expert deveria ter uma composição própria de fontes autorizadas");
+  assert(sourceListsBySignature.size === 7, "cada Expert deveria ter uma composição própria de fontes autorizadas");
 
   const legalSources = OFFICIAL_EXPERT_DEFINITIONS["legal-consultant"].authorizedSources.map((s) => s.sourceId);
   assert(legalSources.includes("legal_sources"), "Consultor Jurídico IA deveria declarar a fonte legal oficial (mesmo FUTURE_SOURCE)");
@@ -189,7 +191,7 @@ check("EXPERT_PROVIDER_ENV_VAR define uma variável própria para cada um dos 5 
     assert(typeof EXPERT_PROVIDER_ENV_VAR[id] === "string" && EXPERT_PROVIDER_ENV_VAR[id].length > 0);
   }
   const varNames = new Set(Object.values(EXPERT_PROVIDER_ENV_VAR));
-  assert(varNames.size === 6, "cada Expert deveria ter sua própria variável — nunca compartilhada");
+  assert(varNames.size === 7, "cada Expert deveria ter sua própria variável — nunca compartilhada");
 });
 
 check("resolveAiProviderNameForExpert usa a variável específica do Expert quando presente, mesmo com AXION_AI_PROVIDER diferente", () => {

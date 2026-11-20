@@ -9,6 +9,10 @@
 //   - Jurídico (contrato, cláusula, obrigação, multa, notificação, aditivo) → legal-consultant;
 //   - Comercial/Financeiro/Orçamento (custo, preço, medição, pagamento, orçamento, BDI) → commercial-director;
 //   - SSMA/ESG (segurança, meio ambiente, acidente) → esg-director;
+//   - Qualidade (não conformidade, RNC, inspeção, ensaio, defeito, vício, garantia/assistência técnica
+//     pós-entrega, retrabalho) → quality-analyst;
+//   - Seguros, garantias financeiras e sinistros (apólice, seguro-garantia, Performance Bond, fiança,
+//     caução, endosso, sinistro, seguradora) → legal-consultant (a leitura de cobertura é jurídica);
 //   - dois ou mais temas → multidisciplinar (curadoria multi-Expert existente, nunca um Expert
 //     simulando várias áreas).
 // A AXIA (assistente de ajuda) nunca é um destino deste roteamento.
@@ -20,6 +24,7 @@ export type TopicExpertId =
   | "engineering-director"
   | "legal-consultant"
   | "commercial-director"
+  | "quality-analyst"
   | "esg-director";
 
 /** Cada padrão conta um acerto; ordem estável = ordem de detecção. */
@@ -33,12 +38,16 @@ export const EXPERT_TOPIC_PATTERNS: ReadonlyArray<readonly [RegExp, TopicExpertI
     "engineering-director",
   ],
   [
-    /\b(contrat(o|os|ual|uais)|cl[áa]usulas?|obriga[çc][õo]es|obriga[çc][ãa]o|multas?|responsabilidades?|notifica[çc][õo]es|notifica[çc][ãa]o|penalidades?|aditivos?|inadimpl\w*|pleitos?)\b/i,
+    /\b(contrat(o|os|ual|uais)|cl[áa]usulas?|obriga[çc][õo]es|obriga[çc][ãa]o|multas?|responsabilidades?|notifica[çc][õo]es|notifica[çc][ãa]o|penalidades?|aditivos?|inadimpl\w*|pleitos?|ap[óo]lices?|seguros?|seguradoras?|sinistros?|fian[çc]as?|cau[çc][ãa]o|cau[çc][õo]es|endossos?|performance bond|resseguros?|susep|garantias? (contratual|legal|banc[áa]ria|financeira))\b/i,
     "legal-consultant",
   ],
   [
     /\b(custos?|receitas?|faturamentos?|medi[çc][õo]es|medi[çc][ãa]o|pagamentos?|financeir[oa]s?|margem|fluxo de caixa|reajustes?|boletim de medi[çc][ãa]o|or[çc]amentos?|or[çc]ament[áa]ri[oa]s?|bdi|pre[çc]os?|proposta comercial|comercial)\b/i,
     "commercial-director",
+  ],
+  [
+    /\b(qualidade|n[ãa]o[- ]conformidades?|rnc|inspe[çc][ãa]o|inspe[çc][õo]es|ensaios?|controle tecnol[óo]gico|defeitos?|v[íi]cios?|retrabalhos?|patologias?|fissuras?|trincas?|infiltra[çc][ãa]o|infiltra[çc][õo]es|umidade|pintura|impermeabiliza\w*|assist[êe]ncia t[ée]cnica|p[óo]s-?entrega|comprovantes? de manuten[çc][ãa]o|fvs|laudos?|(?<!seguro[- ])garantias?)\b/i,
+    "quality-analyst",
   ],
   [
     /\b(seguran[çc]a( do trabalho)?|meio ambiente|ambientais?|acidentes?|incidentes?|ssma|esg|epi|licen[çc]a ambiental|sustentabilidade)\b/i,
@@ -71,6 +80,8 @@ export function expertForArea(area: string | null | undefined): TopicExpertId | 
     case "ORCAMENTO":
     case "ORÇAMENTO":
       return "commercial-director";
+    case "QUALIDADE":
+      return "quality-analyst";
     case "ESG_SSMA":
     case "SSMA/ESG":
     case "SSMA":

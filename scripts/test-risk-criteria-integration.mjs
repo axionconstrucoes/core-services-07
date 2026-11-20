@@ -94,12 +94,14 @@ for (const [dir, instrName, versionName] of EXPERTS) {
   });
 }
 
-await check("versões subiram (framework comum; Planejamento e Engenharia separados; Comercial estratégico + Orçamentos): ceo v4, comercial v5, ESG v4, jurídico v6, planejamento v6, engenharia v1", async () => {
+await check("versões subiram (framework comum; Planejamento e Engenharia separados; Comercial estratégico + Orçamentos): ceo v5, comercial v5, ESG v4, jurídico v7, planejamento v6, engenharia v1, qualidade v1", async () => {
   const get = async (dir, name) => (await import(`../apps/web/lib/ai/experts/${dir}/identity.ts`))[name];
-  assert.equal(await get("ceo", "CEO_VERSION"), "v4");
+  // v5/v7: bump por prompt alterado (CEO: quatro pilares + Qualidade; Jurídico: competência de seguros e garantias).
+  assert.equal(await get("ceo", "CEO_VERSION"), "v5");
   assert.equal(await get("commercial-director", "COMMERCIAL_DIRECTOR_VERSION"), "v5");
   assert.equal(await get("esg-director", "ESG_DIRECTOR_VERSION"), "v4");
-  assert.equal(await get("legal-consultant", "LEGAL_CONSULTANT_VERSION"), "v6");
+  assert.equal(await get("legal-consultant", "LEGAL_CONSULTANT_VERSION"), "v7");
+  assert.equal(await get("quality-analyst", "QUALITY_ANALYST_VERSION"), "v1");
   assert.equal(await get("planning-director", "PLANNING_DIRECTOR_VERSION"), "v6");
   assert.equal(await get("engineering-director", "ENGINEERING_DIRECTOR_VERSION"), "v1");
 });

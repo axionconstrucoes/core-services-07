@@ -35,6 +35,7 @@ const ANTHROPIC_ALLOWED_EXPERT_IDS: ExpertId[] = [
   "legal-consultant",
   "planning-director",
   "engineering-director",
+  "quality-analyst",
   "ceo",
 ];
 const ANTHROPIC_MAX_RETRIES = 2;

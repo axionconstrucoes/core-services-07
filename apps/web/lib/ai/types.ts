@@ -21,6 +21,7 @@ export type ExpertId =
   | "legal-consultant"
   | "planning-director"
   | "engineering-director"
+  | "quality-analyst"
   | "ceo";
 
 export type ExpertSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";

@@ -1,5 +1,5 @@
-// Perfis dos seis especialistas de IA no catálogo de ajuda (Hover Text): conteúdo fiel ao código, sem currículo inventado.
-// Verifica: (1) os seis especialistas oficiais têm perfil kind "expert" com limitações e revisão humana (ALTO/CRÍTICO);
+// Perfis dos sete especialistas de IA (os seis anteriores + Analista IA de Qualidade, quality-analyst) no catálogo de ajuda (Hover Text): conteúdo fiel ao código, sem currículo inventado.
+// Verifica: (1) os sete especialistas oficiais têm perfil kind "expert" com limitações e revisão humana (ALTO/CRÍTICO);
 // (2) nomes e versões batem com as definições oficiais; (3) nenhum perfil traz anos de experiência, certificação, instituição
 // ou sigla que não exista no código dos especialistas; (4) a AXIA nunca é descrita como especialista e a entrada de diferença
 // a declara exclusivamente assistente de dúvidas de uso; (5) os limites de uso (20/usuário/dia e 100/obra/dia) batem com a
@@ -39,6 +39,10 @@ const CORPUS_FILES = [
   "apps/web/lib/ai/experts/esg-director/identity.ts",
   "apps/web/lib/ai/experts/legal-consultant/identity.ts",
   "apps/web/lib/ai/experts/planning-director/identity.ts",
+  "apps/web/lib/ai/experts/quality-analyst/identity.ts",
+  "apps/web/lib/ai/experts/quality-analyst/output-schema.ts",
+  "apps/web/lib/ai/legal/references-insurance-warranty.ts",
+  "apps/web/lib/ai/legal/insurance-warranty.ts",
   "apps/web/lib/ai/specialist-framework.ts",
   "apps/web/lib/ai/risk-criteria.ts",
   "apps/web/lib/ai/context/types.ts",
@@ -50,8 +54,8 @@ const CORPUS_FLAT = strip(CORPUS); // comparação sem acento: o prompt pode gra
 // Termos de produto/declaração do próprio perfil que não são siglas de formação ou instituição.
 const ALLOWED_TOKENS = new Set(["SIMULADO", "ACC", "AXIA", "AXION", "IA", "CEO", "SLA", "SINAPI", "SICRO", "COM"]);
 
-check("os seis especialistas oficiais têm entrada de perfil kind \"expert\" no módulo experts-ia, com versão", () => {
-  ok(EXPERT_IDS.length === 6, `esperado 6 especialistas oficiais, obtido ${EXPERT_IDS.length}`);
+check("os sete especialistas oficiais têm entrada de perfil kind \"expert\" no módulo experts-ia, com versão", () => {
+  ok(EXPERT_IDS.length === 7, `esperado 7 especialistas oficiais (6 anteriores + quality-analyst), obtido ${EXPERT_IDS.length}`);
   const bad = [];
   for (const id of EXPERT_IDS) {
     const e = profileOf(id);
@@ -86,7 +90,7 @@ check("nomes e versões do prompt batem com as definições oficiais (nenhum nom
     if (!e.description.includes(id)) bad.push(`${e.id}: não cita o id técnico ${id}`);
   }
   const names = ALL_OFFICIAL_EXPERT_DEFINITIONS.map((d) => d.expertName);
-  ok(new Set(names).size === 6, "os nomes oficiais deveriam ser 6 e distintos");
+  ok(new Set(names).size === 7, "os nomes oficiais deveriam ser 7 e distintos");
   ok(bad.length === 0, bad.join(" | "));
 });
 
@@ -166,7 +170,7 @@ check("a AXIA nunca é descrita como especialista; a entrada de diferença a dec
   const axia = ACC_FEATURE_HELP["experts.hub.axia-diferenca"];
   ok(axia, "entrada experts.hub.axia-diferenca ausente");
   ok(/exclusivamente o assistente de d[úu]vidas sobre o uso do ACC/.test(axia.description), "descrição deve dizer que a AXIA é exclusivamente o assistente de dúvidas sobre o uso do ACC");
-  ok(/n[ãa]o [ée] um dos seis especialistas/i.test(axia.description), "deve dizer que não é um dos seis especialistas");
+  ok(/n[ãa]o [ée] um dos sete especialistas/i.test(axia.description), "deve dizer que não é um dos sete especialistas");
   const btn = ACC_FEATURE_HELP["experts.alertas.botao-especialista"];
   ok(btn && /A AXIA n[ãa]o [ée] um especialista e nunca participa/.test(btn.description), "botão ESPECIALISTA deve declarar que a AXIA nunca participa");
   ok(/nunca altera|n[ãa]o altera o estado do alerta/i.test((btn.consequences ?? []).join(" ")), "botão ESPECIALISTA deve declarar que não altera o alerta");
