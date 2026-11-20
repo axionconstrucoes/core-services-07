@@ -87,6 +87,8 @@ export function rpcFor(kind, decision, subjectId, providerMessageId, evidence) {
   const actor = decision.actorUserId;
   if (kind === "SLA_ACTION") {
     if (decision.command === "RESOLVE") return ["sla_action_complete_by_email", { p_actor_user_id: actor, p_action_id: subjectId, p_completion_note: decision.note, p_evidence: evidence, p_provider_message_id: providerMessageId }];
+    // Previsão de término VÁLIDA (EM ANDAMENTO + Previsão) vira registro estruturado e auditado na mesma transação (lote 2).
+    if (decision.command === "IN_PROGRESS" && decision.forecast?.status === "VALID" && decision.forecast.iso) return ["sla_action_progress_with_forecast_by_email", { p_actor_user_id: actor, p_action_id: subjectId, p_note: decision.note, p_forecast_at: decision.forecast.iso, p_provider_message_id: providerMessageId }];
     if (decision.command === "IN_PROGRESS") return ["sla_action_progress_by_email", { p_actor_user_id: actor, p_action_id: subjectId, p_note: decision.note, p_provider_message_id: providerMessageId }];
     return ["sla_action_forward_by_email", { p_actor_user_id: actor, p_action_id: subjectId, p_new_responsible_user_id: decision.forward.targetUserId, p_reason: decision.forward.reason, p_provider_message_id: providerMessageId }];
   }

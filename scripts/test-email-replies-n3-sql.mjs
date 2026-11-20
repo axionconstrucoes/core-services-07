@@ -466,7 +466,7 @@ await check("B1 SLA × RESOLVIDO / EM ANDAMENTO / ENVIAR PARA pela fase: grava p
   const supa = createPgSupabase(db);
   const s = await runTokenRepliesPhase({ supabase: supa, gmail, mailbox: "crm@axion.com.br", projectIds: [P], now: NOW, env: {} });
   assert(s.processed === 3 && s.errors === 0, JSON.stringify(s));
-  assert(["sla_action_complete_by_email", "sla_action_progress_by_email", "sla_action_forward_by_email"].every((fn) => supa.calls.rpc.includes(fn)), JSON.stringify(supa.calls.rpc));
+  assert(["sla_action_complete_by_email", "sla_action_progress_with_forecast_by_email", "sla_action_forward_by_email"].every((fn) => supa.calls.rpc.includes(fn)), JSON.stringify(supa.calls.rpc));
   assert((await one("select status from public.sla_actions where id = $1", [r])).status === "COMPLETED");
   assert((await one("select status from public.sla_actions where id = $1", [p])).status === "IN_PROGRESS");
   assert((await one("select responsible_user_id from public.sla_actions where id = $1", [f])).responsible_user_id === U.COLAB2);
@@ -586,7 +586,7 @@ await check("B7 falha desconhecida da RPC => NENHUMA confirmação nem registro 
   const a = await newSla();
   const gmail = createFakeGmail();
   const g = gmail.add({ token: await issue("SLA_ACTION", a), body: "EM ANDAMENTO: revisando projeto\nPrevisão: 25/11/2026" });
-  const s1 = await run(gmail, { failRpc: new Set(["sla_action_progress_by_email"]) });
+  const s1 = await run(gmail, { failRpc: new Set(["sla_action_progress_by_email", "sla_action_progress_with_forecast_by_email"]) });
   assert(s1.errors === 1 && s1.processed === 0, JSON.stringify(s1));
   assert(!(await confirmationOf(g)) && !(await logOf(g)), "nada confirmado/registrado");
   const s2 = await run(gmail);
