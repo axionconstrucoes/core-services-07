@@ -14,6 +14,7 @@
 --    falha técnica ganha uma tabela de entrega por destinatário (antes: só notified_at no incidente, sem retentativa).
 -- 5. record_outbound_delivery_evidence: única porta (service_role) para registrar evidência de entrega/devolução.
 -- Nenhum destinatário, prazo SLA ou escalonamento é alterado.
+-- IDEMPOTENTE: pode ser reaplicada (constraints só são criadas se ausentes; triggers/policy recriados; backfill só onde NULL).
 -- =====================================================================
 
 -- ---------------------------------------------------------------- avaliação de evidência (mesma regra de outbound-delivery.ts)
@@ -81,11 +82,21 @@ alter table public.risk_alert_outbox
   add column if not exists failure_class text;
 update public.risk_alert_outbox set delivery_state = 'ACCEPTED_BY_PROVIDER', delivery_state_at = coalesce(sent_at, now())
  where status = 'SENT' and delivery_state is null;
-alter table public.risk_alert_outbox
-  add constraint risk_alert_outbox_delivery_state_check check (delivery_state is null or delivery_state in ('ACCEPTED_BY_PROVIDER', 'DELIVERED', 'BOUNCED')),
-  add constraint risk_alert_outbox_delivery_state_sent_check check ((status = 'SENT') = (delivery_state is not null)),
-  add constraint risk_alert_outbox_delivery_evidence_array_check check (jsonb_typeof(delivery_evidence) = 'array'),
-  add constraint risk_alert_outbox_failure_class_check check (failure_class is null or failure_class in ('RETRYABLE', 'PERMANENT', 'UNCERTAIN', 'EXHAUSTED'));
+do $mig$
+declare c record;
+begin
+  for c in select * from (values
+    ('risk_alert_outbox_delivery_state_check', $c$check (delivery_state is null or delivery_state in ('ACCEPTED_BY_PROVIDER', 'DELIVERED', 'BOUNCED'))$c$),
+    ('risk_alert_outbox_delivery_state_sent_check', $c$check ((status = 'SENT') = (delivery_state is not null))$c$),
+    ('risk_alert_outbox_delivery_evidence_array_check', $c$check (jsonb_typeof(delivery_evidence) = 'array')$c$),
+    ('risk_alert_outbox_failure_class_check', $c$check (failure_class is null or failure_class in ('RETRYABLE', 'PERMANENT', 'UNCERTAIN', 'EXHAUSTED'))$c$)
+  ) as v(n, d) loop
+    if not exists (select 1 from pg_constraint where conrelid = 'public.risk_alert_outbox'::regclass and conname = c.n) then
+      execute format('alter table public.risk_alert_outbox add constraint %I %s', c.n, c.d);
+    end if;
+  end loop;
+end
+$mig$;
 comment on column public.risk_alert_outbox.delivery_state is
   'NULL = não aceito. ACCEPTED_BY_PROVIDER = o provedor devolveu id (status SENT) — NÃO é entrega comprovada. DELIVERED/BOUNCED só com evidência em delivery_evidence.';
 drop trigger if exists risk_alert_outbox_delivery_guard on public.risk_alert_outbox;
@@ -106,13 +117,23 @@ update public.ssma_accident_notification_deliveries set delivery_state = 'ACCEPT
  where status = 'SENT' and delivery_state is null;
 -- Falhas LEGADAS (antes desta migration) não são retentadas automaticamente: reenviar comunicação antiga confundiria.
 update public.ssma_accident_notification_deliveries set failure_class = 'EXHAUSTED' where status = 'FAILED' and failure_class is null;
-alter table public.ssma_accident_notification_deliveries
-  add constraint ssma_accident_deliveries_attempt_check check (attempt_count >= 0),
-  add constraint ssma_accident_deliveries_delivery_state_check check (delivery_state is null or delivery_state in ('ACCEPTED_BY_PROVIDER', 'DELIVERED', 'BOUNCED')),
-  add constraint ssma_accident_deliveries_delivery_state_sent_check check ((status = 'SENT') = (delivery_state is not null)),
-  add constraint ssma_accident_deliveries_sent_at_check check ((status = 'SENT') = (sent_at is not null)) not valid,
-  add constraint ssma_accident_deliveries_evidence_array_check check (jsonb_typeof(delivery_evidence) = 'array'),
-  add constraint ssma_accident_deliveries_failure_class_check check (failure_class is null or failure_class in ('RETRYABLE', 'PERMANENT', 'UNCERTAIN', 'EXHAUSTED'));
+do $mig$
+declare c record;
+begin
+  for c in select * from (values
+    ('ssma_accident_deliveries_attempt_check', $c$check (attempt_count >= 0)$c$),
+    ('ssma_accident_deliveries_delivery_state_check', $c$check (delivery_state is null or delivery_state in ('ACCEPTED_BY_PROVIDER', 'DELIVERED', 'BOUNCED'))$c$),
+    ('ssma_accident_deliveries_delivery_state_sent_check', $c$check ((status = 'SENT') = (delivery_state is not null))$c$),
+    ('ssma_accident_deliveries_sent_at_check', $c$check ((status = 'SENT') = (sent_at is not null)) not valid$c$),
+    ('ssma_accident_deliveries_evidence_array_check', $c$check (jsonb_typeof(delivery_evidence) = 'array')$c$),
+    ('ssma_accident_deliveries_failure_class_check', $c$check (failure_class is null or failure_class in ('RETRYABLE', 'PERMANENT', 'UNCERTAIN', 'EXHAUSTED'))$c$)
+  ) as v(n, d) loop
+    if not exists (select 1 from pg_constraint where conrelid = 'public.ssma_accident_notification_deliveries'::regclass and conname = c.n) then
+      execute format('alter table public.ssma_accident_notification_deliveries add constraint %I %s', c.n, c.d);
+    end if;
+  end loop;
+end
+$mig$;
 drop trigger if exists ssma_accident_deliveries_delivery_guard on public.ssma_accident_notification_deliveries;
 create trigger ssma_accident_deliveries_delivery_guard
 before insert or update on public.ssma_accident_notification_deliveries
@@ -130,13 +151,23 @@ alter table public.construmanager_version_review_deliveries
 update public.construmanager_version_review_deliveries set delivery_state = 'ACCEPTED_BY_PROVIDER', delivery_state_at = coalesce(sent_at, now())
  where status = 'SENT' and delivery_state is null;
 update public.construmanager_version_review_deliveries set failure_class = 'EXHAUSTED' where status = 'FAILED' and failure_class is null;
-alter table public.construmanager_version_review_deliveries
-  add constraint version_review_deliveries_attempt_check check (attempt_count >= 0),
-  add constraint version_review_deliveries_delivery_state_check check (delivery_state is null or delivery_state in ('ACCEPTED_BY_PROVIDER', 'DELIVERED', 'BOUNCED')),
-  add constraint version_review_deliveries_delivery_state_sent_check check ((status = 'SENT') = (delivery_state is not null)),
-  add constraint version_review_deliveries_sent_at_check check ((status = 'SENT') = (sent_at is not null)) not valid,
-  add constraint version_review_deliveries_evidence_array_check check (jsonb_typeof(delivery_evidence) = 'array'),
-  add constraint version_review_deliveries_failure_class_check check (failure_class is null or failure_class in ('RETRYABLE', 'PERMANENT', 'UNCERTAIN', 'EXHAUSTED'));
+do $mig$
+declare c record;
+begin
+  for c in select * from (values
+    ('version_review_deliveries_attempt_check', $c$check (attempt_count >= 0)$c$),
+    ('version_review_deliveries_delivery_state_check', $c$check (delivery_state is null or delivery_state in ('ACCEPTED_BY_PROVIDER', 'DELIVERED', 'BOUNCED'))$c$),
+    ('version_review_deliveries_delivery_state_sent_check', $c$check ((status = 'SENT') = (delivery_state is not null))$c$),
+    ('version_review_deliveries_sent_at_check', $c$check ((status = 'SENT') = (sent_at is not null)) not valid$c$),
+    ('version_review_deliveries_evidence_array_check', $c$check (jsonb_typeof(delivery_evidence) = 'array')$c$),
+    ('version_review_deliveries_failure_class_check', $c$check (failure_class is null or failure_class in ('RETRYABLE', 'PERMANENT', 'UNCERTAIN', 'EXHAUSTED'))$c$)
+  ) as v(n, d) loop
+    if not exists (select 1 from pg_constraint where conrelid = 'public.construmanager_version_review_deliveries'::regclass and conname = c.n) then
+      execute format('alter table public.construmanager_version_review_deliveries add constraint %I %s', c.n, c.d);
+    end if;
+  end loop;
+end
+$mig$;
 drop trigger if exists version_review_deliveries_delivery_guard on public.construmanager_version_review_deliveries;
 create trigger version_review_deliveries_delivery_guard
 before insert or update on public.construmanager_version_review_deliveries
@@ -150,11 +181,21 @@ alter table public.ssma_field_notification_deliveries
   add column if not exists delivery_state_at timestamptz;
 update public.ssma_field_notification_deliveries set delivery_state = 'ACCEPTED_BY_PROVIDER', delivery_state_at = coalesce(sent_at, now())
  where status = 'SENT' and delivery_state is null;
-alter table public.ssma_field_notification_deliveries
-  add constraint ssma_field_deliveries_delivery_state_check check (delivery_state is null or delivery_state in ('ACCEPTED_BY_PROVIDER', 'DELIVERED', 'BOUNCED')),
-  add constraint ssma_field_deliveries_delivery_state_sent_check check ((status = 'SENT') = (delivery_state is not null)),
-  add constraint ssma_field_deliveries_evidence_array_check check (jsonb_typeof(delivery_evidence) = 'array'),
-  add constraint ssma_field_deliveries_failure_class_check check (failure_class is null or failure_class in ('RETRYABLE', 'PERMANENT', 'UNCERTAIN', 'EXHAUSTED'));
+do $mig$
+declare c record;
+begin
+  for c in select * from (values
+    ('ssma_field_deliveries_delivery_state_check', $c$check (delivery_state is null or delivery_state in ('ACCEPTED_BY_PROVIDER', 'DELIVERED', 'BOUNCED'))$c$),
+    ('ssma_field_deliveries_delivery_state_sent_check', $c$check ((status = 'SENT') = (delivery_state is not null))$c$),
+    ('ssma_field_deliveries_evidence_array_check', $c$check (jsonb_typeof(delivery_evidence) = 'array')$c$),
+    ('ssma_field_deliveries_failure_class_check', $c$check (failure_class is null or failure_class in ('RETRYABLE', 'PERMANENT', 'UNCERTAIN', 'EXHAUSTED'))$c$)
+  ) as v(n, d) loop
+    if not exists (select 1 from pg_constraint where conrelid = 'public.ssma_field_notification_deliveries'::regclass and conname = c.n) then
+      execute format('alter table public.ssma_field_notification_deliveries add constraint %I %s', c.n, c.d);
+    end if;
+  end loop;
+end
+$mig$;
 drop trigger if exists ssma_field_deliveries_delivery_guard on public.ssma_field_notification_deliveries;
 create trigger ssma_field_deliveries_delivery_guard
 before insert or update on public.ssma_field_notification_deliveries
@@ -184,10 +225,12 @@ create table if not exists public.acc_system_health_alert_deliveries (
 );
 create index if not exists acc_system_health_alert_deliveries_project_idx
   on public.acc_system_health_alert_deliveries (project_id, status, created_at desc);
+drop trigger if exists acc_system_health_alert_deliveries_delivery_guard on public.acc_system_health_alert_deliveries;
 create trigger acc_system_health_alert_deliveries_delivery_guard
 before insert or update on public.acc_system_health_alert_deliveries
 for each row execute function public.acc_outbound_delivery_guard();
 alter table public.acc_system_health_alert_deliveries enable row level security;
+drop policy if exists "acc_health_alert_deliveries_select_admin" on public.acc_system_health_alert_deliveries;
 create policy "acc_health_alert_deliveries_select_admin"
   on public.acc_system_health_alert_deliveries for select to authenticated
   using (public.has_project_permission(project_id, 'ADMIN'));
