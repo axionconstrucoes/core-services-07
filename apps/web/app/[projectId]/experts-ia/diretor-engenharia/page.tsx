@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
 import { ExpertQueryPanel } from "@/components/ai/expert-query-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { askEngineeringDirectorAction } from "@/lib/ai/engineering-query-action";
 import { initialAskCommercialDirectorState } from "@/lib/ai/expert-query-state";
 
@@ -22,11 +23,20 @@ export default async function DiretorEngenhariaPage({
       <PageHeader
         title="Diretor de Engenharia e Construção IA"
         description="Especialista em engenharia de obras logísticas, industriais e de saúde: fundações, estruturas, pisos, coberturas, métodos construtivos, construtibilidade, engenharia de valor e compatibilização de projetos, sempre com revisão humana. Não substitui projetista nem responsável técnico."
+        actions={
+          <div className="flex items-center gap-1">
+            <FeatureInfo helpId="experts.engenharia.pagina" />
+            <FeatureInfo helpId="experts.engenharia.perfil" />
+          </div>
+        }
       />
 
       <Card>
         <CardHeader>
-          <CardTitle>Consultas recomendadas</CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
+            Consultas recomendadas
+            <FeatureInfo helpId="experts.painel.consultas-recomendadas" />
+          </CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
           <p>• Quais alternativas de fundação ou estrutura são compatíveis com as sondagens registradas?</p>

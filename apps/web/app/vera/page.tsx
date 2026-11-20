@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getProjects } from "@/lib/data";
 
@@ -18,14 +19,20 @@ export default async function VeraEntryPage() {
     <div className="flex min-h-dvh items-center justify-center bg-muted p-4">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle className="text-base">AXIA — Assistente ACC</CardTitle>
+          <CardTitle className="flex items-center gap-1.5 text-base">
+            AXIA — Assistente ACC
+            <FeatureInfo helpId="admin.vera.pagina" />
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           {projects.length === 0 ? (
             <p>Você ainda não participa de nenhuma obra no ACC. Peça a um administrador para liberar o seu acesso.</p>
           ) : (
             <>
-              <p>Escolha a obra para conversar com a AXIA:</p>
+              <p className="flex items-center gap-1.5">
+                Escolha a obra para conversar com a AXIA:
+                <FeatureInfo helpId="admin.vera.escolher-obra" />
+              </p>
               <ul className="space-y-2">
                 {projects.map((project) => (
                   <li key={project.id}>
