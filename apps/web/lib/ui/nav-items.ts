@@ -38,6 +38,7 @@ export const NAV_ITEMS: NavItem[] = [
   // continuam existindo — nada foi apagado, só a entrada de navegação.
   { href: "documentos", label: "Documentos", icon: "FileStack", helpId: "documentos" },
   { href: "providencias", label: "Providências", icon: "ClipboardCheck", helpId: "providencias" },
+  { href: "seguros", label: "Seguros", icon: "ShieldCheck", helpId: "seguros.menu.item" },
   // Dashboard financeiro alimentado só pela aba FINANCEIRO da planilha do
   // relatório semanal (weekly_report_sheets). Visível apenas para quem
   // passa em evaluateFinancialDashboardAccess (lib/financial/access.ts).
