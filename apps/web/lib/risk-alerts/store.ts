@@ -5,6 +5,7 @@
 import type { PilotLevelOverride } from "./pilot-level-overrides";
 import type { OutboxHistoryRow, ReissueApproval } from "./communication-ledger";
 import type { SlaArea, SlaAreaResponsibles, SlaMatrixRule, SlaProjectSettings } from "@/lib/sla/types";
+import type { SendFailureClass } from "@/lib/email/outbound-delivery";
 
 import type { ActiveForward, AlertCaseSnapshot, AlertTransition, TransitionOutboxEntry } from "./alert-state-machine";
 import type { ForecastEventInput } from "./forecast";
@@ -150,8 +151,12 @@ export interface RiskAlertStore {
    * reivindicou/enviou — nesse caso NÃO enviar. nowIso = relógio do ciclo (o lease expira após CLAIM_LEASE_MS).
    */
   claimOutbox(id: string, nowIso: string): Promise<boolean>;
-  /** attemptAlreadyClaimed: a tentativa já foi contada por claimOutbox (não contar de novo). */
-  markFailed(id: string, sanitizedError: string, options?: { attemptAlreadyClaimed?: boolean }): Promise<void>;
+  /**
+   * attemptAlreadyClaimed: a tentativa já foi contada por claimOutbox (não contar de novo).
+   * failureClass: PERMANENT/UNCERTAIN encerram a linha (FAILED) na hora; RETRYABLE (padrão) volta a PENDING até MAX_SEND_ATTEMPTS.
+   * Nunca altera uma linha já SENT (aceita pelo provedor).
+   */
+  markFailed(id: string, sanitizedError: string, options?: { attemptAlreadyClaimed?: boolean; failureClass?: SendFailureClass }): Promise<void>;
   markSkipped(id: string, reason: string): Promise<void>;
   markDigestWindow(caseIds: string[], window: string): Promise<void>;
   recordEmail(projectId: string, input: { from: string; to: string; subject: string; sentAt: string; snippet: string }): Promise<string | null>;

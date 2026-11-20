@@ -950,6 +950,10 @@ function fakeSupabase(tables) {
           filters.push([k, v]);
           return api;
         },
+        neq(k, v) {
+          predicates.push((r) => r[k] !== v);
+          return api;
+        },
         or(expr) {
           // "col.is.null,col.lt.<valor>" (formato supabase-js)
           const alts = expr.split(",").map((part) => {

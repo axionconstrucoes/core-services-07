@@ -19,6 +19,7 @@ import { getAppBaseUrl } from "@/lib/app-base-url";
 import { appendAccEmailSignature } from "@/lib/email/branding/acc-email-signature";
 import { loadAccLogoInlineImage, loadAccLogoInvertedInlineImage } from "@/lib/email/branding/load-acc-logo-inline-image";
 import { EmailSendError, type EmailProvider } from "@/lib/email/email-provider";
+import { FAILURE_CLASS_NOTES, classifySendFailure } from "@/lib/email/outbound-delivery";
 import { FakeEmailProvider } from "@/lib/email/fake-email-provider";
 import { getEmailProvider } from "@/lib/email/get-email-provider";
 import { resolveEmailProviderName } from "@/lib/email/gmail-auth";
@@ -98,7 +99,7 @@ export interface RiskAlertCycleProjectResult {
     visibleCode: string | null;
     stageReached: string;
     decision: string;
-    recipients: Array<{ role: string; status: string; suppressions: number; acceptedByGmail: number; deliveredToRecipient: number; eligibleNow: boolean; ineligibleReason: string | null }>;
+    recipients: Array<{ role: string; status: string; suppressions: number; acceptedByGmail: number; addressedToRecipient: number; eligibleNow: boolean; ineligibleReason: string | null }>;
   }>;
 }
 
@@ -328,7 +329,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
           status: r.status,
           suppressions: r.suppressions.length,
           acceptedByGmail: r.acceptedByGmail.length,
-          deliveredToRecipient: r.acceptedByGmail.filter((a) => a.deliveredToRecipient).length,
+          addressedToRecipient: r.acceptedByGmail.filter((a) => a.addressedToRecipient).length,
           eligibleNow: r.eligibleNow,
           ineligibleReason: r.ineligibleReason,
         })),
@@ -597,6 +598,9 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
     await ctx.store.markSkipped(outboxId, `Deduplicado pelo override de entrega do piloto (mesmo evento já entregue em ${delivery.deliveryEmail} neste ciclo).`);
     return "SKIPPED";
   }
+  // Aceite do provedor nesta tentativa: depois dele NADA pode devolver a linha à fila (reenvio duplicaria a mensagem).
+  let accepted: { provider: string; providerMessageId: string; sentAt: string } | null = null;
+  let acceptedRecorded = false;
   try {
     const conversation = caseId ? await ctx.store.ensureConversation(ctx.projectId, caseId) : null;
     // Reply-To = caixa inbound OFICIAL (+alerta-<token>), só em mensagens
@@ -628,8 +632,10 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
       // Faixa/prefixo de TESTE só no envio único armado (chave PILOT_SINGLE); alertas operacionais saem sem faixa de teste.
       pilot: { projectId: ctx.projectId, participantLabel: `usuário ${recipientUserId.slice(0, 8)}`, escalationLevel: escalationLevel ?? notificationType, testMessage: idempotencyKey.includes(":PILOT_SINGLE:") },
     });
-    const emailId = await ctx.store.recordEmail(ctx.projectId, { from: sent.from, to: delivery.deliveryEmail, subject: built.subject, sentAt: sent.sentAt, snippet: built.text });
+    accepted = { provider: sent.provider, providerMessageId: sent.providerMessageId, sentAt: sent.sentAt };
+    const emailId = await ctx.store.recordEmail(ctx.projectId, { from: sent.from, to: delivery.deliveryEmail, subject: built.subject, sentAt: sent.sentAt, snippet: built.text }).catch(() => null);
     await ctx.store.markSent(outboxId, { recipientEmail: delivery.deliveryEmail, provider: sent.provider, providerMessageId: sent.providerMessageId, emailId, sentAt: sent.sentAt, messageIdHeader: sent.messageIdHeader, conversationId: conversation?.id ?? null });
+    acceptedRecorded = true;
     ctx.deliveredKeys.add(delivery.dedupKey);
     if (conversation) {
       if (!conversation.rootMessageIdHeader) await ctx.store.setConversationRoot(conversation.id, sent.messageIdHeader, sent.providerThreadId);
@@ -655,7 +661,7 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
         action: "RISK_ALERT_EMAIL_SENT",
         entityType: caseId ? "RISK_ALERT_CASE" : "RISK_ALERT_DIGEST",
         entityId: caseId ?? idempotencyKey,
-        detail: `E-mail ${notificationType}${escalationLevel ? ` (${escalationLevel})` : ""} enviado ao usuário ${recipientUserId} via ${sent.provider} (${sent.providerMessageId}). Chave ${idempotencyKey}.${sent.cc && sent.cc.length > 0 ? ` Remetente autenticado: ${sent.from}; destinatário principal (usuário lógico): ${sent.to}; cópia institucional: ${sent.cc.join(", ")}.` : ""}${delivery.overridden ? " Override de entrega do piloto: entregue na caixa institucional configurada (destinatário lógico preservado)." : ""}`,
+        detail: `E-mail ${notificationType}${escalationLevel ? ` (${escalationLevel})` : ""} enviado ao usuário ${recipientUserId} via ${sent.provider} (${sent.providerMessageId}) — aceito pelo provedor; aceite não é confirmação de entrega. Chave ${idempotencyKey}.${sent.cc && sent.cc.length > 0 ? ` Remetente autenticado: ${sent.from}; destinatário principal (usuário lógico): ${sent.to}; cópia institucional: ${sent.cc.join(", ")}.` : ""}${delivery.overridden ? " Override de entrega do piloto: entregue na caixa institucional configurada (destinatário lógico preservado)." : ""}`,
       },
     ]);
     // WhatsApp SIMULADO (desligado por padrão): só alerta CRÍTICO que acabou de chegar à Diretoria. Nunca lança nem altera o resultado do e-mail.
@@ -665,11 +671,39 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
     ).catch(() => false); // o canal nunca pode marcar o e-mail como falho
     return "SENT";
   } catch (error) {
+    if (accepted) return recordAcceptedAfterError(ctx, outboxId, idempotencyKey, accepted, acceptedRecorded, delivery.deliveryEmail, delivery.dedupKey);
     const message = error instanceof EmailSendError ? error.message : sanitizeError(error);
-    await ctx.store.markFailed(outboxId, sanitizeError(message), { attemptAlreadyClaimed: true });
-    await ctx.store.audit(ctx.projectId, [{ action: "RISK_ALERT_EMAIL_FAILED", entityType: "RISK_ALERT_OUTBOX", entityId: outboxId, detail: `Falha de envio (${idempotencyKey}): ${sanitizeError(message)}` }]);
+    // Classe da falha (diagnóstico normalizado do provedor): PERMANENTE e INCERTA saem da fila — a incerta pode ter sido
+    // aceita e reenviar duplicaria; só a transitória volta a ser tentada (limitada por MAX_SEND_ATTEMPTS).
+    const failureClass = classifySendFailure(error);
+    await ctx.store.markFailed(outboxId, sanitizeError(message), { attemptAlreadyClaimed: true, failureClass });
+    await ctx.store.audit(ctx.projectId, [{ action: "RISK_ALERT_EMAIL_FAILED", entityType: "RISK_ALERT_OUTBOX", entityId: outboxId, detail: `Falha de envio (${idempotencyKey}) [${failureClass}: ${FAILURE_CLASS_NOTES[failureClass]}]: ${sanitizeError(message)}` }]);
     return "FAILED";
   }
+}
+
+/**
+ * O provedor JÁ aceitou a mensagem, mas um passo posterior (gravação, conversa, auditoria) falhou. A linha NUNCA volta à
+ * fila: se o aceite ainda não foi gravado, tenta gravar de novo; se não der, marca como resultado INCERTO (terminal) para
+ * que a expiração da reivindicação não reenvie. Em todos os casos registra a ocorrência na auditoria.
+ */
+async function recordAcceptedAfterError(ctx: SendContext, outboxId: string, idempotencyKey: string, accepted: { provider: string; providerMessageId: string; sentAt: string }, alreadyRecorded: boolean, recipientEmail: string, dedupKey: string): Promise<"SENT" | "FAILED"> {
+  let recorded = alreadyRecorded;
+  if (!recorded) {
+    try {
+      await ctx.store.markSent(outboxId, { recipientEmail, provider: accepted.provider, providerMessageId: accepted.providerMessageId, emailId: null, sentAt: accepted.sentAt, messageIdHeader: "", conversationId: null });
+      recorded = true;
+    } catch {
+      await ctx.store
+        .markFailed(outboxId, `Aceito pelo provedor (${accepted.providerMessageId}), mas a gravação do aceite falhou — verificar Enviados antes de qualquer reenvio.`, { attemptAlreadyClaimed: true, failureClass: "UNCERTAIN" })
+        .catch(() => undefined);
+    }
+  }
+  if (recorded) ctx.deliveredKeys.add(dedupKey);
+  await ctx.store
+    .audit(ctx.projectId, [{ action: recorded ? "RISK_ALERT_EMAIL_SENT" : "RISK_ALERT_EMAIL_ACCEPTED_UNRECORDED", entityType: "RISK_ALERT_OUTBOX", entityId: outboxId, detail: `E-mail aceito pelo provedor ${accepted.provider} (${accepted.providerMessageId}) com falha em registro posterior; ${recorded ? "aceite gravado" : "aceite NÃO gravado — linha marcada como resultado incerto, sem reenvio automático"}. Chave ${idempotencyKey}.` }])
+    .catch(() => undefined);
+  return recorded ? "SENT" : "FAILED";
 }
 
 /** Um token (e três atalhos) POR ITEM aberto do consolidado — cada ocorrência é tratada individualmente. */

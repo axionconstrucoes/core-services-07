@@ -90,8 +90,8 @@ await check("1. Classificação: SUPPRESSED nunca é entrega; SENT em outra caix
   const profile = { userId: U.jaime, email: EMAIL[U.jaime], name: "J", membershipStatus: "ACTIVE" };
   assert(ledgerMod.classifyRecipientHistory([row({})], U.jaime, profile).status === "SUPPRESSED_ONLY");
   const elsewhere = ledgerMod.classifyRecipientHistory([row({ status: "SENT", recipientEmail: CRM, sentAt: T0, providerMessageId: "g1", attemptCount: 1 })], U.jaime, profile);
-  assert(elsewhere.status === "ACCEPTED_ELSEWHERE" && elsewhere.acceptedByGmail.length === 1 && !elsewhere.acceptedByGmail[0].deliveredToRecipient, JSON.stringify(elsewhere));
-  assert(ledgerMod.classifyRecipientHistory([row({ status: "SENT", recipientEmail: "JAIME.RAMOS@axion.com.br", sentAt: T0, providerMessageId: "g2", attemptCount: 1 })], U.jaime, profile).status === "DELIVERED");
+  assert(elsewhere.status === "ACCEPTED_ELSEWHERE" && elsewhere.acceptedByGmail.length === 1 && !elsewhere.acceptedByGmail[0].addressedToRecipient, JSON.stringify(elsewhere));
+  assert(ledgerMod.classifyRecipientHistory([row({ status: "SENT", recipientEmail: "JAIME.RAMOS@axion.com.br", sentAt: T0, providerMessageId: "g2", attemptCount: 1 })], U.jaime, profile).status === "ACCEPTED_FOR_RECIPIENT");
   assert(ledgerMod.classifyRecipientHistory([row({ status: "FAILED", attemptCount: 3, suppressionReason: null })], U.jaime, profile).status === "ATTEMPTED_FAILED");
   assert(ledgerMod.classifyRecipientHistory([], U.jaime, profile).status === "NEVER_PLANNED");
 });

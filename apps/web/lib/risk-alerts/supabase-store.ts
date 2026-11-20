@@ -37,6 +37,7 @@ import { hashReplyToken, type InboundHeaders } from "./replies/reply-pipeline";
 import type { PersistedOutboxEntry, RiskAlertStore } from "./store";
 import type { ExpertId, IngestionAlertSeverityMap, LinkedSlaActionState, RecipientProfile, RiskCaseRecord } from "./types";
 import { CLAIM_LEASE_MS, MAX_SEND_ATTEMPTS } from "./types";
+import { failureOutcome } from "@/lib/email/outbound-delivery";
 import { buildCorrelationIndex, type CorrelationCaseRow, type CorrelationConversationRow, type CorrelationMessageRow } from "./replies/build-correlation-index";
 
 type Client = SupabaseClient;
@@ -601,6 +602,9 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         .from("risk_alert_outbox")
         .update({
           status: "SENT",
+          // Aceito pelo provedor — NÃO é entrega comprovada (DELIVERED só com evidência; migration 20261121130000).
+          delivery_state: "ACCEPTED_BY_PROVIDER",
+          failure_class: null,
           claimed_at: null,
           sent_at: result.sentAt,
           recipient_email: result.recipientEmail,
@@ -642,10 +646,14 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
       const { data } = await client.from("risk_alert_outbox").select("attempt_count").eq("id", id).maybeSingle();
       // Com a linha já reivindicada (claimOutbox) a tentativa JÁ foi contada: não conta duas vezes.
       const attempts = Number(data?.attempt_count ?? 0) + (options.attemptAlreadyClaimed ? 0 : 1);
+      // PERMANENTE/INCERTA: falha final já (sem retentativa automática); transitória: limite MAX_SEND_ATTEMPTS.
+      const outcome = failureOutcome(options.failureClass ?? "RETRYABLE", attempts, MAX_SEND_ATTEMPTS);
       const { error } = await client
         .from("risk_alert_outbox")
-        .update({ status: attempts >= MAX_SEND_ATTEMPTS ? "FAILED" : "PENDING", attempt_count: attempts, last_error: sanitizedError, claimed_at: null })
-        .eq("id", id);
+        .update({ status: outcome.terminal ? "FAILED" : "PENDING", attempt_count: attempts, last_error: sanitizedError, failure_class: outcome.failureClass, claimed_at: null })
+        .eq("id", id)
+        // Uma linha já aceita pelo provedor nunca regride (o banco também recusa).
+        .neq("status", "SENT");
       fail("Falha ao registrar erro de envio", error);
     },
 
