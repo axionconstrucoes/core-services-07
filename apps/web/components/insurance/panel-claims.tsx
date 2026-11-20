@@ -7,7 +7,7 @@ import { ActionButton, Callout, DataTable, NoData, RunnerFeedback, Section, Sour
 import { FORMS, deriveClaimInstrument, validateClaimOpen, validateDossierItem } from "@/lib/insurance-ui/forms";
 import { formatDate, formatDateTime, formatMoney, textOrNoData } from "@/lib/insurance-ui/format";
 import { CLAIM_KIND_LABEL, CLAIM_STAGE_LABEL, COVERAGE_CONCLUSION_LABEL, DOSSIER_STATUS_LABEL, EPISTEMIC_LABEL, labelOf } from "@/lib/insurance-ui/labels";
-import { claimCoverageView, claimInstrument, claimNextStages, claimNotice, dossierForPolicy, prepareAcionamento } from "@/lib/insurance-ui/model";
+import { claimCoverageView, claimInstrument, claimNextStages, claimNotice, dossierForPolicy } from "@/lib/insurance-ui/model";
 import { buildDossierChecklist } from "@/lib/insurance/index";
 import type { ClaimRow, DossierItemRow, PolicyRow } from "@/lib/insurance-ui/types";
 
