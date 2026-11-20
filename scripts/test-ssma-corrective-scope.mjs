@@ -198,6 +198,7 @@ await check("confirmação: Re: na mesma thread, previsão com fuso, sem faixa d
   const c = buildSsmaReplyConfirmationEmail({
     projectName: "WEG", recipientName: "Carlos", category: "Ato inseguro", location: "Galpao", visibleCode: "2BF391C1", originalSubject: "[RISCO ALTO] aviso",
     severity: "ALTA", statusLabel: "Em andamento", forecastLine: "20/11/2026 15:00 (horário de Brasília — America/Sao_Paulo)", pendingLine: null, outOfOrder: false, accUrl: "https://acc",
+    recordLink: { baseUrl: "https://acc", projectId: "p1", recordId: "11111111-2222-4333-8444-555555555555" },
   });
   assert.equal(c.subject, "Re: [RISCO ALTO] aviso");
   assert.match(c.text, /America\/Sao_Paulo/);
@@ -205,7 +206,9 @@ await check("confirmação: Re: na mesma thread, previsão com fuso, sem faixa d
   assert.match(c.html, /RISCO ALTO \| WEG/);
   assert.match(c.html, /acc-actions-col/);
   assert.match(c.html, /RESOLVIDO.*EM ANDAMENTO.*ENVIAR PARA.*ESPECIALISTA/s);
-  assert.equal((c.html.match(/aria-disabled="true"/g) ?? []).length, 0, "os quatro botões levam ao registro no ACC (nenhum desativado)");
+  // RESOLVIDO e EM ANDAMENTO abrem o registro; ENVIAR PARA e ESPECIALISTA não têm fluxo de SSMA (desativados, com motivo).
+  assert.equal((c.html.match(/aria-disabled="true"/g) ?? []).length, 2, "só ENVIAR PARA e ESPECIALISTA desativados");
+  assert.ok(c.html.includes("registro=11111111-2222-4333-8444-555555555555&amp;acao=CONCLUIDA"), "RESOLVIDO abre o registro");
   assert.deepEqual(c.logoNeeds, { maroon: true, inverted: false });
   assert.doesNotMatch(c.text, /TESTE|PILOTO/);
 });

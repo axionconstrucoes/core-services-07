@@ -33,7 +33,14 @@ export async function sendSystemHealthAlertEmail(input: {
       responsibleName: "",
       specialistLabel: "Supervisão operacional",
       openUrl: input.auditUrl,
+      // Falha técnica de integração: o tratamento é feito na Auditoria; os botões ficam desativados com o motivo.
       actions: {},
+      unavailableReasons: {
+        RESOLVIDO: "Alerta técnico: trate em ABRIR AUDITORIA.",
+        EM_ANDAMENTO: "Alerta técnico: trate em ABRIR AUDITORIA.",
+        ENVIAR_PARA: "Alerta técnico: trate em ABRIR AUDITORIA.",
+        ESPECIALISTA: "Consulta ao especialista indisponível para alerta técnico.",
+      },
       details: [{ label: "Fonte", value: input.sourceType }],
       extraLinks: [{ label: "ABRIR AUDITORIA", url: input.auditUrl }],
     },

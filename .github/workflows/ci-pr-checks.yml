@@ -131,25 +131,12 @@ jobs:
             echo "::error::SSMA executou $ok verificações; o mínimo esperado com Chrome real é 69"
             exit 1
           fi
-      # test:alert-sim e test:alerts vêm do PR #125 e não existem na main atual. ÚNICA exceção permitida: quando o script NÃO existe
-      # no package.json, o passo emite um aviso visível (annotation + resumo da execução) e segue; quando existe, roda e qualquer falha
-      # reprova. Depois que o #125 entrar na main, os dois passam a rodar sem nenhuma alteração neste arquivo.
-      - name: Simulação WEG e suíte de alertas (opcional somente enquanto o script não existir)
-        run: |
-          run_optional() {
-            script="$1"; shift
-            if node -e "process.exit(require('./package.json').scripts?.['$script'] ? 0 : 1)"; then
-              echo "::group::npm run $script"
-              "$@" npm run "$script"
-              echo "::endgroup::"
-              echo "- npm run $script: EXECUTADO" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
-            else
-              echo "::warning title=Verificação NÃO executada::npm run $script não existe neste commit (esperado apenas até o PR #125 entrar na main)"
-              echo "- npm run $script: NAO EXECUTADO (script ausente neste commit)" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
-            fi
-          }
-          run_optional test:alert-sim env
-          run_optional test:alerts env -u GITHUB_ACTIONS
+      # test:alert-sim e test:alerts já existem na main: são OBRIGATÓRIOS (qualquer falha reprova). test:alerts roda sem
+      # GITHUB_ACTIONS pelos motivos descritos acima (test-pilot-risk-alert-audit W6 / test-pilot-readiness-consistency).
+      - name: Simulação WEG (alertas)
+        run: npm run test:alert-sim
+      - name: Suíte de alertas
+        run: env -u GITHUB_ACTIONS npm run test:alerts
 
   build:
     name: Build

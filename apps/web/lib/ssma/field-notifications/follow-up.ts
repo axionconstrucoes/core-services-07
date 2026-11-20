@@ -216,6 +216,7 @@ export async function followUpSsmaCorrectiveActions(admin: Admin, mailer: Mailer
       const base = {
         projectName, severity, category: String(record.category), location: String(record.location), description: String(record.description),
         occurredAt: fmt(record.occurred_at as string), accUrl: `${getAppBaseUrl()}/${projectId}/ssma-registros`, visibleCode: String(corrective.id).slice(0, 8).toUpperCase(),
+        recordLink: { baseUrl: getAppBaseUrl(), projectId, recordId: String(corrective.record_id) },
         responsibleName: (person(corrective.responsible_user_id as string | null)?.name as string | undefined) ?? null,
         assumeDue: fmt(state.assumeDueAt), completeDue: state.completeDueAt ? fmt(state.completeDueAt) : null, forecastLine,
       };

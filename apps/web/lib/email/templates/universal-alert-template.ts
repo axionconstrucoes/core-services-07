@@ -80,21 +80,14 @@ export interface UniversalOccurrence {
   extraLinks?: Array<{ label: string; url: string }>;
 }
 
-const ALL_ACTIONS: UniversalAction[] = ["RESOLVIDO", "EM_ANDAMENTO", "ENVIAR_PARA", "ESPECIALISTA"];
-
 /**
  * REGRA: os quatro botões estão presentes em TODO alerta, de qualquer área (engenharia, comercial, SSMA, financeiro…).
- * Sem link específico (token/rota própria) e sem motivo de indisponibilidade explícito, o botão abre a própria ocorrência
- * no ACC (exige login; abrir o link nunca altera estado — a ação é registrada lá, com confirmação e auditoria).
+ * Cada botão ativo leva à ocorrência específica e à ação correspondente (link próprio do emissor; abrir o link nunca
+ * altera estado). Sem link próprio — ou com link inválido — o botão fica no layout, desativado e com o motivo visível:
+ * nunca é trocado por um link genérico que simule a ação.
  */
 function actionsOf(o: UniversalOccurrence): UniversalActionsInput {
-  const links: UniversalActionLinks = { ...o.actions };
-  if (isSafeActionUrl(o.openUrl)) {
-    for (const action of ALL_ACTIONS) {
-      if (!isSafeActionUrl(links[action]) && !o.unavailableReasons?.[action]) links[action] = o.openUrl;
-    }
-  }
-  return { links, unavailableReasons: o.unavailableReasons, completed: o.completed };
+  return { links: o.actions, unavailableReasons: o.unavailableReasons, completed: o.completed };
 }
 
 function field(label: string, value: string | null | undefined, severity: AlertSeverity): string {

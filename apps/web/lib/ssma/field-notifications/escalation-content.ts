@@ -4,7 +4,8 @@
 
 import type { MailContent } from "./core";
 import { alertRiskLevelLabels } from "@/lib/email/templates/contract-alert-template";
-import { renderSsmaAlert, type SsmaSeverity } from "./content";
+import { renderSsmaAlert, ssmaOpenUrl, type SsmaSeverity } from "./content";
+import type { SsmaRecordLinkTarget } from "@/lib/ssma/field-records/deep-link";
 
 const clip = (v: string, n = 400) => (v.length > n ? `${v.slice(0, n - 1)}…` : v);
 
@@ -17,6 +18,8 @@ export interface SsmaFollowUpContext {
   description: string;
   occurredAt: string;
   accUrl: string;
+  /** Registro de SSMA: os botões abrem ESTE registro (sem ele, ficam desativados com o motivo). */
+  recordLink?: SsmaRecordLinkTarget | null;
   visibleCode: string;
   responsibleName: string | null;
   /** Prazos ORIGINAIS da ação (formatados, horário de Brasília). */
@@ -72,7 +75,7 @@ export function buildSsmaEscalationEmail(ctx: SsmaEscalationEmailContext): MailC
     ...rows.map(([k, v]) => `${k}: ${v}`),
     "",
     "Para registrar providência ou previsão, responda a este e-mail no próprio corpo ou abra no ACC.",
-    `ABRIR NO ACC: ${ctx.accUrl}`,
+    `ABRIR NO ACC: ${ssmaOpenUrl(ctx)}`,
     "",
     FOOTER,
   ].join("\n");
@@ -116,7 +119,7 @@ export function buildSsmaForecastExpiredEmail(ctx: SsmaForecastExpiredContext): 
     "",
     ...rows.map(([k, v]) => `${k}: ${v}`),
     "",
-    `ABRIR NO ACC: ${ctx.accUrl}`,
+    `ABRIR NO ACC: ${ssmaOpenUrl(ctx)}`,
     "",
     FOOTER,
   ].join("\n");

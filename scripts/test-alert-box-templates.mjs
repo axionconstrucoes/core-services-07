@@ -335,8 +335,8 @@ check("lote: cada alerta tem a PRÓPRIA caixa e cor (quatro caixas; o lote não 
 
 check("QUATRO botões: RESOLVIDO / EM ANDAMENTO / ENVIAR PARA / ESPECIALISTA (ordem fixa), sem VER EVENTO, mesma largura/altura, sem 100%/min-width", () => {
   assert.equal(style.EM_ANDAMENTO_TEXT_WIDTH_PX, 130);
-  assert.equal(style.BUTTON_SIDE_PADDING_PX, 20);
-  assert.equal(style.BUTTON_WIDTH_PX, 130 + 40);
+  assert.equal(style.BUTTON_SIDE_PADDING_PX, 15);
+  assert.equal(style.BUTTON_WIDTH_PX, 130 + 30);
   const w = style.BUTTON_WIDTH_PX;
   const h = style.BUTTON_HEIGHT_PX;
   const withAi = buildContractAlertBatchEmail({ recipientName: null, projectName: "O", batchUrl: `${BASE}/l`, hasInlineLogo: true,

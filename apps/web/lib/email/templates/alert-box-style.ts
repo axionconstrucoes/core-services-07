@@ -11,7 +11,7 @@
 //   MÉDIO   : fundo branco,                   texto preto,  logo vinho
 //   BAIXO   : fundo branco,                   texto preto,  logo vinho
 //   Borda contínua de 2px: tom mais escuro que o fundo nos coloridos, cinza médio nos brancos.
-//   UM único tamanho de fonte em todo o alerta (16px); só o PESO diferencia (regular ou negrito; nunca black/900); o cabeçalho de risco e o título usam corpo maior,
+//   UM único tamanho de fonte em todo o alerta (16px); só o PESO diferencia (regular ou negrito; nunca black/900); o cabeçalho de risco e o título usam corpo maior (20px),
 //   cabeçalho/cláusula/evidência/"Repete" em negrito, descrição em regular.
 //
 // BADGE_STYLES (contract-alert-template.ts) NÃO é alterado: continua sendo usado pelos demais
@@ -99,7 +99,7 @@ export function textStyle(weight: keyof typeof WEIGHT, color: string, extra = ""
 
 // ---------- logo / cabeçalho ----------
 
-// Logo oficial 44px (quadrado). Mantém proporção 1:1 do arquivo oficial.
+// Logo oficial 56px (quadrado). Mantém proporção 1:1 do arquivo oficial.
 export const ALERT_LOGO_SIZE_PX = 56;
 
 export function logoCidFor(variant: LogoVariant): string {
@@ -176,17 +176,18 @@ export function panelStyle(severity: AlertSeverity): string {
 
 export const BUTTON_FONT_SIZE_PX = 16;
 // Largura do texto "EM ANDAMENTO" em Arial negrito 16px MEDIDA NO HTML RENDERIZADO (Chrome,
-// escala 1x, getBoundingClientRect): 130px. Largura do botão = texto + 20px de cada lado = 170px.
+// escala 1x, getBoundingClientRect): 130px. Largura do botão = texto + 15px de cada lado = 160px
+// (limite do template universal, para sobrar espaço ao texto quando o cliente ignora o empilhamento do celular).
 // Observação: a métrica sem hinting pode diferir ~1–5%; a folga lateral varia um pouco, sem cortar
 // o texto (nowrap, largura fixa maior que o texto).
 export const EM_ANDAMENTO_TEXT_WIDTH_PX = 130;
-export const BUTTON_SIDE_PADDING_PX = 20;
-export const BUTTON_WIDTH_PX = Math.ceil(EM_ANDAMENTO_TEXT_WIDTH_PX + 2 * BUTTON_SIDE_PADDING_PX); // 138
+export const BUTTON_SIDE_PADDING_PX = 15;
+export const BUTTON_WIDTH_PX = Math.ceil(EM_ANDAMENTO_TEXT_WIDTH_PX + 2 * BUTTON_SIDE_PADDING_PX); // 160
 export const BUTTON_HEIGHT_PX = 48;
 
 /** Coluna branca dos botões: um pouco mais larga que os botões, com pequena margem lateral. */
 export const BUTTON_COLUMN_MARGIN_PX = 10;
-export const BUTTON_COLUMN_WIDTH_PX = BUTTON_WIDTH_PX + 2 * BUTTON_COLUMN_MARGIN_PX; // 154
+export const BUTTON_COLUMN_WIDTH_PX = BUTTON_WIDTH_PX + 2 * BUTTON_COLUMN_MARGIN_PX; // 180
 
 export interface AlertActionButtonStyle {
   background: string;

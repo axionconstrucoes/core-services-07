@@ -23,15 +23,20 @@ export function WeeklyDigestForm({
   projectId,
   items,
   members,
+  initialAnswer = null,
 }: {
   digestId: string;
   projectId: string;
   items: WeeklyDigestViewItem[];
   members: Array<{ userId: string; name: string }>;
+  /** Resposta pré-selecionada pelo botão do e-mail (gravada só no envio do formulário). */
+  initialAnswer?: { actionId: string; response: WeeklyDigestResponse } | null;
 }) {
   const boundAction = submitWeeklyDigestAction.bind(null, digestId, projectId);
   const [state, formAction, pending] = useActionState(boundAction, initialSubmitWeeklyDigestState);
-  const [answers, setAnswers] = useState<Record<string, WeeklyDigestResponse | "">>({});
+  const [answers, setAnswers] = useState<Record<string, WeeklyDigestResponse | "">>(() =>
+    initialAnswer ? { [initialAnswer.actionId]: initialAnswer.response } : {}
+  );
   const [directions, setDirections] = useState<Record<string, string>>({});
 
   const complete = useMemo(
@@ -52,9 +57,15 @@ export function WeeklyDigestForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-4">
+      {initialAnswer ? (
+        <p role="status" className="rounded-lg border bg-muted px-4 py-3 text-sm text-muted-foreground">
+          Aberto pelo botão do e-mail: a resposta do item já vem selecionada, mas nada foi registrado. Confira e envie o formulário.
+        </p>
+      ) : null}
       {items.map((item) => (
         <section
           key={item.id}
+          id={`item-${item.actionId}`}
           title={item.description || item.title}
           tabIndex={0}
           className="rounded-lg border bg-card p-4 outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring"

@@ -60,7 +60,14 @@ export async function sendSsmaAccidentAlertEmail(input: SsmaAccidentAlertInput) 
       responsibleName: "",
       specialistLabel: "Especialista SSMA",
       openUrl: input.accUrl,
+      // Acidente: não há rota de e-mail para tratar o registro; os botões ficam desativados com o motivo (nada é simulado).
       actions: {},
+      unavailableReasons: {
+        RESOLVIDO: "Sem atalho por e-mail: trate em RESPONDER AO ACC.",
+        EM_ANDAMENTO: "Sem atalho por e-mail: trate em RESPONDER AO ACC.",
+        ENVIAR_PARA: "Sem atalho por e-mail: trate em RESPONDER AO ACC.",
+        ESPECIALISTA: "Consulta ao especialista indisponível para acidente.",
+      },
       details: [
         { label: "Funcionário", value: input.employeeName },
         { label: "Classificação", value: input.leaveClassification },

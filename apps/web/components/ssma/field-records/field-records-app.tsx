@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@axion/db/browser";
 import { AlertTriangle, CheckCircle2, CloudOff, CloudUpload, Plus, RefreshCw, Trash2, WifiOff } from "lucide-react";
 import { SsmaBottomNav, SsmaHeader, type SsmaTab } from "@/components/ssma/ssma-chrome";
@@ -13,6 +13,7 @@ import { isActionOverdue, mapFieldRecordRow, type FieldRecordRow, type FieldReco
 import type { useFieldQueue } from "@/lib/ssma/field-records/use-field-queue";
 import { ACTION_STATUS_LABELS, FIELD_RECORD_CATEGORIES, FIELD_RECORD_KINDS, FIELD_RECORD_RISKS, PHOTO_STATE_LABELS, QUEUE_STATUS_LABELS, RISK_LABELS, photoSyncState, type PhotoSyncState, type QueuedRecord, type QueueStatus } from "@/lib/ssma/field-records/types";
 import { cn } from "@/lib/utils";
+import type { SsmaRecordLinkAction } from "@/lib/ssma/field-records/deep-link";
 import { describeNotification, groupNotificationRows, type NotificationLine, type NotificationSummaryRow } from "@/lib/ssma/field-notifications/view";
 
 export type FieldProject = OfflineContext["projects"][number];
@@ -65,6 +66,8 @@ export function FieldRecordsApp({
   onHome,
   onSignOut,
   initialServerRecords,
+  initialRecordId = null,
+  initialRecordAction = null,
 }: {
   /** Fila do aparelho (um único hook por tela, criado pelo componente pai). */
   queue: FieldQueueApi;
@@ -80,7 +83,14 @@ export function FieldRecordsApp({
   onSignOut?: () => void;
   /** Registros já conhecidos (ex.: vindos do servidor); a lista é atualizada pela rede em seguida. */
   initialServerRecords?: FieldRecordView[];
+  /** Registro aberto pelo link do e-mail; a ação só pré-seleciona o formulário (nada é gravado ao abrir). */
+  initialRecordId?: string | null;
+  initialRecordAction?: SsmaRecordLinkAction | null;
 }) {
+  // Link do e-mail ainda não resolvido (consumido uma única vez, na primeira carga do servidor).
+  const pendingLink = useRef<string | null>(initialRecordId);
+  const [linkedRecordId, setLinkedRecordId] = useState<string | null>(null);
+  const [linkMessage, setLinkMessage] = useState<string | null>(null);
   const [tab, setTab] = useState<SsmaTab>(initialTab);
   const [creating, setCreating] = useState(false);
   const [selected, setSelected] = useState<FieldRecordView | null>(null);
@@ -122,6 +132,29 @@ export function FieldRecordsApp({
         if (!summaryError) setNotifications(groupNotificationRows((summary ?? []) as NotificationSummaryRow[]));
       } catch { /* sem resumo agora */ }
       setSelected((current) => (current ? (views.find((view) => view.id === current.id) ?? current) : null));
+      const linked = pendingLink.current;
+      if (linked) {
+        pendingLink.current = null;
+        let target = views.find((view) => view.id === linked) ?? null;
+        if (!target) {
+          // Registro mais antigo que a lista carregada: busca só ele, nesta obra (o RLS decide o acesso).
+          const { data: single } = await supabase
+            .from("ssma_field_records")
+            .select(
+              "id, kind, category, description, location, occurred_at, client_created_at, received_at, risk_level, responsible_user_id, due_date, reported_by_user_id, ssma_corrective_actions(id, status, due_date, concluded_at, responsible_user_id), ssma_field_record_photos(id, purpose)"
+            )
+            .eq("project_id", project.id)
+            .eq("id", linked)
+            .maybeSingle();
+          target = single ? mapFieldRecordRow(single as unknown as FieldRecordRow, names) : null;
+        }
+        if (target) {
+          setLinkedRecordId(target.id);
+          setSelected(target);
+        } else {
+          setLinkMessage("O registro do link não foi encontrado nesta obra ou você não tem acesso a ele.");
+        }
+      }
     } catch {
       setServerError("Não foi possível carregar os registros do ACC agora.");
     } finally {
@@ -169,11 +202,12 @@ export function FieldRecordsApp({
       ) : null}
       {queue.storageError ? <p role="alert" className="bg-red-100 px-4 py-2 text-sm font-bold text-red-800">{queue.storageError}</p> : null}
       {queue.message ? <p role="status" className="bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-800">{queue.message}</p> : null}
+      {linkMessage ? <p role="alert" className="bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">{linkMessage}</p> : null}
 
       {creating ? (
         <NewRecordForm projects={registrable} contextProjectId={project.id} online={online} onSave={handleSave} onCancel={() => setCreating(false)} />
       ) : selected ? (
-        <RecordDetail record={selected} notice={describeNotification(notifications.get(selected.id) ?? [])} userId={userId} projectId={project.id} canManage={project.canManage} isAdmin={project.isAdmin} canRegisterEsg={project.canRegisterEsg} online={online} names={names} onChanged={() => void loadServer()} />
+        <RecordDetail key={selected.id} record={selected} initialEvent={selected.id === linkedRecordId ? initialRecordAction : null} notice={describeNotification(notifications.get(selected.id) ?? [])} userId={userId} projectId={project.id} canManage={project.canManage} isAdmin={project.isAdmin} canRegisterEsg={project.canRegisterEsg} online={online} names={names} onChanged={() => void loadServer()} />
       ) : tab === "sync" ? (
         <SyncView items={queue.items} projectId={project.id} foreignPending={queue.foreignPending} syncing={queue.syncing} online={online} onRetry={() => void queue.runSync(true)} onDiscard={(id) => void queue.discard(id)} onPurge={() => void queue.purgeForeign()} />
       ) : tab === "perfil" ? (

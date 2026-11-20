@@ -199,7 +199,7 @@ MODELS.push({
     }),
 });
 
-const SSMA = { projectName: "WEG — Obra de Homologação", recipientName: "Carlos", category: "Proteção coletiva em altura", location: "Galpão C100", description: "Guarda-corpo ausente na plataforma.", occurredAt: "06/11/2026 10:43", reportedByName: "Fulano", accUrl: `${BASE}/p/ssma-registros`, dueDate: "06/11/2026", daysOverdue: 12, responsibleName: "Carlos", visibleCode: "2BF391C1" };
+const SSMA = { projectName: "WEG — Obra de Homologação", recipientName: "Carlos", category: "Proteção coletiva em altura", location: "Galpão C100", description: "Guarda-corpo ausente na plataforma.", occurredAt: "06/11/2026 10:43", reportedByName: "Fulano", accUrl: `${BASE}/${PROJECT}/ssma-registros`, recordLink: { baseUrl: BASE, projectId: PROJECT, recordId: "22222222-2222-4222-8222-222222222222" }, dueDate: "06/11/2026", daysOverdue: 12, responsibleName: "Carlos", visibleCode: "2BF391C1" };
 MODELS.push(
   { id: "09-ssma-acao-corretiva-atrasada-alto", title: "SSMA — ação corretiva em atraso (ALTO)", build: () => buildOperationalOverdueActionEmail({ ...SSMA, severity: "ALTA", takeover: { name: "Carlos", date: "18/11/2026" } }) },
   { id: "10-ssma-confirmacao-resposta-sem-status", title: "SSMA — confirmação de resposta (status não reconhecido)", build: () => buildSsmaReplyConfirmationEmail({ ...SSMA, originalSubject: "RES: [RISCO ALTO] ACC Ação corretiva SSMA em atraso", severity: "ALTA", statusLabel: ssmaStatusLabel("OTHER"), forecastLine: null, pendingLine: "Previsão de conclusão não informada", outOfOrder: false }) },

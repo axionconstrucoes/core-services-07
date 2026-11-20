@@ -1,6 +1,8 @@
-// REGRA: TODO alerta/e-mail operacional (qualquer área) sai com: quatro botões ATIVOS na ordem RESOLVIDO / EM ANDAMENTO /
-// ENVIAR PARA / ESPECIALISTA (cinza #6B7280 e laranja #C2410C), acesso "FALE COM A AXIA" COM a foto da AXIA embutida (CID),
-// e o logotipo oficial do ACC. A verificação é feita sobre o resultado FINAL (como o provider entrega), não só sobre o montador.
+// REGRA: TODO alerta/e-mail operacional (qualquer área) sai com os quatro botões na ordem RESOLVIDO / EM ANDAMENTO /
+// ENVIAR PARA / ESPECIALISTA, acesso "FALE COM A AXIA" COM a foto da AXIA embutida (CID) e o logotipo oficial do ACC.
+// Cada botão ATIVO leva à ocorrência específica e à ação correspondente (links distintos, nunca a lista genérica); botão sem
+// fluxo próprio fica no layout, DESATIVADO e com motivo específico (nunca simula a ação). A verificação é feita sobre o
+// resultado FINAL (como o provider entrega), não só sobre o montador.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { register } from "node:module";
@@ -27,7 +29,7 @@ const { applyVeraEmailHeader, loadVeraInlineImage, VERA_EMAIL_IMAGE_CID } = awai
 const { loadAccAlertLogos } = await import("../apps/web/lib/email/branding/load-acc-logo-inline-image.ts");
 
 const { images: logoImages, availability } = loadAccAlertLogos({ maroon: true, inverted: true }, webRoot);
-const SSMA = { projectName: "WEG", recipientName: "Carlos", category: "EPI", location: "Pátio", description: "d", occurredAt: "06/11/2026 10:43", reportedByName: "Fulano", accUrl: `${BASE}/p/ssma-registros`, dueDate: "06/11/2026", daysOverdue: 12, responsibleName: "Carlos", visibleCode: "2BF391C1" };
+const SSMA = { projectName: "WEG", recipientName: "Carlos", category: "EPI", location: "Pátio", description: "d", occurredAt: "06/11/2026 10:43", reportedByName: "Fulano", accUrl: `${BASE}/p/ssma-registros`, recordLink: { baseUrl: BASE, projectId: P, recordId: "22222222-2222-4222-8222-222222222222" }, dueDate: "06/11/2026", daysOverdue: 12, responsibleName: "Carlos", visibleCode: "2BF391C1" };
 const riskBase = { kind: "IMMEDIATE", changed: false, area: "ENGENHARIA", caseTitle: "t", reference: "r", summary: "s", impact: "i", originPath: "documentos/x", slaActionId: "a", deadlineLabel: "Prazo", deadlineAt: NOW, levelLabel: "Responsável", previousLevelLabel: null, responsibleName: "Ana", escalationReason: null, recommendation: "r", requiresAcknowledgment: true, requiresJustification: false };
 const ctx = { projectId: P, projectName: "WEG", recipientName: "Ana", baseUrl: BASE, timeZone: TZ, generatedAt: NOW, actionButtons: [], logos: availability };
 const item = (n, lvl) => ({ caseKey: `K:${n}`, riskLevel: lvl, area: "JURIDICO", title: "t" + n, reference: "R" + n, summary: "s", deadlineAt: NOW, responsibleName: "Ana", originPath: "x", slaActionId: null, state: "OPEN" });
@@ -50,12 +52,18 @@ const EMITTERS = [
   { id: "SSMA ação corretiva em atraso", build: () => ssma.buildOperationalOverdueActionEmail({ ...SSMA, severity: "ALTA" }) },
   { id: "SSMA confirmação de resposta", build: () => ssma.buildSsmaReplyConfirmationEmail({ ...SSMA, originalSubject: "x", severity: "ALTA", statusLabel: "Em andamento", forecastLine: null, pendingLine: null, outOfOrder: false }) },
   { id: "SSMA registro crítico", build: () => ssma.buildCriticalRecordEmail({ ...SSMA, severity: "CRITICA" }) },
-  // Emissores server-only (acidente SSMA, falha operacional, impacto de versão): mesmo montador, com openUrl como no código real.
+  // Emissores server-only (acidente SSMA, falha operacional, impacto de versão): mesmo montador; sem rota de e-mail para a
+  // ação, os botões saem desativados com motivo (a origem real é verificada abaixo, no código-fonte).
   ...["acidente SSMA", "falha operacional", "impacto de versão"].map((id) => ({
     id,
-    build: () => buildUniversalAlertEmail({ recipientName: null, logos: availability, footer: "f", occurrence: { code: "", projectName: "WEG", areaLabel: "x", severity: "ALTA", title: "t", description: "d", stateLabel: "e", responsibleName: "", specialistLabel: "x", openUrl: `${BASE}/acc`, actions: {} } }),
+    build: () => buildUniversalAlertEmail({ recipientName: null, logos: availability, footer: "f", occurrence: { code: "", projectName: "WEG", areaLabel: "x", severity: "ALTA", title: "t", description: "d", stateLabel: "e", responsibleName: "", specialistLabel: "x", openUrl: `${BASE}/acc`, actions: {}, unavailableReasons: { RESOLVIDO: "Sem atalho.", EM_ANDAMENTO: "Sem atalho.", ENVIAR_PARA: "Sem atalho.", ESPECIALISTA: "Sem consulta." } } }),
   })),
 ];
+
+// Botões ATIVOS esperados por ocorrência (o restante sai desativado, com motivo). Lacunas conhecidas (sem fluxo no ACC):
+// SSMA não tem ENVIAR PARA nem ESPECIALISTA; resumo semanal não tem ESPECIALISTA; SLA, acidente, falha técnica e impacto
+// de versão não têm rota de e-mail para a ação.
+const ACTIVE = { "escalonamento de SLA": 0, "resumo semanal": 3, "SSMA ação corretiva em atraso": 2, "SSMA confirmação de resposta": 2, "SSMA registro crítico": 2, "acidente SSMA": 0, "falha operacional": 0, "impacto de versão": 0 };
 
 let failed = 0;
 const check = (name, fn) => {
@@ -63,7 +71,7 @@ const check = (name, fn) => {
 };
 
 for (const e of EMITTERS) {
-  check(`${e.id}: quatro botões ativos + AXIA (acesso e foto) + logotipo ACC`, () => {
+  check(`${e.id}: quatro botões (${ACTIVE[e.id] ?? 4} ativos por ocorrência, com link próprio) + AXIA (acesso e foto) + logotipo ACC`, () => {
     const built = e.build();
     assert.ok(built.html, "sem HTML");
     // Resultado FINAL: como o provider de e-mail entrega.
@@ -75,9 +83,15 @@ for (const e of EMITTERS) {
     const pos = BUTTONS.map((l) => html.indexOf(`>${l}<`));
     assert.ok(pos.every((i) => i > 0), "faltam botões: " + pos.join());
     assert.deepEqual(pos, [...pos].sort((a, b) => a - b), "ordem dos botões");
-    assert.ok(!/aria-disabled="true"/.test(html), "há botão desativado");
-    for (const l of BUTTONS) assert.match(html, new RegExp(`<a href="https?://[^"]+"[^>]*>[^<]*${l}<`), `botão ${l} sem link`);
-    assert.ok(html.includes("#6B7280") && html.includes("#C2410C"), "cores dos botões");
+    const boxes = Math.max(1, (html.match(/>ESPECIALISTA</g) ?? []).length);
+    const expected = ACTIVE[e.id] ?? 4;
+    const active = [...html.matchAll(new RegExp(`<a href="(https?://[^"]+)"[^>]*>[^<]*(?:${BUTTONS.join("|")})<`, "g"))].map((m) => m[1]);
+    assert.equal(active.length, expected * boxes, `botões ativos: ${active.length}`);
+    assert.equal(new Set(active).size, active.length, "cada botão ativo leva à sua própria ação (links distintos)");
+    assert.ok(!active.some((u) => /ssma-registros/.test(u)), "nenhum botão leva à lista genérica");
+    assert.equal((html.match(/aria-disabled="true"/g) ?? []).length, (4 - expected) * boxes, "desativados");
+    assert.ok(!html.includes("Indisponível no momento."), "todo botão desativado tem motivo específico");
+    if (expected > 0) assert.ok(html.includes("#6B7280"), "cor dos botões de tratamento");
     // Acesso à AXIA + foto da AXIA embutida.
     assert.ok(html.includes("FALE COM A AXIA"), "sem acesso à AXIA");
     assert.match(html, /data-vera-header="1"/);
@@ -95,10 +109,11 @@ check("providers aplicam o cabeçalho da AXIA a TODO envio (gmail e fake)", () =
     assert.match(readFileSync(path.join(webRoot, "lib/email", f), "utf8"), /applyVeraEmailHeader\(/, f);
   }
 });
-check("emissores server-only passam openUrl (botões ativos) e usam o template universal", () => {
+check("emissores server-only usam o template universal, com motivo explícito nos botões sem rota de e-mail", () => {
   for (const f of ["send-ssma-accident-alert-email.ts", "send-system-health-alert-email.ts", "send-version-impact-review-email.ts"]) {
     const s = readFileSync(path.join(webRoot, "lib/email", f), "utf8");
     assert.ok(/buildUniversalAlertEmail\(/.test(s) && /openUrl:/.test(s), f);
+    for (const a of ["RESOLVIDO", "EM_ANDAMENTO", "ENVIAR_PARA", "ESPECIALISTA"]) assert.match(s, new RegExp(`${a}: "[^"]+"`), `${f}: motivo de ${a}`);
   }
 });
 check("imagem da AXIA está no repositório e no tracing da Vercel", () => {

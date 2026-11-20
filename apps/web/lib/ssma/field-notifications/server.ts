@@ -187,6 +187,7 @@ export async function notifyCriticalRecord(admin: Admin, recordId: string, deps:
       projectName, visibleCode: recordId.slice(0, 8).toUpperCase(), recipientName: recipient.name, category: String(record.category), location: String(record.location), description: String(record.description),
       occurredAt: fmtDateTime(record.occurred_at as string), reportedByName: nameOf(record.reported_by_user_id as string) ?? "Usuário",
       responsibleName: nameOf(record.responsible_user_id as string | null), accUrl: `${getAppBaseUrl()}/${projectId}/ssma-registros`,
+      recordLink: { baseUrl: getAppBaseUrl(), projectId, recordId },
     }),
   });
 }
@@ -308,6 +309,7 @@ export async function sweepFieldNotifications(
         projectName, visibleCode: action.id.slice(0, 8).toUpperCase(), category: String(record.category), location: String(record.location), description: String(record.description),
         occurredAt: fmtDateTime(record.occurred_at as string), reportedByName: nameOf(record.reported_by_user_id as string) ?? "Usuário",
         accUrl: `${getAppBaseUrl()}/${action.project_id}/ssma-registros`, dueDate: fmtDate(dueDate), daysOverdue: days, responsibleName,
+        recordLink: { baseUrl: getAppBaseUrl(), projectId: action.project_id, recordId: record.id as string },
       };
       add(result.overdueActions, await notifyEvent(deps, {
         key: { projectId: action.project_id, recordId: record.id as string, actionId: action.id, event: "ACTION_OVERDUE", eventDate: dueDate },
@@ -398,6 +400,7 @@ export async function sendPendingSsmaReplyConfirmations(admin: Admin, mailer: Ma
       severity: typeof loaded?.record.risk_level === "string" ? ssmaSeverityOf(loaded.record.risk_level) : null,
       statusLabel: item.statusLabel, forecastLine: item.forecastLine, pendingLine: item.pendingLine, outOfOrder: item.outOfOrder,
       accUrl: `${getAppBaseUrl()}/${item.projectId}/ssma-registros`,
+      recordLink: item.recordId ? { baseUrl: getAppBaseUrl(), projectId: item.projectId, recordId: item.recordId } : null,
     });
     try {
       const result = await mailer.deliver({

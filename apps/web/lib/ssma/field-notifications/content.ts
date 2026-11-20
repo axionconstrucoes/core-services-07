@@ -3,6 +3,7 @@
 
 import { alertRiskLevelLabels, buildContractAlertSubject } from "@/lib/email/templates/contract-alert-template";
 import { buildUniversalAlertEmail } from "@/lib/email/templates/universal-alert-template";
+import { buildSsmaRecordUrl, type SsmaRecordLinkTarget } from "@/lib/ssma/field-records/deep-link";
 import type { MailContent } from "./core";
 
 export interface FieldNotificationContext {
@@ -14,6 +15,8 @@ export interface FieldNotificationContext {
   occurredAt: string; // já formatado (pt-BR, America/Sao_Paulo)
   reportedByName: string;
   accUrl: string;
+  /** Registro de SSMA desta mensagem: os botões abrem ESTE registro (sem ele, ficam desativados com o motivo). */
+  recordLink?: SsmaRecordLinkTarget | null;
   visibleCode?: string;
   /** Somente ACTION_OVERDUE */
   dueDate?: string; // já formatado dd/mm/aaaa
@@ -51,7 +54,7 @@ function build(kind: "CRITICAL_RECORD" | "ACTION_OVERDUE", ctx: FieldNotificatio
     lead,
     ...facts.map(([k, v]) => `${k}: ${v}`),
     "",
-    `ABRIR NO ACC: ${ctx.accUrl}`,
+    `ABRIR NO ACC: ${ssmaOpenUrl(ctx)}`,
     "",
     footer,
   ].join("\n");
@@ -92,12 +95,34 @@ interface SsmaAlertDetails {
   replyInstruction?: string;
 }
 
+/** Motivos exibidos nos botões sem fluxo próprio no ACC (o botão fica no layout, desativado; nada é simulado). */
+export const SSMA_FORWARD_UNAVAILABLE = "Encaminhar ação corretiva de SSMA ainda não existe no ACC. Responda a este e-mail indicando o novo responsável.";
+export const SSMA_SPECIALIST_UNAVAILABLE = "Consulta ao especialista de SSMA ainda não disponível no ACC.";
+export const SSMA_RECORD_UNKNOWN = "Registro de SSMA não identificado nesta mensagem. Use ABRIR NO ACC.";
+
+/** Endereço do registro desta mensagem no aplicativo SSMA; sem registro identificado, a lista de registros da obra. */
+export function ssmaOpenUrl(ctx: { accUrl: string; recordLink?: SsmaRecordLinkTarget | null }): string {
+  return ctx.recordLink ? buildSsmaRecordUrl(ctx.recordLink) : ctx.accUrl;
+}
+
+/**
+ * Linhas de fatos que a ocorrência já exibe em campo próprio (cabeçalho com a obra, Ocorrência, Responsável atual,
+ * Prazo original, Estado). Continuam no texto simples, mas não se repetem no HTML.
+ */
+function withoutDedicatedFields(facts: Array<[string, string]>, ctx: { responsibleName?: string | null; dueDate?: string | null }): Array<[string, string]> {
+  const dedicated = new Set(["Obra", "Ação corretiva", "Status registrado"]);
+  if (ctx.responsibleName) for (const label of ["Responsável", "Responsável atual"]) dedicated.add(label);
+  if (ctx.dueDate) for (const label of ["Prazo da ação", "Prazo original da ação"]) dedicated.add(label);
+  return facts.filter(([label]) => !dedicated.has(label));
+}
+
 export function renderSsmaAlert(
   content: Pick<MailContent, "subject" | "text" | "operational">,
   ctx: {
     projectName: string;
     recipientName: string | null;
     accUrl: string;
+    recordLink?: SsmaRecordLinkTarget | null;
     severity: SsmaSeverity | null;
     visibleCode: string;
     responsibleName?: string | null;
@@ -105,7 +130,8 @@ export function renderSsmaAlert(
   },
   details: SsmaAlertDetails
 ): MailContent {
-  const { severity } = ctx;
+  const { severity, recordLink } = ctx;
+  const openUrl = ssmaOpenUrl(ctx);
   const { html, logoNeeds } = buildUniversalAlertEmail({
     recipientName: ctx.recipientName,
     logos: { maroon: true, inverted: true },
@@ -122,15 +148,22 @@ export function renderSsmaAlert(
       responsibleName: ctx.responsibleName ?? "",
       originalDeadline: ctx.dueDate,
       specialistLabel: "Especialista SSMA",
-      openUrl: ctx.accUrl,
-      // Os quatro botões levam ao registro de SSMA no ACC (exige login; abrir o link NÃO altera estado nenhum):
-      // a ação em si é registrada lá, com confirmação, evidência e auditoria.
-      actions: { RESOLVIDO: ctx.accUrl, EM_ANDAMENTO: ctx.accUrl, ENVIAR_PARA: ctx.accUrl, ESPECIALISTA: ctx.accUrl },
-      unavailableReasons: {},
-      details: details.facts.map(([label, value]) => ({ label, value })),
+      openUrl,
+      // RESOLVIDO e EM ANDAMENTO abrem ESTE registro no aplicativo SSMA com o formulário (concluir / registrar andamento)
+      // pré-selecionado. Exige login; abrir o link NÃO altera estado: a ação é registrada lá, com confirmação, evidência e
+      // auditoria. ENVIAR PARA e ESPECIALISTA não têm fluxo de SSMA no ACC: ficam desativados, com o motivo.
+      actions: recordLink
+        ? { RESOLVIDO: buildSsmaRecordUrl(recordLink, "CONCLUIDA"), EM_ANDAMENTO: buildSsmaRecordUrl(recordLink, "ANDAMENTO") }
+        : {},
+      unavailableReasons: {
+        ...(recordLink ? {} : { RESOLVIDO: SSMA_RECORD_UNKNOWN, EM_ANDAMENTO: SSMA_RECORD_UNKNOWN }),
+        ENVIAR_PARA: SSMA_FORWARD_UNAVAILABLE,
+        ESPECIALISTA: SSMA_SPECIALIST_UNAVAILABLE,
+      },
+      details: withoutDedicatedFields(details.facts, ctx).map(([label, value]) => ({ label, value })),
       notices: details.notices,
       replyInstruction: details.replyInstruction,
-      extraLinks: [{ label: "ABRIR NO ACC", url: ctx.accUrl }],
+      extraLinks: [{ label: "ABRIR NO ACC", url: openUrl }],
     },
   });
   return { ...content, html, logoNeeds };
@@ -176,7 +209,7 @@ export function buildOperationalOverdueActionEmail(ctx: OperationalOverdueContex
     "COMO RESPONDER",
     instruction,
     "",
-    `ABRIR NO ACC: ${ctx.accUrl}`,
+    `ABRIR NO ACC: ${ssmaOpenUrl(ctx)}`,
     "",
     footer,
   ].join("\n");
@@ -204,6 +237,7 @@ export interface SsmaReplyConfirmationContext {
   pendingLine: string | null;
   outOfOrder: boolean;
   accUrl: string;
+  recordLink?: SsmaRecordLinkTarget | null;
 }
 
 export function buildSsmaReplyConfirmationEmail(ctx: SsmaReplyConfirmationContext): MailContent {
@@ -235,13 +269,13 @@ export function buildSsmaReplyConfirmationEmail(ctx: SsmaReplyConfirmationContex
     ...paragraphs,
     footer,
     "",
-    `ABRIR NO ACC: ${ctx.accUrl}`,
+    `ABRIR NO ACC: ${ssmaOpenUrl(ctx)}`,
   ].join("\n");
   return renderSsmaAlert(
     { subject, text, operational: true },
     { ...ctx, severity: ctx.severity ?? null },
     { title: "RESPOSTA REGISTRADA · AÇÃO CORRETIVA SSMA", description: `${ctx.category} — ${ctx.location}`,
-      // "Status registrado" já aparece no campo Estado: não repetir na lista de fatos.
-      stateLabel: ctx.statusLabel, facts: rows.filter(([k]) => k !== "Status registrado"), notices: paragraphs, footer }
+      // "Obra", "Ação corretiva" e "Status registrado" já aparecem no cabeçalho, na Ocorrência e no Estado (filtrados no HTML).
+      stateLabel: ctx.statusLabel, facts: rows, notices: paragraphs, footer }
   );
 }

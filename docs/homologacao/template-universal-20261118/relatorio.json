@@ -1,5 +1,5 @@
 {
-  "geradoEm": "2026-11-19T13:53:25.053Z",
+  "geradoEm": "2026-11-20T02:24:41.608Z",
   "modelos": [
     {
       "id": "01-critico-engenharia",
@@ -131,7 +131,7 @@
       "id": "01-critico-engenharia",
       "viewport": "desktop",
       "file": "img/01-critico-engenharia-desktop.png",
-      "height": 1295,
+      "height": 1269,
       "horizontalScroll": false
     },
     {
@@ -145,7 +145,7 @@
       "id": "02-alto-ssma",
       "viewport": "desktop",
       "file": "img/02-alto-ssma-desktop.png",
-      "height": 1267,
+      "height": 1241,
       "horizontalScroll": false
     },
     {
@@ -159,7 +159,7 @@
       "id": "03-medio-planejamento",
       "viewport": "desktop",
       "file": "img/03-medio-planejamento-desktop.png",
-      "height": 1293,
+      "height": 1269,
       "horizontalScroll": false
     },
     {
@@ -173,7 +173,7 @@
       "id": "04-baixo-contratos",
       "viewport": "desktop",
       "file": "img/04-baixo-contratos-desktop.png",
-      "height": 1269,
+      "height": 1245,
       "horizontalScroll": false
     },
     {
@@ -215,7 +215,7 @@
       "id": "07-contrato-critico-individual",
       "viewport": "desktop",
       "file": "img/07-contrato-critico-individual-desktop.png",
-      "height": 1175,
+      "height": 1151,
       "horizontalScroll": false
     },
     {
@@ -243,42 +243,42 @@
       "id": "09-ssma-acao-corretiva-atrasada-alto",
       "viewport": "desktop",
       "file": "img/09-ssma-acao-corretiva-atrasada-alto-desktop.png",
-      "height": 1289,
+      "height": 1221,
       "horizontalScroll": false
     },
     {
       "id": "09-ssma-acao-corretiva-atrasada-alto",
       "viewport": "celular",
       "file": "img/09-ssma-acao-corretiva-atrasada-alto-celular.png",
-      "height": 1931,
+      "height": 2015,
       "horizontalScroll": false
     },
     {
       "id": "10-ssma-confirmacao-resposta-sem-status",
       "viewport": "desktop",
       "file": "img/10-ssma-confirmacao-resposta-sem-status-desktop.png",
-      "height": 973,
+      "height": 900,
       "horizontalScroll": false
     },
     {
       "id": "10-ssma-confirmacao-resposta-sem-status",
       "viewport": "celular",
       "file": "img/10-ssma-confirmacao-resposta-sem-status-celular.png",
-      "height": 1495,
+      "height": 1531,
       "horizontalScroll": false
     },
     {
       "id": "11-ssma-confirmacao-resposta-em-andamento",
       "viewport": "desktop",
       "file": "img/11-ssma-confirmacao-resposta-em-andamento-desktop.png",
-      "height": 903,
+      "height": 900,
       "horizontalScroll": false
     },
     {
       "id": "11-ssma-confirmacao-resposta-em-andamento",
       "viewport": "celular",
       "file": "img/11-ssma-confirmacao-resposta-em-andamento-celular.png",
-      "height": 1377,
+      "height": 1413,
       "horizontalScroll": false
     },
     {

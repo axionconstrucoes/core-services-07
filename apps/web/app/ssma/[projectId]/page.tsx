@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 import { SsmaFieldApp } from "@/components/ssma/ssma-field-app";
 import { getProject, getProjectMembers, getProjects } from "@/lib/data";
 import { buildEsgSsmaProjectFolderName } from "@/lib/integrations/esg-ssma/drive-source-policy";
+import { parseSsmaRecordLink } from "@/lib/ssma/field-records/deep-link";
 
 export const metadata: Metadata = { title: "Aplicativo SSMA/ESG" };
 
@@ -29,8 +30,16 @@ function currentDateTimeInSaoPaulo(): string {
   return `${value.year}-${value.month}-${value.day}T${value.hour}:${value.minute}`;
 }
 
-export default async function SsmaAppPage({ params }: { params: Promise<{ projectId: string }> }) {
+export default async function SsmaAppPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ projectId: string }>;
+  searchParams: Promise<{ registro?: string | string[]; acao?: string | string[] }>;
+}) {
   const { projectId } = await params;
+  // Link do e-mail (?registro=&acao=): abre o registro e só pré-seleciona o formulário; nada é gravado ao abrir.
+  const recordLink = parseSsmaRecordLink(await searchParams);
   const supabase = await createSupabaseServerClient();
   const [{ data: authData }, project, members] = await Promise.all([
     supabase.auth.getUser(),
@@ -105,6 +114,8 @@ export default async function SsmaAppPage({ params }: { params: Promise<{ projec
       projectLabel={projectLabel(project)}
       technicianLabel={technicianLabel}
       initialDateTime={currentDateTimeInSaoPaulo()}
+      initialRecordId={recordLink.recordId}
+      initialRecordAction={recordLink.action}
     />
   );
 }

@@ -19,6 +19,15 @@ export interface WeeklyAlertDigestEmailInput {
   logos?: AlertLogoAvailability;
 }
 
+/** Respostas do resumo que os botões do e-mail pré-selecionam (a resposta só é gravada no envio do formulário). */
+export type WeeklyDigestLinkResponse = "RESOLVED" | "STUDYING" | "FORWARDED";
+
+/** Link do item no formulário do resumo: abre a página e PRÉ-SELECIONA a resposta deste item (nada é gravado ao abrir). */
+export function buildWeeklyDigestItemUrl(responseUrl: string, actionId: string, response: WeeklyDigestLinkResponse): string {
+  const separator = responseUrl.includes("?") ? "&" : "?";
+  return `${responseUrl}${separator}item=${encodeURIComponent(actionId)}&resposta=${response}#item-${encodeURIComponent(actionId)}`;
+}
+
 export function sortWeeklyDigestItems(items: WeeklyAlertDigestItem[]): WeeklyAlertDigestItem[] {
   return [...items].sort((a, b) => {
     const byRisk = (a.riskLevel === "MEDIUM" ? 0 : 1) - (b.riskLevel === "MEDIUM" ? 0 : 1);
@@ -56,7 +65,14 @@ export function buildWeeklyAlertDigestEmail(input: WeeklyAlertDigestEmailInput) 
       stateLabel: "Aguardando resposta",
       specialistLabel: "Especialista da área",
       openUrl: input.responseUrl,
-      actions: {},
+      // Cada botão abre o formulário do resumo com a resposta DESTE item pré-selecionada (Resolvido / Estudando solução /
+      // Direcionar para…); a gravação exige o envio do formulário, com login. O resumo não tem consulta ao especialista.
+      actions: {
+        RESOLVIDO: buildWeeklyDigestItemUrl(input.responseUrl, item.actionId, "RESOLVED"),
+        EM_ANDAMENTO: buildWeeklyDigestItemUrl(input.responseUrl, item.actionId, "STUDYING"),
+        ENVIAR_PARA: buildWeeklyDigestItemUrl(input.responseUrl, item.actionId, "FORWARDED"),
+      },
+      unavailableReasons: { ESPECIALISTA: "Consulta ao especialista indisponível no resumo semanal." },
     })),
   });
 

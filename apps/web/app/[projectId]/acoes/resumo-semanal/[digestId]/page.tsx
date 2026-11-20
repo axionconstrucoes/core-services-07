@@ -11,12 +11,18 @@ import { WeeklyDigestForm } from "./weekly-digest-form";
 
 export const metadata: Metadata = { title: "Resumo semanal de alertas" };
 
+const LINK_RESPONSES = ["RESOLVED", "STUDYING", "FORWARDED"] as const;
+
 export default async function WeeklyDigestPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ projectId: string; digestId: string }>;
+  searchParams: Promise<{ item?: string | string[]; resposta?: string | string[] }>;
 }) {
   const { projectId, digestId } = await params;
+  // Botão do e-mail (?item=&resposta=): só pré-seleciona a resposta do item; nada é gravado ao abrir.
+  const query = await searchParams;
   const [digest, members] = await Promise.all([
     getWeeklyAlertDigest(projectId, digestId),
     getProjectMembers(projectId),
@@ -63,9 +69,20 @@ export default async function WeeklyDigestPage({
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
             Selecione uma opção para cada alerta. O sistema só aceitará o envio quando todos estiverem respondidos.
           </div>
-          <WeeklyDigestForm digestId={digest.id} projectId={projectId} items={digest.items} members={activeMembers} />
+          <WeeklyDigestForm digestId={digest.id} projectId={projectId} items={digest.items} members={activeMembers} initialAnswer={initialAnswerFrom(query, digest.items)} />
         </>
       )}
     </div>
   );
+}
+
+function initialAnswerFrom(
+  query: { item?: string | string[]; resposta?: string | string[] },
+  items: Array<{ actionId: string }>
+): { actionId: string; response: (typeof LINK_RESPONSES)[number] } | null {
+  const actionId = typeof query.item === "string" ? query.item : "";
+  const response = typeof query.resposta === "string" ? query.resposta.toUpperCase() : "";
+  if (!items.some((item) => item.actionId === actionId)) return null;
+  const match = LINK_RESPONSES.find((value) => value === response);
+  return match ? { actionId, response: match } : null;
 }

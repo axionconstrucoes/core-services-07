@@ -58,7 +58,14 @@ export function buildSlaEscalationEmail(input: SlaEscalationEmailInput) {
       originalDeadline: input.originalDeadline,
       specialistLabel: "Especialista da área",
       openUrl: input.eventUrl,
+      // Sem rota de e-mail para tratar a ação de SLA: os botões ficam desativados com o motivo; o tratamento é feito na ação, no ACC.
       actions: {},
+      unavailableReasons: {
+        RESOLVIDO: "Sem atalho por e-mail: trate em Abrir ação no ACC.",
+        EM_ANDAMENTO: "Sem atalho por e-mail: trate em Abrir ação no ACC.",
+        ENVIAR_PARA: "Sem atalho por e-mail: trate em Abrir ação no ACC.",
+        ESPECIALISTA: "Consulta ao especialista indisponível no escalonamento de SLA.",
+      },
       details,
       replyInstruction: "Você também pode responder diretamente a este e-mail.",
       extraLinks: [

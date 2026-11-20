@@ -49,7 +49,14 @@ export async function sendVersionImpactReviewEmail(input: {
       responsibleName: "",
       specialistLabel: "Especialista Planejamento",
       openUrl: input.accUrl,
+      // Revisão de impacto de nova versão: o tratamento é feito na tela de Integrações; os botões ficam desativados com o motivo.
       actions: {},
+      unavailableReasons: {
+        RESOLVIDO: "Sem atalho por e-mail: revise em RESPONDER AO ACC.",
+        EM_ANDAMENTO: "Sem atalho por e-mail: revise em RESPONDER AO ACC.",
+        ENVIAR_PARA: "Sem atalho por e-mail: revise em RESPONDER AO ACC.",
+        ESPECIALISTA: "Consulta ao especialista indisponível para revisão de versão.",
+      },
       details,
       extraLinks: [{ label: "RESPONDER AO ACC", url: input.accUrl }],
     },

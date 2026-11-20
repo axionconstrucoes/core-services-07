@@ -37,6 +37,7 @@ import { sanitizeFileName } from "@/lib/documents/multi-upload/queue-core";
 import { cn } from "@/lib/utils";
 import { ProjectSelect } from "@/components/ssma/project-select";
 import { isAuthorizedProject, resolveInitialProject } from "@/lib/ssma/project-selection";
+import type { SsmaRecordLinkAction } from "@/lib/ssma/field-records/deep-link";
 
 type SsmaFieldAppProps = {
   projectId: string;
@@ -53,6 +54,9 @@ type SsmaFieldAppRootProps = SsmaFieldAppProps & {
   project: FieldProject;
   /** Obras em que o usuário pode registrar (inclui a atual). Editável no campo "Obra". */
   projects: FieldProject[];
+  /** Registro aberto direto pelo link do e-mail (?registro=); a ação (?acao=) só pré-seleciona o formulário. */
+  initialRecordId?: string | null;
+  initialRecordAction?: SsmaRecordLinkAction | null;
 };
 
 type CheckState = Record<string, SsmaChecklistState | undefined>;
@@ -650,10 +654,10 @@ function DoneIcon() {
   );
 }
 
-export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initialDateTime, initialCompleted = [], userId, project, projects }: SsmaFieldAppRootProps) {
+export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initialDateTime, initialCompleted = [], userId, project, projects, initialRecordId = null, initialRecordAction = null }: SsmaFieldAppRootProps) {
   const router = useRouter();
   const queue = useFieldQueue(userId);
-  const [view, setView] = useState<"home" | "field">("home");
+  const [view, setView] = useState<"home" | "field">(initialRecordId ? "field" : "home");
   const [fieldTab, setFieldTab] = useState<SsmaTab>("registros");
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
   const { ready, rememberContext } = queue;
@@ -686,6 +690,8 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
         project={project}
         projects={projects}
         initialTab={fieldTab}
+        initialRecordId={initialRecordId}
+        initialRecordAction={initialRecordAction}
         onHome={() => setView("home")}
         onSignOut={signOut}
       />
