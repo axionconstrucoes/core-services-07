@@ -2,7 +2,7 @@
 // controle otimista de concorrência); nenhuma tabela é gravada diretamente. Não existe operação de envio real nem de ligar a trava
 // de envio: o único caminho "de envio" é `draft_attempt_send`, que apenas REGISTRA uma tentativa e devolve o bloqueio.
 // Módulo puro (sem "use server", sem rede): a Server Action (app/[projectId]/seguros/actions.ts) o consome; os testes o exercitam em Node.
-import { hasInsuranceLevel, type InsuranceLevel } from "./permissions";
+import { claimStageLevel, hasInsuranceLevel, type InsuranceLevel } from "./permissions";
 
 export type InsuranceOp =
   | "policy_create"
@@ -121,6 +121,8 @@ export function levelForOp(op: InsuranceOp, input?: Pick<InsuranceActionInput, "
       return "MANAGE";
     case "endorsement_advance":
       return input?.args?.toState === "EM_ANALISE" ? "REGISTER" : "MANAGE";
+    case "claim_advance":
+      return claimStageLevel(typeof input?.args?.toStage === "string" ? input.args.toStage : null);
     case "draft_approve":
       return "ADMIN";
     default:

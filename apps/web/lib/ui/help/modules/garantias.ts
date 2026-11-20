@@ -5,7 +5,7 @@
 import type { FeatureHelpDefinition, HelpElementKind } from "../types";
 
 const V = "2026-11-20";
-const REG = "Registrar/editar: Administrador, Gerente, Gestor e Colaborador. Perfil Leitura apenas consulta. A autoridade é o banco (RLS por projeto); a tela só reflete.";
+const REG = "Registrar/editar: Administrador, Gerente, Gestor e Colaborador. Perfil Leitura apenas consulta. A autoridade é o banco (RLS por projeto, regra única acc_project_tier); a tela só reflete.";
 const MAN = "Exige perfil de gestão: Administrador, Gerente ou Gestor. A autoridade é o banco (RLS e RPC).";
 
 type Extra = Partial<Omit<FeatureHelpDefinition, "id" | "title" | "shortDescription" | "description" | "kind" | "module" | "version">>;

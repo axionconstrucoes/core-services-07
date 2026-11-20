@@ -7,7 +7,7 @@ import type { FeatureHelpDefinition } from "../types";
 const D = { module: "fontes", version: "2026-11-20" } as const;
 
 const PERMISSAO_REGISTRO =
-  "Registrar exige papel ADMINISTRADOR, GERENTE, GESTOR ou COLABORADOR ativo na obra (função quality_can_register); LEITURA apenas consulta. A tela não é a autoridade: o banco (RLS e RPC) recusa quem não tem o papel.";
+  "Registrar exige papel ADMINISTRADOR, GERENTE, GESTOR ou COLABORADOR ativo na obra (função quality_can_register, regra única acc_project_tier); LEITURA apenas consulta. A tela não é a autoridade: o banco (RLS e RPC) recusa quem não tem o papel.";
 
 export const FONTES_HELP: FeatureHelpDefinition[] = [
   {

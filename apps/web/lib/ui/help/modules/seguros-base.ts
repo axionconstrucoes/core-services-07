@@ -3,9 +3,10 @@ import type { FeatureHelpDefinition, HelpElementKind } from "../types";
 
 export const SEGUROS_VERSION = "2026-11-20";
 
-export const P_READ = "Qualquer membro ativo do projeto consulta (nível READ de insurance_access). A interface espelha a regra, mas a autoridade é a RLS do banco.";
+export const P_READ = "Qualquer membro ativo do projeto consulta (nível READ de insurance_access, que delega a acc_project_tier). A interface espelha a regra, mas a autoridade é a RLS do banco.";
 export const P_REGISTER = "Administrador, Gestor, Gerente ou Colaborador (nível REGISTER). Perfil de leitura apenas consulta; o banco recusa a escrita mesmo que a tela fosse burlada.";
 export const P_MANAGE = "Administrador, Gestor ou Gerente (nível MANAGE). Colaborador e Leitura não executam; o banco recusa a escrita mesmo que a tela fosse burlada.";
+export const P_CLAIM_STAGE = "Etapas operacionais (aviso, reclamação, documentação complementar, regulação): Administrador, Gestor, Gerente ou Colaborador. Decisão da seguradora, negativa, contestação, indenização/cumprimento e encerramento: Administrador, Gestor ou Gerente (nível MANAGE) — Colaborador e Leitura não registram essas etapas. Regra única: acc_project_tier.";
 export const P_ADMIN = "Somente Administrador (nível ADMIN). Os demais perfis veem o botão desabilitado e o banco recusa o pedido.";
 
 export const HUMAN = "Toda conclusão, minuta ou comparação exibida é apoio à decisão e exige revisão humana (jurídico/seguros) antes de qualquer posição ou comunicação.";

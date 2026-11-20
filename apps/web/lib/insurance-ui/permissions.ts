@@ -26,6 +26,14 @@ export function hasInsuranceLevel(permission: string | null | undefined, level: 
   return tierAtLeast(projectTierFor(permission), level);
 }
 
+/** Etapas do sinistro que registram DECISÃO/encerramento = ato de gestão (espelha insurance_claim_advance, 20261123102000). */
+export const INSURANCE_CLAIM_MANAGE_STAGES: readonly string[] = ["DECISAO", "NEGATIVA", "CONTESTACAO", "INDENIZACAO_CUMPRIMENTO", "ENCERRADO"];
+
+/** Nível exigido para avançar o sinistro até a etapa informada. */
+export function claimStageLevel(toStage: string | null | undefined): InsuranceLevel {
+  return toStage && INSURANCE_CLAIM_MANAGE_STAGES.includes(toStage) ? "MANAGE" : "REGISTER";
+}
+
 export interface InsuranceCapabilities {
   read: boolean;
   register: boolean;

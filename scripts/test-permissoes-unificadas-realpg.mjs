@@ -231,6 +231,7 @@ try {
   const POL = { modality: "SEGURO_GARANTIA_EXECUTANTE", insurer_name: "Seguradora Sintética SA", policy_number: "PERM-001", coverage_start: "2026-01-01", coverage_end: "2027-01-01", max_amount: 1000000, status: "VIGENTE" };
   const doc = async () => (await su.query("insert into public.documents (project_id,kind,title) values ($1,'ESPECIFICACAO','Doc sintético') returning id", [PA])).rows[0].id;
   const mkPolicy = async () => rpc(await admC(), "insurance_policy_create", PA, JSON.stringify({ ...POL, policy_number: `P-${uniq()}`, source_document_id: await doc() }));
+  const mkClaim = async (stage = "AVISO") => rpc(await admC(), "insurance_claim_open", PA, JSON.stringify({ claim_kind: "OUTRO", title: "Evento sintético", stage, policy_id: (await mkPolicy()).id, source_ref: `c-${uniq()}` }));
   const mkNcr = async () => rpc(await as(U.GESTOR), "quality_ncr_create", PA, `RNC ${uniq()}`, "descrição", "EMAIL", `ref-${uniq()}`);
   const mkEndorsement = async () => { const p = await mkPolicy(); return rpc(await admC(), "insurance_endorsement_request", p.id, JSON.stringify({ requested_text: "Inclusão do beneficiário X", request_ref: `r-${uniq()}` })); };
   const mkDraft = async () => rpc(await admC(), "insurance_draft_create", PA, JSON.stringify({ policy_id: (await mkPolicy()).id, draft_kind: "AVISO_SINISTRO", subject: "Minuta sintética", body: "Texto de minuta sintética para teste de permissão." }));
@@ -250,6 +251,9 @@ try {
     ["S: emitir/conferir endosso (EMITIDO)", "MANAGE", async () => mkEndorsement(), (c, x) => rpc(c, "insurance_endorsement_advance", x.id, x.rowVersion, "EMITIDO", "{}")],
     ["S: registrar adiantamento (insurance_advance_register)", "REGISTER", async () => ({}), (c) => rpc(c, "insurance_advance_register", PA, JSON.stringify({ amount: 1000, description: "Adiantamento sintético", source_ref: `a-${uniq()}` }))],
     ["S: abrir aviso/sinistro (insurance_claim_open)", "REGISTER", async () => mkPolicy(), (c, x) => rpc(c, "insurance_claim_open", PA, JSON.stringify({ claim_kind: "OUTRO", title: "Aviso sintético", stage: "AVISO", policy_id: x.id, source_ref: `c-${uniq()}` }))],
+    ["S: avançar sinistro para REGULACAO (andamento operacional)", "REGISTER", async () => mkClaim(), (c, x) => rpc(c, "insurance_claim_advance", x.id, x.rowVersion, "REGULACAO", JSON.stringify({ note: "Seguradora iniciou regulação" }))],
+    ["S: encerrar sinistro (ENCERRADO = ato de gestão)", "MANAGE", async () => mkClaim(), (c, x) => rpc(c, "insurance_claim_advance", x.id, x.rowVersion, "ENCERRADO", JSON.stringify({ note: "Encerrado conforme carta da seguradora" }))],
+    ["S: registrar negativa de cobertura (NEGATIVA = ato de gestão)", "MANAGE", async () => mkClaim("RECLAMACAO"), (c, x) => rpc(c, "insurance_claim_advance", x.id, x.rowVersion, "NEGATIVA", JSON.stringify({ note: "Seguradora negou: alega exclusão (carta anexa)" }))],
     ["S: criar minuta de comunicação (insurance_draft_create)", "REGISTER", async () => mkPolicy(), (c, x) => rpc(c, "insurance_draft_create", PA, JSON.stringify({ policy_id: x.id, draft_kind: "AVISO_SINISTRO", subject: "Minuta", body: "Texto de minuta sintética para teste." }))],
     ["S: aprovar minuta (insurance_draft_approve)", "ADMIN", async () => mkDraft(), (c, x) => rpc(c, "insurance_draft_approve", x.id, x.rowVersion, "APROVO O CONTEUDO PARA ENVIO")],
     ["S: tentar envio real (insurance_draft_attempt_send; trava fail-closed)", "REGISTER", async () => mkDraft(), (c, x) => rpc(c, "insurance_draft_attempt_send", x.id)],
