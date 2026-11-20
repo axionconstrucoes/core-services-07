@@ -36,12 +36,27 @@ const webPkg = JSON.parse(read("apps/web/package.json"));
 const ROUTINE = ["test:scripts", "test:email", "test:sql", "test:ssma"];
 const GUARD = "--import ./scripts/lib/block-live-ai.mjs";
 
+// test:scripts passou a ser `node scripts/run-test-list.mjs` (a cadeia "&&" estourou o limite de linha de comando do Windows). O guarda
+// continua valendo: o executor SEMPRE roda cada teste com o guarda, e a lista (scripts/test-scripts.list) é expandida aqui para auditoria.
+function expandedRoutine(name) {
+  const cmd = pkg.scripts[name];
+  if (cmd !== "node scripts/run-test-list.mjs") return cmd;
+  const runner = read("scripts/run-test-list.mjs");
+  assert.ok(runner.includes('"--import", "./scripts/lib/block-live-ai.mjs"'), "o executor da lista carrega o guarda block-live-ai");
+  return read("scripts/test-scripts.list")
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith("#"))
+    .map((l) => `node ${GUARD} ${l}`)
+    .join(" && ");
+}
+
 console.log("\n======================================");
 console.log("TESTES DE ROTINA NÃO CHAMAM PROVEDORES REAIS");
 console.log("======================================\n");
 
 await check("comandos de rotina (test, test:scripts, test:email, test:sql, test:ssma) não referenciam testes live", () => {
-  const all = [pkg.scripts.test, webPkg.scripts.test, ...ROUTINE.map((name) => pkg.scripts[name])].join(" ");
+  const all = [pkg.scripts.test, webPkg.scripts.test, ...ROUTINE.map((name) => expandedRoutine(name))].join(" ");
   assert.ok(!/test-live-ai|test-anthropic-commercial-director|analyze-event|--live|ACC_ALLOW_LIVE_AI_TESTS/.test(all));
   assert.ok(pkg.scripts["test:live-ai"], "o teste live existe separado");
   assert.equal(pkg.scripts["test:live-ai"], "node scripts/test-live-ai.mjs");
@@ -49,7 +64,7 @@ await check("comandos de rotina (test, test:scripts, test:email, test:sql, test:
 
 await check("todo `node` das suítes de rotina carrega o guarda block-live-ai (inclusive apps/web `npm test`)", () => {
   for (const name of ROUTINE) {
-    for (const part of pkg.scripts[name].split("&&").map((s) => s.trim())) {
+    for (const part of expandedRoutine(name).split("&&").map((s) => s.trim())) {
       assert.ok(part.startsWith(`node ${GUARD} scripts/`), `${name}: "${part}" sem o guarda`);
     }
   }
@@ -57,7 +72,7 @@ await check("todo `node` das suítes de rotina carrega o guarda block-live-ai (i
 });
 
 await check("nenhum script de rotina contém chamada de rede explícita a provedores de IA (fetch/host/--live)", () => {
-  const files = ROUTINE.flatMap((name) => Array.from(pkg.scripts[name].matchAll(/scripts\/(test-[\w.-]+\.mjs)/g)).map((m) => `scripts/${m[1]}`));
+  const files = ROUTINE.flatMap((name) => Array.from(expandedRoutine(name).matchAll(/scripts\/(test-[\w.-]+\.mjs)/g)).map((m) => `scripts/${m[1]}`));
   assert.ok(files.length > 30, `lista de arquivos obtida (${files.length})`);
   for (const file of new Set(files)) {
     const code = read(file);

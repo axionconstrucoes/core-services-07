@@ -82,6 +82,22 @@ for (const f of files) await db.exec(read(f).replace(/create extension if not ex
 const procs = async (name) =>
   (await db.query("select p.oid, p.prosrc, p.prosecdef, p.proconfig, pg_get_functiondef(p.oid) def, pg_get_function_identity_arguments(p.oid) args from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.proname = $1", [name])).rows;
 
+// Funções ajustadas DE PROPÓSITO por migration de remendo (bloco DO + pg_get_functiondef, sem copiar o corpo): o corpo vigente deixa de
+// coincidir textualmente com qualquer arquivo. A exceção é ESTREITA e auditada: só as funções abaixo, só a migration indicada, e a única
+// diferença admitida para o corpo da última definição são linhas que citam o marcador (as demais linhas devem ser idênticas).
+const PATCHED_BY_MIGRATION = {
+  ai_consult_reserve_core: { migration: "20261122300000_quality_analyst_expert_id.sql", marker: "quality-analyst" },
+};
+function onlyMarkerLinesDiffer(vigente, ultima, marker) {
+  const a = String(vigente).split("\n").map((l) => l.trim()).filter(Boolean);
+  const b = String(ultima).split("\n").map((l) => l.trim()).filter(Boolean);
+  const setB = new Set(b);
+  const setA = new Set(a);
+  const added = a.filter((l) => !setB.has(l));
+  const removed = b.filter((l) => !setA.has(l));
+  return added.length > 0 && added.every((l) => l.includes(marker)) && removed.length <= added.length;
+}
+
 // ---------- S1 ----------
 await check(`S1 ${redefined.length} funções redefinidas em mais de uma migration: corpo vigente = ÚLTIMA definição por nome de arquivo`, async () => {
   const problems = [];
@@ -95,6 +111,12 @@ await check(`S1 ${redefined.length} funções redefinidas em mais de uma migrati
       continue;
     }
     const last = defs[defs.length - 1];
+    const patch = PATCHED_BY_MIGRATION[name];
+    if (patch && files.some((x) => x.endsWith(patch.migration)) && norm(rows[0].prosrc) !== norm(last.body)) {
+      if (onlyMarkerLinesDiffer(rows[0].prosrc, last.body, patch.marker)) continue;
+      problems.push(`${name}: remendo ${patch.migration} alterou mais do que linhas com "${patch.marker}"`);
+      continue;
+    }
     if (norm(rows[0].prosrc) !== norm(last.body)) {
       const origin = [...defs].reverse().find((d) => norm(d.body) === norm(rows[0].prosrc));
       problems.push(`${name}: vigente vem de ${origin?.file ?? "?"}, esperado ${last.file}`);

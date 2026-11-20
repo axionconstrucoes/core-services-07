@@ -273,7 +273,7 @@
   --color-neutral-950: #ffffff;
 }
 
-/* Paletas que NÃO eram remapeadas (purple, indigo, cyan, teal): usavam o Tailwind padrão CLARO (text-purple-600 = 2,4:1 e bg-teal-50 = fundo
+/* Paletas que NÃO eram remapeadas (purple, indigo, cyan, teal e rose — rose entrou com o Analista IA de Qualidade): usavam o Tailwind padrão CLARO (text-purple-600 = 2,4:1 e bg-teal-50 = fundo
    quase branco sob texto claro) sobre o tema escuro. Mesmo esquema das demais: 50/100 = fundo escuro tingido; 200/300 = mistura; 400-600 =
    tom claro de TEXTO (>= 5,9:1 sobre fundo e cartão); 700-900 = tom mais claro; 950 = mistura escura. Só luminosidade; o matiz é o original. */
 :root {
@@ -288,6 +288,17 @@
   --color-purple-800: #e3ccf8;
   --color-purple-900: #e3ccf8;
   --color-purple-950: color-mix(in srgb, #4a2a6b 70%, #0b1629);
+  --color-rose-50: #5a2236;
+  --color-rose-100: #5a2236;
+  --color-rose-200: color-mix(in srgb, #f4a3b8 35%, #182941);
+  --color-rose-300: color-mix(in srgb, #f4a3b8 55%, #182941);
+  --color-rose-400: #f4a3b8;
+  --color-rose-500: #f4a3b8;
+  --color-rose-600: #f4a3b8;
+  --color-rose-700: #f9cdd8;
+  --color-rose-800: #f9cdd8;
+  --color-rose-900: #f9cdd8;
+  --color-rose-950: color-mix(in srgb, #5a2236 70%, #0b1629);
   --color-indigo-50: #2f3470;
   --color-indigo-100: #2f3470;
   --color-indigo-200: color-mix(in srgb, #a5abf7 35%, #182941);
