@@ -209,7 +209,7 @@ export function HelpHint({
               data-help-id={help.id}
               data-help-version={help.version ?? undefined}
               className={cn(
-                "z-[70] overflow-y-auto overscroll-contain rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "z-[70] overflow-x-hidden overflow-y-auto overscroll-contain break-words [overflow-wrap:anywhere] rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 placement.mode === "sheet" ? "fixed inset-x-2 bottom-2 max-h-[80vh]" : "fixed"
               )}
               style={

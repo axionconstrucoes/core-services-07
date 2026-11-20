@@ -469,9 +469,48 @@ try {
       });
     }
 
+    // ---------- (9) varredura do CATÁLOGO COMPLETO (opcional: --sweep) ----------
+    if (args.has("--sweep")) {
+      const allIds = await (async () => { await load("catalog"); return b.eval("[...document.querySelectorAll('[data-sw]')].map(e=>e.getAttribute('data-sw'))"); })();
+      for (const mobile of [false, true]) {
+        await check(`S1 catálogo completo (${allIds.length} entradas) [${mobile ? "mobile" : "desktop"}]: abre, cabe na tela, rola, sem estouro horizontal, título, contraste, ESC e foco`, async () => {
+          await load("catalog", { mobile });
+          const bad = [];
+          let withScroll = 0, minRatio = 99, minId = "";
+          for (let i = 0; i < allIds.length; i += 60) {
+            const chunk = allIds.slice(i, i + 60);
+            const res = await b.eval(`(async (ids)=>{const out=[];const raf=()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+              for(const id of ids){const wrap=document.querySelector('[data-sw="'+id.replace(/"/g,'\\"')+'"]');const btn=wrap&&wrap.querySelector('button');const rec={id};
+                if(!btn){rec.err='sem ícone';out.push(rec);continue}
+                btn.scrollIntoView({block:'center'});const y0=scrollY;btn.click();await raf();await new Promise(r=>setTimeout(r,15));
+                const p=__t.panel();if(!p||p.getAttribute('data-help-id')!==id){rec.err='painel não abriu';out.push(rec);continue}
+                const r=p.getBoundingClientRect(),vw=innerWidth,vh=innerHeight;
+                rec.inside=r.left>=7.4&&r.right<=vw-7.4&&r.top>=7.4&&r.bottom<=vh-7.4;
+                rec.hover=p.scrollWidth>p.clientWidth+1;rec.scrolls=p.scrollHeight>p.clientHeight+1;
+                p.scrollTop=p.scrollHeight;rec.reachesEnd=p.scrollTop+p.clientHeight>=p.scrollHeight-2;p.scrollTop=0;
+                rec.title=!!(p.querySelector('h2')&&p.querySelector('h2').textContent.trim().length>0);
+                rec.pageMoved=Math.abs(scrollY-y0)>1;
+                const m=__t.measurePanel()||{};let worst=99,wk='';for(const [k,v] of Object.entries(m)){const need=k==='icone-fechar'?3:4.5;const rr=v.min-need;if(rr<worst-0.0001&&true){worst=rr;wk=k}}
+                rec.contrastWorst=worst;rec.contrastKey=wk;rec.minRatio=Math.min(...Object.values(m).map(v=>v.min),99);
+                document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true}));await raf();
+                rec.closed=!__t.panel();rec.focusBack=document.activeElement===btn;
+                out.push(rec)}
+              return out})(${JSON.stringify(chunk)})`);
+            for (const r of res) {
+              if (r.scrolls) withScroll++;
+              if (r.minRatio < minRatio) { minRatio = r.minRatio; minId = r.id; }
+              const why = r.err ? [r.err] : [!r.inside && "fora da tela", r.hover && "estouro horizontal", !r.title && "sem título", r.pageMoved && "página rolou", r.contrastWorst < -0.0001 && `contraste ${r.contrastKey}`, !r.closed && "ESC não fechou", !r.focusBack && "foco não voltou", r.scrolls && !r.reachesEnd && "fim inalcançável"].filter(Boolean);
+              if (why.length) bad.push(`${r.id}: ${why.join(", ")}`);
+            }
+          }
+          return { ok: bad.length === 0, ev: `${allIds.length} painéis abertos; ${withScroll} com rolagem interna; menor razão de contraste medida ${f2(minRatio)}:1 (${minId})${bad.length ? `; ${bad.length} FALHAS: ${bad.slice(0, 6).join(" | ")}` : ""}` };
+        });
+      }
+    }
+
     // erros de console da última página
     await check("Z1 sem exceções/erros de console na fixture", async () => ({ ok: b.consoleErrors.length === 0, ev: b.consoleErrors.length ? b.consoleErrors.slice(0, 3).join(" | ") : "nenhum" }));
-  }, { timeoutMs: 280000 });
+  }, { timeoutMs: args.has("--sweep") ? 900000 : 280000 });
 } finally {
   rmSync(work, { recursive: true, force: true });
 }

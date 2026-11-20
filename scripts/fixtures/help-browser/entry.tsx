@@ -95,13 +95,30 @@ function Corners() {
   );
 }
 
+function Catalog() {
+  // Uma linha por entrada REAL do catálogo (varredura --sweep): cada ícone é aberto e medido no navegador.
+  return (
+    <main style={{ padding: 12 }}>
+      <h1 style={{ fontSize: 16, fontWeight: 600 }}>Catálogo completo ({ALL_HELP_ENTRIES.length} entradas)</h1>
+      <ul style={{ listStyle: "none", padding: 0 }}>
+        {ALL_HELP_ENTRIES.map((en) => (
+          <li key={en.id} data-sw={en.id} style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 2px" }}>
+            <span style={{ fontSize: 12 }}>{en.title}</span>
+            <HelpHint helpId={en.id} />
+          </li>
+        ))}
+      </ul>
+    </main>
+  );
+}
+
 function App() {
-  const scene = window.location.hash === "#corners" ? "corners" : "main";
+  const scene = window.location.hash === "#corners" ? "corners" : window.location.hash === "#catalog" ? "catalog" : "main";
   useEffect(() => {
     if (scene === "corners") window.scrollTo(0, 300);
     requestAnimationFrame(() => requestAnimationFrame(() => { window.__ready = true; }));
   }, [scene]);
-  return scene === "corners" ? <Corners /> : <Main />;
+  return scene === "corners" ? <Corners /> : scene === "catalog" ? <Catalog /> : <Main />;
 }
 
 window.__parent = { click: 0, keydown: 0, pointerdown: 0 };
