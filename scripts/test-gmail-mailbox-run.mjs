@@ -159,5 +159,13 @@ await check("S3 workflows: delegação continua manual e sem schedule; coletor a
   assert.ok(cron.includes('cron: "*/15 * * * *"') && cron.includes("GOOGLE_GMAIL_INBOUND_MAILBOX: reynaldo@axion.com.br"));
 });
 
+await check("S4 caminhos OAuth históricos (coletor agendado e caixa do titular) param com recusa/revogação explícita do aceite no ACC", () => {
+  for (const file of ["./gmail-inbound-sync.mjs", "./gmail-owner-mailbox-sync.mjs"]) {
+    const src = readFileSync(new URL(file, import.meta.url), "utf8");
+    assert.ok(src.includes("deriveIndividualConsent(") && /consent\.status === "RECUSADO" \|\| consent\.status === "REVOGADO"/.test(src), file);
+    assert.ok(src.indexOf("deriveIndividualConsent(consentRows") < src.indexOf("setCredentials"), `${file}: checagem antes de autenticar no Google`);
+  }
+});
+
 console.log(`\nRESULTADO: ${passed} passaram, ${failed} falharam`);
 process.exit(failed ? 1 : 0);

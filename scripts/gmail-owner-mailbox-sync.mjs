@@ -23,6 +23,7 @@
 import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
 import { extractGmailBody } from "./lib/gmail-message-body.mjs";
+import { deriveIndividualConsent } from "./lib/gmail-mailbox-gate.mjs";
 import {
   OWNER_CHECKPOINT_ACTION,
   OWNER_CHECKPOINT_ENTITY,
@@ -108,6 +109,18 @@ const { data: allowRows, error: allowError } = await supabase
 if (allowError) throw new Error(allowError.message);
 if (!(allowRows ?? []).some((row) => row.mailbox_address.toLowerCase() === mailbox)) {
   console.log(`${tag}: fora da lista explícita de caixas da obra. Coleta pulada; nada lido.`);
+  process.exit(0);
+}
+
+// Aceite individual no ACC: RECUSA ou REVOGAÇÃO explícita desta caixa nesta obra para a coleta na hora, mesmo com o
+// refresh token ainda válido no Google. Consulta ilegível => falha fechada (nada lido).
+const { data: consentRows, error: consentError } = await supabase
+  .from("email_access_authorizations").select("id,account_email,status,requested_at,decided_at")
+  .eq("project_id", PROJECT_ID).eq("account_email", mailbox);
+if (consentError) throw new Error(`Aceites individuais ilegíveis (falha fechada): ${consentError.message}`);
+const consent = deriveIndividualConsent(consentRows ?? [], mailbox);
+if (consent.status === "RECUSADO" || consent.status === "REVOGADO") {
+  console.log(`${tag}: aceite individual ${consent.status} no ACC. Coleta bloqueada; nada lido.`);
   process.exit(0);
 }
 
