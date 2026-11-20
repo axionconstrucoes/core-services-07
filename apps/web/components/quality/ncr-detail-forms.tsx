@@ -61,6 +61,9 @@ export function NcrEditForm({ projectId, ncrId, rowVersion, rootCause, dueDate }
         <QField helpId="qualidade.rnc.campo-prazo" label="Prazo (opcional)">
           <Input name="dueDate" type="date" defaultValue={dueDate} className={TOUCH} />
         </QField>
+        <QField helpId="qualidade.rnc.campo-justificativa-dados" label="Justificativa da alteração" hint="Obrigatória (mínimo de 10 caracteres) ao trocar uma causa raiz ou um prazo já definidos; a troca fica na auditoria.">
+          <Textarea name="justification" maxLength={2000} className={TOUCH} />
+        </QField>
       </QForm>
     </Box>
   );
@@ -135,6 +138,8 @@ export function EvidenceClassifyForm({ projectId, evidenceId, rowVersion, classi
       <input type="hidden" name="evidenceId" value={evidenceId} />
       <input type="hidden" name="expectedVersion" value={rowVersion} />
       <div className="flex flex-wrap items-center gap-1">
+        {/* help-exempt: campo inline descrito pelo cabeçalho da coluna Reclassificar (qualidade.evidencias.col-reclassificar), que explica a justificativa obrigatória */}
+        <Input name="justification" required minLength={10} maxLength={2000} placeholder="Justificativa (mín. 10 caracteres)" aria-label="Justificativa da reclassificação" className={TOUCH} />
         {/* help-exempt: seletor inline descrito pelo cabeçalho da coluna Classificação (qualidade.evidencias.col-classificacao) */}
         <Select name="classification" defaultValue={classification} aria-label="Classificação" className={TOUCH}>
           {Object.entries(CLASSIFICATION_LABEL).map(([k, v]) => (
@@ -191,7 +196,7 @@ export function ActionForm({ projectId, ncrId }: { projectId: string; ncrId: str
   );
 }
 
-export function ActionStatusForm({ projectId, actionId, rowVersion, status }: { projectId: string; actionId: string; rowVersion: number; status: string }) {
+export function ActionStatusForm({ projectId, actionId, rowVersion, status, canManage = false }: { projectId: string; actionId: string; rowVersion: number; status: string; canManage?: boolean }) {
   const [state, formAction, pending] = useQualityAction(setActionStatusAction);
   return (
     <form key={state.nonce ?? "f"} action={formAction} className="flex flex-col gap-1">
@@ -201,12 +206,16 @@ export function ActionStatusForm({ projectId, actionId, rowVersion, status }: { 
       <div className="flex flex-wrap items-center gap-1">
         {/* help-exempt: seletor inline descrito pelo cabeçalho da coluna Status da ação (qualidade.capa.col-status) */}
         <Select name="status" defaultValue={status} aria-label="Status da ação" className={TOUCH}>
-          {Object.entries(ACTION_STATUS_LABEL).map(([k, v]) => (
-            <option key={k} value={k}>
-              {v}
-            </option>
-          ))}
+          {Object.entries(ACTION_STATUS_LABEL)
+            .filter(([k]) => canManage || k !== "CANCELADA" || status === "CANCELADA")
+            .map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
         </Select>
+        {/* help-exempt: campo inline descrito pelo cabeçalho da coluna Atualizar status (qualidade.capa.col-atualizar), que explica quando a justificativa é exigida */}
+        <Input name="justification" maxLength={2000} placeholder="Justificativa (cancelar/desfazer)" aria-label="Justificativa da mudança de status" className={TOUCH} />
         {/* help-exempt: botão inline de salvar; a ação é descrita no ícone (i) da coluna Atualizar status (qualidade.capa.col-atualizar) */}
         <Button type="submit" size="sm" variant="outline" disabled={pending} className={TOUCH}>
           {pending ? "Salvando…" : "Atualizar"}
@@ -219,12 +228,13 @@ export function ActionStatusForm({ projectId, actionId, rowVersion, status }: { 
 
 // ------------------------------------------------- verificação de eficácia ----
 
-export function VerificationForm({ projectId, ncrId, evidence }: { projectId: string; ncrId: string; evidence: Array<{ id: string; sourceRef: string }> }) {
+export function VerificationForm({ projectId, ncrId, rowVersion, evidence }: { projectId: string; ncrId: string; rowVersion: number; evidence: Array<{ id: string; sourceRef: string }> }) {
   const [state, formAction, pending] = useQualityAction(addVerificationAction);
   return (
     <Box title="Registrar verificação de eficácia" helpId="qualidade.eficacia.form-criar">
       <QForm state={state} formAction={formAction} pending={pending} projectId={projectId} submitLabel="Registrar verificação" disabled={evidence.length === 0} disabledReason={evidence.length === 0 ? "Cadastre antes a evidência que sustentará a verificação." : undefined}>
         <input type="hidden" name="ncrId" value={ncrId} />
+        <input type="hidden" name="expectedVersion" value={rowVersion} />
         <div className="grid gap-3 md:grid-cols-2">
           <QField helpId="qualidade.eficacia.campo-resultado" label="Resultado">
             <Select name="result" defaultValue="EFICAZ" className={`w-full ${TOUCH}`}>

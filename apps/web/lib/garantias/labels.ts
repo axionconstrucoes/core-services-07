@@ -123,4 +123,15 @@ export const ERROR_MESSAGES: Record<string, string> = {
   DUPLICATE_TARGET_INVALID: "Alvo de duplicidade inválido.",
   TRANSITION_BLOCKED: "Transição bloqueada pelas guardas do ciclo.",
   ORIGIN_REQUIRED: "Origem rastreável obrigatória.",
+  INVALID_DATA: "Dados inválidos para este registro.",
+  INVALID_STATE: "O caso não está num estado que permita esta ação.",
+  EVIDENCE_LOCKED: "Esta evidência sustenta uma verificação, um aceite ou uma decisão; registre uma nova evidência em vez de reclassificá-la.",
+  EPISTEMIC_INVALID: "NC comprovada exige tipo epistêmico FATO.",
+  CASE_NOT_ACTIVE: "O caso está encerrado, cancelado ou fora do fluxo: reabra antes de registrar ou editar.",
+  COST_SOURCE_REQUIRED: "Valor sem fonte não é aceito: informe a fonte do custo (nota, orçamento, medição). Sem valor o custo fica SEM DADOS.",
+  DUPLICATE_EVIDENCE: "Esta fonte já foi registrada como evidência neste caso (nada foi duplicado).",
+  DUPLICATE_RECORD: "Registro já existente (nada foi duplicado).",
 };
+
+/** Códigos cuja mensagem do banco já é legível e específica (em português): é exibida no lugar do texto genérico. */
+export const DETAIL_ERROR_CODES = new Set(["INVALID_DATA", "INVALID_STATE", "CASE_NOT_ACTIVE", "COST_SOURCE_REQUIRED", "EPISTEMIC_INVALID", "EVIDENCE_LOCKED"]);

@@ -75,6 +75,7 @@ export const PILARES_MANIFEST: HelpManifest = {
     // Tela do alerta (rota do módulo planejamento; elementos novos deste módulo)
     doc("message", "Aviso: RESOLVIDO não encerra a RNC/garantia/sinistro vinculada", "alerta.aviso-vinculo", ALERTA),
     doc("message", "Prazo de assunção × prazo de conclusão de reparos", "alerta.prazos-distintos", ALERTA),
+    doc("status", "Origem do vínculo (registrado × texto da origem)", "alerta.origem-vinculo", ALERTA),
     { route: ALERTA, kind: "button", label: "Link 'Abrir RNC/garantia/sinistro' do aviso", exempt: "Link de navegação do aviso (pilares.alerta.aviso-vinculo) para a tela do módulo que trata o item vinculado." },
   ],
 };

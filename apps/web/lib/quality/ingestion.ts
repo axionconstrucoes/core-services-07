@@ -131,6 +131,31 @@ export function buildHumanEvidenceRow(v: IngestionValidated, ncrId: string, user
   };
 }
 
+/** Argumentos da RPC quality_evidence_register a partir de uma linha de evidência (a escrita direta foi revogada na fase 3/D). */
+export function evidenceRowToRpcArgs(row: {
+  project_id: string;
+  ncr_id: string;
+  source_type: string;
+  source_table: string | null;
+  source_ref: string;
+  source_url: string | null;
+  description: string | null;
+  classification: string;
+  epistemic: string;
+}): Record<string, unknown> {
+  return {
+    p_project_id: row.project_id,
+    p_source_type: row.source_type,
+    p_source_ref: row.source_ref,
+    p_classification: row.classification,
+    p_epistemic: row.epistemic,
+    p_ncr_id: row.ncr_id,
+    p_source_url: row.source_url,
+    p_description: row.description,
+    p_source_table: row.source_table,
+  };
+}
+
 export interface FindByOriginRow {
   id: string;
   code: string;

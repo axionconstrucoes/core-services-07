@@ -5,7 +5,7 @@
 
 import { parseQualityError } from "@/lib/quality/mappers";
 import { MIN_JUSTIFICATION_LENGTH, findTransition } from "@/lib/quality/state-machine";
-import { ERROR_MESSAGES } from "./labels";
+import { DETAIL_ERROR_CODES, ERROR_MESSAGES } from "./labels";
 
 export type ActionFailure = { ok: false; code: string; message: string };
 export type ActionSuccess<T extends object = Record<string, never>> = { ok: true } & T;
@@ -165,6 +165,8 @@ export function buildRepairPayload(raw: Raw) {
   const executedAt = optDate(raw, "executedAt", "Data de execução", errors);
   const estimated = parseMoney(raw, "estimatedCost", "Custo estimado", errors);
   const actual = parseMoney(raw, "actualCost", "Custo realizado", errors);
+  const costSource = opt(raw, "costSourceRef");
+  if ((estimated !== null || actual !== null) && !costSource) errors.push("Valor de custo sem fonte não é aceito: informe a fonte do custo (nota, orçamento, medição). Sem valor o custo fica SEM DADOS.");
   const isRecurrence = raw.isRecurrence === "on" || raw.isRecurrence === "true";
   const previous = opt(raw, "previousRepairId");
   if (isRecurrence && !previous) errors.push("Reincidência exige indicar o reparo anterior.");
@@ -179,6 +181,7 @@ export function buildRepairPayload(raw: Raw) {
           performed_by: opt(raw, "performedBy"),
           estimated_cost: estimated,
           actual_cost: actual,
+          cost_source_ref: costSource,
           is_recurrence: isRecurrence,
           previous_repair_id: isRecurrence ? previous : null,
         },
@@ -230,7 +233,24 @@ export function buildAcceptancePayload(raw: Raw) {
     : ({ ok: true, row: { accepted_at: `${day}T12:00:00Z`, accepted_by_name: acceptedBy } } as const);
 }
 
-/** Campos do caso editáveis (UPDATE sob RLS com versão otimista). Estado, versão e criticidade NUNCA entram aqui. */
+/** Aceite do cliente para a RPC quality_warranty_acceptance_register: data (dia), nome e a EVIDÊNCIA obrigatória do caso. */
+export function buildAcceptanceInput(raw: Raw) {
+  const errors: string[] = [];
+  const acceptedBy = text(raw, "acceptedByName");
+  lengthBetween(acceptedBy, 2, 200, "Nome de quem aceitou", errors);
+  const day = opt(raw, "acceptedAt");
+  if (!day || !isRealDate(day)) errors.push("Data do aceite obrigatória (AAAA-MM-DD).");
+  const evidenceId = text(raw, "evidenceId");
+  if (!isUuid(evidenceId)) errors.push("O aceite exige uma evidência do caso (termo assinado, e-mail do cliente, ata).");
+  return errors.length
+    ? ({ ok: false, errors } as const)
+    : ({ ok: true, args: { acceptedAt: day as string, acceptedByName: acceptedBy, evidenceId } } as const);
+}
+
+/** Justificativa livre da edição (a RPC exige quando os dados que definem cobertura/custos já estavam informados). */
+export const buildEditJustification = (raw: Raw): string | null => opt(raw, "justification");
+
+/** Campos do caso editáveis (RPC quality_warranty_case_update, com versão otimista e diff no servidor). Estado, versão e criticidade NUNCA entram aqui. */
 export function buildCaseUpdatePayload(raw: Raw) {
   const errors: string[] = [];
   const row: Record<string, unknown> = {};
@@ -253,6 +273,7 @@ export function buildCaseUpdatePayload(raw: Raw) {
   set("due_date", optDate(raw, "dueDate", "Prazo", errors));
   set("estimated_cost", parseMoney(raw, "estimatedCost", "Custo estimado", errors));
   set("actual_cost", parseMoney(raw, "actualCost", "Custo realizado", errors));
+  set("cost_source_ref", opt(raw, "costSourceRef"));
   set("supplier_name", opt(raw, "supplierName"));
   set("supplier_warranty_until", optDate(raw, "supplierWarrantyUntil", "Garantia do fornecedor até", errors));
   set("builder_warranty_until", optDate(raw, "builderWarrantyUntil", "Garantia da construtora até", errors));
@@ -272,7 +293,8 @@ export function translateDbError(error: { message?: string; code?: string } | nu
   const message = (error?.message ?? "").trim();
   const parsed = parseQualityError(message);
   if (parsed) {
-    const base = ERROR_MESSAGES[parsed.code] ?? parsed.code;
+    const useDetail = parsed.detail && (DETAIL_ERROR_CODES.has(parsed.code) || (parsed.code === "FORBIDDEN" && /perfil de gestão/i.test(parsed.detail)));
+    const base = useDetail ? parsed.detail : (ERROR_MESSAGES[parsed.code] ?? parsed.code);
     const detail = parsed.code === "TRANSITION_BLOCKED" && parsed.detail ? ` (${parsed.detail})` : "";
     return fail(parsed.code, `${base}${detail}`);
   }

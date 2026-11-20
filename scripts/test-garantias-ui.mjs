@@ -231,7 +231,8 @@ check("CASO 38 concorrência: versão lida é enviada; conflito gera erro claro 
   assert.match(e.message, /Nada foi gravado/);
   assert.equal(AL.versionConflict().code, "VERSION_CONFLICT");
   const actions = read("apps/web/app/[projectId]/garantias/actions.ts");
-  assert.match(actions, /\.eq\("row_version", expectedVersion\)/);
+  assert.match(actions, /p_expected_version: expectedVersion/);
+  assert.match(actions, /rpc\("quality_warranty_case_update"/);
   assert.match(actions, /p_expected_version: input\.expectedVersion/);
   const transition = read("apps/web/components/garantias/transition-panel.tsx");
   assert.match(transition, /expectedVersion: rowVersion/);
@@ -263,8 +264,9 @@ check("CASO 39 isolamento entre projetos: leitura filtra project_id, usa o clien
   const page = read("apps/web/app/[projectId]/garantias/[caseId]/page.tsx");
   assert.match(page, /if \(!detail\) notFound\(\)/);
   assert.match(page, /isUuid\(caseId\)/);
-  assert.match(actions, /\.eq\("project_id", projectId\)/);
-  assert.match(actions, /project_id: projectId/);
+  // fase 3/D: toda escrita é RPC e o projeto vem do contexto autenticado (p_project_id) ou da própria linha-mãe (travada no banco)
+  assert.match(actions, /p_project_id: projectId/);
+  assert.match(actions, /context\(projectId, min\)/);
   assert.equal(AL.isUuid("not-a-uuid"), false);
 });
 

@@ -56,12 +56,12 @@ authenticated sem sub = sempre ✘ (nível NONE). Nível exigido entre parêntes
 |---|---|---|---|---|---|
 | Ler RNC, garantias, evidências, ações, custos (RLS select, READ) | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Registrar RNC / abrir caso de garantia (`quality_ncr_create`, `quality_warranty_create`) (REGISTER) | ✘ | ✔ | ✔ | ✔ | ✔ |
-| Registrar evidência, ação corretiva, manutenção, vistoria, reparo, custo, consequência (INSERT/UPDATE sob RLS) (REGISTER) | ✘ | ✔ | ✔ | ✔ | ✔ |
+| Registrar evidência, ação corretiva, manutenção, vistoria, reparo, custo, consequência, recorrência, reclamação, inspeção, ensaio, requisito (RPCs `quality_*_register`; INSERT/UPDATE direto revogado na fase 3/D) (REGISTER) | ✘ | ✔ | ✔ | ✔ | ✔ |
 | Avançar fases operacionais: triagem, investigação, plano de ação, correção, verificação, vistoria, análise, reparo (REGISTER) | ✘ | ✔ | ✔ | ✔ | ✔ |
 | Decisões de gestão: confirmar / não confirmar, cancelar, duplicar, encerrar, reabrir, decidir cobertura (COBERTA / NAO_COBERTA), verificar reparo (MANAGE) | ✘ | ✘ | ✔ | ✔ | ✔ |
-| Registrar verificação de eficácia (INSERT, MANAGE) | ✘ | ✘ | ✔ | ✔ | ✔ |
-| Alterar estado/versão/criticidade direto na tabela | ✘ | ✘ | ✘ | ✘ | ✘ (só via RPC) |
-| Apagar qualquer registro | ✘ | ✘ | ✘ | ✘ | ✘ (nunca) |
+| Registrar verificação de eficácia (`quality_verification_register`, MANAGE) | ✘ | ✘ | ✔ | ✔ | ✔ |
+| Alterar estado/versão/criticidade direto na tabela | ✘ | ✘ | ✘ | ✘ | ✘ (só via RPC; triggers barram também service_role/superusuário) |
+| Apagar qualquer registro (evidência nunca é apagada, nem por superusuário) | ✘ | ✘ | ✘ | ✘ | ✘ (nunca) |
 
 ### Seguros, fianças, endossos, adiantamentos e sinistros
 
@@ -147,8 +147,7 @@ competência. **Lacuna: não há atributo confiável de competência.** Em vez d
 
 ## 5. Observações para o dono (não alteradas nesta frente)
 
-- COLABORADOR pode, por RLS, reclassificar `classification`/`epistemic`/`description` de uma evidência já registrada (UPDATE por coluna em `quality_evidence`) e editar
-  campos descritivos e custos de `quality_warranty_cases`; o histórico fica na auditoria, mas a reclassificação de evidência como `NC_COMPROVADA` pesa na confirmação da RNC. Avaliar restringir a MANAGE.
+- RESOLVIDO na fase 3/D (seção 7): COLABORADOR não reclassifica evidência nem edita causa/prazos/custos/termos do caso de garantia; essas decisões passaram a MANAGE, com justificativa e auditoria antes/depois.
 - Alterar papel/status de membro continua sendo operação de ADMINISTRADOR (RPCs de usuários, fora deste escopo); o nível muda na PRÓXIMA chamada (sem cache) — provado em teste.
 - `service_role` (chave de servidor, nunca no frontend) tem BYPASSRLS por desenho do Supabase; as RPCs recusam `service_role` sem usuário (`AUTH_REQUIRED`).
 
@@ -157,3 +156,48 @@ competência. **Lacuna: não há atributo confiável de competência.** Em vez d
 - **CASO 31 (usuário sem autorização)**: para cada operação crítica acima, todos os perfis (LEITURA, COLABORADOR, GESTOR, GERENTE, ADMINISTRADOR, inativo, pendente, outro projeto, anon, authenticated sem sub, service_role sem sub) — autorizados passam; os demais são recusados sem nenhuma linha gravada.
 - **CASO 39 (isolamento entre projetos)**: administrador de B não lê, cria, transiciona nem referencia dados de A; papel alto em outro projeto não vira privilégio; o nível vale só no projeto consultado.
 - **CASO 37 (auditoria)**: recusas não geram auditoria; operações autorizadas geram trilha com o ator correto; trilhas continuam append-only.
+
+
+## 7. Fase 3 / Frente D — RPCs transacionais, integridade e vínculos (migrations `20261123300000`..`303000`)
+
+Toda RPC abaixo usa `quality_can_register` (REGISTER) ou `quality_can_manage` (MANAGE) — wrappers de `acc_project_tier` —, é `SECURITY DEFINER` com `search_path` vazio, só `authenticated`
+(anon/PUBLIC sem EXECUTE), audita na MESMA transação e usa controle otimista (`expected_version` → `VERSION_REQUIRED`/`VERSION_CONFLICT`). O INSERT/UPDATE/DELETE direto de `authenticated`
+nas 15 tabelas de Qualidade/Garantias foi REVOGADO (migration `20261123302000`, reversível: `supabase/rollbacks/`). Provas: `scripts/test-quality-rpc-realpg.mjs` (Postgres real; CASO 31/37/38/39 e `CASO F3-D-NN`).
+
+| Operação (RPC) | Mínimo | LEITURA | COLABORADOR | GESTOR | GERENTE | ADMINISTRADOR | Regras adicionais |
+|---|---|---|---|---|---|---|---|
+| Registrar evidência (`quality_evidence_register`) | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ | fonte original obrigatória e imutável; NC_COMPROVADA exige epistêmico FATO; duplicata da mesma fonte no mesmo caso recusada; RNC cancelada/duplicada não recebe |
+| Reclassificar evidência (`quality_evidence_revise`) | **MANAGE** | ✘ | ✘ | ✔ | ✔ | ✔ | justificativa >= 10; recusada (`EVIDENCE_LOCKED`) se a evidência já sustenta verificação, aceite ou decisão de transição |
+| Registrar CAPA (`quality_capa_register`) | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ | RNC/garantia encerrada, cancelada ou fora do fluxo não recebe (`CASE_NOT_ACTIVE`) |
+| Atualizar status da CAPA (`quality_capa_update_status`) | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ | transições válidas; CANCELADA exige MANAGE + justificativa; desfazer EXECUTADA exige justificativa |
+| Verificação de eficácia (`quality_verification_register`) | MANAGE | ✘ | ✘ | ✔ | ✔ | ✔ | evidência obrigatória do mesmo caso e FATO; só em VERIFICACAO (RNC) / REPARADA (garantia); versão lida do caso |
+| Aceite do cliente (`quality_warranty_acceptance_register`) | **MANAGE** | ✘ | ✘ | ✔ | ✔ | ✔ | decisão do dono: quem registra o aceite é gestão, com evidência FATO do caso, só em REPARADA/VERIFICADA; vale para um ciclo (novo reparo/reabertura o descarta) |
+| Reparo / reincidência (`quality_warranty_repair_register`) | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ | custo só com fonte; reincidência aponta reparo anterior do MESMO caso |
+| Vistoria, manutenção (`quality_warranty_survey_register`, `..._maintenance_register`) | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ | — |
+| Consequência por pilar, custo, recorrência (`quality_consequence_register`, `quality_cost_register`, `quality_recurrence_register`) | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ | consequência exige fonte; probabilidade só com fundamento; valor de custo só com fonte; criticidade = pior pilar |
+| Reclamação, inspeção, ensaio, requisito (`quality_complaint_register`, ...) | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ | fonte original obrigatória; ensaio conclusivo exige laudo |
+| Editar título/descrição da RNC (`quality_ncr_update_fields`) | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ | diff no servidor |
+| Editar causa raiz, prazo, responsável, requisito da RNC | **MANAGE** | ✘ | ✘ | ✔ | ✔ | ✔ | trocar causa raiz/prazo já definidos exige justificativa; RNC encerrada/cancelada não edita |
+| Editar defeito, reclamação do cliente, fornecedor, contrato do caso (`quality_warranty_case_update`) | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ | diff no servidor |
+| Editar causa, sinalizadores (vício oculto, solidez), prazos, custos, termos e datas de garantia, responsável, RNC vinculada | **MANAGE** | ✘ | ✘ | ✔ | ✔ | ✔ | justificativa quando já informados; custo só com fonte (`COST_SOURCE_REQUIRED`) |
+| Relatório de integridade de encerramentos (`quality_closure_integrity_report`) | READ | ✔ | ✔ | ✔ | ✔ | ✔ | somente leitura |
+| Vincular alerta a RNC/garantia/sinistro (`acc_alert_link_create`) | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ | alerta e entidade do MESMO projeto (`LINK_TARGET_INVALID`); idempotente; não altera estado da entidade |
+| Desvincular (`acc_alert_link_unlink`) | **MANAGE** | ✘ | ✘ | ✔ | ✔ | ✔ | motivo >= 10; nada é apagado (histórico append-only) |
+| Ler vínculos (`acc_alert_links_for_alert`, `acc_alert_links_for_entity`, RLS) | READ | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| Escrita direta nas 15 tabelas e em `acc_alert_links` | — | ✘ | ✘ | ✘ | ✘ | ✘ | só pelas RPCs |
+
+Inativo, convite pendente, ADMIN de outro projeto, `authenticated` sem `sub` e `anon`: sempre ✘ (nível NONE; `AUTH_REQUIRED`/`FORBIDDEN`/`permission denied`).
+
+### Mudanças de comportamento da fase 3/D (todas documentadas)
+
+1. COLABORADOR deixa de: reclassificar evidência já registrada; editar causa raiz, prazo e responsável da RNC; editar causa/prazos/custos/termos/sinalizadores do caso de garantia; cancelar ação corretiva;
+   registrar o aceite do cliente da garantia. Continua registrando evidências, ações, consequências, custos (com fonte), reparos, vistorias, reclamações e andamento operacional.
+2. Registros-filhos não entram em RNC/garantia encerrada, cancelada, duplicada ou não confirmada (reabrir antes); evidência continua sendo aceita nesses casos (é o que sustenta a reabertura), exceto RNC cancelada/duplicada.
+3. O aceite do cliente não sobrevive a novo reparo ou reabertura; a verificação de eficácia só aceita evidência classificada como FATO.
+4. Novas colunas aditivas (`quality_warranty_cases.cost_source_ref`, `accepted_evidence_id`, `quality_warranty_repairs.cost_source_ref`); nenhuma coluna removida e nenhum dado apagado.
+5. Triggers de integridade (`20261123300000`): estado só muda por transição do catálogo, com ator e com as mesmas guardas da RPC; UPDATE direto, `service_role` e superusuário não encerram sem verificação/aceite.
+
+### Casos cobertos na frente D
+
+CASO 1-9, 12-14, 31, 33-39 reexercitados por RPC e `CASO F3-D-01` (escrita direta negada), `-02` (COLABORADOR não reclassifica), `-03/03b` (campos e custos), `-04` (encerramento indevido da RNC por todos os caminhos), `-05` (garantia/aceite), `-06` (RESOLVIDO do alerta não encerra),
+`-07` (reabertura), `-08` (evidência travada e nunca apagada), `-10` (vínculos), `-11` (backfill), `-12` (privilégios), `-14` (NC comprovada = FATO), `-15` (CAPA), `-18` (relatório de integridade), `-19` (reversibilidade).

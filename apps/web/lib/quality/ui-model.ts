@@ -199,7 +199,19 @@ const ERROR_LABEL: Record<string, string> = {
   DUPLICATE_TARGET_INVALID: "Informe a RNC original (mesmo projeto e ativa).",
   TRANSITION_BLOCKED: "Transição bloqueada.",
   ORIGIN_REQUIRED: "Toda RNC aponta para a fonte original: informe a referência da origem.",
+  INVALID_DATA: "Dados inválidos para este registro.",
+  INVALID_STATE: "O registro não está num estado que permita esta ação.",
+  EVIDENCE_LOCKED: "Esta evidência sustenta uma verificação, um aceite ou uma decisão; registre uma nova evidência em vez de reclassificá-la.",
+  EPISTEMIC_INVALID: "NC comprovada exige tipo epistêmico FATO: inferência ou recomendação não comprovam uma não conformidade.",
+  CASE_NOT_ACTIVE: "O caso está encerrado, cancelado ou fora do fluxo: reabra antes de registrar ou editar.",
+  COST_SOURCE_REQUIRED: "Valor sem fonte não é aceito: informe a fonte (nota, orçamento, medição). Sem valor o custo fica SEM DADOS.",
+  LINK_TARGET_INVALID: "O alerta e a entidade precisam existir e ser do mesmo projeto.",
+  DUPLICATE_EVIDENCE: "Esta fonte já foi registrada como evidência neste caso (nada foi duplicado).",
+  DUPLICATE_RECORD: "Registro já existente para esta fonte (nada foi duplicado).",
 };
+
+/** Códigos cuja mensagem do banco já é legível e específica (em português): é exibida no lugar do texto genérico. */
+const DETAIL_CODES = new Set(["INVALID_DATA", "INVALID_STATE", "CASE_NOT_ACTIVE", "COST_SOURCE_REQUIRED", "EPISTEMIC_INVALID", "LINK_TARGET_INVALID", "EVIDENCE_LOCKED"]);
 
 /** Converte a mensagem crua do Postgres/PostgREST em erro estável e legível (nunca expõe SQL ou detalhes internos). */
 export function describeQualityError(raw: string | null | undefined): QualityActionError {
@@ -207,6 +219,7 @@ export function describeQualityError(raw: string | null | undefined): QualityAct
   const parsed = parseQualityError(text);
   if (parsed) {
     let message = ERROR_LABEL[parsed.code] ?? "Operação recusada.";
+    if (parsed.detail && (DETAIL_CODES.has(parsed.code) || (parsed.code === "FORBIDDEN" && /perfil de gestão/i.test(parsed.detail)))) message = parsed.detail;
     if (parsed.code === "TRANSITION_BLOCKED") {
       const codes = parsed.detail.split(",").map((c) => c.trim()).filter(Boolean);
       message = `Transição bloqueada: ${codes.map(blockerLabel).join(" ")}`;

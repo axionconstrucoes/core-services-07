@@ -80,7 +80,11 @@ try {
     catch (e) { console.log(`FAIL replay ${f}: ${e.message.split("\n")[0]}`); throw e; }
   }
   for (let i = 0; i < 2; i += 1) for (const f of TARGETS) await su.query(readFileSync(path.join(dir, f), "utf8")); // idempotência (2 reaplicações)
-  console.log(`PostgreSQL ${version}: ${files.length} migrations aplicadas (+ migrations de Qualidade reaplicadas 2x) — base ${dbName}`);
+  // FASE 3/D: este teste da FASE 1 exercita as TABELAS (CHECKs, FKs, triggers) por DML direto. A migration 20261123302000 revoga esse
+  // DML de `authenticated`; aqui aplicamos o ROLLBACK documentado dela (supabase/rollbacks) para manter a regressão da fase 1 intacta
+  // E provar a reversibilidade. O caminho final (RPCs, escrita direta negada) é coberto por scripts/test-quality-rpc-realpg.mjs.
+  await su.query(readFileSync(path.join(here, "..", "supabase", "rollbacks", "20261123302000_quality_revoke_direct_writes.rollback.sql"), "utf8"));
+  console.log(`PostgreSQL ${version}: ${files.length} migrations aplicadas (+ migrations de Qualidade reaplicadas 2x; GRANTs diretos da fase 1 restaurados pelo rollback documentado) — base ${dbName}`);
 
   const uid = (n) => `00000000-0000-4000-8000-${String(2200 + n).padStart(12, "0")}`;
   const PA = "10000000-0000-4000-8000-0000000022a0";

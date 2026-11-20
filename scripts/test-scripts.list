@@ -111,3 +111,5 @@ scripts/test-endossos-dupla-conferencia.mjs
 scripts/test-f3e-persistencia-realpg.mjs
 scripts/test-f3e-persistencia.mjs
 scripts/test-f3e-revisao-funcional.mjs
+scripts/test-quality-rpc-realpg.mjs
+scripts/test-alert-links-estruturados.mjs

@@ -6,6 +6,7 @@ import { buildTriageEvidenceRow, resolveQualityTriageProvider, runQualityTriage 
 import {
   buildHumanEvidenceRow,
   dedupeOriginTypesFor,
+  evidenceRowToRpcArgs,
   isIngestionOriginType,
   isUuid,
   mapQualityRpcError,
@@ -18,7 +19,7 @@ import {
 import { loadTriageSource } from "@/lib/quality/ingestion-source";
 
 // Este módulo é "use server" — só exporta funções async. Tipos e regras vivem em lib/quality/ingestion.ts.
-// Escrita SOMENTE por RPC (quality_ncr_create) ou INSERT sob RLS na evidência (quality_can_register + created_by = auth.uid()).
+// Escrita SOMENTE por RPC (quality_ncr_create e quality_evidence_register; a escrita direta nas tabelas foi revogada na fase 3/D).
 // A automação nunca classifica NC COMPROVADA; nada é enviado a ninguém.
 
 export type IngestionActionResult =
@@ -96,7 +97,7 @@ export async function registerQualityIndicationAction(input: IngestionInput): Pr
   if (!result?.id) return { ok: false, error: "Resposta inesperada ao criar a RNC." };
   if (!result.created) return { ok: true, outcome: { status: "DEDUPLICATED", ncrId: result.id, code: result.code } };
 
-  const evidence = await supabase.from("quality_evidence").insert(buildHumanEvidenceRow(v, result.id, auth.user.id));
+  const evidence = await supabase.rpc("quality_evidence_register", evidenceRowToRpcArgs(buildHumanEvidenceRow(v, result.id, auth.user.id)));
   revalidatePath(`/${v.projectId}/qualidade`);
   if (evidence.error) {
     return {
@@ -143,9 +144,9 @@ export async function triageQualityOriginAction(input: {
   const result = await runQualityTriage(provider, source);
   if (!result.ok) return { ok: false, error: "A saída da triagem foi rejeitada pela validação e NÃO foi gravada.", problems: result.problems };
 
-  const insert = await supabase
-    .from("quality_evidence")
-    .insert(
+  const insert = await supabase.rpc(
+    "quality_evidence_register",
+    evidenceRowToRpcArgs(
       buildTriageEvidenceRow({
         projectId: input.projectId,
         ncrId: existing.id,
@@ -156,9 +157,8 @@ export async function triageQualityOriginAction(input: {
         originUrl: input.originUrl,
         result,
       }),
-    )
-    .select("id")
-    .maybeSingle();
+    ),
+  );
   if (insert.error) {
     if (insert.error.code === "23505") return { ok: false, error: "A triagem desta fonte já foi registrada nesta RNC." };
     return { ok: false, error: mapQualityRpcError(insert.error.message) };
@@ -166,7 +166,7 @@ export async function triageQualityOriginAction(input: {
   revalidatePath(`/${input.projectId}/qualidade`);
   return {
     ok: true,
-    evidenceId: (insert.data as { id: string } | null)?.id ?? null,
+    evidenceId: (insert.data as { id?: string } | null)?.id ?? null,
     summary: result.summary,
     providerId: result.providerId,
     signals: result.signals.map((s) => s.id),
