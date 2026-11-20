@@ -1,3 +1,4 @@
+import { formatAdditivesMil, resolveAdditivesDisplay } from "@/lib/dashboard/additives-display";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -539,20 +540,10 @@ export default async function DashboardPage({
   // contrato vigente incluindo o Aditivo 01.
   const dashboardContractTotal = financialPlanned;
 
-  // Valor original do contrato-base WEG:
-  // Cláusula 5.1 = R$ 33.450.000,00.
-  //
-  // A fonte estruturada de aditivos ainda pode retornar zero.
-  // Enquanto isso, usamos a diferença comprovável entre o
-  // valor vigente do relatório e o contrato-base.
-  const dashboardBaseContractValue = 33_450_000;
-
-  const dashboardAdditives =
-    dashboardContractTotal !== null
-      ? Math.max(0, dashboardContractTotal - dashboardBaseContractValue)
-      : formalizedVariation !== 0
-        ? formalizedVariation
-        : null;
+  // Aditivos: SOMENTE da fonte estruturada (aditivos contratuais formalizados).
+  // Não há valor de contrato-base em tabela alguma; nenhum número fixo no código
+  // e nenhuma subtração "total - base". Sem fonte = "Sem fonte", nunca zero.
+  const dashboardAdditives = resolveAdditivesDisplay(data.aditivosSummary);
 
   const dashboardFinancialRealized = financialActual;
 
@@ -978,8 +969,8 @@ export default async function DashboardPage({
               />
               <StatusLine
                 label="Aditivos"
-                value={formatDashboardMil(dashboardAdditives)}
-                status={dashboardAdditives !== null ? "ok" : "neutral"}
+                value={formatAdditivesMil(dashboardAdditives)}
+                status={dashboardAdditives.value !== null ? "ok" : "neutral"}
               />
               <StatusLine
                 label="Realizado total"

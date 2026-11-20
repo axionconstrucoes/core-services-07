@@ -123,7 +123,7 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
     serviceStatus: emailStatus,
     ingestionEnabled: ingestionConfig ? Boolean(ingestionConfig.enabled) : null,
     lastSuccessfulSyncAt: ingestionConfig?.lastSyncAt ?? latestSyncRun?.completedAt ?? null,
-    enabledMailboxes: ingestionConfig ? ingestionConfig.mailboxes.filter((m) => m.enabled).length : 0,
+    enabledMailboxes: ingestionConfig ? ingestionConfig.mailboxes.filter((m) => m.enabled).length : null,
   };
 
   const findingsInRange = filterFindingsByRange(findings, range);
