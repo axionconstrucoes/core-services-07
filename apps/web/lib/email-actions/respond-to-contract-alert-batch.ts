@@ -124,23 +124,48 @@ export async function respondToContractAlertBatch(
     failedFollowups = input.responses.length;
   }
 
+  const warnings: string[] = [];
+  const auditRows: Array<{ action: string; detail: string }> = [];
   if (failedFollowups > 0) {
-    const followupWarning = `A resposta foi registrada, mas os lembretes de ${failedFollowups} alerta(s) não foram atualizados (somente o responsável pelos lembretes ou um ADMINISTRADOR pode alterá-los). O ADMINISTRADOR da obra foi sinalizado na auditoria.`;
+    warnings.push(`A resposta foi registrada, mas os lembretes de ${failedFollowups} alerta(s) não foram atualizados (somente o responsável pelos lembretes ou um ADMINISTRADOR pode alterá-los). O ADMINISTRADOR da obra foi sinalizado na auditoria.`);
+    auditRows.push({ action: "CONTRACT_ALERT_FOLLOWUP_NOT_APPLIED", detail: `Lembretes não atualizados para ${failedFollowups} de ${input.responses.length} alerta(s) após a resposta do lote.` });
+  }
+
+  // Responder RESOLVIDO no lote encerra o alerta contratual, NÃO a ação SLA vinculada ao mesmo evento (obrigação
+  // distinta: a conclusão exige nota e é feita em Ações). A ação aberta deixa de ficar órfã em silêncio: aviso na tela
+  // e registro na auditoria, sem alterar status, prazos ou escalonamento.
+  const resolvedEventIds = input.responses.filter((response) => response.action === "RESOLVIDO").map((response) => response.eventId);
+  if (resolvedEventIds.length > 0) {
+    const { data: openLinked } = await supabase
+      .from("sla_actions")
+      .select("id,title,related_event_id")
+      .eq("project_id", batch.project_id as string)
+      .in("related_event_id", resolvedEventIds)
+      .not("status", "in", "(COMPLETED,CANCELLED)");
+    if (openLinked && openLinked.length > 0) {
+      warnings.push(`${openLinked.length} ação(ões) de SLA vinculada(s) a alerta(s) marcado(s) como RESOLVIDO continua(m) aberta(s): conclua em Ações, com a nota de conclusão, se a obrigação foi cumprida.`);
+      auditRows.push({ action: "CONTRACT_ALERT_SLA_ACTION_STILL_OPEN", detail: `Ações SLA ainda abertas após RESOLVIDO no lote: ${openLinked.map((row) => row.id).join(", ")}.` });
+    }
+  }
+
+  if (warnings.length > 0) {
     try {
       const { data: auth } = await supabase.auth.getUser();
-      await createSupabaseAdminClient().from("audit_log_entries").insert({
-        project_id: batch.project_id as string,
-        actor_type: auth.user ? "USER" : "SYSTEM",
-        actor_user_id: auth.user?.id ?? null,
-        action: "CONTRACT_ALERT_FOLLOWUP_NOT_APPLIED",
-        entity_type: "CONTRACT_ALERT_BATCH",
-        entity_id: input.batchId,
-        detail: `Lembretes não atualizados para ${failedFollowups} de ${input.responses.length} alerta(s) após a resposta do lote.`,
-      });
+      await createSupabaseAdminClient().from("audit_log_entries").insert(
+        auditRows.map((row) => ({
+          project_id: batch.project_id as string,
+          actor_type: auth.user ? "USER" : "SYSTEM",
+          actor_user_id: auth.user?.id ?? null,
+          action: row.action,
+          entity_type: "CONTRACT_ALERT_BATCH",
+          entity_id: input.batchId,
+          detail: row.detail,
+        }))
+      );
     } catch {
       // A auditoria complementar não desfaz a resposta já gravada; o aviso continua visível ao usuário.
     }
-    return { ...outcome, followupWarning };
+    return { ...outcome, followupWarning: warnings.join(" ") };
   }
 
   return outcome;

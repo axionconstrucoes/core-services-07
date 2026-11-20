@@ -51,7 +51,13 @@ export async function resolveAllowedEmailActions(
     return EMAIL_ALERT_ACTION_TYPES;
   }
 
-  // COLABORADOR/LEITURA: membro ACTIVE confirmado, mas sem permissão
+  // LEITURA: somente leitura — DAR CIÊNCIA mudaria a ação (o banco recusa desde 20261120152000);
+  // só RESPONDER (comentário no ledger) é oferecido.
+  if (membership.permission === "LEITURA") {
+    return ["RESPOND"];
+  }
+
+  // COLABORADOR: membro ACTIVE confirmado, mas sem permissão
   // para ASSUMIR RESPONSABILIDADE/DEFINIR PRAZO — nunca oferecidos.
   return SAFE_DEFAULT_ACTIONS;
 }

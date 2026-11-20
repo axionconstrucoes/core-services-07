@@ -41,7 +41,8 @@ export default async function WeeklyDigestPage({
   }
 
   const activeMembers = members
-    .filter((member) => member.status === "ACTIVE")
+    // Destino de direcionamento: ativo e não somente leitura (o banco revalida — 20261120150000).
+    .filter((member) => member.status === "ACTIVE" && member.permission !== "LEITURA")
     .map((member) => ({ userId: member.userId, name: member.user.name }));
 
   return (

@@ -5,6 +5,7 @@ import { useActionState, useMemo, useState } from "react";
 import { SeverityBadge } from "@/components/shared/badges";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { confrontationSeverityToAlertSeverity, formatDateTime } from "@/lib/labels";
 import type { WeeklyDigestResponse, WeeklyDigestViewItem } from "@/lib/email/get-weekly-alert-digest";
 
@@ -117,6 +118,31 @@ export function WeeklyDigestForm({
                     ))}
                   </Select>
                   <p className="text-xs text-muted-foreground">Os prazos e o escalonamento não serão reiniciados.</p>
+                </>
+              ) : null}
+
+              {answers[item.actionId] === "RESOLVED" || answers[item.actionId] === "FORWARDED" || answers[item.actionId] === "STUDYING" ? (
+                <>
+                  <label className="text-xs font-medium" htmlFor={`note-${item.actionId}`}>
+                    {answers[item.actionId] === "RESOLVED"
+                      ? "O que foi feito (obrigatório)"
+                      : answers[item.actionId] === "FORWARDED"
+                        ? "Motivo do direcionamento (obrigatório)"
+                        : "Providências em curso (opcional)"}
+                  </label>
+                  <Textarea
+                    id={`note-${item.actionId}`}
+                    name={`note:${item.actionId}`}
+                    rows={2}
+                    required={answers[item.actionId] !== "STUDYING"}
+                    minLength={answers[item.actionId] === "RESOLVED" ? 10 : answers[item.actionId] === "FORWARDED" ? 5 : undefined}
+                  />
+                </>
+              ) : null}
+              {answers[item.actionId] === "RESOLVED" ? (
+                <>
+                  <label className="text-xs font-medium" htmlFor={`evidence-${item.actionId}`}>Evidência (opcional: documento, foto, protocolo ou link)</label>
+                  <Textarea id={`evidence-${item.actionId}`} name={`evidence:${item.actionId}`} rows={1} />
                 </>
               ) : null}
             </div>
