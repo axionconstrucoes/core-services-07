@@ -24,7 +24,7 @@ const { buildContractAlertBatchEmail } = await import("../apps/web/lib/email/tem
 const { buildSlaEscalationEmail } = await import("../apps/web/lib/email/templates/sla-escalation-template.ts");
 const { buildWeeklyAlertDigestEmail } = await import("../apps/web/lib/email/templates/weekly-alert-digest-template.ts");
 const ssma = await import("../apps/web/lib/ssma/field-notifications/content.ts");
-const { buildUniversalAlertEmail } = await import("../apps/web/lib/email/templates/universal-alert-template.ts");
+const info = await import("../apps/web/lib/email/informative-alert-content.ts");
 const { applyVeraEmailHeader, loadVeraInlineImage, VERA_EMAIL_IMAGE_CID } = await import("../apps/web/lib/email/branding/vera-email-header.ts");
 const { loadAccAlertLogos } = await import("../apps/web/lib/email/branding/load-acc-logo-inline-image.ts");
 
@@ -52,18 +52,13 @@ const EMITTERS = [
   { id: "SSMA ação corretiva em atraso", build: () => ssma.buildOperationalOverdueActionEmail({ ...SSMA, severity: "ALTA" }) },
   { id: "SSMA confirmação de resposta", build: () => ssma.buildSsmaReplyConfirmationEmail({ ...SSMA, originalSubject: "x", severity: "ALTA", statusLabel: "Em andamento", forecastLine: null, pendingLine: null, outOfOrder: false }) },
   { id: "SSMA registro crítico", build: () => ssma.buildCriticalRecordEmail({ ...SSMA, severity: "CRITICA" }) },
-  // Emissores server-only (acidente SSMA, falha operacional, impacto de versão): mesmo montador; sem rota de e-mail para a
-  // ação, os botões saem desativados com motivo (a origem real é verificada abaixo, no código-fonte).
-  ...["acidente SSMA", "falha operacional", "impacto de versão"].map((id) => ({
-    id,
-    build: () => buildUniversalAlertEmail({ recipientName: null, logos: availability, footer: "f", occurrence: { code: "", projectName: "WEG", areaLabel: "x", severity: "ALTA", title: "t", description: "d", stateLabel: "e", responsibleName: "", specialistLabel: "x", openUrl: `${BASE}/acc`, actions: {}, unavailableReasons: { RESOLVIDO: "Sem atalho.", EM_ANDAMENTO: "Sem atalho.", ENVIAR_PARA: "Sem atalho.", ESPECIALISTA: "Sem consulta." } } }),
-  })),
+  // Acidente SSMA, falha operacional e impacto de versão saem pela variante INFORMATIVA (informative-alert.ts, frente N4),
+  // SEM os quatro botões — verificados em bloco próprio abaixo e em scripts/test-n4-envio-informativos.mjs.
 ];
 
 // Botões ATIVOS esperados por ocorrência (o restante sai desativado, com motivo). Lacunas conhecidas (sem fluxo no ACC):
-// SSMA não tem ENVIAR PARA nem ESPECIALISTA; resumo semanal não tem ESPECIALISTA; SLA, acidente, falha técnica e impacto
-// de versão não têm rota de e-mail para a ação.
-const ACTIVE = { "escalonamento de SLA": 0, "resumo semanal": 3, "SSMA ação corretiva em atraso": 2, "SSMA confirmação de resposta": 2, "SSMA registro crítico": 2, "acidente SSMA": 0, "falha operacional": 0, "impacto de versão": 0 };
+// SSMA não tem ENVIAR PARA nem ESPECIALISTA; resumo semanal não tem ESPECIALISTA; SLA não tem rota de e-mail para a ação.
+const ACTIVE = { "escalonamento de SLA": 0, "resumo semanal": 3, "SSMA ação corretiva em atraso": 2, "SSMA confirmação de resposta": 2, "SSMA registro crítico": 2 };
 
 let failed = 0;
 const check = (name, fn) => {
@@ -109,13 +104,29 @@ check("providers aplicam o cabeçalho da AXIA a TODO envio (gmail e fake)", () =
     assert.match(readFileSync(path.join(webRoot, "lib/email", f), "utf8"), /applyVeraEmailHeader\(/, f);
   }
 });
-check("emissores server-only usam o template universal, com motivo explícito nos botões sem rota de e-mail", () => {
+check("emissores server-only (acidente, falha técnica, impacto de versão) usam a variante informativa, sem os quatro botões", () => {
   for (const f of ["send-ssma-accident-alert-email.ts", "send-system-health-alert-email.ts", "send-version-impact-review-email.ts"]) {
     const s = readFileSync(path.join(webRoot, "lib/email", f), "utf8");
-    assert.ok(/buildUniversalAlertEmail\(/.test(s) && /openUrl:/.test(s), f);
-    for (const a of ["RESOLVIDO", "EM_ANDAMENTO", "ENVIAR_PARA", "ESPECIALISTA"]) assert.match(s, new RegExp(`${a}: "[^"]+"`), `${f}: motivo de ${a}`);
+    assert.ok(/build(SsmaAccidentAlert|SystemHealthAlert|VersionImpactReview)Content\(/.test(s), f);
+    assert.ok(!/buildUniversalAlertEmail\(|unavailableReasons|RESPONDER AO ACC/.test(s), `${f}: sem botões nem promessa de tratamento por e-mail`);
   }
 });
+for (const [id, build] of [
+  ["acidente SSMA (informativo)", () => info.buildSsmaAccidentAlertContent({ submissionId: "aaaaaaaa-0000-4000-8000-000000000001", projectName: "WEG", recipientName: "Ana", severity: "CRITICA", employeeName: "F", leaveClassification: "Com afastamento", occurredAt: "20/11/2026 10:00", informedCause: "c", consultUrl: `${BASE}/p/ssma-registros`, footer: "f", logos: availability })],
+  ["falha operacional (informativo)", () => info.buildSystemHealthAlertContent({ projectName: "WEG", sourceType: "GMAIL", summary: "s", auditUrl: `${BASE}/p/auditoria`, footer: "f", logos: availability })],
+  ["impacto de versão (orçamentista: exige ação)", () => info.buildVersionImpactReviewContent({ recipientName: "Ana", projectName: "WEG", documentName: "d", previousRevision: "A", newRevision: "B", scheduleImpact: "SIM", priceImpact: "NAO", response: "r", sentToBudget: true, isDesignatedBudgetReviewer: true, accUrl: `${BASE}/p/integracoes`, footer: "f", logos: availability })],
+]) {
+  check(`${id}: sem os quatro botões + AXIA (acesso e foto) + logotipo ACC`, () => {
+    const built = build();
+    const out = applyVeraEmailHeader(
+      { to: "x@exemplo.invalid", subject: built.subject, text: built.text, html: built.html, inlineImages: logoImages, correlationId: "t", vera: { projectId: P, context: "alerta" } },
+      { axiaAvailable: true, baseUrl: BASE, loadImage: () => loadVeraInlineImage(webRoot) }
+    );
+    for (const l of BUTTONS) assert.ok(!out.html.includes(`>${l}<`), `botão ${l} presente`);
+    assert.ok(out.html.includes("FALE COM A AXIA") && out.html.includes(`cid:${VERA_EMAIL_IMAGE_CID}`), "AXIA");
+    assert.ok(/cid:acc-logo-(signature|inverted)/.test(out.html), "logotipo ACC");
+  });
+}
 check("imagem da AXIA está no repositório e no tracing da Vercel", () => {
   assert.ok(loadVeraInlineImage(webRoot), "ajuda-acc-email.png ausente");
   assert.match(readFileSync(path.join(webRoot, "next.config.ts"), "utf8"), /public\/assistente\/ajuda-acc-email\.png/);

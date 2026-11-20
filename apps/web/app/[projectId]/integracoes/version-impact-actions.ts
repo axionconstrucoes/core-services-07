@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@axion/db/server";
 import { createSupabaseAdminClient } from "@axion/db/admin";
-import { sendVersionImpactReviewEmail } from "@/lib/email/send-version-impact-review-email";
+import { deliverVersionReviewNotifications } from "@/lib/email/special-routine-deliveries";
 
 export type VersionImpactReviewState = { success: boolean; error: string | null };
 
@@ -47,51 +47,14 @@ export async function submitVersionImpactReviewAction(
     return { success: false, error: message };
   }
 
-  const admin = createSupabaseAdminClient();
-  const [{ data: project }, { data: transition }, { data: memberships }] = await Promise.all([
-    admin.from("projects").select("name").eq("id", projectId).single(),
-    admin.from("construmanager_version_transitions").select("document_name,previous_revision,new_revision").eq("id", transitionId).single(),
-    admin.from("project_memberships").select("user_id,permission,area,profiles(name,email,title)").eq("project_id", projectId).eq("status", "ACTIVE"),
-  ]);
-  const recipients = (memberships ?? []).flatMap((membership) => {
-    const rawProfile = membership.profiles as unknown as { name: string; email: string; title: string | null } | Array<{ name: string; email: string; title: string | null }> | null;
-    const profile = Array.isArray(rawProfile) ? rawProfile[0] : rawProfile;
-    const title = profile?.title ?? "";
-    const mustReceive = membership.permission === "GERENTE" ||
-      membership.area === "DIRETORIA" ||
-      (membership.area === "COMERCIAL" && /diretor/i.test(title)) ||
-      (sendToBudget && membership.user_id === budgetUserId);
-    return mustReceive && profile?.email ? [{ ...profile, email: profile.email.toLowerCase() }] : [];
-  });
-
-  const uniqueRecipients = [...new Map(recipients.map((recipient) => [recipient.email, recipient])).values()];
-  const accBaseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://acc.axion.com.br").replace(/\/$/, "");
-  for (const recipient of uniqueRecipients) {
-    const { data: delivery } = await admin.from("construmanager_version_review_deliveries").upsert({
-      review_id: reviewId,
-      project_id: projectId,
-      recipient_email: recipient.email,
-      status: "PENDING",
-    }, { onConflict: "review_id,recipient_email", ignoreDuplicates: true }).select("id").maybeSingle();
-    if (!delivery) continue;
+  // Avisos pela outbox persistente (construmanager_version_review_deliveries): reivindicação atômica, tentativas limitadas,
+  // SENT só após o aceite do provedor. Orçamentista designado recebe o alerta que EXIGE AÇÃO (resposta do Orçamento nesta
+  // tela); a gestão recebe o aviso INFORMATIVO. Falha transitória é retentada pelo cron remoto /api/cron/system-health.
+  if (typeof reviewId === "string") {
     try {
-      const sent = await sendVersionImpactReviewEmail({
-        recipientEmail: recipient.email,
-        recipientName: recipient.name,
-        projectName: project?.name ?? "Projeto",
-        documentName: transition?.document_name ?? "Documento sem nome",
-        previousRevision: transition?.previous_revision ?? null,
-        newRevision: transition?.new_revision ?? "—",
-        scheduleImpact,
-        priceImpact,
-        response: planningResponse,
-        sentToBudget: sendToBudget,
-        accUrl: `${accBaseUrl}/${projectId}/integracoes`,
-        projectId,
-      });
-      await admin.from("construmanager_version_review_deliveries").update({ status: "SENT", provider_message_id: sent.providerMessageId, sent_at: sent.sentAt }).eq("id", delivery.id);
-    } catch (sendError) {
-      await admin.from("construmanager_version_review_deliveries").update({ status: "FAILED", last_error: sendError instanceof Error ? sendError.message.slice(0, 500) : "Falha no envio" }).eq("id", delivery.id);
+      await deliverVersionReviewNotifications(createSupabaseAdminClient(), reviewId);
+    } catch {
+      // A análise JÁ está registrada; a falha de comunicação fica nas linhas de entrega e na auditoria.
     }
   }
 
