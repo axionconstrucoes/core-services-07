@@ -11,6 +11,7 @@ import { ALERT_REPLY_MAILBOX_ENV } from "./alert-reply-address";
 import { EmailSendError } from "./email-provider";
 import { getEmailProvider } from "./get-email-provider";
 import { resolveEffectiveRecipient } from "./pilot-outbound-guard";
+import { buildWeeklyDigestFailureReason } from "./weekly-digest-failure-reason";
 import {
   buildWeeklyAlertDigestEmail,
   type WeeklyAlertDigestEmailInput,
@@ -74,7 +75,7 @@ export async function sendWeeklyAlertDigestEmail(input: {
   } catch (error) {
     await admin
       .from("weekly_alert_digests")
-      .update({ status: "FAILED", failure_reason: "Falha no envio do resumo semanal." })
+      .update({ status: "FAILED", failure_reason: buildWeeklyDigestFailureReason(error) })
       .eq("id", input.digestId)
       .neq("status", "RESPONDED");
 
