@@ -67,6 +67,12 @@ alcançam de fato.
 >   ESPECIALISTA do ciclo (`RISK_CYCLE`, variante `ai_consult_reserve_for_actor` só para service_role,
 >   com o usuário que perguntou). Mesma contagem por usuário (todas as obras) e por obra; reserva sempre
 >   ANTES do provedor; sem reserva, nenhuma chamada. `ai_consult_usage.expert_id` registra o Expert.
+> - **Governança N6** (migration `20261121150000`, ver `docs/ai/governanca-consumo-ia.md`): a unidade passou a
+>   ser reservada na **fronteira do provedor** (`lib/ai/governance/quota-gated-provider.ts`), depois dos guards
+>   determinísticos — recusa antes do provedor (MPP ausente, contrato ilegível, validação) não consome, sem
+>   estorno. Curadoria de adicional (`CURATION`) e curadoria automática (`AUTOMATIC_CURATION`, service_role com
+>   solicitante explícito) passaram a reservar. Orçamento monetário preparado e **desligado**
+>   (`docs/ai/orcamento-monetario-ia.md`).
 
 ## 2. Por que esta arquitetura existe
 
