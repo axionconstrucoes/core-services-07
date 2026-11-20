@@ -671,6 +671,15 @@ if (phases.has("replies") && (apply || repliesDryRun)) {
       summary.replies.ssma = { error: true };
       console.error("Respostas SSMA (ações corretivas): falha nesta rodada (sem detalhes no log público).");
     }
+    // N3 — ação SLA, item do resumo semanal e alerta de contrato (token por item); mesma caixa, somente leitura.
+    try {
+      const { runTokenRepliesPhase } = await import("./lib/token-replies-phase.mjs");
+      summary.replies.tokenItems = await runTokenRepliesPhase({ supabase, gmail, mailbox, projectIds: configs.map((config) => config.projectId) });
+      console.log(`Respostas por item (SLA / resumo semanal / contrato): ${JSON.stringify(summary.replies.tokenItems)}`);
+    } catch {
+      summary.replies.tokenItems = { error: true };
+      console.error("Respostas por item (SLA / resumo semanal / contrato): falha nesta rodada (sem detalhes no log público).");
+    }
   }
 }
 

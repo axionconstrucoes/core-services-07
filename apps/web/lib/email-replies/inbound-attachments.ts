@@ -108,3 +108,10 @@ export function ssmaPhotoStoragePath(projectId: string, recordId: string, photoI
   const stem = sanitizeAttachmentName(fileName).replace(/\.[A-Za-z0-9]{1,5}$/, "").replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 60) || "evidencia";
   return `${projectId}/ssma-registros/${recordId}/${photoId}-${stem}.${ext}`;
 }
+
+/** Caminho no Storage da evidência anexada a respostas por e-mail de ação SLA / resumo semanal / alerta de contrato. */
+export function tokenReplyEvidenceStoragePath(projectId: string, kind: string, subjectId: string, sha256: string, fileName: string): string {
+  const safeKind = kind.toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
+  const safeSubject = subjectId.replace(/[^A-Za-z0-9_-]+/g, "-");
+  return `${projectId}/respostas-email-evidencias/${safeKind}/${safeSubject}/${sha256}-${sanitizeAttachmentName(fileName).replace(/[^A-Za-z0-9._-]+/g, "_")}`;
+}

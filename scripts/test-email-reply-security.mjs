@@ -237,7 +237,8 @@ await check("17. Token por item: 24 bytes base64url, só o hash é gravado (ante
   assert(tokens.tokenUsability(store.rows[0], "g2", "2026-11-21T00:00:00Z").reason === "TOKEN_ALREADY_USED");
   assert(tokens.tokenUsability({ ...store.rows[0], consumedByMessageId: null }, "g2", "2026-12-21T00:00:00Z").reason === "TOKEN_EXPIRED");
   assert(tokens.isProcessableReplyKind("RISK_CASE") && tokens.isProcessableReplyKind("SSMA_ACTION"));
-  for (const kind of ["SLA_ACTION", "WEEKLY_DIGEST_ITEM", "CONTRACT_ALERT_ITEM", "VERSION_REVIEW"]) assert(!tokens.isProcessableReplyKind(kind), kind);
+  for (const kind of ["SLA_ACTION", "WEEKLY_DIGEST_ITEM", "CONTRACT_ALERT_ITEM"]) assert(tokens.isProcessableReplyKind(kind), kind); // N3
+  assert(!tokens.isProcessableReplyKind("VERSION_REVIEW"), "VERSION_REVIEW");
 });
 
 console.log(`\nRESULTADO: ${passed} passaram, ${failed} falharam`);

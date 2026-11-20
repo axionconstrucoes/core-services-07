@@ -1,8 +1,9 @@
 // P2 — atalhos "Responder por e-mail" (mailto com token POR ITEM).
 // PRESENTES só nos tipos com processamento efetivo por e-mail: risco (imediato, escalonamento, acompanhamento e CADA item do
-// consolidado, cada um com o seu token) e aviso de ação corretiva SSMA ao responsável. AUSENTES em todos os demais
-// (escalonamento de SLA, resumo semanal, contrato individual e em lote, registro crítico SSMA, escalonamento SSMA à Matriz,
-// acidente, falha técnica, impacto de versão) — nenhum e-mail aparenta ação operacional inexistente.
+// consolidado, cada um com o seu token) e aviso de ação corretiva SSMA ao responsável — e, desde a N3, escalonamento de SLA,
+// resumo semanal (por item) e contrato individual/lote (por item), quando o emissor informa o token (ver
+// test-email-replies-n3-pure.mjs). AUSENTES nos demais (registro crítico SSMA, escalonamento SSMA à Matriz, acidente, falha
+// técnica, impacto de versão) — nenhum e-mail aparenta ação operacional inexistente.
 // Token gravado (hash) ANTES do envio; link < 2000 caracteres e codificado; nada de dado do alerta no corpo.
 // Uso: node scripts/test-email-reply-mailto.mjs
 import { readFileSync } from "node:fs";
@@ -131,7 +132,7 @@ await check("4. Acompanhamento de risco (encaminhado / confirmação) aceita ata
   assert(/RESPOSTA NÃO APLICADA/.test(rejected.html) && !/RESPOSTA REGISTRADA/.test(rejected.html) && /Envie a foto/.test(rejected.text), "recusa nunca afirma registro");
   assert(ssma.ssmaReplyMailto(token, "X", "", "ALTA") === null, "sem caixa => sem atalho");
 });
-await check("5. AUSENTES nos tipos SEM processamento por e-mail (SLA, resumo semanal, contrato individual/lote, registro crítico SSMA, escalonamento SSMA)", () => {
+await check("5. AUSENTES quando o emissor não informa atalhos (SLA, resumo semanal, contrato individual/lote sem token emitido) e nos tipos SEM processamento (registro crítico SSMA, escalonamento SSMA)", () => {
   const none = {
     "escalonamento de SLA": buildSlaEscalationEmail({ recipientName: "Ana", projectName: "WEG", severity: "ALTA", actionTitle: "t", currentResponsibleName: "Bruno", originalDeadline: "x", overdueBy: "2h", previousLevelLabel: "Responsável", escalationLevelLabel: "Diretoria", recommendedAction: "r", eventUrl: `${BASE}/ev/1`, actionButtons: [], code: "SLA1", areaLabel: "Engenharia", logos }),
     "resumo semanal": buildWeeklyAlertDigestEmail({ recipientName: "Ana", projectName: "WEG", responseUrl: `${BASE}/resposta`, logos, items: [{ actionId: "aaaaaaaa-0000-4000-8000-000000000001", title: "t", description: "d", riskLevel: "MEDIUM", dueAt: "25/11/2026" }] }),
@@ -145,25 +146,17 @@ await check("5. AUSENTES nos tipos SEM processamento por e-mail (SLA, resumo sem
     assert(!/Responder por e-mail|RESPONDER POR E-MAIL/.test(`${built.html}${built.text}`), `${name}: bloco de resposta por e-mail`);
   }
 });
-await check("6. Emissores sem processamento NÃO usam token por item nem atalho (código-fonte): SLA, resumo, lote, acidente, falha técnica, impacto de versão", () => {
+await check("6. Emissores sem processamento NÃO usam token por item nem atalho (código-fonte): acidente, falha técnica, impacto de versão (SLA, resumo e contrato passaram a ter processamento — N3)", () => {
   for (const rel of [
-    "apps/web/lib/email/send-sla-escalation-email.ts",
-    "apps/web/lib/email/send-weekly-alert-digest-email.ts",
-    "apps/web/lib/email/send-contract-alert-email.ts",
-    "apps/web/lib/email/create-and-send-contract-alert-batch.ts",
     "apps/web/lib/email/send-ssma-accident-alert-email.ts",
     "apps/web/lib/email/send-system-health-alert-email.ts",
     "apps/web/lib/email/send-version-impact-review-email.ts",
-    "apps/web/lib/email/templates/sla-escalation-template.ts",
-    "apps/web/lib/email/templates/weekly-alert-digest-template.ts",
-    "apps/web/lib/email/templates/contract-alert-batch-template.ts",
-    "apps/web/lib/email/templates/contract-alert-template.ts",
   ]) {
     const src = read(rel);
     assert(!/replyByEmail|mailto:|email_reply_tokens|issueEmailReplyToken|buildReplyMailto/.test(src), rel);
   }
-  // O processamento por e-mail existe só para RISK_CASE e SSMA_ACTION.
-  assert([...tokens.EMAIL_REPLY_PROCESSABLE_KINDS].sort().join(",") === "RISK_CASE,SSMA_ACTION");
+  // O processamento por e-mail existe para RISK_CASE, SSMA_ACTION e (N3) SLA_ACTION, WEEKLY_DIGEST_ITEM, CONTRACT_ALERT_ITEM.
+  assert([...tokens.EMAIL_REPLY_PROCESSABLE_KINDS].sort().join(",") === "CONTRACT_ALERT_ITEM,RISK_CASE,SLA_ACTION,SSMA_ACTION,WEEKLY_DIGEST_ITEM");
   // Escalonamento SSMA à Matriz (Gestor/Diretoria) não recebe atalho no envio.
   const followUp = read("apps/web/lib/ssma/field-notifications/follow-up.ts");
   const escalationCall = followUp.slice(followUp.indexOf("buildSsmaEscalationEmail({"), followUp.indexOf("buildSsmaEscalationEmail({") + 400);

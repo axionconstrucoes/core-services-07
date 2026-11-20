@@ -4,8 +4,9 @@ import type { EmailActionButton } from "@/lib/email-actions/render-buttons";
 import { renderEmailActionButtonsText } from "@/lib/email-actions/render-buttons";
 
 import { EMAIL_ALERT_ACTION_LABELS } from "@/lib/email-actions/types";
+import type { ReplyMailtoLinks } from "@/lib/email-replies/reply-mailto";
 import type { AlertLogoAvailability } from "./alert-box-style";
-import { buildUniversalAlertEmail } from "./universal-alert-template";
+import { buildUniversalAlertEmail, replyByEmailTextLines, safeReplyByEmail } from "./universal-alert-template";
 
 import { alertRiskLevelLabels, buildContractAlertSubject } from "./contract-alert-template";
 
@@ -27,6 +28,12 @@ export interface SlaEscalationEmailInput {
   code?: string;
   areaLabel?: string;
   logos?: AlertLogoAvailability;
+  /**
+   * Atalhos "Responder por e-mail" (token POR ITEM, tipo SLA_ACTION). Só quando o destinatário pode agir na ação
+   * (responsável atual ou Administrador) e a ação não tem canal próprio (SSMA / alerta de risco). Sem eles, os botões
+   * continuam desativados com o motivo.
+   */
+  replyByEmail?: ReplyMailtoLinks | null;
 }
 
 export function buildSlaEscalationEmail(input: SlaEscalationEmailInput) {
@@ -42,6 +49,10 @@ export function buildSlaEscalationEmail(input: SlaEscalationEmailInput) {
     { label: "Ação recomendada", value: input.recommendedAction },
   ];
   const footer = "Este escalonamento foi gerado automaticamente pelo motor de SLA do ACC.";
+  const replyByEmail = safeReplyByEmail(input.replyByEmail);
+  const noShortcut = replyByEmail
+    ? "Use os atalhos \"Responder por e-mail\" abaixo ou trate em Abrir ação no ACC."
+    : "Sem atalho por e-mail: trate em Abrir ação no ACC.";
   const built = buildUniversalAlertEmail({
     recipientName: input.recipientName,
     logos: input.logos ?? { maroon: false, inverted: false },
@@ -61,12 +72,13 @@ export function buildSlaEscalationEmail(input: SlaEscalationEmailInput) {
       // Sem rota de e-mail para tratar a ação de SLA: os botões ficam desativados com o motivo; o tratamento é feito na ação, no ACC.
       actions: {},
       unavailableReasons: {
-        RESOLVIDO: "Sem atalho por e-mail: trate em Abrir ação no ACC.",
-        EM_ANDAMENTO: "Sem atalho por e-mail: trate em Abrir ação no ACC.",
-        ENVIAR_PARA: "Sem atalho por e-mail: trate em Abrir ação no ACC.",
+        RESOLVIDO: noShortcut,
+        EM_ANDAMENTO: noShortcut,
+        ENVIAR_PARA: noShortcut,
         ESPECIALISTA: "Consulta ao especialista indisponível no escalonamento de SLA.",
       },
       details,
+      replyByEmail,
       replyInstruction: "Você também pode responder diretamente a este e-mail.",
       extraLinks: [
         { label: "Abrir ação no ACC", url: input.eventUrl },
@@ -92,6 +104,7 @@ export function buildSlaEscalationEmail(input: SlaEscalationEmailInput) {
     "",
     `Abrir ação no ACC: ${input.eventUrl}`,
     ...(input.actionButtons.length > 0 ? ["", "Ações disponíveis:", renderEmailActionButtonsText(input.actionButtons)] : []),
+    ...(replyByEmail ? ["", ...replyByEmailTextLines(replyByEmail)] : []),
     "",
     "Este escalonamento foi gerado automaticamente pelo motor determinístico de SLA do ACC — não é uma decisão de IA.",
   ].join("\n");

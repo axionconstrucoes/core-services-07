@@ -3,6 +3,8 @@ import "server-only";
 import { createSupabaseAdminClient } from "@axion/db/admin";
 import { createSupabaseServerClient } from "@axion/db/server";
 
+import { issueItemReplyMailto, SEVERITY_FROM_ALERT } from "@/lib/email-replies/issue-item-reply-mailto";
+import { createSupabaseEmailReplyTokenStore } from "@/lib/email-replies/reply-tokens";
 import { failManualAlertBatch, finalizeManualAlertBatch, registerManualAlertBatch } from "@/lib/alerts/manual-alert-tracking";
 import { getAppBaseUrl } from "@/lib/app-base-url";
 import { buildAiConsultUrl } from "@/lib/alerts/ai-consult-link";
@@ -10,6 +12,7 @@ import { getCurrentProjectPermission } from "@/lib/contract-review";
 
 import { appendAccEmailSignature } from "./branding/acc-email-signature";
 import { loadAccAlertLogos } from "./branding/load-acc-logo-inline-image";
+import { ALERT_REPLY_MAILBOX_ENV } from "./alert-reply-address";
 import { EmailSendError } from "./email-provider";
 import { assertNotEmailFixtureData } from "./fixture-safety-guard";
 import { getEmailProvider } from "./get-email-provider";
@@ -122,12 +125,36 @@ export async function sendContractAlertEmail(
     title: input.alert.title,
   });
   const quickBase = tracking ? `${getAppBaseUrl()}/alertas/acao/${input.projectId}/${tracking.batchId}/${input.eventId}` : null;
+  // Atalhos "Responder por e-mail" (CONTRACT_ALERT_ITEM = item do lote de um alerta), só com acompanhamento válido: o
+  // token é do destinatário do lote e o hash é gravado ANTES do envio. Falha => o e-mail sai só com os botões.
+  let replyByEmail: Awaited<ReturnType<typeof issueItemReplyMailto>> = null;
+  if (tracking) {
+    try {
+      const { data: trackedBatch } = await adminForTracking.from("contract_alert_batches").select("recipient_user_id").eq("id", tracking.batchId).maybeSingle();
+      const { data: trackedItem } = await adminForTracking.from("contract_alert_batch_items").select("id").eq("batch_id", tracking.batchId).eq("event_id", input.eventId).maybeSingle();
+      if (trackedBatch && trackedItem) {
+        replyByEmail = await issueItemReplyMailto({
+          store: createSupabaseEmailReplyTokenStore(adminForTracking),
+          mailbox: process.env[ALERT_REPLY_MAILBOX_ENV] ?? null,
+          projectId: input.projectId,
+          kind: "CONTRACT_ALERT_ITEM",
+          subjectId: trackedItem.id as string,
+          recipientUserId: trackedBatch.recipient_user_id as string,
+          severity: SEVERITY_FROM_ALERT[input.alert.severity] ?? "MEDIUM",
+          nowIso: new Date().toISOString(),
+        });
+      }
+    } catch {
+      replyByEmail = null;
+    }
+  }
 
   const { subject, html, text } = buildContractAlertEmail({
     ...input.alert,
     hasInlineLogo: logos.availability.maroon,
     hasInlineInvertedLogo: logos.availability.inverted,
     repeatNotice: tracking !== null,
+    replyByEmail,
     aiConsultUrl: buildAiConsultUrl({ baseUrl: getAppBaseUrl(), projectId: input.projectId, subject: "evento", id: input.eventId }),
     quickActionUrls: quickBase
       ? {

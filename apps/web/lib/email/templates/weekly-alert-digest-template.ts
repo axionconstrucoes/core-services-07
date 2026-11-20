@@ -1,5 +1,7 @@
+import type { ReplyMailtoLinks } from "@/lib/email-replies/reply-mailto";
+
 import type { AlertLogoAvailability } from "./alert-box-style";
-import { buildUniversalDigestEmail } from "./universal-alert-template";
+import { buildUniversalDigestEmail, replyByEmailTextLines } from "./universal-alert-template";
 
 export type WeeklyDigestRiskLevel = "MEDIUM" | "LOW";
 
@@ -9,6 +11,8 @@ export interface WeeklyAlertDigestItem {
   description: string;
   riskLevel: WeeklyDigestRiskLevel;
   dueAt: string | null;
+  /** Atalhos "Responder por e-mail" DESTE item (token por item, WEEKLY_DIGEST_ITEM). Ausente => só o formulário do ACC. */
+  replyByEmail?: ReplyMailtoLinks | null;
 }
 
 export interface WeeklyAlertDigestEmailInput {
@@ -73,12 +77,16 @@ export function buildWeeklyAlertDigestEmail(input: WeeklyAlertDigestEmailInput) 
         ENVIAR_PARA: buildWeeklyDigestItemUrl(input.responseUrl, item.actionId, "FORWARDED"),
       },
       unavailableReasons: { ESPECIALISTA: "Consulta ao especialista indisponível no resumo semanal." },
+      // Resposta POR ITEM por e-mail (RESOLVIDO / EM ANDAMENTO / ENVIAR PARA): grava só este item, pela mesma regra do resumo.
+      replyByEmail: item.replyByEmail ?? null,
     })),
   });
 
   const textItems = items.map((item, index) => {
     const risk = item.riskLevel === "MEDIUM" ? "MÉDIO" : "BAIXO";
-    return `${index + 1}. [RISCO ${risk}] ${item.title}${item.description ? ` — ${item.description}` : ""}${item.dueAt ? ` — Prazo: ${item.dueAt}` : ""}`;
+    const line = `${index + 1}. [RISCO ${risk}] ${item.title}${item.description ? ` — ${item.description}` : ""}${item.dueAt ? ` — Prazo: ${item.dueAt}` : ""}`;
+    const mailto = replyByEmailTextLines(item.replyByEmail);
+    return mailto.length > 0 ? [line, ...mailto.map((l) => `   ${l}`)].join("\n") : line;
   });
 
   const text = [

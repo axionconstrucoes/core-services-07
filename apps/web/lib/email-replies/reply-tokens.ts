@@ -6,8 +6,9 @@
 // - Validade: 30 dias (a mesma janela da busca da caixa: newer_than:30d).
 // - Consumo: RESOLVIDO / ENVIAR PARA aplicados marcam o token com o id do provedor da mensagem (uso único para ações
 //   terminais). EM ANDAMENTO não consome (a previsão pode ser atualizada). Reprocessar a MESMA mensagem é idempotente.
-// - Tipos sem processamento por e-mail (SLA_ACTION, WEEKLY_DIGEST_ITEM, CONTRACT_ALERT_ITEM, VERSION_REVIEW) existem na
-//   tabela para a próxima etapa, mas NÃO recebem atalho mailto e são recusados com explicação se chegarem.
+// - N3: SLA_ACTION, WEEKLY_DIGEST_ITEM e CONTRACT_ALERT_ITEM passaram a ter processamento efetivo (fase
+//   scripts/lib/token-replies-phase.mjs + RPCs *_by_email da migration 20261121120000). VERSION_REVIEW continua SEM
+//   processamento por e-mail: não recebe atalho mailto.
 
 import { createHash, randomBytes } from "node:crypto";
 
@@ -16,7 +17,7 @@ export type EmailReplySubjectKind = "RISK_CASE" | "SSMA_ACTION" | "SLA_ACTION" |
 export const EMAIL_REPLY_SUBJECT_KINDS: readonly EmailReplySubjectKind[] = ["RISK_CASE", "SSMA_ACTION", "SLA_ACTION", "WEEKLY_DIGEST_ITEM", "CONTRACT_ALERT_ITEM", "VERSION_REVIEW"];
 
 /** Tipos com processamento EFETIVO por e-mail (RESOLVIDO / EM ANDAMENTO / ENVIAR PARA). Só eles recebem mailto. */
-export const EMAIL_REPLY_PROCESSABLE_KINDS: ReadonlySet<EmailReplySubjectKind> = new Set<EmailReplySubjectKind>(["RISK_CASE", "SSMA_ACTION"]);
+export const EMAIL_REPLY_PROCESSABLE_KINDS: ReadonlySet<EmailReplySubjectKind> = new Set<EmailReplySubjectKind>(["RISK_CASE", "SSMA_ACTION", "SLA_ACTION", "WEEKLY_DIGEST_ITEM", "CONTRACT_ALERT_ITEM"]);
 
 export function isProcessableReplyKind(kind: string | null | undefined): kind is EmailReplySubjectKind {
   return EMAIL_REPLY_PROCESSABLE_KINDS.has(kind as EmailReplySubjectKind);
