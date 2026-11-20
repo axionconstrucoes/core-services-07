@@ -89,7 +89,7 @@ export async function createActionForHistoricalFinding(
 
   if (slaActionError) throw new Error(`Falha ao criar ação de SLA: ${slaActionError.message}`);
 
-  const { error: updateError } = await supabase
+  const { data: persistedRows, error: updateError } = await supabase
     .from("ai_findings")
     .update({
       lifecycle_status: "ACTION_CREATED",
@@ -98,9 +98,14 @@ export async function createActionForHistoricalFinding(
       reviewed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq("id", input.findingId);
+    .eq("id", input.findingId)
+    .select("id");
 
   if (updateError) throw new Error(`Falha ao vincular ação ao finding: ${updateError.message}`);
+  // UPDATE que casa 0 linhas não dá erro (RLS): sem a linha gravada de volta, o finding não foi marcado.
+  if (!persistedRows?.length) {
+    throw new Error(`A ação ${slaAction.id} foi criada, mas o finding não foi marcado como ACTION_CREATED (sem permissão ou registro inexistente). Revise o finding manualmente.`);
+  }
 
   const updatedFinding = await getFinding(supabase, input.findingId);
   if (!updatedFinding) throw new Error("Finding não encontrado após atualização.");

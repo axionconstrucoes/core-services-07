@@ -22,12 +22,16 @@ export async function updateAdditionalProposalStatus(
     throw new Error(`Status inválido: "${input.status}". Use markAdditionalProposalContracted para marcar CONTRATADO.`);
   }
 
-  const { error } = await supabase
+  const { data: persistedRows, error } = await supabase
     .from("project_additional_proposals")
     .update({ status: input.status, updated_at: new Date().toISOString() })
-    .eq("id", input.proposalId);
+    .eq("id", input.proposalId)
+    .select("id");
 
   if (error) throw new Error(`Falha ao atualizar status da proposta: ${error.message}`);
+
+  // UPDATE que casa 0 linhas não dá erro (RLS): sem a linha gravada de volta, nada foi persistido.
+  if (!persistedRows?.length) throw new Error("A mudança de status da proposta não foi gravada: somente um ADMINISTRADOR ativo da obra pode alterar este registro (ou ele não existe mais).");
 
   const updated = await getAdditionalProposal(supabase, input.proposalId);
   if (!updated) throw new Error("Proposta não encontrada após atualização.");

@@ -207,7 +207,7 @@ export function FieldRecordsApp({
       {creating ? (
         <NewRecordForm projects={registrable} contextProjectId={project.id} online={online} onSave={handleSave} onCancel={() => setCreating(false)} />
       ) : selected ? (
-        <RecordDetail key={selected.id} record={selected} initialEvent={selected.id === linkedRecordId ? initialRecordAction : null} notice={describeNotification(notifications.get(selected.id) ?? [])} userId={userId} projectId={project.id} canManage={project.canManage} isAdmin={project.isAdmin} canRegisterEsg={project.canRegisterEsg} online={online} names={names} onChanged={() => void loadServer()} />
+        <RecordDetail key={selected.id} record={selected} members={project.members} initialEvent={selected.id === linkedRecordId && (initialRecordAction === "ANDAMENTO" || initialRecordAction === "CONCLUIDA") ? initialRecordAction : null} initialFocus={selected.id === linkedRecordId && (initialRecordAction === "ENCAMINHAR" || initialRecordAction === "ESPECIALISTA") ? initialRecordAction : null} notice={describeNotification(notifications.get(selected.id) ?? [])} userId={userId} projectId={project.id} canManage={project.canManage} isAdmin={project.isAdmin} canRegisterEsg={project.canRegisterEsg} online={online} names={names} onChanged={() => void loadServer()} />
       ) : tab === "sync" ? (
         <SyncView items={queue.items} projectId={project.id} foreignPending={queue.foreignPending} syncing={queue.syncing} online={online} onRetry={() => void queue.runSync(true)} onDiscard={(id) => void queue.discard(id)} onPurge={() => void queue.purgeForeign()} />
       ) : tab === "perfil" ? (

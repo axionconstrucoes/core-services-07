@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import type { AlertConsultState } from "@/lib/ai/alert-consult/alert-consult-state";
 import { runAlertConsultExpert } from "@/lib/ai/alert-consult/alert-consult-experts";
+import { reserveAiConsult } from "@/lib/ai/alert-consult/consult-quota";
 import { loadAlertConsultSubject } from "@/lib/ai/alert-consult/load-alert-consult-subject";
 import { runAlertConsult } from "@/lib/ai/alert-consult/run-alert-consult";
 import { parseAlertConsultForm } from "@/lib/ai/alert-consult/specialties";
@@ -26,6 +27,7 @@ export async function consultAlertAction(_previous: AlertConsultState, formData:
     {
       getPermission: getCurrentProjectPermission,
       loadSubject: (projectId, subject, id) => loadAlertConsultSubject(supabase, projectId, subject, id),
+      reserve: (projectId, subject, id) => reserveAiConsult(supabase, projectId, subject === "risco" ? "RISCO" : "ALERTA", `${subject}:${id}`),
       runExpert: (expertId, request, userQuestion) => runAlertConsultExpert(supabase, expertId, request, userQuestion),
     },
     parsed.input

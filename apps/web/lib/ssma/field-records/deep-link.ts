@@ -1,8 +1,9 @@
 // Link autenticado de um e-mail para UM registro de SSMA no aplicativo de campo (/ssma/[projectId]).
-// O link só ABRE o registro e PRÉ-SELECIONA o formulário (registrar andamento ou concluir a ação): abrir o link nunca
+// O link só ABRE o registro e PRÉ-SELECIONA o formulário (registrar andamento, concluir, encaminhar) ou leva à consulta ao
+// especialista: abrir o link nunca
 // altera estado. O registro exige login, confirmação explícita e, na conclusão, evidência — validados pelo servidor.
 
-export type SsmaRecordLinkAction = "ANDAMENTO" | "CONCLUIDA";
+export type SsmaRecordLinkAction = "ANDAMENTO" | "CONCLUIDA" | "ENCAMINHAR" | "ESPECIALISTA";
 
 export interface SsmaRecordLinkTarget {
   baseUrl: string;
@@ -11,7 +12,7 @@ export interface SsmaRecordLinkTarget {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ACTIONS: readonly SsmaRecordLinkAction[] = ["ANDAMENTO", "CONCLUIDA"];
+const ACTIONS: readonly SsmaRecordLinkAction[] = ["ANDAMENTO", "CONCLUIDA", "ENCAMINHAR", "ESPECIALISTA"];
 
 export function buildSsmaRecordUrl(target: SsmaRecordLinkTarget, action?: SsmaRecordLinkAction): string {
   const base = target.baseUrl.replace(/\/+$/, "");

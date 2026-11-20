@@ -53,7 +53,7 @@ export async function submitContractAlertBatchAction(
 
   revalidatePath(`/${projectId}/ledger`);
   revalidatePath(`/${projectId}/ledger/lote-alertas/${batchId}`);
-  return { success: true, error: null, pendingItems: [] };
+  return { success: true, error: null, pendingItems: [], warning: outcome.followupWarning ?? null };
 }
 
 // Salva NA HORA a ação de UM alerta (resposta parcial): não exige que os demais estejam

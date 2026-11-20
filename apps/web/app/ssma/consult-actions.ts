@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from "@axion/db/server";
 
+import { reserveAiConsult } from "@/lib/ai/alert-consult/consult-quota";
 import { consultSsmaSpecialistForRecord } from "@/lib/ai/alert-consult/ssma-consult";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { getFieldRecords } from "@/lib/ssma/field-records/data";
@@ -21,6 +22,7 @@ export async function consultSsmaRecordAction(_previous: SsmaConsultState, formD
         const { records } = await getFieldRecords(pid, new Map());
         return records.find((record) => record.id === rid) ?? null;
       },
+      reserve: (pid, rid) => reserveAiConsult(supabase, pid, "SSMA", rid),
       consult: ({ projectId: pid, recordContext, question: q }) =>
         consultSsmaSpecialistForRecord(supabase, { projectId: pid, recordContext, question: q }),
     },

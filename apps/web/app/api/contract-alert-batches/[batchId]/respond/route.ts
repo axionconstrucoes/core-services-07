@@ -53,5 +53,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ bat
     return Response.json({ error: outcome.error, pendingItems: outcome.pendingItems ?? [] }, { status: outcome.status });
   }
 
-  return Response.json({ batchId, respondedItems: outcome.respondedItems }, { status: 200 });
+  return Response.json({ batchId, respondedItems: outcome.respondedItems, followupWarning: outcome.followupWarning ?? null }, { status: 200 });
 }

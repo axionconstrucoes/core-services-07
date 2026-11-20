@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createSupabaseAdminClient } from "@axion/db/admin";
 import { createSupabaseServerClient } from "@axion/db/server";
 
 import { applyBatchResponsesToFollowups } from "../alerts/followup-service";
@@ -106,9 +107,11 @@ export async function respondToContractAlertBatch(
 
   // Espelha a resposta no acompanhamento recorrente (RESOLVIDO interrompe os lembretes; EM ANDAMENTO
   // não adia nada; ENVIADO P/ troca o responsável). A resposta do lote já está gravada e é a
-  // fonte da verdade — uma falha aqui não a desfaz.
+  // fonte da verdade — uma falha aqui não a desfaz, mas nunca é silenciosa: vira aviso na tela e
+  // registro na auditoria (ex.: quem respondeu não é o responsável dos lembretes daquele alerta).
+  let failedFollowups = 0;
   try {
-    await applyBatchResponsesToFollowups(supabase, {
+    const mirrored = await applyBatchResponsesToFollowups(supabase, {
       projectId: batch.project_id as string,
       responses: input.responses.map((response) => ({
         eventId: response.eventId,
@@ -116,8 +119,28 @@ export async function respondToContractAlertBatch(
         assignedUserId: response.assignedUserId ?? null,
       })),
     });
+    failedFollowups = mirrored.failed;
   } catch {
-    // Complementar: não propaga.
+    failedFollowups = input.responses.length;
+  }
+
+  if (failedFollowups > 0) {
+    const followupWarning = `A resposta foi registrada, mas os lembretes de ${failedFollowups} alerta(s) não foram atualizados (somente o responsável pelos lembretes ou um ADMINISTRADOR pode alterá-los). O ADMINISTRADOR da obra foi sinalizado na auditoria.`;
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      await createSupabaseAdminClient().from("audit_log_entries").insert({
+        project_id: batch.project_id as string,
+        actor_type: auth.user ? "USER" : "SYSTEM",
+        actor_user_id: auth.user?.id ?? null,
+        action: "CONTRACT_ALERT_FOLLOWUP_NOT_APPLIED",
+        entity_type: "CONTRACT_ALERT_BATCH",
+        entity_id: input.batchId,
+        detail: `Lembretes não atualizados para ${failedFollowups} de ${input.responses.length} alerta(s) após a resposta do lote.`,
+      });
+    } catch {
+      // A auditoria complementar não desfaz a resposta já gravada; o aviso continua visível ao usuário.
+    }
+    return { ...outcome, followupWarning };
   }
 
   return outcome;

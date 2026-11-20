@@ -41,6 +41,7 @@ export function CompactContractAlertActionForm({
     return (
       <div className="rounded-md border border-emerald-300 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
         Ação registrada no ACC. Você pode voltar ao e-mail.
+        {state.warning ? <p className="mt-2 font-normal text-amber-800">{state.warning}</p> : null}
       </div>
     );
   }

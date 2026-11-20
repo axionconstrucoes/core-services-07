@@ -46,7 +46,8 @@ export async function confirmEmailAlertAction(
     .single();
 
   if (error) {
-    throw new EmailActionConfirmError(error.message);
+    // Ação de alerta de risco: o banco recusa ciência/assumir por este link (migration 20261120110000) e explica onde tratar.
+    throw new EmailActionConfirmError(error.message.replace(/^RISK_CASE_LINKED:\s*/, ""));
   }
 
   const row = data as {

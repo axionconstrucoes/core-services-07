@@ -25,8 +25,11 @@ export async function configureProjectStartup(supabase: SupabaseClient, input: C
   };
   if (input.accOperationalStartDate) updates.acc_operational_start_date = input.accOperationalStartDate;
 
-  const { error } = await supabase.from("projects").update(updates).eq("id", input.projectId);
+  const { data: persistedRows, error } = await supabase.from("projects").update(updates).eq("id", input.projectId)
+    .select("id");
   if (error) throw new Error(`Falha ao configurar Start-up do projeto: ${error.message}`);
+  // UPDATE que casa 0 linhas não dá erro (RLS): sem a linha gravada de volta, nada foi persistido.
+  if (!persistedRows?.length) throw new Error("A configuração do Start-up não foi gravada: somente um ADMINISTRADOR ativo da obra pode alterar este registro (ou ele não existe mais).");
 
   return getProjectStartupConfig(supabase, input.projectId);
 }

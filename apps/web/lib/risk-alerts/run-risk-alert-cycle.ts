@@ -678,7 +678,9 @@ export async function sendPlanned(outboxId: string, caseId: string | null, entry
       baseUrl: ctx.baseUrl,
       timeZone: ctx.timeZone,
       generatedAt: ctx.nowIso,
-      actionButtons: entry.slaActionId
+      // Com caso registrado, os quatro botões do caso (record_risk_alert_action) são o ÚNICO canal de tratamento: os links
+      // de SLA (DAR CIÊNCIA / ASSUMIR...) gravariam só na ação SLA e o caso divergiria. Sem caso, ficam como antes.
+      actionButtons: entry.slaActionId && !caseId
         ? await issueEmailAlertActionButtons({ projectId: ctx.projectId, alertKind: "SLA_ACTION", alertId: entry.slaActionId, intendedRecipientEmail: recipientEmail }).catch(() => [])
         : [],
       actionLinks: caseId ? await issueActionLinks(ctx, caseId, entry.recipient.userId) : undefined,

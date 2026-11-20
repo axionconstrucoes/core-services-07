@@ -95,9 +95,16 @@ interface SsmaAlertDetails {
   replyInstruction?: string;
 }
 
-/** Motivos exibidos nos botões sem fluxo próprio no ACC (o botão fica no layout, desativado; nada é simulado). */
-export const SSMA_FORWARD_UNAVAILABLE = "Encaminhar ação corretiva de SSMA ainda não existe no ACC. Responda a este e-mail indicando o novo responsável.";
-export const SSMA_SPECIALIST_UNAVAILABLE = "Consulta ao especialista de SSMA ainda não disponível no ACC.";
+/**
+ * ENVIAR PARA e ESPECIALISTA: os fluxos existem no registro do app SSMA (encaminhar — ssma_corrective_action_forward — e
+ * consulta ao especialista com limite diário). O ATALHO por e-mail fica desativado até a validação funcional; liga-se
+ * com ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=true (servidor). Desativado, o botão continua no layout com o motivo.
+ */
+export function ssmaEmailExtraActionsEnabled(): boolean {
+  return process.env.ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED === "true";
+}
+export const SSMA_FORWARD_UNAVAILABLE = "Atalho em validação: encaminhe pelo registro (ABRIR NO ACC → Encaminhar) ou responda a este e-mail indicando o novo responsável.";
+export const SSMA_SPECIALIST_UNAVAILABLE = "Atalho em validação: consulte o especialista pelo registro (ABRIR NO ACC → Consultar IA).";
 export const SSMA_RECORD_UNKNOWN = "Registro de SSMA não identificado nesta mensagem. Use ABRIR NO ACC.";
 
 /** Endereço do registro desta mensagem no aplicativo SSMA; sem registro identificado, a lista de registros da obra. */
@@ -132,6 +139,7 @@ export function renderSsmaAlert(
 ): MailContent {
   const { severity, recordLink } = ctx;
   const openUrl = ssmaOpenUrl(ctx);
+  const extraActions = ssmaEmailExtraActionsEnabled();
   const { html, logoNeeds } = buildUniversalAlertEmail({
     recipientName: ctx.recipientName,
     logos: { maroon: true, inverted: true },
@@ -149,17 +157,21 @@ export function renderSsmaAlert(
       originalDeadline: ctx.dueDate,
       specialistLabel: "Especialista SSMA",
       openUrl,
-      // RESOLVIDO e EM ANDAMENTO abrem ESTE registro no aplicativo SSMA com o formulário (concluir / registrar andamento)
-      // pré-selecionado. Exige login; abrir o link NÃO altera estado: a ação é registrada lá, com confirmação, evidência e
-      // auditoria. ENVIAR PARA e ESPECIALISTA não têm fluxo de SSMA no ACC: ficam desativados, com o motivo.
+      // Cada botão abre ESTE registro no aplicativo SSMA com o formulário correspondente (concluir / registrar andamento /
+      // encaminhar) ou a consulta ao especialista. Exige login; abrir o link NÃO altera estado: a ação é registrada lá, com
+      // confirmação, evidência e auditoria. ENVIAR PARA e ESPECIALISTA só ficam ativos com a chave de validação.
       actions: recordLink
-        ? { RESOLVIDO: buildSsmaRecordUrl(recordLink, "CONCLUIDA"), EM_ANDAMENTO: buildSsmaRecordUrl(recordLink, "ANDAMENTO") }
+        ? {
+            RESOLVIDO: buildSsmaRecordUrl(recordLink, "CONCLUIDA"),
+            EM_ANDAMENTO: buildSsmaRecordUrl(recordLink, "ANDAMENTO"),
+            ...(extraActions ? { ENVIAR_PARA: buildSsmaRecordUrl(recordLink, "ENCAMINHAR"), ESPECIALISTA: buildSsmaRecordUrl(recordLink, "ESPECIALISTA") } : {}),
+          }
         : {},
-      unavailableReasons: {
-        ...(recordLink ? {} : { RESOLVIDO: SSMA_RECORD_UNKNOWN, EM_ANDAMENTO: SSMA_RECORD_UNKNOWN }),
-        ENVIAR_PARA: SSMA_FORWARD_UNAVAILABLE,
-        ESPECIALISTA: SSMA_SPECIALIST_UNAVAILABLE,
-      },
+      unavailableReasons: recordLink
+        ? extraActions
+          ? {}
+          : { ENVIAR_PARA: SSMA_FORWARD_UNAVAILABLE, ESPECIALISTA: SSMA_SPECIALIST_UNAVAILABLE }
+        : { RESOLVIDO: SSMA_RECORD_UNKNOWN, EM_ANDAMENTO: SSMA_RECORD_UNKNOWN, ENVIAR_PARA: SSMA_RECORD_UNKNOWN, ESPECIALISTA: SSMA_RECORD_UNKNOWN },
       details: withoutDedicatedFields(details.facts, ctx).map(([label, value]) => ({ label, value })),
       notices: details.notices,
       replyInstruction: details.replyInstruction,

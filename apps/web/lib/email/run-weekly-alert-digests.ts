@@ -67,7 +67,15 @@ export async function runWeeklyAlertDigests(now: Date = new Date()): Promise<Wee
     .order("title", { ascending: true });
 
   if (error) throw new Error(`Falha ao carregar alertas do resumo semanal: ${error.message}`);
-  const actions = data as unknown as ActionRow[];
+  // Ações de um alerta de risco são tratadas só pela página do alerta (caso e ação mudam juntos). Hoje elas nascem
+  // ALTO/CRÍTICO e não chegam aqui; o filtro torna a garantia explícita (Resolvido no resumo não sincronizaria o caso).
+  const candidates = data as unknown as ActionRow[];
+  const { data: linkedCases, error: linkedError } = candidates.length
+    ? await admin.from("risk_alert_cases").select("sla_action_id").in("sla_action_id", candidates.map((action) => action.id))
+    : { data: [], error: null };
+  if (linkedError) throw new Error(`Falha ao verificar alertas de risco vinculados: ${linkedError.message}`);
+  const riskLinked = new Set((linkedCases ?? []).map((row) => row.sla_action_id as string));
+  const actions = candidates.filter((action) => !riskLinked.has(action.id));
   const groups = new Map<string, ActionRow[]>();
 
   for (const action of actions) {

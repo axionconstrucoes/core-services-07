@@ -98,6 +98,7 @@ export function ContractAlertBatchForm({
     return (
       <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-5 text-sm font-medium text-emerald-800">
         Todos os alertas foram respondidos. A resposta ao ACC foi enviada.
+        {state.warning ? <p className="mt-2 font-normal text-amber-800">{state.warning}</p> : null}
       </div>
     );
   }

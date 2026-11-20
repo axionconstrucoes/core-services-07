@@ -48,7 +48,16 @@ export default async function SlaActionsPage({ params }: { params: Promise<{ pro
     escalationsByActionId.set(esc.actionId, list);
   }
 
-  const memberOptions = members.map((m) => ({ userId: m.userId, name: m.user.name }));
+  // Destinos de encaminhamento: membros ativos que não são somente leitura (o banco revalida).
+  const memberOptions = members
+    .filter((m) => m.status === "ACTIVE" && m.permission !== "LEITURA")
+    .map((m) => ({ userId: m.userId, name: m.user.name }));
+  // Mesma regra das RPCs sla_action_* (o banco é a autoridade; a tela só não oferece o que seria recusado).
+  const canOperate = (responsibleUserId: string | null) =>
+    permission === "ADMINISTRADOR" || (permission !== null && permission !== "LEITURA" && responsibleUserId !== null && responsibleUserId === currentUserId);
+  // Ações de alerta de risco são tratadas na página do alerta (evidência, previsão e caso sincronizado).
+  const { data: linkedCases } = await supabase.from("risk_alert_cases").select("id, sla_action_id").eq("project_id", projectId).not("sla_action_id", "is", null);
+  const riskCaseByActionId = new Map((linkedCases ?? []).map((c) => [c.sla_action_id as string, c.id as string]));
   const areas = Array.from(new Set(actions.map((a) => a.area))) as SlaArea[];
   const responsibleOptions = Array.from(
     new Set(actions.map((a) => a.responsibleName).filter((v): v is string => Boolean(v)))
@@ -106,11 +115,11 @@ export default async function SlaActionsPage({ params }: { params: Promise<{ pro
                   projectId={projectId}
                   action={action}
                   escalations={escalationsByActionId.get(action.id) ?? []}
-                  isResponsible={
-                    canConfigure || (canCreate && action.responsibleUserId !== null && action.responsibleUserId === currentUserId)
-                  }
-                  canReassign={canConfigure}
-                  members={memberOptions}
+                  isResponsible={canOperate(action.responsibleUserId)}
+                  canReassign={canOperate(action.responsibleUserId)}
+                  requiresForwardReason={permission !== "ADMINISTRADOR"}
+                  riskCaseId={riskCaseByActionId.get(action.id) ?? null}
+                  members={memberOptions.filter((m) => m.userId !== action.responsibleUserId)}
                 />
                 {/* sla_actions não tem tabela de comentário própria —
                     RESPONDER AO ACC via e-mail só aparece aqui (ver

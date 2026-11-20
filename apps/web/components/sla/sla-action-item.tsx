@@ -37,6 +37,8 @@ export function SlaActionItem({
   escalations,
   isResponsible,
   canReassign,
+  requiresForwardReason = true,
+  riskCaseId = null,
   members,
 }: {
   projectId: string;
@@ -44,8 +46,14 @@ export function SlaActionItem({
   escalations: SlaActionEscalation[];
   isResponsible: boolean;
   canReassign: boolean;
+  /** Responsável (não administrador) informa o motivo do encaminhamento (exigido pelo banco). */
+  requiresForwardReason?: boolean;
+  /** Ação de um alerta de risco: o tratamento é feito na página do alerta (o banco recusa aqui). */
+  riskCaseId?: string | null;
   members: Array<{ userId: string; name: string }>;
 }) {
+  // Ação de alerta de risco: nada é oferecido aqui; o caso e a ação SLA só mudam juntos, pela página do alerta.
+  const operable = !riskCaseId;
   const [assumeState, assumeAction, assumePending] = useActionState(
     assumeSlaActionAction,
     initialAssumeSlaActionState
@@ -113,7 +121,17 @@ export function SlaActionItem({
           </ul>
         ) : null}
 
-        {action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
+        {riskCaseId && action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
+          <p className="text-xs text-muted-foreground">
+            Esta ação pertence a um alerta de risco.{" "}
+            <a className="font-medium underline" href={`/${projectId}/alertas/${riskCaseId}`}>
+              Registre o tratamento pela página do alerta
+            </a>
+            , que exige as evidências e mantém o caso e a ação sincronizados.
+          </p>
+        ) : null}
+
+        {operable && action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
           <div className="flex flex-wrap gap-2">
             {isResponsible && !action.acknowledgedAt ? (
               <form action={assumeAction}>
@@ -140,7 +158,7 @@ export function SlaActionItem({
         {assumeState.error ? <p className="text-xs text-destructive">{assumeState.error}</p> : null}
         {startState.error ? <p className="text-xs text-destructive">{startState.error}</p> : null}
 
-        {isResponsible && action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
+        {operable && isResponsible && action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
           <form action={completeFormAction} className="flex flex-col gap-2 rounded-md border border-dashed p-3">
             <input type="hidden" name="projectId" value={projectId} />
             <input type="hidden" name="actionId" value={action.id} />
@@ -155,13 +173,13 @@ export function SlaActionItem({
           </form>
         ) : null}
 
-        {canReassign ? (
+        {operable && canReassign && action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
           <form action={reassignFormAction} className="flex flex-wrap items-end gap-2">
             <input type="hidden" name="projectId" value={projectId} />
             <input type="hidden" name="actionId" value={action.id} />
             <label className="flex flex-col gap-1.5 text-xs font-medium">
-              Reatribuir para
-              <Select name="newResponsibleUserId" defaultValue="" className="max-w-[220px]">
+              Encaminhar para
+              <Select name="newResponsibleUserId" defaultValue="" required className="max-w-[220px]">
                 <option value="" disabled>
                   Selecione um responsável
                 </option>
@@ -172,8 +190,12 @@ export function SlaActionItem({
                 ))}
               </Select>
             </label>
+            <label className="flex min-w-[220px] flex-1 flex-col gap-1.5 text-xs font-medium">
+              Motivo{requiresForwardReason ? "" : " (opcional para administrador)"}
+              <Textarea name="reason" rows={1} required={requiresForwardReason} minLength={requiresForwardReason ? 5 : undefined} placeholder="Por que esta pessoa deve tratar a ação?" />
+            </label>
             <Button type="submit" size="sm" variant="outline" disabled={reassignPending}>
-              {reassignPending ? "Direcionando…" : "Direcionar"}
+              {reassignPending ? "Encaminhando…" : "Encaminhar"}
             </Button>
             <p className="basis-full text-xs text-muted-foreground">
               O direcionamento mantém os prazos e o escalonamento originais.

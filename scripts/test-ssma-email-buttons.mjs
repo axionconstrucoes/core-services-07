@@ -58,6 +58,23 @@ check("link do registro: só aceita UUID e ação conhecida; nunca executa (apen
   assert.deepEqual(link.parseSsmaRecordLink({ registro: R, acao: "EXCLUIR" }), { recordId: R, action: null });
   assert.deepEqual(link.parseSsmaRecordLink({ registro: "1 OR 1=1", acao: "ANDAMENTO" }), { recordId: null, action: null });
   assert.deepEqual(link.parseSsmaRecordLink({ registro: [R, R], acao: "ANDAMENTO" }), { recordId: null, action: null });
+  assert.deepEqual(link.parseSsmaRecordLink({ registro: R, acao: "encaminhar" }), { recordId: R, action: "ENCAMINHAR" });
+  assert.deepEqual(link.parseSsmaRecordLink({ registro: R, acao: "ESPECIALISTA" }), { recordId: R, action: "ESPECIALISTA" });
+});
+
+check("ENVIAR PARA e ESPECIALISTA: desativados por padrão (atalho em validação); com ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=true abrem o registro na seção correspondente", () => {
+  assert.equal(process.env.ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED, undefined, "o teste parte da chave desligada");
+  assert.ok(!confirmation().html.includes("acao=ENCAMINHAR"), "desligado: sem link de encaminhar");
+  process.env.ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED = "true";
+  try {
+    const m = confirmation();
+    assert.equal(count(m.html, 'aria-disabled="true"'), 0, "ligado: os quatro botões ativos");
+    assert.ok(m.html.includes(`href="${amp(`${RECORD}&acao=ENCAMINHAR`)}"`) && m.html.includes(`href="${amp(`${RECORD}&acao=ESPECIALISTA`)}"`));
+    const off = confirmation({ recordLink: null });
+    assert.equal(count(off.html, 'aria-disabled="true"'), 4, "sem registro, nada fica ativo mesmo com a chave ligada");
+  } finally {
+    delete process.env.ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED;
+  }
 });
 
 check("sem campos repetidos: ação corretiva em atraso", () => {

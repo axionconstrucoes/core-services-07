@@ -45,6 +45,8 @@ export interface AlertConsultDeps {
   getPermission(projectId: string): Promise<ProjectPermission | null>;
   /** Carrega o alerta SOMENTE se pertencer à obra informada (e visível ao usuário); senão null. */
   loadSubject(projectId: string, subject: AlertConsultSubjectKind, id: string): Promise<AlertConsultSubject | null>;
+  /** Reserva uma unidade do limite diário de consultas de IA; recusada = a IA não é chamada (falha fechada). */
+  reserve?(projectId: string, subject: AlertConsultSubjectKind, id: string): Promise<{ ok: true } | { ok: false; error: string }>;
   runExpert(
     expertId: ExpertId,
     request: ExpertQueryRequest,
@@ -91,6 +93,10 @@ export async function runAlertConsult(deps: AlertConsultDeps, input: AlertConsul
     // Defesa em profundidade: mesmo um loader indevido nunca devolve alerta de outra obra.
     if (!subject || subject.projectId !== input.projectId || subject.id !== input.id) {
       return { ok: false, error: CONSULT_NOT_FOUND_MESSAGE };
+    }
+    if (deps.reserve) {
+      const reservation = await deps.reserve(input.projectId, input.subject, input.id);
+      if (!reservation.ok) return reservation;
     }
 
     const request: ExpertQueryRequest = {
