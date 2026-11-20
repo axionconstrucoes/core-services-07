@@ -64,7 +64,7 @@ function Actions({ projectId, row }: { projectId: string; row: MailboxDiagnostic
   const confirm = (
     <label className="flex items-start gap-2 text-xs">
       <input type="checkbox" name="confirm" value="sim" required className="mt-0.5 size-4" />
-      <span>Confirmo</span>
+      <span className="inline-flex items-center gap-1.5">Confirmo<FeatureInfo helpId="integracoes.caixas.campo-confirmo" /></span>
     </label>
   );
   return (
@@ -72,7 +72,10 @@ function Actions({ projectId, row }: { projectId: string; row: MailboxDiagnostic
       <form action={registerCorporateAuthorizationAction} className="space-y-2 rounded-md border border-gray-300 p-3">
         <p className="flex items-center gap-1.5 text-sm font-semibold">Registrar autorização corporativa<FeatureInfo helpId="integracoes.caixas.registrar-autorizacao" /></p>
         {hidden}
-        <input name="reference" minLength={3} maxLength={300} required disabled={!by.REGISTRAR_AUTORIZACAO?.enabled} placeholder="Referência da decisão (ata, e-mail, chamado)" className="min-h-9 w-full rounded-md border border-gray-300 px-2 py-1 text-xs" />
+        <div className="flex items-center gap-1.5">
+          <input name="reference" minLength={3} maxLength={300} required disabled={!by.REGISTRAR_AUTORIZACAO?.enabled} placeholder="Referência da decisão (ata, e-mail, chamado)" aria-label="Referência da decisão" className="min-h-9 w-full rounded-md border border-gray-300 px-2 py-1 text-xs" />
+          <FeatureInfo helpId="integracoes.caixas.campo-referencia" />
+        </div>
         {by.REGISTRAR_AUTORIZACAO?.enabled ? confirm : null}
         <button type="submit" disabled={!by.REGISTRAR_AUTORIZACAO?.enabled} className="min-h-9 rounded-md bg-brand-sidebar px-3 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60">Registrar</button>
         <ActionHint state={by.REGISTRAR_AUTORIZACAO} />
@@ -81,7 +84,7 @@ function Actions({ projectId, row }: { projectId: string; row: MailboxDiagnostic
         <p className="flex items-center gap-1.5 text-sm font-semibold">Habilitar coleta (período obrigatório)<FeatureInfo helpId="integracoes.caixas.habilitar-coleta" /></p>
         {hidden}
         <div className="grid grid-cols-2 gap-2">
-          <label className="text-xs">Início<input type="date" name="periodStart" required disabled={!by.HABILITAR_COLETA?.enabled} className="min-h-9 w-full rounded-md border border-gray-300 px-2" /></label>
+          <label className="text-xs"><span className="inline-flex items-center gap-1.5">Início<FeatureInfo helpId="integracoes.caixas.campo-periodo" /></span><input type="date" name="periodStart" required disabled={!by.HABILITAR_COLETA?.enabled} className="min-h-9 w-full rounded-md border border-gray-300 px-2" /></label>
           <label className="text-xs">Fim<input type="date" name="periodEnd" required disabled={!by.HABILITAR_COLETA?.enabled} className="min-h-9 w-full rounded-md border border-gray-300 px-2" /></label>
         </div>
         {by.HABILITAR_COLETA?.enabled ? confirm : null}
@@ -97,7 +100,10 @@ function Actions({ projectId, row }: { projectId: string; row: MailboxDiagnostic
       <form action={revokeCollectionAction} className="space-y-2 rounded-md border border-red-300 p-3">
         <p className="flex items-center gap-1.5 text-sm font-semibold text-red-900">Revogar coleta (efeito imediato)<FeatureInfo helpId="integracoes.caixas.revogar" /></p>
         {hidden}
-        <input name="reason" minLength={3} maxLength={500} required disabled={!by.REVOGAR?.enabled} placeholder="Motivo" className="min-h-9 w-full rounded-md border border-gray-300 px-2 py-1 text-xs" />
+        <div className="flex items-center gap-1.5">
+          <input name="reason" minLength={3} maxLength={500} required disabled={!by.REVOGAR?.enabled} placeholder="Motivo" aria-label="Motivo da revogação" className="min-h-9 w-full rounded-md border border-gray-300 px-2 py-1 text-xs" />
+          <FeatureInfo helpId="integracoes.caixas.campo-motivo" />
+        </div>
         {by.REVOGAR?.enabled ? confirm : null}
         <button type="submit" disabled={!by.REVOGAR?.enabled} className="min-h-9 rounded-md bg-red-800 px-3 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60">Revogar</button>
         <ActionHint state={by.REVOGAR} />
@@ -146,14 +152,23 @@ export default async function MailboxAdminPage({
         <Link href={`/${projectId}/autorizacoes`} className="font-semibold text-brand-sidebar hover:underline">Aceites individuais (Autorizações)</Link>
       </p>
 
-      {flash ? <p role="status" className={`rounded-md px-3 py-2 text-sm ${flash.ok ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900"}`}>{flash.text}</p> : null}
+      {flash ? (
+        <p role="status" className={`flex items-start gap-1.5 rounded-md px-3 py-2 text-sm ${flash.ok ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900"}`}>
+          <span>{flash.text}</span>
+          <FeatureInfo helpId="integracoes.caixas.mensagem-resultado" />
+        </p>
+      ) : null}
       {evidence.controlsAvailability !== "OK" ? (
-        <p role="alert" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          {evidence.controlsAvailability === "MISSING" ? CONTROLS_MISSING_TEXT : "Não foi possível ler os controles por caixa. Todas as ações ficam desligadas (falha fechada)."}
+        <p role="alert" className="flex items-start gap-1.5 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          <span>{evidence.controlsAvailability === "MISSING" ? CONTROLS_MISSING_TEXT : "Não foi possível ler os controles por caixa. Todas as ações ficam desligadas (falha fechada)."}</span>
+          <FeatureInfo helpId="integracoes.caixas.aviso-controles" />
         </p>
       ) : null}
       {evidence.unassignedEmails ? (
-        <p className="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-700">{evidence.unassignedEmails} mensagens do Gmail nesta obra estão sem caixa de origem registrada e não são atribuídas a nenhuma caixa.</p>
+        <p className="flex items-start gap-1.5 rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-700">
+          <span>{evidence.unassignedEmails} mensagens do Gmail nesta obra estão sem caixa de origem registrada e não são atribuídas a nenhuma caixa.</span>
+          <FeatureInfo helpId="integracoes.caixas.aviso-controles" />
+        </p>
       ) : null}
 
       <Card>
@@ -187,7 +202,7 @@ export default async function MailboxAdminPage({
                     <p className="text-gray-600">{row.responsible.name}</p>
                   </td>
                   {row.stages.map((stage) => (
-                    <td key={stage.key} className="py-2 pr-2" title={stage.evidence}>
+                    <td key={stage.key} className="py-2 pr-2">
                       <span className={`rounded px-1.5 py-0.5 font-semibold ${STATUS_STYLE[stage.status]}`}>{STATUS_LABEL[stage.status]}</span>
                       <p className="mt-1 text-gray-700">{stage.label}</p>
                     </td>
@@ -198,7 +213,7 @@ export default async function MailboxAdminPage({
               ))}
             </tbody>
           </table>
-          <p className="mt-2 flex items-center gap-1.5 text-xs text-gray-500"><FeatureInfo helpId="integracoes.caixas.estado-etapa" />Indício = evidência indireta (por exemplo, o coletor OAuth histórico da obra); nunca vale como comprovação. Medido em {formatDateTime(evidence.measuredAt)}.</p>
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-gray-500"><FeatureInfo helpId="integracoes.caixas.estado-etapa" /><FeatureInfo helpId="integracoes.caixas.evidencia-etapa" />Indício = evidência indireta (por exemplo, o coletor OAuth histórico da obra); nunca vale como comprovação. Medido em {formatDateTime(evidence.measuredAt)}.</p>
         </CardContent>
       </Card>
 

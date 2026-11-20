@@ -247,6 +247,20 @@ export function EmailIngestionConfigForm({
           Endereços específicos considerados na ingestão — não precisam de profile, membership nem login no ACC, e nunca ganham acesso ao
           sistema.
         </p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            E-mail
+            <FeatureInfo helpId="integracoes.integracoes.participante-email" />
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            Tipo
+            <FeatureInfo helpId="integracoes.integracoes.participante-tipo" />
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            Observação
+            <FeatureInfo helpId="integracoes.integracoes.participante-observacao" />
+          </span>
+        </div>
         <ListEditor
           rows={participants}
           onChange={setParticipants}
@@ -279,7 +293,7 @@ export function EmailIngestionConfigForm({
                 value={row.participantType}
                 onChange={(event) => update({ ...row, participantType: event.target.value as ParticipantType })}
                 className={`w-32 shrink-0 ${resolvePrefilledFieldProps(prefilled).className}`}
-                title="Classificação sugerida automaticamente pelo domínio — corrigível."
+                aria-label="Tipo do participante"
               >
                 {(Object.keys(PARTICIPANT_TYPE_LABELS) as ParticipantType[]).map((type) => (
                   <option key={type} value={type}>

@@ -7,7 +7,6 @@ const CX = "/[projectId]/integracoes/caixas";
 const AUT = "/autorizacao-email/[authorizationId]";
 
 const el = (route: string, kind: HelpElementKind, label: string, helpId: string): HelpManifestElement => ({ route, kind, label, helpId });
-const gap = (route: string, kind: HelpElementKind, label: string, why: string): HelpManifestElement => ({ route, kind, label, gap: why });
 const exempt = (route: string, kind: HelpElementKind, label: string, why: string): HelpManifestElement => ({ route, kind, label, exempt: why });
 
 export const INTEGRACOES_MANIFEST: HelpManifest = {
@@ -48,9 +47,28 @@ export const INTEGRACOES_MANIFEST: HelpManifest = {
     el(INT, "message", "Sincronizações seguintes são incrementais", "gmail-incremental-sync"),
     el(INT, "chart", "Painel de sincronização (progresso)", "gmail-sync-progress"),
     el(INT, "kpi", "Contadores da última sincronização", "integracoes.integracoes.sync-contadores"),
-    gap(INT, "field", "Campos do formulário de origem (Sistema, Projeto/Obra, Conta, Pasta/Local, Arquivo, Responsável) e tipos de participante", "A finalidade geral está em integration-origin, drive-type e gmail-participant-*; cada campo do formulário não tem ajuda individual. Providência: documentar campo a campo se a administração solicitar."),
-    gap(INT, "message", "Badges Armazenado/Pendente/Somente no Construmanager e rótulos de monitoramento", "Descritos no texto das novas versões vigentes, sem entrada própria por rótulo. Providência: criar entradas de status se a equipe de Orçamento solicitar."),
-    gap(INT, "table", "Cartões de fontes sem painel próprio (Contrato e Aditivos, Recebidos do cliente, RFI/RFP, Cronograma, Relatórios, ERP, Orçamento)", "Esses cartões usam apenas origem, estado e sincronização (cobertos por integracoes.integracoes.cartao-fonte e status-fonte); não há regra operacional específica para documentar além disso. Providência: revisar se uma fonte ganhar painel."),
+    el(INT, "field", "Impacto no prazo (análise de versão)", "integracoes.integracoes.construmanager-impacto-prazo"),
+    el(INT, "field", "Impacto no preço (análise de versão)", "integracoes.integracoes.construmanager-impacto-preco"),
+    el(INT, "field", "Resposta do Planejamento (análise de versão)", "integracoes.integracoes.construmanager-resposta-planejamento"),
+    el(INT, "field", "Encaminhar ao orçamentista", "integracoes.integracoes.construmanager-encaminhar-orcamento"),
+    el(INT, "field", "Orçamentista responsável", "integracoes.integracoes.construmanager-orcamentista"),
+    el(INT, "field", "Resposta do orçamentista designado", "integracoes.integracoes.construmanager-resposta-orcamento"),
+    el(INT, "field", "Exigir correspondência com o projeto", "integracoes.integracoes.escopo-exigir-correspondencia"),
+    el(INT, "field", "Palavras-chave do projeto", "integracoes.integracoes.escopo-palavras-chave"),
+    el(INT, "field", "Assuntos explicitamente aprovados", "integracoes.integracoes.escopo-assuntos"),
+    el(INT, "field", "Sistema (formulário de origem)", "integracoes.integracoes.origem-sistema"),
+    el(INT, "field", "Projeto/Obra (formulário de origem)", "integracoes.integracoes.origem-projeto"),
+    el(INT, "field", "Conta / Conta Google / Técnico de Segurança (formulário de origem)", "integracoes.integracoes.origem-conta"),
+    el(INT, "field", "Responsável / Responsável/Gerente ESG (formulário de origem)", "integracoes.integracoes.origem-responsavel"),
+    el(INT, "field", "Pasta/Local (formulário de origem)", "integracoes.integracoes.origem-pasta"),
+    el(INT, "field", "Arquivo (formulário de origem)", "integracoes.integracoes.origem-arquivo"),
+    el(INT, "field", "E-mail do participante monitorado", "integracoes.integracoes.participante-email"),
+    el(INT, "field", "Tipo do participante (AXION, Cliente, Terceiro)", "integracoes.integracoes.participante-tipo"),
+    el(INT, "field", "Observação do participante", "integracoes.integracoes.participante-observacao"),
+    el(INT, "status", "Selos Armazenado no ACC / Pendente / Somente no Construmanager", "integracoes.integracoes.construmanager-estado-conteudo"),
+    el(INT, "status", "Selo MONITORAMENTO DE VERSÕES INDISPONÍVEL", "integracoes.integracoes.construmanager-versoes-indisponivel"),
+    el(INT, "message", "Avisos do monitoramento (totais anteriores, revisões a revisar, não retornados, conteúdo preservado)", "integracoes.integracoes.construmanager-avisos-verificacao"),
+    exempt(INT, "table", "Cartões de Contrato e Aditivos, Recebidos do cliente, RFI/RFP, Cronograma, Relatórios, ERP e Orçamento", "Não existem na tela: a lista de fontes exibida (sourceDefinitions em packages/mock-data/src/sources.ts) tem somente E-mail Corporativo, Diário de Obra, Construmanager e ESG/SSMA, todas documentadas aqui. Se uma nova fonte for incluída, o cartão usa integracoes.integracoes.cartao-fonte e status-fonte."),
     exempt(INT, "button", "Link Caixas de e-mail: diagnóstico por caixa (7 etapas)", "Link de navegação para /[projectId]/integracoes/caixas, documentada na própria rota."),
 
     // ---------------------------------------------------------------- /[projectId]/integracoes/caixas
@@ -63,8 +81,13 @@ export const INTEGRACOES_MANIFEST: HelpManifest = {
     el(CX, "admin-action", "Revogar coleta (efeito imediato)", "integracoes.caixas.revogar"),
     el(CX, "message", "Suspensão da coleta por erros (coluna Habilitada para coleta)", "integracoes.caixas.suspensao-erros"),
     el(CX, "table", "Mensagens e anexos efetivamente importados", "integracoes.caixas.mensagens-importadas"),
-    gap(CX, "message", "Mensagens de resultado e de erro da página (Autorização registrada, Coleta habilitada etc.)", "Textos de confirmação e erro vindos das ações (FLASH/ERRORS); descritos na ajuda das ações, sem entrada própria. Providência: criar entradas de mensagem se necessário."),
-    gap(CX, "message", "Dicas de evidência por etapa (atributo title das células)", "As células usam o atributo title para a evidência, o que a regra de Hover Text não permite; a evidência completa já aparece no detalhe da caixa. Providência: substituir por FeatureInfo/HelpHint em componente de tabela (alteração de layout fora do escopo desta rodada)."),
+    el(CX, "message", "Mensagens de resultado e de erro da página (Autorização registrada, Coleta habilitada etc.)", "integracoes.caixas.mensagem-resultado"),
+    el(CX, "message", "Avisos de controles indisponíveis e de mensagens sem caixa", "integracoes.caixas.aviso-controles"),
+    el(CX, "field", "Referência da decisão (Registrar autorização corporativa)", "integracoes.caixas.campo-referencia"),
+    el(CX, "field", "Período autorizado: Início e Fim (Habilitar coleta)", "integracoes.caixas.campo-periodo"),
+    el(CX, "field", "Motivo (Revogar coleta)", "integracoes.caixas.campo-motivo"),
+    el(CX, "field", "Caixa de confirmação (Confirmo)", "integracoes.caixas.campo-confirmo"),
+    el(CX, "message", "Evidência de cada etapa (antes uma dica nativa title; agora no detalhe da caixa)", "integracoes.caixas.evidencia-etapa"),
 
     // ---------------------------------------------------------------- /autorizacao-email/[authorizationId]
     el(AUT, "page", "Autorização de acesso aos e-mails da obra", "integracoes.autorizacao.pagina"),
