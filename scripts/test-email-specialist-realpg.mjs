@@ -186,7 +186,7 @@ try {
   });
 
   await check("6. idempotência: a migration nova reaplicada 2x não falha nem duplica objetos/dados; hotfix P0 inalterado (md5 de record_risk_alert_action)", async () => {
-    const sql = readFileSync(path.join(dir, "20261121170000_email_specialist_consultations.sql"), "utf8").replace(/^﻿/, "");
+    const sql = readFileSync(path.join(dir, "20261121173000_email_specialist_consultations.sql"), "utf8").replace(/^﻿/, "");
     const rowsBefore = Number((await setup.query("select count(*)::int n from public.email_specialist_consultations")).rows[0].n);
     await setup.query(sql);
     await setup.query(sql);

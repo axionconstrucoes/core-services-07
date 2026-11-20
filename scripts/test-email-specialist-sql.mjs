@@ -284,7 +284,7 @@ await check("A1 grants: tabela sem acesso de anon/authenticated (RLS); RPCs só 
     const r = await one(`select has_function_privilege('authenticated','${fn}','execute') as a, has_function_privilege('anon','${fn}','execute') as n, has_function_privilege('service_role','${fn}','execute') as s`);
     assert(!r.a && !r.n && r.s, `${fn}: ${JSON.stringify(r)}`);
   }
-  const mig = readFileSync(path.join(dir, "20261121170000_email_specialist_consultations.sql"), "utf8");
+  const mig = readFileSync(path.join(dir, "20261121173000_email_specialist_consultations.sql"), "utf8");
   assert(!/create or replace function public\.(record_risk_alert_action|sla_action_|submit_weekly|save_contract|ssma_corrective|email_reply_)/i.test(mig), "a migration não redefine funções existentes (hotfix P0 e *_by_email intactos)");
   assert(/set search_path = ''/.test(mig) && (mig.match(/security definer/g) ?? []).length === 2);
 });

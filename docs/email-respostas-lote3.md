@@ -16,7 +16,7 @@ acrescentou; o contrato completo das ações RESOLVIDO / EM ANDAMENTO / ENVIAR P
 ## ESPECIALISTA por e-mail
 
 * **Desligado por padrão.** `ACC_EMAIL_SPECIALIST_ENABLED=true` (valor exato) liga o atalho `mailto` e o processamento. Pré-requisito:
-  migration `20261121170000_email_specialist_consultations.sql` aplicada. Sem a chave a pergunta é recusada com explicação ("Nada foi
+  migration `20261121173000_email_specialist_consultations.sql` aplicada. Sem a chave a pergunta é recusada com explicação ("Nada foi
   alterado") e nada é gravado.
 * **Roteamento**: área do item → Expert (Planejamento→`planning-director`, Engenharia→`engineering-director`, Jurídico→`legal-consultant`,
   Comercial/Financeiro/Orçamento→`commercial-director`, SSMA/ESG→`esg-director`). Administrativo, Diretoria e itens sem área
