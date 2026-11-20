@@ -44,10 +44,10 @@ export const severityClasses: Record<AlertSeverity, string> = {
 };
 
 const SEVERITY_HELP_ID: Record<AlertSeverity, string> = {
-  BAIXA: "risco-baixo",
-  MEDIA: "risco-medio",
-  ALTA: "risco-alto",
-  CRITICA: "risco-critico",
+  BAIXA: "shared.global.criticidade-baixo",
+  MEDIA: "shared.global.criticidade-medio",
+  ALTA: "shared.global.criticidade-alto",
+  CRITICA: "shared.global.criticidade-critico",
 };
 
 /**

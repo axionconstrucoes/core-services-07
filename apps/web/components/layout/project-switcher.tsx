@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import type { Project } from "@axion/types";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +19,7 @@ export function ProjectSwitcher({
   const currentProject = projects.find((project) => project.id === currentProjectId);
 
   return (
+    <>
     <Select
       value={currentProjectId}
       onChange={(e) => router.push(`/${e.target.value}/dashboard`)}
@@ -34,5 +36,7 @@ export function ProjectSwitcher({
         </option>
       ))}
     </Select>
+    <FeatureInfo helpId="shared.global.seletor-projeto" />
+    </>
   );
 }
