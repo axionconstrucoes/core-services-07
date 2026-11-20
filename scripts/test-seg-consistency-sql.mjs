@@ -268,6 +268,18 @@ await check("N1 ação SLA sem responsável: COLABORADOR qualquer NÃO assume/co
   await db.query("select * from public.sla_action_assume($1)", [a]);
 });
 
+await check("N2 (integração, 20261120190000) foto de evidência em registro SSMA SEM responsável: membro que não registrou NÃO anexa (antes a expressão NULL deixava passar)", async () => {
+  const rec = "00000000-0000-4000-8000-0000000009ff";
+  await asSuper();
+  await db.query("insert into public.ssma_field_records (id, project_id, kind, category, description, location, occurred_at, client_created_at, risk_level, reported_by_user_id) values ($1,$2,'INSPECAO','EPI','Inspeção sem responsável.','Pátio', now(), now(), 'BAIXA', $3)", [rec, P, U.RESP]);
+  await asUser(U.COLAB);
+  const photo = "00000000-0000-4000-8000-0000000009fe";
+  await expectRefused(
+    db.query("select public.ssma_field_record_register_photo($1,$2,$3,'EVIDENCIA_ACAO',$4,'f.jpg','image/jpeg',100,$5)", [U.COLAB, photo, rec, `${P}/ssma-registros/${rec}/${photo}-f.jpg`, "a".repeat(64)]),
+    "RECORD_ACCESS_DENIED"
+  );
+});
+
 // ---------------- Relatório de divergências ----------------
 await check("V1 divergências caso × ação SLA aparecem na view (responsável, nível, caso resolvido com ação aberta) — nada é corrigido sozinho", async () => {
   const c = await riskCase();
