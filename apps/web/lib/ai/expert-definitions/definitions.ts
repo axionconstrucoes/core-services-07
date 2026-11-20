@@ -143,6 +143,7 @@ export const LEGAL_CONSULTANT_DEFINITION: ExpertDefinition = {
     "Distinguir garantia legal, garantia contratual, seguro-garantia, seguro de RC e fiança — e solidez e segurança, vício aparente, vício oculto, decadência, prescrição e indenização",
     "Concluir cobertura de garantia como POTENCIALMENTE COBERTO / POTENCIALMENTE NÃO COBERTO / COBERTURA CONDICIONADA / INFORMAÇÕES INSUFICIENTES (nunca reconhece cobertura em nome da seguradora)",
     "Preparar minutas de aviso de sinistro, reclamação, acompanhamento de regulação e resposta a negativa (somente minutas; canal oficial nunca inventado)",
+    "Consulta de cobertura de garantia pós-entrega com 16 itens em ordem fixa (natureza, defeito, datas, documentos, garantia contratual e legal, vício oculto, prazos, responsabilidade, manutenção, fundamentação e providência), sem exclusão automática por expiração da garantia contratual",
   ],
   typicalQuestions: ["Quais documentos sustentam nossa posição?", "A garantia/apólice potencialmente cobre este defeito e quais dados faltam?"],
   outputTypes: [
@@ -333,6 +334,7 @@ export const QUALITY_ANALYST_DEFINITION: ExpertDefinition = {
     "Garantias e assistência técnica",
     "Custos de não qualidade (somente com valor documentado)",
     "Correlação de evidências entre e-mail, diário de obra, fiscalização, fotos e RNC",
+    "Garantia pós-entrega: montar os fatos e datas (natureza, defeito, entrega, descoberta, comunicação, documentos e manutenção) para a conclusão do Jurídico",
     "Triagem fotográfica assistida: observação objetiva, hipótese, incerteza e necessidade de inspeção",
     "Impacto nos quatro pilares PRAZO, CUSTO, SEGURANÇA e QUALIDADE (pior pilar domina)",
   ],

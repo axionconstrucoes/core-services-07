@@ -62,7 +62,7 @@ export interface CoverageItemDefinition {
   excludingWhenNotMet: boolean;
 }
 
-export const COVERAGE_ITEMS: readonly CoverageItemDefinition[] = [
+export const COVERAGE_ITEMS: readonly CoverageItemDefinition[] = [ // itens de COBERTURA DA APÓLICE (sinistro); a garantia pós-entrega usa WARRANTY_COVERAGE_ITEMS (warranty-coverage.ts)
   { key: "instrumento-identificado", label: "Instrumento/apólice/garantia identificado (tipo, número, emissor)", core: true, excludingWhenNotMet: false },
   { key: "segurado-beneficiario", label: "Segurado, tomador e beneficiário correspondem às partes do contrato", core: true, excludingWhenNotMet: true },
   { key: "vigencia-instrumento", label: "Vigência da APÓLICE/instrumento na data do evento ou do aviso (não confundir com o prazo de garantia contratual)", core: true, excludingWhenNotMet: true },
@@ -80,6 +80,9 @@ export const COVERAGE_ITEMS: readonly CoverageItemDefinition[] = [
   { key: "documentacao-comprobatoria", label: "Documentação comprobatória (laudo, fotos, RNC, comprovantes de manutenção, notificações)", core: false, excludingWhenNotMet: false },
   { key: "situacao-seguradora", label: "Situação perante a seguradora (aviso, regulação, negativa, indenização) e dados faltantes", core: false, excludingWhenNotMet: false },
 ];
+
+/** Nome explícito dos 16 itens de cobertura da APÓLICE (mesma lista de COVERAGE_ITEMS; nada quebra). */
+export const INSURANCE_COVERAGE_ITEMS = COVERAGE_ITEMS;
 
 export interface CoverageItemAssessment {
   key: string;
@@ -184,15 +187,15 @@ export interface InsuranceWarrantyOutput {
   requiresHumanReview: true;
 }
 
-const FORBIDDEN_COVERAGE_RECOGNITION = [
+export const FORBIDDEN_COVERAGE_RECOGNITION = [
   /\ba seguradora (reconhece|reconheceu|aceitou|aprovou|vai pagar|pagará)\b/i,
   /\b(sinistro|cobertura) (est[áa] )?(aceit[oa]|aprovad[oa]|reconhecid[oa]|garantid[oa])\b/i,
   /\bcobertura garantida\b/i,
   /\bindeniza[çc][ãa]o (garantida|assegurada)\b/i,
   /\bdireito (l[ií]quido e certo )?(à|a) indeniza[çc][ãa]o\b/i,
 ];
-const FIVE_YEARS_UNIVERSAL = [/\btodo (e qualquer )?(defeito|v[ií]cio)[^.]{0,80}\b(5|cinco) anos\b/i, /\b(sempre|em qualquer caso|universalmente)[^.]{0,60}\b(5|cinco) anos\b/i];
-const AUTO_EXCLUSION_BY_EXPIRY = [
+export const FIVE_YEARS_UNIVERSAL = [/\btodo (e qualquer )?(defeito|v[ií]cio)[^.]{0,80}\b(5|cinco) anos\b/i, /\b(sempre|em qualquer caso|universalmente)[^.]{0,60}\b(5|cinco) anos\b/i];
+export const AUTO_EXCLUSION_BY_EXPIRY = [
   /\bgarantia (contratual )?(expirou|venceu|encerrada|expirada)[^.]{0,80}\b(portanto|logo|assim)[^.]{0,60}(n[ãa]o (h[áa]|existe)|exclu[ií]d|sem) (cobertura|direito|responsabilidade)/i,
   /\bpor ter (expirado|vencido) a garantia[^.]{0,60}(n[ãa]o (h[áa]|existe)|exclu[ií]d)/i,
 ];

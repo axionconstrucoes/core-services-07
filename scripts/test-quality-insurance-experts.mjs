@@ -537,5 +537,101 @@ await check("PRESERVAÇÃO: guardrails existentes (grounding, validação, revis
   assert.match(sla, /CRÍTICO = risco iminente/);
 });
 
+// ---------------------------------------------------------------- COBERTURA DE GARANTIA pós-entrega (Bloco 5.3 — 16 itens)
+const wc = await import("../apps/web/lib/ai/legal/warranty-coverage.ts");
+const ORDER = ["natureza-produto-servico", "tipo-defeito", "data-entrega", "data-descoberta", "data-comunicacao", "documentos-analisados", "garantia-contratual", "garantia-legal-potencial", "vicio-oculto", "prazo-reclamacao", "prazo-decadencial", "prazo-prescricional", "responsabilidade-potencial", "exigencias-manutencao", "fundamentacao", "providencia-recomendada"];
+const wItems = (over = {}) =>
+  wc.WARRANTY_COVERAGE_ITEMS.map((d) => {
+    const o = over[d.key];
+    if (o === "SEM") return { key: d.key, status: "SEM_DADOS", value: null, evidence: null };
+    if (o === "NA") return { key: d.key, status: "NAO_APLICAVEL", value: null, evidence: "não cabe neste regime" };
+    return { key: d.key, status: "PREENCHIDO", value: o ?? `valor ${d.key}`, evidence: `doc/cláusula ${d.key}` };
+  });
+const sig = (over = {}) => ({ contractualWarranty: "VIGENTE", legalWarrantyPotential: "SIM", hiddenDefect: "NAO", claimDeadline: "DENTRO", maintenance: "COMPROVADA", legalControversy: false, ...over });
+const out = (items, signals) => ({ items, signals, conclusion: wc.deriveWarrantyCoverage({ items, signals }).conclusion, requiresHumanReview: true });
+
+await check("CASO 14 (garantia): os 16 itens do Bloco 5.3 existem, estáveis, NESTA ORDEM; Qualidade monta fatos/datas e Jurídico conclui; distintos dos 16 da apólice", () => {
+  assert.deepEqual(wc.WARRANTY_COVERAGE_ITEMS.map((d) => d.key), ORDER);
+  assert.deepEqual(wc.WARRANTY_COVERAGE_ITEMS.map((d) => d.order), ORDER.map((_, i) => i + 1));
+  assert.deepEqual(wc.qualityOwnedItemKeys(), ORDER.slice(0, 6).concat("exigencias-manutencao"));
+  assert.ok(wc.WARRANTY_COVERAGE_ITEMS.filter((d) => d.optional).map((d) => d.key).join() === "prazo-decadencial,prazo-prescricional");
+  assert.equal(iw.INSURANCE_COVERAGE_ITEMS, iw.COVERAGE_ITEMS, "lista da apólice preservada e renomeada explicitamente");
+  assert.notDeepEqual(wc.WARRANTY_COVERAGE_ITEMS.map((d) => d.key), iw.COVERAGE_ITEMS.map((d) => d.key));
+  assert.deepEqual(wc.validateWarrantyItems(wItems()), []);
+  const shuffled = wItems().reverse();
+  assert.ok(wc.validateWarrantyItems(shuffled).some((p) => /fora da ordem/.test(p)));
+  assert.ok(wc.validateWarrantyItems(wItems().slice(1)).some((p) => /item ausente/.test(p)));
+  assert.ok(wc.validateWarrantyItems(wItems({ "data-entrega": "NA" })).some((p) => /quando cabível/.test(p)), "NAO_APLICAVEL só para itens opcionais");
+  assert.deepEqual(wc.validateWarrantyItems(wItems({ "prazo-decadencial": "NA", "prazo-prescricional": "NA" })), []);
+  const L = LEGAL_CONSULTANT_INSTRUCTIONS.replace(/\s+/g, " ");
+  for (const t of ["natureza do produto ou serviço", "tipo do defeito", "data de entrega", "data de descoberta", "data da comunicação", "documentos analisados", "garantia contratual", "garantia legal potencial", "eventual vício oculto", "prazo de reclamação", "prazo decadencial, quando cabível", "prazo prescricional, quando cabível", "responsabilidade potencial", "exigências de manutenção e suas evidências", "fundamentação", "providência recomendada"]) assert.ok(L.includes(t), t);
+  assert.match(L, /Os fatos e datas \(itens 1 a 6 e 14\) vêm da montagem do Analista IA de Qualidade/);
+  assert.match(QUALITY_ANALYST_INSTRUCTIONS, /você monta os fatos/);
+  assert.ok(ACC_FEATURE_HELP[EXPERT_PROFILE_HELP_ID["legal-consultant"]].uses.join(" ").includes("16 itens, em ordem fixa"), "ajuda cita os 16 itens");
+});
+
+await check("CASO 7 (garantia): 'a pintura ainda está na garantia?' — vigente + dentro do prazo + manutenção comprovada → POTENCIALMENTE COBERTO; sem as datas → INFORMAÇÕES INSUFICIENTES", () => {
+  assert.equal(topics.routeBySubject({ question: "a pintura ainda está na garantia?" }).expertId, "quality-analyst");
+  assert.equal(wc.deriveWarrantyCoverage({ items: wItems(), signals: sig() }).conclusion, "POTENCIALMENTE COBERTO");
+  const semDatas = wc.deriveWarrantyCoverage({ items: wItems({ "data-entrega": "SEM", "data-descoberta": "SEM" }), signals: sig() });
+  assert.equal(semDatas.conclusion, "INFORMAÇÕES INSUFICIENTES");
+  assert.deepEqual(semDatas.missingCoreItems, ["data-entrega", "data-descoberta"]);
+});
+
+await check("CASO 8 (garantia): 'a máquina tem cobertura legal?' — garantia contratual não prevista, legal potencial indeterminada → CONDICIONADA (nunca exclui); legal NAO só com fundamentação completa", () => {
+  const cond = wc.deriveWarrantyCoverage({ items: wItems(), signals: sig({ contractualWarranty: "NAO_PREVISTA", legalWarrantyPotential: "INDETERMINADO" }) });
+  assert.equal(cond.conclusion, "COBERTURA CONDICIONADA");
+  const neg = wc.deriveWarrantyCoverage({ items: wItems(), signals: sig({ contractualWarranty: "NAO_PREVISTA", legalWarrantyPotential: "NAO", claimDeadline: "FORA" }) });
+  assert.equal(neg.conclusion, "POTENCIALMENTE NÃO COBERTO");
+  const semFund = wc.deriveWarrantyCoverage({ items: wItems({ fundamentacao: "SEM" }), signals: sig({ contractualWarranty: "NAO_PREVISTA", legalWarrantyPotential: "NAO", claimDeadline: "FORA" }) });
+  assert.notEqual(semFund.conclusion, "POTENCIALMENTE NÃO COBERTO", "sem fundamentação não há 'não coberto'");
+});
+
+await check("CASO 9 (garantia): 'a impermeabilização pode ser exigida?' — vício oculto potencial exige confirmação (CONDICIONADA) e distingue os institutos", () => {
+  assert.equal(topics.routeBySubject({ question: "a impermeabilização pode ser exigida?" }).expertId, "quality-analyst");
+  const d = wc.deriveWarrantyCoverage({ items: wItems(), signals: sig({ hiddenDefect: "SIM", contractualWarranty: "DECORRIDA" }) });
+  assert.equal(d.conclusion, "COBERTURA CONDICIONADA");
+  assert.ok(d.reasons.some((r) => /vício oculto/.test(r)));
+  assert.deepEqual(Object.keys(iw.LIMITATION_INSTITUTES).sort(), ["DECADENCIA", "INDENIZACAO", "PRESCRICAO", "SOLIDEZ_E_SEGURANCA", "VICIO_APARENTE", "VICIO_OCULTO"]);
+});
+
+await check("CASO 10 (garantia): 'a fissura após a entrega é responsabilidade da construtora?' — solidez e segurança/controvérsia vai ao responsável humano; sem diagnóstico", () => {
+  const d = wc.deriveWarrantyCoverage({ items: wItems(), signals: sig({ legalControversy: true }) });
+  assert.equal(d.conclusion, "COBERTURA CONDICIONADA");
+  assert.equal(d.routeToHumanResponsible, true);
+  const o = out(wItems(), sig({ legalControversy: true }));
+  assert.deepEqual(wc.validateWarrantyCoverageOutput(o), []);
+  assert.ok(qs.validateQualityAssessment(goodAssessment({ photoTriage: [], statements: [{ kind: "FATO", text: "A estrutura está estruturalmente segura.", evidenceRefs: [ev("PHOTO", "f")] }] })).some((p) => /definitiva/.test(p)));
+  assert.match(LEGAL_CONSULTANT_INSTRUCTIONS.replace(/\s+/g, " "), /controvérsia jurídica vai ao responsável humano/);
+});
+
+await check("CASO 11 (garantia): 'o equipamento falhou após a garantia do fabricante?' — expiração NÃO exclui automaticamente; saída que exclui por expiração é rejeitada", () => {
+  const d = wc.deriveWarrantyCoverage({ items: wItems(), signals: sig({ contractualWarranty: "DECORRIDA", legalWarrantyPotential: "SIM", claimDeadline: "INDETERMINADO" }) });
+  assert.notEqual(d.conclusion, "POTENCIALMENTE NÃO COBERTO");
+  assert.equal(d.automaticExclusionByContractualExpiry, false);
+  assert.ok(d.reasons.some((r) => /NÃO exclui automaticamente/.test(r)));
+  const bad = out(wItems({ fundamentacao: "A garantia expirou, portanto não há cobertura nem responsabilidade." }), sig({ contractualWarranty: "DECORRIDA", legalWarrantyPotential: "SIM", claimDeadline: "INDETERMINADO" }));
+  assert.ok(wc.validateWarrantyCoverageOutput(bad).some((p) => /exclusão automática/.test(p)));
+});
+
+await check("CASO 12 (garantia): 'o proprietário deixou de fazer manutenção?' — manutenção não comprovada/sem dados → CONDICIONADA, com a evidência exigida; não exigida não condiciona", () => {
+  assert.equal(wc.deriveWarrantyCoverage({ items: wItems(), signals: sig({ maintenance: "NAO_COMPROVADA" }) }).conclusion, "COBERTURA CONDICIONADA");
+  assert.equal(wc.deriveWarrantyCoverage({ items: wItems(), signals: sig({ maintenance: "SEM_DADOS" }) }).conclusion, "COBERTURA CONDICIONADA");
+  assert.equal(wc.deriveWarrantyCoverage({ items: wItems(), signals: sig({ maintenance: "NAO_EXIGIDA" }) }).conclusion, "POTENCIALMENTE COBERTO");
+  assert.ok(wc.qualityOwnedItemKeys().includes("exigencias-manutencao"), "a Qualidade monta exigências e evidências de manutenção");
+});
+
+await check("CASO 13 (garantia): 'reclamação depois do prazo contratual' — fora do prazo contratual NÃO basta; só com todos os regimes definidos e fundamentados é POTENCIALMENTE NÃO COBERTO; cinco anos universal é rejeitado", () => {
+  const semEnquadramento = wc.deriveWarrantyCoverage({ items: wItems(), signals: sig({ contractualWarranty: "DECORRIDA", legalWarrantyPotential: "INDETERMINADO", hiddenDefect: "INDETERMINADO", claimDeadline: "FORA" }) });
+  assert.equal(semEnquadramento.conclusion, "COBERTURA CONDICIONADA");
+  const definido = wc.deriveWarrantyCoverage({ items: wItems(), signals: sig({ contractualWarranty: "DECORRIDA", legalWarrantyPotential: "NAO", hiddenDefect: "NAO", claimDeadline: "FORA" }) });
+  assert.equal(definido.conclusion, "POTENCIALMENTE NÃO COBERTO");
+  const cinco = out(wItems({ "prazo-reclamacao": "Todo defeito de obra tem 5 anos de garantia, em qualquer caso." }), sig());
+  assert.ok(wc.validateWarrantyCoverageOutput(cinco).some((p) => /cinco anos universalmente/.test(p)));
+  assert.equal(wc.deriveWarrantyCoverage({ items: wItems(), signals: sig() }).universalFiveYears, false);
+  const divergente = { ...out(wItems(), sig({ contractualWarranty: "DECORRIDA", legalWarrantyPotential: "NAO", hiddenDefect: "NAO", claimDeadline: "FORA" })), conclusion: "POTENCIALMENTE COBERTO" };
+  assert.ok(wc.validateWarrantyCoverageOutput(divergente).some((p) => /diverge da derivação/.test(p)));
+});
+
 console.log(`\nResultado: ${passed} passaram, ${failed} falharam.`);
 process.exit(failed ? 1 : 0);
