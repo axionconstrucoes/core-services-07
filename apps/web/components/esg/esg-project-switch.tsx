@@ -21,7 +21,7 @@ export function EsgProjectSwitch({ currentId, projects }: { currentId: string; p
         value={projects.some((p) => p.id === currentId) ? currentId : ""}
         onChange={(event) => event.target.value && router.push(`/${event.target.value}/esg`)}
         data-testid="esg-project-select"
-        className="mt-1 block min-h-11 w-full max-w-xl rounded-md border-2 border-slate-400 bg-white px-3 text-sm font-semibold text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#7f1d1d]"
+        className="mt-1 block min-h-11 w-full max-w-xl rounded-md border-2 border-slate-400 bg-white px-3 text-sm font-semibold text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring"
       >
         {!projects.some((p) => p.id === currentId) ? <option value="" disabled>Obra atual (sem permissão de registro)</option> : null}
         {projects.map((project) => (

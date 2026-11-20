@@ -74,7 +74,7 @@ function Actions({ projectId, row }: { projectId: string; row: MailboxDiagnostic
         {hidden}
         <input name="reference" minLength={3} maxLength={300} required disabled={!by.REGISTRAR_AUTORIZACAO?.enabled} placeholder="Referência da decisão (ata, e-mail, chamado)" className="min-h-9 w-full rounded-md border border-gray-300 px-2 py-1 text-xs" />
         {by.REGISTRAR_AUTORIZACAO?.enabled ? confirm : null}
-        <button type="submit" disabled={!by.REGISTRAR_AUTORIZACAO?.enabled} className="min-h-9 rounded-md bg-brand-sidebar px-3 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">Registrar</button>
+        <button type="submit" disabled={!by.REGISTRAR_AUTORIZACAO?.enabled} className="min-h-9 rounded-md bg-brand-sidebar px-3 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60">Registrar</button>
         <ActionHint state={by.REGISTRAR_AUTORIZACAO} />
       </form>
       <form action={enableCollectionAction} className="space-y-2 rounded-md border border-gray-300 p-3">
@@ -85,13 +85,13 @@ function Actions({ projectId, row }: { projectId: string; row: MailboxDiagnostic
           <label className="text-xs">Fim<input type="date" name="periodEnd" required disabled={!by.HABILITAR_COLETA?.enabled} className="min-h-9 w-full rounded-md border border-gray-300 px-2" /></label>
         </div>
         {by.HABILITAR_COLETA?.enabled ? confirm : null}
-        <button type="submit" disabled={!by.HABILITAR_COLETA?.enabled} className="min-h-9 rounded-md bg-brand-sidebar px-3 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">Habilitar</button>
+        <button type="submit" disabled={!by.HABILITAR_COLETA?.enabled} className="min-h-9 rounded-md bg-brand-sidebar px-3 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60">Habilitar</button>
         <ActionHint state={by.HABILITAR_COLETA} />
       </form>
       <form action={disableCollectionAction} className="space-y-2 rounded-md border border-gray-300 p-3">
         <p className="flex items-center gap-1.5 text-sm font-semibold">Desligar coleta<FeatureInfo helpId="integracoes.caixas.desligar-coleta" /></p>
         {hidden}
-        <button type="submit" disabled={!by.DESABILITAR_COLETA?.enabled} className="min-h-9 rounded-md bg-gray-800 px-3 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">Desligar</button>
+        <button type="submit" disabled={!by.DESABILITAR_COLETA?.enabled} className="min-h-9 rounded-md bg-gray-800 px-3 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60">Desligar</button>
         <ActionHint state={by.DESABILITAR_COLETA} />
       </form>
       <form action={revokeCollectionAction} className="space-y-2 rounded-md border border-red-300 p-3">
@@ -99,7 +99,7 @@ function Actions({ projectId, row }: { projectId: string; row: MailboxDiagnostic
         {hidden}
         <input name="reason" minLength={3} maxLength={500} required disabled={!by.REVOGAR?.enabled} placeholder="Motivo" className="min-h-9 w-full rounded-md border border-gray-300 px-2 py-1 text-xs" />
         {by.REVOGAR?.enabled ? confirm : null}
-        <button type="submit" disabled={!by.REVOGAR?.enabled} className="min-h-9 rounded-md bg-red-800 px-3 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">Revogar</button>
+        <button type="submit" disabled={!by.REVOGAR?.enabled} className="min-h-9 rounded-md bg-red-800 px-3 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-60">Revogar</button>
         <ActionHint state={by.REVOGAR} />
       </form>
     </div>

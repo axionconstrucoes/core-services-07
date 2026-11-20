@@ -290,7 +290,7 @@ export function RecordDetail({
               {done ? (
                 <p className="flex items-center gap-1 text-sm font-bold text-green-700"><CheckCircle2 className="size-4" /> {done}</p>
               ) : null}
-              <button type="submit" disabled={busy || !online} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#7f1d1d] px-4 font-bold uppercase text-white disabled:opacity-50">
+              <button type="submit" disabled={busy || !online} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#7f1d1d] px-4 font-bold uppercase text-white disabled:opacity-60">
                 {busy ? <Loader2 className="size-5 animate-spin" /> : <Clock className="size-5" />} {event === "ANDAMENTO" ? "Registrar andamento" : "Concluir"}
               </button>
               {!online ? <p className="text-center text-xs font-semibold text-amber-700">Sem conexão: andamento e conclusão só podem ser registrados online.</p> : null}
@@ -319,7 +319,7 @@ export function RecordDetail({
               </label>
               <p className="text-xs font-medium text-slate-600">O prazo original, o status e as evidências não mudam; o histórico registra quem encaminhou e o motivo.</p>
               {forwardError ? <p role="alert" className="text-sm font-bold text-red-700">{forwardError}</p> : null}
-              <button type="submit" disabled={forwardBusy || !online || !forwardTo} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-[#7f1d1d] bg-white px-4 font-bold uppercase text-red-700 disabled:opacity-50">
+              <button type="submit" disabled={forwardBusy || !online || !forwardTo} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-[#7f1d1d] bg-white px-4 font-bold uppercase text-red-700 disabled:opacity-60">
                 {forwardBusy ? <Loader2 className="size-5 animate-spin" /> : null} Encaminhar
               </button>
             </form>

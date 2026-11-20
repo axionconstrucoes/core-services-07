@@ -149,7 +149,7 @@ export function EsgEvidenceLink({
             type="button"
             disabled={!choice || busy || !online}
             onClick={() => void run(() => createSupabaseBrowserClient().rpc("esg_link_ssma_record", { p_submission_id: choice, p_field_record_id: recordId }), "Registro vinculado como evidência. A obrigação não foi alterada.")}
-            className="min-h-12 w-full rounded-lg border-2 border-[#7f1d1d] px-3 text-sm font-bold uppercase text-red-700 disabled:opacity-50"
+            className="min-h-12 w-full rounded-lg border-2 border-[#7f1d1d] px-3 text-sm font-bold uppercase text-red-700 disabled:opacity-60"
           >
             Usar como evidência ESG
           </button>
