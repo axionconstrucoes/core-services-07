@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { getUser } from "@/lib/data";
 import { getEmailAlertActionHistory } from "@/lib/email-actions/get-alert-history";
 import { EMAIL_ALERT_ACTION_LABELS, type EmailAlertKind } from "@/lib/email-actions/types";
@@ -28,7 +29,7 @@ export async function EmailAlertActionHistoryPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm">Ações via e-mail</CardTitle>
+        <CardTitle className="flex items-center gap-1.5 text-sm">Ações via e-mail<FeatureInfo helpId="planejamento.acoes.acoes-via-email" /></CardTitle>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-3">

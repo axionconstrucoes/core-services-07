@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { buttonVariants } from "@/components/ui/button";
 import { getProjectMembers } from "@/lib/data";
 import { getWeeklyAlertDigest } from "@/lib/email/get-weekly-alert-digest";
@@ -49,7 +50,7 @@ export default async function WeeklyDigestPage({
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
       <div>
         <p className="text-sm font-medium text-primary">ACC · AXION CONTROLE DE CONTRATOS</p>
-        <h1 className="mt-1 text-2xl font-semibold">Resumo semanal — riscos médios e baixos</h1>
+        <h1 className="mt-1 flex items-center gap-1.5 text-2xl font-semibold">Resumo semanal — riscos médios e baixos<FeatureInfo helpId="planejamento.resumo-semanal.pagina" /></h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {digest.projectName} · Semana de {formatDate(digest.weekDate)} · Destinatário: {digest.recipientName}
         </p>

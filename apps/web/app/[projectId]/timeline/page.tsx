@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { createSupabaseServerClient } from "@axion/db/server";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { TimelinePageClient } from "@/components/timeline/timeline-page-client";
 import { getEmails, getEvents, getProject } from "@/lib/data";
 import { getEventNotesForProject } from "@/lib/event-notes";
@@ -85,7 +86,7 @@ export default async function TimelinePage({ params }: { params: Promise<{ proje
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Timeline" description="Linha do tempo cronológica de todos os eventos consolidados." />
+      <PageHeader title="Timeline" description="Linha do tempo cronológica de todos os eventos consolidados." actions={<FeatureInfo helpId="planejamento.timeline.pagina" />} />
       <TimelinePageClient
         events={events}
         projectId={projectId}

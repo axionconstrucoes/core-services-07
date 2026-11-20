@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Textarea } from "@/components/ui/textarea";
 import {
   REISSUE_APPROVAL_STATE_LABELS,
@@ -28,14 +29,14 @@ export function ReissueApprovalForm({ projectId, rows }: { projectId: string; ro
         <table className="w-full min-w-[860px] text-left text-sm">
           <thead className="text-xs uppercase text-gray-500">
             <tr>
-              <th className="py-2 pr-3">Aprovar</th>
-              <th className="py-2 pr-3">Código</th>
-              <th className="py-2 pr-3">Área</th>
-              <th className="py-2 pr-3">Risco</th>
-              <th className="py-2 pr-3">Idade</th>
-              <th className="py-2 pr-3">Lacuna (quem não foi informado)</th>
-              <th className="py-2 pr-3">Bloqueio manual</th>
-              <th className="py-2 pr-3">Situação</th>
+              <th className="py-2 pr-3"><span className="inline-flex items-center gap-1">Aprovar<FeatureInfo helpId="planejamento.reemissao.col-aprovar" /></span></th>
+              <th className="py-2 pr-3"><span className="inline-flex items-center gap-1">Código<FeatureInfo helpId="planejamento.reemissao.col-codigo" /></span></th>
+              <th className="py-2 pr-3"><span className="inline-flex items-center gap-1">Área<FeatureInfo helpId="planejamento.reemissao.col-area-risco" /></span></th>
+              <th className="py-2 pr-3"><span className="inline-flex items-center gap-1">Risco<FeatureInfo helpId="planejamento.reemissao.col-area-risco" /></span></th>
+              <th className="py-2 pr-3"><span className="inline-flex items-center gap-1">Idade<FeatureInfo helpId="planejamento.reemissao.col-idade" /></span></th>
+              <th className="py-2 pr-3"><span className="inline-flex items-center gap-1">Lacuna (quem não foi informado)<FeatureInfo helpId="planejamento.reemissao.col-lacuna" /></span></th>
+              <th className="py-2 pr-3"><span className="inline-flex items-center gap-1">Bloqueio manual<FeatureInfo helpId="planejamento.reemissao.col-bloqueio" /></span></th>
+              <th className="py-2 pr-3"><span className="inline-flex items-center gap-1">Situação<FeatureInfo helpId="planejamento.reemissao.col-situacao" /></span></th>
             </tr>
           </thead>
           <tbody>
@@ -63,22 +64,31 @@ export function ReissueApprovalForm({ projectId, rows }: { projectId: string; ro
         </table>
       </div>
 
-      <label className="grid gap-1.5 text-sm font-medium">
-        Justificativa da decisão (obrigatória, {REISSUE_JUSTIFICATION_MIN} a {REISSUE_JUSTIFICATION_MAX} caracteres)
-        <Textarea name="justification" required minLength={REISSUE_JUSTIFICATION_MIN} maxLength={REISSUE_JUSTIFICATION_MAX} rows={3} placeholder="Ex.: Diretoria confirmou que o risco segue vigente e deve ser reemitido aos destinatários da cadeia." />
+      <div className="grid gap-1.5 text-sm font-medium">
+        <span className="inline-flex items-center gap-1">
+          <label htmlFor="reemissao-justificativa">Justificativa da decisão (obrigatória, {REISSUE_JUSTIFICATION_MIN} a {REISSUE_JUSTIFICATION_MAX} caracteres)</label>
+          <FeatureInfo helpId="planejamento.reemissao.justificativa" />
+        </span>
+        <Textarea id="reemissao-justificativa" name="justification" required minLength={REISSUE_JUSTIFICATION_MIN} maxLength={REISSUE_JUSTIFICATION_MAX} rows={3} placeholder="Ex.: Diretoria confirmou que o risco segue vigente e deve ser reemitido aos destinatários da cadeia." />
         <span className="text-xs font-normal text-gray-600">O texto fica na trilha de auditoria: não inclua e-mails, documentos, telefones nem senhas.</span>
-      </label>
+      </div>
 
+      <div className="flex items-start gap-1">
       <label className="flex items-start gap-2 text-sm">
         <input type="checkbox" name="confirm" value="sim" required className="mt-0.5 size-5" />
         <span>
           Confirmo que esta ação <strong>apenas registra a decisão</strong>. Nenhum e-mail é enviado agora: a reemissão só ocorre no ciclo, com o interruptor de envio ligado e as travas do piloto válidas.
         </span>
       </label>
+      <FeatureInfo helpId="planejamento.reemissao.confirmacao" />
+      </div>
 
-      <Button type="submit" disabled={pending}>
-        {pending ? "Registrando…" : "Aprovar reemissão"}
-      </Button>
+      <span className="inline-flex items-center gap-1">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Registrando…" : "Aprovar reemissão"}
+        </Button>
+        <FeatureInfo helpId="planejamento.reemissao.aprovar" />
+      </span>
 
       {state.error ? (
         <p role="alert" className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">

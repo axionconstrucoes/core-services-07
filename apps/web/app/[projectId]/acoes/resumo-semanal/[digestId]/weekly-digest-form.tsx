@@ -3,6 +3,7 @@
 import { useActionState, useMemo, useState } from "react";
 
 import { SeverityBadge } from "@/components/shared/badges";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -83,9 +84,10 @@ export function WeeklyDigestForm({
             </div>
 
             <div className="grid w-full gap-2 sm:w-[260px]">
-              <label className="text-xs font-medium" htmlFor={`resolution-${item.actionId}`}>
-                Tratamento obrigatório
-              </label>
+              <span className="inline-flex items-center gap-1 text-xs font-medium">
+                <label htmlFor={`resolution-${item.actionId}`}>Tratamento obrigatório</label>
+                <FeatureInfo helpId="planejamento.resumo-semanal.tratamento" />
+              </span>
               <Select
                 id={`resolution-${item.actionId}`}
                 name={`resolution:${item.actionId}`}
@@ -154,9 +156,12 @@ export function WeeklyDigestForm({
         <p className="text-sm text-muted-foreground">
           {complete ? "Todos os itens estão respondidos." : "Responda todos os itens para liberar o envio."}
         </p>
-        <Button type="submit" disabled={!complete || pending}>
-          {pending ? "Enviando respostas…" : "Enviar todas as respostas"}
-        </Button>
+        <span className="inline-flex items-center gap-1">
+          <Button type="submit" disabled={!complete || pending}>
+            {pending ? "Enviando respostas…" : "Enviar todas as respostas"}
+          </Button>
+          <FeatureInfo helpId="planejamento.resumo-semanal.enviar" />
+        </span>
       </div>
 
       {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}

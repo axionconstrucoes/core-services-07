@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { SeverityBadge } from "@/components/shared/badges";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Select } from "@/components/ui/select";
 import {
   confrontationSeverityToAlertSeverity,
@@ -72,31 +73,31 @@ export function SlaActionsSummary({
       <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
         <div className="rounded-md border p-3 text-center">
           <p className="text-lg font-semibold">{filtered.length}</p>
-          <p className="text-xs text-muted-foreground">Total</p>
+          <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">Total<FeatureInfo helpId="planejamento.acoes.kpi-total" /></p>
         </div>
         <div className="rounded-md border p-3 text-center">
           <p className="text-lg font-semibold">{filtered.filter((a) => a.status === "OVERDUE").length}</p>
-          <p className="text-xs text-muted-foreground">Vencidas</p>
+          <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">Vencidas<FeatureInfo helpId="planejamento.acoes.kpi-vencidas" /></p>
         </div>
         <div className="rounded-md border p-3 text-center">
           <p className="text-lg font-semibold">{filtered.filter((a) => a.status === "ESCALATED").length}</p>
-          <p className="text-xs text-muted-foreground">Escaladas</p>
+          <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">Escaladas<FeatureInfo helpId="planejamento.acoes.kpi-escaladas" /></p>
         </div>
         <div className="rounded-md border p-3 text-center">
           <p className="text-lg font-semibold">
             {filtered.filter((a) => a.riskLevel === "HIGH" || a.riskLevel === "CRITICAL").length}
           </p>
-          <p className="text-xs text-muted-foreground">Risco alto/crítico</p>
+          <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">Risco alto/crítico<FeatureInfo helpId="planejamento.acoes.kpi-risco-alto-critico" /></p>
         </div>
         <div className="rounded-md border p-3 text-center">
           <p className="text-lg font-semibold">{filtered.filter((a) => a.status === "COMPLETED").length}</p>
-          <p className="text-xs text-muted-foreground">Concluídas</p>
+          <p className="flex items-center justify-center gap-1 text-xs text-muted-foreground">Concluídas<FeatureInfo helpId="planejamento.acoes.kpi-concluidas" /></p>
         </div>
       </div>
 
       <div className="flex flex-wrap gap-4">
         <fieldset className="flex flex-col gap-1">
-          <legend className="text-xs font-medium text-muted-foreground">Risco</legend>
+          <legend className="flex items-center gap-1 text-xs font-medium text-muted-foreground">Risco<FeatureInfo helpId="planejamento.acoes.filtro-risco" /></legend>
           {RISK_OPTIONS.map((r) => (
             <label key={r} className="flex items-center gap-1.5 text-sm">
               <input type="checkbox" checked={riskFilter.has(r)} onChange={() => toggleSet(riskFilter, r, setRiskFilter)} />
@@ -106,7 +107,7 @@ export function SlaActionsSummary({
         </fieldset>
 
         <fieldset className="flex flex-col gap-1">
-          <legend className="text-xs font-medium text-muted-foreground">Status</legend>
+          <legend className="flex items-center gap-1 text-xs font-medium text-muted-foreground">Status<FeatureInfo helpId="planejamento.acoes.filtro-status" /></legend>
           {STATUS_OPTIONS.map((s) => (
             <label key={s} className="flex items-center gap-1.5 text-sm">
               <input
@@ -120,7 +121,7 @@ export function SlaActionsSummary({
         </fieldset>
 
         <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted-foreground">Área</span>
+          <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">Área<FeatureInfo helpId="planejamento.acoes.filtro-area" /></span>
           <Select value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
             <option value="">Todas</option>
             {areas.map((a) => (
@@ -132,7 +133,7 @@ export function SlaActionsSummary({
         </div>
 
         <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted-foreground">Responsável</span>
+          <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">Responsável<FeatureInfo helpId="planejamento.acoes.filtro-responsavel" /></span>
           <Select value={responsibleFilter} onChange={(e) => setResponsibleFilter(e.target.value)}>
             <option value="">Todos</option>
             {responsibleOptions.map((r) => (
@@ -144,7 +145,7 @@ export function SlaActionsSummary({
         </div>
 
         <div className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-muted-foreground">Escalão</span>
+          <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">Escalão<FeatureInfo helpId="planejamento.acoes.filtro-escalao" /></span>
           <Select value={levelFilter} onChange={(e) => setLevelFilter(e.target.value)}>
             <option value="">Todos</option>
             {(["RESPONSAVEL", "ESCALAO_1", "ESCALAO_2", "DIRETORIA"] as SlaEscalationLevel[]).map((l) => (
@@ -160,15 +161,15 @@ export function SlaActionsSummary({
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
-              <th className="p-2">Ação</th>
-              <th className="p-2">Risco</th>
-              <th className="p-2">Área</th>
-              <th className="p-2">Responsável</th>
-              <th className="p-2">Prazo</th>
-              <th className="p-2">Status</th>
-              <th className="p-2">Escalão</th>
-              <th className="p-2">Tempo restante / vencido há</th>
-              <th className="p-2">Origem</th>
+              <th className="p-2"><span className="inline-flex items-center gap-1">Ação<FeatureInfo helpId="planejamento.acoes.col-acao" /></span></th>
+              <th className="p-2"><span className="inline-flex items-center gap-1">Risco<FeatureInfo helpId="planejamento.acoes.risco-badge" /></span></th>
+              <th className="p-2"><span className="inline-flex items-center gap-1">Área<FeatureInfo helpId="planejamento.acoes.col-area" /></span></th>
+              <th className="p-2"><span className="inline-flex items-center gap-1">Responsável<FeatureInfo helpId="planejamento.acoes.col-responsavel" /></span></th>
+              <th className="p-2"><span className="inline-flex items-center gap-1">Prazo<FeatureInfo helpId="planejamento.acoes.col-prazo" /></span></th>
+              <th className="p-2"><span className="inline-flex items-center gap-1">Status<FeatureInfo helpId="planejamento.acoes.status-badge" /></span></th>
+              <th className="p-2"><span className="inline-flex items-center gap-1">Escalão<FeatureInfo helpId="planejamento.acoes.nivel-badge" /></span></th>
+              <th className="p-2"><span className="inline-flex items-center gap-1">Tempo restante / vencido há<FeatureInfo helpId="planejamento.acoes.col-tempo-restante" /></span></th>
+              <th className="p-2"><span className="inline-flex items-center gap-1">Origem<FeatureInfo helpId="planejamento.acoes.col-origem" /></span></th>
             </tr>
           </thead>
           <tbody>

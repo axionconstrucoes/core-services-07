@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { sendContractAlertEmailAction } from "@/app/[projectId]/ledger/[eventId]/send-alert-actions";
@@ -52,6 +53,7 @@ export function SendContractAlertForm({
         <p className="text-xs font-medium text-muted-foreground">
           Enviar este achado como alerta por e-mail (padrão institucional ACC)
         </p>
+        <FeatureInfo helpId="planejamento.ledger-evento.enviar-alerta" />
       </div>
 
       {pilotNotice ? (

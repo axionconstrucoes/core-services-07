@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 import type { AlertSeverity } from "@axion/types";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { DELIVERY_ITEM_COLUMNS, toDeliveryItem, type DeliveryItemRow } from "@/lib/delivery/delivery-mappers";
 import { DELIVERY_PHASE_LABELS } from "@/lib/delivery/delivery-items";
 
@@ -58,7 +59,10 @@ export default async function DeliveryAlertActionPage({
             <img src="/branding/acc-logo.png" alt="ACC" className="h-7 w-auto" />
           </div>
           <CardTitle className="text-base">AXION Controle de Contratos</CardTitle>
-          <CardDescription>Resposta rápida ao alerta de providência</CardDescription>
+          <CardDescription className="flex items-center gap-1">
+            Resposta rápida ao alerta de providência
+            <FeatureInfo helpId="planejamento.alerta-providencia.pagina" />
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 p-4 pt-0">
           {!item || !project ? (
