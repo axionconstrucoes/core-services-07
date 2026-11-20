@@ -31,6 +31,7 @@ function panelElements(route: string): HelpManifestElement[] {
     { route, kind: "message", label: "Informações faltantes", helpId: "experts.painel.informacoes-faltantes" },
     { route, kind: "message", label: "Rascunho sugerido", helpId: "experts.painel.rascunho" },
     { route, kind: "message", label: "Checagem de fidelidade (grounding) do rascunho", helpId: "experts.painel.grounding" },
+    { route, kind: "message", label: "Grupos da checagem de fidelidade (Fato documentado, Interpretação, Não comprovada, Depende de definição humana)", helpId: "experts.painel.grounding-grupos" },
     { route, kind: "message", label: "Aviso de análise com conteúdo parcial", helpId: "experts.painel.aviso-conteudo-parcial" },
     {
       route,
