@@ -124,7 +124,7 @@ begin
     elsif v_contract in ('DECORRIDA', 'NAO_PREVISTA') and v_legal = 'NAO' and v_hidden = 'NAO' and v_deadline = 'FORA'
           and 'fundamentacao' = any (v_filled) then
       v_conclusion := 'POTENCIALMENTE NÃO COBERTO';
-    elsif v_legal = 'SIM' or (v_contract = 'VIGENTE' and v_deadline = 'DENTRO') then
+    elsif v_deadline = 'DENTRO' and (v_legal = 'SIM' or v_contract = 'VIGENTE') then
       v_conclusion := 'POTENCIALMENTE COBERTO';
     else
       v_conclusion := 'COBERTURA CONDICIONADA';

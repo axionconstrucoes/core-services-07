@@ -5,10 +5,11 @@ import { HelpHint } from "@/components/shared/help-hint";
 import { SELECT_CLASS } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { ActionButton, Callout, DataTable, NoData, RunnerFeedback, Section, SpecForm, StatusBadge, useInsuranceRunner, useWorkspace, type Column } from "@/components/insurance/kit";
+import { claimStageLabelFor } from "@/lib/insurance-ui/claim-labels";
 import { FORMS } from "@/lib/insurance-ui/forms";
 import { formatDateTime, textOrNoData } from "@/lib/insurance-ui/format";
-import { AUDIT_ENTITY_LABEL, CLAIM_STAGE_LABEL, DRAFT_KIND_LABEL, DRAFT_STATE_LABEL, SEND_BLOCK_REASON_LABEL, labelOf } from "@/lib/insurance-ui/labels";
-import { CHANNEL_AVAILABILITY_TEXT, draftSendView, prepareAcionamento, prepareEndorsementDraft, type AcionamentoPlan } from "@/lib/insurance-ui/model";
+import { AUDIT_ENTITY_LABEL, DRAFT_KIND_LABEL, DRAFT_STATE_LABEL, SEND_BLOCK_REASON_LABEL, labelOf } from "@/lib/insurance-ui/labels";
+import { CHANNEL_AVAILABILITY_TEXT, claimInstrument, draftSendView, prepareAcionamento, prepareEndorsementDraft, type AcionamentoPlan } from "@/lib/insurance-ui/model";
 import type { BuiltDraft } from "@/lib/insurance/index";
 import type { DraftRow } from "@/lib/insurance-ui/types";
 
@@ -58,7 +59,7 @@ function AcionamentoSection({ initialClaimId, initialEndorsementId }: { initialC
           {/* help-exempt: seletor cujo ícone de ajuda (seguros.minutas.seletor-evento) é renderizado ao lado do rótulo logo acima */}
           <select id="seg-a-claim" className={`${SELECT_CLASS} min-h-11 w-full`} value={claimId} onChange={(e) => { setClaimId(e.target.value); setEndorsementId(""); }}>
             <option value="">Nenhum</option>
-            {data.claims.map((c) => (<option key={c.id} value={c.id}>{c.title} — {labelOf(CLAIM_STAGE_LABEL, c.stage)}</option>))}
+            {data.claims.map((c) => (<option key={c.id} value={c.id}>{c.title} — {claimStageLabelFor(c.stage, claimInstrument(c, data).kind)}</option>))}
           </select>
         </div>
         <div className="flex flex-col gap-1">

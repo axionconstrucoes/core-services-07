@@ -93,10 +93,17 @@ export function assessCoverage(input: CoverageInput): CoverageAssessment {
   }
 
   const conditions: CoverageReason[] = [];
-  if (input.eventDate! < coverageStart! || input.eventDate! > coverageEnd!) {
+  // compara só a DATA (yyyy-mm-dd): um instante ISO do mesmo dia do fim da vigência não pode ser tratado como "fora da vigência"
+  const eventDay = input.eventDate!.slice(0, 10);
+  if (eventDay < coverageStart!.slice(0, 10) || eventDay > coverageEnd!.slice(0, 10)) {
     conditions.push({ code: "FORA_DA_VIGENCIA", epistemic: "INFERENCIA", text: "Data do evento fora da vigência cadastrada: depende da base temporal da apólice (ocorrência x reclamação), retroatividade e prazo complementar — verificar no texto." });
   }
   for (const c of covering) if (!c.verified) conditions.push({ code: "CLAUSULA_NAO_VERIFICADA", epistemic: "FATO", clauseId: c.id, text: `Cláusula "${c.title}" ainda não verificada por humano.` });
+  // Cláusula RESTRITIVA sem fonte que declara aplicar-se ao evento não vale como evidência, mas também NÃO pode ser ignorada em silêncio:
+  // "potencialmente coberto" com uma exclusão/condição cadastrada e sem fonte seria falso conforto. Vira condição (revisão humana).
+  for (const c of unsourced.filter((x) => ["EXCLUSAO", "CONDICAO", "FRANQUIA", "SUBLIMITE"].includes(x.kind) && applies(x, input.claimKind))) {
+    conditions.push({ code: "CLAUSULA_RESTRITIVA_SEM_FONTE", epistemic: "FATO", clauseId: c.id, text: `${c.kind} "${c.title}" cadastrada como aplicável ao evento, mas SEM fonte: confirme no texto da apólice antes de qualquer posição (não foi considerada como evidência).` });
+  }
   for (const c of sourced.filter((x) => ["CONDICAO", "FRANQUIA", "SUBLIMITE"].includes(x.kind) && applies(x, input.claimKind))) {
     conditions.push({ code: `${c.kind}_APLICAVEL`, epistemic: "INFERENCIA", clauseId: c.id, text: `${c.kind} "${c.title}" declara aplicar-se ao evento.` });
   }

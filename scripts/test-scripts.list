@@ -108,3 +108,4 @@ scripts/test-permissoes-tier.mjs
 scripts/test-permissoes-unificadas-realpg.mjs
 scripts/test-f3e-persistencia-realpg.mjs
 scripts/test-f3e-persistencia.mjs
+scripts/test-f3e-revisao-funcional.mjs

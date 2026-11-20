@@ -63,3 +63,11 @@ Gerado em 20/11/2026 sobre `integration/acc-noturna`. Tudo local: nenhuma migrat
 - **Telas de Qualidade, Garantias e Pilares não foram exercitadas em sessão autenticada** com Supabase real; a verificação é estática, com cliente simulado e, no módulo de Seguros, harness Chrome com stubs.
 - **Isolamento entre projetos** está provado em banco real para as tabelas de Qualidade e Seguros; nas telas, por análise estática (filtro por `project_id`, sem service role).
 - **Vigência e texto oficial** de Lei 15.040/2024, Circular SUSEP 662/2022, NBR 14037 e NBR 15575 não foram confirmados no texto oficial; os testes verificam que o sistema declara isso, não que as normas estejam aplicadas corretamente. Exige parecer jurídico humano.
+
+## Fase 3 / E — atualização dos limites (persistência)
+
+- **Casos 19 e 20 (RCC entre subcontratadas, danos à própria obra)** agora têm prova em BANCO: o checklist RCC é persistido (`insurance_rcc_checklists`/`_items`, append-only, fonte obrigatória) e `test-f3e-persistencia-realpg` o exercita; o domínio continua não presumindo cobertura.
+- **Casos 21 e 22** passam a comparar a apólice com expectativas GRAVADAS (`insurance_expected_subjects`, com fonte e versão), não apenas com texto digitado.
+- **Casos 10 a 14 e 33** têm parecer de cobertura de garantia persistido por versão (`quality_warranty_coverage_opinions`) com a conclusão REVERIFICADA em SQL (paridade TS x SQL em 5.184 combinações).
+- Defeitos corrigidos na revisão funcional (cada um com teste em `scripts/test-f3e-revisao-funcional.mjs`): garantia legal potencial com prazo FORA não é mais "potencialmente coberto"; restrição sem fonte aplicável ao evento não é mais ignorada; data do evento com hora no último dia da vigência não é "fora da vigência"; "1.500" em Garantias é R$ 1.500; etapas de fiança/caução não usam termos da seguradora.
+

@@ -7,6 +7,7 @@ import { ActionButton, Callout, DataTable, NoData, RunnerFeedback, Section, Sour
 import { claimStageLevel } from "@/lib/insurance-ui/permissions";
 import { FORMS, deriveClaimInstrument, validateClaimOpen, validateDossierItem } from "@/lib/insurance-ui/forms";
 import { formatDate, formatDateTime, formatMoney, textOrNoData } from "@/lib/insurance-ui/format";
+import { claimStageLabelFor } from "@/lib/insurance-ui/claim-labels";
 import { CLAIM_KIND_LABEL, CLAIM_STAGE_LABEL, COVERAGE_CONCLUSION_LABEL, DOSSIER_STATUS_LABEL, EPISTEMIC_LABEL, labelOf } from "@/lib/insurance-ui/labels";
 import { claimCoverageView, claimInstrument, claimNextStages, claimNotice, dossierForPolicy } from "@/lib/insurance-ui/model";
 import { buildDossierChecklist } from "@/lib/insurance/index";
@@ -27,7 +28,7 @@ export function ClaimsPanel() {
   const cols: Column<ClaimRow>[] = [
     { key: "title", label: "Evento", render: (c) => c.title },
     { key: "kind", label: "Tipo", render: (c) => labelOf(CLAIM_KIND_LABEL, c.claim_kind) },
-    { key: "stage", label: "Estágio", helpId: "seguros.status.estagio-sinistro", render: (c) => <StatusBadge text={labelOf(CLAIM_STAGE_LABEL, c.stage)} variant={c.stage === "NEGATIVA" || c.stage === "CONTESTACAO" ? "destructive" : c.stage === "ENCERRADO" ? "secondary" : "info"} /> },
+    { key: "stage", label: "Estágio", helpId: "seguros.status.estagio-sinistro", render: (c) => <StatusBadge text={claimStageLabelFor(c.stage, claimInstrument(c, data).kind)} variant={c.stage === "NEGATIVA" || c.stage === "CONTESTACAO" ? "destructive" : c.stage === "ENCERRADO" ? "secondary" : "info"} /> },
     { key: "ins", label: "Instrumento", render: (c) => { const i = claimInstrument(c, data); return i.kind === "SEM_INSTRUMENTO" ? <StatusBadge text="SEM INSTRUMENTO" variant="warning" /> : i.label; } },
     { key: "prot", label: "Protocolo", render: (c) => textOrNoData(c.protocol) },
     { key: "occ", label: "Ocorrência", render: (c) => formatDate(c.occurrence_date) },
@@ -84,8 +85,8 @@ function ClaimDetail({ claim, goTo }: { claim: ClaimRow; goTo: (tab: string, t?:
       <DataTable
         columns={[
           { key: "at", label: "Quando", render: (s: (typeof steps)[number]) => formatDateTime(s.occurred_at) },
-          { key: "from", label: "De", render: (s) => (s.from_stage ? labelOf(CLAIM_STAGE_LABEL, s.from_stage) : "abertura") },
-          { key: "to", label: "Para", render: (s) => labelOf(CLAIM_STAGE_LABEL, s.stage) },
+          { key: "from", label: "De", render: (s) => (s.from_stage ? claimStageLabelFor(s.from_stage, instrument.kind) : "abertura") },
+          { key: "to", label: "Para", render: (s) => claimStageLabelFor(s.stage, instrument.kind) },
           { key: "prot", label: "Protocolo", render: (s) => textOrNoData(s.protocol) },
           { key: "note", label: "Nota", render: (s) => textOrNoData(s.note) },
           { key: "doc", label: "Documento", render: (s) => <SourceLink documentId={s.document_id} /> },
@@ -98,14 +99,14 @@ function ClaimDetail({ claim, goTo }: { claim: ClaimRow; goTo: (tab: string, t?:
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {next.map((st) => (
-          <ActionButton key={st} label={`Avançar para: ${CLAIM_STAGE_LABEL[st]}`} helpId="seguros.acoes.sinistro-avancar-abrir" level={claimStageLevel(st)} variant="outline" onClick={() => setToStage(st)} />
+          <ActionButton key={st} label={`Avançar para: ${claimStageLabelFor(st, instrument.kind)}`} helpId="seguros.acoes.sinistro-avancar-abrir" level={claimStageLevel(st)} variant="outline" onClick={() => setToStage(st)} />
         ))}
         {next.length === 0 ? <span className="text-sm text-muted-foreground">Evento encerrado: sem novas etapas.</span> : null}
         <ActionButton label="Preparar acionamento" helpId="seguros.acoes.acionamento-preparar" level="REGISTER" onClick={() => goTo("minutas", { claimId: claim.id })} />
       </div>
       {toStage ? (
         <div className="mt-3">
-          <SpecForm spec={{ ...FORMS.claimAdvance, title: `Avançar para: ${CLAIM_STAGE_LABEL[toStage]}` }} options={buildOptionSets(data)} level={claimStageLevel(toStage)} okMessage="Etapa registrada." onCancel={() => setToStage(null)} onDone={() => setToStage(null)}
+          <SpecForm spec={{ ...FORMS.claimAdvance, title: `Avançar para: ${claimStageLabelFor(toStage, instrument.kind)}` }} options={buildOptionSets(data)} level={claimStageLevel(toStage)} okMessage="Etapa registrada." onCancel={() => setToStage(null)} onDone={() => setToStage(null)}
             hideFields={toStage === "DECISAO" ? [] : ["decision_outcome"]}
             toInput={(b) => ({ op: "claim_advance", id: claim.id, expectedRowVersion: claim.row_version, data: b.data, args: { toStage } })} />
         </div>

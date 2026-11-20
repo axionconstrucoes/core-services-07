@@ -275,6 +275,7 @@ try {
     await run("CASO 11 máquina após término contratual: garantia decorrida NÃO exclui automaticamente", fullForm({ contractualWarranty: "DECORRIDA", legalWarrantyPotential: "INDETERMINADO", claimDeadline: "INDETERMINADO" }), "COBERTURA CONDICIONADA", (row) => ok(JSON.stringify(row.reasons).includes("NÃO exclui automaticamente"), "razão registra que a expiração não exclui"));
     await run("CASO 12 vício oculto", fullForm({ hiddenDefect: "SIM" }), "COBERTURA CONDICIONADA");
     await run("CASO 13 solidez e segurança (controvérsia => responsável humano)", fullForm({ legalControversy: true }), "COBERTURA CONDICIONADA", (row) => eq([row.legal_controversy, row.route_to_human], [true, true], "encaminhamento humano"));
+    await run("CASO 11 garantia legal potencial com prazo de reclamação FORA não é 'potencialmente coberto' (SQL == TS)", fullForm({ contractualWarranty: "DECORRIDA", claimDeadline: "FORA" }), "COBERTURA CONDICIONADA");
     await run("CASO 14 ausência de comprovantes de manutenção", fullForm({ maintenance: "NAO_COMPROVADA" }), "COBERTURA CONDICIONADA");
     const empty = await run("CASO 33 dados insuficientes: formulário vazio", CF.emptyCoverageForm(), "INFORMAÇÕES INSUFICIENTES", (row) => ok(row.missing.length > 0, "itens SEM DADOS listados em missing"));
     ok(empty.items.every((i) => i.status === "SEM_DADOS" || i.status === "NAO_APLICAVEL" || i.status === "PREENCHIDO"), "itens persistidos");

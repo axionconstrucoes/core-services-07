@@ -98,7 +98,7 @@ export function validateWarrantyItems(items: WarrantyItemAssessment[]): string[]
  *     garantia legal potencial SIM com garantia contratual decorrida → COBERTURA CONDICIONADA (humano decide);
  *  3. NÃO COBERTO só quando TODOS os sinais estão definidos: contratual decorrida/não prevista, legal NAO, vício oculto NAO,
  *     prazo FORA e fundamentação preenchida — nunca por mera expiração;
- *  4. contratual VIGENTE + prazo DENTRO + manutenção comprovada/não exigida → POTENCIALMENTE COBERTO;
+ *  4. (contratual VIGENTE ou garantia legal potencial SIM) + prazo DENTRO + manutenção comprovada/não exigida → POTENCIALMENTE COBERTO;
  *  5. demais → COBERTURA CONDICIONADA.
  */
 export function deriveWarrantyCoverage(input: { items: WarrantyItemAssessment[]; signals: WarrantySignals }): WarrantyCoverageDerivation {
@@ -130,7 +130,9 @@ export function deriveWarrantyCoverage(input: { items: WarrantyItemAssessment[];
     signals.legalWarrantyPotential === "NAO" && signals.hiddenDefect === "NAO" && signals.claimDeadline === "FORA" && filled("fundamentacao");
   if (fullyDefinedNegative) return { ...base, conclusion: "POTENCIALMENTE NÃO COBERTO", reasons: [...reasons, "Todos os regimes (contratual, legal, vício oculto, prazo) analisados e fundamentados como não alcançando o fato — não decorre só da expiração."], routeToHumanResponsible: false };
 
-  if (signals.legalWarrantyPotential === "SIM" || (signals.contractualWarranty === "VIGENTE" && signals.claimDeadline === "DENTRO")) {
+  // Regime potencialmente aplicável (garantia legal potencial OU contratual vigente) E prazo DENTRO. Garantia legal potencial com prazo FORA
+  // não é "potencialmente coberto" (correção Fase 3/E: antes bastava legalWarrantyPotential = SIM, mesmo com o prazo de reclamação FORA).
+  if (signals.claimDeadline === "DENTRO" && (signals.legalWarrantyPotential === "SIM" || signals.contractualWarranty === "VIGENTE")) {
     return { ...base, conclusion: "POTENCIALMENTE COBERTO", reasons: [...reasons, "Há regime potencialmente aplicável dentro do prazo, sem pendências; confirmação final é humana."], routeToHumanResponsible: false };
   }
   return { ...base, conclusion: "COBERTURA CONDICIONADA", reasons: [...reasons, "Combinação de sinais sem enquadramento conclusivo."], routeToHumanResponsible: signals.legalControversy };

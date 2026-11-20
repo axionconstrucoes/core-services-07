@@ -706,7 +706,8 @@ try {
     });
     const bad = (await su.query("select relname from pg_class where relname like 'quality\\_%' and relkind='r' and not relrowsecurity")).rows;
     eq(bad, [], "tabelas sem RLS");
-    eq((await su.query("select count(*)::int n from pg_class where relname like 'quality\\_%' and relkind='r'")).rows[0].n, 18, "18 tabelas quality_*");
+    // 18 tabelas da fase 1 + as acrescentadas depois (Fase 3/E: quality_warranty_coverage_opinions); a RLS de TODAS já foi conferida acima.
+    ok((await su.query("select count(*)::int n from pg_class where relname like 'quality\\_%' and relkind='r'")).rows[0].n >= 18, "ao menos 18 tabelas quality_*");
   });
 } finally {
   await su.end().catch(() => {});
