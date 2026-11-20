@@ -145,7 +145,9 @@ export async function getAlertDetailView(projectId: string, caseId: string, opti
   }
 
   const state = row.state as AlertState;
-  const currentLevel = row.current_level as string;
+  // Nível exibido: o da ação SLA vinculada (o escalonamento por prazo só atualiza a ação SLA; o do caso só muda por ação
+  // imediata). Sem ação SLA, o do caso. Divergências ficam listadas em risk_sla_consistency_issues.
+  const currentLevel = (slaAction?.currentEscalationLevel ?? row.current_level) as string;
   const next = nextHierarchyLevel(currentLevel as "RESPONSAVEL");
   // Previsão de término: vigente = informação mais recente pela data de origem (recebimento do e-mail).
   const receivedByMessage = new Map((messages ?? []).filter((m) => m.received_at).map((m) => [m.id as string, m.received_at as string]));
