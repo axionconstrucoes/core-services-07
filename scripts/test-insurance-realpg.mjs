@@ -82,6 +82,9 @@ try {
     await su.query(sql);
     await su.query(sql);
   }
+  // A reaplicação do S1 recoloca as definições ORIGINAIS das funções; as migrations POSTERIORES (Fase 3: permissões/B e endossos/C,
+  // que redefinem insurance_claim_advance, insurance_endorsement_* e insurance_dashboard_items) voltam por cima, na ordem, como no deploy.
+  for (const f of files.filter((x) => x > MINE[MINE.length - 1] && /^20261123/.test(x))) await su.query(readFileSync(path.join(dir, f), "utf8").replace(/^﻿/, ""));
   console.log(`PostgreSQL ${version}: ${files.length} migrations aplicadas (+ ${MINE.length} do S1 reaplicadas 2x) — base ${dbName}`);
 
   const uid = (n) => `00000000-0000-4000-8000-${String(2200 + n).padStart(12, "0")}`;
