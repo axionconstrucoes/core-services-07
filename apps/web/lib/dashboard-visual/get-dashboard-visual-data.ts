@@ -128,6 +128,9 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
 
   const findingsInRange = filterFindingsByRange(findings, range);
   const activeFindingsSummary = resolveActiveFindingsSummary(findingsInRange);
+  // Posição ATUAL dos achados ativos (sem filtro de período): é a que o Dashboard Executivo mostra ao lado do Risco atual,
+  // que também não é filtrado. O Dashboard Visual continua usando a versão filtrada pelo período escolhido.
+  const activeFindingsSummaryCurrent = resolveActiveFindingsSummary(findings);
   const generalSituation = resolveGeneralSituation(findings); // posição atual — nunca filtrada pelo período
 
   const processingSets = resolveEmailProcessingSets(curationRuns, findings);
@@ -161,6 +164,7 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
     emailFacts,
     cronogramaResolution,
     activeFindingsSummary,
+    activeFindingsSummaryCurrent,
     generalSituation,
     emailSummary,
     sourceVolume: { rows: [...emailVolume.rows, ...genericVolumeRows], totals: emailVolume.totals },

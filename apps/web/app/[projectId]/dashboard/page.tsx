@@ -874,8 +874,8 @@ export default async function DashboardPage({
               ) : null}
               <StatusLine
                 label="Achados de IA ativos" helpId="dashboard.executivo.linha-achados-ia"
-                value={data.activeFindingsSummary.totalActive}
-                status={data.activeFindingsSummary.totalActive > 0 ? "warning" : "ok"}
+                value={data.activeFindingsSummaryCurrent.totalActive}
+                status={data.activeFindingsSummaryCurrent.totalActive > 0 ? "warning" : "ok"}
               />
               <StatusLine
                 label="Ações abertas (SLA)" helpId="dashboard.executivo.linha-acoes-abertas-sla"
@@ -975,7 +975,7 @@ export default async function DashboardPage({
               </div>
               <p className="pt-1 text-[10px] leading-tight text-[#b8c7dc]">
                 {riskCases
-                  ? `${riskCases.reviewRequired > 0 ? `${riskCases.reviewRequired} caso(s) em revisão (sem nível definido) fora das colunas. ` : ""}Achados de IA ativos por severidade: baixo ${data.activeFindingsSummary.countsBySeverity.BAIXA}, médio ${data.activeFindingsSummary.countsBySeverity.MEDIA}, alto ${data.activeFindingsSummary.countsBySeverity.ALTA}, crítico ${data.activeFindingsSummary.countsBySeverity.CRITICA}.`
+                  ? `${riskCases.reviewRequired > 0 ? `${riskCases.reviewRequired} caso(s) em revisão (sem nível definido) fora das colunas. ` : ""}Achados de IA ativos por severidade: baixo ${data.activeFindingsSummaryCurrent.countsBySeverity.BAIXA}, médio ${data.activeFindingsSummaryCurrent.countsBySeverity.MEDIA}, alto ${data.activeFindingsSummaryCurrent.countsBySeverity.ALTA}, crítico ${data.activeFindingsSummaryCurrent.countsBySeverity.CRITICA}.`
                   : "Casos de risco indisponíveis: “—” significa sem dado, não zero."}
               </p>
             </Panel>
