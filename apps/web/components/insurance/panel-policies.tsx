@@ -51,7 +51,7 @@ export function PoliciesPanel() {
               <HelpHint helpId="seguros.apolices.filtro-status" />
             </span>
             {/* help-exempt: filtro cujo ícone de ajuda (seguros.apolices.filtro-status) é renderizado ao lado do rótulo logo acima */}
-            <select id="seg-f-status" className={`${SELECT_CLASS} min-h-11`} value={status} onChange={(e) => setStatus(e.target.value)}>
+            <select id="seg-f-status" className={`${SELECT_CLASS} min-h-11 w-full max-w-full`} value={status} onChange={(e) => setStatus(e.target.value)}>
               <option value="">Todas</option>
               {Object.entries(POLICY_STATUS_LABEL).map(([v, l]) => (
                 <option key={v} value={v}>{l}</option>
@@ -64,7 +64,7 @@ export function PoliciesPanel() {
               <HelpHint helpId="seguros.apolices.filtro-modalidade" />
             </span>
             {/* help-exempt: filtro cujo ícone de ajuda (seguros.apolices.filtro-modalidade) é renderizado ao lado do rótulo logo acima */}
-            <select id="seg-f-mod" className={`${SELECT_CLASS} min-h-11`} value={modality} onChange={(e) => setModality(e.target.value)}>
+            <select id="seg-f-mod" className={`${SELECT_CLASS} min-h-11 w-full max-w-full`} value={modality} onChange={(e) => setModality(e.target.value)}>
               <option value="">Todas</option>
               {Object.entries(MODALITY_LABEL).map(([v, l]) => (
                 <option key={v} value={v}>{l}</option>

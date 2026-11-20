@@ -124,7 +124,7 @@ export function SourceLink({ documentId, sourceRef }: { documentId?: string | nu
     <span className="inline-flex flex-wrap items-center gap-x-1 text-sm">
       {documentId ? (
         doc?.latestVersionId ? (
-          <Link className="underline underline-offset-2 hover:text-foreground" href={`/${projectId}/documentos/versoes/${doc.latestVersionId}`}>
+          <Link className="inline-flex min-h-11 items-center underline underline-offset-2 hover:text-foreground" href={`/${projectId}/documentos/versoes/${doc.latestVersionId}`}>
             {doc.title}
           </Link>
         ) : (
@@ -198,7 +198,7 @@ export function ActionButton({ label, helpId, level, onClick, pending, variant =
   return (
     <span className="inline-flex flex-wrap items-center gap-1">
       {/* help-exempt: botão genérico; o chamador passa o helpId literal e o ícone de ajuda é renderizado logo ao lado */}
-      <Button type="button" variant={variant} size="sm" className="min-h-11 px-4" disabled={disabled} aria-describedby={reason ? reasonId : undefined} onClick={onClick}>
+      <Button type="button" variant={variant} size="sm" className="min-h-11 px-4 disabled:border disabled:border-dashed disabled:border-input disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100" disabled={disabled} aria-describedby={reason ? reasonId : undefined} onClick={onClick}>
         {pending ? "Aguarde…" : label}
       </Button>
       <HelpHint helpId={helpId} />

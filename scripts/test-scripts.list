@@ -98,3 +98,4 @@ scripts/test-quality-domain.mjs
 scripts/test-insurance-domain.mjs
 scripts/test-quality-insurance-experts.mjs
 scripts/test-seguros-ui.mjs
+scripts/test-seguros-browser.mjs

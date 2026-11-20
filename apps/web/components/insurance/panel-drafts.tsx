@@ -196,7 +196,7 @@ function DraftDetail({ draft }: { draft: DraftRow }) {
       </Callout>
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {/* help-exempt: botão permanentemente desabilitado; o ícone de ajuda seguros.minutas.envio-bloqueado ao lado explica o motivo */}
-        <Button type="button" variant="outline" size="sm" className="min-h-11 px-4" disabled aria-disabled="true" data-testid="seguros-send-disabled">
+        <Button type="button" variant="outline" size="sm" className="min-h-11 px-4 disabled:border disabled:border-dashed disabled:border-input disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100" disabled aria-disabled="true" data-testid="seguros-send-disabled">
           Enviar (indisponível nesta fase)
         </Button>
         <HelpHint helpId="seguros.minutas.envio-bloqueado" />
