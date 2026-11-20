@@ -202,10 +202,13 @@ export default async function ClauseReviewPage({
         ) : null}
       </section>
 
-      {/* ---------- busca e filtros (GET) ---------- */}
+      {/* ---------- busca e filtros (GET) — help-exempt: o formulário agrupa filtros documentados individualmente em Filtros da revisão ---------- */}
       <form method="get" action={basePath} className="flex flex-wrap items-end gap-2 rounded-lg border p-3">
         <label className="flex min-w-48 flex-1 flex-col gap-1 text-xs font-medium">
-          Buscar (número, título ou texto)
+          <span className="flex items-center gap-1">
+            Buscar (número, título ou texto)
+            <FeatureInfo helpId="juridico.revisao-clausulas.filtros" />
+          </span>
           <input
             name="q"
             defaultValue={q}
@@ -214,7 +217,10 @@ export default async function ClauseReviewPage({
           />
         </label>
         <label className="flex flex-col gap-1 text-xs font-medium">
-          Parte
+          <span className="flex items-center gap-1">
+            Parte
+            <FeatureInfo helpId="juridico.revisao-clausulas.filtros" />
+          </span>
           <select name="parte" defaultValue={parte} className={selectClass}>
             <option value="">Todas</option>
             {sections.map((section) => (

@@ -36,6 +36,10 @@ function ClauseListNav({
 }) {
   return (
     <nav className="flex flex-col gap-1" aria-label="Lista de cláusulas">
+      <div className="flex items-center gap-1 px-1 text-xs font-semibold text-muted-foreground">
+        Cláusulas do contrato
+        <FeatureInfo helpId="juridico.documentos.clausulas-lista" />
+      </div>
       {clauses.map((clause) => {
         const isSelected = clause.id === selectedId;
         return (
@@ -112,6 +116,7 @@ export function ClausesMasterDetail({ clauses }: { clauses: ContractClause[] }) 
             {selected.text}
           </p>
           {needsCollapse ? (
+            // help-exempt: alternador de leitura (recolher ou expandir o texto) descrito na ajuda da lista de cláusulas
             <button
               type="button"
               onClick={() => setExpanded((value) => !value)}

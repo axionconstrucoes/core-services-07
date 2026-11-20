@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { trashProjectDocumentAction } from "@/app/[projectId]/documentos/actions";
 import { initialTrashDocumentState } from "@/app/[projectId]/documentos/actions-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -56,7 +57,10 @@ export function TrashDocumentControl({
         </p>
 
         <label className="flex flex-col gap-1 font-medium">
-          Justificativa (mínimo {MIN_REASON_LENGTH} caracteres)
+          <span className="flex items-center gap-1">
+            Justificativa (mínimo {MIN_REASON_LENGTH} caracteres)
+            <FeatureInfo helpId="juridico.documentos.justificativa-lixeira" />
+          </span>
           <Textarea
             name="reason"
             value={reason}
@@ -72,14 +76,17 @@ export function TrashDocumentControl({
         {state.error ? <p className="text-destructive">{state.error}</p> : null}
         {state.success ? <p className="text-emerald-600">Documento enviado para a lixeira.</p> : null}
 
-        <Button
-          type="submit"
-          size="sm"
-          className="bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300 disabled:text-white"
-          disabled={pending || reason.trim().length < MIN_REASON_LENGTH}
-        >
-          {pending ? "Enviando…" : "Confirmar envio para a lixeira"}
-        </Button>
+        <span className="inline-flex items-center gap-1">
+          <Button
+            type="submit"
+            size="sm"
+            className="bg-red-600 text-white hover:bg-red-700 disabled:bg-red-300 disabled:text-white"
+            disabled={pending || reason.trim().length < MIN_REASON_LENGTH}
+          >
+            {pending ? "Enviando…" : "Confirmar envio para a lixeira"}
+          </Button>
+          <FeatureInfo helpId="juridico.documentos.lixeira" />
+        </span>
       </form>
     </details>
   );

@@ -99,14 +99,18 @@ export function DocumentMultiUploadPanel({ projectId, documents }: Props) {
           Arraste e solte vários arquivos aqui, ou
         </p>
 
-        <Button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="border border-yellow-500 bg-yellow-400 text-black hover:bg-yellow-500 hover:text-black"
-        >
-          Selecionar arquivos
-        </Button>
+        <span className="inline-flex items-center gap-1">
+          <Button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="border border-yellow-500 bg-yellow-400 text-black hover:bg-yellow-500 hover:text-black"
+          >
+            Selecionar arquivos
+          </Button>
+          <FeatureInfo helpId="juridico.documentos.upload-multiplo" />
+        </span>
 
+        {/* help-exempt: input de arquivo oculto acionado pelo botão Selecionar arquivos, que é o controle documentado */}
         <input
           ref={fileInputRef}
           type="file"
@@ -150,24 +154,19 @@ export function DocumentMultiUploadPanel({ projectId, documents }: Props) {
               </Select>
             </label>
 
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!hasPending || !batchDefaultKind}
-              onClick={() => applyKindToAllPending(batchDefaultKind)}
-            >
-              Aplicar aos arquivos aguardando
-            </Button>
+            <span className="inline-flex items-center gap-1">
+              <Button type="button" variant="outline" size="sm" disabled={!hasPending || !batchDefaultKind} onClick={() => applyKindToAllPending(batchDefaultKind)}>
+                Aplicar aos arquivos aguardando
+              </Button>
+              <FeatureInfo helpId="juridico.documentos.tipo-lote" />
+            </span>
 
-            <Button
-              type="button"
-              disabled={!hasPending || hasPendingWithoutKind || isRunning}
-              onClick={startBatch}
-              className="ml-auto"
-            >
-              {isRunning ? "Enviando lote..." : "Iniciar envio"}
-            </Button>
+            <span className="ml-auto inline-flex items-center gap-1">
+              <Button type="button" disabled={!hasPending || hasPendingWithoutKind || isRunning} onClick={startBatch}>
+                {isRunning ? "Enviando lote..." : "Iniciar envio"}
+              </Button>
+              <FeatureInfo helpId="juridico.documentos.tipo-lote" />
+            </span>
           </div>
 
           {hasPendingWithoutKind ? (

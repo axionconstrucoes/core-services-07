@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { createSupabaseBrowserClient } from "@axion/db/browser";
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 
 type Props = {
@@ -67,17 +68,12 @@ export function DocumentDownloadButton({
 
   return (
     <div className="flex flex-col items-start gap-1">
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        disabled={loading}
-        onClick={handleDownload}
-      >
-        {loading
-          ? "Preparando..."
-          : "Baixar arquivo"}
-      </Button>
+      <span className="inline-flex items-center gap-1">
+        <Button type="button" variant="outline" size="sm" disabled={loading} onClick={handleDownload}>
+          {loading ? "Preparando..." : "Baixar arquivo"}
+        </Button>
+        <FeatureInfo helpId="juridico.documentos.baixar-arquivo" />
+      </span>
 
       {error ? (
         <span className="text-xs text-destructive">

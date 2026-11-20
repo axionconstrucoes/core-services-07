@@ -261,6 +261,7 @@ export default async function ContractReviewPage({
 
                   {canReview ? (
                     <div className="grid gap-4 lg:grid-cols-2">
+                      {/* help-exempt: o formulário agrupa campos e botão que têm Hover Text próprio (título, conclusão e Aprovar como evento) */}
                       <form
                         action={
                           reviewContractCandidateAction
@@ -282,8 +283,9 @@ export default async function ContractReviewPage({
                         />
 
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="flex items-center gap-1 text-sm font-medium">
                             Título do evento
+                            <FeatureInfo helpId="juridico.revisao-contratual.campos-evento" />
                           </label>
 
                           <input
@@ -297,8 +299,9 @@ export default async function ContractReviewPage({
                         </div>
 
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="flex items-center gap-1 text-sm font-medium">
                             Conclusão do revisor
+                            <FeatureInfo helpId="juridico.revisao-contratual.campos-evento" />
                           </label>
 
                           <textarea
@@ -341,8 +344,9 @@ export default async function ContractReviewPage({
                         />
 
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="flex items-center gap-1 text-sm font-medium">
                             Justificativa da rejeição
+                            <FeatureInfo helpId="juridico.revisao-contratual.campos-evento" />
                           </label>
 
                           <textarea

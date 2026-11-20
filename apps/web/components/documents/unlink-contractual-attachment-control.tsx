@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { unlinkDocumentContractualAttachmentAction } from "@/app/[projectId]/documentos/actions";
 import { initialUnlinkContractualAttachmentState } from "@/app/[projectId]/documentos/actions-state";
 import { LinkStatusIcon } from "@/components/documents/link-status-icon";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { getLinkStatusAppearance, resolveLinkStatus } from "@/lib/documents/link-status-appearance";
@@ -53,7 +54,10 @@ export function UnlinkContractualAttachmentControl({
         <input type="hidden" name="childDocumentId" value={documentId} />
 
         <label className="flex flex-col gap-1 font-medium">
-          Justificativa da desvinculação de &quot;{documentTitle}&quot; (mínimo {MIN_REASON_LENGTH} caracteres)
+          <span className="flex items-center gap-1">
+            Justificativa da desvinculação de &quot;{documentTitle}&quot; (mínimo {MIN_REASON_LENGTH} caracteres)
+            <FeatureInfo helpId="juridico.documentos.justificativa-desvinculacao" />
+          </span>
           <Textarea
             name="reason"
             value={reason}
@@ -69,15 +73,18 @@ export function UnlinkContractualAttachmentControl({
         {state.error ? <p className="text-destructive">{state.error}</p> : null}
         {state.success ? <p className="text-emerald-600">Anexo desvinculado.</p> : null}
 
-        <Button
-          type="submit"
-          size="sm"
-          variant="outline"
-          className="border-destructive text-destructive hover:bg-destructive/10"
-          disabled={pending || reason.trim().length < MIN_REASON_LENGTH}
-        >
-          {pending ? "Desvinculando…" : "Confirmar desvinculação"}
-        </Button>
+        <span className="inline-flex items-center gap-1">
+          <FeatureInfo helpId="juridico.documentos.vincular-anexo" />
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            className="border-destructive text-destructive hover:bg-destructive/10"
+            disabled={pending || reason.trim().length < MIN_REASON_LENGTH}
+          >
+            {pending ? "Desvinculando…" : "Confirmar desvinculação"}
+          </Button>
+        </span>
       </form>
     </details>
   );

@@ -40,15 +40,12 @@ export function UploadSummaryBar({ summary, onClearErrors }: Props) {
         <span>Com erro: {summary.errored}</span>
 
         {summary.errored > 0 ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-xs"
-            onClick={onClearErrors}
-          >
-            Limpar todos os erros
-          </Button>
+          <span className="inline-flex items-center gap-1">
+            <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={onClearErrors}>
+              Limpar todos os erros
+            </Button>
+            <FeatureInfo helpId="juridico.documentos.fila-status" />
+          </span>
         ) : null}
       </div>
     </div>

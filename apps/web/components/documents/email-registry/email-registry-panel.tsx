@@ -118,12 +118,18 @@ export function EmailRegistryPanel({
         </label>
 
         <label className="flex flex-col gap-1 text-xs sm:col-span-3">
-          Busca (título, assunto, arquivo, remetente, destinatário, WNN, texto extraído, atividades MPP, Curva S)
+          <span className="flex items-center gap-1">
+            Busca (título, assunto, arquivo, remetente, destinatário, WNN, texto extraído, atividades MPP, Curva S)
+            <FeatureInfo helpId="juridico.registro-email.busca" />
+          </span>
           <Input name="q" defaultValue={params.query} placeholder="Ex.: W37, ata, cronograma…" aria-label="Busca" />
         </label>
 
         <label className="flex flex-col gap-1 text-xs">
-          De
+          <span className="flex items-center gap-1">
+            De
+            <FeatureInfo helpId="juridico.registro-email.busca" />
+          </span>
           <Input type="date" name="de" defaultValue={params.from ?? ""} aria-label="Data inicial" />
         </label>
         <label className="flex flex-col gap-1 text-xs">
@@ -143,7 +149,10 @@ export function EmailRegistryPanel({
           <Input name="semana" inputMode="numeric" defaultValue={params.workWeek ?? ""} placeholder="37" aria-label="Semana da obra" />
         </label>
         <label className="flex flex-col gap-1 text-xs">
-          Direção
+          <span className="flex items-center gap-1">
+            Direção
+            <FeatureInfo helpId="juridico.registro-email.busca" />
+          </span>
           <Select name="direcao" defaultValue={params.direction ?? ""} aria-label="Direção">
             <option value="">Todas</option>
             <option value="INBOUND">Recebido (INBOUND)</option>

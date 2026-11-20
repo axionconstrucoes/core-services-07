@@ -7,6 +7,7 @@
 // aqui, nunca reenvia o arquivo (reaproveita o Storage já existente).
 
 import { useActionState } from "react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -46,7 +47,10 @@ export function EmailAttachmentPromoteForm({
 
       <div className="grid gap-3 md:grid-cols-2">
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Tipo documental
+          <span className="flex items-center gap-1">
+            Tipo documental
+            <FeatureInfo helpId="juridico.documentos.anexos-email-linha" />
+          </span>
           <Select name="kind" required defaultValue="CLARIFICACAO_CLIENTE">
             {KIND_OPTIONS.map((kind) => (
               <option key={kind} value={kind}>
@@ -57,32 +61,46 @@ export function EmailAttachmentPromoteForm({
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Título do documento
+          <span className="flex items-center gap-1">
+            Título do documento
+            <FeatureInfo helpId="juridico.documentos.anexos-email-linha" />
+          </span>
           <Input name="documentTitle" required defaultValue={defaultTitle} />
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Data do documento
+          <span className="flex items-center gap-1">
+            Data do documento
+            <FeatureInfo helpId="juridico.documentos.anexos-email-linha" />
+          </span>
           <Input type="date" name="documentDate" required defaultValue={defaultDate} />
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Autor / emissor
+          <span className="flex items-center gap-1">
+            Autor / emissor
+            <FeatureInfo helpId="juridico.documentos.anexos-email-linha" />
+          </span>
           <Input name="author" required defaultValue={defaultAuthor} />
         </label>
       </div>
 
       <label className="flex flex-col gap-1.5 text-sm font-medium">
-        Resumo
+        <span className="flex items-center gap-1">
+          Resumo
+          <FeatureInfo helpId="juridico.documentos.anexos-email-linha" />
+        </span>
         <Textarea name="summary" required rows={2} />
       </label>
 
       {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
 
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Incorporando…" : "Incorporar aos Documentos"}
         </Button>
+        <FeatureInfo helpId="juridico.documentos.anexos-email-linha" />
+        {/* help-exempt: Cancelar apenas fecha o formulário de incorporação sem gravar nada */}
         <Button type="button" size="sm" variant="ghost" onClick={onCancel}>
           Cancelar
         </Button>

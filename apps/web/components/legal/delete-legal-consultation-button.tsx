@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { deleteLegalConsultationAction } from "@/app/[projectId]/juridico/consultas-actions";
 
 /** Evento que limpa, na tela, a resposta aberta (ExpertQueryPanel) quando ela é a da consulta excluída. */
@@ -47,6 +48,7 @@ export function DeleteLegalConsultationButton({
   if (!asking) {
     return (
       <span className="inline-flex flex-wrap items-center gap-2">
+        <FeatureInfo helpId="juridico.projeto.excluir-consulta" />
         <button
           type="button"
           data-legal-delete="abrir"
@@ -64,6 +66,7 @@ export function DeleteLegalConsultationButton({
   return (
     <span className="inline-flex flex-wrap items-center gap-2" role="group" aria-label="Confirmar exclusão da consulta">
       <span className="text-xs text-white">Excluir esta consulta do seu histórico? Esta ação não pode ser desfeita.</span>
+      <FeatureInfo helpId="juridico.projeto.excluir-consulta" />
       <button
         type="button"
         data-legal-delete="confirmar"
@@ -73,6 +76,7 @@ export function DeleteLegalConsultationButton({
       >
         {pending ? "Excluindo…" : "Confirmar exclusão"}
       </button>
+      {/* help-exempt: Cancelar apenas fecha a confirmação de exclusão sem executar nenhuma ação */}
       <button type="button" disabled={pending} onClick={() => setAsking(false)} className="min-h-9 rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-white">
         Cancelar
       </button>

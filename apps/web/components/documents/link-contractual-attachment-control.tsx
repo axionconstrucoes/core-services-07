@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { linkDocumentAsContractualAttachmentAction } from "@/app/[projectId]/documentos/actions";
 import { initialLinkContractualAttachmentState } from "@/app/[projectId]/documentos/actions-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -91,7 +92,10 @@ export function LinkContractualAttachmentControl({
       <input type="hidden" name="confirmParentChange" value={changeConfirmed ? "true" : "false"} />
 
       <label className="flex flex-col gap-1 text-xs font-medium">
-        {currentParentId ? "Trocar anexo contratual para" : "Vincular como anexo contratual de"}
+        <span className="flex items-center gap-1">
+          {currentParentId ? "Trocar anexo contratual para" : "Vincular como anexo contratual de"}
+          <FeatureInfo helpId="juridico.documentos.vincular-anexo" />
+        </span>
         <Select
           value={selectedParentId}
           onChange={(event) => {
@@ -112,7 +116,10 @@ export function LinkContractualAttachmentControl({
       </label>
 
       <label className="flex flex-col gap-1 text-xs font-medium">
-        Fundamento da incorporação (mínimo {MIN_INCORPORATION_BASIS_LENGTH} caracteres)
+        <span className="flex items-center gap-1">
+          Fundamento da incorporação (mínimo {MIN_INCORPORATION_BASIS_LENGTH} caracteres)
+          <FeatureInfo helpId="juridico.documentos.fundamento-incorporacao" />
+        </span>
         <Textarea
           name="incorporationBasis"
           value={basis}
@@ -146,6 +153,7 @@ export function LinkContractualAttachmentControl({
             onChange={(event) => setChangeConfirmed(event.target.checked)}
           />
           Confirmo a troca do documento pai.
+          <FeatureInfo helpId="juridico.documentos.troca-vinculo" />
         </label>
       ) : null}
 
@@ -157,9 +165,12 @@ export function LinkContractualAttachmentControl({
         // esta tela achava — nunca reenviar o mesmo formulário sem
         // recarregar (evita sobrescrever silenciosamente o que outra
         // sessão já fez).
-        <Button type="button" size="sm" variant="outline" onClick={() => window.location.reload()}>
-          Recarregar página
-        </Button>
+        <span className="inline-flex items-center gap-1">
+          <Button type="button" size="sm" variant="outline" onClick={() => window.location.reload()}>
+            Recarregar página
+          </Button>
+          <FeatureInfo helpId="juridico.documentos.troca-vinculo" />
+        </span>
       ) : null}
 
       {state.confirmationRequired && !isChangingExistingLink ? (
@@ -169,10 +180,12 @@ export function LinkContractualAttachmentControl({
         </p>
       ) : null}
 
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
         <Button type="submit" size="sm" disabled={pending || !canSubmit}>
           {pending ? "Salvando…" : isChangingExistingLink ? "Salvar (confirmar troca)" : "Salvar"}
         </Button>
+        <FeatureInfo helpId="juridico.documentos.troca-vinculo" />
+        {/* help-exempt: Cancelar apenas limpa os campos locais do formulário sem gravar nada */}
         <Button
           type="button"
           variant="outline"
