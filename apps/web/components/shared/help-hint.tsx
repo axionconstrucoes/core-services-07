@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Info, X } from "lucide-react";
 import { HelpContent } from "@/components/shared/help-content";
@@ -26,16 +26,21 @@ const PANEL_MAX_WIDTH = 448;
 
 type Placement = { mode: "floating"; top?: number; bottom?: number; left: number; width: number; maxHeight: number } | { mode: "sheet" };
 
+const SHEET_QUERY = "(max-width: 639px), (pointer: coarse)";
+
+function subscribeSheet(onChange: () => void) {
+  const mq = window.matchMedia(SHEET_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+}
+
+// Folha inferior em telas estreitas ou de toque; leitura via useSyncExternalStore (sem setState em efeito).
 function useIsSheet(): boolean {
-  const [sheet, setSheet] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px), (pointer: coarse)");
-    const update = () => setSheet(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-  return sheet;
+  return useSyncExternalStore(
+    subscribeSheet,
+    () => window.matchMedia(SHEET_QUERY).matches,
+    () => false
+  );
 }
 
 export function HelpHint({
@@ -66,11 +71,38 @@ export function HelpHint({
     closeTimer.current = null;
   }, []);
 
+  // Posicionamento (desktop): dentro da tela, abaixo ou acima do ícone, sem rolar a página.
+  const reposition = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (!trigger) return;
+    if (sheet) {
+      setPlacement({ mode: "sheet" });
+      return;
+    }
+    const rect = trigger.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const width = Math.min(PANEL_MAX_WIDTH, vw - EDGE * 2);
+    const left = Math.min(Math.max(rect.left + rect.width / 2 - width / 2, EDGE), vw - width - EDGE);
+    const below = vh - rect.bottom - EDGE * 2;
+    const above = rect.top - EDGE * 2;
+    const natural = panelRef.current?.scrollHeight ?? 320;
+    const placeBelow = below >= Math.min(natural, 280) || below >= above;
+    const space = Math.max(120, placeBelow ? below : above);
+    const maxHeight = Math.min(space, vh * 0.7);
+    setPlacement(
+      placeBelow
+        ? { mode: "floating", top: rect.bottom + EDGE, left, width, maxHeight }
+        : { mode: "floating", bottom: vh - rect.top + EDGE, left, width, maxHeight }
+    );
+  }, [sheet]);
+
   const close = useCallback(
     (returnFocus: boolean) => {
       clearTimers();
       setOpen(false);
       setPinned(false);
+      setPlacement(null);
       if (returnFocus) triggerRef.current?.focus();
     },
     [clearTimers]
@@ -80,10 +112,11 @@ export function HelpHint({
     (pin: boolean) => {
       clearTimers();
       window.dispatchEvent(new CustomEvent(OPEN_EVENT, { detail: panelId }));
+      reposition();
       setOpen(true);
       if (pin) setPinned(true);
     },
-    [clearTimers, panelId]
+    [clearTimers, panelId, reposition]
   );
 
   // Um painel por vez.
@@ -92,6 +125,7 @@ export function HelpHint({
       if ((event as CustomEvent<string>).detail !== panelId) {
         setOpen(false);
         setPinned(false);
+        setPlacement(null);
       }
     }
     window.addEventListener(OPEN_EVENT, onOtherOpen);
@@ -121,46 +155,6 @@ export function HelpHint({
       document.removeEventListener("pointerdown", onPointerDown, true);
     };
   }, [open, close]);
-
-  // Posicionamento (desktop): dentro da tela, abaixo ou acima do ícone, sem rolar a página.
-  const reposition = useCallback(() => {
-    const trigger = triggerRef.current;
-    if (!trigger) return;
-    if (sheet) {
-      setPlacement({ mode: "sheet" });
-      return;
-    }
-    const rect = trigger.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const width = Math.min(PANEL_MAX_WIDTH, vw - EDGE * 2);
-    const left = Math.min(Math.max(rect.left + rect.width / 2 - width / 2, EDGE), vw - width - EDGE);
-    const below = vh - rect.bottom - EDGE * 2;
-    const above = rect.top - EDGE * 2;
-    const natural = panelRef.current?.scrollHeight ?? 320;
-    const placeBelow = below >= Math.min(natural, 280) || below >= above;
-    const space = Math.max(120, placeBelow ? below : above);
-    const maxHeight = Math.min(space, vh * 0.7);
-    setPlacement(
-      placeBelow
-        ? { mode: "floating", top: rect.bottom + EDGE, left, width, maxHeight }
-        : { mode: "floating", bottom: vh - rect.top + EDGE, left, width, maxHeight }
-    );
-  }, [sheet]);
-
-  useLayoutEffect(() => {
-    if (!open) {
-      setPlacement(null);
-      return;
-    }
-    reposition();
-    window.addEventListener("resize", reposition);
-    window.addEventListener("scroll", reposition, true);
-    return () => {
-      window.removeEventListener("resize", reposition);
-      window.removeEventListener("scroll", reposition, true);
-    };
-  }, [open, reposition]);
 
   // Abrir por clique/teclado leva o foco ao painel (rolagem por teclado); por hover, não rouba o foco.
   useEffect(() => {

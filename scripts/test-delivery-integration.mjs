@@ -179,7 +179,7 @@ check("CNO: fonte oficial registrada e divergência de início bloqueia o prazo 
 
 check("navegação: item Providências na sidebar com ajuda registrada", () => {
   assert.ok(src("apps/web/lib/ui/nav-items.ts").includes('href: "providencias"'));
-  assert.ok(src("apps/web/lib/ui/feature-help.ts").includes('id: "providencias"'));
+  assert.ok(src("apps/web/lib/ui/help/legacy.ts").includes('id: "providencias"'));
 });
 
 check("editor: registrar evidência avisa que não conclui; concluir exige perfil autorizado (texto) e o banco confere", () => {

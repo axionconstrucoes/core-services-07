@@ -44,7 +44,7 @@ const ADICIONAIS_PAGE_SRC = ler("apps/web/app/[projectId]/adicionais/page.tsx");
 const ADICIONAIS_DETAIL_PAGE_SRC = ler("apps/web/app/[projectId]/adicionais/[proposalId]/page.tsx");
 const DASHBOARD_SUMMARY_SRC = ler("apps/web/components/dashboard/integration-status-summary.tsx");
 const DASHBOARD_VISUAL_CARDS_SRC = ler("apps/web/components/dashboard-visual/summary-cards.tsx");
-const FEATURE_HELP_SRC = ler("apps/web/lib/ui/feature-help.ts");
+const FEATURE_HELP_SRC = ler("apps/web/lib/ui/help/legacy.ts");
 
 
 // ============================================================
