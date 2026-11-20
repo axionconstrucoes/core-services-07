@@ -458,7 +458,7 @@ await check("30. Mobile/sidebar/recolhido funcionam (lista única filtrada; íco
   const documentosIndex = NAV_ITEMS.findIndex((item) => item.href === "documentos");
   // Providências (7dfa56e) entrou entre Documentos e Financeiro: Financeiro continua no grupo logo após Documentos.
   assert(financeiroIndex > documentosIndex && financeiroIndex <= documentosIndex + 2, "ordem coerente: logo após Documentos (admitindo Providências no meio)");
-  assert(readSource("apps/web/lib/ui/feature-help.ts").includes('id: "financeiro"'));
+  assert(readSource("apps/web/lib/ui/help/legacy.ts").includes('id: "financeiro"'));
 });
 await check("31. Expert commercial-director permanece roteado (e consolidação CEO)", () => {
   assert(routeSheetToExpert("FINANCEIRO") === "commercial-director");

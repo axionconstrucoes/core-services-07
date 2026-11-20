@@ -24,7 +24,7 @@ function check(name, fn) {
 }
 
 const nav = read("lib/ui/nav-items.ts");
-const help = read("lib/ui/feature-help.ts");
+const help = read("lib/ui/help/legacy.ts");
 const files = read("lib/help/tutorial-files.ts");
 const route = read("app/[projectId]/ajuda/tutorial/[formato]/route.ts");
 const page = read("app/[projectId]/ajuda/page.tsx");

@@ -1,0 +1,4 @@
+/* Estilos próprios da fixture (acrescentados depois do CSS real do app). Espelham o que o layout raiz aplica ao body. */
+html { background: var(--background); }
+body { margin: 0; background: var(--background); color: var(--foreground); font-family: system-ui, sans-serif; font-size: 14px; }
+button { color: inherit; background: transparent; font: inherit; }

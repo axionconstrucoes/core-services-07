@@ -23,7 +23,7 @@
   --destructive: #ff6b57;
   --destructive-foreground: #0b1629;
   --border: #263b5c;
-  --input: #35507a;
+  --input: #4d74b1; /* era #35507a (2,2:1): borda de controle precisa >= 3:1 sobre fundo e cartão (WCAG 1.4.11) */
   --ring: #b8c7dc;
   --radius: 7px;
   --surface-topbar: #13233b;
@@ -79,9 +79,9 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive-foreground: oklch(0.145 0 0);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  --input: oklch(1 0 0 / 45%);
   --ring: oklch(0.556 0 0);
 }
 

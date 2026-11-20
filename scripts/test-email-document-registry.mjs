@@ -911,7 +911,7 @@ await check("54. Análise de Cláusulas ausente da navegação", () => assert(!N
 await check("55. Expert Jurídico presente; rotas/páginas/ajuda preservadas", () => {
   assert(NAV_ITEMS.some((item) => item.href === "juridico"));
   assert(existsSync(path.join(repoRoot, "apps/web/app/[projectId]/revisao-contratual/page.tsx")) && existsSync(path.join(repoRoot, "apps/web/app/[projectId]/revisao-clausulas/page.tsx")));
-  const help = readSource("apps/web/lib/ui/feature-help.ts");
+  const help = readSource("apps/web/lib/ui/help/legacy.ts");
   assert(help.includes('"analise-contratual"') && help.includes('"analise-clausulas"'), "ajuda preservada (nada apagado)");
 });
 await check("56. Sem grupo vazio: sidebar usa uma única lista NAV_ITEMS (desktop/mobile/recolhido) sem grupos/separadores", () => {
