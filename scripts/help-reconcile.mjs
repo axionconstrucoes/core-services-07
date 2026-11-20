@@ -4,6 +4,7 @@
 // Aqui cada candidato é ITEMIZADO uma única vez (arquivo:linha:tipo) e classificado por regra determinística e documentada:
 //   COBERTO            helpId renderizado na janela do elemento (cabeçalho de tabela: mesma linha ±1; demais: ±8 linhas)
 //   COBERTO_NA_SECAO   o rótulo do campo/coluna aparece, literalmente, no texto de um helpId renderizado NO MESMO arquivo (a ajuda da seção/tabela descreve o campo)
+//   ISENTO (marcador)  comentário `help-exempt: <motivo objetivo, >= 15 caracteres>` até 3 linhas acima/abaixo do elemento no código-fonte
 //   COMPARTILHADO      definição de primitivo de UI (components/ui/**): não há contexto de domínio; a ajuda vem de cada uso
 //   DECORATIVO         elemento técnico sem decisão do usuário (input hidden, svg decorativo/ícone)
 //   ISENTO             controle de navegação/fechamento de rótulo autoexplicativo (Voltar, Cancelar, Fechar, Anterior, Próxima, Sair)
@@ -94,6 +95,7 @@ for (const [file, routes] of fileRoutes) {
       if (/type=["']hidden["']/.test(ctx)) { cls = "DECORATIVO"; why = "input hidden"; }
       else if (isPrimitive) { cls = "COMPARTILHADO"; why = "primitivo de UI (definição)"; }
       else if (covered) { cls = "COBERTO"; why = "helpId na janela do elemento"; }
+      else if (lines.slice(Math.max(0, i - 3), i + 4).some((l) => /help-exempt:s*S.{14,}/.test(l))) { cls = "ISENTO"; why = "marcador help-exempt no código"; }
       else if (kind === "botao" && GENERIC_NAV.test(label)) { cls = "ISENTO"; why = `navegação/fechamento autoexplicativo ("${label}")`; }
       items.push({ file: rel(file), line: i + 1, kind, label, cls, why, routes: routes.length, module: routeModule.get(routes[0]) ?? "?" });
     }
