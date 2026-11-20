@@ -247,6 +247,9 @@ export function createInMemoryRiskAlertStore(world) {
       const row = state.outbox.find((o) => o.id === id);
       Object.assign(row, {
         status: "SENT",
+        // Aceito pelo provedor — não é entrega comprovada (mesmo estado gravado pelo store real).
+        deliveryState: "ACCEPTED_BY_PROVIDER",
+        failureClass: null,
         claimedAt: null,
         sentAt: result.sentAt,
         deliveredTo: result.recipientEmail,
@@ -274,8 +277,13 @@ export function createInMemoryRiskAlertStore(world) {
     },
     async markFailed(id, message, options = {}) {
       const row = state.outbox.find((o) => o.id === id);
+      // Mesma regra do banco (migration 20261121130000): uma linha aceita pelo provedor (SENT) nunca regride.
+      if (row.status === "SENT") return;
       if (!options.attemptAlreadyClaimed) row.attemptCount += 1;
-      row.status = row.attemptCount >= MAX_SEND_ATTEMPTS ? "FAILED" : "PENDING";
+      // PERMANENTE/INCERTA encerram a linha na hora; transitória retenta até MAX_SEND_ATTEMPTS (mesma regra do store real).
+      const terminalClass = options.failureClass === "PERMANENT" || options.failureClass === "UNCERTAIN";
+      row.status = terminalClass || row.attemptCount >= MAX_SEND_ATTEMPTS ? "FAILED" : "PENDING";
+      row.failureClass = terminalClass ? options.failureClass : row.attemptCount >= MAX_SEND_ATTEMPTS ? "EXHAUSTED" : "RETRYABLE";
       row.claimedAt = null;
       row.lastError = message;
     },

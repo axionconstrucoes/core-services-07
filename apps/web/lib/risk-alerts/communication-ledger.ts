@@ -63,8 +63,9 @@ export interface ReissueAuditRow {
 }
 
 export type RecipientCommunicationStatus =
-  /** SENT ao e-mail do próprio usuário. */
-  | "DELIVERED"
+  /** SENT (ACEITO PELO PROVEDOR) endereçado ao e-mail do próprio usuário. Não é entrega comprovada: o aceite do provedor
+   *  não prova a chegada à caixa (ver lib/email/outbound-delivery.ts); a lacuna de comunicação considera o aceite. */
+  | "ACCEPTED_FOR_RECIPIENT"
   /** SENT, mas o endereço efetivo não é o do usuário (override/caixa institucional). */
   | "ACCEPTED_ELSEWHERE"
   /** Só houve supressão (nenhum envio aceito). */
@@ -79,7 +80,7 @@ export interface RecipientLedger {
   userId: string;
   status: RecipientCommunicationStatus;
   suppressions: Array<{ at: string; reason: string | null; notificationType: string; escalationLevel: string | null }>;
-  acceptedByGmail: Array<{ at: string | null; deliveredToRecipient: boolean; notificationType: string }>;
+  acceptedByGmail: Array<{ at: string | null; addressedToRecipient: boolean; notificationType: string }>;
   attempts: number;
   /** Elegível HOJE pelas regras de destinatário (allowlist, membro ativo, e-mail corporativo). */
   eligibleNow: boolean;
@@ -130,10 +131,10 @@ export function classifyRecipientHistory(
     .map((r) => ({ at: r.createdAt, reason: r.suppressionReason, notificationType: r.notificationType, escalationLevel: r.escalationLevel }));
   const acceptedByGmail = mine
     .filter((r) => r.status === "SENT")
-    .map((r) => ({ at: r.sentAt, deliveredToRecipient: sameEmail(r.recipientEmail, profile?.email ?? null), notificationType: r.notificationType }));
+    .map((r) => ({ at: r.sentAt, addressedToRecipient: sameEmail(r.recipientEmail, profile?.email ?? null), notificationType: r.notificationType }));
   const attempts = mine.filter((r) => r.attemptCount > 0 || r.status === "FAILED").length;
   let status: RecipientCommunicationStatus;
-  if (acceptedByGmail.some((a) => a.deliveredToRecipient)) status = "DELIVERED";
+  if (acceptedByGmail.some((a) => a.addressedToRecipient)) status = "ACCEPTED_FOR_RECIPIENT";
   else if (acceptedByGmail.length > 0) status = "ACCEPTED_ELSEWHERE";
   else if (mine.some((r) => r.status === "FAILED")) status = "ATTEMPTED_FAILED";
   else if (suppressions.length > 0) status = "SUPPRESSED_ONLY";
@@ -175,7 +176,7 @@ export function buildCaseCommunicationLedger(input: BuildLedgerInput): CaseCommu
     const eligibility = input.eligibility(userId);
     return { role, userId, ...history, eligibleNow: eligibility.eligible, ineligibleReason: eligibility.reason };
   });
-  const gaps = recipients.filter((r) => r.status !== "DELIVERED");
+  const gaps = recipients.filter((r) => r.status !== "ACCEPTED_FOR_RECIPIENT");
   // Uma decisão só vale para lacunas que existiam quando foi tomada: depois de usada (entrega feita),
   // a lacuna some. Se nova lacuna surgir depois (nova etapa), ela exige nova decisão.
   const approval = input.approval;

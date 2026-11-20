@@ -17,7 +17,7 @@ function formatDateTime(value: string | null, timeZone: string): string {
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: "Pendente",
-  SENT: "Enviado",
+  SENT: "Aceito pelo provedor",
   FAILED: "Falhou",
   SUPPRESSED: "Suprimido",
   SKIPPED: "Ignorado",

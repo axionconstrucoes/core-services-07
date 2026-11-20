@@ -350,7 +350,8 @@ await check("23. Outbox idempotente: mesma chave nunca é replanejada; constrain
 await check("24. Retry não duplica: PENDING com falha transitória é retentado pela MESMA chave, com limite de tentativas", () => {
   const store = readSource("apps/web/lib/risk-alerts/supabase-store.ts");
   assert(store.includes('.neq("status", "PENDING")'), "chaves PENDING não bloqueiam o replanejamento (retry)");
-  assert(store.includes("attempts >= MAX_SEND_ATTEMPTS ? \"FAILED\" : \"PENDING\"") && store.includes(".lt(\"attempt_count\", MAX_SEND_ATTEMPTS)"));
+  // N4: o limite continua MAX_SEND_ATTEMPTS para falha transitória; permanente/incerta encerram a linha (failureOutcome).
+  assert(store.includes("failureOutcome(options.failureClass ?? \"RETRYABLE\", attempts, MAX_SEND_ATTEMPTS)") && store.includes("outcome.terminal ? \"FAILED\" : \"PENDING\"") && store.includes(".lt(\"attempt_count\", MAX_SEND_ATTEMPTS)"));
   const types = readSource("apps/web/lib/risk-alerts/types.ts");
   assert(/MAX_SEND_ATTEMPTS = 3/.test(types));
   const sql = readSource(MIGRATION);

@@ -9,6 +9,7 @@ import { appendAccEmailSignature } from "@/lib/email/branding/acc-email-signatur
 import { loadAccAlertLogos } from "@/lib/email/branding/load-acc-logo-inline-image";
 import { EmailSendError, type EmailProvider } from "@/lib/email/email-provider";
 import { getEmailProvider } from "@/lib/email/get-email-provider";
+import type { PersistedFailureClass } from "@/lib/email/outbound-delivery";
 import {
   NO_RECIPIENT_PLACEHOLDER,
   notifyEvent,
@@ -41,7 +42,7 @@ const LEASE_MS = 10 * 60 * 1000;
 
 export function createSupabaseDeliveryStore(admin: Admin): DeliveryStore {
   const keyFilter = (key: DeliveryKey, email: string) =>
-    admin.from("ssma_field_notification_deliveries").select("id,status,attempt_count")
+    admin.from("ssma_field_notification_deliveries").select("id,status,attempt_count,failure_class")
       .eq("record_id", key.recordId).eq("event", key.event).eq("event_date", key.eventDate).eq("recipient_email", email);
   return {
     async ensureDelivery(key, recipient) {
@@ -52,7 +53,7 @@ export function createSupabaseDeliveryStore(admin: Admin): DeliveryStore {
       );
       const { data, error } = await keyFilter(key, email).single();
       if (error || !data) throw new Error("Não foi possível registrar a entrega da notificação.");
-      return { id: data.id as string, status: data.status as "PENDING" | "SENT" | "FAILED" | "SUPPRESSED", attemptCount: Number(data.attempt_count) };
+      return { id: data.id as string, status: data.status as "PENDING" | "SENT" | "FAILED" | "SUPPRESSED", attemptCount: Number(data.attempt_count), failureClass: (data.failure_class as PersistedFailureClass | null) ?? null };
     },
     async ensureSuppressed(key, reason) {
       await admin.from("ssma_field_notification_deliveries").upsert(
@@ -61,8 +62,10 @@ export function createSupabaseDeliveryStore(admin: Admin): DeliveryStore {
       );
     },
     async claim(id) {
-      const { data: row } = await admin.from("ssma_field_notification_deliveries").select("attempt_count,status,claimed_at").eq("id", id).single();
+      const { data: row } = await admin.from("ssma_field_notification_deliveries").select("attempt_count,status,claimed_at,failure_class").eq("id", id).single();
       if (!row || (row.status !== "PENDING" && row.status !== "FAILED")) return false;
+      // Falha PERMANENTE/INCERTA/limite atingido: sem nova tentativa automática.
+      if (row.failure_class && row.failure_class !== "RETRYABLE") return false;
       const stale = new Date(Date.now() - LEASE_MS).toISOString();
       const { data } = await admin.from("ssma_field_notification_deliveries")
         .update({ claimed_at: new Date().toISOString(), attempt_count: Number(row.attempt_count) + 1 })
@@ -72,11 +75,15 @@ export function createSupabaseDeliveryStore(admin: Admin): DeliveryStore {
       return (data?.length ?? 0) === 1;
     },
     async markSent(id, result) {
-      await admin.from("ssma_field_notification_deliveries")
-        .update({ status: "SENT", sent_at: result.sentAt, provider_message_id: result.providerMessageId, last_error: null, claimed_at: null }).eq("id", id);
+      // SENT = aceito pelo provedor (delivery_state ACCEPTED_BY_PROVIDER), nunca entrega comprovada. Erro de gravação lança:
+      // o núcleo trata (sem devolver a linha à fila).
+      const { error } = await admin.from("ssma_field_notification_deliveries")
+        .update({ status: "SENT", sent_at: result.sentAt, provider_message_id: result.providerMessageId, delivery_state: "ACCEPTED_BY_PROVIDER", failure_class: null, last_error: null, claimed_at: null }).eq("id", id);
+      if (error) throw new Error("Falha ao gravar o aceite do provedor.");
     },
-    async markFailed(id, error) {
-      await admin.from("ssma_field_notification_deliveries").update({ status: "FAILED", last_error: error.slice(0, 2000), claimed_at: null }).eq("id", id);
+    async markFailed(id, error, failureClass = "RETRYABLE") {
+      await admin.from("ssma_field_notification_deliveries")
+        .update({ status: "FAILED", last_error: error.slice(0, 2000), failure_class: failureClass, claimed_at: null }).eq("id", id).neq("status", "SENT"); // nunca regride uma linha aceita
     },
   };
 }
