@@ -199,7 +199,11 @@ const UNIVERSAL_MOBILE_CSS = `
     .acc-compact-btn a, .acc-compact-btn span { height:52px !important; line-height:52px !important; }
     table { max-width:100% !important; }`;
 
-const STYLE_BLOCK = `<style>
+const STYLE_BLOCK = `<meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light only">
+<!--[if mso]><xml><o:OfficeDocumentSettings xmlns:o="urn:schemas-microsoft-com:office:office"><o:AllowPNG/><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml><![endif]-->
+<style>
+  :root { color-scheme: light only; supported-color-schemes: light only; }
+  /* Tema CLARO fixo: o ACC não tem versão escura; evita a inversão automática de cores (Apple Mail/Outlook) que apagaria o texto dos botões. */
   @media only screen and (max-width:640px) {${UNIVERSAL_MOBILE_CSS}
   }
 </style>`;
