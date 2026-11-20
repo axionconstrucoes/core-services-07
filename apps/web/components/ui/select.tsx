@@ -20,6 +20,7 @@ export const SELECT_CLASS = [
   "[&>option:checked]:bg-[#2c5aa0] [&>option:checked]:text-white",
   "[&>option:disabled]:bg-[#1a2a42] [&>option:disabled]:text-[#c3cfdf]",
   "[&>optgroup]:bg-[#13233b] [&>optgroup]:text-white",
+  "aria-[invalid=true]:border-[#ff806e] aria-[invalid=true]:ring-1 aria-[invalid=true]:ring-[#ff806e]",
 ].join(" ");
 
 function Select({ className, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
