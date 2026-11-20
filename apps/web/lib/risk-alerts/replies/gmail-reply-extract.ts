@@ -60,6 +60,19 @@ export function extractAddresses(value: string | null | undefined): string[] {
   return Array.from(new Set((value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? []).map((a) => a.toLowerCase())));
 }
 
+/**
+ * Endereço REAL do remetente a partir do cabeçalho From. Ignora o nome de exibição (entre aspas ou antes do "<...>"), que o
+ * remetente controla (ex.: `"maria@axion.com.br" <externo@x.com>`), usa o endereço entre "<>" quando existe e exige
+ * exatamente UM endereço — From com vários remetentes ou ambíguo => "" (a mensagem é recusada como remetente não corporativo).
+ */
+export function extractFromAddress(value: string | null | undefined): string {
+  if (!value) return "";
+  const noQuotes = value.replace(/"(?:[^"\\]|\\.)*"/g, " ").replace(/\([^)]*\)/g, " ");
+  const angled = Array.from(noQuotes.matchAll(/<([^<>]*)>/g)).flatMap((m) => extractAddresses(m[1]));
+  const unique = angled.length > 0 ? Array.from(new Set(angled)) : extractAddresses(noQuotes);
+  return unique.length === 1 ? unique[0] : "";
+}
+
 export function stripHtml(html: string): string {
   return html
     .replace(/<style[\s\S]*?<\/style>/gi, "")
@@ -99,7 +112,7 @@ export interface ExtractedInbound {
 export function extractInboundFromGmail(message: GmailMessageLike, mailbox: string): ExtractedInbound | null {
   if (!message.id || !message.payload) return null;
   const headers = message.payload.headers ?? [];
-  const from = extractAddresses(header(headers, "From"))[0] ?? "";
+  const from = extractFromAddress(header(headers, "From"));
   const references = (header(headers, "References") ?? "").split(/\s+/).filter(Boolean);
   const plain = findPart(message.payload, "text/plain");
   const html = plain ? null : findPart(message.payload, "text/html");
