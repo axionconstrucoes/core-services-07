@@ -1,0 +1,85 @@
+{
+  "geradoPor": "scripts/help-reconcile.mjs (heurístico; regras no cabeçalho do script)",
+  "candidatosUnicos": 987,
+  "arquivosAlcancados": 210,
+  "classificacao": {
+    "COBERTO": 510,
+    "COBERTO_NA_SECAO": 90,
+    "COMPARTILHADO": 7,
+    "DECORATIVO": 221,
+    "ISENTO": 149,
+    "DUPLICADO": 10,
+    "LACUNA_EFETIVA": 0
+  },
+  "porModulo": {
+    "planejamento": {
+      "total": 295,
+      "COBERTO": 174,
+      "COBERTO_NA_SECAO": 7,
+      "COMPARTILHADO": 7,
+      "DECORATIVO": 69,
+      "ISENTO": 34,
+      "DUPLICADO": 4,
+      "LACUNA_EFETIVA": 0
+    },
+    "admin": {
+      "total": 149,
+      "COBERTO": 57,
+      "COBERTO_NA_SECAO": 27,
+      "COMPARTILHADO": 0,
+      "DECORATIVO": 31,
+      "ISENTO": 30,
+      "DUPLICADO": 4,
+      "LACUNA_EFETIVA": 0
+    },
+    "juridico": {
+      "total": 243,
+      "COBERTO": 136,
+      "COBERTO_NA_SECAO": 35,
+      "COMPARTILHADO": 0,
+      "DECORATIVO": 64,
+      "ISENTO": 8,
+      "DUPLICADO": 0,
+      "LACUNA_EFETIVA": 0
+    },
+    "ssma": {
+      "total": 142,
+      "COBERTO": 77,
+      "COBERTO_NA_SECAO": 10,
+      "COMPARTILHADO": 0,
+      "DECORATIVO": 12,
+      "ISENTO": 43,
+      "DUPLICADO": 0,
+      "LACUNA_EFETIVA": 0
+    },
+    "comercial": {
+      "total": 38,
+      "COBERTO": 22,
+      "COBERTO_NA_SECAO": 7,
+      "COMPARTILHADO": 0,
+      "DECORATIVO": 8,
+      "ISENTO": 0,
+      "DUPLICADO": 1,
+      "LACUNA_EFETIVA": 0
+    },
+    "integracoes": {
+      "total": 120,
+      "COBERTO": 44,
+      "COBERTO_NA_SECAO": 4,
+      "COMPARTILHADO": 0,
+      "DECORATIVO": 37,
+      "ISENTO": 34,
+      "DUPLICADO": 1,
+      "LACUNA_EFETIVA": 0
+    }
+  },
+  "manifestos": {
+    "inventariados": 1020,
+    "comHover": 968,
+    "isentos": 52,
+    "lacunasDeclaradas": 0,
+    "coberturaBruta": "94.9%",
+    "coberturaElegivel": "100.0%"
+  },
+  "lacunasEfetivas": []
+}

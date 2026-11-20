@@ -2,8 +2,8 @@
   "generatedFrom": "varredura estática de apps/web/app/**/page.tsx e imports locais",
   "totals": {
     "pages": 56,
-    "candidates": 1453,
-    "help": 811,
+    "candidates": 1462,
+    "help": 1073,
     "withHelp": 52
   },
   "pages": [
@@ -24,6 +24,13 @@
       "helpIds": [
         "...",
         "planejamento.acoes-config.cadeia-responsaveis",
+        "planejamento.acoes-config.campo-fim-expediente",
+        "planejamento.acoes-config.campo-inicio-expediente",
+        "planejamento.acoes-config.campo-nivel1-corresponsavel",
+        "planejamento.acoes-config.campo-nivel1-responsavel",
+        "planejamento.acoes-config.campo-nivel2-gerencia",
+        "planejamento.acoes-config.campo-nivel3-diretoria",
+        "planejamento.acoes-config.campo-timezone",
         "planejamento.acoes-config.col-acoes",
         "planejamento.acoes-config.col-assumir",
         "planejamento.acoes-config.col-concluir",
@@ -34,6 +41,9 @@
         "planejamento.acoes-config.col-risco",
         "planejamento.acoes-config.col-unidade",
         "planejamento.acoes-config.fuso-expediente",
+        "planejamento.acoes-config.opcao-confirmacao",
+        "planejamento.acoes-config.opcao-email",
+        "planejamento.acoes-config.opcao-justificativa",
         "planejamento.acoes-config.pagina",
         "planejamento.acoes-config.piloto-agenda",
         "planejamento.acoes-config.piloto-allowlist",
@@ -41,13 +51,19 @@
         "planejamento.acoes-config.piloto-niveis",
         "planejamento.acoes-config.piloto-outbox",
         "planejamento.acoes-config.piloto-painel",
+        "planejamento.acoes-config.piloto-proximo-consolidado",
         "planejamento.acoes-config.piloto-status",
+        "planejamento.acoes-config.piloto-suprimidos",
+        "planejamento.acoes-config.piloto-timezone",
+        "planejamento.acoes-config.piloto-ultimo-consolidado",
         "planejamento.acoes-config.regras-prazo",
+        "planejamento.acoes-config.salvar-area",
+        "planejamento.acoes-config.salvar-fuso-expediente",
         "sla-config-matriz-prazos",
         "sla-config-responsaveis",
         "sla-config-timezone"
       ],
-      "helpCount": 24
+      "helpCount": 40
     },
     {
       "route": "/[projectId]/acoes",
@@ -127,11 +143,14 @@
       "candidates": 12,
       "helpIds": [
         "...",
+        "planejamento.resumo-semanal.direcionar",
         "planejamento.resumo-semanal.enviar",
+        "planejamento.resumo-semanal.evidencia",
+        "planejamento.resumo-semanal.nota",
         "planejamento.resumo-semanal.pagina",
         "planejamento.resumo-semanal.tratamento"
       ],
-      "helpCount": 4
+      "helpCount": 7
     },
     {
       "route": "/[projectId]/action-requests/[actionRequestId]",
@@ -149,13 +168,16 @@
       "candidates": 9,
       "helpIds": [
         "...",
+        "planejamento.solicitacao-detalhe.campo-assunto",
+        "planejamento.solicitacao-detalhe.campo-destinatario",
+        "planejamento.solicitacao-detalhe.campo-mensagem",
         "planejamento.solicitacao-detalhe.envio-email",
         "planejamento.solicitacao-detalhe.pagina",
         "planejamento.solicitacao-detalhe.responsaveis",
         "planejamento.solicitacao-detalhe.respostas",
         "planejamento.solicitacoes.status"
       ],
-      "helpCount": 6
+      "helpCount": 9
     },
     {
       "route": "/[projectId]/action-requests",
@@ -173,9 +195,10 @@
       "candidates": 2,
       "helpIds": [
         "...",
-        "planejamento.solicitacoes.pagina"
+        "planejamento.solicitacoes.pagina",
+        "planejamento.solicitacoes.status"
       ],
-      "helpCount": 2
+      "helpCount": 3
     },
     {
       "route": "/[projectId]/adicionais/[proposalId]",
@@ -229,9 +252,12 @@
         "...",
         "admin.ajuda.pagina",
         "admin.ajuda.pdf",
-        "admin.ajuda.pptx"
+        "admin.ajuda.pptx",
+        "shared.global.icone-ajuda",
+        "shared.global.menu-lateral",
+        "shared.global.status-global"
       ],
-      "helpCount": 4
+      "helpCount": 7
     },
     {
       "route": "/[projectId]/alertas/[caseId]",
@@ -249,6 +275,14 @@
       "candidates": 38,
       "helpIds": [
         "...",
+        "experts.curadoria.consolidacao-ceo",
+        "experts.curadoria.decisoes-humanas",
+        "experts.curadoria.divergencias",
+        "experts.curadoria.parecer",
+        "experts.curadoria.recomendacao",
+        "experts.curadoria.resumo",
+        "experts.curadoria.riscos-consolidados",
+        "experts.curadoria.sem-parecer",
         "experts.painel.aviso-conteudo-parcial",
         "experts.painel.base-contratual",
         "experts.painel.base-legal",
@@ -257,9 +291,11 @@
         "experts.painel.contexto-declarado",
         "experts.painel.fatos",
         "experts.painel.grounding",
+        "experts.painel.grounding-grupos",
         "experts.painel.informacoes-faltantes",
         "experts.painel.interpretacao",
         "experts.painel.pergunta",
+        "experts.painel.por-que-alterar",
         "experts.painel.praticas",
         "experts.painel.provider",
         "experts.painel.rascunho",
@@ -294,9 +330,10 @@
         "planejamento.consulta-ia.consultar",
         "planejamento.consulta-ia.especialidade",
         "planejamento.consulta-ia.fontes",
-        "planejamento.consulta-ia.pergunta"
+        "planejamento.consulta-ia.pergunta",
+        "planejamento.consulta-ia.roteamento"
       ],
-      "helpCount": 47
+      "helpCount": 58
     },
     {
       "route": "/[projectId]/auditoria",
@@ -331,14 +368,14 @@
       "files": 7,
       "counts": {
         "tabs": 0,
-        "buttons": 5,
+        "buttons": 6,
         "fields": 7,
         "tableHeads": 6,
         "forms": 2,
         "labels": 4,
         "charts": 0
       },
-      "candidates": 20,
+      "candidates": 21,
       "helpIds": [
         "...",
         "admin.autorizacoes.botao-solicitar",
@@ -454,9 +491,10 @@
       "candidates": 4,
       "helpIds": [
         "...",
+        "juridico.documentos.baixar-arquivo",
         "juridico.emails.anexo-pagina"
       ],
-      "helpCount": 2
+      "helpCount": 3
     },
     {
       "route": "/[projectId]/documentos/emails/[emailId]",
@@ -474,10 +512,37 @@
       "candidates": 94,
       "helpIds": [
         "...",
+        "juridico.documentos.baixar-arquivo",
+        "juridico.emails.aba-financeiro",
+        "juridico.emails.aba-linha-base",
+        "juridico.emails.aba-ssma",
+        "juridico.emails.anexo-colunas-armazenamento",
         "juridico.emails.anexos",
-        "juridico.emails.pagina"
+        "juridico.emails.baseline-oficial",
+        "juridico.emails.classificacao-anexo",
+        "juridico.emails.confirmar-classificacao",
+        "juridico.emails.cronograma-mpp",
+        "juridico.emails.dados-origem",
+        "juridico.emails.envio-semanal",
+        "juridico.emails.historico-revisao",
+        "juridico.emails.justificativa-obrigatoria",
+        "juridico.emails.mapear-aba",
+        "juridico.emails.metadados",
+        "juridico.emails.outros-envios",
+        "juridico.emails.pagina",
+        "juridico.emails.relatorio-excel",
+        "juridico.emails.revisao-campos-condicionais",
+        "juridico.emails.revisao-humana",
+        "juridico.emails.validar-curva-s",
+        "juridico.registro-email.busca",
+        "juridico.registro-email.classificacao",
+        "juridico.registro-email.lista",
+        "juridico.registro-email.revisao",
+        "juridico.registro-email.risco",
+        "juridico.registro-email.status-envio",
+        "shared.global.status-global"
       ],
-      "helpCount": 3
+      "helpCount": 30
     },
     {
       "route": "/[projectId]/documentos",
@@ -486,13 +551,13 @@
       "counts": {
         "tabs": 6,
         "buttons": 39,
-        "fields": 71,
+        "fields": 70,
         "tableHeads": 11,
         "forms": 9,
         "labels": 38,
         "charts": 1
       },
-      "candidates": 136,
+      "candidates": 135,
       "helpIds": [
         "...",
         "anexos-considerado",
@@ -505,23 +570,39 @@
         "juridico.documentos.anexos-contrato",
         "juridico.documentos.anexos-email-filtros",
         "juridico.documentos.anexos-email-linha",
+        "juridico.documentos.baixar-arquivo",
         "juridico.documentos.clausulas-lista",
         "juridico.documentos.cobertura-leitura",
         "juridico.documentos.cronograma-lista",
         "juridico.documentos.decisao-versao",
         "juridico.documentos.fila-status",
+        "juridico.documentos.fundamento-incorporacao",
         "juridico.documentos.hierarquia",
+        "juridico.documentos.justificativa-desvinculacao",
+        "juridico.documentos.justificativa-lixeira",
         "juridico.documentos.lixeira",
         "juridico.documentos.pagina",
         "juridico.documentos.progresso-lote",
+        "juridico.documentos.resposta-cliente-campos",
         "juridico.documentos.respostas-cliente",
         "juridico.documentos.tipo-lote",
+        "juridico.documentos.troca-vinculo",
+        "juridico.documentos.upload-arquivo",
         "juridico.documentos.upload-individual",
         "juridico.documentos.upload-multiplo",
+        "juridico.documentos.upload-resumo-observacoes",
+        "juridico.documentos.upload-tipo-titulo",
+        "juridico.documentos.upload-versao-data-origem",
         "juridico.documentos.versao",
-        "juridico.documentos.vincular-anexo"
+        "juridico.documentos.vincular-anexo",
+        "juridico.registro-email.busca",
+        "juridico.registro-email.classificacao",
+        "juridico.registro-email.lista",
+        "juridico.registro-email.revisao",
+        "juridico.registro-email.risco",
+        "juridico.registro-email.status-envio"
       ],
-      "helpCount": 26
+      "helpCount": 42
     },
     {
       "route": "/[projectId]/documentos/versoes/[documentVersionId]",
@@ -539,11 +620,12 @@
       "candidates": 4,
       "helpIds": [
         "...",
+        "juridico.documentos.baixar-arquivo",
         "juridico.versoes.cobertura",
         "juridico.versoes.pagina",
         "juridico.versoes.texto-extraido"
       ],
-      "helpCount": 4
+      "helpCount": 5
     },
     {
       "route": "/[projectId]/esg",
@@ -573,9 +655,11 @@
         "experts.painel.contexto-declarado",
         "experts.painel.fatos",
         "experts.painel.grounding",
+        "experts.painel.grounding-grupos",
         "experts.painel.informacoes-faltantes",
         "experts.painel.interpretacao",
         "experts.painel.pergunta",
+        "experts.painel.por-que-alterar",
         "experts.painel.praticas",
         "experts.painel.provider",
         "experts.painel.rascunho",
@@ -585,10 +669,12 @@
         "ssma.esg.app-campo",
         "ssma.esg.comprovacao-datas",
         "ssma.esg.comprovacao-dds",
+        "ssma.esg.comprovacao-descricao",
         "ssma.esg.comprovacao-evidencias",
         "ssma.esg.comprovacao-formulario",
         "ssma.esg.comprovacao-historico",
         "ssma.esg.comprovacao-justificativa",
+        "ssma.esg.comprovacao-observacao",
         "ssma.esg.comprovacao-status",
         "ssma.esg.filtro-painel",
         "ssma.esg.gerencial-contadores",
@@ -597,19 +683,22 @@
         "ssma.esg.nova-obrigacao",
         "ssma.esg.obrigacao-cartao",
         "ssma.esg.obrigacao-categoria",
+        "ssma.esg.obrigacao-descricao",
         "ssma.esg.obrigacao-evidencia-exigida",
         "ssma.esg.obrigacao-origem",
         "ssma.esg.obrigacao-penalidade",
         "ssma.esg.obrigacao-periodicidade",
         "ssma.esg.obrigacao-responsavel",
+        "ssma.esg.obrigacao-titulo",
         "ssma.esg.pagina",
         "ssma.esg.pendencias-lista",
         "ssma.esg.revisao-formulario",
+        "ssma.esg.revisao-nota",
         "ssma.esg.risco-obrigacao",
         "ssma.esg.seletor-obra",
         "ssma.esg.status-comprovacao"
       ],
-      "helpCount": 48
+      "helpCount": 55
     },
     {
       "route": "/[projectId]/experts-ia/descricao",
@@ -666,9 +755,11 @@
         "experts.painel.contexto-declarado",
         "experts.painel.fatos",
         "experts.painel.grounding",
+        "experts.painel.grounding-grupos",
         "experts.painel.informacoes-faltantes",
         "experts.painel.interpretacao",
         "experts.painel.pergunta",
+        "experts.painel.por-que-alterar",
         "experts.painel.praticas",
         "experts.painel.provider",
         "experts.painel.rascunho",
@@ -676,7 +767,7 @@
         "experts.painel.riscos",
         "experts.painel.severidade-confianca"
       ],
-      "helpCount": 21
+      "helpCount": 23
     },
     {
       "route": "/[projectId]/experts-ia/diretor-planejamento",
@@ -703,9 +794,11 @@
         "experts.painel.contexto-declarado",
         "experts.painel.fatos",
         "experts.painel.grounding",
+        "experts.painel.grounding-grupos",
         "experts.painel.informacoes-faltantes",
         "experts.painel.interpretacao",
         "experts.painel.pergunta",
+        "experts.painel.por-que-alterar",
         "experts.painel.praticas",
         "experts.painel.provider",
         "experts.painel.rascunho",
@@ -715,7 +808,7 @@
         "experts.planejamento.pagina",
         "experts.planejamento.perfil"
       ],
-      "helpCount": 21
+      "helpCount": 23
     },
     {
       "route": "/[projectId]/experts-ia",
@@ -747,7 +840,7 @@
     {
       "route": "/[projectId]/financeiro",
       "page": "apps/web/app/[projectId]/financeiro/page.tsx",
-      "files": 13,
+      "files": 14,
       "counts": {
         "tabs": 0,
         "buttons": 6,
@@ -759,6 +852,7 @@
       },
       "candidates": 44,
       "helpIds": [
+        "...",
         "comercial.financeiro.alerta-status-aba",
         "comercial.financeiro.alteracoes",
         "comercial.financeiro.alteracoes-classificacao",
@@ -782,7 +876,7 @@
         "comercial.financeiro.tabela-detalhada",
         "financeiro"
       ],
-      "helpCount": 22
+      "helpCount": 23
     },
     {
       "route": "/[projectId]/integracoes/caixas",
@@ -800,9 +894,16 @@
       "candidates": 25,
       "helpIds": [
         "...",
+        "integracoes.caixas.aviso-controles",
+        "integracoes.caixas.campo-confirmo",
+        "integracoes.caixas.campo-motivo",
+        "integracoes.caixas.campo-periodo",
+        "integracoes.caixas.campo-referencia",
         "integracoes.caixas.desligar-coleta",
         "integracoes.caixas.estado-etapa",
+        "integracoes.caixas.evidencia-etapa",
         "integracoes.caixas.habilitar-coleta",
+        "integracoes.caixas.mensagem-resultado",
         "integracoes.caixas.mensagens-importadas",
         "integracoes.caixas.pagina",
         "integracoes.caixas.registrar-autorizacao",
@@ -810,7 +911,7 @@
         "integracoes.caixas.suspensao-erros",
         "integracoes.caixas.tabela"
       ],
-      "helpCount": 10
+      "helpCount": 17
     },
     {
       "route": "/[projectId]/integracoes",
@@ -841,10 +942,19 @@
         "gmail-sync-progress",
         "integracoes.integracoes.cartao-fonte",
         "integracoes.integracoes.construmanager-analise-impacto",
+        "integracoes.integracoes.construmanager-avisos-verificacao",
+        "integracoes.integracoes.construmanager-encaminhar-orcamento",
+        "integracoes.integracoes.construmanager-estado-conteudo",
+        "integracoes.integracoes.construmanager-impacto-prazo",
+        "integracoes.integracoes.construmanager-impacto-preco",
         "integracoes.integracoes.construmanager-monitoramento",
         "integracoes.integracoes.construmanager-novas-versoes",
+        "integracoes.integracoes.construmanager-orcamentista",
+        "integracoes.integracoes.construmanager-resposta-orcamento",
+        "integracoes.integracoes.construmanager-resposta-planejamento",
         "integracoes.integracoes.construmanager-sincronizar",
         "integracoes.integracoes.construmanager-validar",
+        "integracoes.integracoes.construmanager-versoes-indisponivel",
         "integracoes.integracoes.diario-clima-kpi",
         "integracoes.integracoes.diario-monitoramento",
         "integracoes.integracoes.editar-origem",
@@ -853,16 +963,28 @@
         "integracoes.integracoes.email-desconectar",
         "integracoes.integracoes.email-escopo",
         "integracoes.integracoes.email-previa",
+        "integracoes.integracoes.escopo-assuntos",
+        "integracoes.integracoes.escopo-exigir-correspondencia",
+        "integracoes.integracoes.escopo-palavras-chave",
         "integracoes.integracoes.farol-etapa",
         "integracoes.integracoes.ia-skills",
         "integracoes.integracoes.matriz-fontes",
+        "integracoes.integracoes.origem-arquivo",
+        "integracoes.integracoes.origem-conta",
+        "integracoes.integracoes.origem-pasta",
+        "integracoes.integracoes.origem-projeto",
+        "integracoes.integracoes.origem-responsavel",
+        "integracoes.integracoes.origem-sistema",
         "integracoes.integracoes.pagina",
+        "integracoes.integracoes.participante-email",
+        "integracoes.integracoes.participante-observacao",
+        "integracoes.integracoes.participante-tipo",
         "integracoes.integracoes.status-fonte",
         "integracoes.integracoes.sync-contadores",
         "integracoes.integracoes.validar-drive-ssma",
         "integration-origin"
       ],
-      "helpCount": 34
+      "helpCount": 55
     },
     {
       "route": "/[projectId]/juridico/consulta/[consultationId]",
@@ -888,9 +1010,11 @@
         "experts.painel.contexto-declarado",
         "experts.painel.fatos",
         "experts.painel.grounding",
+        "experts.painel.grounding-grupos",
         "experts.painel.informacoes-faltantes",
         "experts.painel.interpretacao",
         "experts.painel.pergunta",
+        "experts.painel.por-que-alterar",
         "experts.painel.praticas",
         "experts.painel.provider",
         "experts.painel.rascunho",
@@ -900,7 +1024,7 @@
         "juridico.consulta.pagina",
         "juridico.projeto.excluir-consulta"
       ],
-      "helpCount": 20
+      "helpCount": 22
     },
     {
       "route": "/[projectId]/juridico",
@@ -926,15 +1050,19 @@
         "experts.painel.contexto-declarado",
         "experts.painel.fatos",
         "experts.painel.grounding",
+        "experts.painel.grounding-grupos",
         "experts.painel.informacoes-faltantes",
         "experts.painel.interpretacao",
         "experts.painel.pergunta",
+        "experts.painel.por-que-alterar",
         "experts.painel.praticas",
         "experts.painel.provider",
         "experts.painel.rascunho",
         "experts.painel.recomendacoes",
         "experts.painel.riscos",
         "experts.painel.severidade-confianca",
+        "juridico.documentos.decisao-versao",
+        "juridico.documentos.fila-status",
         "juridico.precontratual.analise-integrada",
         "juridico.precontratual.documento",
         "juridico.projeto.base-documental",
@@ -943,7 +1071,7 @@
         "juridico.projeto.minhas-consultas",
         "juridico.projeto.pagina"
       ],
-      "helpCount": 25
+      "helpCount": 29
     },
     {
       "route": "/[projectId]/ledger/[eventId]",
@@ -969,9 +1097,11 @@
         "experts.painel.contexto-declarado",
         "experts.painel.fatos",
         "experts.painel.grounding",
+        "experts.painel.grounding-grupos",
         "experts.painel.informacoes-faltantes",
         "experts.painel.interpretacao",
         "experts.painel.pergunta",
+        "experts.painel.por-que-alterar",
         "experts.painel.praticas",
         "experts.painel.provider",
         "experts.painel.rascunho",
@@ -980,16 +1110,45 @@
         "experts.painel.severidade-confianca",
         "planejamento.acoes.acoes-via-email",
         "planejamento.ledger-evento.achado-ia",
+        "planejamento.ledger-evento.alerta-destinatario",
+        "planejamento.ledger-evento.anotacao-adicionar",
+        "planejamento.ledger-evento.anotacao-categoria",
+        "planejamento.ledger-evento.anotacao-texto",
         "planejamento.ledger-evento.anotacoes",
+        "planejamento.ledger-evento.aprovar-relacao",
         "planejamento.ledger-evento.avaliar-atraso",
+        "planejamento.ledger-evento.campo-justificativa-aprovacao",
+        "planejamento.ledger-evento.campo-justificativa-complemento",
+        "planejamento.ledger-evento.campo-justificativa-rejeicao",
+        "planejamento.ledger-evento.complementar-justificativa",
         "planejamento.ledger-evento.confrontacao",
         "planejamento.ledger-evento.confronto-fontes",
         "planejamento.ledger-evento.curadoria",
         "planejamento.ledger-evento.enviar-alerta",
         "planejamento.ledger-evento.evidencia",
-        "planejamento.ledger-evento.pagina"
+        "planejamento.ledger-evento.pagina",
+        "planejamento.ledger-evento.rejeitar-relacao",
+        "planejamento.risco.aviso-pre-envio",
+        "planejamento.risco.base-fato-inferencia",
+        "planejamento.risco.campo-consequencia",
+        "planejamento.risco.campo-iminencia",
+        "planejamento.risco.campo-justificativa",
+        "planejamento.risco.campo-mitigacao",
+        "planejamento.risco.campo-natureza",
+        "planejamento.risco.campo-novo-grau",
+        "planejamento.risco.campo-prazo-contratual",
+        "planejamento.risco.campo-referencia",
+        "planejamento.risco.confirmar-consequencia",
+        "planejamento.risco.criterios",
+        "planejamento.risco.grau-atual",
+        "planejamento.risco.historico",
+        "planejamento.risco.painel",
+        "planejamento.risco.prazo-providencia",
+        "planejamento.risco.registrar",
+        "planejamento.risco.revisar",
+        "planejamento.risco.sugestao"
       ],
-      "helpCount": 28
+      "helpCount": 59
     },
     {
       "route": "/[projectId]/ledger/lote-alertas/[batchId]",
@@ -1059,6 +1218,18 @@
       "helpIds": [
         "...",
         "planejamento.providencias.aviso-data-final",
+        "planejamento.providencias.campo-aplicabilidade",
+        "planejamento.providencias.campo-bloqueia-entrega",
+        "planejamento.providencias.campo-cno",
+        "planejamento.providencias.campo-data-limite",
+        "planejamento.providencias.campo-dependencia",
+        "planejamento.providencias.campo-dependencia-nome",
+        "planejamento.providencias.campo-evidencia",
+        "planejamento.providencias.campo-evidencia-conclusao",
+        "planejamento.providencias.campo-justificativa",
+        "planejamento.providencias.campo-nova-situacao",
+        "planejamento.providencias.campo-prazo-interno",
+        "planejamento.providencias.campo-responsavel",
         "planejamento.providencias.checklist-inicial",
         "planejamento.providencias.col-acoes",
         "planejamento.providencias.col-acompanhamento",
@@ -1069,10 +1240,29 @@
         "planejamento.providencias.col-responsavel",
         "planejamento.providencias.col-risco",
         "planejamento.providencias.col-situacao",
+        "planejamento.providencias.confirmar-situacao",
         "planejamento.providencias.nova-providencia",
-        "planejamento.providencias.pagina"
+        "planejamento.providencias.pagina",
+        "planejamento.providencias.salvar-dados",
+        "planejamento.risco.base-fato-inferencia",
+        "planejamento.risco.campo-consequencia",
+        "planejamento.risco.campo-iminencia",
+        "planejamento.risco.campo-justificativa",
+        "planejamento.risco.campo-mitigacao",
+        "planejamento.risco.campo-natureza",
+        "planejamento.risco.campo-novo-grau",
+        "planejamento.risco.campo-prazo-contratual",
+        "planejamento.risco.campo-referencia",
+        "planejamento.risco.confirmar-consequencia",
+        "planejamento.risco.criterios",
+        "planejamento.risco.grau-atual",
+        "planejamento.risco.historico",
+        "planejamento.risco.prazo-providencia",
+        "planejamento.risco.registrar",
+        "planejamento.risco.revisar",
+        "planejamento.risco.sugestao"
       ],
-      "helpCount": 14
+      "helpCount": 45
     },
     {
       "route": "/[projectId]/reemissao-alertas",
@@ -1124,17 +1314,19 @@
         "...",
         "juridico.documentos.cobertura-leitura",
         "juridico.revisao-clausulas.aprovar",
+        "juridico.revisao-clausulas.campos-aprovacao",
         "juridico.revisao-clausulas.conferir",
         "juridico.revisao-clausulas.confianca",
         "juridico.revisao-clausulas.evidencia",
         "juridico.revisao-clausulas.filtros",
         "juridico.revisao-clausulas.lista",
         "juridico.revisao-clausulas.pagina",
+        "juridico.revisao-clausulas.rascunho",
         "juridico.revisao-clausulas.regra-governanca",
         "juridico.revisao-clausulas.rejeitar",
         "juridico.revisao-clausulas.totais"
       ],
-      "helpCount": 12
+      "helpCount": 14
     },
     {
       "route": "/[projectId]/revisao-contratual",
@@ -1153,12 +1345,13 @@
       "helpIds": [
         "...",
         "juridico.revisao-contratual.aprovar",
+        "juridico.revisao-contratual.campos-evento",
         "juridico.revisao-contratual.candidato",
         "juridico.revisao-contratual.pagina",
         "juridico.revisao-contratual.rejeitar",
         "juridico.revisao-contratual.resumo"
       ],
-      "helpCount": 6
+      "helpCount": 7
     },
     {
       "route": "/[projectId]/ssma-avaliacao",
@@ -1204,6 +1397,7 @@
         "ssma.app.instalar-celular",
         "ssma.registros.abrir-app",
         "ssma.registros.checklists-enviados",
+        "ssma.registros.duplicidade-observacao",
         "ssma.registros.duplicidades",
         "ssma.registros.filtro-periodo",
         "ssma.registros.near-misses",
@@ -1212,7 +1406,7 @@
         "ssma.registros.tabela",
         "ssma.sync.offline-capacidades"
       ],
-      "helpCount": 11
+      "helpCount": 12
     },
     {
       "route": "/[projectId]/startup",
@@ -1259,9 +1453,10 @@
         "planejamento.timeline.filtro-participantes",
         "planejamento.timeline.filtro-periodo",
         "planejamento.timeline.lista",
-        "planejamento.timeline.pagina"
+        "planejamento.timeline.pagina",
+        "planejamento.timeline.resultados-acervo"
       ],
-      "helpCount": 9
+      "helpCount": 10
     },
     {
       "route": "/[projectId]/usuarios",
@@ -1269,14 +1464,14 @@
       "files": 24,
       "counts": {
         "tabs": 0,
-        "buttons": 25,
+        "buttons": 26,
         "fields": 58,
         "tableHeads": 21,
         "forms": 13,
-        "labels": 19,
+        "labels": 18,
         "charts": 0
       },
-      "candidates": 117,
+      "candidates": 118,
       "helpIds": [
         "...",
         "admin.usuarios.adicionar-usuario",
@@ -1291,6 +1486,7 @@
         "admin.usuarios.col-status",
         "admin.usuarios.col-usuario",
         "admin.usuarios.col-whatsapp",
+        "admin.usuarios.confirmar-adicao",
         "admin.usuarios.matriz-secao",
         "admin.usuarios.pagina",
         "admin.usuarios.participantes",
@@ -1298,12 +1494,34 @@
         "admin.usuarios.participantes-resumo",
         "admin.usuarios.permissao-novo",
         "admin.usuarios.pre-cadastro",
+        "admin.usuarios.pre-cadastro-nome",
         "admin.usuarios.seletor-projeto",
+        "planejamento.acoes-config.campo-fim-expediente",
+        "planejamento.acoes-config.campo-inicio-expediente",
+        "planejamento.acoes-config.campo-nivel1-corresponsavel",
+        "planejamento.acoes-config.campo-nivel1-responsavel",
+        "planejamento.acoes-config.campo-nivel2-gerencia",
+        "planejamento.acoes-config.campo-nivel3-diretoria",
+        "planejamento.acoes-config.campo-timezone",
+        "planejamento.acoes-config.col-acoes",
+        "planejamento.acoes-config.col-assumir",
+        "planejamento.acoes-config.col-concluir",
+        "planejamento.acoes-config.col-nivel2",
+        "planejamento.acoes-config.col-nivel3",
+        "planejamento.acoes-config.col-opcoes",
+        "planejamento.acoes-config.col-responder",
+        "planejamento.acoes-config.col-risco",
+        "planejamento.acoes-config.col-unidade",
+        "planejamento.acoes-config.opcao-confirmacao",
+        "planejamento.acoes-config.opcao-email",
+        "planejamento.acoes-config.opcao-justificativa",
+        "planejamento.acoes-config.salvar-area",
+        "planejamento.acoes-config.salvar-fuso-expediente",
         "sla-config-matriz-prazos",
         "sla-config-responsaveis",
         "sla-config-timezone"
       ],
-      "helpCount": 24
+      "helpCount": 47
     },
     {
       "route": "/alertas/acao/[projectId]/[batchId]/[eventId]",
@@ -1344,6 +1562,14 @@
       "candidates": 18,
       "helpIds": [
         "...",
+        "experts.curadoria.consolidacao-ceo",
+        "experts.curadoria.decisoes-humanas",
+        "experts.curadoria.divergencias",
+        "experts.curadoria.parecer",
+        "experts.curadoria.recomendacao",
+        "experts.curadoria.resumo",
+        "experts.curadoria.riscos-consolidados",
+        "experts.curadoria.sem-parecer",
         "experts.painel.aviso-conteudo-parcial",
         "experts.painel.base-contratual",
         "experts.painel.base-legal",
@@ -1352,9 +1578,11 @@
         "experts.painel.contexto-declarado",
         "experts.painel.fatos",
         "experts.painel.grounding",
+        "experts.painel.grounding-grupos",
         "experts.painel.informacoes-faltantes",
         "experts.painel.interpretacao",
         "experts.painel.pergunta",
+        "experts.painel.por-que-alterar",
         "experts.painel.praticas",
         "experts.painel.provider",
         "experts.painel.rascunho",
@@ -1365,9 +1593,10 @@
         "planejamento.consulta-ia.especialidade",
         "planejamento.consulta-ia.fontes",
         "planejamento.consulta-ia.pagina",
-        "planejamento.consulta-ia.pergunta"
+        "planejamento.consulta-ia.pergunta",
+        "planejamento.consulta-ia.roteamento"
       ],
-      "helpCount": 23
+      "helpCount": 34
     },
     {
       "route": "/alertas/lote/[projectId]/[batchId]",
@@ -1424,14 +1653,14 @@
       "files": 8,
       "counts": {
         "tabs": 0,
-        "buttons": 12,
+        "buttons": 13,
         "fields": 9,
         "tableHeads": 0,
         "forms": 3,
         "labels": 4,
         "charts": 0
       },
-      "candidates": 24,
+      "candidates": 25,
       "helpIds": [
         "...",
         "integracoes.autorizacao.decisao",
@@ -1439,9 +1668,14 @@
         "integracoes.autorizacao.historico",
         "integracoes.autorizacao.pagina",
         "integracoes.autorizacao.revogar",
-        "integracoes.autorizacao.texto"
+        "integracoes.autorizacao.texto",
+        "integracoes.axia.conversa",
+        "integracoes.axia.nao-respondeu",
+        "integracoes.axia.pergunta",
+        "integracoes.axia.sugestoes",
+        "integracoes.axia.voz"
       ],
-      "helpCount": 7
+      "helpCount": 12
     },
     {
       "route": "/email-actions/[token]",
@@ -1488,9 +1722,10 @@
         "juridico.documentos.decisao-versao",
         "juridico.documentos.fila-status",
         "juridico.documentos.progresso-lote",
-        "juridico.documentos.tipo-lote"
+        "juridico.documentos.tipo-lote",
+        "juridico.documentos.upload-multiplo"
       ],
-      "helpCount": 7
+      "helpCount": 8
     },
     {
       "route": "/login",
@@ -1537,14 +1772,14 @@
       "files": 11,
       "counts": {
         "tabs": 0,
-        "buttons": 15,
+        "buttons": 16,
         "fields": 9,
         "tableHeads": 5,
         "forms": 0,
         "labels": 7,
         "charts": 0
       },
-      "candidates": 29,
+      "candidates": 30,
       "helpIds": [
         "...",
         "admin.copiar.area-destino",
@@ -1570,14 +1805,14 @@
       "files": 10,
       "counts": {
         "tabs": 0,
-        "buttons": 5,
+        "buttons": 6,
         "fields": 10,
         "tableHeads": 0,
         "forms": 1,
         "labels": 3,
         "charts": 0
       },
-      "candidates": 16,
+      "candidates": 17,
       "helpIds": [
         "...",
         "admin.editar.contrato",
@@ -1599,14 +1834,14 @@
       "files": 10,
       "counts": {
         "tabs": 0,
-        "buttons": 5,
+        "buttons": 6,
         "fields": 8,
         "tableHeads": 0,
         "forms": 1,
         "labels": 4,
         "charts": 0
       },
-      "candidates": 14,
+      "candidates": 15,
       "helpIds": [
         "...",
         "admin.novo.cliente",
@@ -1627,14 +1862,14 @@
       "files": 12,
       "counts": {
         "tabs": 0,
-        "buttons": 12,
+        "buttons": 13,
         "fields": 2,
         "tableHeads": 0,
         "forms": 2,
         "labels": 1,
         "charts": 0
       },
-      "candidates": 16,
+      "candidates": 17,
       "helpIds": [
         "...",
         "admin.projetos.card-juridico",
@@ -1643,9 +1878,14 @@
         "admin.projetos.editar-projeto",
         "admin.projetos.novo-projeto",
         "admin.projetos.pagina",
-        "admin.projetos.sair"
+        "admin.projetos.sair",
+        "integracoes.axia.conversa",
+        "integracoes.axia.nao-respondeu",
+        "integracoes.axia.pergunta",
+        "integracoes.axia.sugestoes",
+        "integracoes.axia.voz"
       ],
-      "helpCount": 8
+      "helpCount": 13
     },
     {
       "route": "/ssma/[projectId]",
@@ -1653,14 +1893,14 @@
       "files": 23,
       "counts": {
         "tabs": 0,
-        "buttons": 50,
+        "buttons": 51,
         "fields": 36,
         "tableHeads": 0,
         "forms": 7,
-        "labels": 17,
+        "labels": 18,
         "charts": 0
       },
-      "candidates": 93,
+      "candidates": 94,
       "helpIds": [
         "...",
         "experts.painel.aviso-conteudo-parcial",
@@ -1671,15 +1911,22 @@
         "experts.painel.contexto-declarado",
         "experts.painel.fatos",
         "experts.painel.grounding",
+        "experts.painel.grounding-grupos",
         "experts.painel.informacoes-faltantes",
         "experts.painel.interpretacao",
         "experts.painel.pergunta",
+        "experts.painel.por-que-alterar",
         "experts.painel.praticas",
         "experts.painel.provider",
         "experts.painel.rascunho",
         "experts.painel.recomendacoes",
         "experts.painel.riscos",
         "experts.painel.severidade-confianca",
+        "integracoes.axia.conversa",
+        "integracoes.axia.nao-respondeu",
+        "integracoes.axia.pergunta",
+        "integracoes.axia.sugestoes",
+        "integracoes.axia.voz",
         "ssma.app.checklist-hoje",
         "ssma.app.pagina",
         "ssma.app.relatorios-avulsos",
@@ -1699,6 +1946,7 @@
         "ssma.registro.andamento-conclusao",
         "ssma.registro.atualizar",
         "ssma.registro.aviso-email",
+        "ssma.registro.consulta-pergunta",
         "ssma.registro.consultar-ia",
         "ssma.registro.descricao-local-data",
         "ssma.registro.encaminhar",
@@ -1717,7 +1965,7 @@
         "ssma.sync.outras-contas",
         "ssma.sync.resumo"
       ],
-      "helpCount": 54
+      "helpCount": 62
     },
     {
       "route": "/ssma/offline",
@@ -1725,14 +1973,14 @@
       "files": 23,
       "counts": {
         "tabs": 0,
-        "buttons": 41,
+        "buttons": 42,
         "fields": 30,
         "tableHeads": 0,
         "forms": 6,
         "labels": 13,
         "charts": 0
       },
-      "candidates": 77,
+      "candidates": 78,
       "helpIds": [
         "...",
         "experts.painel.aviso-conteudo-parcial",
@@ -1743,15 +1991,23 @@
         "experts.painel.contexto-declarado",
         "experts.painel.fatos",
         "experts.painel.grounding",
+        "experts.painel.grounding-grupos",
         "experts.painel.informacoes-faltantes",
         "experts.painel.interpretacao",
         "experts.painel.pergunta",
+        "experts.painel.por-que-alterar",
         "experts.painel.praticas",
         "experts.painel.provider",
         "experts.painel.rascunho",
         "experts.painel.recomendacoes",
         "experts.painel.riscos",
         "experts.painel.severidade-confianca",
+        "integracoes.axia.conversa",
+        "integracoes.axia.nao-respondeu",
+        "integracoes.axia.pergunta",
+        "integracoes.axia.sugestoes",
+        "integracoes.axia.voz",
+        "ssma.form.contexto",
         "ssma.offline.pagina",
         "ssma.perfil.sair",
         "ssma.registro.acao-corretiva",
@@ -1759,6 +2015,7 @@
         "ssma.registro.andamento-conclusao",
         "ssma.registro.atualizar",
         "ssma.registro.aviso-email",
+        "ssma.registro.consulta-pergunta",
         "ssma.registro.consultar-ia",
         "ssma.registro.descricao-local-data",
         "ssma.registro.encaminhar",
@@ -1777,7 +2034,7 @@
         "ssma.sync.outras-contas",
         "ssma.sync.resumo"
       ],
-      "helpCount": 42
+      "helpCount": 51
     },
     {
       "route": "/ssma",
@@ -1785,21 +2042,26 @@
       "files": 10,
       "counts": {
         "tabs": 0,
-        "buttons": 12,
+        "buttons": 13,
         "fields": 2,
         "tableHeads": 0,
         "forms": 1,
         "labels": 1,
         "charts": 0
       },
-      "candidates": 15,
+      "candidates": 16,
       "helpIds": [
         "...",
+        "integracoes.axia.conversa",
+        "integracoes.axia.nao-respondeu",
+        "integracoes.axia.pergunta",
+        "integracoes.axia.sugestoes",
+        "integracoes.axia.voz",
         "ssma.app.instalar-celular",
         "ssma.app.obras",
         "ssma.sync.offline-capacidades"
       ],
-      "helpCount": 4
+      "helpCount": 9
     },
     {
       "route": "/vera",
