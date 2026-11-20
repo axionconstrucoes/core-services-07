@@ -1,5 +1,529 @@
 // Catálogo de ajuda do módulo "integracoes" — arquivo EXCLUSIVO do agente/módulo (não editar em outros módulos).
 // Regras de conteúdo: ver lib/ui/help/types.ts. Ids novos: "modulo.tela.elemento".
+// Descreve o que o CÓDIGO faz (app/[projectId]/integracoes, lib/integrations, lib/email/ingestion, lib/email/inbound,
+// lib/email-authorization e as migrations 20261107090000 e 20261121110000). O que não tem regra localizável fica como `gap` no manifesto.
 import type { FeatureHelpDefinition } from "../types";
 
-export const INTEGRACOES_HELP: FeatureHelpDefinition[] = [];
+const D = { module: "integracoes", version: "2026-11-20" } as const;
+
+export const INTEGRACOES_HELP: FeatureHelpDefinition[] = [
+  // =====================================================================================================================
+  // /[projectId]/integracoes
+  // =====================================================================================================================
+  {
+    ...D,
+    id: "integracoes.integracoes.pagina",
+    kind: "page",
+    title: "Administração de Integrações",
+    shortDescription: "Status operacional das fontes configuradas na obra: e-mail, Drive SSMA/ESG, Construmanager, Diário de Obra e outras.",
+    description:
+      "Tela administrativa que mostra, para a obra, cada fonte externa de informação (E-mail corporativo, Diário de Obra, Construmanager, ESG/SSMA no Google Drive e as demais fontes cadastradas), o seu estado, a origem informada por um humano e as ações de configuração e verificação.",
+    purpose: "Saber de onde o ACC recebe informação, se cada fonte está realmente funcionando e configurar o que for permitido.",
+    howToUse: [
+      "Veja 'Quem alimenta o ACC neste projeto' para checar, por usuário e por fonte compartilhada, o que está comprovado.",
+      "Em cada cartão de fonte, consulte o estado, a origem e (Administrador) use Editar origem ou as verificações.",
+      "Em Gmail / E-mails, registre contas AXION, configure a ingestão e confirme a sincronização.",
+    ],
+    howItWorks:
+      "A página só abre para o Administrador ativo da obra (outros perfis recebem 404; o menu também a oculta). Os dados vêm de project_integrations, das contas e configurações de e-mail, da última sincronização e das leituras agregadas de Construmanager e Diário de Obra. Segredos e credenciais não passam pelo navegador: ficam no servidor.",
+    permissions: "Somente Administrador ativo da obra. Os botões de gravação repetem a checagem no servidor e no banco (RLS/RPC).",
+    humanReview: "Origem da fonte e configurações são sempre informadas por pessoas; o ACC não inventa origem.",
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.ia-skills",
+    kind: "setting",
+    title: "IA e skills dos especialistas",
+    shortDescription: "Fonte de IA configurada e skills selecionadas para cada especialista; não indica o que foi executado.",
+    description:
+      "Para cada especialista oficial do ACC, mostra a fonte de IA configurada (e se é modo simulado/sem IA real) e as skills associadas, cada uma com o seu estado. Passar o mouse ou focar no nome da skill revela a descrição.",
+    purpose: "Dar transparência sobre qual provedor e quais skills estão associados a cada especialista.",
+    howItWorks:
+      "A fonte vem de resolveAiProviderNameForExpert e as skills de requestedSkillsForExpert. O modelo só é confirmado na resposta de cada consulta. Instalar uma skill no Claude Code não a ativa no runtime do ACC.",
+    limitations: ["A lista mostra associações selecionadas, não skills efetivamente executadas.", "Quem opera o assistente de dúvidas de uso do ACC (AXIA) não é um especialista e não está nesta lista."],
+    humanReview: "Especialistas apenas analisam e recomendam; decisões permanecem humanas.",
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.matriz-fontes",
+    kind: "table",
+    title: "Quem alimenta o ACC neste projeto",
+    shortDescription: "Para cada usuário e fonte compartilhada, as etapas comprovadas: aceite, conexão, coleta e material.",
+    description:
+      "Matriz em três blocos: (1) fontes pessoais — a caixa de e-mail de cada usuário vinculado, com as etapas Aceite, Conexão técnica, Coleta e Material processado; (2) contribuições identificáveis por autor; (3) fontes compartilhadas da obra (Diário de Obra, relatórios semanais e cronogramas, Construmanager e SSMA/Drive) com Conexão, Coleta e Disponível para análise.",
+    purpose: "Evitar que 'conectado' seja confundido com 'funcionando': cada etapa só é verde com prova própria.",
+    criteria: [
+      "Verde só aparece com prova da etapa: cadastro, vínculo ativo, aceite, receber alertas ou o rótulo 'conectado', isoladamente, nunca tornam nada verde.",
+      "Mensagens antigas provam histórico importado, não coleta atual; coleta sem sincronização nas últimas 48 horas é 'desatualizada'.",
+      "Controle ausente, consulta indisponível, período inválido/futuro/vencido ou revogação nunca é verde.",
+      "Conteúdo armazenado, extraído e disponível para análise são etapas diferentes.",
+    ],
+    howItWorks:
+      "É calculada (lib/integrations/user-integration-matrix.ts) a partir das evidências: aceites individuais, controles por caixa, coletor OAuth, contagens de e-mails e anexos, execuções do Diário, pacotes semanais, Construmanager e fotos SSMA. Não existe campo para marcar um farol manualmente. 'Fornece informação' e 'Recebe alertas' são papéis independentes.",
+    source: "email_access_authorizations, email_mailbox_collection_controls (quando existe), configuração de ingestão, tabelas de e-mails e anexos, execuções de Diário de Obra e Construmanager, fotos SSMA.",
+    refresh: "Medida a cada abertura da página; o horário da medição aparece no cabeçalho do cartão.",
+    missingData: "Consulta indisponível aparece como 'Sem comprovação' (nunca como zero ou verde). Mensagens sem caixa identificada são contadas à parte e nunca atribuídas por nome.",
+    limitations: ["Hoje as contribuições existentes (diários, planilhas semanais, Construmanager) não carregam autor individual comprovado."],
+    humanReview: "A matriz informa; qualquer ação (autorizar, habilitar, revogar) é decidida por uma pessoa.",
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.farol-etapa",
+    kind: "status",
+    title: "Farol de etapa (comprovado / pendente)",
+    shortDescription: "Ícone e texto que dizem se a etapa tem prova; vermelho = pendência, falha ou falta de comprovação.",
+    description:
+      "Cada etapa da matriz usa um farol com ícone e texto (nunca só cor): verde = comprovado; vermelho = bloqueio, falha, pendência ou falta de comprovação, acompanhado do motivo e, quando existe, da data da evidência.",
+    howItWorks: "O farol é derivado das evidências da etapa; leitores de tela recebem o prefixo 'Comprovado' ou 'Pendente'.",
+    missingData: "Sem data de evidência aparece 'Sem data de evidência'.",
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.status-fonte",
+    kind: "status",
+    title: "Estado da fonte (Ativo, Pendente, Atenção, Erro)",
+    shortDescription: "Selo de estado de cada cartão de fonte; a cor do cartão identifica a fonte, não o estado.",
+    description:
+      "Cada fonte tem um selo: Ativo (conectado), Pendente, Atenção ou Erro. Fontes sem configuração aparecem como Pendente. O Construmanager usa um selo de alto contraste próprio.",
+    criteria: [
+      "E-mail corporativo: Erro se a conta AXION está em erro; Atenção se a autorização da conta expirou; Ativo somente com configuração habilitada, conta vinculada, domínio cliente definido e conta conectada ou sincronizando; senão Pendente.",
+      "'Zero novas mensagens' nunca torna o e-mail Pendente: o estado vem da configuração e da conta, não da contagem de mensagens.",
+      "Demais fontes: usam o estado gravado na integração (project_integrations.status), sem reinterpretar.",
+    ],
+    howItWorks: "resolveEmailIntegrationDisplayStatus e resolveGenericIntegrationDisplayStatus (lib/ui/resolve-integration-display-status.ts).",
+    limitations: ["O selo de uma fonte genérica é um estado declarado; a comprovação de que funciona está na matriz 'Quem alimenta o ACC'."],
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.cartao-fonte",
+    kind: "table",
+    title: "Cartão de fonte de informação",
+    shortDescription: "Descrição, detalhe, última sincronização e origem informada de cada fonte.",
+    description:
+      "Cartão de cada fonte da obra: nome, selo de estado, descrição, o detalhe da integração (com a última sincronização, quando houver) e o bloco Origem da fonte. O link 'Abrir pasta SSMA/ESG no Google Drive' aparece quando a pasta configurada é uma URL válida do Drive.",
+    purpose: "Mostrar o que está configurado e quando foi a última sincronização, sem inventar origem.",
+    howItWorks: "Mostra apenas informações preenchidas por um humano; campo vazio nunca é exibido como se tivesse valor. As fontes vêm da lista de definições do sistema e a configuração de project_integrations.",
+    missingData: "Sem configuração: 'Integração ainda não configurada para este projeto'. Origem vazia: 'Origem ainda não definida'.",
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.editar-origem",
+    kind: "admin-action",
+    title: "Editar origem da fonte",
+    shortDescription: "Abre o formulário em que o Administrador informa sistema, projeto, conta, pasta, arquivo e responsável da fonte.",
+    description:
+      "Botão que abre o formulário de origem da fonte e o botão Salvar origem. Para ESG/SSMA os rótulos mudam (Técnico de Segurança e Responsável/Gerente ESG) e a pasta deve ser a URL da pasta SSMA-ESG da obra no Drive compartilhado.",
+    purpose: "Registrar, por decisão humana, de onde a fonte realmente vem.",
+    howItWorks: "A server action saveIntegrationOriginAction grava em project_integrations pela RPC/RLS existente. Para ESG/SSMA a pasta é validada como URL do Google Drive (https://drive.google.com/drive/folders/...).",
+    permissions: "Somente Administrador ativo da obra.",
+    humanReview: "O ACC não preenche a origem sozinho.",
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.validar-drive-ssma",
+    kind: "admin-action",
+    title: "Validar pasta SSMA/ESG (Google Drive)",
+    shortDescription: "Confere, só em leitura, as 12 subpastas da obra no Drive e conta os itens de cada uma.",
+    description:
+      "Verifica a pasta SSMA/ESG configurada: confirma que existem as 12 subpastas padrão (de 01 - DIÁLOGO DIÁRIO DE SEGURANÇA a 12 - OCORRÊNCIAS E ACIDENTES) e conta arquivos e subpastas de cada uma. Mostra a data da validação e, em caso de falha, o motivo.",
+    purpose: "Provar que o ACC alcança a pasta certa e que a estrutura esperada existe, antes de depender do espelhamento das fotos.",
+    howItWorks:
+      "Somente leitura: não baixa, não move e não altera arquivos. A estrutura aprovada é Drive compartilhado > SSMA-ESG > pasta da obra (NNNN CLIENTE LOCAL NOME DA OBRA) > subpastas numeradas. As fotos dos formulários SSMA são espelhadas nessas subpastas de forma assíncrona e idempotente; o Supabase continua sendo a fonte autoritativa.",
+    permissions: "Somente Administrador ativo da obra (a server action confere o perfil).",
+    missingData: "Sem URL de pasta configurada ou sem acesso, a validação falha com mensagem; nada é presumido.",
+    limitations: ["A validação não verifica se o usuário final consegue abrir os arquivos no Drive."],
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.construmanager-validar",
+    kind: "admin-action",
+    title: "Validar conexão (Construmanager)",
+    shortDescription: "Testa a conexão com o Construmanager usando as credenciais guardadas no servidor.",
+    description:
+      "Botão Validar conexão do cartão do Construmanager. Registra a data da última validação e o último erro, se houver.",
+    purpose: "Confirmar que a integração alcança a obra informada no Construmanager.",
+    howItWorks: "Lê a conta e a obra configuradas em project_integrations e consulta a API do Construmanager no servidor; as credenciais nunca vão ao navegador.",
+    permissions: "O cartão só exibe o botão ao Administrador ativo da obra; a ação exige sessão válida no servidor.",
+    missingData: "Sem conta ou obra do Construmanager configuradas, a validação falha com mensagem; 'Conexão ainda não validada' indica que nunca foi executada.",
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.construmanager-sincronizar",
+    kind: "admin-action",
+    title: "Sincronizar metadados (Construmanager)",
+    shortDescription: "Lê do Construmanager a lista de documentos e versões (só metadados) e detecta novas revisões.",
+    description:
+      "Sincronização manual de metadados técnicos: documentos vigentes, versões históricas, novos documentos e novas versões. A execução termina como Concluída, Concluída com ressalvas, Concluída parcialmente ou Falhou; quando os metadados são gravados mas a verificação de versões falha, a tela avisa explicitamente.",
+    purpose: "Manter o ACC informado do que existe e do que mudou no Construmanager, sem transferir desenhos.",
+    howItWorks: "Estritamente de leitura no Construmanager (rotas de listagem, nenhum download). A gravação passa por RPCs com has_project_permission ADMINISTRADOR, sem service-role. Versões históricas sem documento vigente correspondente são ignoradas, sem inferir vínculo.",
+    permissions: "Administrador ativo da obra.",
+    limitations: ["Escopo somente metadados: nenhum desenho é transferido para o ACC."],
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.construmanager-monitoramento",
+    kind: "kpi",
+    title: "Monitoramento do Construmanager",
+    shortDescription: "Arquivos monitorados, última verificação, novos uploads e novas revisões da última verificação confirmada.",
+    description:
+      "Painel com Arquivos monitorados, Última verificação, Novos uploads e Novas revisões, mais avisos de revisões vigentes novas e de documentos conhecidos que a última verificação não devolveu.",
+    purpose: "Dizer o que mudou no acervo do Construmanager sem exigir que alguém abra o log de auditoria.",
+    formula:
+      "Arquivos monitorados = documentos armazenados no ACC; Novos uploads = documentos criados na última execução confirmada (sucesso ou parcial); Novas revisões = novas versões vigentes detectadas nessa execução; 'não retornados' = documentos conhecidos cuja última visualização é anterior à verificação (nunca são excluídos).",
+    source: "construmanager_* (execuções de sincronização e documentos), lidos pelo cliente de sessão (RLS por membro do projeto).",
+    unit: "Quantidade de documentos/revisões da última verificação confirmada.",
+    refresh: "Atualiza a cada sincronização de metadados; a tela mostra sempre a hora da última verificação confirmada.",
+    missingData: "Zero de falha não é zero de resultado: se a última tentativa falhou, os números exibidos são os da última verificação confirmada e o aviso diz isso; nunca aparece '0 documentos' por causa de uma falha.",
+    limitations: ["Monitora informações dos documentos; nenhum desenho é transferido.", "Conteúdo armazenado antes da decisão de escopo é preservado e mostrado de forma discreta."],
+    humanReview: "Documentos não retornados exigem decisão humana; nada é excluído automaticamente.",
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.construmanager-novas-versoes",
+    kind: "table",
+    title: "Novas versões vigentes (Construmanager)",
+    shortDescription: "Lista das transições de versão vigente detectadas, com o estado do conteúdo e a análise de impacto.",
+    description:
+      "Área somente leitura que lista cada nova versão vigente de documento detectada, com o estado do conteúdo (Armazenado no ACC, Pendente, Somente no Construmanager) e, quando houver, a análise de impacto registrada (Aguardando Orçamento ou Concluída).",
+    purpose: "Fazer a novidade aparecer onde a equipe já olha; a análise de impacto (custo, prazo, escopo, qualidade, segurança, obrigações) é humana.",
+    howItWorks: "Nova versão vigente é evento operacional, não erro. Quando a consulta falha, a área mostra um aviso de indisponibilidade em vermelho (nunca finge lista vazia); quando não há itens, a área some.",
+    humanReview: "O ACC não classifica a mudança como erro nem decide impacto: a análise é registrada por pessoas.",
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.construmanager-analise-impacto",
+    kind: "admin-action",
+    title: "Análise obrigatória de impacto de versão",
+    shortDescription: "Registra impacto no prazo e no preço, resposta do Planejamento e, se preciso, designa um orçamentista.",
+    description:
+      "Formulário com Impacto no prazo, Impacto no preço, Resposta do Planejamento (mínimo de 10 caracteres) e, opcionalmente, o orçamentista responsável. Depois o orçamentista designado registra sua resposta (mínimo de 10 caracteres).",
+    purpose: "Garantir que toda nova versão vigente seja analisada, mesmo quando não há impacto.",
+    howItWorks: "A análise é registrada pelas server actions de impacto de versão e informada à gerência do projeto e à diretoria comercial, mesmo sem impacto.",
+    humanReview: "Totalmente humano: Planejamento e Orçamento registram suas respostas.",
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.diario-monitoramento",
+    kind: "kpi",
+    title: "Monitoramento do Diário de Obra",
+    shortDescription: "Agregados dos RDOs importados: total, faixa histórica, ocorrências, clima, efetivo e integridade da série.",
+    description:
+      "Painel somente de agregados do Diário de Obra: conexão, última sincronização, total de RDOs, faixa histórica, último RDO, novos e alterados, ocorrências, clima impraticável, efetivo mediano, RDOs sem foto, edições tardias, integridade e achados por severidade.",
+    purpose: "Acompanhar a saúde e o conteúdo estatístico do Diário sem expor o teor dos registros.",
+    formula:
+      "Contagens, medianas, mínimos/máximos e diferenças de datas calculados sobre as linhas da view diario_de_obra_report_metrics (report-metrics.ts). Efetivo mediano usa só RDOs com mão de obra legível (valor ilegível não entra como zero). 'Dias sem RDO' é corrido e inclui fins de semana e folgas.",
+    source: "diario_de_obra_* (view de métricas e execuções de sincronização), lidas pelo cliente de sessão com RLS por membro do projeto.",
+    unit: "Quantidades e datas; efetivo em pessoas (mediana).",
+    refresh: "A cada sincronização do Diário; o painel mostra a última sincronização confirmada.",
+    missingData: "Sem sincronização aparece 'Nenhuma sincronização registrada ainda'; se a última execução falhou, os números são da última execução confirmada e há aviso (zero de falha não é zero de resultado).",
+    limitations: ["Mostra só números e datas: nenhum texto de RDO, nome, endereço ou mídia é exibido ou transferido.", "Efetivo anômalo, atividade estagnada e lacunas de data ficam como estatística, nunca como alerta."],
+    humanReview: "O painel afirma na tela que não consome IA: nenhuma análise por especialista acontece aqui.",
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.diario-clima-kpi",
+    kind: "kpi",
+    title: "Disponibilidade operacional por clima e catástrofes",
+    shortDescription: "Percentual de turnos disponíveis do Diário de Obra, descontando perdas por chuva direta e catástrofe confirmadas.",
+    description:
+      "KPI com período analisado, turnos monitorados, dias equivalentes perdidos por chuva direta e por catástrofe confirmada, candidatos a efeito residual, disponibilidade operacional confirmada, ocorrências catastróficas sem paralisação e cobertura dos dados climáticos.",
+    purpose: "Medir quanto da capacidade produtiva foi realmente perdida por clima e catástrofes, sem presumir perdas.",
+    formula:
+      "Por data com RDO: turnos monitorados = 2 (manhã e tarde). turnos de chuva = turnos impraticáveis limitados a 0–2. Catástrofe: 2 turnos se há catástrofe e dia parado; igual aos turnos de chuva se há catástrofe e chuva; senão 0. Perdidos no dia = máximo entre chuva e catástrofe (atribuição exclusiva entre as duas linhas). No período: Disponibilidade confirmada = 100 x (turnos monitorados − turnos perdidos confirmados) / turnos monitorados. Dia chuvoso sozinho, dia parado sozinho (sem catástrofe) e catástrofe sozinha nunca reduzem a disponibilidade.",
+    source: "view diario_de_obra_climate_metrics (número, booleano e data por RDO) somada por lib/integrations/diario-de-obra/climate-kpi.ts; sem IA.",
+    unit: "Percentual (0–100) de turnos; dias equivalentes = turnos / 2; período = datas com RDO.",
+    refresh: "Recalculado a cada abertura sobre os RDOs importados na última sincronização.",
+    missingData: "Ausência de RDO nunca entra na conta (o dia não é presumido parado nem monitorado). Sem RDO com data legível o painel diz que não há dado para calcular, em vez de mostrar 100% ou 0%.",
+    limitations: ["Candidatos a efeito residual não reduzem o KPI sem confirmação humana.", "O painel afirma que não usa IA."],
+    humanReview: "Efeitos residuais só entram no KPI após confirmação humana.",
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.email-cartao",
+    kind: "status",
+    title: "E-mail Corporativo (Google Workspace)",
+    shortDescription: "Resumo do e-mail da obra: caixas de ingestão, domínios do cliente, participantes e última sincronização.",
+    description:
+      "Cartão da fonte E-mail Corporativo com o estado (Ativo, Pendente, Atenção, Erro) e a origem: Google Workspace, caixas AXION de ingestão, domínios do cliente, participantes específicos (quando houver) e a data da última sincronização.",
+    purpose: "Mostrar o perímetro real da ingestão: domínio + participantes, nunca 'a caixa inteira'.",
+    howItWorks: "Somente leitura; a edição acontece nos painéis abaixo. Caixas, domínios e participantes são mostrados separadamente (nunca mistura caixa com participante).",
+    missingData: "'Nenhuma configurada', 'Nenhum configurado' e 'Ainda sem sincronização' indicam dado ausente.",
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.email-desconectar",
+    kind: "admin-action",
+    title: "Desconectar conta AXION",
+    shortDescription: "Marca a conta AXION como desconectada no ACC; não revoga a permissão no Google.",
+    description:
+      "Botão em cada conta AXION registrada (e o formulário Registrar conta, com Endereço @axion.com.br e Nome de exibição). Registrar cria o cadastro organizacional da conta; Desconectar altera o estado dela no ACC.",
+    purpose: "Manter o cadastro de contas AXION autorizadas e o seu estado.",
+    howItWorks: "'Conectada' aqui significa 'registrada como conta AXION autorizada': a credencial OAuth real continua sendo o procedimento manual existente, nunca solicitada nem exibida nesta tela. O endereço precisa ser @axion.com.br.",
+    permissions: "Os botões só aparecem ao Administrador ativo da obra; a gravação passa pelas funções do banco register_email_account e disconnect_email_account, que aplicam a autorização final.",
+    limitations: ["Não revoga a permissão dada ao Google nem apaga e-mails já importados."],
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.email-config",
+    kind: "setting",
+    title: "Configuração de ingestão deste projeto",
+    shortDescription: "Define conta, período, domínio do cliente, participantes e anexos da coleta de e-mails da obra.",
+    description:
+      "Formulário que define qual conta AXION alimenta a obra, o período de ingestão, os domínios do cliente, os participantes específicos monitorados e se os anexos são incluídos. Salvar apenas grava a configuração.",
+    purpose: "Delimitar com precisão o que a obra pode ingerir, sem importar a caixa inteira.",
+    howItWorks: "Os campos são descritos individualmente (conta, período, domínio, participantes, anexos). Valores já salvos aparecem destacados como carregados do sistema. Salvar a configuração não importa nada: a importação só começa depois da confirmação na Prévia antes de importar.",
+    permissions: "A seção só aparece ao Administrador ativo da obra; a gravação passa pela função do banco save_project_email_ingestion_config, que aplica a autorização final.",
+    consequences: ["A configuração salva é a base do coletor de e-mails e da matriz 'Quem alimenta o ACC'."],
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.email-escopo",
+    kind: "setting",
+    title: "Escopo automático dos e-mails",
+    shortDescription: "Exige correspondência com o projeto e define palavras-chave e assuntos aprovados.",
+    description:
+      "Três controles: 'Exigir correspondência com o projeto', Palavras-chave do projeto (uma expressão por linha, sem diferenciar maiúsculas, minúsculas e acentos) e Assuntos explicitamente aprovados (um por linha, só para exceções aprovadas).",
+    purpose: "Impedir que e-mails alheios à obra entrem no projeto.",
+    criteria: ["Com a exigência ativa, o e-mail só entra no projeto se houver participante de domínio CLIENTE, palavra-chave configurada ou assunto aprovado."],
+    howItWorks: "saveEmailProjectScopeAction grava as regras na configuração de ingestão; o filtro é aplicado na coleta.",
+    permissions: "Somente Administrador ativo da obra; a seção só aparece se já existe configuração de ingestão.",
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.email-previa",
+    kind: "admin-action",
+    title: "Prévia antes de importar / Confirmar sincronização",
+    shortDescription: "Mostra o que será importado e exige confirmação humana antes de enfileirar a sincronização.",
+    description:
+      "Painel de confirmação com conta, projeto, período, domínio cliente, participantes considerados, se há anexos e a contagem preliminar de mensagens já conhecidas, e o botão Confirmar sincronização.",
+    purpose: "Garantir que a importação só aconteça por decisão humana, com o perímetro à vista.",
+    howItWorks: "Confirmar apenas enfileira a execução em project_email_ingestion_sync_runs; nenhuma chamada real ao Gmail acontece neste clique. O processamento é feito pela infraestrutura de sincronização já existente (scripts gmail-inbound-*). A contagem preliminar é uma estimativa das mensagens elegíveis já conhecidas.",
+    permissions: "Somente Administrador ativo da obra; o painel só aparece com conta, configuração e e-mail da conta definidos.",
+    humanReview: "A importação nunca começa sem a confirmação de uma pessoa.",
+  },
+  {
+    ...D,
+    id: "integracoes.integracoes.sync-contadores",
+    kind: "kpi",
+    title: "Contadores do painel de sincronização",
+    shortDescription: "Status, e-mails encontrados e importados, anexos, considerados pelo ACC, findings e falhas da última sincronização.",
+    description:
+      "Oito contadores da última sincronização confirmada: Status (Preparando, Sincronizando, Concluída, Falha), E-mails encontrados, E-mails importados, Anexos encontrados, Anexos processados, Considerados pelo ACC, Findings gerados e Falhas/retries, além do horário de início e de conclusão e da mensagem de erro.",
+    purpose: "Acompanhar com números reais o andamento da ingestão.",
+    formula: "Percentual = e-mails importados / e-mails encontrados, limitado a 0–100; sem o total de e-mails encontrados o estado é 'Preparando...'; sem mensagens elegíveis mostra 'Nenhuma mensagem elegível encontrada'. 'Considerados pelo ACC' = anexos do registro marcados como considerados.",
+    source: "project_email_ingestion_sync_runs e o registro de anexos de e-mail da obra.",
+    unit: "Quantidade de e-mails, anexos e findings da última execução.",
+    refresh: "Lido a cada abertura da página; atualiza conforme o executor registra o andamento.",
+    missingData: "Sem execução: 'Nenhuma sincronização confirmada ainda'; valores ainda desconhecidos aparecem como '—', nunca como 0.",
+    limitations: ["Não há timer nem percentual estimado por tempo decorrido."],
+  },
+
+  // =====================================================================================================================
+  // /[projectId]/integracoes/caixas
+  // =====================================================================================================================
+  {
+    ...D,
+    id: "integracoes.caixas.pagina",
+    kind: "page",
+    title: "Caixas de e-mail da obra",
+    shortDescription: "Diagnóstico por caixa em 7 etapas independentes, com as ações de autorização, habilitação e revogação.",
+    description:
+      "Lista as caixas de e-mail da obra (da lista explícita da obra, dos controles, dos aceites, das que já têm mensagens e dos usuários ativos com e-mail @axion.com.br) e mostra, para cada uma, 7 etapas de comprovação. Escolhendo uma caixa abrem-se as evidências, as ações e as mensagens efetivamente importadas.",
+    purpose: "Controlar, caixa a caixa, se a coleta de e-mail está autorizada, tecnicamente possível, habilitada, executada e com conteúdo disponível.",
+    howToUse: ["Clique no endereço da caixa na tabela para ver evidências e ações.", "Registre a autorização corporativa, habilite a coleta com período ou desligue/revogue.", "Use o link Aceites individuais (Autorizações) para o aceite do titular."],
+    howItWorks:
+      "Nenhuma etapa é deduzida da anterior. Todas as ações são validadas no servidor, relidas contra o estado atual da caixa e repetidas pelo banco (RPCs); o sucesso só é informado depois de reler o controle e confirmar a gravação. Sem a tabela de controles (migration 20261107090000), todas as ações ficam desligadas (falha fechada).",
+    permissions: "Somente Administrador ativo da obra (outros perfis recebem 404).",
+    limitations: ["O teste técnico (delegação) roda apenas no executor remoto, pelo workflow manual 'Gmail Delegated Sync' em modo technical_check; ele não lê mensagens."],
+    humanReview: "Autorizar, habilitar e revogar são decisões humanas com registro; nada é habilitado automaticamente.",
+  },
+  {
+    ...D,
+    id: "integracoes.caixas.tabela",
+    kind: "table",
+    title: "Caixas e etapas",
+    shortDescription: "Caixa/responsável, as 7 etapas com estado, período autorizado e pendências.",
+    description:
+      "Uma linha por caixa com o responsável (vínculo na obra, aceite ou 'sem usuário vinculado'), as sete etapas com o seu estado, o período autorizado e as pendências e erros.",
+    purpose: "Ver de uma vez em qual etapa cada caixa está travada.",
+    criteria: [
+      "1 Usuário cadastrado: vínculo ATIVO na obra com o e-mail da caixa.",
+      "2 Autorização: aceite individual (AUTORIZADO) ou autorização corporativa registrada; recusa ou revogação do titular bloqueia.",
+      "3 Caixa tecnicamente autenticada: teste técnico registrado no controle da caixa; o coletor OAuth histórico é só indício.",
+      "4 Habilitada para coleta: controle com coleta ligada, período vigente e sem suspensão; estar na lista da obra não habilita.",
+      "5 Sincronização executada: resultado registrado para esta caixa (a execução de outra caixa não conta).",
+      "6 Mensagens importadas: mensagens cujo mailbox_address é esta caixa.",
+      "7 Corpos e anexos disponíveis: corpos não vazios e anexos armazenados/processados.",
+    ],
+    source: "Vínculos e perfis, email_access_authorizations, email_mailbox_collection_controls, lista de caixas da obra e contagens de e-mails e anexos.",
+    refresh: "Medida a cada abertura da página (o horário da medição aparece abaixo da tabela).",
+    missingData: "Consulta indisponível aparece como 'Indisponível'; nunca é convertida em 'comprovado'.",
+  },
+  {
+    ...D,
+    id: "integracoes.caixas.estado-etapa",
+    kind: "status",
+    title: "Estado da etapa (Comprovado, Indício, Parcial, Pendente, Bloqueado, Indisponível)",
+    shortDescription: "Comprovado só com evidência própria; Indício é evidência indireta e nunca vale como prova.",
+    description:
+      "Cada etapa de cada caixa recebe um estado: Comprovado (evidência própria), Indício (evidência indireta, por exemplo o coletor OAuth do projeto), Parcial (conteúdo incompleto), Pendente (falta algo), Bloqueado (recusa, revogação, falha, suspensão ou fora do período) e Indisponível (não foi possível ler a evidência).",
+    howItWorks: "O texto de evidência de cada etapa (com data) aparece no detalhe da caixa e como dica na tabela.",
+    limitations: ["Indício nunca é exibido como comprovado; a caixa do coletor OAuth histórico só tem indício de conexão e de habilitação."],
+  },
+  {
+    ...D,
+    id: "integracoes.caixas.registrar-autorizacao",
+    kind: "admin-action",
+    title: "Registrar autorização corporativa",
+    shortDescription: "O Administrador registra a decisão da empresa de autorizar a caixa, com a referência (ata, e-mail, chamado).",
+    description:
+      "Formulário com a referência da decisão (3 a 300 caracteres) e uma confirmação. Registra a autorização corporativa da caixa; não liga a coleta nem testa a delegação.",
+    purpose: "Dar lastro institucional à coleta de uma caixa, em especial de terceiros ou de colaboradores que ainda não aceitaram individualmente.",
+    howItWorks:
+      "Só fica disponível se a caixa está na lista explícita da obra, o titular não recusou nem revogou o aceite individual e a autorização corporativa ainda não existe. Grava pelo RPC register_mailbox_corporate_authorization e o sucesso só é exibido depois de reler o controle.",
+    permissions: "Somente Administrador ativo da obra.",
+    consequences: ["É um dos pré-requisitos para habilitar a coleta (junto com o teste técnico confirmado)."],
+    humanReview: "Decisão humana e registrada com referência.",
+  },
+  {
+    ...D,
+    id: "integracoes.caixas.habilitar-coleta",
+    kind: "admin-action",
+    title: "Habilitar coleta (período obrigatório)",
+    shortDescription: "Liga a coleta da caixa com início e fim; exige autorização corporativa e teste técnico confirmado.",
+    description:
+      "Formulário com Início e Fim do período autorizado e uma confirmação. Também serve para atualizar o período de uma caixa já habilitada.",
+    purpose: "Permitir a coleta somente dentro de um período explícito e autorizado.",
+    criteria: [
+      "Exige autorização corporativa registrada, teste técnico CONFIRMADO e autorização não revogada (o banco impõe isso por restrição na tabela).",
+      "O aceite individual recusado ou revogado pelo titular bloqueia a habilitação.",
+      "O fim do período precisa ser posterior ao início; datas valem no fuso de São Paulo (início 00:00, fim 23:59:59).",
+    ],
+    howItWorks: "Grava pelo RPC set_mailbox_collection e só confirma depois de reler o controle e conferir as datas. Habilitar de novo zera a contagem de erros seguidos (reabilita uma caixa suspensa).",
+    permissions: "Somente Administrador ativo da obra.",
+    consequences: ["Fora do período a coleta é considerada bloqueada (etapa 4) mesmo ligada."],
+  },
+  {
+    ...D,
+    id: "integracoes.caixas.desligar-coleta",
+    kind: "admin-action",
+    title: "Desligar coleta",
+    shortDescription: "Desliga a coleta da caixa sem revogar a autorização.",
+    description: "Desliga a coleta da caixa. Fica disponível somente quando a coleta está ligada; a autorização registrada continua valendo.",
+    howItWorks: "Grava pelo RPC set_mailbox_collection com a coleta desligada e confirma relendo o controle.",
+    permissions: "Somente Administrador ativo da obra.",
+  },
+  {
+    ...D,
+    id: "integracoes.caixas.revogar",
+    kind: "admin-action",
+    title: "Revogar coleta (efeito imediato)",
+    shortDescription: "Revoga a autorização e a coleta da caixa na hora, com motivo; o histórico é preservado.",
+    description: "Formulário com Motivo (3 a 500 caracteres) e confirmação. Revoga a autorização corporativa e a coleta da caixa.",
+    purpose: "Interromper imediatamente a coleta de uma caixa.",
+    howItWorks: "Grava pelo RPC revoke_mailbox_collection, registra revogação e motivo e preserva o histórico. Depois da revogação só uma nova autorização corporativa permite habilitar de novo.",
+    permissions: "Somente Administrador ativo da obra.",
+    humanReview: "Decisão humana com motivo registrado.",
+  },
+  {
+    ...D,
+    id: "integracoes.caixas.suspensao-erros",
+    kind: "message",
+    title: "Suspensão da coleta por erros",
+    shortDescription: "Após 5 erros de sincronização seguidos a coleta da caixa é suspensa e exige nova habilitação.",
+    description:
+      "Quando uma caixa acumula 5 erros de sincronização consecutivos (MAX_CONSECUTIVE_SYNC_ERRORS, o mesmo teto do coletor e da migration 20261121110000), a etapa Habilitada passa a Bloqueado com 'Suspensa por erros' e a coleta fica suspensa automaticamente.",
+    purpose: "Evitar tentativas infinitas contra uma caixa com problema.",
+    howItWorks: "Cada execução com resultado ERRO soma 1; SUCESSO zera; outros resultados mantêm a contagem. Habilitar a coleta novamente zera o contador.",
+    consequences: ["A caixa deixa de ser considerada habilitada até alguém corrigir a causa e habilitar de novo."],
+  },
+  {
+    ...D,
+    id: "integracoes.caixas.mensagens-importadas",
+    kind: "table",
+    title: "Mensagens e anexos importados (20 mais recentes)",
+    shortDescription: "Data, assunto, se o corpo está disponível e os anexos com seu estado, da caixa escolhida.",
+    description:
+      "Para a caixa escolhida, lista as 20 mensagens importadas mais recentes com data de envio, assunto, se o corpo está disponível e cada anexo com nome, estado e se foi armazenado, além dos totais de mensagens, corpos, anexos e da última sincronização da caixa.",
+    purpose: "Provar, com exemplos reais, que a coleta trouxe conteúdo utilizável.",
+    howItWorks: "Os totais vêm do diagnóstico da caixa; a lista vem de getProcessedMessages. Anexos que não constam na listagem do Gmail não são verificados aqui.",
+    missingData: "'Consulta indisponível' quando a leitura falha e 'Nenhuma mensagem importada desta caixa' quando não há mensagens.",
+  },
+
+  // =====================================================================================================================
+  // /autorizacao-email/[authorizationId]
+  // =====================================================================================================================
+  {
+    ...D,
+    id: "integracoes.autorizacao.pagina",
+    kind: "page",
+    title: "Autorização de acesso aos e-mails da obra",
+    shortDescription: "Página em que o colaborador lê o que o ACC fará com a sua caixa e autoriza, recusa ou revoga para a obra.",
+    description:
+      "Página de consentimento. Mostra colaborador, conta, obra, data da solicitação, o aceite no ACC e a conexão da conta Google (que são coisas separadas), o texto versionado do que será lido e filtrado e a decisão: autorizar, recusar ou, depois de autorizada, revogar.",
+    purpose: "Registrar, com transparência, o consentimento individual do titular da caixa para uso do e-mail na obra.",
+    howItWorks:
+      "Só o próprio colaborador responde. Abrir o link não registra nada: a escolha apenas abre o painel de confirmação, que exige marcar a caixa de confirmação e enviar. A decisão grava o aceite com a versão do texto; se o texto mudou, a página pede nova leitura. O aceite NÃO conecta nem desconecta a conta Google: a conexão é feita pelo administrador com credenciais guardadas no servidor.",
+    permissions: "Usuário logado e titular da solicitação decide; administradores acompanham e revogam na aba Autorizações da obra; terceiros veem a mensagem de acesso negado.",
+    consequences: [
+      "Aceite recusado ou revogado bloqueia a coleta da caixa na etapa de autorização.",
+      "Coleta de caixas de terceiros só é habilitada com autorização registrada (aceite individual do titular e/ou autorização corporativa conforme as etapas do diagnóstico) e teste técnico confirmado.",
+    ],
+    humanReview: "A decisão é sempre do titular; o histórico preserva solicitações, decisões e revogações.",
+  },
+  {
+    ...D,
+    id: "integracoes.autorizacao.estado",
+    kind: "status",
+    title: "Aceite no ACC e conexão da conta Google",
+    shortDescription: "O aceite (Pendente, Autorizado, Recusado, Revogado) é separado da conexão técnica da conta.",
+    description:
+      "Dois estados independentes: Aceite no ACC (Pendente, Autorizado, Recusado ou Revogado, com a data da decisão) e Conexão da conta Google. O aceite é o consentimento no ACC; não conecta a conta.",
+    howItWorks: "A situação da conexão vem de email_accounts.status; o aceite vem de email_access_authorizations.",
+  },
+  {
+    ...D,
+    id: "integracoes.autorizacao.texto",
+    kind: "message",
+    title: "O que o ACC lê e como filtra",
+    shortDescription: "Texto versionado com o escopo OAuth somente leitura, os filtros da obra e como revogar no Google.",
+    description:
+      "Seções versionadas do aviso: o escopo gmail.readonly (leitura da caixa; o ACC só lê, não envia, não apaga e não altera mensagens), os filtros que o ACC aplica por obra (domínios autorizados, período e escopo da obra) e como revogar a permissão no Google.",
+    purpose: "Garantir consentimento informado, sem afirmar que o Google restringe a leitura à obra.",
+    howItWorks: "O escopo concedido ao Google é amplo (leitura de toda a caixa); a restrição à obra é aplicada pelo próprio ACC com os filtros descritos, e mensagens fora do escopo são lidas só em memória e não são gravadas. O texto vem de um único módulo versionado (lib/email-authorization/notice.ts).",
+    limitations: ["Se a versão do texto deixar de existir, a página avisa e pede uma nova solicitação ao administrador."],
+  },
+  {
+    ...D,
+    id: "integracoes.autorizacao.decisao",
+    kind: "button",
+    title: "Autorizar ou não autorizar (com confirmação)",
+    shortDescription: "Dois botões que abrem a confirmação; só a caixa marcada e o envio registram o aceite ou a recusa.",
+    description:
+      "AUTORIZAR ACESSO PARA ESTA OBRA e NÃO AUTORIZAR abrem a etapa de confirmação, com a caixa 'Li as informações acima…' e os botões CONFIRMAR AUTORIZAÇÃO ou CONFIRMAR RECUSA (ou Voltar sem decidir).",
+    consequences: ["Autorizar registra o consentimento para esta obra e conta; não conecta a conta. Recusar não altera nada na conta Google."],
+    howItWorks: "Disponível apenas para o titular com aceite Pendente. Uma solicitação já respondida não pode ser respondida de novo ('already_decided').",
+    permissions: "Somente o titular da solicitação.",
+  },
+  {
+    ...D,
+    id: "integracoes.autorizacao.revogar",
+    kind: "button",
+    title: "Revogar autorização desta obra",
+    shortDescription: "Encerra o consentimento no ACC para a obra, com motivo opcional; a permissão no Google continua até ser removida.",
+    description: "Disponível ao titular quando o aceite está Autorizado: abre a confirmação (motivo opcional de até 500 caracteres e caixa de confirmação) e registra a revogação.",
+    howItWorks: "Revogar no ACC registra o fim do consentimento para a obra e preserva o histórico; a permissão dada ao Google só termina quando o titular a remove em sua conta Google.",
+    permissions: "Somente o titular da solicitação.",
+  },
+  {
+    ...D,
+    id: "integracoes.autorizacao.historico",
+    kind: "table",
+    title: "Histórico da autorização",
+    shortDescription: "Solicitada, autorizada, recusada ou revogada, com data, autor, nota e versão do texto.",
+    description: "Linha do tempo dos eventos da autorização: Solicitada, Autorizada, Recusada e Revogada, cada um com data e hora (Brasília), quem agiu, a nota (quando houver) e a versão do texto vigente no momento.",
+    purpose: "Provar quando e com qual texto o consentimento foi dado ou retirado.",
+    source: "email_access_authorization_events.",
+    missingData: "Sem eventos o bloco não é exibido.",
+  },
+];

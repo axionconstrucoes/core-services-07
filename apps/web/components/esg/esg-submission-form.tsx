@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 
 import { createSupabaseBrowserClient } from "@axion/db/browser";
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -157,7 +158,10 @@ export function EsgSubmissionForm({
     <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-md border p-3">
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="flex flex-col gap-1.5 text-sm">
-          Data de referência
+          <span className="inline-flex items-center gap-1.5">
+            Data de referência
+            <FeatureInfo helpId="ssma.esg.comprovacao-datas" />
+          </span>
           <Input type="date" name="referenceDate" required defaultValue={new Date().toISOString().slice(0, 10)} />
         </label>
 
@@ -173,7 +177,10 @@ export function EsgSubmissionForm({
       </div>
 
       <label className="flex flex-col gap-1.5 text-sm">
-        Status
+        <span className="inline-flex items-center gap-1.5">
+            Status
+            <FeatureInfo helpId="ssma.esg.comprovacao-status" />
+          </span>
         <Select name="status" value={status} onChange={(e) => setStatus(e.target.value as EsgObligationStatus)}>
           {STATUS_OPTIONS.map((s) => (
             <option key={s} value={s}>
@@ -186,7 +193,10 @@ export function EsgSubmissionForm({
       {isDds ? (
         <div className="grid gap-3 rounded-md border border-dashed p-3 sm:grid-cols-3">
           <label className="flex flex-col gap-1.5 text-sm">
+            <span className="inline-flex items-center gap-1.5">
             Tema do DDS
+            <FeatureInfo helpId="ssma.esg.comprovacao-dds" />
+          </span>
             <Input name="ddsTema" placeholder="Ex.: Trabalho em altura" />
           </label>
           <label className="flex flex-col gap-1.5 text-sm">
@@ -211,12 +221,18 @@ export function EsgSubmissionForm({
       </label>
 
       <label className="flex flex-col gap-1.5 text-sm">
-        Justificativa {requiresJustification ? "(obrigatória para Não aplicável/Dispensado)" : "(opcional)"}
+        <span className="inline-flex items-center gap-1.5">
+          Justificativa {requiresJustification ? "(obrigatória para Não aplicável/Dispensado)" : "(opcional)"}
+          <FeatureInfo helpId="ssma.esg.comprovacao-justificativa" />
+        </span>
         <Textarea name="justification" rows={2} required={requiresJustification} />
       </label>
 
       <label className="flex flex-col gap-1.5 text-sm">
-        Evidências (fotos, PDF, planilha, documento — múltiplos arquivos)
+        <span className="inline-flex items-center gap-1.5">
+            Evidências (fotos, PDF, planilha, documento — múltiplos arquivos)
+            <FeatureInfo helpId="ssma.esg.comprovacao-evidencias" />
+          </span>
         <input
           type="file"
           name="evidenceFiles"

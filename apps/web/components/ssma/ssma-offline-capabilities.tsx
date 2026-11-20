@@ -2,6 +2,8 @@
 // Reflete SOMENTE o que está implementado e testado (ver docs/modulo-seguranca-pwa.md); componente
 // sem estado e sem "use client", usável tanto em páginas de servidor quanto na tela de sincronização.
 
+import { FeatureInfo } from "@/components/shared/feature-info";
+
 export const SSMA_WORKS_OFFLINE = [
   "Registrar ocorrência ou inspeção (categoria, descrição, local, data, risco, responsável e prazo) — fica salvo no aparelho.",
   "Anexar fotos JPG ou PNG ao registro — ficam no aparelho até o envio.",
@@ -21,7 +23,10 @@ export const SSMA_PHOTO_LIMITS = "Fotos: JPG ou PNG, até 15 MB cada, no máximo
 export function SsmaOfflineCapabilities() {
   return (
     <section className="space-y-2 rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700" aria-label="O que funciona sem sinal">
-      <p className="font-bold text-slate-900">O que funciona sem sinal</p>
+      <p className="flex items-center gap-1.5 font-bold text-slate-900">
+        O que funciona sem sinal
+        <FeatureInfo helpId="ssma.sync.offline-capacidades" />
+      </p>
       <ul className="list-disc space-y-1 pl-5">{SSMA_WORKS_OFFLINE.map((item) => <li key={item}>{item}</li>)}</ul>
       <p className="font-bold text-slate-900">O que exige internet</p>
       <ul className="list-disc space-y-1 pl-5">{SSMA_NEEDS_INTERNET.map((item) => <li key={item}>{item}</li>)}</ul>

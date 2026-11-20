@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { submitBudgetResponseAction, submitVersionImpactReviewAction, type VersionImpactReviewState } from "@/app/[projectId]/integracoes/version-impact-actions";
 
@@ -22,7 +23,10 @@ export function ConstrumanagerVersionImpactForm({
     <form action={action} className="mt-2 grid gap-2 rounded-md border border-amber-300 bg-white p-3 text-xs text-black">
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="transitionId" value={transitionId} />
-      <p className="font-bold">Análise obrigatória de impacto</p>
+      <p className="flex items-center gap-1.5 font-bold">
+        Análise obrigatória de impacto
+        <FeatureInfo helpId="integracoes.integracoes.construmanager-analise-impacto" iconClassName="text-neutral-700 hover:text-black focus-visible:text-black" />
+      </p>
       <label className="grid gap-1">Impacto no prazo
         <select name="scheduleImpact" required defaultValue="" className="rounded border p-2">
           <option value="" disabled>Selecione</option><option value="SIM">Sim</option><option value="NAO">Não</option><option value="INCONCLUSIVO">Ainda inconclusivo</option>

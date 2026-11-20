@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { nextEvaluationStatus, type EvaluationWorkflowStatus } from "@/lib/ssma/technician-evaluation";
 
 const STATUS_LABEL: Record<EvaluationWorkflowStatus, string> = {
@@ -31,7 +32,10 @@ export function EvaluationWorkflowDemo({ viewerIsTechnician, viewerIsManager }: 
 
   return (
     <section className="space-y-3 rounded-lg border-2 border-amber-600 p-4" aria-label="Manifestação e validação (demonstrativo)" data-testid="evaluation-workflow">
-      <h2 className="text-base font-bold">Manifestação do técnico e validação do gerente</h2>
+      <h2 className="flex items-center gap-1.5 text-base font-bold">
+        Manifestação do técnico e validação do gerente
+        <FeatureInfo helpId="ssma.avaliacao.fluxo-demo" />
+      </h2>
       <p className="text-sm font-semibold text-amber-700">
         DEMONSTRATIVO: nada é gravado nesta prévia. Estado atual: <span data-testid="workflow-status">{STATUS_LABEL[status]}</span>
       </p>

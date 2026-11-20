@@ -148,11 +148,14 @@ export default async function EsgObligationsPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <PageHeader
-          title="Comprovação de Obrigações ESG/SSMA"
-          description="Obrigações contratuais de ESG/SSMA — prazo, comprovação, evidência, status e risco de penalidade. Não é um sistema de ESG corporativo nem de gestão operacional de segurança do trabalho."
-        />
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <PageHeader
+            title="Comprovação de Obrigações ESG/SSMA"
+            description="Obrigações contratuais de ESG/SSMA — prazo, comprovação, evidência, status e risco de penalidade. Não é um sistema de ESG corporativo nem de gestão operacional de segurança do trabalho."
+          />
+        </div>
+        <FeatureInfo helpId="ssma.esg.pagina" className="mt-1.5" />
       </div>
 
       <EsgProjectSwitch currentId={projectId} projects={switchProjects} />
@@ -160,7 +163,10 @@ export default async function EsgObligationsPage({
       <Card className="border-[#7f1d1d]/30">
         <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="font-semibold">Aplicativo de campo SSMA/ESG</p>
+            <p className="flex items-center gap-1.5 font-semibold">
+              Aplicativo de campo SSMA/ESG
+              <FeatureInfo helpId="ssma.esg.app-campo" />
+            </p>
             <p className="text-sm text-muted-foreground">
               Interface responsiva para celular, tablet e desktop. Nesta fase, disponível para validação dos formulários.
             </p>
@@ -187,6 +193,7 @@ export default async function EsgObligationsPage({
           <CardHeader>
             <CardTitle className="text-base">
               {ESG_FILTROS[filtro].label} — Obrigações que compõem: {filtroItems.length}
+              <FeatureInfo helpId="ssma.esg.filtro-painel" className="ml-1.5 align-middle" />
             </CardTitle>
             <p className="text-xs text-muted-foreground">
               Posição atual das obrigações ativas (comprovação mais recente de cada uma).{" "}
@@ -254,7 +261,10 @@ export default async function EsgObligationsPage({
           {canConfigure ? (
             <Card>
               <CardHeader>
-                <CardTitle>Nova obrigação</CardTitle>
+                <CardTitle className="flex items-center gap-1.5">
+                  Nova obrigação
+                  <FeatureInfo helpId="ssma.esg.nova-obrigacao" />
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <EsgObligationForm projectId={projectId} clauseOptions={clauseOptions} />
@@ -272,7 +282,10 @@ export default async function EsgObligationsPage({
                   <CardHeader className="gap-2">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
-                        <CardTitle className="text-base">{obligation.title}</CardTitle>
+                        <CardTitle className="flex items-center gap-1.5 text-base">
+                          {obligation.title}
+                          <FeatureInfo helpId="ssma.esg.obrigacao-cartao" />
+                        </CardTitle>
                         <p className="text-xs text-muted-foreground">
                           {esgObligationCategoryLabels[obligation.category]} · {esgObligationPeriodicityLabels[obligation.periodicity]}
                         </p>
@@ -307,9 +320,14 @@ export default async function EsgObligationsPage({
                                 <span className="font-medium">
                                   {submission.referencePeriodLabel ?? formatDate(submission.referenceDate)}
                                 </span>
+                                <FeatureInfo helpId="ssma.esg.comprovacao-historico" />
                                 <Badge variant="outline">{esgObligationStatusLabels[submission.status]}</Badge>
+                                <FeatureInfo helpId="ssma.esg.status-comprovacao" />
                                 {submission.riskLevel ? (
-                                  <SeverityBadge severity={confrontationSeverityToAlertSeverity[submission.riskLevel]} />
+                                  <>
+                                    <SeverityBadge severity={confrontationSeverityToAlertSeverity[submission.riskLevel]} />
+                                    <FeatureInfo helpId="ssma.esg.risco-obrigacao" />
+                                  </>
                                 ) : null}
                                 <span className="text-xs text-muted-foreground">
                                   preenchido por {submission.filledByName ?? "usuário não disponível"} em{" "}
@@ -361,6 +379,10 @@ export default async function EsgObligationsPage({
                     {canFill ? (
                       <details>
                         <summary className="cursor-pointer text-sm font-medium">Registrar nova comprovação</summary>
+                        <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                          Como funciona o registro de comprovação
+                          <FeatureInfo helpId="ssma.esg.comprovacao-formulario" />
+                        </p>
                         <div className="pt-3">
                           <EsgSubmissionForm
                             projectId={projectId}

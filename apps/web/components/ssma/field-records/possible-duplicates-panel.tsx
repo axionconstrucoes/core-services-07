@@ -1,4 +1,5 @@
 import { decideIncidentLinkAction } from "@/app/[projectId]/ssma-registros/incident-link-actions";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { PossibleDuplicate } from "@/lib/ssma/dashboard-metrics";
 
@@ -19,7 +20,7 @@ export function PossibleDuplicatesPanel({
   return (
     <Card data-testid="possible-duplicates">
       <CardHeader>
-        <CardTitle className="text-base">Possíveis duplicidades de acidente ({pairs.length})</CardTitle>
+        <CardTitle className="flex items-center gap-1.5 text-base">Possíveis duplicidades de acidente ({pairs.length})<FeatureInfo helpId="ssma.registros.duplicidades" /></CardTitle>
         <p className="text-xs text-muted-foreground">
           Um acidente do formulário e uma ocorrência de campo foram registrados com até 24 h de diferença. Só você, Administrador, decide:
           “Mesmo fato” conta os dois relatos uma vez no Dashboard; “Fatos distintos” mantém os dois e para de sugerir. Nada é apagado e a decisão fica na auditoria.

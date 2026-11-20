@@ -17,6 +17,7 @@
 // concluiu. Mostrar "0 documentos" porque uma chamada falhou seria
 // afirmar que o acervo esvaziou.
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { formatDateTime } from "@/lib/labels";
 import type { ConstrumanagerMetadataOverview } from "@/lib/integrations/construmanager/get-metadata-overview";
 
@@ -34,8 +35,9 @@ export function ConstrumanagerMonitoringPanel({
   if (!overview) {
     return (
       <div className="flex flex-col gap-1.5 rounded-md border bg-background/60 p-2">
-        <p className="text-xs font-semibold text-foreground">
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
           Monitoramento do Construmanager
+          <FeatureInfo helpId="integracoes.integracoes.construmanager-monitoramento" />
         </p>
         <p className="text-xs text-muted-foreground">
           Nenhuma verificação registrada ainda.
@@ -68,8 +70,9 @@ export function ConstrumanagerMonitoringPanel({
 
   return (
     <div className="flex flex-col gap-1.5 rounded-md border bg-background/60 p-2">
-      <p className="text-xs font-semibold text-foreground">
+      <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
         Monitoramento do Construmanager
+        <FeatureInfo helpId="integracoes.integracoes.construmanager-monitoramento" />
       </p>
 
       {/* O aviso vem ANTES dos números: quem lê precisa saber que eles

@@ -1,4 +1,5 @@
 import QRCode from "qrcode";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { SsmaOfflineCapabilities } from "@/components/ssma/ssma-offline-capabilities";
 import { INSTALL_INSTRUCTIONS, resolveSsmaInstallUrl } from "@/lib/ssma/pwa-install";
 
@@ -10,7 +11,10 @@ export async function SsmaInstallCard() {
 
   return (
     <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm" aria-label="Instalar o app de campo">
-      <h2 className="font-bold uppercase text-slate-900">Instalar no celular</h2>
+      <h2 className="flex items-center gap-1.5 font-bold uppercase text-slate-900">
+        Instalar no celular
+        <FeatureInfo helpId="ssma.app.instalar-celular" />
+      </h2>
       {install.ok ? (
         <div className="flex flex-wrap items-start gap-4">
           <div role="img" aria-label="QR Code com o endereço do app de campo" className="size-48 shrink-0 rounded-lg border border-slate-300 bg-white p-1 [&>svg]:size-full" dangerouslySetInnerHTML={{ __html: svg ?? "" }} />

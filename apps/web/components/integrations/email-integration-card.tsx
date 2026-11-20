@@ -43,9 +43,15 @@ export function EmailIntegrationCard({
       <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
         <div className="flex items-center gap-2">
           <Icon className={`size-4 shrink-0 ${identity.iconClassName}`} aria-hidden="true" />
-          <CardTitle>{source.label}</CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
+            {source.label}
+            <FeatureInfo helpId="integracoes.integracoes.email-cartao" />
+          </CardTitle>
         </div>
-        <IntegrationStatusBadge status={status} />
+        <span className="inline-flex items-center gap-1.5">
+          <IntegrationStatusBadge status={status} />
+          <FeatureInfo helpId="integracoes.integracoes.status-fonte" />
+        </span>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-2 pt-0 text-sm text-muted-foreground">

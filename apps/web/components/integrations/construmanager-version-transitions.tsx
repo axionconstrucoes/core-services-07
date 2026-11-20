@@ -14,6 +14,7 @@
 // operacional, e a análise de impacto (custo, prazo, escopo, qualidade,
 // segurança, obrigações contratuais) é humana.
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/labels";
@@ -169,8 +170,9 @@ export function ConstrumanagerVersionTransitions({
 
   return (
     <div className="flex flex-col gap-1.5 rounded-md border bg-background/60 p-2">
-      <p className="text-xs font-bold text-foreground">
+      <p className="flex items-center gap-1.5 text-xs font-bold text-foreground">
         NOVAS VERSÕES VIGENTES · {items.length}
+        <FeatureInfo helpId="integracoes.integracoes.construmanager-novas-versoes" />
       </p>
 
       <ul className="flex flex-col gap-0.5 text-xs">

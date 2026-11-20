@@ -10,6 +10,7 @@
 // monitoramento geral do Diario de Obra: a afirmacao precisa ser
 // verificavel por quem le, sem abrir codigo.
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { formatDate } from "@/lib/labels";
 import type { ClimaKpiDoPeriodo } from "@/lib/integrations/diario-de-obra/climate-kpi";
 import { formatarNumeroPtBr, formatarPercentualPtBr } from "@/lib/integrations/diario-de-obra/format-numero-pt-br";
@@ -79,7 +80,10 @@ export function DiarioDeObraClimateKpiPanel({
 
   return (
     <div className="flex flex-col gap-1.5 rounded-md border bg-background/60 p-2">
-      <p className="text-xs font-semibold text-foreground">{DIARIO_CLIMA_KPI_TITULO}</p>
+      <p className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+        {DIARIO_CLIMA_KPI_TITULO}
+        <FeatureInfo helpId="integracoes.integracoes.diario-clima-kpi" />
+      </p>
 
       <dl className="grid gap-1 text-xs sm:grid-cols-2">
         {indicadores.map((indicador) => (

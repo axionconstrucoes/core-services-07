@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Info, Loader2, Sparkles } from "lucide-react";
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { consultSsmaRecordAction } from "@/app/ssma/consult-actions";
 import { ExpertResponseDetails } from "@/components/ai/expert-query-panel";
 import { DEFAULT_ALERT_CONSULT_QUESTION, MAX_ALERT_CONSULT_QUESTION_LENGTH } from "@/lib/ai/alert-consult/specialties";
@@ -24,7 +25,10 @@ export function RecordConsult({
   const [state, formAction, pending] = useActionState(action, INITIAL);
   return (
     <section className="flex flex-col gap-2 rounded-xl bg-white p-4 shadow-sm" aria-label="Consultar especialista de SSMA">
-      <h3 className="text-sm font-bold uppercase text-slate-700">Consultar IA — especialista de SSMA</h3>
+      <h3 className="flex items-center gap-1.5 text-sm font-bold uppercase text-slate-700">
+        Consultar IA — especialista de SSMA
+        <FeatureInfo helpId="ssma.registro.consultar-ia" />
+      </h3>
       <form action={formAction} className="flex flex-col gap-2">
         <input type="hidden" name="projectId" value={projectId} />
         <input type="hidden" name="recordId" value={recordId} />

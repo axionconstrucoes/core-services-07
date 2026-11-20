@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@axion/db/browser";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { ESG_REFERENCE_NOTICE, eligibleSubmissions, esgReferenceErrorMessage } from "@/lib/ssma/esg-reference";
 
 interface Reference {
@@ -97,7 +98,10 @@ export function EsgEvidenceLink({
 
   return (
     <section className="space-y-3 rounded-xl bg-white p-4 shadow-sm" aria-label="Evidência ESG" data-testid="esg-evidence-link">
-      <h2 className="font-bold uppercase text-slate-900">Evidência ESG</h2>
+      <h2 className="flex items-center gap-1.5 font-bold uppercase text-slate-900">
+        Evidência ESG
+        <FeatureInfo helpId="ssma.registro.evidencia-esg" />
+      </h2>
       <p className="text-xs font-medium text-slate-600">{ESG_REFERENCE_NOTICE}</p>
       {refs.length > 0 ? (
         <ul className="space-y-2">

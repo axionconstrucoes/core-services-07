@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -38,7 +39,10 @@ export function EsgObligationForm({
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Categoria
+          <span className="inline-flex items-center gap-1.5">
+            Categoria
+            <FeatureInfo helpId="ssma.esg.obrigacao-categoria" />
+          </span>
           <Select name="category" defaultValue="DDS" required>
             {CATEGORY_OPTIONS.map((c) => (
               <option key={c} value={c}>
@@ -49,7 +53,10 @@ export function EsgObligationForm({
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Periodicidade
+          <span className="inline-flex items-center gap-1.5">
+            Periodicidade
+            <FeatureInfo helpId="ssma.esg.obrigacao-periodicidade" />
+          </span>
           <Select name="periodicity" defaultValue="SEMANAL" required>
             {PERIODICITY_OPTIONS.map((p) => (
               <option key={p} value={p}>
@@ -60,7 +67,10 @@ export function EsgObligationForm({
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Cláusula/referência (opcional)
+          <span className="inline-flex items-center gap-1.5">
+            Cláusula/referência (opcional)
+            <FeatureInfo helpId="ssma.esg.obrigacao-origem" />
+          </span>
           <Select name="clauseId" defaultValue="">
             <option value="">Sem cláusula estruturada vinculada</option>
             {clauseOptions.map((c) => (
@@ -84,17 +94,26 @@ export function EsgObligationForm({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Evidência exigida
+          <span className="inline-flex items-center gap-1.5">
+            Evidência exigida
+            <FeatureInfo helpId="ssma.esg.obrigacao-evidencia-exigida" />
+          </span>
           <Input name="requiredEvidenceDescription" placeholder="Ex.: Lista de presença + foto" />
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Penalidade prevista (quando conhecida)
+          <span className="inline-flex items-center gap-1.5">
+            Penalidade prevista (quando conhecida)
+            <FeatureInfo helpId="ssma.esg.obrigacao-penalidade" />
+          </span>
           <Input name="penaltyDescription" placeholder="Ex.: Multa de R$ 5.000,00 por descumprimento" />
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Responsável (texto livre)
+          <span className="inline-flex items-center gap-1.5">
+            Responsável (texto livre)
+            <FeatureInfo helpId="ssma.esg.obrigacao-responsavel" />
+          </span>
           <Input name="responsibleLabel" placeholder="Ex.: Técnico de Segurança do Trabalho" />
         </label>
       </div>

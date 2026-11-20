@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@axion/db/server";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isProjectAdmin } from "@/lib/email-authorization/guard";
 import { getMailboxDiagnosticsEvidence, getProcessedMessages } from "@/lib/email/ingestion/get-mailbox-diagnostics-evidence";
@@ -69,7 +70,7 @@ function Actions({ projectId, row }: { projectId: string; row: MailboxDiagnostic
   return (
     <div className="grid gap-3 md:grid-cols-2">
       <form action={registerCorporateAuthorizationAction} className="space-y-2 rounded-md border border-gray-300 p-3">
-        <p className="text-sm font-semibold">Registrar autorização corporativa</p>
+        <p className="flex items-center gap-1.5 text-sm font-semibold">Registrar autorização corporativa<FeatureInfo helpId="integracoes.caixas.registrar-autorizacao" /></p>
         {hidden}
         <input name="reference" minLength={3} maxLength={300} required disabled={!by.REGISTRAR_AUTORIZACAO?.enabled} placeholder="Referência da decisão (ata, e-mail, chamado)" className="min-h-9 w-full rounded-md border border-gray-300 px-2 py-1 text-xs" />
         {by.REGISTRAR_AUTORIZACAO?.enabled ? confirm : null}
@@ -77,7 +78,7 @@ function Actions({ projectId, row }: { projectId: string; row: MailboxDiagnostic
         <ActionHint state={by.REGISTRAR_AUTORIZACAO} />
       </form>
       <form action={enableCollectionAction} className="space-y-2 rounded-md border border-gray-300 p-3">
-        <p className="text-sm font-semibold">Habilitar coleta (período obrigatório)</p>
+        <p className="flex items-center gap-1.5 text-sm font-semibold">Habilitar coleta (período obrigatório)<FeatureInfo helpId="integracoes.caixas.habilitar-coleta" /></p>
         {hidden}
         <div className="grid grid-cols-2 gap-2">
           <label className="text-xs">Início<input type="date" name="periodStart" required disabled={!by.HABILITAR_COLETA?.enabled} className="min-h-9 w-full rounded-md border border-gray-300 px-2" /></label>
@@ -88,13 +89,13 @@ function Actions({ projectId, row }: { projectId: string; row: MailboxDiagnostic
         <ActionHint state={by.HABILITAR_COLETA} />
       </form>
       <form action={disableCollectionAction} className="space-y-2 rounded-md border border-gray-300 p-3">
-        <p className="text-sm font-semibold">Desligar coleta</p>
+        <p className="flex items-center gap-1.5 text-sm font-semibold">Desligar coleta<FeatureInfo helpId="integracoes.caixas.desligar-coleta" /></p>
         {hidden}
         <button type="submit" disabled={!by.DESABILITAR_COLETA?.enabled} className="min-h-9 rounded-md bg-gray-800 px-3 py-1 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-40">Desligar</button>
         <ActionHint state={by.DESABILITAR_COLETA} />
       </form>
       <form action={revokeCollectionAction} className="space-y-2 rounded-md border border-red-300 p-3">
-        <p className="text-sm font-semibold text-red-900">Revogar coleta (efeito imediato)</p>
+        <p className="flex items-center gap-1.5 text-sm font-semibold text-red-900">Revogar coleta (efeito imediato)<FeatureInfo helpId="integracoes.caixas.revogar" /></p>
         {hidden}
         <input name="reason" minLength={3} maxLength={500} required disabled={!by.REVOGAR?.enabled} placeholder="Motivo" className="min-h-9 w-full rounded-md border border-gray-300 px-2 py-1 text-xs" />
         {by.REVOGAR?.enabled ? confirm : null}
@@ -130,10 +131,15 @@ export default async function MailboxAdminPage({
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title="Caixas de e-mail da obra"
-        description="Diagnóstico por caixa em 7 etapas independentes. Nenhuma etapa é deduzida da anterior: cada uma mostra a sua própria evidência."
-      />
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <PageHeader
+            title="Caixas de e-mail da obra"
+            description="Diagnóstico por caixa em 7 etapas independentes. Nenhuma etapa é deduzida da anterior: cada uma mostra a sua própria evidência."
+          />
+        </div>
+        <FeatureInfo helpId="integracoes.caixas.pagina" className="mt-1.5" />
+      </div>
       <p className="text-sm">
         <Link href={`/${projectId}/integracoes`} className="font-semibold text-brand-sidebar hover:underline">← Integrações</Link>
         {" · "}
@@ -151,13 +157,24 @@ export default async function MailboxAdminPage({
       ) : null}
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Caixas e etapas</CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-1.5 text-base">Caixas e etapas<FeatureInfo helpId="integracoes.caixas.tabela" /></CardTitle></CardHeader>
         <CardContent className="overflow-x-auto">
           <table className="w-full min-w-[1100px] text-left text-xs">
             <thead className="uppercase text-gray-500">
               <tr>
                 <th className="py-2 pr-2">Caixa / responsável</th>
-                {rows[0]?.stages.map((stage) => <th key={stage.key} className="py-2 pr-2">{stage.title}</th>)}
+                {rows[0]?.stages.map((stage) => (
+                  <th key={stage.key} className="py-2 pr-2">
+                    {stage.key === "habilitada" ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        {stage.title}
+                        <FeatureInfo helpId="integracoes.caixas.suspensao-erros" />
+                      </span>
+                    ) : (
+                      stage.title
+                    )}
+                  </th>
+                ))}
                 <th className="py-2 pr-2">Período</th>
                 <th className="py-2">Pendências</th>
               </tr>
@@ -181,7 +198,7 @@ export default async function MailboxAdminPage({
               ))}
             </tbody>
           </table>
-          <p className="mt-2 text-xs text-gray-500">Indício = evidência indireta (por exemplo, o coletor OAuth histórico da obra); nunca vale como comprovação. Medido em {formatDateTime(evidence.measuredAt)}.</p>
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-gray-500"><FeatureInfo helpId="integracoes.caixas.estado-etapa" />Indício = evidência indireta (por exemplo, o coletor OAuth histórico da obra); nunca vale como comprovação. Medido em {formatDateTime(evidence.measuredAt)}.</p>
         </CardContent>
       </Card>
 
@@ -209,7 +226,7 @@ export default async function MailboxAdminPage({
               O teste técnico (prova da delegação) só roda no executor remoto: GitHub Actions → “Gmail Delegated Sync (manual)”, modo technical_check. Ele não lê mensagens.
             </p>
             <div>
-              <p className="mb-1 font-semibold">Mensagens e anexos efetivamente importados (20 mais recentes)</p>
+              <p className="mb-1 flex items-center gap-1.5 font-semibold">Mensagens e anexos efetivamente importados (20 mais recentes)<FeatureInfo helpId="integracoes.caixas.mensagens-importadas" /></p>
               {processed === null ? <p className="text-xs text-gray-600">Consulta indisponível.</p> : processed.length === 0 ? <p className="text-xs text-gray-600">Nenhuma mensagem importada desta caixa.</p> : (
                 <table className="w-full text-left text-xs">
                   <thead className="uppercase text-gray-500"><tr><th className="py-1 pr-2">Data</th><th className="py-1 pr-2">Assunto</th><th className="py-1 pr-2">Corpo</th><th className="py-1">Anexos</th></tr></thead>

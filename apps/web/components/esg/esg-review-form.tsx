@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,7 +31,10 @@ export function EsgReviewForm({
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="submissionId" value={submissionId} />
 
-      <p className="text-xs font-medium text-muted-foreground">Revisar/ajustar status (ADMIN)</p>
+      <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        Revisar/ajustar status (ADMIN)
+        <FeatureInfo helpId="ssma.esg.revisao-formulario" />
+      </p>
 
       <div className="flex flex-wrap items-end gap-2">
         <Select name="newStatus" defaultValue={currentStatus} className="max-w-[220px]">

@@ -1,3 +1,4 @@
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime, membershipStatusLabels } from "@/lib/labels";
 import type { SharedSourceRow, UserSourceRow } from "@/lib/integrations/user-integration-matrix";
@@ -11,7 +12,10 @@ export function UserIntegrationMatrix({ rows, shared, warnings, measuredAt, unas
   return (
     <Card className="min-w-0">
       <CardHeader>
-        <CardTitle>Quem alimenta o ACC neste projeto</CardTitle>
+        <CardTitle className="flex items-center gap-1.5">
+          Quem alimenta o ACC neste projeto
+          <FeatureInfo helpId="integracoes.integracoes.matriz-fontes" />
+        </CardTitle>
         <p className="text-sm text-muted-foreground">
           Verde só aparece com prova da etapa. Cadastro, vínculo ativo, aceite ou “conectado” isolados não tornam nada verde. Medido em {date(measuredAt)}.
         </p>
@@ -24,7 +28,10 @@ export function UserIntegrationMatrix({ rows, shared, warnings, measuredAt, unas
         ) : null}
 
         <section aria-labelledby="fontes-pessoais" className="space-y-2">
-          <h3 id="fontes-pessoais" className="text-base font-semibold">1. Fontes pessoais — caixa de e-mail de cada usuário</h3>
+          <h3 id="fontes-pessoais" className="flex items-center gap-1.5 text-base font-semibold">
+            1. Fontes pessoais — caixa de e-mail de cada usuário
+            <FeatureInfo helpId="integracoes.integracoes.farol-etapa" />
+          </h3>
           <p className="text-xs font-semibold text-muted-foreground md:hidden" aria-hidden="true">↔ Role a tabela para o lado para ver todas as etapas.</p>
           {rows.length === 0 ? <p className="text-sm text-muted-foreground">Nenhum usuário vinculado a esta obra.</p> : (
             <div role="region" aria-label="Fontes pessoais por usuário; role horizontalmente para ver todas as etapas" tabIndex={0} className="max-w-full overflow-x-auto rounded border border-border focus-visible:outline-2 focus-visible:outline-offset-2">

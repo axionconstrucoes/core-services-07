@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 
+import { FeatureInfo } from "@/components/shared/feature-info";
+
 /**
  * Campo "Obra" da tela ESG: lista só obras em que o usuário pode registrar. Trocar a obra abre a mesma tela da outra obra;
  * as obrigações, comprovações e responsáveis são sempre os da obra escolhida (nada da obra anterior é reaproveitado).
@@ -11,7 +13,10 @@ export function EsgProjectSwitch({ currentId, projects }: { currentId: string; p
   if (projects.length === 0) return null;
   return (
     <label className="block text-sm font-bold text-slate-900">
-      Obra
+      <span className="inline-flex items-center gap-1.5">
+        Obra
+        <FeatureInfo helpId="ssma.esg.seletor-obra" />
+      </span>
       <select
         value={projects.some((p) => p.id === currentId) ? currentId : ""}
         onChange={(event) => event.target.value && router.push(`/${event.target.value}/esg`)}

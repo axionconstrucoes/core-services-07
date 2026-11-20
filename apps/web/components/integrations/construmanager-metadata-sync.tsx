@@ -8,6 +8,7 @@
 
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { initialSyncConstrumanagerMetadataState } from "@/app/[projectId]/integracoes/actions-state";
 import { syncConstrumanagerMetadataAction } from "@/app/[projectId]/integracoes/actions";
@@ -91,7 +92,8 @@ export function ConstrumanagerMetadataSync({
         </Button>
       </form>
 
-      <p className="text-xs">
+      <p className="flex items-center gap-1.5 text-xs">
+        <FeatureInfo helpId="integracoes.integracoes.construmanager-sincronizar" />
         {lastSyncAt
           ? `Última sincronização: ${formatDateTime(lastSyncAt)}`
           : "Metadados ainda não sincronizados."}
