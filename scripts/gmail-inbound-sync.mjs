@@ -3,7 +3,8 @@ import { pilotMessageEligible, pilotSenderQuery } from "./lib/gmail-weg-pilot-se
 import { createClient } from "@supabase/supabase-js";
 import { extractGmailBody } from "./lib/gmail-message-body.mjs";
 import { createDelegatedGmailAuth } from "./lib/gmail-delegated-auth.mjs";
-import { evaluateMailboxCollection, resolveMailboxWindowEnd, resolveMailboxWindowStart } from "./lib/gmail-mailbox-gate.mjs";
+import { deriveIndividualConsent, resolveDelegatedReadWindow } from "./lib/gmail-mailbox-gate.mjs";
+import { assertStillCollectable, isRetryableGmailError, prepareDelegatedRun, safeErrorDetail } from "./lib/gmail-mailbox-run.mjs";
 
 const args = process.argv.slice(2);
 
@@ -204,10 +205,12 @@ async function getMessage(gmail, id) {
         error?.code ??
         error?.response?.status;
 
-      if (
-        ![403, 429, 500, 502, 503, 504].includes(status) ||
-        attempt === 6
-      ) {
+      // Retentativa LIMITADA e só para cota/indisponibilidade. No modo delegação, 403 de PERMISSÃO não é repetido
+      // (repetir não muda nada); o caminho histórico mantém o comportamento anterior.
+      const retryable = DELEGATION
+        ? isRetryableGmailError(error)
+        : [403, 429, 500, 502, 503, 504].includes(status);
+      if (!retryable || attempt === 6) {
         throw error;
       }
 
@@ -299,29 +302,62 @@ if (
 
 let mailboxControl = null;
 if (DELEGATION) {
-  const { data: controlRow, error: controlError } = await supabase
-    .from("email_mailbox_collection_controls")
-    .select("*")
-    .eq("project_id", PROJECT_ID)
-    .eq("mailbox_address", mailbox)
-    .maybeSingle();
-  if (controlError) throw new Error(`Controle da caixa indisponível: ${controlError.message}`);
-  mailboxControl = controlRow;
-  // O teste técnico precisa rodar ANTES de a coleta estar habilitada: nesse modo só autorização corporativa é exigida.
-  const gate = evaluateMailboxCollection(
-    TECHNICAL_CHECK_ONLY && mailboxControl
-      ? { ...mailboxControl, technical_permission_status: "CONFIRMADA", collection_enabled: true }
-      : mailboxControl,
-    { allowlisted: true }
-  );
-  if (!gate.canCollect) {
-    console.log(`Coleta da caixa ${mailbox} BLOQUEADA: ${gate.blockers.join(", ")}`);
+  // Estado ATUAL desta (obra, caixa): controle + lista da obra + aceite individual (o mais restritivo vale).
+  // Tabela de controles ausente/ilegível => FALHA FECHADA com mensagem clara (nada é lido do Gmail).
+  const decision = await prepareDelegatedRun({
+    supabase,
+    projectId: PROJECT_ID,
+    mailbox,
+    mode: TECHNICAL_CHECK_ONLY ? "technical_check" : "collect",
+  });
+  if (decision.failClosed) {
+    console.error(decision.reason);
+    process.exit(1);
+  }
+  mailboxControl = decision.state.control;
+  if (!decision.proceed) {
+    console.log(`${TECHNICAL_CHECK_ONLY ? "Teste técnico" : "Coleta"} da caixa ${mailbox} BLOQUEADO: ${decision.blockers.join(", ")}`);
     console.log("Nenhuma mensagem foi lida.");
-    if (mailboxControl) {
+    if (mailboxControl && !TECHNICAL_CHECK_ONLY) {
       await supabase.rpc("record_mailbox_sync_result", {
-        p_project_id: PROJECT_ID, p_mailbox: mailbox, p_status: "BLOQUEADA", p_detail: gate.blockers.join(",").slice(0, 280), p_imported: 0, p_synced_through: null,
+        p_project_id: PROJECT_ID, p_mailbox: mailbox, p_status: "BLOQUEADA", p_detail: decision.blockers.join(",").slice(0, 280), p_imported: 0, p_synced_through: null,
       });
     }
+    process.exit(0);
+  }
+
+  // Qualquer falha daqui em diante fica REGISTRADA na própria caixa (erro do teste técnico => FALHA; erro da coleta =>
+  // ERRO, que conta para o teto de retentativas). Só o código/HTTP do erro, nunca tokens ou conteúdo.
+  process.on("uncaughtException", async (error) => {
+    const detail = safeErrorDetail(error);
+    console.error(`Falha na caixa ${mailbox}: ${detail}`);
+    try {
+      if (TECHNICAL_CHECK_ONLY) {
+        await supabase.rpc("record_mailbox_technical_check", { p_project_id: PROJECT_ID, p_mailbox: mailbox, p_ok: false, p_detail: detail });
+      } else {
+        await supabase.rpc("record_mailbox_sync_result", {
+          p_project_id: PROJECT_ID, p_mailbox: mailbox, p_status: "ERRO", p_detail: detail, p_imported: 0, p_synced_through: null,
+        });
+      }
+    } catch (recordError) {
+      console.error(`Não foi possível registrar a falha: ${safeErrorDetail(recordError)}`);
+    }
+    process.exit(1);
+  });
+} else {
+  // Caminho histórico (refresh token): continua igual, mas uma RECUSA ou REVOGAÇÃO explícita do aceite individual
+  // desta caixa nesta obra para a coleta na hora. Ausência de linha não muda o comportamento histórico.
+  const { data: consentRows, error: consentError } = await supabase
+    .from("email_access_authorizations")
+    .select("id,account_email,status,requested_at,decided_at")
+    .eq("project_id", PROJECT_ID)
+    .eq("account_email", mailbox);
+  if (consentError) {
+    throw new Error(`Aceites individuais ilegíveis (falha fechada): ${consentError.message}`);
+  }
+  const consent = deriveIndividualConsent(consentRows ?? [], mailbox);
+  if (consent.status === "RECUSADO" || consent.status === "REVOGADO") {
+    console.log(`Coleta da caixa ${mailbox} BLOQUEADA: aceite individual ${consent.status}. Nenhuma mensagem foi lida.`);
     process.exit(0);
   }
 }
@@ -368,21 +404,25 @@ const requireProjectScopeMatch =
  * O índice único de provider_message_id protege
  * contra duplicação.
  */
-const delegatedWindowStart = DELEGATION ? resolveMailboxWindowStart(mailboxControl, null) : null;
-if (DELEGATION && !delegatedWindowStart && !TECHNICAL_CHECK_ONLY) {
+// Delegação: cursor PRÓPRIO da caixa; a sobreposição nunca recua para antes do início do período autorizado e a
+// janela nunca passa do fim do período.
+const delegatedWindow = DELEGATION && !TECHNICAL_CHECK_ONLY ? resolveDelegatedReadWindow(mailboxControl) : null;
+if (DELEGATION && !TECHNICAL_CHECK_ONLY && !delegatedWindow) {
   throw new Error("Caixa sem período inicial (period_start) nem última sincronização: defina o período autorizado.");
 }
 const lastSyncAt =
-  DELEGATION ? (delegatedWindowStart ?? new Date()) : new Date(config.last_sync_at);
+  DELEGATION ? (delegatedWindow?.start ?? new Date()) : new Date(config.last_sync_at);
 
 const overlapStart =
-  new Date(
-    lastSyncAt.getTime() -
-    10 * 60 * 1000
-  );
+  delegatedWindow
+    ? delegatedWindow.overlapStart
+    : new Date(
+      lastSyncAt.getTime() -
+      10 * 60 * 1000
+    );
 
 const syncStartedAt =
-  DELEGATION ? resolveMailboxWindowEnd(mailboxControl) : new Date(); // delegação: nunca lê além do fim do período autorizado
+  delegatedWindow ? delegatedWindow.end : new Date(); // delegação: nunca lê além do fim do período autorizado
 
 /*
  * Gmail API aceita epoch seconds em after:/before:.
@@ -448,9 +488,14 @@ if (
 
 if (DELEGATION && TECHNICAL_CHECK_ONLY) {
   // Teste técnico: o perfil abaixo já provou a delegação (e a caixa). Registra e encerra SEM ler mensagens.
-  await supabase.rpc("record_mailbox_technical_check", {
+  // Sucesso só com persistência confirmada: erro do registro falha a execução.
+  const { error: techError } = await supabase.rpc("record_mailbox_technical_check", {
     p_project_id: PROJECT_ID, p_mailbox: mailbox, p_ok: true, p_detail: "getProfile ok; escopo gmail.readonly",
   });
+  if (techError) {
+    console.error(`Teste técnico OK no Google, mas o registro falhou: ${techError.message}`);
+    process.exit(1);
+  }
   console.log(`Teste técnico OK para ${mailbox}. Nenhuma mensagem lida.`);
   process.exit(0);
 }
@@ -702,6 +747,21 @@ for (
    * Mantém margem abaixo da quota Gmail.
    */
   await sleep(1000);
+}
+
+if (DELEGATION) {
+  // Revogação EFETIVA: relê o estado da caixa imediatamente antes de gravar. Revogada, desligada, fora do período
+  // ou fora da lista durante a leitura => nada é gravado e o cursor não avança.
+  const still = await assertStillCollectable({ supabase, projectId: PROJECT_ID, mailbox });
+  if (!still.ok) {
+    console.log(`Coleta da caixa ${mailbox} interrompida antes da gravação: ${still.reason ?? still.blockers.join(", ")}`);
+    console.log("Nenhuma mensagem foi gravada.");
+    await supabase.rpc("record_mailbox_sync_result", {
+      p_project_id: PROJECT_ID, p_mailbox: mailbox, p_status: "BLOQUEADA",
+      p_detail: `INTERROMPIDA_ANTES_DA_GRAVACAO:${still.blockers.join(",")}`.slice(0, 280), p_imported: 0, p_synced_through: null,
+    });
+    process.exit(0);
+  }
 }
 
 let inserted = 0;

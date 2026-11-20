@@ -75,3 +75,14 @@ jobs:
           GOOGLE_GMAIL_INBOUND_MAILBOX: ${{ inputs.mailbox }}
           ACC_GMAIL_TECHNICAL_CHECK_ONLY: ${{ inputs.mode == 'technical_check' && 'true' || 'false' }}
           ACC_GMAIL_MAX_MESSAGES: ${{ inputs.mode == 'sample' && inputs.max_messages || '' }}
+
+      # Anexos e atas da MESMA caixa, pela mesma porta por caixa (controle + período + aceite). Não roda no teste técnico.
+      - name: Anexos da caixa por delegação
+        if: ${{ inputs.mode != 'technical_check' }}
+        run: node scripts/gmail-ata-ingestion-worker.mjs
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          ACC_GMAIL_AUTH_MODE: DOMAIN_DELEGATION
+          GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT: ${{ vars.GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT || 'acc-gmail-reader@axion-contract-intelligence.iam.gserviceaccount.com' }}
+          GOOGLE_GMAIL_INBOUND_MAILBOX: ${{ inputs.mailbox }}
