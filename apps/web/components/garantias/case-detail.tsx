@@ -31,6 +31,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function TabItem({ value, label, children }: { value: string; label: string; children: React.ReactNode }) {
   return (
     <span className="inline-flex items-center">
+      {/* help-exempt: gatilho de aba genérico; cada aba tem o (i) próprio ao lado, em garantias.detalhe.aba-* renderizados no componente pai */}
       <TabsTrigger value={value} className="min-h-11">
         {label}
       </TabsTrigger>

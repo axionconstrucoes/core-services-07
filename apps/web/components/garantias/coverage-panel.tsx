@@ -161,6 +161,7 @@ export function CoveragePanel({
                     </span>
                   </div>
                   <div className="mt-2 grid gap-2 md:grid-cols-[11rem_1fr_1fr]">
+                    {/* help-exempt: seleção da situação do item; descrita pelo helpId do item (garantias.cobertura.item-*) ao lado do título do item */}
                     <select
                       id={`${idBase}-status`}
                       aria-label={`Situação do item ${def.order}`}
@@ -174,6 +175,7 @@ export function CoveragePanel({
                         </option>
                       ))}
                     </select>
+                    {/* help-exempt: conteúdo do item; descrito pelo helpId do item (garantias.cobertura.item-*) ao lado do título do item */}
                     <input
                       id={`${idBase}-valor`}
                       aria-label={`Conteúdo do item ${def.order}`}
@@ -183,6 +185,7 @@ export function CoveragePanel({
                       className={FIELD_CLASS}
                       placeholder={filled ? "Conteúdo (data, descrição, conclusão parcial)" : input.status === "SEM_DADOS" ? "SEM DADOS" : "—"}
                     />
+                    {/* help-exempt: fonte do item; descrita pelo helpId do item (garantias.cobertura.item-*) ao lado do título do item */}
                     <input
                       id={`${idBase}-fonte`}
                       aria-label={input.status === "NAO_APLICAVEL" ? `Justificativa do item ${def.order}` : `Fonte do item ${def.order}`}
@@ -227,6 +230,7 @@ export function CoveragePanel({
               </div>
             ))}
             <div className="flex min-h-11 items-center gap-2">
+              {/* help-exempt: caixa de controvérsia; descrita em garantias.cobertura.sinal-controversia, ao lado do rótulo */}
               <input
                 id="sinal-controversia"
                 type="checkbox"

@@ -37,6 +37,7 @@ function Kpi({ label, helpId, value, testId }: { label: string; helpId: string; 
 function TabItem({ value, label, children }: { value: string; label: string; children: React.ReactNode }) {
   return (
     <span className="inline-flex items-center">
+      {/* help-exempt: gatilho de aba genérico; cada aba tem o (i) próprio ao lado, em garantias.casos.aba-* renderizados no componente pai */}
       <TabsTrigger value={value} className="min-h-11">
         {label}
       </TabsTrigger>
@@ -178,6 +179,7 @@ export function GarantiasHome({
                 <th scope="col" className="px-3 py-2">
                   <span className="inline-flex items-center gap-1">Caso <FeatureInfo helpId="garantias.casos.tabela" /></span>
                 </th>
+                {/* help-exempt: coluna Serviço / sistema descrita pela tabela de casos em garantias.casos.tabela (cabeçalho Caso) e pelo campo garantias.caso.servico */}
                 <th scope="col" className="px-3 py-2">Serviço / sistema</th>
                 <th scope="col" className="px-3 py-2">
                   <span className="inline-flex items-center gap-1">Estado <FeatureInfo helpId="garantias.casos.coluna-estado" /></span>

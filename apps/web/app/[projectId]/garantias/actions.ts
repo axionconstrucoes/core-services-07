@@ -38,7 +38,7 @@ async function context(projectId: string, min: "REGISTER" | "MANAGE") {
   if (!data.user) return { error: fail("AUTH_REQUIRED", ERROR_MESSAGES.AUTH_REQUIRED) } as const;
   const role = await getCurrentProjectPermission(projectId);
   if (!roleSatisfies(role, min)) return { error: fail("FORBIDDEN", ERROR_MESSAGES.FORBIDDEN) } as const;
-  return { supabase, userId: data.user.id } as const;
+  return { error: null, supabase, userId: data.user.id } as const;
 }
 
 function refresh(projectId: string, caseId?: string) {
@@ -52,7 +52,7 @@ function failFromErrors(errors: string[]) {
 
 export async function createWarrantyCaseAction(projectId: string, raw: Raw): Promise<ActionResult<{ id: string; code: string; deduplicated: boolean }>> {
   const ctx = await context(projectId, "REGISTER");
-  if ("error" in ctx) return ctx.error;
+  if (ctx.error) return ctx.error;
   const built = buildCreateCasePayload(raw);
   if (!built.ok) return failFromErrors(built.errors);
   const { data, error } = await ctx.supabase.rpc("quality_warranty_create", {
@@ -73,7 +73,7 @@ export async function transitionWarrantyAction(
   input: { caseId: string; fromState: string; toState: string; expectedVersion: number; justification: string | null; evidenceIds: string[] },
 ): Promise<ActionResult<{ rowVersion: number; to: string }>> {
   const ctx = await context(projectId, "REGISTER");
-  if ("error" in ctx) return ctx.error;
+  if (ctx.error) return ctx.error;
   const errors = validateTransitionInput(input);
   if (errors.length) return failFromErrors(errors);
   const { data, error } = await ctx.supabase.rpc("quality_warranty_transition", {
@@ -92,7 +92,7 @@ export async function transitionWarrantyAction(
 /** UPDATE de campos descritivos com versão otimista: se a versão mudou, nada é gravado (VERSION_CONFLICT). */
 async function updateCaseFields(projectId: string, caseId: string, expectedVersion: number, row: Record<string, unknown>): Promise<ActionResult<{ rowVersion: number }>> {
   const ctx = await context(projectId, "REGISTER");
-  if ("error" in ctx) return ctx.error;
+  if (ctx.error) return ctx.error;
   if (!isUuid(caseId) || !Number.isInteger(expectedVersion) || expectedVersion < 1) return fail("VERSION_REQUIRED", ERROR_MESSAGES.VERSION_REQUIRED);
   const { data, error } = await ctx.supabase
     .from("quality_warranty_cases")
@@ -121,7 +121,7 @@ export async function registerAcceptanceAction(projectId: string, caseId: string
 
 async function insertChild(projectId: string, caseId: string, table: string, row: Record<string, unknown>, min: "REGISTER" | "MANAGE" = "REGISTER"): Promise<ActionResult<{ id: string }>> {
   const ctx = await context(projectId, min);
-  if ("error" in ctx) return ctx.error;
+  if (ctx.error) return ctx.error;
   if (!isUuid(caseId)) return fail("VALIDATION", "Caso inválido.");
   const { data, error } = await ctx.supabase
     .from(table)
@@ -143,7 +143,7 @@ export async function addSurveyAction(projectId: string, caseId: string, raw: Ra
   const built = buildSurveyPayload(raw);
   if (!built.ok) return failFromErrors(built.errors);
   const ctx = await context(projectId, "REGISTER");
-  if ("error" in ctx) return ctx.error;
+  if (ctx.error) return ctx.error;
   return insertChild(projectId, caseId, "quality_warranty_surveys", { ...built.row, surveyor_user_id: ctx.userId });
 }
 

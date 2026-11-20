@@ -52,11 +52,13 @@ export function ActionForm({
   }
 
   return (
+    // help-exempt: formulário genérico; cada campo e o botão de envio de quem o usa têm helpId próprio (garantias.caso.*, garantias.detalhe.*)
     <form ref={formRef} onSubmit={onSubmit} className={className ?? "space-y-3"} aria-busy={pending}>
       <fieldset disabled={!!disabledReason || pending} className="space-y-3 border-0 p-0">
         {children}
       </fieldset>
       <div className="flex flex-wrap items-center gap-2">
+        {/* help-exempt: botão de envio genérico; o (i) é passado por submitHelp com o helpId da ação, ao lado do botão */}
         <button type="submit" className={BUTTON_CLASS} disabled={!!disabledReason || pending}>
           {pending ? "Gravando..." : submitLabel}
         </button>
@@ -68,6 +70,7 @@ export function ActionForm({
           <p>{result.message}</p>
           {result.code === "VERSION_CONFLICT" ? (
             <span className="mt-2 flex items-center gap-1">
+              {/* help-exempt: botão de recarga do conflito de versão; descrito em garantias.detalhe.conflito-versao (conflictHelp ao lado) */}
               <button type="button" className={BUTTON_OUTLINE_CLASS} onClick={() => router.refresh()}>
                 Recarregar versão atual
               </button>
