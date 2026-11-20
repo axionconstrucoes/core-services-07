@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from "@axion/db/server";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Badge } from "@/components/ui/badge";
 import {
   getDocumentVersionClientResponses,
@@ -36,6 +37,7 @@ export async function ClientResponsesSection({ documentVersionId }: { documentVe
     <div className="mt-1.5 flex flex-col gap-1 rounded-md border border-dashed p-1.5">
       <div className="flex items-center gap-1.5">
         <span className="text-xs font-semibold">Respostas do cliente</span>
+        <FeatureInfo helpId="juridico.documentos.respostas-cliente" />
         {contested ? <Badge variant="destructive">CONTESTADO PELO CLIENTE</Badge> : null}
       </div>
       {responses.map((response) => (

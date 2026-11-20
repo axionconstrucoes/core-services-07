@@ -35,7 +35,7 @@ export function ExtractionCoveragePanel({
 }) {
   if (!coverage) {
     return (
-      <div role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+      <div role="status" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
         <p className="font-semibold">Cobertura de leitura não registrada</p>
         <p className="mt-1">
           Esta extração é anterior ao controle de cobertura por página (OCR). Não a considere uma leitura integral do
@@ -51,7 +51,7 @@ export function ExtractionCoveragePanel({
   return (
     <div className="flex flex-col gap-3">
       {coverage.complete ? (
-        <div role="status" className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-950">
+        <div role="status" className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800">
           <p className="font-semibold">
             Leitura integral do texto: {coverage.readPages}/{coverage.totalPages} páginas
           </p>
@@ -63,7 +63,7 @@ export function ExtractionCoveragePanel({
           ) : null}
         </div>
       ) : (
-        <div role="alert" className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-950">
+        <div role="alert" className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
           <p className="font-semibold">
             Cobertura parcial: {coverage.readPages}/{coverage.totalPages} páginas lidas ({percent}%) ·{" "}
             {coverage.pendingPages.length + coverage.pagesWithoutSegments.length} página(s) pendente(s)

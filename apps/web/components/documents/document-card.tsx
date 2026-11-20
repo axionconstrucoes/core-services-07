@@ -4,6 +4,7 @@ import type { VersionCoverageSummary } from "@/lib/documents/extraction/version-
 import { ContractAttachmentsPanel } from "@/components/documents/contract-attachments/contract-attachments-panel";
 import { isContractAttachmentEligibleKind } from "@/lib/documents/contract-attachments/is-contract-attachment-eligible-kind";
 import { DocumentDownloadButton } from "@/components/documents/document-download-button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { DocumentUploadForm } from "@/components/documents/document-upload-form";
 import { LinkClientResponseControl, type ProjectEmailOption } from "@/components/documents/link-client-response-control";
 import type { ContractualParentOption } from "@/components/documents/link-contractual-attachment-control";
@@ -132,6 +133,7 @@ export function DocumentCard({
                 <div className="flex flex-col gap-0.5 text-sm">
                   <div className="flex flex-wrap items-center gap-2">
                     <strong>Versão {version.versionLabel}</strong>
+                    <FeatureInfo helpId="juridico.documentos.versao" />
 
                     <Badge
                       variant="outline"

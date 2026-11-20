@@ -1,5 +1,6 @@
 import { RestoreDocumentControl } from "@/components/documents/restore-document-control";
 import { PermanentDeleteDocumentControl } from "@/components/documents/permanent-delete-document-control";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { TrashedDocument } from "@/lib/document-management";
 import { formatDateTime } from "@/lib/labels";
@@ -20,7 +21,10 @@ export function TrashPanel({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Lixeira</CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
+            Lixeira
+            <FeatureInfo helpId="juridico.documentos.lixeira" />
+          </CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">Nenhum documento na lixeira.</CardContent>
       </Card>
@@ -30,7 +34,10 @@ export function TrashPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Lixeira ({trashedDocuments.length})</CardTitle>
+        <CardTitle className="flex items-center gap-1.5">
+          Lixeira ({trashedDocuments.length})
+          <FeatureInfo helpId="juridico.documentos.lixeira" />
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         {trashedDocuments.map((document) => (

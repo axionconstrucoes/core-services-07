@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ExpertResponseDetails } from "@/components/ai/expert-query-panel";
 import { DeleteLegalConsultationButton } from "@/components/legal/delete-legal-consultation-button";
 import { PageHeader } from "@/components/layout/page-header";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/labels";
 import { LEGAL_CONSULTATION_DELETE_SCOPE_NOTICE, getOwnLegalConsultation } from "@/lib/legal/consultations";
@@ -18,7 +19,7 @@ export default async function LegalConsultationPage({ params }: { params: Promis
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Consulta jurídica" description={`Privada — só você vê esta consulta. Registrada em ${formatDateTime(consultation.createdAt)}.`} />
+      <PageHeader title="Consulta jurídica" description={`Privada — só você vê esta consulta. Registrada em ${formatDateTime(consultation.createdAt)}.`} actions={<FeatureInfo helpId="juridico.consulta.pagina" />} />
       <Link href={`/${projectId}/juridico`} className="inline-flex items-center gap-2 text-sm text-primary">
         Voltar às minhas consultas
       </Link>
@@ -40,7 +41,10 @@ export default async function LegalConsultationPage({ params }: { params: Promis
       </Card>
       <div className="space-y-2">
         <DeleteLegalConsultationButton projectId={projectId} consultationId={consultation.id} afterDelete="list" />
-        <p className="text-xs text-muted-foreground">{LEGAL_CONSULTATION_DELETE_SCOPE_NOTICE}</p>
+        <p className="flex items-start gap-1 text-xs text-muted-foreground">
+          <span>{LEGAL_CONSULTATION_DELETE_SCOPE_NOTICE}</span>
+          <FeatureInfo helpId="juridico.projeto.excluir-consulta" />
+        </p>
       </div>
     </div>
   );

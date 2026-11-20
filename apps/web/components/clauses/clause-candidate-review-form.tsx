@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { reviewClauseCandidateAction } from "@/app/[projectId]/revisao-clausulas/actions";
+import { FeatureInfo } from "@/components/shared/feature-info";
 
 // Formulário de revisão de UM candidato (aberto só ao selecionar o item).
 // Rascunho: salvo em sessionStorage por candidato a cada alteração e
@@ -92,7 +93,7 @@ export function ClauseCandidateReviewForm({
   return (
     <div className="flex flex-col gap-4">
       {restored && dirty ? (
-        <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">
+        <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
           <span>Rascunho não enviado restaurado para este candidato.</span>
           <button type="button" onClick={discard} className="font-medium underline underline-offset-2">
             Descartar rascunho
@@ -153,12 +154,15 @@ export function ClauseCandidateReviewForm({
           Conferi número, título e texto com a página original do contrato.
         </label>
 
-        <button
-          type="submit"
-          className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          Aprovar cláusula
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="submit"
+            className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            Aprovar cláusula
+          </button>
+          <FeatureInfo helpId="juridico.revisao-clausulas.aprovar" />
+        </div>
       </form>
 
       <form action={reviewClauseCandidateAction} className="flex flex-col gap-2 rounded-lg border border-destructive/30 p-3">
@@ -166,7 +170,10 @@ export function ClauseCandidateReviewForm({
         <input type="hidden" name="candidateId" value={candidateId} />
         <input type="hidden" name="reviewAction" value="REJECT" />
         <input type="hidden" name="returnTo" value={returnTo} />
-        <p className="text-sm font-medium">Rejeitar candidato</p>
+        <p className="flex items-center gap-1 text-sm font-medium">
+          Rejeitar candidato
+          <FeatureInfo helpId="juridico.revisao-clausulas.rejeitar" />
+        </p>
         <p className="text-xs text-muted-foreground">A rejeição exige justificativa e fica registrada na auditoria.</p>
         <textarea
           name="reviewNote"

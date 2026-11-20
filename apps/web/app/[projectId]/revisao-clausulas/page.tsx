@@ -8,6 +8,7 @@ import {
 } from "@/components/clauses/clause-candidate-review-form";
 import { CoverageNotice } from "@/components/documents/coverage-notice";
 import { PageHeader } from "@/components/layout/page-header";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import {
   getClauseReviewDetail,
   getClauseReviewList,
@@ -141,6 +142,7 @@ export default async function ClauseReviewPage({
         <PageHeader
           title="Revisão de Cláusulas"
           description="Valide os candidatos identificados automaticamente antes que sejam incorporados à base contratual."
+          actions={<FeatureInfo helpId="juridico.revisao-clausulas.pagina" />}
         />
         <Link
           href={`/${projectId}/documentos`}
@@ -151,7 +153,8 @@ export default async function ClauseReviewPage({
       </div>
 
       <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-        <strong>Regra de governança:</strong> a detecção automática apenas sugere cláusulas. A criação da cláusula
+        <strong>Regra de governança:</strong>
+        <FeatureInfo helpId="juridico.revisao-clausulas.regra-governanca" /> a detecção automática apenas sugere cláusulas. A criação da cláusula
         contratual definitiva exige aprovação humana, registrada na auditoria. Nenhum candidato é aprovado
         automaticamente, e a lista não equivale à análise integral do contrato.
       </div>
@@ -167,6 +170,10 @@ export default async function ClauseReviewPage({
 
       {/* ---------- totais ---------- */}
       <section aria-label="Totais" className="flex flex-col gap-1">
+        <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+          Totais da revisão
+          <FeatureInfo helpId="juridico.revisao-clausulas.totais" />
+        </div>
         <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
           {(
             [
@@ -237,13 +244,15 @@ export default async function ClauseReviewPage({
         <Link href={basePath} className="h-9 rounded-md border px-3 text-sm leading-9 hover:bg-muted">
           Limpar
         </Link>
+        <FeatureInfo helpId="juridico.revisao-clausulas.filtros" />
       </form>
 
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
         {/* ---------- lista compacta ---------- */}
         <section aria-label="Candidatos" className="flex flex-col gap-2">
-          <p className="text-xs text-muted-foreground">
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
             {filtered.length} candidato(s) · página {page} de {pageCount} · ordem do documento (6.2 antes de 6.10)
+            <FeatureInfo helpId="juridico.revisao-clausulas.lista" />
           </p>
 
           {filtered.length === 0 ? (
@@ -353,13 +362,17 @@ export default async function ClauseReviewPage({
                   <span className="font-normal text-muted-foreground">
                     ({detail.detector} v{detail.detectorVersion})
                   </span>
+                  <FeatureInfo helpId="juridico.revisao-clausulas.confianca" />
                 </p>
                 <p className="mt-0.5 text-muted-foreground">{CONFIDENCE_EXPLANATION}</p>
               </div>
 
               {detailReasons.length > 0 ? (
-                <ul className="flex flex-col gap-1 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">
-                  <li className="font-medium">Exige conferência com o original:</li>
+                <ul className="flex flex-col gap-1 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+                  <li className="font-medium">
+                    Exige conferência com o original:
+                    <FeatureInfo helpId="juridico.revisao-clausulas.conferir" />
+                  </li>
                   {detailReasons.map((reason) => (
                     <li key={reason}>• {reason}</li>
                   ))}
@@ -369,7 +382,10 @@ export default async function ClauseReviewPage({
               {/* evidência */}
               <div className="flex flex-col gap-2 rounded-md border p-3 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium">Evidência de origem</p>
+                  <p className="flex items-center gap-1 font-medium">
+                    Evidência de origem
+                    <FeatureInfo helpId="juridico.revisao-clausulas.evidencia" />
+                  </p>
                   {detail.startPage ? (
                     <Link
                       href={`/${projectId}/documentos/versoes/${detail.documentVersionId}?paginaGlobal=${detail.startPage}#original`}

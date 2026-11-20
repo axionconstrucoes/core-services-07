@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 import { DocumentDownloadButton } from "@/components/documents/document-download-button";
 import { ExtractionCoveragePanel } from "@/components/documents/extraction-coverage-panel";
 import { PageHeader } from "@/components/layout/page-header";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
 import { computeExtractionCoverage, type PageCoverage } from "@/lib/documents/extraction/extraction-coverage";
@@ -252,6 +253,7 @@ export default async function DocumentVersionViewerPage({
           .join(" · ")}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <FeatureInfo helpId="juridico.versoes.pagina" />
             <Link
               href={`/${projectId}/timeline`}
               className={cn(
@@ -301,7 +303,10 @@ export default async function DocumentVersionViewerPage({
         <Card>
           <CardContent className="flex flex-col gap-3 pt-4">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <p className="font-semibold">Leitura do documento (extração mais recente)</p>
+              <p className="flex items-center gap-1 font-semibold">
+                Leitura do documento (extração mais recente)
+                <FeatureInfo helpId="juridico.versoes.cobertura" />
+              </p>
               <p className="text-xs text-muted-foreground">
                 {extraction.extractor} {extraction.extractor_version}
                 {extraction.completed_at ? ` · concluída em ${formatDate(extraction.completed_at)}` : ""}
@@ -387,8 +392,9 @@ export default async function DocumentVersionViewerPage({
           <CardContent className="flex flex-col gap-3 pt-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p className="font-semibold">
+                <p className="flex items-center gap-1 font-semibold">
                   Conteúdo extraído do documento {showNormalized ? "(camada normalizada)" : "(texto original)"}
+                  <FeatureInfo helpId="juridico.versoes.texto-extraido" />
                 </p>
 
                 <p className="text-xs text-muted-foreground">

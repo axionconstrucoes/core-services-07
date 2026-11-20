@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { formatPageList } from "@/lib/documents/extraction/extraction-coverage";
 import type { VersionCoverageSummary } from "@/lib/documents/extraction/version-coverage-summary";
 
@@ -23,8 +24,8 @@ export function CoverageNotice({
       role={summary.partial ? "alert" : "status"}
       className={
         summary.partial
-          ? "rounded-md border border-red-300 bg-red-50 p-2 text-xs text-red-950"
-          : "rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950"
+          ? "rounded-md border border-red-300 bg-red-50 p-2 text-xs text-red-800"
+          : "rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800"
       }
     >
       {summary.partial ? (
@@ -45,9 +46,12 @@ export function CoverageNotice({
           {formatPageList(summary.visualReviewPages)}
         </p>
       ) : null}
-      <Link href={href} className="mt-1 inline-block font-medium underline underline-offset-2">
-        Ver cobertura e abrir páginas originais
-      </Link>
+      <span className="mt-1 inline-flex items-center gap-1">
+        <Link href={href} className="font-medium underline underline-offset-2">
+          Ver cobertura e abrir páginas originais
+        </Link>
+        <FeatureInfo helpId="juridico.documentos.cobertura-leitura" />
+      </span>
     </div>
   );
 }

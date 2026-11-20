@@ -28,7 +28,7 @@ export function PrecontractWorkspaceCreateForm() {
   if (state.projectId) {
     return (
       <div className="flex flex-col gap-5">
-        <div className="rounded-md border border-emerald-600/40 bg-emerald-50 p-4 text-sm text-emerald-950 dark:bg-emerald-950/20 dark:text-emerald-100">
+        <div className="rounded-md border border-emerald-600/40 bg-emerald-50 p-4 text-sm text-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-100">
           <p className="font-medium">Análise “{state.projectName}” criada.</p>
           <p className="mt-1">
             Selecione abaixo a minuta, os anexos e os demais documentos que o especialista deverá analisar.
