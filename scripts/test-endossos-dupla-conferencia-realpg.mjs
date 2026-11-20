@@ -9,6 +9,7 @@ import { createRequire } from "node:module";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { register } from "node:module";
 
 const url = process.env.ACC_REALPG_URL;
 if (!url) {
@@ -20,6 +21,8 @@ if (U0.hostname !== "127.0.0.1" || U0.port !== "55434") {
   console.error("RECUSADO: só aceito 127.0.0.1:55434 (PostgreSQL local de homologação).");
   process.exit(2);
 }
+register("./ts-module-resolver.mjs", import.meta.url);
+const I = await import("../apps/web/lib/insurance/index.ts");
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pg = createRequire(path.join(process.env.ACC_REALPG_PKG_DIR ?? here, "x.js"))("pg");
 const dir = path.join(here, "..", "supabase", "migrations");
@@ -163,6 +166,29 @@ try {
     eq((await su.query("select count(*)::int n from pg_constraint where conrelid='public.insurance_endorsements'::regclass and contype='c' and pg_get_constraintdef(oid) like '%SOLICITADO%' and conname <> 'insurance_endorsements_state_values_check'")).rows[0].n, 0, "um único CHECK de estados");
     await su.query("insert into public.insurance_settings (project_id) values ($1) on conflict do nothing", [P]);
     eq((await su.query("select real_send_enabled from public.insurance_settings where project_id=$1", [P])).rows[0].real_send_enabled, false, "envio real desligado por padrão");
+  });
+
+  await check("PARIDADE SQL x TS: classificação (motivo da dupla conferência), normalização de change_kinds e máquina de estados idênticas", async () => {
+    const kindsCases = [null, [], ["SEGURADO"], ["DADOS_CADASTRAIS"], ["PRORROGACAO_VIGENCIA", "OUTRO_NAO_CRITICO"], ["DADOS_CADASTRAIS", "VALOR_PREMIO"], ...I.CRITICAL_CHANGE_KINDS.map((k) => [k])];
+    for (const kinds of kindsCases) for (const tm of [null, true, false]) {
+      const sql = (await su.query("select public.insurance_int_endorsement_dual_reason($1::text[], $2::boolean) r", [kinds, tm])).rows[0].r;
+      eq(sql, I.dualReviewReason(kinds, tm), `${JSON.stringify(kinds)}/${tm}`);
+    }
+    for (const raw of [[" dados_cadastrais ", "DADOS_CADASTRAIS", ""], ["segurado", "valor_premio"], []]) {
+      const sql = (await su.query("select public.insurance_int_endorsement_kinds($1::jsonb) r", [JSON.stringify({ change_kinds: raw })])).rows[0].r;
+      eq(sql, I.normalizeChangeKinds(raw), JSON.stringify(raw));
+    }
+    for (const bad of [["INVENTADO"], "SEGURADO", { a: 1 }]) await rejects(su.query("select public.insurance_int_endorsement_kinds($1::jsonb)", [JSON.stringify({ change_kinds: bad })]), /INVALID_CHANGE_KINDS/, JSON.stringify(bad));
+    eq((await su.query("select public.insurance_int_endorsement_kinds('{}'::jsonb) r")).rows[0].r, null, "ausente => null");
+    // estados: toda transição que o TS permite é compatível com o que o banco aceita a partir do estado (EM_REVISAO/EMITIDO/CONFERIDO exercitados nos demais casos)
+    const states = ["SOLICITADO", "EM_ANALISE", "EMITIDO", "CONFERIDO", "RECUSADO", "EM_REVISAO"];
+    const def = (await su.query("select pg_get_constraintdef(oid) d from pg_constraint where conname='insurance_endorsements_state_values_check'")).rows[0].d;
+    for (const s of states) ok(def.includes(s), `estado ${s} no CHECK`);
+    const sqlSrc = (await su.query("select prosrc from pg_proc where proname='insurance_endorsement_advance'")).rows[0].prosrc;
+    for (const from of states) for (const to of ["EM_ANALISE", "EMITIDO", "RECUSADO"]) {
+      const sqlAllows = new RegExp(String.raw`e\.state = '${from}' and p_to_state in \([^)]*'${to}'`).test(sqlSrc);
+      eq(sqlAllows, I.canTransitionEndorsement(from, to), `${from} -> ${to}`);
+    }
   });
 
   await check("CASO 23 + CASO F3-C: pedido NÃO é endosso emitido; sem efeito de cobertura até as DUAS conferências; comparação solicitado x emitido preservada", async () => {

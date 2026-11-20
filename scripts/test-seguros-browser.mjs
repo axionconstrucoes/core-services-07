@@ -66,8 +66,8 @@ const SMALL_TARGETS = `(()=>{const out=[];for(const el of document.querySelector
   return out.slice(0,8);})()`;
 
 await withBrowser(async (b) => {
-  const load = async ({ role = "ADMINISTRADOR", mobile = false, mode = "ok" } = {}) => {
-    await b.open(built.index, { query: `role=${role}`, ...(mobile ? M : D) });
+  const load = async ({ role = "ADMINISTRADOR", mobile = false, mode = "ok", user = "704" } = {}) => {
+    await b.open(built.index, { query: `role=${role}&user=${user}`, ...(mobile ? M : D) });
     await b.eval(`window.__mode=${JSON.stringify(mode)}`);
     await b.injectHelpers(HELP);
   };
@@ -160,6 +160,35 @@ await withBrowser(async (b) => {
       }
     }
     return { ok: fails.length === 0, ev: `${measured} textos medidos; ${fails.length ? fails.join(" | ").slice(0, 600) : "nenhuma reprovação (4,5:1 texto; 3:1 texto grande)"}` };
+  });
+
+  await check("B9 endossos (Fase 3/C): dupla conferência visível, 1 de 2, bloqueio por independência (solicitante, emissor, já conferiu), formulário de recusa, contraste e alvos 44 px", async () => {
+    const problems = [];
+    const ROW = `(()=>{const tr=[...document.querySelectorAll("tbody tr")].find(r=>r.offsetParent!==null&&(r.textContent||"").includes("/ #1"));if(!tr)return false;const bt=tr.querySelector("button");if(!bt)return false;bt.click();return true;})()`;
+    const BTN = (t) => `(()=>{const el=[...document.querySelectorAll("button")].find(e=>e.offsetParent!==null&&(e.textContent||"").trim()==="${t}");return el?{disabled:el.disabled}:null;})()`;
+    for (const [user, expectEnabled, reasonPart] of [["704", true, ""], ["701", false, "solicitou"], ["702", false, "registrou a emissão"], ["703", false, "já conferiu"]]) {
+      await load({ user });
+      await tab("Endossos");
+      if (!(await b.eval(ROW))) { problems.push(`${user}: linha do endosso não encontrada`); continue; }
+      await sleep(80);
+      for (const t of ["Conferência humana independente", "Dupla conferência exigida", "1 de 2 conferência(s) aprovada(s)"]) if (!(await b.eval(TEXT(t)))) problems.push(`${user}: falta "${t}"`);
+      const btn = await b.eval(BTN("Conferir texto emitido"));
+      if (!btn) problems.push(`${user}: botão Conferir ausente`);
+      else if (btn.disabled === expectEnabled) problems.push(`${user}: botão Conferir disabled=${btn.disabled}, esperado ${!expectEnabled}`);
+      if (reasonPart && !(await b.eval(TEXT(reasonPart)))) problems.push(`${user}: motivo do bloqueio sem "${reasonPart}"`);
+      if (user === "704") {
+        await b.eval(CLICK("Recusar conferência"));
+        await sleep(80);
+        if (!(await b.eval(TEXT("Motivo da recusa da conferência")))) problems.push("formulário de recusa não abriu");
+        await b.eval(CLICK("Conferir texto emitido"));
+        await sleep(60);
+      }
+      const c = await b.eval(CONTRAST);
+      if (c.failCount) problems.push(`${user}: contraste ${c.failCount} ${JSON.stringify(c.fails.slice(0, 2))}`);
+      const small = await b.eval(SMALL_TARGETS);
+      if (small.length) problems.push(`${user}: alvos pequenos ${JSON.stringify(small.slice(0, 3))}`);
+    }
+    return { ok: problems.length === 0, ev: problems.length ? problems.join(" | ").slice(0, 600) : "4 perfis (independente, solicitante, emissor, já conferiu); sem reprovações" };
   });
 
   await check("B8 axe-core (wcag2a/aa, 2.1, 2.2, boas práticas): sem violações sérias ou críticas nas abas principais", async () => {

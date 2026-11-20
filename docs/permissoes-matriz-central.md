@@ -70,7 +70,8 @@ authenticated sem sub = sempre ✘ (nível NONE). Nível exigido entre parêntes
 | Ler apólices, fianças, endossos, sinistros, minutas, auditoria (READ) | ✔ | ✔ | ✔ | ✔ | ✔ |
 | Cadastrar/versionar apólice, partes, cláusulas; canal oficial; fiança bancária; outras garantias; sincronizar dossiê (MANAGE) | ✘ | ✘ | ✔ | ✔ | ✔ |
 | Solicitar endosso; pôr endosso em análise (REGISTER) | ✘ | ✔ | ✔ | ✔ | ✔ |
-| Emitir / conferir / recusar endosso (MANAGE) | ✘ | ✘ | ✔ | ✔ | ✔ |
+| Registrar emissão do endosso; recusar o endosso (`insurance_endorsement_advance`, MANAGE) | ✘ | ✘ | ✔ | ✔ | ✔ |
+| Conferir endosso — aprovar ou recusar a conferência (`insurance_endorsement_review`, MANAGE; ver 3.1) — **Fase 3/C** | ✘ | ✘ | ✔ (*) | ✔ (*) | ✔ (*) |
 | Registrar adiantamento e amortização (REGISTER) | ✘ | ✔ | ✔ | ✔ | ✔ |
 | Abrir aviso/expectativa/reclamação de sinistro (REGISTER) | ✘ | ✔ | ✔ | ✔ | ✔ |
 | Andamento do sinistro: aviso, reclamação, documentação complementar, regulação (REGISTER) | ✘ | ✔ | ✔ | ✔ | ✔ |
@@ -78,6 +79,39 @@ authenticated sem sub = sempre ✘ (nível NONE). Nível exigido entre parêntes
 | Atualizar item do dossiê; criar/editar/cancelar minuta; tentar envio (bloqueado fail-closed) (REGISTER) | ✘ | ✔ | ✔ | ✔ | ✔ |
 | Aprovar minuta para envio (ADMIN; envio real continua bloqueado por trava) | ✘ | ✘ | ✘ | ✘ | ✔ |
 | Escrita direta nas tabelas, exclusão | ✘ | ✘ | ✘ | ✘ | ✘ |
+
+### 3.1 Endossos: dupla conferência humana independente (Fase 3 / C)
+
+Migration `20261123200000_endorsement_dual_review.sql`; provas: `scripts/test-endossos-dupla-conferencia.mjs` (puro) e
+`scripts/test-endossos-dupla-conferencia-realpg.mjs` (Postgres real). Pedido de endosso NÃO é endosso emitido: o pedido continua separado do emitido, e a
+comparação texto solicitado × emitido é preservada.
+
+**Quando exige DUAS conferências.** Endosso que altera segurados, beneficiários/partes, obrigações garantidas, valores (importância segurada, limites, prêmio,
+valor garantido) ou coberturas (cláusulas de cobertura/exclusão, sublimite, franquia). A classificação é o campo declarado `change_kinds` (valores validados pelo
+banco). É **fail-closed**: sem classificação válida (ausente, lista vazia) = crítico; marcar qualquer item crítico = crítico; mesmo classificado como NÃO crítico
+(prorrogação de vigência, dados cadastrais, outro sem item crítico), texto emitido DIFERENTE do solicitado = crítico (o texto emitido pode trazer alteração
+crítica que ninguém pediu). A classificação na emissão só AUMENTA a criticidade; o banco recusa rebaixar (`CLASSIFICATION_DOWNGRADE`) e impede conferência simples
+sem classificação inteiramente não crítica (CHECK). Não crítico + texto idêntico = conferência simples (1 aprovação).
+
+**Regra de independência adotada (a mais estrita compatível).** (*) Na dupla conferência, cada conferente: (1) tem MANAGE no projeto; (2) NÃO é quem solicitou o
+endosso (`REVIEWER_IS_REQUESTER`); (3) NÃO é quem registrou a emissão (`REVIEWER_IS_ISSUER`); (4) é distinto do outro conferente e não confere duas vezes na mesma
+rodada (`ALREADY_REVIEWED`, UNIQUE `(endosso, rodada, conferente)`). Garantido no banco por CHECK sobre snapshots preenchidos por trigger (o cliente não os controla),
+UNIQUE e trigger de guarda — não só pela RPC nem pela tela. Na conferência simples valem MANAGE e a regra de não repetir; a independência de solicitante/emissor não é
+exigida (comportamento anterior preservado).
+
+| Situação | Resultado |
+|---|---|
+| 1ª aprovação (dupla) | endosso segue EMITIDO, **sem** efeito de cobertura; versão +1 |
+| 2ª aprovação independente | CONFERIDO, `coverage_effective = true` (conforme o TEXTO EMITIDO) |
+| Recusa de qualquer conferente (nota >= 20 caracteres) | EM_REVISAO, sem efeito de cobertura; sai por nova emissão (abre nova rodada de conferências; histórico preservado) ou por RECUSADO |
+| Divergência entre solicitado e emitido | aprovação exige nota >= 20 caracteres |
+| Duas conferências simultâneas (mesma versão) | uma vence; a outra recebe `VERSION_CONFLICT`; a mesma pessoa em paralelo grava uma só |
+| Endosso já CONFERIDO antes desta migration | permanece válido, `legacy_single_review = true` (conferência única histórica); não reabre; flag imutável |
+| Endosso pendente (SOLICITADO/EM_ANALISE/EMITIDO) antes da migration | segue o fluxo novo; sem classificação = dupla conferência (fail-closed) |
+
+Cada conferência é uma linha append-only em `insurance_endorsement_reviews` (autor, instante, resultado, nota, rodada, snapshots) e gera evento em `insurance_audit_events`
+(`ENDORSEMENT_REVIEW_APROVADO` / `ENDORSEMENT_REVIEW_RECUSADO`, mais `ENDORSEMENT_CONFERIDO` / `ENDORSEMENT_EM_REVISAO` quando o estado muda). `insurance_endorsement_advance(..., 'CONFERIDO')` continua
+aceito por compatibilidade, mas SEMPRE delega à conferência (nunca confere sozinho).
 
 ## 4. Competência especializada (técnica / jurídica) — LACUNA declarada
 
