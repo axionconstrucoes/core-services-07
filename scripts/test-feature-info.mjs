@@ -213,11 +213,20 @@ check("badges: ALTO (amarelo/preto) e CRÍTICO (vermelho/branco) mantêm caixa s
 
 // --- FeatureInfo: verificação estrutural (sem framework de DOM disponível) ---
 
-const featureInfoSource = readSource("apps/web/components/shared/feature-info.tsx");
+// A implementação vive em HelpHint (sistema universal de Hover Text); FeatureInfo é só o nome histórico (wrapper).
+const wrapperSource = readSource("apps/web/components/shared/feature-info.tsx");
+const featureInfoSource = readSource("apps/web/components/shared/help-hint.tsx");
+const helpContentSource = readSource("apps/web/components/shared/help-content.tsx");
+
+check("FeatureInfo: continua exportado como wrapper fino de HelpHint (usos existentes preservados)", () => {
+  assert(wrapperSource.includes("export function FeatureInfo"));
+  assert(wrapperSource.includes("<HelpHint"));
+});
 
 check("FeatureInfo: acessibilidade — aria-label, aria-expanded, aria-haspopup, role=dialog no popover", () => {
   assert(featureInfoSource.includes("aria-label={`Informações sobre"));
   assert(featureInfoSource.includes("aria-expanded={open}"));
+  assert(featureInfoSource.includes("aria-controls={open ? panelId : undefined}") && featureInfoSource.includes("aria-labelledby={titleId}"));
   assert(featureInfoSource.includes('aria-haspopup="dialog"'));
   assert(featureInfoSource.includes('role="dialog"'));
 });
@@ -233,18 +242,26 @@ check("FeatureInfo: click nunca navega/seleciona/fecha sidebar/executa ação da
   assert(featureInfoSource.includes("event.stopPropagation()"));
 });
 
-check("FeatureInfo: desktop hover/focus mostra tooltip curto; click abre popover com explicação completa", () => {
-  assert(featureInfoSource.includes("shortDescription"), "tooltip deveria usar shortDescription (curto)");
-  assert(featureInfoSource.includes("help.description"), "popover deveria usar description (completo)");
-  // O tooltip curto passou de opacity-0/opacity-100 para hidden/block
-  // (display toggle) — correção de um bug real de overflow horizontal
-  // de página: um elemento absolute com opacity-0 continua no layout e
-  // conta no "scrollable overflow" de qualquer ancestral o tempo todo,
-  // mesmo invisível; hidden (display:none) remove a caixa do layout
-  // por completo enquanto oculta. Comportamento visível ao usuário é o
-  // mesmo (aparece no hover/focus), só o mecanismo CSS mudou.
-  assert(featureInfoSource.includes("group-hover/feature-info:block"));
-  assert(featureInfoSource.includes("group-focus-within/feature-info:block"));
+check("FeatureInfo: desktop — mouse sobre o ícone abre o painel e ele permanece aberto enquanto o ponteiro estiver no painel; clique fixa", () => {
+  assert(featureInfoSource.includes("onPointerEnter") && featureInfoSource.includes("onPointerLeave"), "deveria tratar entrada/saída do ponteiro");
+  assert(featureInfoSource.includes("cancelClose") && featureInfoSource.includes("scheduleClose"), "painel deveria permanecer aberto sob o ponteiro (tolerância de saída)");
+  assert(featureInfoSource.includes('event.pointerType !== "mouse"'), "hover só vale para mouse (toque nunca depende de hover)");
+  assert(helpContentSource.includes("help.description"), "painel deveria usar description (completo)");
+  assert(featureInfoSource.includes("HelpContent"), "painel deveria renderizar o conteúdo estruturado");
+});
+
+check("HelpHint: posicionamento — portal fixo dentro da tela, vira para cima, rolagem interna, sem rolar a página", () => {
+  assert(featureInfoSource.includes("createPortal"), "painel em portal (não é cortado por overflow de ancestrais)");
+  assert(featureInfoSource.includes("getBoundingClientRect") && featureInfoSource.includes("window.innerWidth") && featureInfoSource.includes("window.innerHeight"));
+  assert(featureInfoSource.includes("overflow-y-auto") && featureInfoSource.includes("overscroll-contain"), "conteúdo longo rolável sem vazar a rolagem");
+  assert(!featureInfoSource.includes("scrollIntoView"), "nunca rolar a página automaticamente");
+  assert(!/title={[^}]+}|title="/.test(featureInfoSource), "não usar o atributo title");
+});
+
+check("HelpHint: mobile — folha inferior com botão Fechar e toque fora; um painel por vez", () => {
+  assert(featureInfoSource.includes("max-width: 639px") && featureInfoSource.includes("pointer: coarse"));
+  assert(featureInfoSource.includes('aria-label="Fechar ajuda"'));
+  assert(featureInfoSource.includes("acc-help-open"), "um painel aberto por vez");
 });
 
 check("FeatureInfo: mobile/touch — o mesmo botão que recebe click também recebe tap (nenhum caminho hover-only para abrir o popover)", () => {

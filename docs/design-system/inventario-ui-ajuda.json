@@ -1,0 +1,1051 @@
+{
+  "generatedFrom": "varredura estática de apps/web/app/**/page.tsx e imports locais",
+  "totals": {
+    "pages": 56,
+    "candidates": 1393,
+    "help": 62,
+    "withHelp": 26
+  },
+  "pages": [
+    {
+      "route": "/[projectId]/acoes/configuracao",
+      "page": "apps/web/app/[projectId]/acoes/configuracao/page.tsx",
+      "files": 14,
+      "counts": {
+        "tabs": 0,
+        "buttons": 7,
+        "fields": 23,
+        "tableHeads": 24,
+        "forms": 7,
+        "labels": 10,
+        "charts": 0
+      },
+      "candidates": 61,
+      "helpIds": [
+        "...",
+        "sla-config-matriz-prazos",
+        "sla-config-responsaveis",
+        "sla-config-timezone"
+      ],
+      "helpCount": 4
+    },
+    {
+      "route": "/[projectId]/acoes",
+      "page": "apps/web/app/[projectId]/acoes/page.tsx",
+      "files": 19,
+      "counts": {
+        "tabs": 4,
+        "buttons": 10,
+        "fields": 27,
+        "tableHeads": 9,
+        "forms": 6,
+        "labels": 10,
+        "charts": 0
+      },
+      "candidates": 56,
+      "helpIds": [
+        "...",
+        "acoes-tab-abertas",
+        "acoes-tab-gerencial",
+        "acoes-tab-historico",
+        "acoes-tab-nova"
+      ],
+      "helpCount": 5
+    },
+    {
+      "route": "/[projectId]/acoes/resumo-semanal/[digestId]",
+      "page": "apps/web/app/[projectId]/acoes/resumo-semanal/[digestId]/page.tsx",
+      "files": 11,
+      "counts": {
+        "tabs": 0,
+        "buttons": 4,
+        "fields": 7,
+        "tableHeads": 0,
+        "forms": 1,
+        "labels": 4,
+        "charts": 0
+      },
+      "candidates": 12,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/[projectId]/action-requests/[actionRequestId]",
+      "page": "apps/web/app/[projectId]/action-requests/[actionRequestId]/page.tsx",
+      "files": 7,
+      "counts": {
+        "tabs": 0,
+        "buttons": 3,
+        "fields": 5,
+        "tableHeads": 0,
+        "forms": 1,
+        "labels": 3,
+        "charts": 0
+      },
+      "candidates": 9,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/[projectId]/action-requests",
+      "page": "apps/web/app/[projectId]/action-requests/page.tsx",
+      "files": 8,
+      "counts": {
+        "tabs": 0,
+        "buttons": 2,
+        "fields": 0,
+        "tableHeads": 0,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 2,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/[projectId]/adicionais/[proposalId]",
+      "page": "apps/web/app/[projectId]/adicionais/[proposalId]/page.tsx",
+      "files": 1,
+      "counts": {
+        "tabs": 0,
+        "buttons": 0,
+        "fields": 0,
+        "tableHeads": 0,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 0,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/adicionais",
+      "page": "apps/web/app/[projectId]/adicionais/page.tsx",
+      "files": 1,
+      "counts": {
+        "tabs": 0,
+        "buttons": 0,
+        "fields": 0,
+        "tableHeads": 0,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 0,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/ajuda",
+      "page": "apps/web/app/[projectId]/ajuda/page.tsx",
+      "files": 3,
+      "counts": {
+        "tabs": 0,
+        "buttons": 0,
+        "fields": 0,
+        "tableHeads": 0,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 0,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/alertas/[caseId]",
+      "page": "apps/web/app/[projectId]/alertas/[caseId]/page.tsx",
+      "files": 16,
+      "counts": {
+        "tabs": 0,
+        "buttons": 9,
+        "fields": 26,
+        "tableHeads": 0,
+        "forms": 3,
+        "labels": 13,
+        "charts": 0
+      },
+      "candidates": 38,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/[projectId]/auditoria",
+      "page": "apps/web/app/[projectId]/auditoria/page.tsx",
+      "files": 5,
+      "counts": {
+        "tabs": 0,
+        "buttons": 0,
+        "fields": 0,
+        "tableHeads": 6,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 6,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/autorizacoes",
+      "page": "apps/web/app/[projectId]/autorizacoes/page.tsx",
+      "files": 6,
+      "counts": {
+        "tabs": 0,
+        "buttons": 4,
+        "fields": 7,
+        "tableHeads": 6,
+        "forms": 2,
+        "labels": 3,
+        "charts": 0
+      },
+      "candidates": 19,
+      "helpIds": [
+        "...",
+        "autorizacoes-email"
+      ],
+      "helpCount": 2
+    },
+    {
+      "route": "/[projectId]/dashboard",
+      "page": "apps/web/app/[projectId]/dashboard/page.tsx",
+      "files": 1,
+      "counts": {
+        "tabs": 0,
+        "buttons": 0,
+        "fields": 0,
+        "tableHeads": 0,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 0,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/dashboard/visual",
+      "page": "apps/web/app/[projectId]/dashboard/visual/page.tsx",
+      "files": 1,
+      "counts": {
+        "tabs": 0,
+        "buttons": 0,
+        "fields": 0,
+        "tableHeads": 0,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 0,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/documentos/emails/[emailId]/anexos/[attachmentId]",
+      "page": "apps/web/app/[projectId]/documentos/emails/[emailId]/anexos/[attachmentId]/page.tsx",
+      "files": 5,
+      "counts": {
+        "tabs": 0,
+        "buttons": 2,
+        "fields": 0,
+        "tableHeads": 0,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 2,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/documentos/emails/[emailId]",
+      "page": "apps/web/app/[projectId]/documentos/emails/[emailId]/page.tsx",
+      "files": 16,
+      "counts": {
+        "tabs": 0,
+        "buttons": 8,
+        "fields": 45,
+        "tableHeads": 32,
+        "forms": 7,
+        "labels": 27,
+        "charts": 2
+      },
+      "candidates": 92,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/documentos",
+      "page": "apps/web/app/[projectId]/documentos/page.tsx",
+      "files": 41,
+      "counts": {
+        "tabs": 5,
+        "buttons": 39,
+        "fields": 71,
+        "tableHeads": 11,
+        "forms": 9,
+        "labels": 38,
+        "charts": 1
+      },
+      "candidates": 135,
+      "helpIds": [
+        "...",
+        "anexos-considerado",
+        "anexos-incorporado",
+        "documentos-tab-anexos-email",
+        "documentos-tab-clausulas",
+        "documentos-tab-cronograma",
+        "documentos-tab-documentos",
+        "documentos-tab-registro-email"
+      ],
+      "helpCount": 8
+    },
+    {
+      "route": "/[projectId]/documentos/versoes/[documentVersionId]",
+      "page": "apps/web/app/[projectId]/documentos/versoes/[documentVersionId]/page.tsx",
+      "files": 6,
+      "counts": {
+        "tabs": 0,
+        "buttons": 2,
+        "fields": 0,
+        "tableHeads": 0,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 2,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/esg",
+      "page": "apps/web/app/[projectId]/esg/page.tsx",
+      "files": 21,
+      "counts": {
+        "tabs": 4,
+        "buttons": 9,
+        "fields": 39,
+        "tableHeads": 6,
+        "forms": 4,
+        "labels": 22,
+        "charts": 0
+      },
+      "candidates": 62,
+      "helpIds": [
+        "...",
+        "esg-tab-checklist",
+        "esg-tab-consultar",
+        "esg-tab-gerencial",
+        "esg-tab-pendencias"
+      ],
+      "helpCount": 5
+    },
+    {
+      "route": "/[projectId]/experts-ia/descricao",
+      "page": "apps/web/app/[projectId]/experts-ia/descricao/page.tsx",
+      "files": 5,
+      "counts": {
+        "tabs": 0,
+        "buttons": 1,
+        "fields": 0,
+        "tableHeads": 0,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 1,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/experts-ia/diretor-engenharia",
+      "page": "apps/web/app/[projectId]/experts-ia/diretor-engenharia/page.tsx",
+      "files": 12,
+      "counts": {
+        "tabs": 0,
+        "buttons": 5,
+        "fields": 5,
+        "tableHeads": 0,
+        "forms": 1,
+        "labels": 1,
+        "charts": 0
+      },
+      "candidates": 11,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/[projectId]/experts-ia/diretor-planejamento",
+      "page": "apps/web/app/[projectId]/experts-ia/diretor-planejamento/page.tsx",
+      "files": 12,
+      "counts": {
+        "tabs": 0,
+        "buttons": 5,
+        "fields": 5,
+        "tableHeads": 0,
+        "forms": 1,
+        "labels": 1,
+        "charts": 0
+      },
+      "candidates": 11,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/[projectId]/experts-ia",
+      "page": "apps/web/app/[projectId]/experts-ia/page.tsx",
+      "files": 8,
+      "counts": {
+        "tabs": 0,
+        "buttons": 3,
+        "fields": 0,
+        "tableHeads": 0,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 3,
+      "helpIds": [
+        "...",
+        "expert-${expert.expertId}"
+      ],
+      "helpCount": 2
+    },
+    {
+      "route": "/[projectId]/financeiro",
+      "page": "apps/web/app/[projectId]/financeiro/page.tsx",
+      "files": 11,
+      "counts": {
+        "tabs": 0,
+        "buttons": 4,
+        "fields": 19,
+        "tableHeads": 16,
+        "forms": 3,
+        "labels": 11,
+        "charts": 1
+      },
+      "candidates": 42,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/integracoes/caixas",
+      "page": "apps/web/app/[projectId]/integracoes/caixas/page.tsx",
+      "files": 3,
+      "counts": {
+        "tabs": 0,
+        "buttons": 4,
+        "fields": 7,
+        "tableHeads": 8,
+        "forms": 4,
+        "labels": 3,
+        "charts": 0
+      },
+      "candidates": 23,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/integracoes",
+      "page": "apps/web/app/[projectId]/integracoes/page.tsx",
+      "files": 32,
+      "counts": {
+        "tabs": 0,
+        "buttons": 20,
+        "fields": 47,
+        "tableHeads": 4,
+        "forms": 11,
+        "labels": 23,
+        "charts": 0
+      },
+      "candidates": 82,
+      "helpIds": [
+        "...",
+        "drive-type",
+        "esg-ssma-source",
+        "gmail-account-connected",
+        "gmail-add-account",
+        "gmail-client-domain",
+        "gmail-include-attachments",
+        "gmail-incremental-sync",
+        "gmail-ingestion-period",
+        "gmail-participant-monitored",
+        "gmail-prefilled-fields",
+        "gmail-sync-progress",
+        "integration-origin"
+      ],
+      "helpCount": 13
+    },
+    {
+      "route": "/[projectId]/juridico/consulta/[consultationId]",
+      "page": "apps/web/app/[projectId]/juridico/consulta/[consultationId]/page.tsx",
+      "files": 13,
+      "counts": {
+        "tabs": 0,
+        "buttons": 8,
+        "fields": 5,
+        "tableHeads": 0,
+        "forms": 1,
+        "labels": 1,
+        "charts": 0
+      },
+      "candidates": 14,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/[projectId]/juridico",
+      "page": "apps/web/app/[projectId]/juridico/page.tsx",
+      "files": 17,
+      "counts": {
+        "tabs": 0,
+        "buttons": 13,
+        "fields": 9,
+        "tableHeads": 0,
+        "forms": 2,
+        "labels": 3,
+        "charts": 0
+      },
+      "candidates": 24,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/[projectId]/ledger/[eventId]",
+      "page": "apps/web/app/[projectId]/ledger/[eventId]/page.tsx",
+      "files": 26,
+      "counts": {
+        "tabs": 0,
+        "buttons": 15,
+        "fields": 42,
+        "tableHeads": 0,
+        "forms": 9,
+        "labels": 15,
+        "charts": 0
+      },
+      "candidates": 66,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/[projectId]/ledger/lote-alertas/[batchId]",
+      "page": "apps/web/app/[projectId]/ledger/lote-alertas/[batchId]/page.tsx",
+      "files": 11,
+      "counts": {
+        "tabs": 0,
+        "buttons": 5,
+        "fields": 4,
+        "tableHeads": 0,
+        "forms": 1,
+        "labels": 2,
+        "charts": 0
+      },
+      "candidates": 10,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/[projectId]/ledger",
+      "page": "apps/web/app/[projectId]/ledger/page.tsx",
+      "files": 10,
+      "counts": {
+        "tabs": 0,
+        "buttons": 2,
+        "fields": 0,
+        "tableHeads": 7,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 9,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/[projectId]/providencias",
+      "page": "apps/web/app/[projectId]/providencias/page.tsx",
+      "files": 12,
+      "counts": {
+        "tabs": 0,
+        "buttons": 6,
+        "fields": 27,
+        "tableHeads": 9,
+        "forms": 5,
+        "labels": 23,
+        "charts": 0
+      },
+      "candidates": 47,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/reemissao-alertas",
+      "page": "apps/web/app/[projectId]/reemissao-alertas/page.tsx",
+      "files": 9,
+      "counts": {
+        "tabs": 0,
+        "buttons": 4,
+        "fields": 4,
+        "tableHeads": 8,
+        "forms": 1,
+        "labels": 2,
+        "charts": 0
+      },
+      "candidates": 17,
+      "helpIds": [
+        "...",
+        "reemissao-alertas"
+      ],
+      "helpCount": 2
+    },
+    {
+      "route": "/[projectId]/revisao-clausulas",
+      "page": "apps/web/app/[projectId]/revisao-clausulas/page.tsx",
+      "files": 4,
+      "counts": {
+        "tabs": 0,
+        "buttons": 4,
+        "fields": 18,
+        "tableHeads": 0,
+        "forms": 3,
+        "labels": 9,
+        "charts": 0
+      },
+      "candidates": 25,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/revisao-contratual",
+      "page": "apps/web/app/[projectId]/revisao-contratual/page.tsx",
+      "files": 10,
+      "counts": {
+        "tabs": 0,
+        "buttons": 5,
+        "fields": 7,
+        "tableHeads": 0,
+        "forms": 2,
+        "labels": 3,
+        "charts": 0
+      },
+      "candidates": 14,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/[projectId]/ssma-avaliacao",
+      "page": "apps/web/app/[projectId]/ssma-avaliacao/page.tsx",
+      "files": 4,
+      "counts": {
+        "tabs": 0,
+        "buttons": 4,
+        "fields": 4,
+        "tableHeads": 0,
+        "forms": 1,
+        "labels": 4,
+        "charts": 0
+      },
+      "candidates": 9,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/ssma-registros",
+      "page": "apps/web/app/[projectId]/ssma-registros/page.tsx",
+      "files": 8,
+      "counts": {
+        "tabs": 0,
+        "buttons": 5,
+        "fields": 6,
+        "tableHeads": 1,
+        "forms": 2,
+        "labels": 2,
+        "charts": 0
+      },
+      "candidates": 14,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/startup",
+      "page": "apps/web/app/[projectId]/startup/page.tsx",
+      "files": 4,
+      "counts": {
+        "tabs": 0,
+        "buttons": 1,
+        "fields": 1,
+        "tableHeads": 0,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 2,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/[projectId]/timeline",
+      "page": "apps/web/app/[projectId]/timeline/page.tsx",
+      "files": 14,
+      "counts": {
+        "tabs": 0,
+        "buttons": 6,
+        "fields": 9,
+        "tableHeads": 0,
+        "forms": 0,
+        "labels": 8,
+        "charts": 0
+      },
+      "candidates": 15,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/[projectId]/usuarios",
+      "page": "apps/web/app/[projectId]/usuarios/page.tsx",
+      "files": 23,
+      "counts": {
+        "tabs": 0,
+        "buttons": 24,
+        "fields": 58,
+        "tableHeads": 21,
+        "forms": 13,
+        "labels": 21,
+        "charts": 0
+      },
+      "candidates": 116,
+      "helpIds": [
+        "...",
+        "sla-config-matriz-prazos",
+        "sla-config-responsaveis",
+        "sla-config-timezone"
+      ],
+      "helpCount": 4
+    },
+    {
+      "route": "/alertas/acao/[projectId]/[batchId]/[eventId]",
+      "page": "apps/web/app/alertas/acao/[projectId]/[batchId]/[eventId]/page.tsx",
+      "files": 6,
+      "counts": {
+        "tabs": 0,
+        "buttons": 2,
+        "fields": 3,
+        "tableHeads": 0,
+        "forms": 1,
+        "labels": 1,
+        "charts": 0
+      },
+      "candidates": 6,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/alertas/consulta-ia/[projectId]/[subject]/[id]",
+      "page": "apps/web/app/alertas/consulta-ia/[projectId]/[subject]/[id]/page.tsx",
+      "files": 12,
+      "counts": {
+        "tabs": 0,
+        "buttons": 6,
+        "fields": 10,
+        "tableHeads": 0,
+        "forms": 2,
+        "labels": 3,
+        "charts": 0
+      },
+      "candidates": 18,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/alertas/lote/[projectId]/[batchId]",
+      "page": "apps/web/app/alertas/lote/[projectId]/[batchId]/page.tsx",
+      "files": 11,
+      "counts": {
+        "tabs": 0,
+        "buttons": 5,
+        "fields": 4,
+        "tableHeads": 0,
+        "forms": 1,
+        "labels": 2,
+        "charts": 0
+      },
+      "candidates": 10,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/alertas/providencia/[projectId]/[itemId]",
+      "page": "apps/web/app/alertas/providencia/[projectId]/[itemId]/page.tsx",
+      "files": 8,
+      "counts": {
+        "tabs": 0,
+        "buttons": 2,
+        "fields": 6,
+        "tableHeads": 0,
+        "forms": 1,
+        "labels": 3,
+        "charts": 0
+      },
+      "candidates": 9,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/autorizacao-email/[authorizationId]",
+      "page": "apps/web/app/autorizacao-email/[authorizationId]/page.tsx",
+      "files": 5,
+      "counts": {
+        "tabs": 0,
+        "buttons": 10,
+        "fields": 9,
+        "tableHeads": 0,
+        "forms": 3,
+        "labels": 4,
+        "charts": 0
+      },
+      "candidates": 22,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/email-actions/[token]",
+      "page": "apps/web/app/email-actions/[token]/page.tsx",
+      "files": 6,
+      "counts": {
+        "tabs": 0,
+        "buttons": 2,
+        "fields": 5,
+        "tableHeads": 0,
+        "forms": 1,
+        "labels": 3,
+        "charts": 0
+      },
+      "candidates": 8,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/juridico",
+      "page": "apps/web/app/juridico/page.tsx",
+      "files": 12,
+      "counts": {
+        "tabs": 0,
+        "buttons": 12,
+        "fields": 7,
+        "tableHeads": 0,
+        "forms": 1,
+        "labels": 1,
+        "charts": 0
+      },
+      "candidates": 20,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/login",
+      "page": "apps/web/app/login/page.tsx",
+      "files": 5,
+      "counts": {
+        "tabs": 0,
+        "buttons": 2,
+        "fields": 0,
+        "tableHeads": 0,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 2,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/",
+      "page": "apps/web/app/page.tsx",
+      "files": 1,
+      "counts": {
+        "tabs": 0,
+        "buttons": 0,
+        "fields": 0,
+        "tableHeads": 0,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 0,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/projetos/[projectId]/copiar-estrutura",
+      "page": "apps/web/app/projetos/[projectId]/copiar-estrutura/page.tsx",
+      "files": 7,
+      "counts": {
+        "tabs": 0,
+        "buttons": 12,
+        "fields": 9,
+        "tableHeads": 5,
+        "forms": 0,
+        "labels": 6,
+        "charts": 0
+      },
+      "candidates": 26,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/projetos/[projectId]/editar",
+      "page": "apps/web/app/projetos/[projectId]/editar/page.tsx",
+      "files": 6,
+      "counts": {
+        "tabs": 0,
+        "buttons": 2,
+        "fields": 10,
+        "tableHeads": 0,
+        "forms": 1,
+        "labels": 7,
+        "charts": 0
+      },
+      "candidates": 13,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/projetos/novo",
+      "page": "apps/web/app/projetos/novo/page.tsx",
+      "files": 6,
+      "counts": {
+        "tabs": 0,
+        "buttons": 2,
+        "fields": 8,
+        "tableHeads": 0,
+        "forms": 1,
+        "labels": 7,
+        "charts": 0
+      },
+      "candidates": 11,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/projetos",
+      "page": "apps/web/app/projetos/page.tsx",
+      "files": 9,
+      "counts": {
+        "tabs": 0,
+        "buttons": 10,
+        "fields": 2,
+        "tableHeads": 0,
+        "forms": 2,
+        "labels": 1,
+        "charts": 0
+      },
+      "candidates": 14,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/ssma/[projectId]",
+      "page": "apps/web/app/ssma/[projectId]/page.tsx",
+      "files": 23,
+      "counts": {
+        "tabs": 0,
+        "buttons": 50,
+        "fields": 36,
+        "tableHeads": 0,
+        "forms": 7,
+        "labels": 17,
+        "charts": 0
+      },
+      "candidates": 93,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/ssma/offline",
+      "page": "apps/web/app/ssma/offline/page.tsx",
+      "files": 23,
+      "counts": {
+        "tabs": 0,
+        "buttons": 41,
+        "fields": 30,
+        "tableHeads": 0,
+        "forms": 6,
+        "labels": 13,
+        "charts": 0
+      },
+      "candidates": 77,
+      "helpIds": [
+        "..."
+      ],
+      "helpCount": 1
+    },
+    {
+      "route": "/ssma",
+      "page": "apps/web/app/ssma/page.tsx",
+      "files": 7,
+      "counts": {
+        "tabs": 0,
+        "buttons": 10,
+        "fields": 2,
+        "tableHeads": 0,
+        "forms": 1,
+        "labels": 1,
+        "charts": 0
+      },
+      "candidates": 13,
+      "helpIds": [],
+      "helpCount": 0
+    },
+    {
+      "route": "/vera",
+      "page": "apps/web/app/vera/page.tsx",
+      "files": 2,
+      "counts": {
+        "tabs": 0,
+        "buttons": 0,
+        "fields": 0,
+        "tableHeads": 0,
+        "forms": 0,
+        "labels": 0,
+        "charts": 0
+      },
+      "candidates": 0,
+      "helpIds": [],
+      "helpCount": 0
+    }
+  ]
+}
