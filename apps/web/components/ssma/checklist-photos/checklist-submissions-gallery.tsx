@@ -29,6 +29,7 @@ function Thumbnail({ photo, onOpen }: { photo: ChecklistPhotoView; onOpen: (phot
     );
   }
   return (
+    // help-exempt: miniatura que amplia a foto (aria-label Ampliar); galeria descrita em ssma.registros.checklists-enviados
     <button
       type="button"
       onClick={(event) => onOpen(photo, event.currentTarget)}
@@ -121,6 +122,7 @@ export function ChecklistSubmissionsGallery({ submissions }: { submissions: Chec
           <div className="flex max-h-[90vh] flex-col">
             <div className="flex items-center justify-between gap-2 border-b p-2">
               <p className="min-w-0 truncate text-sm font-semibold">{current.alt}</p>
+              {/* help-exempt: botão Fechar do visualizador de foto, de rótulo autoexplicativo */}
               <button
                 ref={closeRef}
                 type="button"

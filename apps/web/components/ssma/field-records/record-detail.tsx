@@ -273,11 +273,13 @@ export function RecordDetail({
               </div>
               <label className="block text-sm font-bold text-slate-900">
                 {event === "ANDAMENTO" ? "O que foi feito *" : canManage && !isResponsible ? "Justificativa (se não houver foto)" : "Observação"}
+                {/* help-exempt: campo de observação do andamento ou da conclusão; descrito em ssma.registro.andamento-conclusao */}
                 <textarea value={note} onChange={(item) => setNote(item.target.value)} rows={3} className="mt-1 block w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-2 text-base outline-none focus:border-[#7f1d1d]" />
               </label>
               {event === "CONCLUIDA" ? (
                 <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-[#7f1d1d] bg-white px-3 text-sm font-bold uppercase text-red-700">
                   <Camera className="size-5" /> {file ? file.name : "Foto de evidência"}
+                  {/* help-exempt: foto de evidência da conclusão; descrita em ssma.registro.andamento-conclusao */}
                   <input type="file" accept="image/jpeg,image/png" capture="environment" className="sr-only" onChange={(item) => setFile(item.target.files?.[0] ?? null)} />
                 </label>
               ) : null}
@@ -290,6 +292,7 @@ export function RecordDetail({
               {done ? (
                 <p className="flex items-center gap-1 text-sm font-bold text-green-700"><CheckCircle2 className="size-4" /> {done}</p>
               ) : null}
+              {/* help-exempt: botão Registrar andamento ou Concluir; descrito em ssma.registro.andamento-conclusao */}
               <button type="submit" disabled={busy || !online} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#7f1d1d] px-4 font-bold uppercase text-white disabled:opacity-60">
                 {busy ? <Loader2 className="size-5 animate-spin" /> : <Clock className="size-5" />} {event === "ANDAMENTO" ? "Registrar andamento" : "Concluir"}
               </button>
@@ -315,10 +318,12 @@ export function RecordDetail({
               </label>
               <label className="block text-sm font-bold text-slate-900">
                 Motivo {canManage ? "(opcional para administrador)" : "*"}
+                {/* help-exempt: campo Motivo do encaminhamento; descrito em ssma.registro.encaminhar */}
                 <textarea value={forwardReason} onChange={(item) => setForwardReason(item.target.value)} rows={2} required={!canManage} minLength={canManage ? undefined : 5} className="mt-1 block w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-2 text-base outline-none focus:border-[#7f1d1d]" />
               </label>
               <p className="text-xs font-medium text-slate-600">O prazo original, o status e as evidências não mudam; o histórico registra quem encaminhou e o motivo.</p>
               {forwardError ? <p role="alert" className="text-sm font-bold text-red-700">{forwardError}</p> : null}
+              {/* help-exempt: botão Encaminhar; descrito em ssma.registro.encaminhar */}
               <button type="submit" disabled={forwardBusy || !online || !forwardTo} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-[#7f1d1d] bg-white px-4 font-bold uppercase text-red-700 disabled:opacity-60">
                 {forwardBusy ? <Loader2 className="size-5 animate-spin" /> : null} Encaminhar
               </button>

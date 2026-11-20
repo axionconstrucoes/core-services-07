@@ -8,6 +8,7 @@ import { BookOpen, Send, X } from "lucide-react";
 import type { AssistantAnswer } from "@/lib/assistant/answer";
 import { ASSISTANT_QUESTION_MAX_LENGTH } from "@/lib/assistant/limits";
 import { NOT_ANSWERED_LABEL } from "@/lib/assistant/qa-handoff";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { AssistantVoiceControls } from "./assistant-voice-controls";
 import { VERA_CONTEXTS, VERA_OPEN_EVENT, type VeraContext, type VeraOpenDetail } from "./vera-events";
 
@@ -268,6 +269,7 @@ export function AssistantWidget({ projectId }: { projectId: string | null }) {
           </p>
           <p className="text-xs leading-tight text-white/80">Ajuda com o ACC</p>
         </div>
+        <FeatureInfo helpId="integracoes.axia.conversa" iconClassName="text-white/90 hover:text-white" />
         <button type="button" onClick={closeBox} aria-label="Fechar a AXIA" className="flex size-11 items-center justify-center rounded-md hover:bg-white/15">
           <X className="size-5" />
         </button>
@@ -279,6 +281,7 @@ export function AssistantWidget({ projectId }: { projectId: string | null }) {
             <p>Olá! Sou a AXIA, a assistente do ACC. Pergunte como usar o sistema — documentos, alertas, providências, SSMA ou a autorização de e-mails.</p>
             <div className="flex flex-wrap gap-2">
               {SUGGESTIONS[context].map((suggestion) => (
+                // help-exempt: pergunta sugerida; atalho descrito em integracoes.axia.sugestoes (ícone ao lado da lista)
                 <button
                   key={suggestion}
                   type="button"
@@ -288,6 +291,7 @@ export function AssistantWidget({ projectId }: { projectId: string | null }) {
                   {suggestion}
                 </button>
               ))}
+              <FeatureInfo helpId="integracoes.axia.sugestoes" />
             </div>
           </div>
         ) : null}
@@ -359,14 +363,17 @@ export function AssistantWidget({ projectId }: { projectId: string | null }) {
                     </p>
                   ) : null}
                   {turn.answer.coverage === "completa" && !turn.notAnswered && turn.answer.kind !== "clarify" ? (
-                    <button
-                      type="button"
-                      data-axia-nao-respondeu
-                      onClick={() => setTurns((current) => current.map((item, i) => (i === index ? { ...item, notAnswered: true } : item)))}
-                      className="min-h-8 rounded-md border border-gray-400 px-2 py-1 text-xs text-[#000000] hover:bg-gray-100"
-                    >
-                      {NOT_ANSWERED_LABEL}
-                    </button>
+                    <span className="inline-flex items-center gap-1">
+                      <button
+                        type="button"
+                        data-axia-nao-respondeu
+                        onClick={() => setTurns((current) => current.map((item, i) => (i === index ? { ...item, notAnswered: true } : item)))}
+                        className="min-h-8 rounded-md border border-gray-400 px-2 py-1 text-xs text-[#000000] hover:bg-gray-100"
+                      >
+                        {NOT_ANSWERED_LABEL}
+                      </button>
+                      <FeatureInfo helpId="integracoes.axia.nao-respondeu" />
+                    </span>
                   ) : null}
                 </>
               )}
@@ -402,6 +409,7 @@ export function AssistantWidget({ projectId }: { projectId: string | null }) {
           onStop={stopAudio}
         />
 
+        {/* help-exempt: campo de pergunta da AXIA; descrito em integracoes.axia.pergunta (ícone ao lado do botão Enviar) */}
         <form
           onSubmit={(event) => {
             event.preventDefault();
@@ -409,6 +417,7 @@ export function AssistantWidget({ projectId }: { projectId: string | null }) {
           }}
           className="flex items-center gap-2"
         >
+          {/* help-exempt: botão Enviar pergunta; descrito em integracoes.axia.pergunta (ícone ao lado do botão) */}
           <input
             ref={inputRef}
             value={input}
@@ -426,6 +435,7 @@ export function AssistantWidget({ projectId }: { projectId: string | null }) {
           >
             <Send className="size-4" />
           </button>
+          <FeatureInfo helpId="integracoes.axia.pergunta" />
         </form>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">

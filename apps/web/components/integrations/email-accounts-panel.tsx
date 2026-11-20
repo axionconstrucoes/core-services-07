@@ -67,15 +67,18 @@ function RegisterAccountForm({ projectId, onCancel }: { projectId: string; onCan
       <div className="grid gap-2 md:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm font-medium">
           Endereço @axion.com.br
+          {/* help-exempt: campo do endereço @axion.com.br; descrito em gmail-add-account (ícone ao lado de Adicionar conta) */}
           <Input name="emailAddress" type="email" required placeholder="nome@axion.com.br" pattern=".+@axion\.com\.br" />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium">
           Nome de exibição (opcional)
+          {/* help-exempt: campo opcional do nome de exibição; descrito em gmail-add-account */}
           <Input name="displayName" />
         </label>
       </div>
       {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
       <div className="flex gap-2">
+        {/* help-exempt: botão Registrar conta; fluxo descrito em gmail-add-account */}
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Registrando…" : "Registrar conta"}
         </Button>

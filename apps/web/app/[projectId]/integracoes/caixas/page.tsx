@@ -177,8 +177,10 @@ export default async function MailboxAdminPage({
           <table className="w-full min-w-[1100px] text-left text-xs">
             <thead className="uppercase text-gray-500">
               <tr>
+                {/* help-exempt: coluna de identificação da caixa e do responsável; a tabela inteira é descrita em integracoes.caixas.tabela */}
                 <th className="py-2 pr-2">Caixa / responsável</th>
                 {rows[0]?.stages.map((stage) => (
+                  // help-exempt: cabeçalho de cada etapa; estados e evidências descritos em integracoes.caixas.estado-etapa e integracoes.caixas.evidencia-etapa
                   <th key={stage.key} className="py-2 pr-2">
                     {stage.key === "habilitada" ? (
                       <span className="inline-flex items-center gap-1.5">

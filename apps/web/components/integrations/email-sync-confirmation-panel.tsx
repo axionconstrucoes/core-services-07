@@ -81,6 +81,7 @@ export function EmailSyncConfirmationPanel({
           <form action={formAction}>
             <input type="hidden" name="projectId" value={projectId} />
             <input type="hidden" name="configId" value={configId} />
+            {/* help-exempt: botão Confirmar sincronização; fluxo descrito em integracoes.integracoes.email-previa */}
             <Button type="submit" disabled={pending}>
               {pending ? "Confirmando…" : "Confirmar sincronização"}
             </Button>

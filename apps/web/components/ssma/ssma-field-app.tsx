@@ -164,6 +164,7 @@ function PhotoUploadPanel({
 
   return (
     <section className="space-y-3 rounded-lg border-2 border-slate-300 bg-slate-50 p-3">
+      {/* help-exempt: entrada de arquivo oculta das fotos do formulário; descrita em ssma.form.fotos */}
       <input
         ref={inputRef}
         type="file"
@@ -177,6 +178,7 @@ function PhotoUploadPanel({
 
       <div className="grid gap-2 sm:grid-cols-2">
         {actions.map((action) => (
+          // help-exempt: botão de captura de foto por categoria; descrito em ssma.form.fotos
           <button
             key={action}
             type="button"
@@ -189,6 +191,7 @@ function PhotoUploadPanel({
         ))}
       </div>
 
+      {/* help-exempt: botão de captura de foto; descrito em ssma.form.fotos */}
       <button
         type="button"
         disabled={disabled}
@@ -220,6 +223,7 @@ function PhotoUploadPanel({
                   <p className="truncate text-[11px] font-semibold text-red-700">{photo.action}</p>
                   <p className="text-[11px] text-slate-500">{formatBytes(photo.file.size)}</p>
                 </div>
+                {/* help-exempt: botão que remove uma foto selecionada antes do envio; descrito em ssma.form.fotos */}
                 <button
                   type="button"
                   disabled={disabled}
@@ -289,11 +293,13 @@ function DynamicField({ field, inputId }: { field: SsmaFieldDefinition; inputId:
   const className = "mt-1 block min-h-12 w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-3 text-base outline-none focus:border-[#7f1d1d]";
 
   if (field.type === "textarea") {
+    // help-exempt: campo de texto longo montado a partir da definição do formulário; o rótulo de cada campo traz o ícone com o helpId próprio
     return <textarea id={inputId} name={field.id} placeholder={field.placeholder} rows={3} required={field.required} className={className} />;
   }
 
   if (field.type === "select") {
     return (
+      // help-exempt: campo de seleção montado a partir da definição do formulário; o rótulo de cada campo traz o ícone com o helpId próprio
       <select id={inputId} name={field.id} defaultValue="" required={field.required} className={className}>
         <option value="" disabled>
           Selecione
@@ -307,6 +313,7 @@ function DynamicField({ field, inputId }: { field: SsmaFieldDefinition; inputId:
     );
   }
 
+  // help-exempt: campo montado a partir da definição do formulário; o rótulo de cada campo traz o ícone com o helpId próprio
   return <input id={inputId} name={field.id} type={field.type} placeholder={field.placeholder} required={field.required} className={className} />;
 }
 
@@ -366,6 +373,7 @@ function ChecklistForm({
           {confirmation.warning ? (
             <p role="alert" className="rounded-lg border-2 border-amber-700 bg-amber-50 p-3 text-left text-sm font-bold text-amber-950">{confirmation.warning}</p>
           ) : null}
+          {/* help-exempt: botão Voltar ao início da confirmação de envio, de rótulo autoexplicativo */}
           <button type="button" onClick={() => onComplete(definition.slug, confirmation.day)} className="flex min-h-14 w-full items-center justify-center rounded-lg bg-[#7f1d1d] px-4 text-base font-bold uppercase text-white">
             Voltar ao início
           </button>
@@ -656,6 +664,7 @@ function ChecklistForm({
           </p>
         ) : null}
 
+        {/* help-exempt: botão de envio do formulário; descrito em ssma.form.enviar */}
         <button
           type="submit"
           disabled={!allChecksAnswered || !allRequiredPhotosSelected || submitting || !isAuthorizedProject(projects, projectId)}
@@ -835,6 +844,7 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
                 ? "border-[#3e2723] bg-[#4E342E] hover:bg-[#3e2723]"
                 : "border-[#052e16] bg-[#14532d] hover:bg-[#0f3f22]";
           return (
+            // help-exempt: cartão de cada formulário na tela inicial; descrito em ssma.app.checklist-hoje, relatorios-diarios e relatorios-avulsos
             <button
               key={definition.slug}
               type="button"

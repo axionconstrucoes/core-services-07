@@ -1,5 +1,7 @@
 import { Square, Volume2 } from "lucide-react";
 
+import { FeatureInfo } from "@/components/shared/feature-info";
+
 // Controles de voz da AXIA (seletor, "Ouvir resposta", "Parar"). Componente de apresentação, sem estado,
 // para que o teste de renderização (scripts/test-assistant-render.mjs) verifique o HTML de verdade.
 // Fase 1: a AXIA responde só por texto. Com a voz indisponível (ELEVENLABS_ENABLED != "true", sem chave
@@ -36,6 +38,7 @@ export function AssistantVoiceControls(props: AssistantVoiceControlsProps) {
         <label htmlFor="assistente-voz" className="text-xs font-semibold text-gray-700">
           Voz
         </label>
+        <FeatureInfo helpId="integracoes.axia.voz" />
         <select
           id="assistente-voz"
           value={voiceId}
@@ -49,6 +52,7 @@ export function AssistantVoiceControls(props: AssistantVoiceControlsProps) {
             </option>
           ))}
         </select>
+        {/* help-exempt: botão Ouvir resposta do conjunto de voz; descrito em integracoes.axia.voz (ícone ao lado do rótulo Voz) */}
         <button
           type="button"
           onClick={onListen}
@@ -58,6 +62,7 @@ export function AssistantVoiceControls(props: AssistantVoiceControlsProps) {
           <Volume2 className="size-4" />
           {loading ? "Preparando…" : "Ouvir resposta"}
         </button>
+        {/* help-exempt: botão Parar do conjunto de voz; descrito em integracoes.axia.voz (ícone ao lado do rótulo Voz) */}
         <button
           type="button"
           onClick={onStop}

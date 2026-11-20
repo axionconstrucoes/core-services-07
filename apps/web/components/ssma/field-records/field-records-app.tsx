@@ -261,14 +261,17 @@ export function FieldRecordsApp({
             {!offlineShell && !loadingServer && !serverError && serverRecords.length === 0 ? <p className="rounded-lg bg-white p-3 text-sm text-slate-600">Nenhum registro enviado ainda.</p> : null}
             {!offlineShell && serverRecords.length > 0 ? (
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-white p-3 shadow-sm" aria-label="Filtros dos registros">
+                {/* help-exempt: filtro Categoria da lista de registros; descrito em ssma.registro.filtros */}
                 <select aria-label="Categoria" value={fCategory} onChange={(e) => setFCategory(e.target.value)} className="min-h-11 rounded border border-slate-400 px-2 text-sm">
                   <option value="">Todas as categorias</option>
                   {FIELD_RECORD_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
+                {/* help-exempt: filtro Tipo da lista de registros; descrito em ssma.registro.filtros */}
                 <select aria-label="Tipo" value={fKind} onChange={(e) => setFKind(e.target.value)} className="min-h-11 rounded border border-slate-400 px-2 text-sm">
                   <option value="">Ocorrência e inspeção</option>
                   {FIELD_RECORD_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
                 </select>
+                {/* help-exempt: filtro Risco da lista de registros; descrito em ssma.registro.filtros */}
                 <select aria-label="Risco" value={fRisk} onChange={(e) => setFRisk(e.target.value)} className="min-h-11 rounded border border-slate-400 px-2 text-sm">
                   <option value="">Todos os riscos</option>
                   {FIELD_RECORD_RISKS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
@@ -340,6 +343,7 @@ function ServerRow({ record, notice, onOpen }: { record: FieldRecordView; notice
   const today = new Date().toISOString().slice(0, 10);
   const overdue = isActionOverdue(record.action, today);
   return (
+    // help-exempt: cartão clicável que abre o detalhe do registro; lista descrita em ssma.registro.lista
     <button type="button" onClick={onOpen} className="block w-full rounded-xl bg-white p-3 text-left shadow-sm hover:ring-2 hover:ring-[#7f1d1d]/40">
       <div className="flex items-start justify-between gap-2">
         <p className="min-w-0 flex-1 text-sm font-bold text-slate-900">{record.category} · {record.location}</p>
@@ -442,6 +446,7 @@ function SyncView({
               <button type="button" onClick={() => setConfirmPurge(false)} className="min-h-11 flex-1 rounded-lg border-2 border-slate-300 bg-white px-3 text-sm font-bold uppercase text-slate-700">Manter</button>
             </div>
           ) : (
+            // help-exempt: botão que abre a confirmação de remover registros de outras contas; descrito em ssma.sync.outras-contas
             <button type="button" onClick={() => setConfirmPurge(true)} className="flex min-h-11 items-center text-left text-xs font-bold text-red-700 underline">Remover os registros de outras contas deste aparelho…</button>
           )}
         </section>
@@ -483,6 +488,7 @@ function ProfileView({
         <p className="text-xs text-slate-500">Os registros são guardados no navegador do aparelho, separados por conta. Sair da conta NÃO apaga registros ainda não enviados.</p>
       </section>
       {foreignPending > 0 ? (
+        // help-exempt: botão que remove registros de outras contas; descrito em ssma.sync.outras-contas
         <button type="button" onClick={onPurge} className="min-h-11 w-full rounded-lg border-2 border-red-700 bg-white px-3 text-sm font-bold uppercase text-red-700">
           Remover registros de outras contas
         </button>

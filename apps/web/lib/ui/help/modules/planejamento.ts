@@ -1370,9 +1370,9 @@ export const PLANEJAMENTO_HELP: FeatureHelpDefinition[] = [
     title: "Como funciona a reemissão",
     shortDescription: "Aprovar só registra a decisão; nenhum e-mail sai desta página.",
     description:
-      "Aprovar apenas registra a decisão (quem, quando, justificativa e caso) na trilha de auditoria. Nenhum e-mail é enviado por esta página. A reemissão só acontece no ciclo de alertas, quando o interruptor de envio das reemissões estiver ligado (hoje desligado por padrão) e todas as travas do piloto forem satisfeitas; casos com bloqueio manual continuam sem envio.",
+      "Aprovar apenas registra a decisão (quem, quando, justificativa e caso) na trilha de auditoria. Nenhum e-mail é enviado por esta página. A reemissão só acontece no ciclo de alertas, quando o interruptor de envio das reemissões (ACC_RISK_ALERT_REISSUE_SEND_ENABLED, configuração do servidor) estiver ligado — hoje desligado por padrão — e todas as travas do piloto forem satisfeitas; casos com bloqueio manual continuam sem envio.",
     howItWorks: "A lista é uma leitura aproximada da lacuna de comunicação; o ciclo reavalia cada destinatário no momento do envio e só reemite quem realmente não foi informado.",
-    consequences: ["Sem o interruptor ligado, uma decisão aprovada fica aguardando o ciclo."],
+    consequences: ["Sem o interruptor ACC_RISK_ALERT_REISSUE_SEND_ENABLED ligado (desligado por padrão), a página só registra a decisão e ela fica aguardando o ciclo; o envio depende desse interruptor."],
     permissions: "Somente administrador do projeto.",
   }),
   def({
@@ -1470,7 +1470,7 @@ export const PLANEJAMENTO_HELP: FeatureHelpDefinition[] = [
     shortDescription: "Registra a decisão de reemitir os casos marcados; não envia e-mail.",
     description:
       "Grava, para cada caso marcado e elegível, a decisão do administrador na trilha de auditoria (RISK_ALERT_REISSUE_APPROVED). Casos não elegíveis são ignorados com o motivo. O resultado informa quantas decisões foram registradas e quantos casos foram ignorados e reforça que nenhum e-mail foi enviado.",
-    consequences: ["A decisão fica vigente até ser consumida pelo ciclo; o envio real depende do interruptor de reemissão (desligado por padrão) e das travas do piloto."],
+    consequences: ["A decisão fica vigente até ser consumida pelo ciclo; o envio real depende do interruptor ACC_RISK_ALERT_REISSUE_SEND_ENABLED (desligado por padrão; esta ação só registra a decisão) e das travas do piloto."],
     permissions: "Somente ADMINISTRADOR da obra; a RPC revalida.",
     humanReview: "Decisão administrativa humana, auditável.",
   }),

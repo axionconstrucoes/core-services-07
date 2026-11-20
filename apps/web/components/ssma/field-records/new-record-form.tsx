@@ -245,6 +245,7 @@ export function NewRecordForm({
         {responsible ? (
           <label className="block text-sm font-bold text-slate-900">
             Prazo *
+            {/* help-exempt: campo Prazo da ação corretiva; descrito em ssma.registro.acao-corretiva-campos */}
             <input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} className={fieldClass} required />
           </label>
         ) : null}
@@ -252,6 +253,7 @@ export function NewRecordForm({
 
       <section className="space-y-3 rounded-lg border-2 border-slate-300 bg-slate-50 p-3">
         <input ref={cameraRef} type="file" accept="image/jpeg,image/png" capture="environment" onChange={(event) => addFiles(event.target.files)} className="sr-only" aria-label="Tirar foto" />
+        {/* help-exempt: entradas de arquivo ocultas acionadas pelos botões de foto; descritas em ssma.registro.fotos */}
         <input ref={galleryRef} type="file" multiple accept="image/jpeg,image/png,.jpg,.jpeg,.png" onChange={(event) => addFiles(event.target.files)} className="sr-only" aria-label="Escolher fotos" />
         <div className="grid gap-2 sm:grid-cols-2">
           <button type="button" onClick={() => cameraRef.current?.click()} className="flex min-h-14 items-center justify-center gap-2 rounded-lg border-2 border-black bg-[#f7f3ea] px-4 font-bold uppercase text-black hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">

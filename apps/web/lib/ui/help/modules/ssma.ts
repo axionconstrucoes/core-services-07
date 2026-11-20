@@ -134,7 +134,7 @@ export const SSMA_HELP: FeatureHelpDefinition[] = [
     description:
       "Seis controles combináveis: status, categoria, risco, responsável (texto livre cadastrado na obrigação) e datas inicial e final. Filtram a tabela e os contadores da aba.",
     purpose: "Isolar, por exemplo, tudo o que está 'Não cumprido' com risco crítico de um responsável.",
-    howToUse: ["Escolha uma ou mais opções; todas valem ao mesmo tempo (E).", "Voltar a 'Todos…' limpa o filtro individual."],
+    howToUse: ["Escolha uma ou mais opções; todas valem ao mesmo tempo (E).", "Voltar a 'Todos os status', 'Todas as categorias', 'Todos os riscos' ou 'Todos os responsáveis' limpa o filtro individual; esvazie a data para limpar o período."],
     howItWorks:
       "O filtro roda no navegador sobre a comprovação mais recente de cada obrigação. Período compara a data de referência da última comprovação: obrigações sem comprovação não passam quando há data inicial ou final preenchida.",
     missingData: "Obrigação sem comprovação só aparece com status e risco vazios; escolher um status específico a esconde.",

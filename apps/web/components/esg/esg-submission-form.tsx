@@ -251,6 +251,7 @@ export function EsgSubmissionForm({
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
 
+      {/* help-exempt: botão de envio do formulário; fluxo descrito em ssma.esg.comprovacao-formulario e nos campos ssma.esg.comprovacao-* */}
       <Button type="submit" disabled={submitting} className="self-start">
         {submitting ? "Enviando…" : "Registrar comprovação"}
       </Button>

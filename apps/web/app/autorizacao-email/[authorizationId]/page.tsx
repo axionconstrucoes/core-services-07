@@ -201,6 +201,7 @@ export default async function EmailAuthorizationPage({
                     </span>
                   </label>
                   <div className="flex flex-col gap-2 sm:flex-row">
+                    {/* help-exempt: botão que confirma a decisão (autorizar ou recusar); fluxo descrito em integracoes.autorizacao.decisao */}
                     <button type="submit" className="min-h-11 rounded-md bg-brand-sidebar px-4 py-2 text-sm font-bold text-white hover:opacity-90">
                       {action === "autorizar" ? "CONFIRMAR AUTORIZAÇÃO" : "CONFIRMAR RECUSA"}
                     </button>
@@ -233,6 +234,7 @@ export default async function EmailAuthorizationPage({
                     <span>Confirmo que quero revogar a autorização da conta {authorization.accountEmail} para a obra {projectName}.</span>
                   </label>
                   <div className="flex flex-col gap-2 sm:flex-row">
+                    {/* help-exempt: botão que confirma a revogação; fluxo descrito em integracoes.autorizacao.revogar */}
                     <button type="submit" className="min-h-11 rounded-md bg-brand-sidebar px-4 py-2 text-sm font-bold text-white hover:opacity-90">
                       CONFIRMAR REVOGAÇÃO
                     </button>

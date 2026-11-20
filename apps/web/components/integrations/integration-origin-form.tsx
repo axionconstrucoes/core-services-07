@@ -144,6 +144,7 @@ export function IntegrationOriginForm({
       {state.error ? <p className="text-xs text-destructive">{state.error}</p> : null}
 
       <div className="flex gap-2">
+        {/* help-exempt: botão de envio do formulário; campos descritos em integracoes.integracoes.origem-* */}
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Salvando…" : "Salvar origem"}
         </Button>
