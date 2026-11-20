@@ -211,12 +211,18 @@ export function EsgSubmissionForm({
       ) : null}
 
       <label className="flex flex-col gap-1.5 text-sm">
-        Descrição
+        <span className="inline-flex items-center gap-1.5">
+          Descrição
+          <FeatureInfo helpId="ssma.esg.comprovacao-descricao" />
+        </span>
         <Textarea name="description" rows={2} />
       </label>
 
       <label className="flex flex-col gap-1.5 text-sm">
-        Observação
+        <span className="inline-flex items-center gap-1.5">
+          Observação
+          <FeatureInfo helpId="ssma.esg.comprovacao-observacao" />
+        </span>
         <Textarea name="observation" rows={2} />
       </label>
 

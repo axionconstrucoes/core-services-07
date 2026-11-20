@@ -34,7 +34,10 @@ export function EsgObligationForm({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Título da obrigação
+          <span className="inline-flex items-center gap-1.5">
+            Título da obrigação
+            <FeatureInfo helpId="ssma.esg.obrigacao-titulo" />
+          </span>
           <Input name="title" required placeholder="Ex.: DDS semanal" />
         </label>
 
@@ -88,7 +91,10 @@ export function EsgObligationForm({
       </label>
 
       <label className="flex flex-col gap-1.5 text-sm font-medium">
-        Descrição
+        <span className="inline-flex items-center gap-1.5">
+          Descrição
+          <FeatureInfo helpId="ssma.esg.obrigacao-descricao" />
+        </span>
         <Textarea name="description" rows={2} />
       </label>
 

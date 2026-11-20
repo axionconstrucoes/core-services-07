@@ -32,7 +32,10 @@ export function RecordConsult({
       <form action={formAction} className="flex flex-col gap-2">
         <input type="hidden" name="projectId" value={projectId} />
         <input type="hidden" name="recordId" value={recordId} />
-        <textarea name="question" rows={3} maxLength={MAX_ALERT_CONSULT_QUESTION_LENGTH} defaultValue={DEFAULT_ALERT_CONSULT_QUESTION} className="w-full rounded-lg border p-2 text-sm" />
+        <div className="flex items-start gap-1.5">
+          <textarea name="question" rows={3} maxLength={MAX_ALERT_CONSULT_QUESTION_LENGTH} defaultValue={DEFAULT_ALERT_CONSULT_QUESTION} aria-label="Pergunta ao especialista de SSMA" className="w-full rounded-lg border p-2 text-sm" />
+          <FeatureInfo helpId="ssma.registro.consulta-pergunta" className="mt-2" />
+        </div>
         <button type="submit" disabled={pending || !online} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-[#7f1d1d] px-4 font-bold uppercase text-red-700 disabled:opacity-60">
           {pending ? <Loader2 className="size-5 animate-spin" /> : <Sparkles className="size-5" />} Consultar
         </button>
