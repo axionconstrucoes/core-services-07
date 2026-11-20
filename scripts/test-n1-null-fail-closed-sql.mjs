@@ -208,7 +208,9 @@ await check("R3 worker (service_role) com autor do e-mail sem papel no alerta (L
 // ---- 20261121101000: checagens da revalidação P0 que resultavam NULL ----
 const DEF_151000 = (() => {
   const s = read("20261120151000_risk_alert_action_no_outbox_authorization.sql").replace(/\r\n/g, "\n");
-  return s.slice(s.indexOf("create or replace function public.record_risk_alert_action("), s.indexOf("alter function public.record_risk_alert_action"));
+  // a definição vem envolvida pela proteção contra regressão ($ACC_FN$ … $ACC_FN$): extrai só o CREATE OR REPLACE
+  const guardEnd = s.indexOf("$ACC_FN$;");
+  return s.slice(s.indexOf("create or replace function public.record_risk_alert_action("), guardEnd >= 0 ? guardEnd : s.indexOf("alter function public.record_risk_alert_action"));
 })();
 await check("R4 TOMANDO PROVIDÊNCIAS com currentResponsibleUserId = null (apagaria o responsável): RECUSADO; na versão 20261120151000 passava", async () => {
   const c = await newCase({ responsible: U.RESP });

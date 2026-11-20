@@ -11,6 +11,17 @@
 -- do piloto quando a exceção registrada por humano está vigente. Restante do corpo idêntico ao de 20261120130000.
 -- ============================================================
 
+-- PROTEÇÃO CONTRA REGRESSÃO (ordem de publicação): se a função já estiver na versão endurecida do hotfix 20261121090000
+-- (corpo idêntico em 20261121101000), esta definição INTERMEDIÁRIA é ignorada — nunca rebaixa a segurança. Em um
+-- banco que ainda não a tem (replay em ordem), o comando abaixo roda exatamente como antes (mesmo corpo, mesmo prosrc).
+do $ACC_NO_REGRESSION$
+begin
+  if not exists (
+    select 1 from pg_proc
+    where oid = to_regprocedure('public.record_risk_alert_action(uuid,text,jsonb)')
+      and md5(prosrc) in ('c2f015a91b8f4e94c52a68c3536cb89d', '930f6d75898793479b418950b0053bd9')
+  ) then
+    execute $ACC_FN$
 create or replace function public.record_risk_alert_action(
   p_case_id uuid,
   p_expected_state text,
@@ -523,6 +534,10 @@ begin
   return jsonb_build_object('caseId', p_case_id, 'eventIds', to_jsonb(v_event_ids), 'escalationId', v_escalation_id, 'state', v_new_state);
 end;
 $$;
+    $ACC_FN$;
+  end if;
+end
+$ACC_NO_REGRESSION$;
 
 alter function public.record_risk_alert_action(uuid, text, jsonb) owner to postgres;
 revoke all on function public.record_risk_alert_action(uuid, text, jsonb) from public, anon;
