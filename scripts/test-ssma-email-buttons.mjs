@@ -39,10 +39,11 @@ for (const [id, m] of [["confirmação", confirmation()], ["ação em atraso", o
     assert.ok(!m.html.includes(`href="${LIST}"`), "nenhum link para a lista genérica");
     assert.ok(m.text.includes(`ABRIR NO ACC: ${RECORD}`), "texto simples aponta para o registro");
   });
-  check(`${id}: ENVIAR PARA e ESPECIALISTA desativados com o motivo (sem fluxo de SSMA no ACC)`, () => {
-    assert.equal(count(m.html, 'aria-disabled="true"'), 2);
-    assert.ok(m.html.includes(c.SSMA_FORWARD_UNAVAILABLE) && m.html.includes(c.SSMA_SPECIALIST_UNAVAILABLE));
-    assert.ok(m.html.includes("#6B7280") && m.html.includes("#E5E7EB"), "ativos cinza, desativados cinza-claro");
+  check(`${id}: ENVIAR PARA e ESPECIALISTA ATIVOS (padrão do Lote 3): abrem o formulário do registro SSMA`, () => {
+    assert.equal(count(m.html, 'aria-disabled="true"'), 0, "os quatro ativos");
+    assert.ok(m.html.includes(`href="${amp(`${RECORD}&acao=ENCAMINHAR`)}"`) && m.html.includes(`href="${amp(`${RECORD}&acao=ESPECIALISTA`)}"`));
+    assert.ok(!m.html.includes(c.SSMA_FORWARD_UNAVAILABLE) && !m.html.includes(c.SSMA_SPECIALIST_UNAVAILABLE));
+    assert.ok(m.html.includes("#6B7280"), "botões ativos cinza");
   });
 }
 
@@ -62,16 +63,19 @@ check("link do registro: só aceita UUID e ação conhecida; nunca executa (apen
   assert.deepEqual(link.parseSsmaRecordLink({ registro: R, acao: "ESPECIALISTA" }), { recordId: R, action: "ESPECIALISTA" });
 });
 
-check("ENVIAR PARA e ESPECIALISTA: desativados por padrão (atalho em validação); com ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=true abrem o registro na seção correspondente", () => {
-  assert.equal(process.env.ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED, undefined, "o teste parte da chave desligada");
-  assert.ok(!confirmation().html.includes("acao=ENCAMINHAR"), "desligado: sem link de encaminhar");
-  process.env.ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED = "true";
+check("ENVIAR PARA e ESPECIALISTA: ATIVOS por padrão (Lote 3) com registro identificado; ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=false desliga (botão fica, com o motivo)", () => {
+  assert.equal(process.env.ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED, undefined, "o teste parte da chave ausente (padrão)");
+  const m = confirmation();
+  assert.equal(count(m.html, 'aria-disabled="true"'), 0, "padrão: os quatro botões ativos");
+  assert.ok(m.html.includes(`href="${amp(`${RECORD}&acao=ENCAMINHAR`)}"`) && m.html.includes(`href="${amp(`${RECORD}&acao=ESPECIALISTA`)}"`));
+  const off = confirmation({ recordLink: null });
+  assert.equal(count(off.html, 'aria-disabled="true"'), 4, "sem registro, nada fica ativo");
+  process.env.ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED = "false";
   try {
-    const m = confirmation();
-    assert.equal(count(m.html, 'aria-disabled="true"'), 0, "ligado: os quatro botões ativos");
-    assert.ok(m.html.includes(`href="${amp(`${RECORD}&acao=ENCAMINHAR`)}"`) && m.html.includes(`href="${amp(`${RECORD}&acao=ESPECIALISTA`)}"`));
-    const off = confirmation({ recordLink: null });
-    assert.equal(count(off.html, 'aria-disabled="true"'), 4, "sem registro, nada fica ativo mesmo com a chave ligada");
+    const killed = confirmation();
+    assert.ok(!killed.html.includes("acao=ENCAMINHAR") && !killed.html.includes("acao=ESPECIALISTA"), "desligador: sem links de encaminhar/especialista");
+    assert.equal(count(killed.html, 'aria-disabled="true"'), 2, "desligado: 2 botões desativados com motivo");
+    assert.ok(killed.html.includes(c.SSMA_FORWARD_UNAVAILABLE) && killed.html.includes(c.SSMA_SPECIALIST_UNAVAILABLE));
   } finally {
     delete process.env.ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED;
   }
