@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(path.join(root, p), "utf8").replace(/\r\n/g, "\n");
 const doc = read("docs/operacao-agendador-sla.md");
-const migration = read("supabase/migrations/20261118093000_scheduler_pg_cron_dispatch.sql");
+const migration = read("supabase/migrations/20261119034721_scheduler_pg_cron_dispatch.sql");
 
 let passed = 0;
 let failed = 0;
@@ -52,7 +52,7 @@ check("§11: ordem merge(flag ausente) → segredos → dry-run → flag true �
 });
 
 check("§11: o GitHub para (flag=true, passo 4) e os runs antigos terminam (passo 5) ANTES da migration (passo 6)", () => {
-  before(s11, "ACC_SCHEDULER_PG_CRON_ENABLED=true", "Aplicar `20261118093000_scheduler_pg_cron_dispatch.sql`");
+  before(s11, "ACC_SCHEDULER_PG_CRON_ENABLED=true", "Aplicar `20261119034721_scheduler_pg_cron_dispatch.sql`");
   before(s11, "### Passo 5", "### Passo 6");
   assert(/Merge do #236 \(flag ausente/.test(s11), "o merge tem de ser com a flag ausente");
 });

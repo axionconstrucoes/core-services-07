@@ -1,4 +1,4 @@
-// Agendador do ACC (migration 20261118093000, PROPOSTA — NÃO aplicada em nenhum remoto) em PostgreSQL 17 DESCARTÁVEL
+// Agendador do ACC (migration 20261119034721, PROPOSTA — NÃO aplicada em nenhum remoto) em PostgreSQL 17 DESCARTÁVEL
 // (PGlite) com TODAS as migrations reexecutadas. pg_cron/pg_net/Vault não existem no PGlite: este teste cria STUBS mínimos de
 // vault.decrypted_secrets, net.http_post/http_get e net._http_response para provar a lógica SQL do agendador:
 // sem segredo => nada é chamado; disparo aceito (204) ≠ início ≠ conclusão; reconciliação de respostas; trava de sobreposição
@@ -15,7 +15,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, "..", "supabase", "migrations");
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 if (files.some((f) => /^(20261106120000|20261106130000)_/.test(f))) throw new Error("migration proibida presente");
-if (!files.includes("20261118093000_scheduler_pg_cron_dispatch.sql")) throw new Error("migration do agendador ausente");
+if (!files.includes("20261119034721_scheduler_pg_cron_dispatch.sql")) throw new Error("migration do agendador ausente");
 const PLATFORM = readFileSync(path.join(here, "test-migrations-full-replay.mjs"), "utf8").match(/const PLATFORM = `([\s\S]*?)`;/)[1];
 const clean = (f) => readFileSync(path.join(dir, f), "utf8").replace(/^﻿/, "").replace(/create extension if not exists pgcrypto[^;]*;/gi, "-- pgcrypto: omitido no PGlite");
 

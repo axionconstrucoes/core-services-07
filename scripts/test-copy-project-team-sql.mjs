@@ -1,4 +1,4 @@
-// RPC copy_project_team (migration 20261111120000, PROPOSTA — não aplicada em nenhum remoto) em PostgreSQL 17 DESCARTÁVEL (PGlite),
+// RPC copy_project_team (migration 20261111121457, PROPOSTA — não aplicada em nenhum remoto) em PostgreSQL 17 DESCARTÁVEL (PGlite),
 // com TODAS as migrations reexecutadas e dados sintéticos. Cenário: equipe da obra A (origem) copiada para a obra B (destino).
 // Prova: Administrador nos DOIS projetos exigido no banco; sem sobrescrever; Administrador só com confirmação; idempotência;
 // falha de uma pessoa não desfaz as outras; auditoria (origem, destino, executor); nenhuma escrita fora de project_memberships
@@ -14,7 +14,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, "..", "supabase", "migrations");
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 if (files.some((f) => /^(20261106120000|20261106130000)_/.test(f))) throw new Error("migration proibida presente"); // 20261107090000 existe no repositório (não aplicada em produção) e só é reexecutada localmente
-if (!files.includes("20261111120000_copy_project_team.sql")) throw new Error("migration da RPC ausente");
+if (!files.includes("20261111121457_copy_project_team.sql")) throw new Error("migration da RPC ausente");
 const PLATFORM = readFileSync(path.join(here, "test-migrations-full-replay.mjs"), "utf8").match(/const PLATFORM = `([\s\S]*?)`;/)[1];
 const clean = (f) => readFileSync(path.join(dir, f), "utf8").replace(/^﻿/, "").replace(/create extension if not exists pgcrypto[^;]*;/gi, "-- pgcrypto: omitido no PGlite");
 

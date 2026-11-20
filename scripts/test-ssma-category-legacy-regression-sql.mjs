@@ -13,8 +13,8 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = process.env.ACC_MIGRATIONS_DIR ?? path.join(here, "..", "supabase", "migrations");
-const PREREQ = "20261106100000_ssma_esg_acoes_perfis_notificacoes.sql";
-const TARGET = "20261106110000_ssma_esg_evidence_reference.sql";
+const PREREQ = "20261111042824_ssma_esg_acoes_perfis_notificacoes.sql";
+const TARGET = "20261111043023_ssma_esg_evidence_reference.sql";
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 if (files.some((f) => /^(20261106120000|20261106130000)_/.test(f))) throw new Error("migration proibida presente");
 const PLATFORM = readFileSync(path.join(here, "test-migrations-full-replay.mjs"), "utf8").match(/const PLATFORM = `([\s\S]*?)`;/)[1];

@@ -1,4 +1,4 @@
-// Prazo para ASSUMIR da ação SLA nascida no SSMA (migration 20261106100000): deve seguir a regra OFICIAL do SLA (ALTO 4 horas úteis,
+// Prazo para ASSUMIR da ação SLA nascida no SSMA (migration 20261111042824): deve seguir a regra OFICIAL do SLA (ALTO 4 horas úteis,
 // MÉDIO 1 dia útil, BAIXO 3 dias úteis, CRÍTICO 1 hora corrida; matriz e expediente da OBRA), e não intervalos corridos.
 // PostgreSQL 17 descartável (PGlite), dados sintéticos. (1) PARIDADE: sla_add_time_units (SQL) == addTimeUnits (TypeScript oficial,
 // apps/web/lib/sla/time-units.ts) numa grade de instantes que cruza noites e fins de semana; (2) cenários explícitos; (3) matriz/expediente da obra.

@@ -72,7 +72,7 @@ function references() {
       for (const r of RENAMES) {
         // nome do arquivo antigo OU versão antiga como token numérico isolado
         if (line.includes(file(r.from, r.name)) || new RegExp(`(?<![0-9])${r.from}(?![0-9])`).test(line)) {
-          out.push({ file: rel, line: i + 1, from: r.from, to: r.to, name: r.name, kind: line.includes(file(r.from, r.name)) ? "FILENAME" : "VERSION", historical: HISTORICAL.has(rel) || rel.startsWith("supabase/migrations/") && rel.includes(r.from), text: line.trim().slice(0, 160) });
+          out.push({ file: rel, line: i + 1, from: r.from, to: r.to, name: r.name, kind: line.includes(file(r.from, r.name)) ? "FILENAME" : "VERSION", historical: HISTORICAL.has(rel) || (rel.startsWith("supabase/migrations/") && (rel.includes(r.from) || RENAMES.some((x) => rel.includes(x.to)))), text: line.trim().slice(0, 160) });
         }
       }
     });

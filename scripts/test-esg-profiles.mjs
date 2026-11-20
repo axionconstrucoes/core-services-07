@@ -44,7 +44,7 @@ check("servidor: criar obrigação, registrar comprovação e revisar conferem o
   assert.ok(review.includes("auth.getUser()") && review.includes("canReviewEsg(await getCurrentProjectPermission(projectId))") && review.indexOf("canReviewEsg") < review.indexOf(".rpc("));
 });
 
-const migration = rd("supabase/migrations/20261106100000_ssma_esg_acoes_perfis_notificacoes.sql");
+const migration = rd("supabase/migrations/20261111042824_ssma_esg_acoes_perfis_notificacoes.sql");
 check("banco: policies de INSERT usam can_register_esg_compliance (ativo, Administrador/Gerente/Gestor/Colaborador); revisão e configuração NÃO foram alteradas", () => {
   assert.ok(/permission in \('ADMINISTRADOR', 'GERENTE', 'GESTOR', 'COLABORADOR'\)/.test(migration) && migration.includes("pm.status = 'ACTIVE'"));
   assert.ok(migration.includes("esg_obligation_submissions_insert_registrars_self_authored") && migration.includes("esg_obligation_evidence_insert_registrars_self_authored"));

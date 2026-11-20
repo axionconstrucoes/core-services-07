@@ -97,7 +97,7 @@ Os limites de 20/min e 8/min são em memória por instância (conter cliques e a
 
 ## Orçamento global e concorrente (PR #135, pendência 1)
 
-Infraestrutura já existente do ACC (Postgres/Supabase), **sem serviço novo**: migration `supabase/migrations/20261105150000_axia_chat_budget.sql` (**criada, NÃO aplicada em nenhum banco remoto**).
+Infraestrutura já existente do ACC (Postgres/Supabase), **sem serviço novo**: migration `supabase/migrations/20261105173838_axia_chat_budget.sql` (**criada, NÃO aplicada em nenhum banco remoto**).
 
 - **Reserva atômica:** `axia_chat_reserve` incrementa o gasto diário e a chamada do usuário com `UPDATE … WHERE gasto + reserva <= teto` / `calls < limite` — a condição e o incremento acontecem na mesma instrução, sob o bloqueio da linha; pedidos simultâneos de qualquer instância se serializam e **nunca passam do teto**. Se o teto nega, a chamada do usuário é desfeita (compensação na mesma transação).
 - **Pior caso:** reserva de 8.000 tokens de entrada + 350 de saída (US$ 0,000975) antes de falar com o provedor; o custo real (tokens da API) substitui a reserva. Se a resposta vier sem `usage`, a reserva do pior caso permanece.
@@ -159,7 +159,7 @@ Otimização possível (não implementada): cache de prompt (o prefixo fixo ≈ 
 
 ## Auditoria final e validação em PostgreSQL descartável (implantação controlada)
 
-**Auditoria da migration** (`20261105150000_axia_chat_budget.sql`) — dois achados corrigidos antes do merge:
+**Auditoria da migration** (`20261105173838_axia_chat_budget.sql`) — dois achados corrigidos antes do merge:
 
 1. **`FORCE ROW LEVEL SECURITY` quebraria as funções:** com um dono sem `BYPASSRLS` (possível no Supabase), as seis funções `SECURITY DEFINER` falhavam com "new row violates row-level security policy". Removido o `FORCE` (RLS segue ligada, sem política, e anon/authenticated nem têm privilégio).
 2. **Ordem de bloqueio:** `axia_chat_release` bloqueava global → usuário, enquanto `axia_chat_reserve` bloqueia usuário → global (risco de deadlock). Agora ambas bloqueiam usuário primeiro.
@@ -184,7 +184,7 @@ A AXIA é especialista **somente no ACC**. Toda decisão de escopo é **local, d
 
 **Conservadorismo:** "fora do escopo" exige tema geral explícito **e nenhum termo forte do ACC** (acc, axia, alerta, obra, contrato, cláusula, aditivo, escalonamento, SLA, providência, SSMA, ESG, especialista, dashboard, timeline, permissão, ledger, CNO, medição, sistema…). Palavras genéricas ("documento", "prazo", "risco", "evento", "projeto", "iPhone" no SSMA, "candidato" a cláusula) não condenam nem isentam. Termo do ACC **não vira passe livre**: "No ACC, qual a capital da França?" recebe encaminhamento local, sem resposta geral e sem IA. Instruções do usuário ("ignore as regras", "você agora é um assistente geral", "modo desenvolvedor") não alteram nada: viram limite fixo ou recusa de escopo.
 
-**Contadores agregados sem conteúdo** (`metrics.ts`): `[axia-metricas] rota=<nome>` por resposta (social_local, qa_local, escopo_local, especialista_local, prazo_local, pendente_local, caso_local, bypass_local, clarify_local, fallback_local, projeto_local, ia_consulta, ia_falha_base) + contadores em memória (`getAxiaMetrics`: locais, recusas por escopo, chamadas pagas, custo potencial evitado). Nunca guardam pergunta, resposta, usuário ou obra. Contadores **persistentes entre instâncias** exigiriam uma tabela nova (migration separada, **não incluída**; as pendências de banco continuam só a `20261105150000`).
+**Contadores agregados sem conteúdo** (`metrics.ts`): `[axia-metricas] rota=<nome>` por resposta (social_local, qa_local, escopo_local, especialista_local, prazo_local, pendente_local, caso_local, bypass_local, clarify_local, fallback_local, projeto_local, ia_consulta, ia_falha_base) + contadores em memória (`getAxiaMetrics`: locais, recusas por escopo, chamadas pagas, custo potencial evitado). Nunca guardam pergunta, resposta, usuário ou obra. Contadores **persistentes entre instâncias** exigiriam uma tabela nova (migration separada, **não incluída**; as pendências de banco continuam só a `20261105173838`).
 
 **Evidências** (`scripts/test-axia-escopo.mjs`, 26 verificações, **160 perguntas** em 11 categorias, com provedor espião): social 25, básicas 25, prazos 8, erros de digitação 10, compostas 6, complexas 6, fora do escopo 35, contratos/documentos 10, ambíguas 8, tentativas de contornar o filtro 15 e legítimas com termo geral 12 → **zero chamadas à IA e zero reservas** em tudo, exceto as 6 complexas (6 chamadas; sem acesso ou sem orçamento: 0). Q&A aprovado preservado (`test-axia-lote-1`: 93; IA desligada: 1.168 de 1.179 frases do catálogo idênticas à `main`; as 11 diferentes são só identidade/apresentação da AXIA, agora resposta social). Controles preservados: RLS/getProject, piloto de administradores, limite de IA por minuto, orçamento global (US$ 1/dia), 100 chamadas/usuário/dia.
 
@@ -206,7 +206,7 @@ Não existia controle de acesso à IA por perfil (a AXIA é aberta a todo membro
 
 ## Aplicação da migration, verificação e reversão
 
-**Pré-condições (todas):** (1) backup recente confirmado no painel do Supabase (Database → Backups; PITR está desativado, backups diários) e procedimento de recuperação conhecido; (2) lista de migrations do remoto conferida (`supabase migration list --linked`): só `20261105150000` pendente; (3) autorização explícita para alterar o banco de produção.
+**Pré-condições (todas):** (1) backup recente confirmado no painel do Supabase (Database → Backups; PITR está desativado, backups diários) e procedimento de recuperação conhecido; (2) lista de migrations do remoto conferida (`supabase migration list --linked`): só `20261105173838` pendente; (3) autorização explícita para alterar o banco de produção.
 
 **Aplicar:** `supabase db push --linked` (aplica **apenas** a pendente). **Verificar (somente leitura + 1 teste):** 3 tabelas `axia_chat_*` com RLS ligada; 6 funções `SECURITY DEFINER` com `search_path` vazio; `has_function_privilege('anon'|'authenticated', …, 'execute')` falso; teste financeiro **sem chamada paga**: com o `service_role`, `axia_chat_reserve(null, 1, 1000000, 1)` seguido de `axia_chat_release(<id>)` (volta a zero).
 
@@ -217,7 +217,7 @@ Não existia controle de acesso à IA por perfil (a AXIA é aberta a todo membro
 
 ## Para ativar em produção (depois da aprovação — NÃO feito)
 
-1. **Aplicar a migration** `20261105150000_axia_chat_budget.sql` (decisão e execução suas; não foi aplicada em nenhum banco remoto). Sem ela a IA permanece desligada de fato (fail closed).
+1. **Aplicar a migration** `20261105173838_axia_chat_budget.sql` (decisão e execução suas; não foi aplicada em nenhum banco remoto). Sem ela a IA permanece desligada de fato (fail closed).
 2. Vercel: `AXIA_CHAT_PROVIDER=anthropic`, `AXIA_CHAT_MODEL=claude-haiku-5-5` (a `ANTHROPIC_API_KEY` dos especialistas é reutilizada); opcionalmente `AXIA_CHAT_DAILY_BUDGET_USD` e `AXIA_CHAT_USER_DAILY_CALLS`.
 3. Configurar limite de gasto e alertas na conta Anthropic (camada independente).
 4. Conferir `select * from axia_chat_budget_day` e os logs de tokens nas primeiras conversas.

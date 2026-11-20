@@ -1,4 +1,4 @@
-// Etapa 2 da implantação da AXIA conversacional: a migration 20261105150000_axia_chat_budget.sql aplicada sobre o SCHEMA COMPLETO
+// Etapa 2 da implantação da AXIA conversacional: a migration 20261105173838_axia_chat_budget.sql aplicada sobre o SCHEMA COMPLETO
 // do ACC (as 127 migrations anteriores reaplicadas, em ordem) em um PostgreSQL 17 descartável (PGlite, em memória) — o mais
 // próximo da produção que cabe sem o Docker (indisponível neste computador: sem WSL). NUNCA toca banco real.
 //
@@ -16,7 +16,7 @@ import { PGlite } from "@electric-sql/pglite";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const dir = path.join(root, "supabase", "migrations");
-const NEW = "20261105150000_axia_chat_budget.sql";
+const NEW = "20261105173838_axia_chat_budget.sql";
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 let ok = 0, bad = 0;
 const t = (n, c) => (c ? (ok++, console.log("OK  ", n)) : (bad++, console.log("FAIL", n)));

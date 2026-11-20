@@ -1,6 +1,6 @@
-// Migration 20261106110000 (referência registro de campo SSMA -> comprovação ESG como evidência) contra PostgreSQL 17
+// Migration 20261111043023 (referência registro de campo SSMA -> comprovação ESG como evidência) contra PostgreSQL 17
 // DESCARTÁVEL (PGlite): reaplica TODAS as migrations anteriores, cria DADOS ANTERIORES (obrigação, comprovações, registros
-// de campo incluindo quase-acidente), aplica as duas migrations (20261106100000 e 20261106110000) e confere permissões,
+// de campo incluindo quase-acidente), aplica as duas migrations (20261111042824 e 20261111043023) e confere permissões,
 // obra, idempotência, não-cumprimento automático, revogação com histórico, auditoria e isolamento.
 // Nenhum banco real é tocado. Uso: node scripts/test-esg-ssma-reference-sql.mjs
 
@@ -11,8 +11,8 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, "..", "supabase", "migrations");
-const PREREQ = "20261106100000_ssma_esg_acoes_perfis_notificacoes.sql";
-const TARGET = "20261106110000_ssma_esg_evidence_reference.sql";
+const PREREQ = "20261111042824_ssma_esg_acoes_perfis_notificacoes.sql";
+const TARGET = "20261111043023_ssma_esg_evidence_reference.sql";
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 const before = files.filter((f) => f < PREREQ);
 const replaySource = readFileSync(path.join(here, "test-migrations-full-replay.mjs"), "utf8");

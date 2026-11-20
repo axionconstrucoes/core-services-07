@@ -31,7 +31,7 @@ await check("interface: as duas definições de canManage (obra atual e lista de
 
 // ---------- banco (PGlite) ----------
 const dir = path.join(root, "supabase", "migrations");
-const LAST = "20261106110000_ssma_esg_evidence_reference.sql";
+const LAST = "20261111043023_ssma_esg_evidence_reference.sql";
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort().filter((f) => f <= LAST);
 const PLATFORM = readFileSync(path.join(here, "test-migrations-full-replay.mjs"), "utf8").match(/const PLATFORM = `([\s\S]*?)`;/)[1];
 const clean = (f) => readFileSync(path.join(dir, f), "utf8").replace(/^﻿/, "").replace(/create extension if not exists pgcrypto[^;]*;/gi, "");

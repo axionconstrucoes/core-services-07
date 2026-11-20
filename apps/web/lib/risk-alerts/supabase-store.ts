@@ -705,7 +705,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
     },
 
     async recordRepeatedCondition(projectId, conditionKey, detail, nowIso) {
-      // Tabela/RPC da migration do agendador (20261118093000). Ausente => sem contador, sem falha.
+      // Tabela/RPC da migration do agendador (20261119034721). Ausente => sem contador, sem falha.
       try {
         await client.rpc("acc_bump_repeated_condition", { p_project_id: projectId, p_condition_key: conditionKey, p_detail: detail, p_seen_at: nowIso });
       } catch {

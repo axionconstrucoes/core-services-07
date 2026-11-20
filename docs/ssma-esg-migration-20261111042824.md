@@ -1,8 +1,8 @@
-# Migration `20261106100000_ssma_esg_acoes_perfis_notificacoes.sql` — SQL, pré-condições e plano de aplicação
+# Migration `20261111042824_ssma_esg_acoes_perfis_notificacoes.sql` — SQL, pré-condições e plano de aplicação
 
-**SQL exato:** arquivo `supabase/migrations/20261106100000_ssma_esg_acoes_perfis_notificacoes.sql` no commit citado na entrega (SHA-256 do conteúdo com quebras LF registrado abaixo e na mensagem de entrega). Aplicar **exatamente** esse arquivo.
+**SQL exato:** arquivo `supabase/migrations/20261111042824_ssma_esg_acoes_perfis_notificacoes.sql` no commit citado na entrega (SHA-256 do conteúdo com quebras LF registrado abaixo e na mensagem de entrega). Aplicar **exatamente** esse arquivo.
 
-**Estado: NÃO APLICADA em produção.** Aplicar só com autorização expressa de Reynaldo, na ordem do item 4. Arquivo: `supabase/migrations/20261106100000_ssma_esg_acoes_perfis_notificacoes.sql` (revisar o SQL completo no repositório; resumo abaixo). Aditiva: não apaga nem altera dados, só `ADD COLUMN/INDEX/TABLE`, troca de constraint/policy e `CREATE OR REPLACE` de funções.
+**Estado: NÃO APLICADA em produção.** Aplicar só com autorização expressa de Reynaldo, na ordem do item 4. Arquivo: `supabase/migrations/20261111042824_ssma_esg_acoes_perfis_notificacoes.sql` (revisar o SQL completo no repositório; resumo abaixo). Aditiva: não apaga nem altera dados, só `ADD COLUMN/INDEX/TABLE`, troca de constraint/policy e `CREATE OR REPLACE` de funções.
 
 ## 1. O que o SQL faz
 

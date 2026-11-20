@@ -1,7 +1,7 @@
 // Controle financeiro da conversa com IA da AXIA.
 //
 // Duas implementações da MESMA interface (BudgetStore):
-//   - SQL (produção): contadores GLOBAIS e CONCORRENTES no Postgres do ACC (migration 20261105150000_axia_chat_budget.sql),
+//   - SQL (produção): contadores GLOBAIS e CONCORRENTES no Postgres do ACC (migration 20261105173838_axia_chat_budget.sql),
 //     com reserva atômica — vale entre instâncias e execuções simultâneas. Se o banco ou a migration não estiverem
 //     disponíveis, a IA NÃO é chamada (fail closed): a AXIA segue com a base aprovada.
 //   - Memória (só simulador/testes): mesmo contrato, por processo.
