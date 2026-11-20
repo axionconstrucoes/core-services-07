@@ -125,6 +125,14 @@ const DEFINITIONS: FeatureHelpDefinition[] = [
     humanReview: "A permissão do Google (somente leitura) não é limitada a uma obra; quem limita a leitura à obra são os filtros do ACC.",
   },
   {
+    id: "reemissao-alertas",
+    title: "Reemissão de alertas",
+    shortDescription: "Aprovação administrativa (auditável) da reemissão de alertas Crítico/Alto à cadeia (só administradores).",
+    description:
+      "Lista os casos Crítico/Alto abertos cuja comunicação não chegou a todos os destinatários e permite ao administrador registrar, com justificativa, a decisão de reemitir. A decisão fica na trilha de auditoria; a página não envia e-mail.",
+    humanReview: "Aprovar só registra a decisão. O envio exige o ciclo, o interruptor de envio das reemissões e as travas do piloto; casos suspensos manualmente continuam sem envio.",
+  },
+  {
     id: "startup-acc",
     title: "Start-up ACC",
     shortDescription: "Validação dos riscos históricos antes da operação normal.",

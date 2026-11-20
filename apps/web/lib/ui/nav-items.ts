@@ -47,6 +47,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "integracoes", label: "Integrações", icon: "Plug", helpId: "integracoes", restrictedTo: "admin" },
   { href: "usuarios", label: "Usuários", icon: "Users", helpId: "usuarios", restrictedTo: "admin" },
   { href: "autorizacoes", label: "Autorizações", icon: "ShieldCheck", helpId: "autorizacoes-email", restrictedTo: "admin" },
+  { href: "reemissao-alertas", label: "Reemissão de alertas", icon: "ShieldCheck", helpId: "reemissao-alertas", restrictedTo: "admin" },
   { href: "auditoria", label: "Auditoria", icon: "AlertTriangle", helpId: "auditoria" },
   { href: "ajuda", label: "Ajuda e tutorial", icon: "BookOpen", helpId: "ajuda-tutorial" },
   { href: "startup", label: "Start-up ACC", icon: "Rocket", helpId: "startup-acc", restrictedTo: "admin" },
