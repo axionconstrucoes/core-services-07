@@ -4,6 +4,7 @@ import { resolveAiProviderNameForExpert } from "@/lib/ai/providers/resolve-provi
 import { buildAiProviderUiMetadata } from "@/lib/ai/provider-ui-metadata";
 import { requireProjectAdminPage } from "@/lib/email-authorization/guard";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { createSupabaseServerClient } from "@axion/db/server";
 import { EmailAccountsPanel } from "@/components/integrations/email-accounts-panel";
 import { EmailIngestionConfigForm } from "@/components/integrations/email-ingestion-config-form";
@@ -123,6 +124,12 @@ export default async function IntegracoesPage({
           </p>
         </CardContent>
       </Card>
+
+      <p className="text-sm">
+        <Link href={`/${projectId}/integracoes/caixas`} className="font-semibold text-brand-sidebar hover:underline">
+          Caixas de e-mail: diagnóstico por caixa (7 etapas), autorização, período e revogação →
+        </Link>
+      </p>
 
       <UserIntegrationMatrix rows={userSourceRows} shared={sharedSourceRows} warnings={userIntegrationEvidence.warnings} measuredAt={userIntegrationEvidence.measuredAt} unassignedEmails={userIntegrationEvidence.unassignedEmails} systemOutputEmails={userIntegrationEvidence.systemOutputEmails} />
 
