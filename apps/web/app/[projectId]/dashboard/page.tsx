@@ -29,27 +29,34 @@ import { formatCurrency, formatDateTime } from "@/lib/labels";
 import type { FieldRecordRow } from "@/lib/ssma/field-records/field-record-view";
 import { computeSsmaDashboardMetrics, type SsmaFormMetricsRow, type SsmaIncidentLinkRow } from "@/lib/ssma/dashboard-metrics";
 import { resolveSystemStatus } from "@/lib/ui/resolve-system-status";
+import { HelpHint } from "@/components/shared/help-hint";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
 type MetricValue = number | string | null;
+
+// Ícone ⓘ sobre o fundo escuro do Dashboard (#182941): fonte clara (contraste >= 4,5:1) em vez do token de tema.
+const HINT_ICON_CLASS = "text-[#c9d6e8] hover:text-white focus-visible:text-white";
 
 function ExecutiveKpi({
   label,
   value,
   subtitle,
   icon: Icon,
+  helpId,
 }: {
   label: string;
   value: React.ReactNode;
   subtitle?: string;
   icon: React.ComponentType<{ className?: string }>;
+  helpId?: string;
 }) {
   return (
     <div className="flex min-h-[64px] flex-col items-center justify-center rounded-[7px] border border-[#263b5c] bg-[#182941] px-3 py-1 text-center">
       <div className="flex items-center gap-1.5 text-[11px] font-normal uppercase tracking-[0.04em] text-[#c9d6e8]">
         <Icon className="size-3.5" />
         {label}
+        {helpId ? <HelpHint helpId={helpId} iconClassName={HINT_ICON_CLASS} /> : null}
       </div>
 
       <div className="flex min-h-7 items-center justify-center text-center text-xl font-normal leading-none text-white">
@@ -65,15 +72,20 @@ function Panel({
   title,
   children,
   className = "",
+  helpId,
 }: {
   title: string;
   children: React.ReactNode;
   className?: string;
+  helpId?: string;
 }) {
   return (
     <section className={`rounded-[7px] border border-[#263b5c] bg-[#182941] ${className}`}>
       <div className="border-b border-[#263b5c] px-2.5 py-1">
-        <h2 className="text-[15px] font-medium tracking-[0.005em] text-white">{title}</h2>
+        <h2 className="flex items-center gap-1.5 text-[15px] font-medium tracking-[0.005em] text-white">
+          {title}
+          {helpId ? <HelpHint helpId={helpId} iconClassName={HINT_ICON_CLASS} /> : null}
+        </h2>
       </div>
 
       <div className="px-2.5 py-1">{children}</div>
@@ -85,10 +97,12 @@ function StatusLine({
   label,
   value,
   status = "ok",
+  helpId,
 }: {
   label: string;
   value: React.ReactNode;
   status?: "ok" | "warning" | "error" | "neutral";
+  helpId?: string;
 }) {
   const dot =
     status === "ok"
@@ -104,6 +118,7 @@ function StatusLine({
       <div className="flex min-w-0 items-center gap-1.5">
         <span className={`size-2 shrink-0 rounded-full ${dot}`} />
         <span className="break-words text-[12px] font-normal leading-[18px] text-white">{label}</span>
+        {helpId ? <HelpHint helpId={helpId} iconClassName={HINT_ICON_CLASS} /> : null}
       </div>
 
       <span className="shrink-0 whitespace-nowrap text-right text-[13px] font-normal text-white">{compactStatus(value)}</span>
@@ -123,7 +138,10 @@ function EsgObligationsBlock({ projectId, summary }: { projectId: string; summar
   const color = { ok: "text-emerald-300", warning: "text-amber-300", error: "text-red-300", neutral: "text-slate-300" };
   return (
     <div className="border-b border-white/[0.07] py-px">
-      <div className="text-[12px] leading-[18px] text-white">Obrigações ESG (posição atual)</div>
+      <div className="flex items-center gap-1.5 text-[12px] leading-[18px] text-white">
+        Obrigações ESG (posição atual)
+        <HelpHint helpId="dashboard.executivo.esg-obrigacoes" iconClassName={HINT_ICON_CLASS} />
+      </div>
       <div className="grid grid-cols-5 gap-1">
         {cells.map((cell) => (
           <Link
@@ -722,7 +740,10 @@ export default async function DashboardPage({
           {/* Marca fica só na barra superior. Nome e código da obra ativa: uma linha, peso regular; em tela estreita
               trunca com reticências e o texto completo aparece no title (mouse) e ao focar com o teclado (Tab). */}
           <div className="flex min-w-[16rem] flex-1 items-baseline gap-3">
-            <h1 className="shrink-0 text-xl font-medium leading-tight tracking-tight text-white">Dashboard Executivo</h1>
+            <h1 className="flex shrink-0 items-center gap-1.5 text-xl font-medium leading-tight tracking-tight text-white">
+              Dashboard Executivo
+              <HelpHint helpId="dashboard.executivo.pagina" iconClassName={HINT_ICON_CLASS} />
+            </h1>
             <p
               tabIndex={0}
               title={projectLabel}
@@ -750,6 +771,7 @@ export default async function DashboardPage({
                   {systemStatus.label}
                 </span>
               </div>
+              <HelpHint helpId="dashboard.executivo.status-integracoes" iconClassName={HINT_ICON_CLASS} />
               {systemStatus.reason ? (
                 <p className="max-w-[360px] text-[11px] leading-tight text-[#c9d6e8]">{systemStatus.reason}</p>
               ) : null}
@@ -765,16 +787,16 @@ export default async function DashboardPage({
         {/* KPIs — números centralizados */}
         <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
           <ExecutiveKpi
-            label="Alertas de risco"
+            label="Alertas de risco" helpId="dashboard.executivo.kpi-alertas-risco"
             value={riskCases ? riskCases.open : "—"}
             subtitle={riskCases ? "Casos de risco abertos" : "Leitura indisponível"}
             icon={AlertTriangle}
           />
 
-          <ExecutiveKpi label="Eventos Ledger" value={events.length} subtitle="Eventos registrados" icon={Activity} />
+          <ExecutiveKpi label="Eventos Ledger" helpId="dashboard.executivo.kpi-eventos-ledger" value={events.length} subtitle="Eventos registrados" icon={Activity} />
 
           <ExecutiveKpi
-            label="Risco atual"
+            label="Risco atual" helpId="dashboard.executivo.kpi-risco-atual"
             value={
               <span
                 className={
@@ -795,14 +817,14 @@ export default async function DashboardPage({
           />
 
           <ExecutiveKpi
-            label="Integrações"
+            label="Integrações" helpId="dashboard.executivo.kpi-integracoes"
             value={`${activeIntegrations}/${totalIntegrations}`}
             subtitle={partialIntegrations > 0 ? `Comprovadas · ${partialIntegrations} parcial(is)` : "Fontes comprovadas"}
             icon={CheckCircle2}
           />
 
           <ExecutiveKpi
-            label="Aditivos"
+            label="Aditivos" helpId="dashboard.executivo.kpi-aditivos"
             value={data.aditivosSummary.quantity}
             subtitle={
               formalizedVariation !== 0
@@ -813,7 +835,7 @@ export default async function DashboardPage({
           />
 
           <ExecutiveKpi
-            label="Avanço físico"
+            label="Avanço físico" helpId="dashboard.executivo.kpi-avanco-fisico"
             value={
               physicalActual !== null
                 ? `${physicalActual.toLocaleString("pt-BR", {
@@ -831,7 +853,7 @@ export default async function DashboardPage({
           <div className="flex flex-col gap-2">
             <Panel title="Situação contratual">
               <StatusLine
-                label="Alertas de risco abertos"
+                label="Alertas de risco abertos" helpId="dashboard.executivo.kpi-alertas-risco"
                 value={riskCases ? riskCases.open : "Indisponível"}
                 status={riskCases ? (riskCases.open > 0 ? "warning" : "ok") : "neutral"}
               />
@@ -845,18 +867,18 @@ export default async function DashboardPage({
               )}
               {riskCases && riskCases.openHighCriticalWithoutSlaAction > 0 ? (
                 <StatusLine
-                  label="Alto/crítico sem ação SLA"
+                  label="Alto/crítico sem ação SLA" helpId="dashboard.executivo.linha-alto-critico-sem-sla"
                   value={riskCases.openHighCriticalWithoutSlaAction}
                   status="error"
                 />
               ) : null}
               <StatusLine
-                label="Achados de IA ativos"
+                label="Achados de IA ativos" helpId="dashboard.executivo.linha-achados-ia"
                 value={data.activeFindingsSummary.totalActive}
                 status={data.activeFindingsSummary.totalActive > 0 ? "warning" : "ok"}
               />
               <StatusLine
-                label="Ações abertas (SLA)"
+                label="Ações abertas (SLA)" helpId="dashboard.executivo.linha-acoes-abertas-sla"
                 value={data.slaSummary.pending}
                 status={data.slaSummary.pending > 0 ? "warning" : "ok"}
               />
@@ -870,12 +892,12 @@ export default async function DashboardPage({
                 </SubNote>
               ) : null}
               <StatusLine
-                label="Ações vencidas"
+                label="Ações vencidas" helpId="dashboard.executivo.linha-acoes-vencidas"
                 value={data.slaSummary.overdue}
                 status={data.slaSummary.overdue > 0 ? "error" : "ok"}
               />
               <StatusLine
-                label="Ações escalonadas (abertas)"
+                label="Ações escalonadas (abertas)" helpId="dashboard.executivo.linha-acoes-escalonadas"
                 value={data.slaSummary.escalated}
                 status={data.slaSummary.escalated > 0 ? "warning" : "ok"}
               />
@@ -889,7 +911,7 @@ export default async function DashboardPage({
                 </SubNote>
               ) : null}
               <StatusLine
-                label="Registros de escalonamento"
+                label="Registros de escalonamento" helpId="dashboard.executivo.linha-registros-escalonamento"
                 value={opFacts.escalations ? slaBreakdown.escalationRecords : "Indisponível"}
                 status="neutral"
               />
@@ -906,7 +928,7 @@ export default async function DashboardPage({
                 </SubNote>
               ) : null}
               <StatusLine
-                label="Divergências caso × ação"
+                label="Divergências caso × ação" helpId="dashboard.executivo.linha-divergencias-caso-acao"
                 value={consistencyIssuesTotal ?? "Indisponível"}
                 status={consistencyIssuesTotal === null ? "neutral" : consistencyIssuesTotal > 0 ? "warning" : "ok"}
               />
@@ -918,23 +940,23 @@ export default async function DashboardPage({
                 </SubNote>
               ) : null}
               <StatusLine
-                label="Início da obra"
+                label="Início da obra" helpId="dashboard.executivo.data-inicio-obra"
                 value={formatDashboardDate(projectDates?.project_start_date ?? contractStartDate)}
                 status={(projectDates?.project_start_date ?? contractStartDate) ? "ok" : "neutral"}
               />
               <StatusLine
-                label="Término da baseline"
+                label="Término da baseline" helpId="dashboard.executivo.data-termino-baseline"
                 value={formatDashboardDate(projectDates?.baseline_end_date ?? dashboardContractEndDate)}
                 status={(projectDates?.baseline_end_date ?? dashboardContractEndDate) ? "ok" : "neutral"}
               />
               <StatusLine
-                label="Início operacional ACC"
+                label="Início operacional ACC" helpId="dashboard.executivo.data-inicio-operacional-acc"
                 value={formatDashboardDate(projectDates?.acc_operational_start_date ?? null)}
                 status={projectDates?.acc_operational_start_date ? "ok" : "neutral"}
               />
             </Panel>
 
-            <Panel title="Distribuição dos alertas de risco abertos">
+            <Panel title="Distribuição dos alertas de risco abertos" helpId="dashboard.executivo.distribuicao-alertas">
               <div className="grid grid-cols-4 gap-2">
                 {[
                   ["Baixo", riskCases?.openBySeverity.BAIXA ?? null, "bg-[#166534]", "text-[#ffffff]"],
@@ -963,22 +985,22 @@ export default async function DashboardPage({
           <div className="flex flex-col gap-2">
             <Panel title="Financeiro resumido — R$ mil">
               <StatusLine
-                label="Contrato + aditivos"
+                label="Contrato + aditivos" helpId="dashboard.executivo.fin-contrato-aditivos"
                 value={formatDashboardMil(dashboardContractTotal)}
                 status={dashboardContractTotal !== null ? "ok" : "neutral"}
               />
               <StatusLine
-                label="Aditivos"
+                label="Aditivos" helpId="dashboard.executivo.fin-aditivos"
                 value={formatAdditivesMil(dashboardAdditives)}
                 status={dashboardAdditives.value !== null ? "ok" : "neutral"}
               />
               <StatusLine
-                label="Realizado total"
+                label="Realizado total" helpId="dashboard.executivo.fin-realizado-total"
                 value={formatDashboardMil(dashboardFinancialRealized)}
                 status={dashboardFinancialRealized !== null ? "ok" : "neutral"}
               />
               <StatusLine
-                label="Saldo"
+                label="Saldo" helpId="dashboard.executivo.fin-saldo"
                 value={formatDashboardMil(dashboardFinancialBalance)}
                 status={dashboardFinancialBalance !== null ? "ok" : "neutral"}
               />
@@ -989,14 +1011,14 @@ export default async function DashboardPage({
 
             <Panel title="SSMA / ESG — Segurança">
               <StatusLine
-                label="Acidentes com afastamento"
+                label="Acidentes com afastamento" helpId="dashboard.executivo.ssma-acidentes-com-afastamento"
                 value={dashboardAccidentsWithLeave !== null ? dashboardAccidentsWithLeave : "—"}
                 status={
                   dashboardAccidentsWithLeave !== null ? (dashboardAccidentsWithLeave > 0 ? "error" : "ok") : "neutral"
                 }
               />
               <StatusLine
-                label="Acidentes sem afastamento"
+                label="Acidentes sem afastamento" helpId="dashboard.executivo.ssma-acidentes-sem-afastamento"
                 value={dashboardAccidentsWithoutLeave !== null ? dashboardAccidentsWithoutLeave : "—"}
                 status={
                   dashboardAccidentsWithoutLeave !== null
@@ -1007,14 +1029,14 @@ export default async function DashboardPage({
                 }
               />
               <StatusLine
-                label="Ocorrências de segurança"
+                label="Ocorrências de segurança" helpId="dashboard.executivo.ssma-ocorrencias"
                 value={dashboardSafetyOccurrences !== null ? dashboardSafetyOccurrences : "—"}
                 status={
                   dashboardSafetyOccurrences !== null ? (dashboardSafetyOccurrences > 0 ? "warning" : "ok") : "neutral"
                 }
               />
               <StatusLine
-                label="Near Misses (quase-acidentes)"
+                label="Near Misses (quase-acidentes)" helpId="dashboard.executivo.ssma-near-misses"
                 value={ssmaDash.nearMisses !== null ? ssmaDash.nearMisses : "—"}
                 status={ssmaDash.nearMisses !== null ? (ssmaDash.nearMisses > 0 ? "warning" : "ok") : "neutral"}
               />
@@ -1025,7 +1047,7 @@ export default async function DashboardPage({
                 <Link href={`/${projectId}/ssma-registros#near-misses`} className="font-bold text-[#ffd0c7] underline">Ver registros</Link>
               </p>
               <StatusLine
-                label="Dias sem acidente"
+                label="Dias sem acidente" helpId="dashboard.executivo.ssma-dias-sem-acidente"
                 value={dashboardDaysWithoutAccident !== null ? dashboardDaysWithoutAccident : "—"}
                 status={dashboardDaysWithoutAccident !== null ? "ok" : "neutral"}
               />
@@ -1036,12 +1058,12 @@ export default async function DashboardPage({
                 </SubNote>
               ) : null}
               <StatusLine
-                label="Ações corretivas em aberto"
+                label="Ações corretivas em aberto" helpId="dashboard.executivo.ssma-acoes-corretivas-abertas"
                 value={ssmaDash.openCorrectiveActions !== null ? ssmaDash.openCorrectiveActions : "—"}
                 status={ssmaDash.openCorrectiveActions !== null ? (ssmaDash.openCorrectiveActions > 0 ? "warning" : "ok") : "neutral"}
               />
               <StatusLine
-                label="Ações corretivas em atraso"
+                label="Ações corretivas em atraso" helpId="dashboard.executivo.ssma-acoes-corretivas-atraso"
                 value={ssmaDash.overdueCorrectiveActions !== null ? ssmaDash.overdueCorrectiveActions : "—"}
                 status={ssmaDash.overdueCorrectiveActions !== null ? (ssmaDash.overdueCorrectiveActions > 0 ? "error" : "ok") : "neutral"}
               />
@@ -1061,7 +1083,7 @@ export default async function DashboardPage({
                 <ProgressRing percent={physicalActual !== null ? Number(physicalActual) : null} />
                 <div className="min-w-0 flex-1">
                   <StatusLine
-                    label="Avanço físico atual"
+                    label="Avanço físico atual" helpId="dashboard.executivo.kpi-avanco-fisico"
                     value={
                       physicalActual !== null
                         ? `${physicalActual.toLocaleString("pt-BR", {
@@ -1085,7 +1107,7 @@ export default async function DashboardPage({
                 <ProgressRing percent={financialProgressPercent} />
                 <div className="min-w-0 flex-1">
                   <StatusLine
-                    label="Avanço financeiro"
+                    label="Avanço financeiro" helpId="dashboard.executivo.avanco-financeiro"
                     value={
                       financialProgressPercent !== null
                         ? `${financialProgressPercent.toLocaleString("pt-BR", {
@@ -1100,27 +1122,27 @@ export default async function DashboardPage({
 
               <div className="mt-1">
                 <StatusLine
-                  label="Faturamento AXION"
+                  label="Faturamento AXION" helpId="dashboard.executivo.faturamento-axion"
                   value={formatFinancialMil(financialAxion)}
                   status={financialAxion !== null ? "ok" : "neutral"}
                 />
                 <StatusLine
-                  label="Faturamento Direto WEG"
+                  label="Faturamento Direto WEG" helpId="dashboard.executivo.faturamento-direto"
                   value={formatFinancialMil(financialDirect)}
                   status={financialDirect !== null ? "ok" : "neutral"}
                 />
                 <StatusLine
-                  label="Realizado total"
+                  label="Realizado total" helpId="dashboard.executivo.fin-realizado-total"
                   value={formatFinancialMil(financialActual)}
                   status={financialActual !== null ? "ok" : "neutral"}
                 />
                 <StatusLine
-                  label="Base contratual"
+                  label="Base contratual" helpId="dashboard.executivo.fin-contrato-aditivos"
                   value={formatFinancialMil(financialPlanned)}
                   status={financialPlanned !== null ? "ok" : "neutral"}
                 />
                 <StatusLine
-                  label="Saldo"
+                  label="Saldo" helpId="dashboard.executivo.fin-saldo"
                   value={formatFinancialMil(financialBalance)}
                   status={financialBalance !== null ? "ok" : "neutral"}
                 />
@@ -1130,7 +1152,7 @@ export default async function DashboardPage({
 
           {/* COLUNA 4 */}
           <div className="flex flex-col gap-2">
-            <Panel title="Status das integrações">
+            <Panel title="Status das integrações" helpId="dashboard.executivo.integracoes-status">
               {integrationRows.map((row) => (
                 <div key={row.sourceType} className="border-b border-white/[0.07] py-px last:border-b-0">
                   <div className="flex items-center justify-between gap-3">
@@ -1147,6 +1169,7 @@ export default async function DashboardPage({
                         }`}
                       />
                       <span className="break-words text-[12px] font-normal leading-[18px] text-white">{row.label}</span>
+                      {row.sourceType === "EMAIL" ? <HelpHint helpId="dashboard.executivo.integracoes-email-etapas" iconClassName={HINT_ICON_CLASS} /> : null}
                     </div>
 
                     <StatusBadge
@@ -1198,7 +1221,7 @@ export default async function DashboardPage({
               ))}
             </Panel>
 
-            <Panel title="Relatório semanal — abas extraídas">
+            <Panel title="Relatório semanal — abas extraídas" helpId="dashboard.executivo.relatorio-semanal-abas">
               {(
                 [
                   ["CURVA_S", "Curva S"],
@@ -1220,7 +1243,10 @@ export default async function DashboardPage({
               <div className="flex items-start gap-2">
                 <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#8fb8f0]" />
                 <div>
-                  <p className="text-[12px] font-normal text-white">Atualização automática</p>
+                  <p className="flex items-center gap-1.5 text-[12px] font-normal text-white">
+                    Atualização automática
+                    <HelpHint helpId="dashboard.executivo.atualizacao-automatica" iconClassName={HINT_ICON_CLASS} />
+                  </p>
                   <p className="text-[10px] leading-snug text-[#b8c7dc]">
                     Cronograma, relatório semanal, financeiro e SSMA são exibidos somente após o respectivo e-mail/anexo
                     ter sido persistido e processado pelo ACC.
@@ -1234,13 +1260,13 @@ export default async function DashboardPage({
           <div className="flex flex-col gap-2">
             <Panel title="Planejamento — recebimento por e-mail">
               <StatusLine
-                label="Cronograma atualizado (semana)"
+                label="Cronograma atualizado (semana)" helpId="dashboard.executivo.plan-cronograma-atualizado"
                 value={planningStages.scheduleUpdated.tone === "ok" ? "PROCESSED" :planningStages.scheduleUpdated.tone === "neutral" ? "Não verificável" : "PENDING"}
                 status={planningStages.scheduleUpdated.tone}
               />
               {planningStages.scheduleUpdated.tone !== "ok" ? <SubNote>{planningStages.scheduleUpdated.text}</SubNote> : null}
-              <StatusLine label="Arquivo de cronograma (MPP)" value={planningStages.mppFile.text} status={planningStages.mppFile.tone} />
-              <StatusLine label="Baseline oficial do cronograma" value={planningStages.baseline.text} status={planningStages.baseline.tone} />
+              <StatusLine label="Arquivo de cronograma (MPP)" helpId="dashboard.executivo.plan-mpp" value={planningStages.mppFile.text} status={planningStages.mppFile.tone} />
+              <StatusLine label="Baseline oficial do cronograma" helpId="dashboard.executivo.plan-baseline" value={planningStages.baseline.text} status={planningStages.baseline.tone} />
 
               {scheduleEmail ? (
                 <details className="pb-1 pl-4 text-[11px] leading-snug text-[#c9d6e8]">
@@ -1256,7 +1282,7 @@ export default async function DashboardPage({
               ) : null}
 
               <StatusLine
-                label="Relatório semanal (Excel)"
+                label="Relatório semanal (Excel)" helpId="dashboard.executivo.plan-relatorio-semanal"
                 value={planningStages.weeklyReport.text}
                 status={planningStages.weeklyReport.tone}
               />
@@ -1278,7 +1304,7 @@ export default async function DashboardPage({
 
               <div className="mt-1 border-t border-[#263b5c] pt-1">
                 <StatusLine
-                  label="Dias decorridos"
+                  label="Dias decorridos" helpId="dashboard.executivo.dias-decorridos"
                   value={elapsed.available ? elapsed.value.days : "Não disponível"}
                   status={elapsed.available ? "ok" : "neutral"}
                 />
@@ -1288,7 +1314,7 @@ export default async function DashboardPage({
                     : `Motivo: ${elapsed.reason}.`}
                 </SubNote>
                 <StatusLine
-                  label="Dias não trabalhados (clima)"
+                  label="Dias não trabalhados (clima)" helpId="dashboard.executivo.dias-nao-trabalhados"
                   value={
                     climate.available
                       ? climate.value.nonWorkedDays.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })
@@ -1297,7 +1323,7 @@ export default async function DashboardPage({
                   status={climate.available ? (climate.value.nonWorkedDays > 0 ? "warning" : "ok") : "neutral"}
                 />
                 <StatusLine
-                  label="Impacto climático"
+                  label="Impacto climático" helpId="dashboard.executivo.impacto-climatico"
                   value={
                     climate.available
                       ? `${climate.value.percent.toLocaleString("pt-BR", {
@@ -1314,7 +1340,7 @@ export default async function DashboardPage({
                     : `Motivo: ${climate.reason}.`}
                 </SubNote>
                 <StatusLine
-                  label="Efetivo atual"
+                  label="Efetivo atual" helpId="dashboard.executivo.efetivo-atual"
                   value={
                     dashboardCurrentWorkforce !== null
                       ? `${dashboardCurrentWorkforce.toLocaleString("pt-BR")} pessoas`
