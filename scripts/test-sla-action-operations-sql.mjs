@@ -239,8 +239,14 @@ await check("P15 a função interna de autorização não é executável por ano
   assert(rows[0].auth_exec === false && rows[0].anon_exec === false && rows[0].rpc_exec === true, JSON.stringify(rows[0]));
 });
 await check("P16 regra corporativa intacta: UPDATE direto do responsável não-admin continua bloqueado pela RLS (só as RPCs abrem o tratamento)", async () => {
+  // 20261121100000: has_project_permission delega a project_permission_for (fonte única da tabela de níveis); a regra
+  // verificada é a da fonte efetiva.
   const { rows } = await db.query("select pg_get_functiondef('public.has_project_permission(uuid,text)'::regprocedure) as def");
-  assert(/when 'COLABORADOR' then 1/.test(rows[0].def) && /when 'EDITOR' then 2/.test(rows[0].def), "has_project_permission foi alterada");
+  let def = rows[0].def;
+  if (/public\.project_permission_for\(p_project_id, auth\.uid\(\), p_min\)/.test(def)) {
+    def = (await db.query("select pg_get_functiondef('public.project_permission_for(uuid,uuid,text)'::regprocedure) as def")).rows[0].def;
+  }
+  assert(/when 'COLABORADOR' then 1/.test(def) && /when 'EDITOR' then 2/.test(def), "has_project_permission foi alterada");
 });
 
 // ---------- Consistência caso de risco × ação SLA (migration 20261120110000) ----------
