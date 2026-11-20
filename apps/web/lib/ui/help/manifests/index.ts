@@ -8,6 +8,7 @@ import { EXPERTS_MANIFEST } from "./experts";
 import { INTEGRACOES_MANIFEST } from "./integracoes";
 import { JURIDICO_MANIFEST } from "./juridico";
 import { PLANEJAMENTO_MANIFEST } from "./planejamento";
+import { FONTES_MANIFEST } from "./fontes";
 import { GARANTIAS_MANIFEST } from "./garantias";
 import { PILARES_MANIFEST } from "./pilares";
 import { QUALIDADE_MANIFEST } from "./qualidade";
@@ -27,6 +28,7 @@ export const ALL_HELP_MANIFESTS: HelpManifest[] = [
   EXPERTS_MANIFEST,
   ADMIN_MANIFEST,
   QUALIDADE_MANIFEST,
+  FONTES_MANIFEST,
   GARANTIAS_MANIFEST,
   SEGUROS_MANIFEST,
   PILARES_MANIFEST,

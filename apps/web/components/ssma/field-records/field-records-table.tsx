@@ -1,4 +1,6 @@
+import { RegisterQualityIndication } from "@/components/quality/register-quality-indication";
 import { FeatureInfo } from "@/components/shared/feature-info";
+import { buildOriginRef } from "@/lib/quality/ingestion";
 import { isActionOverdue, type FieldRecordView } from "@/lib/ssma/field-records/field-record-view";
 import { ACTION_STATUS_LABELS, RISK_LABELS } from "@/lib/ssma/field-records/types";
 
@@ -17,7 +19,7 @@ const HEADING_HELP: Record<string, string> = {
 };
 
 /** Tabela do painel do ACC (somente leitura). `today` = AAAA-MM-DD para marcar ações em atraso. */
-export function FieldRecordsTable({ records, today }: { records: FieldRecordView[]; today: string }) {
+export function FieldRecordsTable({ records, today, projectId }: { records: FieldRecordView[]; today: string; projectId?: string }) {
   return (
     <table className="w-full min-w-[900px] text-sm">
     <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
@@ -60,6 +62,18 @@ export function FieldRecordsTable({ records, today }: { records: FieldRecordView
                   ))}
                 </span>
               )}
+              {projectId ? (
+                <RegisterQualityIndication
+                  compact
+                  projectId={projectId}
+                  originTypes={["SSMA_FOTO"]}
+                  originRef={buildOriginRef("ssma_field_record", record.id)}
+                  sourceTable="ssma_field_records"
+                  originUrl={`/${projectId}/ssma-registros`}
+                  defaultTitle={`${record.category} — ${record.location}`}
+                  triageEligible
+                />
+              ) : null}
             </td>
           </tr>
         );

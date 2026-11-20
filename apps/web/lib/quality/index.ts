@@ -4,3 +4,4 @@ export * from "./criticality";
 export * from "./dedupe";
 export * from "./alert-guard";
 export * from "./mappers";
+export * from "./ingestion";

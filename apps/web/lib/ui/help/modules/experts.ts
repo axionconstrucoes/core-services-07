@@ -162,10 +162,11 @@ export const EXPERTS_HELP: FeatureHelpDefinition[] = [
     data: [
       "Disponível (consulta pré-contratual): texto extraído dos documentos contratuais legíveis (PDF, DOCX, TXT) com cobertura declarada; se parte do texto não coube no limite de contexto, o painel avisa conteúdo parcial; documento ilegível é informado e sem nenhum documento legível a consulta é recusada sem chamar a IA.",
       "Disponível (consulta de evento/alerta): evento, evidências (rótulo e localizador), cláusulas relacionadas e candidatas de confronto, e-mails (assunto, trecho, remetente, destinatário, metadados de anexos) e anotações declaradas do evento.",
-      "Não disponível: apólices, garantias e sinistros como entidades estruturadas (fonte futura: hoje só como documento ou e-mail); base legal oficial; atas de reunião, Diário de Obra, Construmanager, relatórios semanais e notificações formais como entidades próprias (fontes futuras).",
+      "Disponível (somente leitura, sob as permissões da obra): casos de garantia (quality_warranty_cases) e comprovantes de manutenção, apólices (insurance_policies), endossos (insurance_endorsements), sinistros e eventos (insurance_claims) e fianças bancárias (bank_guarantees), entregues como DADO externo; tabela vazia ou ilegível é declarada SEM DADOS.",
+      "Não disponível: base legal oficial; atas de reunião, Diário de Obra, Construmanager, relatórios semanais e notificações formais como entidades próprias (fontes futuras).",
     ],
     source:
-      "Documentos, cláusulas, e-mails, evidências e eventos da obra montados por lib/ai/context (build-project-context.ts e build-event-context.ts); nenhuma fonte legal externa.",
+      "Documentos, cláusulas, e-mails, evidências e eventos da obra montados por lib/ai/context (build-project-context.ts e build-event-context.ts) mais as tabelas de garantia e seguros lidas por build-quality-sources-context.ts; nenhuma fonte legal externa.",
     refresh: EXPERT_COMMON_REFRESH,
     missingData: `${EXPERT_COMMON_MISSING} Quando a análise exigiria citar norma, declara que a base legal oficial não está disponível.`,
     result:
@@ -334,10 +335,11 @@ export const EXPERTS_HELP: FeatureHelpDefinition[] = [
     ],
     data: [
       "Disponível: o contexto da obra montado por lib/ai/context (eventos, evidências, cláusulas, documentos, e-mails e anotações declaradas).",
-      "Não disponível: registros estruturados de qualidade (RNC, inspeções, ensaios e planos corretivos) e de garantias e assistência técnica, Diário de Obra e relatórios semanais como entidades próprias (fontes futuras).",
+      "Disponível (somente leitura, sob as permissões da obra): RNC (quality_ncrs), evidências classificadas (quality_evidence), casos de garantia e assistência (quality_warranty_cases), comprovantes de manutenção (quality_warranty_maintenance) e reclamações de clientes (quality_customer_complaints). O conteúdo dessas tabelas é entregue ao especialista como DADO externo, nunca como instrução; tabela vazia ou ilegível é declarada SEM DADOS.",
+      "Não disponível: inspeções, ensaios e planos corretivos como fontes do contexto do especialista (ainda não lidos por ele), Diário de Obra e relatórios semanais como entidades próprias (fontes futuras).",
     ],
     source:
-      "Contexto da obra montado por lib/ai/context (build-project-context.ts e build-event-context.ts); definição e contrato de saída em lib/ai/experts/quality-analyst.",
+      "Contexto da obra montado por lib/ai/context (build-project-context.ts e build-event-context.ts) mais as tabelas quality_* lidas por build-quality-sources-context.ts; definição e contrato de saída em lib/ai/experts/quality-analyst.",
     refresh: EXPERT_COMMON_REFRESH,
     missingData: `${EXPERT_COMMON_MISSING} Resultado de ensaio, valor de reparo e prazo de garantia ausentes das fontes são declarados como SEM DADOS, nunca estimados.`,
     result:

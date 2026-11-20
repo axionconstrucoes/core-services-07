@@ -6,6 +6,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 import { DocumentDownloadButton } from "@/components/documents/document-download-button";
 import { ExtractionCoveragePanel } from "@/components/documents/extraction-coverage-panel";
 import { PageHeader } from "@/components/layout/page-header";
+import { RegisterQualityIndication } from "@/components/quality/register-quality-indication";
 import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent } from "@/components/ui/card";
 import { buttonVariants } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import {
   type FontEncodingRepair,
 } from "@/lib/documents/extraction/repair-font-encoding";
 import { resolveAttachmentOpenBehavior } from "@/lib/email/registry/resolve-attachment-open-behavior";
+import { buildOriginRef, originTypeForDocumentSource } from "@/lib/quality/ingestion";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -287,6 +289,19 @@ export default async function DocumentVersionViewerPage({
             ) : null}
           </div>
         }
+      />
+
+      <RegisterQualityIndication
+        projectId={projectId}
+        originTypes={
+          originTypeForDocumentSource(version.source_type) === "DIARIO_OBRA"
+            ? ["DIARIO_OBRA", "FISCALIZACAO", "DOCUMENTO"]
+            : ["DOCUMENTO", "FISCALIZACAO", "DIARIO_OBRA"]
+        }
+        originRef={buildOriginRef("document_version", documentVersionId)}
+        sourceTable="document_versions"
+        originUrl={`/${projectId}/documentos/versoes/${documentVersionId}`}
+        defaultTitle={document.title}
       />
 
       {version.summary ? (

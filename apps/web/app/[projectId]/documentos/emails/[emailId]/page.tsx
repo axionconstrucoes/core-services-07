@@ -15,6 +15,7 @@ import {
 } from "@/components/documents/email-registry/email-registry-review-forms";
 import { WeeklyReportWorkbookSection } from "@/components/documents/email-registry/weekly-report-workbook-section";
 import { PageHeader } from "@/components/layout/page-header";
+import { RegisterQualityIndication } from "@/components/quality/register-quality-indication";
 import { FeatureInfo } from "@/components/shared/feature-info";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { getProjects } from "@/lib/data";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
+import { buildOriginRef } from "@/lib/quality/ingestion";
 import { getEmailDocumentDetail } from "@/lib/email/registry/email-document-registry-data";
 import { EMAIL_CLASSIFICATION_LABELS } from "@/lib/email/registry/email-document-registry-shared";
 import { resolveAttachmentOpenBehavior } from "@/lib/email/registry/resolve-attachment-open-behavior";
@@ -174,6 +176,16 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
             </Link>
           </div>
         }
+      />
+
+      <RegisterQualityIndication
+        projectId={projectId}
+        originTypes={["EMAIL"]}
+        originRef={buildOriginRef("email", emailId)}
+        sourceTable="emails"
+        originUrl={`/${projectId}/documentos/emails/${emailId}`}
+        defaultTitle={email.subject}
+        triageEligible
       />
 
       <Card className="overflow-hidden">

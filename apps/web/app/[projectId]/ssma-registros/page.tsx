@@ -152,7 +152,7 @@ export default async function SsmaFieldRecordsPage({
               {records.length === 0 ? (
                 <p className="p-4 text-sm text-muted-foreground">Nenhum registro enviado ainda.</p>
               ) : (
-                <FieldRecordsTable records={records} today={today} />
+                <FieldRecordsTable records={records} today={today} projectId={projectId} />
               )}
             </CardContent>
           </Card>
@@ -173,7 +173,7 @@ export default async function SsmaFieldRecordsPage({
           ) : checklists.submissions.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum checklist enviado ainda.</p>
           ) : (
-            <ChecklistSubmissionsGallery submissions={checklists.submissions} />
+            <ChecklistSubmissionsGallery submissions={checklists.submissions} projectId={projectId} />
           )}
         </CardContent>
       </Card>
