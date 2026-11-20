@@ -103,3 +103,4 @@ scripts/test-garantias-ui.mjs
 scripts/test-quality-ui.mjs
 scripts/test-seguros-ui.mjs
 scripts/test-seguros-browser.mjs
+scripts/test-implantacao-plano.mjs

@@ -1,0 +1,214 @@
+# 01 - Inventário de migrations: locais x Supabase operacional
+
+Data da leitura: 20/11/2026. Projeto `plbcvwostmdmdmrziwmd` (nome no painel: "axion-contract-intelligence-dev", Postgres 17.6, sa-east-1, ACTIVE_HEALTHY). Este é o único projeto Supabase do ACC e é o operacional.
+Escopo da leitura: SOMENTE `list_migrations`, `get_project` e SELECT em catálogos (`pg_proc`, `information_schema`, `pg_indexes`, `pg_trigger`). Nada foi aplicado, registrado ou alterado.
+
+## Método
+
+1. Correspondência por NOME e versão. O `list_migrations` remoto tem 134 registros; a última versão é `20261119034721 scheduler_pg_cron_dispatch`.
+2. Prova de igualdade do histórico: `md5(string_agg(version||'_'||name order by version))` em `supabase_migrations.schema_migrations` = `70a176da74c9f88ac06b04d80bc55891`. O mesmo md5 sobre os 134 arquivos locais com versão <= `20261119034721`, exceto as 3 fora de ordem, dá o MESMO valor. Portanto os 134 registros remotos correspondem, um a um, a 134 arquivos locais (versão e nome idênticos). O teste `scripts/test-implantacao-plano.mjs` recalcula esse hash a partir das linhas `aplicada-registrada` deste arquivo.
+3. Para as não registradas, comparação de OBJETOS: tabelas, funções, colunas, gatilhos e índices que cada arquivo cria foram extraídos do SQL local e conferidos contra o catálogo remoto. Resultado: nenhuma tabela, coluna, gatilho ou índice criado pelas migrations pendentes existe no remoto.
+4. Funções redefinidas (`create or replace`) que já existiam: comparadas por hash do corpo apenas quando há corpo local único a comparar (hotfix). Para as demais, "função existe" NÃO prova aplicação; por isso ficam `pendente`.
+
+## Estados usados
+
+| Estado | Significado |
+|---|---|
+| aplicada-registrada | Há linha em `schema_migrations` com mesma versão e nome. |
+| aplicada-fora-do-historico | Efeito comprovado no catálogo, sem linha em `schema_migrations`. |
+| pendente | Efeito ausente no remoto e sem registro. |
+| pendente-parcial | Parte dos objetos coincide, parte falta. Tratar como pendente. |
+| pendente-fora-de-ordem | Pendente e com versão MENOR que a última remota (`20261119034721`). |
+| pendente-decisao | Pendente e NÃO aplicar sem decisão expressa do dono. |
+
+## Resumo (171 arquivos locais em 20/11/2026)
+
+| Estado | Qtde |
+|---|--:|
+| aplicada-registrada | 134 |
+| aplicada-fora-do-historico | 1 (`20261121090000`, hotfix P0) |
+| pendente-fora-de-ordem | 3 (`20261107090000`, `20261116090000`, `20261118140000`) |
+| pendente-decisao | 1 (`20261121177000`) |
+| pendente-parcial | 1 (`20261121101000`) |
+| pendente | 31 |
+| Total pendentes a aplicar (todos os estados `pendente*`) | 36 |
+
+Conjunto novo: `20261122*` (5 arquivos: qualidade, seguros/garantias, expert de qualidade) já existe no repositório e está pendente. O bloco `20261123*` (frente B, permissões unificadas) AINDA NÃO existe nesta base (2c68ef5); quando for integrado, cada arquivo novo DEVE ganhar uma linha aqui como `pendente` (o teste falha se faltar), e o plano 02 deve incluí-lo após `20261122300000`.
+
+## Hotfix P0 aplicado fora do histórico
+
+`record_risk_alert_action`: corpo remoto idêntico ao local vigente (md5 sem CR `930f6d75898793479b418950b0053bd9`; recomprovado em 20/11/2026), SECURITY DEFINER, `search_path` vazio, sem EXECUTE para `anon`/PUBLIC. Estado: PROTEGIDO. Pendência: a linha em `supabase_migrations.schema_migrations` não existe; procedimento de reparo de registro descrito em `02-plano-aplicacao.md` (não executado).
+
+## Tabela por migration
+
+| 20260817191336_identity_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260818195206_project_documents_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260818203331_clauses_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260818212923_schedule_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260818221730_email_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260818224157_event_ledger_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260819002246_contract_change_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260819014144_action_request_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260819021340_notification_email_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260819195713_audit_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260819202030_integration_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260820125115_gmail_email_ingestion_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260820125550_email_ingestion_config_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260820152152_email_contract_triage_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260820152635_email_contract_triage_review_queue | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260820152902_fix_email_triage_review_constraint | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260820153716_project_relevance_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260820174504_email_thread_event_candidate_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260820180344_contract_review_workflow | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260821004108_project_document_upload_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260821004513_project_document_orphan_cleanup | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260821011133_document_processing_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260821012417_clause_extraction_review_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260821021746_event_clause_confrontation_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260821132647_notification_initial_idempotency | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260821142906_project_packages_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260821192322_audit_event_clause_confrontation_candidate_creation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260822033339_event_notes_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260822040325_timeline_exports_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260822041000_timeline_exports_fix_event_ids_check | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260822044500_document_multilingual_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260822050000_esg_obligations_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260822052500_esg_ssma_source_type | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260822053200_esg_ssma_source_type_revert | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260822054900_sla_escalation_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260822060313_fix_system_actor_audit_label | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260822123400_sla_project_settings | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260823060000_email_attachment_ingestion_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260823070000_additional_proposal_lifecycle | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260823080000_client_source_confrontation_and_findings | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260823090000_startup_historical_review | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260823091500_startup_audit_triggers | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260823100000_promote_email_attachment_to_document | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260823110000_controlled_gmail_ingestion_preparation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260823110500_controlled_gmail_ingestion_config_rpc | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260823120000_integration_origin_and_participant_classification | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260824090000_project_membership_roles_status_area | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260824232516_enforce_admin_only_write | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260824232848_user_resource_policy_acknowledgement | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260824233310_user_resource_policy_acknowledgement_rpcs | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260824235001_seed_resource_use_policy_v1 | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260825002000_fix_policy_ack_term_id_ambiguity | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260825010713_document_version_file_packages | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260825011148_document_safe_delete | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260825030844_reload_document_delete_rpc_cache | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260825100000_grant_select_core_identity_tables | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260825100500_grant_select_documents_tables | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260825120000_admin_set_profile_job_title | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260825120500_project_member_invitations_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260825121000_activate_project_member_invitation_on_login | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260825121500_fix_is_any_project_admin_role_name | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260825130000_multi_document_upload_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260825140000_email_backfill_on_member_activation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260826140000_email_alert_actions_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260828150000_event_clause_confrontation_review_note_amendment | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260829090000_document_contractual_attachment_linkage | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260829150000_document_trash_restore | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260829160000_document_trash_dedup_lookup | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260829170000_single_active_contract_base_per_project | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260829180000_document_relation_hierarchy | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260829190000_document_version_client_responses | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260829200000_project_permission_gerente_compat | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260830100000_close_security_definer_search_path_gaps | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260830100500_restrict_sla_escalation_to_administrators | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260831210000_contract_attachments_authorization_and_delete | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260903120000_construmanager_connection_health | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260903180000_construmanager_document_metadata | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260904090000_construmanager_content_storage | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260904120000_rejection_escalation_governance | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260904130000_rejection_escalation_governance_hardening | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260904140000_rejection_escalation_target_audit | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260905180000_construmanager_content_automation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260907160000_diario_de_obra_deterministic_sync | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260907180000_diario_de_obra_findings | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260908090000_diario_de_obra_climate_kpi | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260908150000_diario_de_obra_labor_padrao_personalizada_fix | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260909143000_ssma_submission_persistence | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260910120000_skip_missing_sla_level_2 | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260910230000_weekly_risk_alert_digest | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260911100000_special_routines_accident | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260911113000_add_compras_ssma_esg_membership_areas | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260911114000_add_secondary_sla_area_responsible | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260911120000_legal_precontract_workspaces | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260911121000_allow_pending_members_in_sla_matrix | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260917130000_schedule_mpp_extraction_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260920024000_fix_project_documents_mpp_mime | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260920031000_document_worker_service_role_grants | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260920052000_add_email_document_kind | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260920120000_weekly_schedule_email_ingestion_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260920170000_harden_weekly_report_database_permissions | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260921090000_pilot_risk_alert_delivery | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260921120000_pilot_delivery_override | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260921130000_contract_alert_batches_foundation | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20260923210000_contract_alert_batch_dispatch_claims | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261010220000_email_full_body_storage | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261010224500_email_inline_images | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261011003000_email_project_scope_filter | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261011011500_email_ingestion_configurable_project_scope | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261011014500_email_project_scope_admin | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261014190000_create_project_workspace | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261027120000_alert_followups | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261027130000_project_delivery_items | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261027140000_alert_batch_partial_responses | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261027150000_delivery_item_respond | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261027160000_delivery_end_date_change_history | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261028120000_risk_classification_reviews | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261028130000_ssma_field_records | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261029100000_risk_alert_outbox_send_claim | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261029110000_sla_action_audit_service_role_actor | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261029120000_email_access_authorizations | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261030120000_close_ssma_construmanager_search_path_gaps | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261030130000_fix_construmanager_budget_response_state | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261030140000_ssma_photo_discard_authorize_only | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261030150000_restrict_anon_execute_authenticated_only_functions | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261031100000_whatsapp_contacts_and_simulated_log | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261101100000_restrict_anon_execute_remaining_security_definer | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261104120000_legal_consultations_private | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261105173838_axia_chat_budget | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261106195625_sla_configuration_audit_system_actor | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261107090000_email_mailbox_collection_controls | pendente-fora-de-ordem | Fora de ordem. Pré-requisito da 20261121110000. Sem registro em schema_migrations; T 0/1, F 0/5, col 0/0, gatilho 0/0 presentes/total. Ausentes: tabela email_mailbox_collection_controls, função register_mailbox_corporate_authorization, função set_mailbox_collection. |
+| 20261111042824_ssma_esg_acoes_perfis_notificacoes | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261111043023_ssma_esg_evidence_reference | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261111043226_esg_ssma_reference_consistency_guard | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261111121457_copy_project_team | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261116090000_list_addable_profiles_for_project | pendente-fora-de-ordem | Fora de ordem. Pré-requisito da 20261121160000. Sem registro em schema_migrations; T 0/0, F 0/1, col 0/0, gatilho 0/0 presentes/total. Ausentes: função list_addable_profiles_for_project. |
+| 20261118140000_sla_matrix_rules_unique_active_key | pendente-fora-de-ordem | Fora de ordem. Índice único ausente no remoto. Pré-condição da 20261121177000; exige checagem prévia de duplicidade. Sem registro em schema_migrations; T 0/0, F 0/0, col 0/0, gatilho 0/0 presentes/total. Ausentes: índice sla_matrix_rules_active_key_unique. |
+| 20261119034721_scheduler_pg_cron_dispatch | aplicada-registrada | list_migrations (20/11/2026): versão e nome idênticos; hash do conjunto 70a176da74c9f88ac06b04d80bc55891 (134 registros). |
+| 20261120100000_sla_action_operations_by_responsible | pendente | Sem registro em schema_migrations; T 0/0, F 0/5, col 0/0, gatilho 0/0 presentes/total. Ausentes: função sla_action_authorize_operation, função sla_action_assume, função sla_action_start, .... |
+| 20261120110000_risk_case_sla_consistency_guards | pendente | Sem registro em schema_migrations; T 0/0, F 0/2, col 0/0, gatilho 0/2 presentes/total. Ausentes: função email_alert_action_risk_case_guard, função audit_sla_action_deadline_changed. |
+| 20261120120000_ssma_forward_and_ai_consult_limits | pendente | Sem registro em schema_migrations; T 0/2, F 0/2, col 0/0, gatilho 0/0 presentes/total. Ausentes: tabela ai_consult_limits, tabela ai_consult_usage, função ssma_corrective_action_forward, .... |
+| 20261120130000_risk_alert_action_server_side_guard | pendente | Função record_risk_alert_action superada pelo corpo do hotfix; reaplicar em ordem pode devolver, por instantes, um corpo intermediário anterior ao hotfix (ver plano, seção Atenção). Sem registro em schema_migrations; T 0/0, F 1/1, col 0/0, gatilho 0/0 presentes/total; versão nova da função/ACL não comprovada no remoto. |
+| 20261120140000_ai_consult_reserve_global_user_lock | pendente | Sem registro em schema_migrations; T 0/0, F 0/1, col 0/0, gatilho 0/0 presentes/total. Ausentes: função ai_consult_reserve. |
+| 20261120150000_weekly_digest_evidence_and_guards | pendente | Sem registro em schema_migrations; T 0/0, F 1/1, col 0/0, gatilho 0/0 presentes/total; versão nova da função/ACL não comprovada no remoto. |
+| 20261120151000_risk_alert_action_no_outbox_authorization | pendente | Função record_risk_alert_action superada pelo corpo do hotfix; mesma ressalva da 20261120130000. Sem registro em schema_migrations; T 0/0, F 1/1, col 0/0, gatilho 0/0 presentes/total; versão nova da função/ACL não comprovada no remoto. |
+| 20261120152000_risk_sla_consistency_report_and_email_guards | pendente | Sem registro em schema_migrations; T 0/0, F 0/1, col 0/0, gatilho 0/0 presentes/total. Ausentes: função email_alert_action_risk_case_guard. |
+| 20261120153000_null_safe_authorization_checks | pendente | Sem registro em schema_migrations; T 0/0, F 0/2, col 0/0, gatilho 0/0 presentes/total. Ausentes: função sla_action_authorize_operation, função ssma_corrective_action_forward. |
+| 20261120160000_email_reply_tokens_and_ssma_by_email | pendente | Sem registro em schema_migrations; T 0/3, F 2/11, col 0/0, gatilho 0/0 presentes/total. Ausentes: tabela email_reply_tokens, tabela email_inbound_attachments, tabela email_reply_inbound_log, .... |
+| 20261120170000_ai_consult_all_expert_paths | pendente | Sem registro em schema_migrations; T 0/0, F 0/4, col 0/1, gatilho 0/0 presentes/total. Ausentes: função ai_consult_reserve_core, função ai_consult_reserve, função ai_consult_reserve_expert, .... |
+| 20261120190000_null_safe_ssma_cores | pendente | Sem registro em schema_migrations; T 0/0, F 0/2, col 0/0, gatilho 0/0 presentes/total. Ausentes: função ssma_corrective_action_forward_core, função ssma_field_record_register_photo_core. |
+| 20261121090000_hotfix_risk_alert_action_authorization | aplicada-fora-do-historico | HOTFIX P0: único objeto é a função; corpo remoto == corpo local vigente (Frente A). pg_proc remoto: md5(prosrc sem CR)=930f6d75898793479b418950b0053bd9 == corpo local vigente; SECURITY DEFINER, search_path vazio, sem EXECUTE para anon/PUBLIC. Sem linha em schema_migrations. |
+| 20261121100000_centralize_project_permission_rule | pendente | has_project_permission remoto NÃO delega a project_permission_for (que nem existe ainda): pendente. Sem registro em schema_migrations; T 0/0, F 2/2, col 0/0, gatilho 0/0 presentes/total; versão nova da função/ACL não comprovada no remoto. |
+| 20261121101000_null_safe_authorization_residual | pendente-parcial | Parcial: record_risk_alert_action coincide com o remoto; email_alert_action_risk_case_guard (também definida aqui) não existe no remoto. Objetos remotos: T 0/0, F 2/3, col 0/0, gatilho 0/0 presentes/total. Ausentes: função email_alert_action_risk_case_guard. |
+| 20261121110000_email_mailbox_controls_hardening | pendente | Sem registro em schema_migrations; T 0/0, F 0/6, col 0/1, gatilho 0/2 presentes/total. Ausentes: função email_mailbox_consent_from_authorization, função email_mailbox_controls_inherit_consent, função email_access_authorization_sync_mailbox_control, .... |
+| 20261121120000_email_replies_sla_digest_contract_by_email | pendente | Sem registro em schema_migrations; T 0/2, F 3/24, col 0/0, gatilho 0/0 presentes/total. Ausentes: tabela email_reply_command_receipts, tabela email_reply_confirmations, função email_reply_claim_receipt, .... |
+| 20261121130000_outbound_delivery_states | pendente | Sem registro em schema_migrations; T 0/1, F 0/4, col 0/5, gatilho 0/6 presentes/total. Ausentes: tabela acc_system_health_alert_deliveries, função acc_delivery_evidence_state, função acc_outbound_delivery_guard, .... |
+| 20261121150000_ai_consult_governance | pendente | Sem registro em schema_migrations; T 0/1, F 0/5, col 0/1, gatilho 0/0 presentes/total. Ausentes: tabela ai_consult_budget_settings, função ai_consult_reserve_core, função ai_consult_reserve, .... |
+| 20261121160000_revoke_anon_list_addable_profiles | pendente | Sem registro em schema_migrations; T 0/0, F 0/0, col 0/0, gatilho 0/0 presentes/total; versão nova da função/ACL não comprovada no remoto. |
+| 20261121170000_l2_revoke_anon_trigger_functions | pendente | Sem registro em schema_migrations; T 0/0, F 0/0, col 0/0, gatilho 0/0 presentes/total; versão nova da função/ACL não comprovada no remoto. |
+| 20261121171000_l2_forecast_followup_and_guards | pendente | Sem registro em schema_migrations; T 0/2, F 0/8, col 0/0, gatilho 0/2 presentes/total. Ausentes: tabela sla_action_followup_events, tabela sla_followup_policy, função sla_followup_notification_allowed, .... |
+| 20261121172000_l2_sla_forward_by_email_audit | pendente | Sem registro em schema_migrations; T 0/0, F 0/1, col 0/0, gatilho 0/0 presentes/total. Ausentes: função sla_action_forward_by_email. |
+| 20261121173000_email_specialist_consultations | pendente | Sem registro em schema_migrations; T 0/1, F 0/2, col 0/0, gatilho 0/0 presentes/total. Ausentes: tabela email_specialist_consultations, função email_specialist_consult_record, função email_specialist_consult_complete. |
+| 20261121174000_ai_consult_audit | pendente | Sem registro em schema_migrations; T 0/1, F 0/3, col 0/0, gatilho 0/0 presentes/total. Ausentes: tabela ai_consult_audit, função ai_consult_audit_record_core, função ai_consult_audit_record, .... |
+| 20261121175000_audit_delete_proposals_and_findings | pendente | Sem registro em schema_migrations; T 0/0, F 0/2, col 0/0, gatilho 0/2 presentes/total. Ausentes: função audit_additional_proposal_deleted, função audit_ai_finding_deleted. |
+| 20261121176000_risk_sla_consistency_closed_by_source | pendente | Sem registro em schema_migrations; T 0/0, F 0/0, col 0/0, gatilho 0/0 presentes/total; versão nova da função/ACL não comprovada no remoto. |
+| 20261121177000_sla_medio_baixo_prazos_aprovados | pendente-decisao | NÃO APLICAR sem decisão expressa do dono (MÉDIO 1->2 dias úteis, BAIXO 3->5). Depende da 20261118140000. Regras ativas MÉDIO/BAIXO no remoto ainda com o valor antigo (leitura B3 20/11); sem registro em schema_migrations. |
+| 20261121178000_reissue_approval_flow | pendente | Sem registro em schema_migrations; T 0/0, F 0/3, col 0/0, gatilho 0/0 presentes/total. Ausentes: função risk_alert_reissue_evaluate, função risk_alert_reissue_pending, função risk_alert_reissue_approve. |
+| 20261122100000_quality_foundation | pendente | Sem registro em schema_migrations; T 0/18, F 0/14, col 0/0, gatilho 0/5 presentes/total. Ausentes: tabela quality_counters, tabela quality_requirements, tabela quality_ncrs, .... |
+| 20261122101000_quality_rpcs | pendente | Sem registro em schema_migrations; T 0/0, F 0/12, col 0/0, gatilho 0/4 presentes/total. Ausentes: função quality_assign_code, função quality_origin_key, função quality_transition_blockers, .... |
+| 20261122200000_seguros_garantias_model | pendente | Sem registro em schema_migrations; T 0/16, F 0/2, col 0/0, gatilho 0/0 presentes/total. Ausentes: tabela insurance_audit_events, tabela insurance_settings, tabela insurance_policies, .... |
+| 20261122201000_seguros_garantias_rpcs | pendente | Sem registro em schema_migrations; T 0/0, F 0/36, col 0/0, gatilho 0/0 presentes/total. Ausentes: função insurance_int_require, função insurance_int_audit, função insurance_int_same_project, .... |
+| 20261122300000_quality_analyst_expert_id | pendente | Reescreve CHECKs/funções pela lista de Experts; depende de 20261120170000/20261121150000/20261121174000. Sem registro em schema_migrations; T 0/0, F 0/0, col 0/0, gatilho 0/0 presentes/total; versão nova da função/ACL não comprovada no remoto. |
