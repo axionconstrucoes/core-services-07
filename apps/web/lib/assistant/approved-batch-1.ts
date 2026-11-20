@@ -162,7 +162,7 @@ export const APPROVED_BATCH_1_ENTRIES: AssistantEntry[] = [
       "Diretoria (Nível 3): em +2 h — o primeiro intervalo (1 h) conta do marco anterior.",
       "Limite de escalonamento atingido: em +4 h — o segundo intervalo (2 h) conta do marco da Diretoria.",
       "Exemplo com T0 às 14:20: Nível 2 às 15:20, Diretoria às 16:20, limite às 18:20.",
-      "No padrão, o total até o limite é de 12 h úteis em Alto, 3 dias úteis em Médio e 8 dias úteis em Baixo. No ciclo automático, só Alto e Crítico sobem por prazo; cada obra pode ter valores próprios.",
+      "No padrão, o total até o limite é de 12 h úteis em Alto, 4 dias úteis em Médio e 10 dias úteis em Baixo. No ciclo automático, só Alto e Crítico sobem por prazo; cada obra pode ter valores próprios.",
     ],
     links: AJUDA,
     tutorialSlide: null,

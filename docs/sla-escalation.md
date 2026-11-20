@@ -16,13 +16,13 @@ ultrapassa o configurado — nunca por decisão de IA (seção 10).
 
 ## 2. Matriz DEFAULT (seção 2 do requisito)
 
-Valores exatos, usados quando um projeto ainda não configurou sua
+Valores aprovados (prazos definitivos: CRÍTICO 1 hora corrida, ALTO 4 horas úteis, MÉDIO 2 dias úteis, BAIXO 5 dias úteis; FRENTE A, migration `20261121177000_sla_medio_baixo_prazos_aprovados.sql`; só o prazo de assumir mudou, os intervalos de escalonamento permanecem), usados quando um projeto ainda não configurou sua
 própria regra (`apps/web/lib/sla/default-matrix.ts`):
 
 | Risco | Prazo assumir | Até 2º escalão | Até Diretoria | Unidade |
 | --- | --- | --- | --- | --- |
-| BAIXO | 3 | +3 | +2 | dias úteis |
-| MÉDIO | 1 | +1 | +1 | dias úteis |
+| BAIXO | 5 | +3 | +2 | dias úteis |
+| MÉDIO | 2 | +1 | +1 | dias úteis |
 | ALTO | 4 | +4 | +4 | horas úteis |
 | CRÍTICO | 1 | +1 | +2 | horas corridas |
 

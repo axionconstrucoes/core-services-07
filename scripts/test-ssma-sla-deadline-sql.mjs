@@ -1,5 +1,5 @@
 // Prazo para ASSUMIR da ação SLA nascida no SSMA (migration 20261106100000): deve seguir a regra OFICIAL do SLA (ALTO 4 horas úteis,
-// MÉDIO 1 dia útil, BAIXO 3 dias úteis, CRÍTICO 1 hora corrida; matriz e expediente da OBRA), e não intervalos corridos.
+// MÉDIO 2 dias úteis, BAIXO 5 dias úteis, CRÍTICO 1 hora corrida; matriz e expediente da OBRA), e não intervalos corridos.
 // PostgreSQL 17 descartável (PGlite), dados sintéticos. (1) PARIDADE: sla_add_time_units (SQL) == addTimeUnits (TypeScript oficial,
 // apps/web/lib/sla/time-units.ts) numa grade de instantes que cruza noites e fins de semana; (2) cenários explícitos; (3) matriz/expediente da obra.
 // Uso: node scripts/test-ssma-sla-deadline-sql.mjs
@@ -99,14 +99,14 @@ await check("ALTO (4 horas ÚTEIS): sexta 16:00 → segunda 10:00; sábado 10:00
   eq(await assumeFor(P1, "ALTA", "2026-11-03T19:30:00-03:00"), SP("2026-11-04T12:00:00-03:00"), "terça 19:30");
   eq(await assumeFor(P1, "ALTA", "2026-11-09T09:00:00-03:00"), SP("2026-11-09T13:00:00-03:00"), "segunda 09:00");
 });
-await check("MÉDIO (1 dia ÚTIL): quinta 17:00 → sexta 17:00; sexta 17:00 → segunda 17:00; sábado 10:00 → segunda 10:00", async () => {
-  eq(await assumeFor(P1, "MEDIA", "2026-11-05T17:00:00-03:00"), SP("2026-11-06T17:00:00-03:00"), "quinta");
-  eq(await assumeFor(P1, "MEDIA", "2026-11-06T17:00:00-03:00"), SP("2026-11-09T17:00:00-03:00"), "sexta");
-  eq(await assumeFor(P1, "MEDIA", "2026-11-07T10:00:00-03:00"), SP("2026-11-09T10:00:00-03:00"), "sábado");
+await check("MÉDIO (2 dias ÚTEIS): quinta 17:00 → segunda 17:00; sexta 17:00 → terça 17:00; sábado 10:00 → terça 10:00", async () => {
+  eq(await assumeFor(P1, "MEDIA", "2026-11-05T17:00:00-03:00"), SP("2026-11-09T17:00:00-03:00"), "quinta");
+  eq(await assumeFor(P1, "MEDIA", "2026-11-06T17:00:00-03:00"), SP("2026-11-10T17:00:00-03:00"), "sexta");
+  eq(await assumeFor(P1, "MEDIA", "2026-11-07T10:00:00-03:00"), SP("2026-11-10T10:00:00-03:00"), "sábado");
 });
-await check("BAIXO (3 dias ÚTEIS): quinta 10:00 → terça 10:00 (passa o fim de semana); segunda 10:00 → quinta 10:00", async () => {
-  eq(await assumeFor(P1, "BAIXA", "2026-11-05T10:00:00-03:00"), SP("2026-11-10T10:00:00-03:00"), "quinta");
-  eq(await assumeFor(P1, "BAIXA", "2026-11-09T10:00:00-03:00"), SP("2026-11-12T10:00:00-03:00"), "segunda");
+await check("BAIXO (5 dias ÚTEIS): quinta 10:00 → quinta seguinte 10:00 (passa o fim de semana); segunda 10:00 → segunda seguinte 10:00", async () => {
+  eq(await assumeFor(P1, "BAIXA", "2026-11-05T10:00:00-03:00"), SP("2026-11-12T10:00:00-03:00"), "quinta");
+  eq(await assumeFor(P1, "BAIXA", "2026-11-09T10:00:00-03:00"), SP("2026-11-16T10:00:00-03:00"), "segunda");
 });
 await check("CRÍTICO (1 hora CORRIDA, sem expediente): sexta 23:00 → sábado 00:00; a regra antiga em horas corridas só coincide aqui", async () => {
   eq(await assumeFor(P1, "CRITICA", "2026-11-06T23:00:00-03:00"), SP("2026-11-07T00:00:00-03:00"), "crítico");
@@ -124,8 +124,8 @@ await check("matriz da OBRA: regra por área ESG_SSMA > regra geral > padrão; r
   eq(await assumeFor(P1, "ALTA", "2026-11-05T10:00:00-03:00"), SP("2026-11-09T10:00:00-03:00"), "geral: 2 dias úteis (quinta→segunda)");
   await ins(P1, "HIGH", "ESG_SSMA", "CLOCK_HOURS", 6);             // específica de SSMA vence a geral
   eq(await assumeFor(P1, "ALTA", "2026-11-05T10:00:00-03:00"), SP("2026-11-05T16:00:00-03:00"), "área ESG_SSMA: 6 horas corridas");
-  await ins(P1, "MEDIUM", "ESG_SSMA", "CLOCK_HOURS", 1, false);   // inativa: ignorada, vale o padrão (1 dia útil)
-  eq(await assumeFor(P1, "MEDIA", "2026-11-05T10:00:00-03:00"), SP("2026-11-06T10:00:00-03:00"), "inativa ignorada");
+  await ins(P1, "MEDIUM", "ESG_SSMA", "CLOCK_HOURS", 1, false);   // inativa: ignorada, vale o padrão (2 dias úteis)
+  eq(await assumeFor(P1, "MEDIA", "2026-11-05T10:00:00-03:00"), SP("2026-11-09T10:00:00-03:00"), "inativa ignorada");
   eq(await assumeFor(P2, "ALTA", "2026-11-05T10:00:00-03:00"), SP("2026-11-05T14:00:00-03:00"), "obra 2 segue o padrão (4 h úteis)");
 });
 await check("expediente/timezone da OBRA (sla_project_settings): 09–17 em America/Manaus muda o prazo de ALTO", async () => {

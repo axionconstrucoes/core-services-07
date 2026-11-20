@@ -2122,12 +2122,12 @@ Matriz padrão no **código** (`lib/sla/default-matrix.ts:17-70`; espelho em `do
 |---|---|---|---|---|---|---|
 | **CRÍTICO** | **1** | +1 | +2 | **horas corridas** | sim | sim |
 | **ALTO** | **4** | +4 | +4 | **horas úteis** | sim | sim |
-| **MÉDIO** | **1** | +1 | +1 | **dias úteis** | não | sim |
-| **BAIXO** | **3** | +3 | +2 | **dias úteis** | não | sim |
+| **MÉDIO** | **2** | +1 | +1 | **dias úteis** | não | sim |
+| **BAIXO** | **5** | +3 | +2 | **dias úteis** | não | sim |
 
 Os prazos de *responder* e *concluir* são **nulos** no padrão ("nunca inventados"). Os dois últimos números são **intervalos em cadeia**, cada um contado a partir do **marco calculado** do passo anterior (não do horário em que o aviso saiu). Desde o início (T0), o padrão de CRÍTICO dá 1 h (Nível 2), 2 h (Nível 3) e 4 h (limite) — correção de rótulo de 04/11/2026; detalhe em `docs/diagnostico-fase-2-f1-d1-d2-d3.md` (D3). Situação: IMPLEMENTADO; valores por obra DEPENDEM DE CONFIGURAÇÃO; o ensaio isolado usou a matriz CRÍTICO equivalente ao padrão (`docs/teste-controlado-alertas-criticos.md:40`).
 
-> **Confirmação do pedido.** CRÍTICO 1 h corrida, ALTO 4 h úteis, MÉDIO 1 dia útil e BAIXO 3 dias úteis **conferem** com o código para o prazo de *assumir*. Ressalvas: (a) feriados não são considerados (cap. 7.4); (b) para MÉDIO e BAIXO não há escalonamento por prazo no ciclo automático — o prazo só vale em ações SLA manuais e aparece como "Prazo para assumir" no consolidado semanal (D5 do cap. 7).
+> **Confirmação do pedido.** CRÍTICO 1 h corrida, ALTO 4 h úteis, MÉDIO 2 dias úteis e BAIXO 5 dias úteis (aprovados; corrigidos na FRENTE A) **conferem** com o código para o prazo de *assumir*. Ressalvas: (a) feriados não são considerados (cap. 7.4); (b) para MÉDIO e BAIXO não há escalonamento por prazo no ciclo automático — o prazo só vale em ações SLA manuais e aparece como "Prazo para assumir" no consolidado semanal (D5 do cap. 7).
 
 #### 6.7.2 Tabela 2 — Política de envio
 
@@ -2186,7 +2186,7 @@ D1 permissão de revisão (alta) · D2 lote semanal × grau efetivo (alta) · D3
 | **A. Alertas de risco + ações SLA** | Nível 1 → Nível 2 (gerência) → Nível 3 (Diretoria) → limite, pelos prazos da Matriz | **Sim** | `lib/risk-alerts/plan-risk-alerts.ts`, `lib/sla/compute-escalation.ts` |
 | **B. Acompanhamento recorrente** | Lembretes "Repete: a cada N dia(s)" ao responsável atual, em 24/48/96/168 h corridas | **Não** (sem hierarquia) | `lib/alerts/repeat-policy.ts:10-22`, `followup-engine.ts:1-20` |
 
-A matriz CRÍTICO 1 h / ALTO 4 h úteis / MÉDIO 1 dia útil / BAIXO 3 dias úteis pertence ao mecanismo A. Os intervalos do B (1/2/4/7 dias) são outra tabela e **não** são a matriz de SLA (D15).
+A matriz CRÍTICO 1 h / ALTO 4 h úteis / MÉDIO 2 dias úteis / BAIXO 5 dias úteis pertence ao mecanismo A. Os intervalos do B (1/2/4/7 dias) são outra tabela e **não** são a matriz de SLA (D15).
 
 ### 7.2 Linha do tempo do alerta (mecanismo A)
 

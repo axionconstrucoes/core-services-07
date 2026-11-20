@@ -451,14 +451,13 @@ await check("D2 matriz de cobertura da auditoria por e-mail: toda função *_by_
 });
 
 // ---------------- SLAs aprovados × código/Matriz (evidência, NÃO altera) ----------------
-await check("M1 matriz padrão do código: CRÍTICO 1h corrida e ALTO 4h úteis conferem; MÉDIO (1 dia útil) e BAIXO (3 dias úteis) DIVERGEM da tabela aprovada (2 e 5) — decisão pendente do usuário, comportamento preservado", async () => {
+await check("M1 matriz padrão do código: CRÍTICO 1h corrida e ALTO 4h úteis conferem; MÉDIO (2 dias úteis) e BAIXO (5 dias úteis) conferem com a tabela aprovada (corrigidos na FRENTE A)", async () => {
   const { DEFAULT_SLA_MATRIX } = await import("../apps/web/lib/sla/default-matrix.ts");
   const m = DEFAULT_SLA_MATRIX;
   assert(m.CRITICAL.timeUnit === "CLOCK_HOURS" && m.CRITICAL.assumeDeadlineValue === 1, "CRÍTICO");
   assert(m.HIGH.timeUnit === "BUSINESS_HOURS" && m.HIGH.assumeDeadlineValue === 4, "ALTO");
-  // Estado ATUAL (não aprovado): travado aqui para que qualquer mudança seja deliberada e acompanhada da decisão do usuário.
-  assert(m.MEDIUM.timeUnit === "BUSINESS_DAYS" && m.MEDIUM.assumeDeadlineValue === 1, "MÉDIO atual = 1 dia útil (aprovado: 2)");
-  assert(m.LOW.timeUnit === "BUSINESS_DAYS" && m.LOW.assumeDeadlineValue === 3, "BAIXO atual = 3 dias úteis (aprovado: 5)");
+  assert(m.MEDIUM.timeUnit === "BUSINESS_DAYS" && m.MEDIUM.assumeDeadlineValue === 2, "MÉDIO = 2 dias úteis");
+  assert(m.LOW.timeUnit === "BUSINESS_DAYS" && m.LOW.assumeDeadlineValue === 5, "BAIXO = 5 dias úteis");
 });
 
 console.log("");
