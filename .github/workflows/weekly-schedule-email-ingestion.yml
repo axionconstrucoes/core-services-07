@@ -118,6 +118,15 @@ jobs:
           ACC_PROJECT_PILOT_PROJECT_ID: ${{ vars.ACC_PROJECT_PILOT_PROJECT_ID }}
           ACC_PROJECT_PILOT_SENDER: ${{ vars.ACC_PROJECT_PILOT_SENDER }}
           ACC_PROJECT_PILOT_AUTHORIZED_SENDERS: ${{ vars.ACC_PROJECT_PILOT_AUTHORIZED_SENDERS }}
+          # Respostas por e-mail (fase `replies`: token por item, risco e SSMA). A fase lê estas chaves do ambiente DO WORKER: sem o
+          # repasse, o atalho ESPECIALISTA apareceria no e-mail (servidor/Vercel) mas o worker o recusaria (falha fechada), e
+          # TOKEN_OWNER_STRICT/locatário/authserv/limite por remetente valeriam só em um dos lados. Vazios => padrão seguro
+          # (desligado / mx.google.com / 10 por hora). Devem ser IDÊNTICOS aos valores do servidor (Vercel).
+          ACC_EMAIL_SPECIALIST_ENABLED: ${{ vars.ACC_EMAIL_SPECIALIST_ENABLED }}
+          ACC_EMAIL_TOKEN_OWNER_STRICT: ${{ vars.ACC_EMAIL_TOKEN_OWNER_STRICT }}
+          ACC_EMAIL_WORKSPACE_TENANT_DOMAINS: ${{ vars.ACC_EMAIL_WORKSPACE_TENANT_DOMAINS }}
+          ACC_EMAIL_TRUSTED_AUTHSERV_IDS: ${{ vars.ACC_EMAIL_TRUSTED_AUTHSERV_IDS }}
+          ACC_EMAIL_REPLY_MAX_PER_SENDER_HOUR: ${{ vars.ACC_EMAIL_REPLY_MAX_PER_SENDER_HOUR }}
 
       # Agendador: CONCLUSÃO efetiva do job (success|failure|cancelled) com o mesmo run_id. Nunca falha o workflow.
       - name: Heartbeat do agendador (conclusão)
