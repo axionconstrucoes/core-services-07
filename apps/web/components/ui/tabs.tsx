@@ -21,7 +21,7 @@ function Tabs({ defaultValue, className, children }: TabsProps) {
 }
 
 function TabsList({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("inline-flex items-center gap-1 rounded-md bg-muted p-1", className)} {...props} />;
+  return <div role="tablist" className={cn("inline-flex items-center gap-1 rounded-md bg-muted p-1", className)} {...props} />;
 }
 
 // `variant="prominent"` (Ações e Escalonamentos — Parte 5): fonte +2
@@ -43,15 +43,17 @@ function TabsTrigger({
   return (
     <button
       type="button"
+      role="tab"
+      aria-selected={active}
       onClick={() => ctx.setValue(value)}
       className={cn(
-        "rounded-sm px-3 py-1 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+        "rounded-sm px-3 py-1 font-medium transition-colors disabled:pointer-events-none disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
         variant === "prominent" ? "text-lg" : "text-sm",
         active
           ? variant === "prominent"
             ? "bg-black text-white shadow-sm"
             : "bg-background text-foreground shadow-sm"
-          : "text-muted-foreground hover:text-foreground",
+          : "text-muted-foreground hover:bg-accent hover:text-foreground",
         className
       )}
       {...props}

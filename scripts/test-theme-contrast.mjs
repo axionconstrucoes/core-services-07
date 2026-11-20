@@ -56,8 +56,8 @@ check("sem substituição global cega: texto e borda das cores da paleta permane
   const after = css.slice(css.indexOf("*/", marker) + 2).split("/*").map((part, i) => (i === 0 ? part : part.slice(part.indexOf("*/") + 2))).join("");
   ok(!/\.(border|ring|from|to|via|fill|stroke)-(red|orange|amber|yellow|green|emerald|blue|sky|violet)-\d+/.test(after), "borda/anel da paleta não pode ser sobrescrito");
   const textRules = after.match(/\.text-(red|orange|amber|yellow|green|emerald|blue|sky|violet)-\d+/g) ?? [];
-  ok(textRules.every((r) => /-(200|300|400|500|600)$/.test(r)), "só tons 200-600 de texto podem ser ajustados");
-  ok(!/\.bg-white\b/.test(after) && !/\.bg-black\b/.test(after), "superfícies claras explícitas não são tocadas aqui");
+  ok(textRules.every((r) => /-(200|300|400|500|600|950)$/.test(r)), "só tons 200-600 e 950 (texto escuro remapeado) de texto podem ser ajustados");
+  ok(!/\.bg-white\b(?!:is\()/.test(after) && !/\.bg-black\b/.test(after), "superfícies claras explícitas não são tocadas aqui (só a regra composta .bg-white:is(.text-black...) que devolve fundo claro a quem declara texto preto)");
 });
 check("texto colorido 200/300 e azul 400-600: >= 4,5:1 sobre o cartão e o fundo (KPIs, selos)", () => {
   for (const c of COLORS) {
