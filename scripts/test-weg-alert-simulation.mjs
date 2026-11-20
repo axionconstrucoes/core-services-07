@@ -561,7 +561,11 @@ await check("E5 após RESOLVIDO (ALTO) e IN_PROGRESS (CRÍTICO) o prazo vencido 
 });
 
 // ---- Reply-To (processador real das respostas)
-const inboundHeaders = (overrides) => ({ from: EMAIL[U.RESP], to: [], messageId: null, inReplyTo: null, references: [], replyTo: null, autoSubmitted: null, authenticationResults: null, subject: "Re: alerta", ...overrides });
+// P2: autenticação do remetente obrigatória (DMARC/DKIM alinhado, servidor confiável) — fixtures com Authentication-Results do Gmail.
+const inboundHeaders = (overrides) => {
+  const from = overrides?.from ?? EMAIL[U.RESP];
+  return { from: EMAIL[U.RESP], to: [], messageId: null, inReplyTo: null, references: [], replyTo: null, autoSubmitted: null, authenticationResults: `mx.google.com; dkim=pass header.i=@${String(from).split("@")[1]}; dmarc=pass header.from=${String(from).split("@")[1]}`, subject: "Re: alerta", ...overrides };
+};
 const STATUS_BODY = "Estou tomando as providências: equipe acionada, andamento em execução hoje.";
 
 async function replyWorld(options = {}) {

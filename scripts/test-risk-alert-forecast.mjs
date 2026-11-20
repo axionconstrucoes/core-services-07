@@ -216,7 +216,9 @@ function makeStore({ riskLevel = "HIGH", inbound, history = [], state = "OPEN", 
   };
   return { store, calls };
 }
-const inboundMsg = (o = {}) => ({ id: o.id ?? "in-1", projectId: PROJECT, providerMessageId: o.id ?? "in-1", receivedAt: o.receivedAt ?? RECEIVED, bodyOriginal: o.body ?? "Em andamento. Conclusão prevista para 20/11/2026 às 15h.", headers: { from: o.from ?? "responsavel@axion.com.br", to: ["crm+alerta-tok@axion.com.br"], messageId: o.messageId ?? `<${o.id ?? "in-1"}@mail>`, inReplyTo: "<root@acc>", references: [], subject: "RE: alerta", autoSubmitted: o.autoSubmitted ?? null } });
+// P2: autenticação do remetente obrigatória (DMARC/DKIM alinhado, servidor confiável) — fixtures com Authentication-Results do Gmail.
+const AUTH_OK = "mx.google.com; dkim=pass header.i=@axion.com.br header.s=google; spf=pass smtp.mailfrom=axion.com.br; dmarc=pass (p=QUARANTINE) header.from=axion.com.br";
+const inboundMsg = (o = {}) => ({ id: o.id ?? "in-1", projectId: PROJECT, providerMessageId: o.id ?? "in-1", receivedAt: o.receivedAt ?? RECEIVED, bodyOriginal: o.body ?? "Em andamento. Conclusão prevista para 20/11/2026 às 15h.", headers: { from: o.from ?? "responsavel@axion.com.br", to: ["crm+alerta-tok@axion.com.br"], messageId: o.messageId ?? `<${o.id ?? "in-1"}@mail>`, inReplyTo: "<root@acc>", references: [], subject: "RE: alerta", autoSubmitted: o.autoSubmitted ?? null, authenticationResults: AUTH_OK } });
 
 await check("16. Fluxo real: status + previsão (ALTO) => ação aplicada com previsão, confirmação na MESMA transação, auditoria", async () => {
   const { store, calls } = makeStore({ inbound: [inboundMsg()] });

@@ -11,6 +11,7 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import { ALERT_REPLY_TAG, buildAlertReplyAddress } from "@/lib/email/alert-reply-address";
+import { verifySenderAuthentication, type SenderAuthenticationFailure } from "@/lib/email-replies/sender-authentication";
 
 import type { ReplyClassification, ReplyCorrelationMethod } from "../types";
 
@@ -178,12 +179,33 @@ export interface ReplySenderContext {
   /** encaminhamento manual ativo para este usuário (exceção do piloto). */
   activeForwardToUserId: string | null;
   corporateDomain: string;
+  /** TODOS os Authentication-Results da mensagem (um por linha) — obrigatório desde a P2. */
   authenticationResults: string | null;
+  /** authserv-id confiáveis (padrão mx.google.com; ACC_EMAIL_TRUSTED_AUTHSERV_IDS). */
+  trustedAuthservIds?: readonly string[];
 }
+
+export type ReplyAuthFailureReason = "AUTH_MISSING" | "AUTH_UNTRUSTED" | "AUTH_FAILED" | "AUTH_NOT_ALIGNED";
 
 export type ReplyAuthorization =
   | { authorized: true; userId: string; note: string | null }
-  | { authorized: false; reason: "UNKNOWN_SENDER" | "PROFILE_INACTIVE" | "MEMBERSHIP_INACTIVE" | "NOT_RECIPIENT" | "NOT_CORPORATE" | "AUTH_FAILED" | "NOT_ALLOWLISTED" };
+  | { authorized: false; reason: "UNKNOWN_SENDER" | "PROFILE_INACTIVE" | "MEMBERSHIP_INACTIVE" | "NOT_RECIPIENT" | "NOT_CORPORATE" | "NOT_ALLOWLISTED" | ReplyAuthFailureReason };
+
+const AUTH_FAILURE_REASON: Record<SenderAuthenticationFailure, ReplyAuthFailureReason> = {
+  AUTH_RESULTS_MISSING: "AUTH_MISSING",
+  AUTH_UNTRUSTED_SERVER: "AUTH_UNTRUSTED",
+  AUTH_FAILED: "AUTH_FAILED",
+  AUTH_NOT_ALIGNED: "AUTH_NOT_ALIGNED",
+};
+
+export function isReplyAuthFailure(reason: string): reason is ReplyAuthFailureReason {
+  return reason === "AUTH_MISSING" || reason === "AUTH_UNTRUSTED" || reason === "AUTH_FAILED" || reason === "AUTH_NOT_ALIGNED";
+}
+
+/** Motivo de autenticação (AUTH_*) => código do verificador (para a mensagem explicativa). */
+export function senderAuthFailureOf(reason: ReplyAuthFailureReason): SenderAuthenticationFailure {
+  return (Object.entries(AUTH_FAILURE_REASON).find(([, value]) => value === reason)?.[0] ?? "AUTH_RESULTS_MISSING") as SenderAuthenticationFailure;
+}
 
 export function parseAuthenticationResults(value: string | null): { spf: string | null; dkim: string | null; dmarc: string | null } {
   if (!value) return { spf: null, dkim: null, dmarc: null };
@@ -200,15 +222,16 @@ export function authorizeReply(ctx: ReplySenderContext): ReplyAuthorization {
   if (!ctx.profile || ctx.profile.email.toLowerCase() !== sender) return { authorized: false, reason: "UNKNOWN_SENDER" };
   if (!ctx.profile.active) return { authorized: false, reason: "PROFILE_INACTIVE" };
   if (ctx.membershipStatus !== "ACTIVE") return { authorized: false, reason: "MEMBERSHIP_INACTIVE" };
-  const auth = parseAuthenticationResults(ctx.authenticationResults);
-  if ([auth.spf, auth.dkim, auth.dmarc].some((v) => v === "fail" || v === "permerror")) return { authorized: false, reason: "AUTH_FAILED" };
+  // P2: autenticação OBRIGATÓRIA — DMARC=pass ou DKIM=pass alinhado ao domínio do From, registrado por servidor confiável.
+  // Sem cabeçalho, servidor não confiável, falha ou desalinhamento => rejeição (o processador responde explicando).
+  const auth = verifySenderAuthentication({ fromEmail: sender, authenticationResults: ctx.authenticationResults, trustedAuthservIds: ctx.trustedAuthservIds });
+  if (!auth.ok) return { authorized: false, reason: AUTH_FAILURE_REASON[auth.reason] };
   const userId = ctx.profile.userId;
   const isRecipient = ctx.alertRecipientUserIds.includes(userId) || ctx.activeForwardToUserId === userId;
   if (!isRecipient) return { authorized: false, reason: "NOT_RECIPIENT" };
   const allowlisted = ctx.allowlistUserIds.includes(userId) || ctx.activeForwardToUserId === userId;
   if (!allowlisted) return { authorized: false, reason: "NOT_ALLOWLISTED" };
-  const note = ctx.authenticationResults ? null : "Authentication-Results indisponível — identidade validada por profile/membership/domínio corporativo.";
-  return { authorized: true, userId, note };
+  return { authorized: true, userId, note: null };
 }
 
 // ------------------------------------------------------------------
@@ -226,6 +249,9 @@ const QUOTE_HEADER_PATTERNS = [
   /^-{2,}\s*(Original Message|Mensagem original)\s*-{2,}\s*$/im,
   /^(De|From):\s.+\n(Enviad[oa]|Sent|Date|Data):\s.+/im,
   /^_{10,}\s*$/m,
+  // Encaminhamentos (Gmail/Outlook/Apple Mail, PT e EN): o conteúdo encaminhado nunca é texto novo do remetente.
+  /^-{2,}\s*(Forwarded message|Mensagem encaminhada|Mensaje reenviado)\s*-{2,}\s*$/im,
+  /^(Begin forwarded message|In[íi]cio da mensagem encaminhada|Mensagem encaminhada)\s*:?\s*$/im,
 ];
 const SIGNATURE_PATTERNS = [/^-- \s*$/m, /^(Atenciosamente|Att\.?,?|Abraços?|Cordialmente|Obrigad[oa]|Regards|Best regards|Kind regards)[,.]?\s*$/im, /^(Enviado do meu|Sent from my) /im];
 

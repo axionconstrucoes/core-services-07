@@ -194,7 +194,8 @@ await check("respostas: cada colaborador responde com a PRÓPRIA identidade; a a
     const sendOf = (row) => w.rec.guarded.find((g) => g.to === EMAIL[row.recipientUserId]);
     assert(sendOf(respRow)?.replyTo && sendOf(gestorRow)?.replyTo && sendOf(respRow).replyTo !== sendOf(gestorRow).replyTo, "Reply-To distinto por mensagem");
     assert(sendOf(respRow).replyTo.startsWith("crm+alerta-") && sendOf(respRow).to === EMAIL[respRow.recipientUserId], "Reply-To em crm@ e entrega na caixa do próprio colaborador");
-    const headers = (from, replyTo, mid, extra = {}) => ({ from, to: [replyTo], messageId: mid, inReplyTo: null, references: [], replyTo: null, autoSubmitted: null, authenticationResults: null, subject: "Re: alerta", ...extra });
+    // P2: autenticação obrigatória — Authentication-Results do Gmail alinhado ao domínio do remetente.
+    const headers = (from, replyTo, mid, extra = {}) => ({ from, to: [replyTo], messageId: mid, inReplyTo: null, references: [], replyTo: null, autoSubmitted: null, authenticationResults: `mx.google.com; dkim=pass header.i=@${from.split("@")[1]}; dmarc=pass header.from=${from.split("@")[1]}`, subject: "Re: alerta", ...extra });
     const body = "Estou tomando as providências: equipe acionada, andamento em execução hoje.";
     const status = (id) => w.store.state.messages.find((m) => m.id === id);
 

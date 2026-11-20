@@ -50,6 +50,8 @@ import { runCycleEscalationHook } from "@/lib/whatsapp/hooks";
 import { notifyDirectorateWhatsappSafely } from "@/lib/whatsapp/notify-directorate-server";
 
 import { buildOpaqueReplyTo, generateReplyToken, hashReplyToken } from "./replies/reply-pipeline";
+import { buildReplyMailtoLinks, type ReplyMailtoLinks } from "@/lib/email-replies/reply-mailto";
+import { createMemoryEmailReplyTokenStore, createSupabaseEmailReplyTokenStore, issueEmailReplyToken, type EmailReplyTokenStore } from "@/lib/email-replies/reply-tokens";
 import { isPilotTestCase } from "./pilot-test-case";
 import { buildCycleDryRunPreviewItem, dryRunEffectiveConfig, shouldAssumeRiskAlertsEnabledForDryRun } from "./cycle-dry-run";
 import type { PendingOutboxRow, RiskAlertProjectSnapshot, RiskAlertStore } from "./store";
@@ -122,6 +124,8 @@ export interface RunRiskAlertCycleOptions {
   expert?: ExpertConsultant;
   /** Verificação de respostas antes de escalonar (testes injetam; padrão: Gmail somente leitura da caixa monitorada). */
   replyVerifier?: (requests: ReplyCheckRequest[]) => Promise<Map<string, ReplyCheck>>;
+  /** Tokens POR ITEM dos atalhos "Responder por e-mail" (padrão: tabela email_reply_tokens; com store injetado, só se informado). */
+  replyTokenStore?: EmailReplyTokenStore | null;
 }
 
 function createSupabaseReplyLookup(client: ReturnType<typeof createSupabaseAdminClient>): ReplyLookup {
@@ -169,6 +173,14 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
   if (!featureEnabled) return result; // nenhuma consulta ao banco
 
   const store = options.store ?? createSupabaseRiskAlertStore(createSupabaseAdminClient());
+  // Atalhos mailto por item: tokens gravados ANTES do envio. Dry-run: só memória (nada gravado).
+  const replyTokens: EmailReplyTokenStore | null = dryRun
+    ? createMemoryEmailReplyTokenStore()
+    : options.replyTokenStore !== undefined
+      ? options.replyTokenStore
+      : options.store
+        ? null
+        : createSupabaseEmailReplyTokenStore(createSupabaseAdminClient());
   let replyVerifier: ((requests: ReplyCheckRequest[]) => Promise<Map<string, ReplyCheck>>) | undefined;
   const provider = dryRun ? new FakeEmailProvider() : (options.provider ?? getEmailProvider());
   const providerConfigured = providerName === "gmail" || Boolean(options.provider);
@@ -444,7 +456,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     }
 
     // ---- envio: entradas planejadas neste ciclo ----
-    const ctx: SendContext = { store, provider, projectId, projectName: snapshot.projectName, baseUrl, timeZone, nowIso, inlineLogo, inlineLogoInverted, caseIds, snapshot, policyFor, deliveredKeys: new Set(), readinessBlockers: readiness.blockers };
+    const ctx: SendContext = { store, provider, projectId, projectName: snapshot.projectName, baseUrl, timeZone, nowIso, inlineLogo, inlineLogoInverted, caseIds, snapshot, policyFor, deliveredKeys: new Set(), readinessBlockers: readiness.blockers, replyTokens };
     const sentKeys = new Set<string>();
     for (const item of persisted) {
       if (item.entry.recipient.status !== "PENDING") continue;
@@ -495,6 +507,31 @@ export interface SendContext {
    */
   pilotSingleArmedKeys?: ReadonlySet<string>;
   testCaseBlocked?: number;
+  /** Tokens por item dos atalhos "Responder por e-mail" (null/ausente => e-mail sem atalhos mailto). */
+  replyTokens?: EmailReplyTokenStore | null;
+}
+
+/**
+ * Atalhos "Responder por e-mail" de UM caso para UM destinatário: token próprio (hash gravado ANTES do envio em
+ * email_reply_tokens) e os três mailto (RESOLVIDO / EM ANDAMENTO / ENVIAR PARA). Sem caixa de resposta, sem store, área
+ * informativa (sem processamento) ou falha ao gravar => null (o e-mail sai só com os botões do ACC).
+ */
+export async function issueReplyMailtoForCase(ctx: SendContext, input: { caseId: string; recipientUserId: string; visibleCode: string | null; riskLevel: string; area: string }): Promise<ReplyMailtoLinks | null> {
+  if (!ctx.replyTokens || !ctx.snapshot.replyMailbox) return null;
+  if ((ctx.snapshot.informativeAreas ?? []).includes(input.area as SlaArea)) return null;
+  try {
+    const issued = await issueEmailReplyToken(ctx.replyTokens, { projectId: ctx.projectId, subjectKind: "RISK_CASE", subjectId: input.caseId, recipientUserId: input.recipientUserId, nowIso: ctx.nowIso });
+    const tracked = input.riskLevel === "HIGH" || input.riskLevel === "CRITICAL";
+    return buildReplyMailtoLinks({
+      mailbox: ctx.snapshot.replyMailbox,
+      token: issued.token,
+      visibleCode: input.visibleCode ? `ACC-ALERTA:${input.visibleCode}` : "",
+      evidenceAttachment: tracked ? "REQUIRED_FILE" : "OPTIONAL",
+      forecastNeedsTime: tracked,
+    });
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -635,6 +672,21 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
   }
 }
 
+/** Um token (e três atalhos) POR ITEM aberto do consolidado — cada ocorrência é tratada individualmente. */
+async function digestReplyMailto(ctx: SendContext, items: ReadonlyArray<{ caseKey: string; riskLevel: string }>, caseIdByKey: ReadonlyMap<string, string>, recipientUserId: string): Promise<Map<string, ReplyMailtoLinks>> {
+  const out = new Map<string, ReplyMailtoLinks>();
+  if (!ctx.replyTokens || !ctx.snapshot.replyMailbox) return out;
+  for (const item of items) {
+    const caseId = caseIdByKey.get(item.caseKey);
+    if (!caseId || out.has(caseId)) continue;
+    const record = await ctx.store.loadCaseRecord(caseId).catch(() => null);
+    if (!record || record.status === "CLOSED") continue;
+    const links = await issueReplyMailtoForCase(ctx, { caseId, recipientUserId, visibleCode: record.visibleCode ?? null, riskLevel: item.riskLevel, area: record.area });
+    if (links) out.set(caseId, links);
+  }
+  return out;
+}
+
 export async function sendPlanned(outboxId: string, caseId: string | null, entry: PlannedOutboxEntry, ctx: SendContext): Promise<"SENT" | "FAILED" | "SKIPPED"> {
   const recipientEmail = entry.recipient.email;
   if (!recipientEmail) {
@@ -645,7 +697,9 @@ export async function sendPlanned(outboxId: string, caseId: string | null, entry
   if (isPilotTestCaseSendBlocked(record, entry.idempotencyKey, ctx)) return "SKIPPED";
   let built: BuiltEmail;
   if (entry.content.kind === "DIGEST") {
-    built = buildRiskDigestEmail({ content: entry.content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: entry.recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseIdByKey: ctx.caseIds, logos: logosOf(ctx) });
+    const digestContent = entry.content;
+    const replyByEmailByCaseId = await digestReplyMailto(ctx, [...digestContent.mediumItems, ...digestContent.lowItems], ctx.caseIds, entry.recipient.userId);
+    built = buildRiskDigestEmail({ content: digestContent, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: entry.recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseIdByKey: ctx.caseIds, logos: logosOf(ctx), replyByEmailByCaseId });
   } else {
     const lines = await forecastLinesForEmail(ctx, caseId, entry.riskLevel, record?.status === "CLOSED");
     built = buildImmediateRiskAlertEmail({
@@ -665,6 +719,7 @@ export async function sendPlanned(outboxId: string, caseId: string | null, entry
       visibleCode: record?.visibleCode ?? null,
       caseId,
       logos: logosOf(ctx),
+      replyByEmail: caseId && record ? await issueReplyMailtoForCase(ctx, { caseId, recipientUserId: entry.recipient.userId, visibleCode: record.visibleCode ?? null, riskLevel: entry.riskLevel, area: record.area }) : null,
     });
   }
   const outcome = await deliver(ctx, outboxId, caseId, entry.recipient.userId, recipientEmail, built, entry.notificationType, entry.escalationLevel, entry.idempotencyKey, entry.riskLevel);
@@ -713,7 +768,9 @@ async function sendPendingDigest(row: PendingOutboxRow, ctx: SendContext): Promi
     await ctx.store.markSkipped(row.id, "DIGEST_EMPTY: nenhum item do consolidado permanece disponível — não reenviado.");
     return "SKIPPED";
   }
-  const built = buildRiskDigestEmail({ content: rebuilt.content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseIdByKey: new Map(ctx.snapshot.existingCases.map((c) => [`${c.sourceType}:${c.sourceId}`, c.id])), logos: logosOf(ctx) });
+  const retryCaseIdByKey = new Map(ctx.snapshot.existingCases.map((c) => [`${c.sourceType}:${c.sourceId}`, c.id]));
+  const replyByEmailByCaseId = await digestReplyMailto(ctx, [...rebuilt.content.mediumItems, ...rebuilt.content.lowItems], retryCaseIdByKey, row.recipientUserId);
+  const built = buildRiskDigestEmail({ content: rebuilt.content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseIdByKey: retryCaseIdByKey, logos: logosOf(ctx), replyByEmailByCaseId });
   const outcome = await deliver(ctx, row.id, null, row.recipientUserId, recipient.email, built, row.notificationType, null, row.idempotencyKey);
   if (outcome === "SENT") {
     const caseKeys = ((row.payloadSummary.caseKeys as string[] | undefined) ?? []);
@@ -799,7 +856,7 @@ async function sendPendingRow(row: PendingOutboxRow, ctx: SendContext): Promise<
       changed: false,
       ...(await forecastLinesForEmail(ctx, record.id, riskLevel, false)),
     };
-    built = buildImmediateRiskAlertEmail({ content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, actionButtons: [], actionLinks: await issueActionLinks(ctx, record.id, row.recipientUserId), visibleCode: record.visibleCode, caseId: record.id, logos: logosOf(ctx) });
+    built = buildImmediateRiskAlertEmail({ content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, actionButtons: [], actionLinks: await issueActionLinks(ctx, record.id, row.recipientUserId), visibleCode: record.visibleCode, caseId: record.id, logos: logosOf(ctx), replyByEmail: await issueReplyMailtoForCase(ctx, { caseId: record.id, recipientUserId: row.recipientUserId, visibleCode: record.visibleCode ?? null, riskLevel, area: record.area }) });
   } else {
     const kind = (["FORWARD", "RETURNED", "EXPERT_ANSWER", "ACTION_CONFIRMATION"] as const).find((k) => k === row.notificationType) ?? "ACTION_CONFIRMATION";
     const rows: Array<[string, string | null]> = [];
@@ -818,7 +875,7 @@ async function sendPendingRow(row: PendingOutboxRow, ctx: SendContext): Promise<
       rows.push(["Expert", (row.payloadSummary.expertId as string) ?? null], ["Confiança", row.payloadSummary.confidence !== undefined ? String(row.payloadSummary.confidence) : null]);
       paragraphs.push((row.payloadSummary.answerPreview as string) ?? "");
     }
-    built = buildAlertFollowUpEmail({ kind, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseId: record.id, caseTitle: record.title, riskLevel, visibleCode: record.visibleCode, area: record.area, logos: logosOf(ctx), rows, paragraphs, requiresHumanReview: kind === "EXPERT_ANSWER", actionLinks: kind === "FORWARD" ? await issueActionLinks(ctx, record.id, row.recipientUserId) : undefined, ...(kind === "ACTION_CONFIRMATION" && row.payloadSummary.replyConfirmation ? { titleOverride: REPLY_CONFIRMATION_TITLE } : {}) });
+    built = buildAlertFollowUpEmail({ kind, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseId: record.id, caseTitle: record.title, riskLevel, visibleCode: record.visibleCode, area: record.area, logos: logosOf(ctx), rows, paragraphs, requiresHumanReview: kind === "EXPERT_ANSWER", actionLinks: kind === "FORWARD" ? await issueActionLinks(ctx, record.id, row.recipientUserId) : undefined, ...(kind === "ACTION_CONFIRMATION" && row.payloadSummary.replyConfirmation ? { titleOverride: REPLY_CONFIRMATION_TITLE } : {}), replyByEmail: record.status === "CLOSED" ? null : await issueReplyMailtoForCase(ctx, { caseId: record.id, recipientUserId: row.recipientUserId, visibleCode: record.visibleCode ?? null, riskLevel, area: record.area }) });
   }
   const outcome = await deliver(ctx, row.id, record.id, row.recipientUserId, recipient.email, built, row.notificationType, row.escalationLevel, row.idempotencyKey, row.riskLevel);
   return outcome;

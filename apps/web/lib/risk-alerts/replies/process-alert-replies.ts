@@ -6,6 +6,11 @@
 //   senão registro (REPLY_RECEIVED) ou revisão humana.
 // O corpo nunca vai para logs/auditoria; só ids e classificação.
 
+import type { StoredEvidenceAttachment } from "@/lib/email-replies/inbound-attachments";
+import type { TargetCandidate } from "@/lib/email-replies/member-target";
+import { tokenUsability, type EmailReplyTokenRow, type EmailReplyTokenStore } from "@/lib/email-replies/reply-tokens";
+import { senderAuthenticationMessage } from "@/lib/email-replies/sender-authentication";
+import type { SenderRateLimiter } from "@/lib/email-replies/sender-rate-limit";
 import { resolveMatrixPolicy } from "@/lib/sla/resolve-matrix-policy";
 import type { SlaRiskLevel } from "@/lib/sla/types";
 
@@ -14,13 +19,13 @@ import { applyPilotLevelOverride } from "../pilot-level-overrides";
 import { applyForecastPrecision, describeForecastProblem, extractForecastFromText, forecastTracking, isAfter } from "../forecast";
 import { routeExpert } from "../experts/route-alert-expert";
 import { DEFAULT_CORPORATE_EMAIL_DOMAIN } from "../plan-risk-alerts";
-import type { RiskAlertStore } from "../store";
+import type { InboundMessageRow, RiskAlertStore } from "../store";
 import { applyMessageIdAliases } from "./build-correlation-index";
 import { assessReplyTiming } from "./reply-timing";
-import { applyEmailCommand } from "./apply-email-command";
+import { applyEmailCommand, rejectEmailReply } from "./apply-email-command";
 import { parseOperationalEmailCommand } from "./operational-email-command";
 import { assessOperationalEmailIntent } from "./operational-email-intent";
-import { authorizeReply, classifyReply, correlateReply, filterInboundMessage, parseReplyBody, replyToFormalAction } from "./reply-pipeline";
+import { authorizeReply, classifyReply, correlateReply, extractReplyTokens, filterInboundMessage, hashReplyToken, isReplyAuthFailure, parseReplyBody, replyToFormalAction, senderAuthFailureOf, type CorrelationResult } from "./reply-pipeline";
 
 export interface ProcessRepliesResult {
   projectId: string;
@@ -35,6 +40,8 @@ export interface ProcessRepliesResult {
   timingCorrections?: number;
   /** Respostas sem previsão: pendência registrada separadamente. */
   forecastPending?: number;
+  /** Excedentes do limite de taxa por remetente (enviados à revisão humana, sem execução). */
+  rateLimited?: number;
 }
 
 // Modelo de entrega direta do piloto: cada colaborador responde com a PRÓPRIA identidade (From real) — a autorização é sempre por
@@ -43,10 +50,48 @@ export interface ProcessRepliesResult {
 export interface ProcessRepliesOptions {
   /** Message-ID REAL (lido na caixa) -> Message-ID gravado pelo ACC. Só em memória; ver applyMessageIdAliases. */
   messageIdAliases?: ReadonlyMap<string, string>;
+  /**
+   * Tokens POR ITEM (email_reply_tokens, tipo RISK_CASE) já resolvidos pelo despachante: hash -> linha. Resolvidos ANTES dos
+   * mecanismos legados (In-Reply-To / References / Reply-To da conversa / código visível).
+   */
+  itemReplyTokens?: ReadonlyMap<string, EmailReplyTokenRow>;
+  /** Consumo dos tokens por item (ações terminais). */
+  tokenStore?: EmailReplyTokenStore;
+  /** Membros do projeto com o perfil de acesso (ENVIAR PARA por nome; perfil LEITURA não recebe). */
+  targetCandidates?: readonly TargetCandidate[];
+  /** Anexos já guardados da mensagem (evidência do RESOLVIDO). */
+  attachmentsFor?: (message: InboundMessageRow, caseId: string) => Promise<StoredEvidenceAttachment[]>;
+  /** Limite de mensagens por remetente/hora (excedente => revisão humana). */
+  senderRateLimiter?: SenderRateLimiter;
+  /** authserv-id confiáveis para a autenticação do remetente (padrão mx.google.com). */
+  trustedAuthservIds?: readonly string[];
+  /** Registro (log/auditoria) do resultado de CADA mensagem; falha aqui nunca bloqueia o processamento. */
+  onMessageProcessed?: (entry: { message: InboundMessageRow; caseId: string | null; status: string; statusReason: string | null }) => Promise<void>;
 }
 
-export async function processAlertReplies(store: RiskAlertStore, projectId: string, nowIso: string, accMailboxes: string[], options: ProcessRepliesOptions = {}): Promise<ProcessRepliesResult> {
+/** Correlação pelos tokens por item: exatamente um caso => correlacionado; mais de um => ambíguo; nenhum => legado. */
+function correlateByItemToken(message: InboundMessageRow, tokens: ReadonlyMap<string, EmailReplyTokenRow> | undefined): { row: EmailReplyTokenRow | null; ambiguous: boolean } {
+  if (!tokens || tokens.size === 0) return { row: null, ambiguous: false };
+  const rows: EmailReplyTokenRow[] = [];
+  for (const token of extractReplyTokens([...message.headers.to, ...(message.headers.cc ?? [])])) {
+    const row = tokens.get(hashReplyToken(token));
+    if (row && row.subjectKind === "RISK_CASE") rows.push(row);
+  }
+  const cases = new Set(rows.map((row) => row.subjectId));
+  if (cases.size === 1) return { row: rows[0], ambiguous: false };
+  return { row: null, ambiguous: cases.size > 1 };
+}
+
+export async function processAlertReplies(baseStore: RiskAlertStore, projectId: string, nowIso: string, accMailboxes: string[], options: ProcessRepliesOptions = {}): Promise<ProcessRepliesResult> {
   const selfMailboxes = accMailboxes;
+  // Último status gravado de cada mensagem (registro de resultado por mensagem); o store real é usado por herança.
+  const lastStatus = new Map<string, { status: string; statusReason: string | null; caseId: string | null }>();
+  const store: RiskAlertStore = Object.assign(Object.create(baseStore) as RiskAlertStore, {
+    updateInboundMessage: async (id: string, patch: Parameters<RiskAlertStore["updateInboundMessage"]>[1]) => {
+      lastStatus.set(id, { status: patch.status, statusReason: patch.statusReason ?? null, caseId: patch.caseId ?? lastStatus.get(id)?.caseId ?? null });
+      return baseStore.updateInboundMessage(id, patch);
+    },
+  });
   const result: ProcessRepliesResult = { projectId, received: 0, ignored: 0, unauthorized: 0, pendingHumanReview: 0, reviewRequired: 0, applied: 0, recorded: 0 };
   const inbound = await store.listInboundToProcess(projectId);
   if (inbound.length === 0) return result;
@@ -64,53 +109,124 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
 
   for (const message of inbound) {
     result.received += 1;
+    await processOne(message);
+    const final = lastStatus.get(message.id);
+    if (final && options.onMessageProcessed) {
+      try {
+        await options.onMessageProcessed({ message, caseId: final.caseId, status: final.status, statusReason: final.statusReason });
+      } catch {
+        // registro indisponível nesta rodada — o resultado já está na própria mensagem
+      }
+    }
+  }
+  return result;
+
+  async function processOne(message: InboundMessageRow): Promise<void> {
     const verdict = filterInboundMessage(message.headers, { accMailboxes: selfMailboxes, seenMessageIds: index.seenMessageIds });
     if (verdict !== "OK") {
       await store.updateInboundMessage(message.id, { status: verdict, statusReason: verdict });
       result.ignored += 1;
-      continue;
+      return;
     }
     // Aceita UMA vez: a duplicata (mesmo Message-ID) pendente neste lote vira IGNORED_LOOP.
     if (message.headers.messageId) index.seenMessageIds.add(message.headers.messageId);
+    // Limite de taxa por remetente: o excedente não é executado nem respondido — revisão humana.
+    if (options.senderRateLimiter && !options.senderRateLimiter.allow(message.headers.from, message.receivedAt)) {
+      await store.updateInboundMessage(message.id, { status: "REVIEW_REQUIRED", statusReason: "Limite de mensagens por remetente/hora excedido — revisão humana (nada executado)", requiresHumanReview: true });
+      await store.audit(projectId, [{ action: "RISK_ALERT_EMAIL_RATE_LIMITED", entityType: "RISK_ALERT_INBOUND", entityId: message.id, detail: `Mensagem ${message.id} acima do limite por remetente/hora: enviada à revisão humana sem execução.` }]);
+      result.reviewRequired += 1;
+      result.rateLimited = (result.rateLimited ?? 0) + 1;
+      return;
+    }
     const parsed = parseReplyBody(message.bodyOriginal);
-    const correlation = correlateReply(message.headers, `${message.headers.subject ?? ""}\n${parsed.clean}`, index);
+    // 1º token POR ITEM (email_reply_tokens); depois os mecanismos legados.
+    const byItem = correlateByItemToken(message, options.itemReplyTokens);
+    const itemToken = byItem.row;
+    const correlation: CorrelationResult = itemToken
+      ? { caseId: itemToken.subjectId, method: "REPLY_TO_TOKEN", ambiguous: false, participantUserId: itemToken.recipientUserId }
+      : byItem.ambiguous
+        ? { caseId: null, method: "REPLY_TO_TOKEN", ambiguous: true, participantUserId: null }
+        : correlateReply(message.headers, `${message.headers.subject ?? ""}\n${parsed.clean}`, index);
     if (!correlation.caseId) {
       await store.updateInboundMessage(message.id, { bodyClean: parsed.clean, quotedText: parsed.quoted, signatureText: parsed.signature, correlationMethod: correlation.method, status: "PENDING_HUMAN_REVIEW", statusReason: correlation.ambiguous ? "Correlação ambígua (mais de um alerta)" : "Sem identificação inequívoca do alerta", requiresHumanReview: true });
       result.pendingHumanReview += 1;
-      continue;
+      return;
     }
     const loaded = await store.loadCaseSnapshotForAction(correlation.caseId);
     if (!loaded) {
       await store.updateInboundMessage(message.id, { correlationMethod: correlation.method, status: "PENDING_HUMAN_REVIEW", statusReason: "Alerta não encontrado", requiresHumanReview: true });
       result.pendingHumanReview += 1;
-      continue;
+      return;
     }
     const senderProfile = profileByEmail.get(message.headers.from.trim().toLowerCase()) ?? null;
+    // Token por item: válido (não expirado, não usado por outra mensagem) e o destinatário dele conta como destinatário do alerta
+    // (ex.: item do consolidado) — o remetente continua precisando ser ESSA pessoa, um destinatário do caso ou o encaminhado ativo.
+    const tokenRecipient = itemToken?.recipientUserId ?? null;
     const baseAuthorization = authorizeReply({
       senderEmail: message.headers.from,
       profile: senderProfile ? { userId: senderProfile.userId, email: senderProfile.email, active: true } : null,
       membershipStatus: senderProfile?.membershipStatus ?? null,
-      alertRecipientUserIds: loaded.alertRecipientUserIds,
+      alertRecipientUserIds: tokenRecipient ? [...loaded.alertRecipientUserIds, tokenRecipient] : loaded.alertRecipientUserIds,
       allowlistUserIds: config?.pilotRecipientAllowlistUserIds ?? [],
       activeForwardToUserId: loaded.snapshot.activeForward?.state === "ACTIVE" ? loaded.snapshot.activeForward.toUserId : null,
       corporateDomain,
       authenticationResults: message.headers.authenticationResults ?? null,
+      trustedAuthservIds: options.trustedAuthservIds,
     });
     const authorization: { authorized: true; userId: string; note: string | null } | { authorized: false; reason: string } = baseAuthorization;
+    const unauthorizedPatch = { caseId: correlation.caseId, correlationMethod: correlation.method, bodyClean: parsed.clean, quotedText: parsed.quoted, signatureText: parsed.signature };
     if (!authorization.authorized) {
       // Não altera o alerta; não devolve dados do projeto; registra o motivo.
-      await store.updateInboundMessage(message.id, { caseId: correlation.caseId, correlationMethod: correlation.method, bodyClean: parsed.clean, quotedText: parsed.quoted, signatureText: parsed.signature, status: "UNAUTHORIZED_REPLY", statusReason: authorization.reason });
+      await store.updateInboundMessage(message.id, { ...unauthorizedPatch, status: "UNAUTHORIZED_REPLY", statusReason: authorization.reason });
       await store.audit(projectId, [{ action: "RISK_ALERT_UNAUTHORIZED_REPLY", entityType: "RISK_ALERT_CASE", entityId: correlation.caseId, detail: `Resposta não autorizada (${authorization.reason}); mensagem ${message.id}.` }]);
+      // Falha de AUTENTICAÇÃO (DMARC/DKIM ausente, não confiável, falho ou desalinhado) de um membro ATIVO conhecido: resposta
+      // explicativa à caixa corporativa REAL dele (nunca a um endereço desconhecido; nada é alterado no alerta).
+      if (isReplyAuthFailure(authorization.reason) && senderProfile && senderProfile.membershipStatus === "ACTIVE" && snapshot.config && store.enqueueReplyConfirmation) {
+        try {
+          await rejectEmailReply({
+            store, projectId, message, caseId: correlation.caseId, loaded, snapshot, senderUserId: senderProfile.userId, action: "AUTHENTICATION",
+            code: authorization.reason, text: senderAuthenticationMessage(senderAuthFailureOf(authorization.reason)),
+            basePatch: { ...unauthorizedPatch },
+          });
+          // A mensagem continua registrada como NÃO AUTORIZADA (o rejectEmailReply a fecha; o status final é este).
+          await store.updateInboundMessage(message.id, { ...unauthorizedPatch, status: "UNAUTHORIZED_REPLY", statusReason: `${authorization.reason} — resposta explicativa enviada ao remetente` });
+        } catch {
+          // sem resposta nesta rodada; a recusa já está registrada
+        }
+      }
       result.unauthorized += 1;
-      continue;
+      return;
     }
-    // Não transformar "resolvido", encaminhamento ou evidências em um simples
-    // TAKING_ACTION. Até existir execução transacional específica com autorização,
-    // essas intenções ficam rastreadas para revisão humana, sem mexer no SLA.
-    // Comandos EXPLÍCITOS e inequívocos (RESOLVIDO / ENVIAR PARA) de remetente já autorizado: aplicados pela máquina de estados única, com
-    // confirmação (sucesso ou rejeição) ao autor. Qualquer outra intenção sensível continua indo para revisão humana.
+    if (itemToken) {
+      const usable = tokenUsability(itemToken, message.providerMessageId, nowIso);
+      if (!usable.ok) {
+        const outcome = await rejectEmailReply({
+          store, projectId, message, caseId: correlation.caseId, loaded, snapshot, senderUserId: authorization.userId, action: "TOKEN", code: usable.reason,
+          text: usable.reason === "TOKEN_EXPIRED" ? "Este atalho de resposta expirou (validade de 30 dias). Use o e-mail mais recente do alerta ou o ACC." : "Este atalho de resposta já foi usado para concluir ou encaminhar este alerta. Use o e-mail mais recente do alerta ou o ACC.",
+          basePatch: { ...unauthorizedPatch, senderUserId: authorization.userId },
+        });
+        if (outcome === "REJECTED") result.recorded += 1;
+        else result.reviewRequired += 1;
+        return;
+      }
+    }
+    // Comandos EXPLÍCITOS e inequívocos de remetente já autorizado e autenticado:
+    //  - RESOLVIDO / ENVIAR PARA: máquina de estados única, confirmação (sucesso ou rejeição explicada) ao autor;
+    //  - EM ANDAMENTO + "Previsão: dd/mm/aaaa [hh:mm]": previsão validada ANTES (faltando/ inválida => resposta pedindo, nada gravado);
+    //    válida => mesmo fluxo de TOMANDO PROVIDÊNCIAS da resposta livre.
+    // Qualquer outra intenção sensível continua indo para revisão humana.
     const emailCommand = parseOperationalEmailCommand(parsed.clean);
-    if (emailCommand.command) {
+    const commandPatch = { caseId: correlation.caseId, senderUserId: authorization.userId, bodyClean: parsed.clean, quotedText: parsed.quoted, signatureText: parsed.signature, correlationMethod: correlation.method };
+    let explicitInProgress: { forecast: ReturnType<typeof extractForecastFromText> } | null = null;
+    if (emailCommand.command && emailCommand.command.kind !== "IN_PROGRESS") {
+      let evidenceAttachments: Awaited<ReturnType<NonNullable<ProcessRepliesOptions["attachmentsFor"]>>> = [];
+      if (emailCommand.command.kind === "RESOLVE" && options.attachmentsFor) {
+        try {
+          evidenceAttachments = await options.attachmentsFor(message, correlation.caseId);
+        } catch {
+          evidenceAttachments = []; // anexos indisponíveis: a evidência fica só no texto (ALTO/CRÍTICO sem texto => rejeição pedindo)
+        }
+      }
       const outcome = await applyEmailCommand({
         store,
         projectId,
@@ -123,34 +239,58 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
         snapshot,
         profileByEmail,
         corporateDomain,
-        basePatch: { caseId: correlation.caseId, senderUserId: authorization.userId, bodyClean: parsed.clean, quotedText: parsed.quoted, signatureText: parsed.signature, correlationMethod: correlation.method },
+        basePatch: commandPatch,
+        targetCandidates: options.targetCandidates,
+        evidenceAttachments,
+        itemToken: itemToken && options.tokenStore ? { tokenHash: itemToken.tokenHash, store: options.tokenStore } : null,
       });
       if (outcome === "APPLIED") result.applied += 1;
       else if (outcome === "REJECTED" || outcome === "RECORDED") result.recorded += 1;
       else result.reviewRequired += 1;
-      continue;
+      return;
     }
-    const operational = assessOperationalEmailIntent(parsed.clean);
-    if (operational.requiresReview) {
-      await store.updateInboundMessage(message.id, {
-        caseId: correlation.caseId,
-        senderUserId: authorization.userId,
-        bodyClean: parsed.clean,
-        quotedText: parsed.quoted,
-        signatureText: parsed.signature,
-        correlationMethod: correlation.method,
-        status: "REVIEW_REQUIRED",
-        statusReason: `Operação por e-mail: ${operational.intent} — ${operational.reason}`,
-        requiresHumanReview: true,
-      });
-      result.reviewRequired += 1;
-      continue;
+    if (emailCommand.command?.kind === "IN_PROGRESS") {
+      const tracking = forecastTracking(loaded.snapshot.riskLevel);
+      const parsedForecast = applyForecastPrecision(extractForecastFromText(`Previsão: ${emailCommand.command.forecastText}`, message.receivedAt), tracking);
+      const missing: string[] = [];
+      if (parsedForecast.status !== "VALID") missing.push(describeForecastProblem(parsedForecast) ?? "Previsão de conclusão não informada.");
+      if (!emailCommand.command.note) missing.push("Descreva a providência em curso na linha do EM ANDAMENTO.");
+      if (missing.length > 0 || loaded.snapshot.state === "RESOLVED") {
+        const outcome = await rejectEmailReply({
+          store, projectId, message, caseId: correlation.caseId, loaded, snapshot, senderUserId: authorization.userId, action: "TAKING_ACTION",
+          code: loaded.snapshot.state === "RESOLVED" ? "ALREADY_RESOLVED" : "IN_PROGRESS_INCOMPLETE",
+          text: loaded.snapshot.state === "RESOLVED"
+            ? "O alerta já está resolvido: nada foi alterado."
+            : `${missing.join(" ")} Formato: "EM ANDAMENTO: providência" e, na linha seguinte, "Previsão: dd/mm/aaaa${tracking === "TRACKED" ? " hh:mm" : ""}".`,
+          basePatch: commandPatch,
+        });
+        if (outcome === "REJECTED") result.recorded += 1;
+        else result.reviewRequired += 1;
+        return;
+      }
+      explicitInProgress = { forecast: parsedForecast };
     }
-    const classification = classifyReply(parsed.clean);
+    if (!explicitInProgress) {
+      const operational = assessOperationalEmailIntent(parsed.clean);
+      if (operational.requiresReview) {
+        await store.updateInboundMessage(message.id, {
+          ...commandPatch,
+          status: "REVIEW_REQUIRED",
+          statusReason: `Operação por e-mail: ${operational.intent} — ${operational.reason}`,
+          requiresHumanReview: true,
+        });
+        result.reviewRequired += 1;
+        return;
+      }
+    }
+    // EM ANDAMENTO explícito e válido: classificação determinística equivalente a STATUS_UPDATE inequívoco.
+    const classification = explicitInProgress
+      ? { classification: "STATUS_UPDATE" as const, confidence: 0.95, ambiguous: false, matched: ["STATUS_UPDATE"] }
+      : classifyReply(parsed.clean);
     // Previsão de término: "em andamento" (STATUS_UPDATE => TOMANDO PROVIDÊNCIAS) pede a data de conclusão.
     // Referência = recebimento do e-mail (processamento atrasado não invalida a data). ALTO/CRÍTICO exigem horário.
-    const formalEarly = replyToFormalAction(classification);
-    const forecast = formalEarly === "TAKING_ACTION" ? extractForecastFromText(parsed.clean, message.receivedAt) : null;
+    const formalEarly = explicitInProgress ? ("TAKING_ACTION" as const) : replyToFormalAction(classification);
+    const forecast = explicitInProgress ? explicitInProgress.forecast : formalEarly === "TAKING_ACTION" ? extractForecastFromText(parsed.clean, message.receivedAt) : null;
     const forecastDecision = forecast ? applyForecastPrecision(forecast, forecastTracking(loaded.snapshot.riskLevel)) : null;
     // Recebimento (internalDate do Gmail) × processamento: registro auditado, correção de escalonamento aplicado depois de uma
     // resposta já recebida (leitura atrasada) e pendência de previsão — sem apagar histórico. Falha aqui nunca bloqueia a resposta.
@@ -172,19 +312,19 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
       await store.updateInboundMessage(message.id, { ...basePatch, status: classification.ambiguous ? "REVIEW_REQUIRED" : "PROCESSED", statusReason: classification.ambiguous ? "Classificação ambígua" : "Registrada sem ação formal", requiresHumanReview: classification.ambiguous });
       if (classification.ambiguous) result.reviewRequired += 1;
       else result.recorded += 1;
-      continue;
+      return;
     }
     if (!config) {
       await store.updateInboundMessage(message.id, { ...basePatch, status: "REVIEW_REQUIRED", statusReason: "Projeto sem configuração", requiresHumanReview: true });
       result.reviewRequired += 1;
-      continue;
+      return;
     }
     if ((snapshot.informativeAreas ?? []).includes(loaded.record.area)) {
       // Área informativa no projeto (ex.: FINANCEIRO no piloto): a resposta fica registrada, sem ação,
       // escalonamento, cobrança ou confirmação automática.
       await store.updateInboundMessage(message.id, { ...basePatch, status: "PROCESSED", statusReason: "Área informativa: registrada sem ação automática" });
       result.recorded += 1;
-      continue;
+      return;
     }
     // Mesma política do ciclo, inclusive a exceção temporária do piloto por nível (Nível 2) — a Matriz não muda.
     const policy = applyPilotLevelOverride(
@@ -199,7 +339,7 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
     if (expertRouting?.reviewRequired) {
       await store.updateInboundMessage(message.id, { ...basePatch, expertRouting: { ...expertRouting }, status: "EXPERT_SELECTION_REVIEW_REQUIRED", statusReason: expertRouting.reason, requiresHumanReview: true });
       result.reviewRequired += 1;
-      continue;
+      return;
     }
     const transition = applyAlertAction({
       now: nowIso,
@@ -241,7 +381,7 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
         }
         await store.updateInboundMessage(message.id, { ...basePatch, status: "PROCESSED", statusReason: "Fora de ordem: registrada no histórico sem alterar o alerta" });
         result.recorded += 1;
-        continue;
+        return;
       }
     }
 
@@ -262,7 +402,7 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
       }
       await store.updateInboundMessage(message.id, { ...basePatch, status: "PROCESSED", statusReason: transition.ok ? `Registrada (consolidado LOW/MEDIUM — sem ação automática)${forecastNote}` : transition.message });
       result.recorded += 1;
-      continue;
+      return;
     }
     try {
       // A confirmação ao responsável está na outbox da transição: gravada na mesma transação (RPC).
@@ -279,5 +419,4 @@ export async function processAlertReplies(store: RiskAlertStore, projectId: stri
       result.reviewRequired += 1;
     }
   }
-  return result;
 }

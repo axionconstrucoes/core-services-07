@@ -165,23 +165,24 @@ await check("11. Loop impedido: mensagens do próprio ACC (mailbox e plus-addres
   assert(extracted.isSentByMailbox === true);
 });
 await check("12. Remetente autorizado: profile + membership ACTIVE + e-mail corporativo + destinatário do alerta + allowlist (Authentication-Results pass)", () => {
-  const auth = pipeline.authorizeReply({ senderEmail: "Piloto.A@axion.com.br", profile: { userId: U_L2, email: "piloto.a@axion.com.br", active: true }, membershipStatus: "ACTIVE", alertRecipientUserIds: [U_L2], allowlistUserIds: [U_L2], activeForwardToUserId: null, corporateDomain: "axion.com.br", authenticationResults: "mx.google.com; spf=pass; dkim=pass; dmarc=pass" });
+  const auth = pipeline.authorizeReply({ senderEmail: "Piloto.A@axion.com.br", profile: { userId: U_L2, email: "piloto.a@axion.com.br", active: true }, membershipStatus: "ACTIVE", alertRecipientUserIds: [U_L2], allowlistUserIds: [U_L2], activeForwardToUserId: null, corporateDomain: "axion.com.br", authenticationResults: "mx.google.com; dkim=pass header.i=@axion.com.br header.s=google; spf=pass smtp.mailfrom=axion.com.br; dmarc=pass (p=QUARANTINE) header.from=axion.com.br" });
   assert(auth.authorized === true && auth.userId === U_L2 && auth.note === null);
+  // P2 (mudança intencional): sem Authentication-Results a resposta é RECUSADA (antes: aceita com nota).
   const noAuthHeader = pipeline.authorizeReply({ senderEmail: "piloto.a@axion.com.br", profile: { userId: U_L2, email: "piloto.a@axion.com.br", active: true }, membershipStatus: "ACTIVE", alertRecipientUserIds: [U_L2], allowlistUserIds: [U_L2], activeForwardToUserId: null, corporateDomain: "axion.com.br", authenticationResults: null });
-  assert(noAuthHeader.authorized === true && noAuthHeader.note !== null, "sem header => autorizado com nota");
+  assert(noAuthHeader.authorized === false && noAuthHeader.reason === "AUTH_MISSING", "sem header => recusado (AUTH_MISSING)");
 });
 await check("13. Não autorizado rejeitado (desconhecido, inativo, domínio externo, SPF/DKIM fail, não destinatário) — não altera alerta", () => {
-  const base = { profile: { userId: U_L2, email: "piloto.a@axion.com.br", active: true }, membershipStatus: "ACTIVE", alertRecipientUserIds: [U_L2], allowlistUserIds: [U_L2], activeForwardToUserId: null, corporateDomain: "axion.com.br", authenticationResults: null };
+  const base = { profile: { userId: U_L2, email: "piloto.a@axion.com.br", active: true }, membershipStatus: "ACTIVE", alertRecipientUserIds: [U_L2], allowlistUserIds: [U_L2], activeForwardToUserId: null, corporateDomain: "axion.com.br", authenticationResults: "mx.google.com; dkim=pass header.i=@axion.com.br header.s=google; spf=pass smtp.mailfrom=axion.com.br; dmarc=pass (p=QUARANTINE) header.from=axion.com.br" };
   assert(pipeline.authorizeReply({ ...base, senderEmail: "outro@axion.com.br" }).reason === "UNKNOWN_SENDER");
   assert(pipeline.authorizeReply({ ...base, senderEmail: "piloto.a@axion.com.br", membershipStatus: "INACTIVE" }).reason === "MEMBERSHIP_INACTIVE");
   assert(pipeline.authorizeReply({ ...base, senderEmail: "piloto.a@gmail.com" }).reason === "NOT_CORPORATE");
-  assert(pipeline.authorizeReply({ ...base, senderEmail: "piloto.a@axion.com.br", authenticationResults: "spf=fail" }).reason === "AUTH_FAILED");
+  assert(pipeline.authorizeReply({ ...base, senderEmail: "piloto.a@axion.com.br", authenticationResults: "mx.google.com; spf=fail; dkim=fail header.d=axion.com.br; dmarc=fail header.from=axion.com.br" }).reason === "AUTH_FAILED");
   assert(pipeline.authorizeReply({ ...base, senderEmail: "piloto.a@axion.com.br", alertRecipientUserIds: [U_L3] }).reason === "NOT_RECIPIENT");
   const proc = readSource("apps/web/lib/risk-alerts/replies/process-alert-replies.ts");
   assert(proc.includes('status: "UNAUTHORIZED_REPLY"') && proc.includes("RISK_ALERT_UNAUTHORIZED_REPLY") && !/store\.applyTransition[\s\S]{0,300}authorization\.authorized === false/.test(proc));
 });
 await check("14. Allowlist aplicada à resposta: destinatário original fora da allowlist só é aceito via encaminhamento manual ativo", () => {
-  const base = { senderEmail: "terceiro@axion.com.br", profile: { userId: U_THIRD, email: "terceiro@axion.com.br", active: true }, membershipStatus: "ACTIVE", alertRecipientUserIds: [U_THIRD], allowlistUserIds: [U_L2, U_L3], corporateDomain: "axion.com.br", authenticationResults: null };
+  const base = { senderEmail: "terceiro@axion.com.br", profile: { userId: U_THIRD, email: "terceiro@axion.com.br", active: true }, membershipStatus: "ACTIVE", alertRecipientUserIds: [U_THIRD], allowlistUserIds: [U_L2, U_L3], corporateDomain: "axion.com.br", authenticationResults: "mx.google.com; dkim=pass header.i=@axion.com.br header.s=google; spf=pass smtp.mailfrom=axion.com.br; dmarc=pass (p=QUARANTINE) header.from=axion.com.br" };
   assert(pipeline.authorizeReply({ ...base, activeForwardToUserId: null }).reason === "NOT_ALLOWLISTED");
   assert(pipeline.authorizeReply({ ...base, activeForwardToUserId: U_THIRD }).authorized === true);
 });

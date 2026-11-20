@@ -2,7 +2,8 @@
 // Diferencia FATO (o que foi registrado), PRAZO/ESTADO (dados do sistema) e a necessidade de revisão humana.
 
 import { alertRiskLevelLabels, buildContractAlertSubject } from "@/lib/email/templates/contract-alert-template";
-import { buildUniversalAlertEmail } from "@/lib/email/templates/universal-alert-template";
+import { buildUniversalAlertEmail, replyByEmailTextLines } from "@/lib/email/templates/universal-alert-template";
+import { buildReplyMailtoLinks, type ReplyMailtoLinks } from "@/lib/email-replies/reply-mailto";
 import { buildSsmaRecordUrl, type SsmaRecordLinkTarget } from "@/lib/ssma/field-records/deep-link";
 import type { MailContent } from "./core";
 
@@ -22,6 +23,11 @@ export interface FieldNotificationContext {
   dueDate?: string; // já formatado dd/mm/aaaa
   daysOverdue?: number;
   responsibleName?: string | null;
+  /**
+   * Atalhos "Responder por e-mail" (mailto com o token desta mensagem, gravado antes do envio). SÓ em avisos ao responsável
+   * de ação corretiva com resposta habilitada (processamento real); ausente => sem atalhos.
+   */
+  replyByEmail?: ReplyMailtoLinks | null;
 }
 
 const clip = (v: string, n = 400) => (v.length > n ? `${v.slice(0, n - 1)}…` : v);
@@ -134,6 +140,7 @@ export function renderSsmaAlert(
     visibleCode: string;
     responsibleName?: string | null;
     dueDate?: string | null;
+    replyByEmail?: ReplyMailtoLinks | null;
   },
   details: SsmaAlertDetails
 ): MailContent {
@@ -176,9 +183,20 @@ export function renderSsmaAlert(
       notices: details.notices,
       replyInstruction: details.replyInstruction,
       extraLinks: [{ label: "ABRIR NO ACC", url: openUrl }],
+      replyByEmail: ctx.replyByEmail ?? null,
     },
   });
-  return { ...content, html, logoNeeds };
+  const mailtoLines = replyByEmailTextLines(ctx.replyByEmail);
+  return { ...content, text: mailtoLines.length > 0 ? `${content.text}\n\n${mailtoLines.join("\n")}` : content.text, html, logoNeeds };
+}
+
+/**
+ * Atalhos mailto do aviso SSMA ao RESPONSÁVEL (resposta habilitada): o token é o MESMO do Reply-To da mensagem (o envio grava o
+ * hash em email_reply_tokens ANTES de sair). Sem caixa válida => null (o aviso sai só com os botões do ACC).
+ */
+export function ssmaReplyMailto(token: string, visibleCode: string, mailbox: string | null | undefined, severity: SsmaSeverity): ReplyMailtoLinks | null {
+  if (!mailbox) return null;
+  return buildReplyMailtoLinks({ mailbox, token, visibleCode: `ACC-SSMA:${visibleCode}`, evidenceAttachment: "REQUIRED_PHOTO", forecastNeedsTime: severity === "CRITICA" || severity === "ALTA" });
 }
 
 export function replyInstructionFor(severity: SsmaSeverity): string {
@@ -250,12 +268,16 @@ export interface SsmaReplyConfirmationContext {
   outOfOrder: boolean;
   accUrl: string;
   recordLink?: SsmaRecordLinkTarget | null;
+  /** Recusa/pendência: nada foi gravado na ação (título e textos próprios, sem afirmar registro). */
+  rejected?: boolean;
+  replyByEmail?: ReplyMailtoLinks | null;
 }
 
 export function buildSsmaReplyConfirmationEmail(ctx: SsmaReplyConfirmationContext): MailContent {
   const base = ctx.originalSubject.trim() || `Ação corretiva SSMA [ACC-SSMA:${ctx.visibleCode}]`;
   const subject = /^re:/i.test(base) ? base : `Re: ${base}`;
   const greeting = ctx.recipientName ? `Olá, ${ctx.recipientName}.` : "Olá.";
+  if (ctx.rejected) return buildSsmaReplyRejectionEmail(ctx, subject, greeting);
   const rows: Array<[string, string]> = [
     ["Obra", ctx.projectName],
     ["Ação corretiva", `${ctx.category} — ${ctx.location} [ACC-SSMA:${ctx.visibleCode}]`],
@@ -289,5 +311,34 @@ export function buildSsmaReplyConfirmationEmail(ctx: SsmaReplyConfirmationContex
     { title: "RESPOSTA REGISTRADA · AÇÃO CORRETIVA SSMA", description: `${ctx.category} — ${ctx.location}`,
       // "Obra", "Ação corretiva" e "Status registrado" já aparecem no cabeçalho, na Ocorrência e no Estado (filtrados no HTML).
       stateLabel: ctx.statusLabel, facts: rows, notices: paragraphs, footer }
+  );
+}
+
+/** Resposta NÃO aplicada (comando incompleto, sem foto, remetente não autenticado…): nunca afirma registro. */
+function buildSsmaReplyRejectionEmail(ctx: SsmaReplyConfirmationContext, subject: string, greeting: string): MailContent {
+  const rows: Array<[string, string]> = [
+    ["Obra", ctx.projectName],
+    ["Ação corretiva", `${ctx.category} — ${ctx.location} [ACC-SSMA:${ctx.visibleCode}]`],
+    ["Resultado", "NÃO aplicado — a ação corretiva continua como estava"],
+    ...(ctx.pendingLine ? ([["O que falta / motivo", ctx.pendingLine]] as Array<[string, string]>) : []),
+  ];
+  const paragraphs = ["Nada foi alterado na ação corretiva, nos prazos ou nos escalonamentos. Responda a este e-mail com o comando corrigido ou complementado, ou registre a ação no ACC."];
+  const footer = "Confirmação automática do ACC. Comandos por e-mail só são registrados quando o remetente é validado e as informações exigidas estão completas.";
+  const text = [
+    "ACC · AXION CONTROLE DE CONTRATOS",
+    "RESPOSTA NÃO APLICADA · AÇÃO CORRETIVA SSMA",
+    "",
+    greeting,
+    ...rows.map(([k, v]) => `${k}: ${v}`),
+    "",
+    ...paragraphs,
+    footer,
+    "",
+    `ABRIR NO ACC: ${ssmaOpenUrl(ctx)}`,
+  ].join("\n");
+  return renderSsmaAlert(
+    { subject, text, operational: true },
+    { ...ctx, severity: ctx.severity ?? null },
+    { title: "RESPOSTA NÃO APLICADA · AÇÃO CORRETIVA SSMA", description: `${ctx.category} — ${ctx.location}`, stateLabel: "Não aplicado", facts: rows, notices: paragraphs, footer }
   );
 }

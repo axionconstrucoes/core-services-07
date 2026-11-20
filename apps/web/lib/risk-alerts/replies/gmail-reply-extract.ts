@@ -3,6 +3,8 @@
 // e o corpo text/plain (fallback: HTML sem tags). Sem rede, sem I/O.
 // O corpo é persistido só em alert_email_messages — nunca em logs.
 
+import { listGmailAttachments, type InboundAttachmentRef } from "@/lib/email-replies/inbound-attachments";
+
 import type { InboundHeaders } from "./reply-pipeline";
 
 export interface GmailHeader {
@@ -30,6 +32,17 @@ function header(headers: GmailHeader[] | null | undefined, name: string): string
 
 export function decodeBase64Url(value: string): string {
   return Buffer.from(value.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
+}
+
+/**
+ * TODOS os cabeçalhos com o nome (na ordem da mensagem: o primeiro é o do servidor que entregou), cada um com espaços
+ * normalizados (cabeçalhos dobrados viram uma linha) — um por linha no valor devolvido.
+ */
+export function allHeaderValues(headers: GmailHeader[] | null | undefined, name: string): string[] {
+  return (headers ?? [])
+    .filter((h) => (h.name ?? "").toLowerCase() === name.toLowerCase())
+    .map((h) => (h.value ?? "").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
 }
 
 function findPart(part: GmailPart | null | undefined, mimeType: string): GmailPart | null {
@@ -79,6 +92,8 @@ export interface ExtractedInbound {
   bodyOriginal: string;
   receivedAt: string;
   isSentByMailbox: boolean;
+  /** Anexos (só metadados + id do Gmail; o download é feito pelo worker quando o comando precisa de evidência). */
+  attachments: InboundAttachmentRef[];
 }
 
 export function extractInboundFromGmail(message: GmailMessageLike, mailbox: string): ExtractedInbound | null {
@@ -107,12 +122,14 @@ export function extractInboundFromGmail(message: GmailMessageLike, mailbox: stri
       xAutoRespond: header(headers, "X-Autorespond"),
       returnPath: header(headers, "Return-Path"),
       contentType: header(headers, "Content-Type"),
-      authenticationResults: header(headers, "Authentication-Results"),
+      // P2: TODOS os Authentication-Results (um por linha) — a verificação exige servidor confiável e DMARC/DKIM alinhado.
+      authenticationResults: allHeaderValues(headers, "Authentication-Results").join("\n") || null,
       subject: header(headers, "Subject"),
       xAccOutbound: header(headers, "X-ACC-Outbound"),
     },
     bodyOriginal: limitInboundBody(body),
     receivedAt,
+    attachments: listGmailAttachments(message.payload),
     isSentByMailbox: (message.labelIds ?? []).includes("SENT") || from === mailbox.toLowerCase() || from.startsWith(`${mailbox.toLowerCase().split("@")[0]}+`),
   };
 }
