@@ -242,7 +242,7 @@ try {
     ["Q: abrir caso de garantia (quality_warranty_create)", "REGISTER", async () => ({}), (c) => rpc(c, "quality_warranty_create", PA, "Pintura", "Descolamento sintético", JSON.stringify({ origin_ref: `w-${uniq()}` }))],
     ["Q: avançar triagem da RNC (DETECTADA->TRIAGEM)", "REGISTER", async () => mkNcr(), (c, x) => rpc(c, "quality_ncr_transition", x.id, "TRIAGEM", x.rowVersion, null, null, null)],
     ["Q: cancelar RNC (decisão de gestão)", "MANAGE", async () => mkNcr(), (c, x) => rpc(c, "quality_ncr_transition", x.id, "CANCELADA", x.rowVersion, "Justificativa suficiente de teste.", null, null)],
-    ["Q: registrar evidência (INSERT sob RLS)", "REGISTER", async () => mkNcr(), (c, x) => c.query("insert into public.quality_evidence (project_id,ncr_id,source_type,source_ref,classification,description) values ($1,$2,'DOCUMENTO',$3,'NC_COMPROVADA','sintética')", [PA, x.id, `ev-${uniq()}`]), { direct: true }],
+    ["Q: registrar evidência (quality_evidence_register; INSERT direto revogado na fase 3/D)", "REGISTER", async () => mkNcr(), (c, x) => rpc(c, "quality_evidence_register", PA, "DOCUMENTO", `ev-${uniq()}`, "NC_COMPROVADA", "FATO", x.id)],
     ["S: cadastrar apólice (insurance_policy_create)", "MANAGE", async () => ({ d: await doc() }), (c, x) => rpc(c, "insurance_policy_create", PA, JSON.stringify({ ...POL, policy_number: `P-${uniq()}`, source_document_id: x.d }))],
     ["S: cadastrar canal oficial (insurance_channel_register)", "MANAGE", async () => ({}), (c) => rpc(c, "insurance_channel_register", PA, JSON.stringify({ channel_kind: "EMAIL", address: "sinistros@seguradora-sintetica.example", source_ref: `s-${uniq()}`, institution_name: "Seguradora Sintética" }))],
     ["S: cadastrar fiança bancária (bank_guarantee_register)", "MANAGE", async () => ({}), (c) => rpc(c, "bank_guarantee_register", PA, JSON.stringify({ bank_name: "Banco Sintético", source_ref: `b-${uniq()}` }))],
@@ -317,8 +317,8 @@ try {
       () => rpc(b, "insurance_endorsement_request", polA.id, JSON.stringify({ requested_text: "invasão", request_ref: "x" })),
       () => rpc(b, "insurance_claim_open", PA, JSON.stringify({ claim_kind: "OUTRO", title: "x", stage: "AVISO", source_ref: "r", no_instrument_reason: "motivo suficiente para teste" })),
     ]) { try { await f(); throw new Error("operação cruzada passou"); } catch (e) { ok(DENIED.test(e.message), `esperava recusa, obtive: ${e.message}`); } }
-    try { await b.query("insert into public.quality_evidence (project_id,ncr_id,source_type,source_ref,classification,description) values ($1,$2,'DOCUMENTO','x','NC_COMPROVADA','sintética')", [PA, ncrA.id]); throw new Error("insert cruzado passou"); }
-    catch (e) { ok(/row-level security|FORBIDDEN|violates/i.test(e.message), `evidência cruzada: ${e.message}`); }
+    try { await rpc(b, "quality_evidence_register", PA, "DOCUMENTO", "x", "NC_COMPROVADA", "FATO", ncrA.id); throw new Error("evidência cruzada passou"); }
+    catch (e) { ok(/FORBIDDEN/i.test(e.message), `evidência cruzada: ${e.message}`); }
     // papel alto em outro projeto não vira privilégio: B é ADMINISTRADOR em B mas NONE em A.
     eq((await b.query("select public.acc_project_tier($1) a, public.acc_project_tier($2) b", [PA, PB])).rows[0], { a: "NONE", b: "ADMIN" }, "tier por projeto");
   });
