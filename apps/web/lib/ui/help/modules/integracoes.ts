@@ -837,4 +837,89 @@ export const INTEGRACOES_HELP: FeatureHelpDefinition[] = [
     missingData: "Lista vazia: nenhum assunto avulso é aprovado.",
     permissions: "Somente Administrador ativo da obra.",
   },
+  // =====================================================================================================================
+  // AXIA — caixa de conversa do assistente de dúvidas de uso do ACC (components/assistant, montada no layout global)
+  // =====================================================================================================================
+  {
+    ...D,
+    id: "integracoes.axia.conversa",
+    kind: "module",
+    title: "AXIA — caixa de conversa",
+    shortDescription: "Assistente de dúvidas sobre o USO do ACC: responde com texto da base aprovada e não altera dados.",
+    description:
+      "Caixa de conversa aberta pelo gatilho 'Fale com a AXIA'. A AXIA é exclusivamente o assistente de dúvidas sobre o uso do ACC (documentos, alertas, providências, SSMA, autorização de e-mails); não é um especialista de IA e não se confunde com o botão ESPECIALISTA.",
+    purpose: "Tirar dúvidas de como usar o sistema sem sair da tela em que a pessoa está.",
+    howToUse: [
+      "Escolha uma das perguntas sugeridas (mudam conforme a tela que abriu a caixa) ou digite a sua.",
+      "Leia a resposta; quando houver, use os links para a tela ou o trecho do tutorial indicado.",
+      "Feche pelo X do cabeçalho; a conversa deste navegador é descartada ao recarregar a página.",
+    ],
+    howItWorks:
+      "Cada pergunta é enviada por POST à rota da obra (/[projectId]/ajuda/assistente, ou /projetos/assistente antes de escolher a obra). O servidor exige login e participação na obra, limita a 20 perguntas por minuto por usuário e responde com texto da base de conhecimento aprovada; o uso de IA, quando permitido, é limitado a 8 por minuto e restrito a administradores no piloto. O navegador envia só as 2 últimas perguntas e o assunto respondido como contexto.",
+    data: ["Texto da pergunta (até 500 caracteres)", "Até 2 perguntas anteriores e o identificador do assunto respondido"],
+    source: "Base de conhecimento aprovada da AXIA (lib/assistant); nunca consulta nem grava dados da obra.",
+    missingData: "Sem resposta aprovada, a caixa informa 'Ainda não tenho uma resposta aprovada para isso.'; resposta parcial vem marcada como 'pode não cobrir o seu caso'.",
+    consequences: ["Nenhuma: a AXIA só orienta e não altera dados, prazos, status ou permissões."],
+    permissions: "Usuário autenticado com participação na obra; antes da escolha da obra, a caixa abre sem links de obra.",
+    limitations: ["Não substitui análise de Experts IA nem decisão humana.", "O botão 'Falar com o ADMIN' só aparece quando houver canal oficial configurado (hoje nenhum)."],
+    humanReview: "Respostas parciais ou ausentes devem ser levadas ao administrador da obra.",
+  },
+  {
+    ...D,
+    id: "integracoes.axia.pergunta",
+    kind: "field",
+    title: "Pergunta para a AXIA e Enviar pergunta",
+    shortDescription: "Campo de até 500 caracteres; o botão em avião de papel envia a pergunta.",
+    description:
+      "Campo 'Digite sua pergunta' (aria-label 'Pergunta para a AXIA') e botão 'Enviar pergunta'. O botão fica desabilitado enquanto uma resposta carrega ou o campo está vazio.",
+    purpose: "Fazer uma pergunta livre sobre o uso do ACC.",
+    howToUse: ["Digite a pergunta e pressione Enter ou clique em Enviar pergunta.", "Aguarde 'Procurando a orientação…' terminar."],
+    criteria: ["Pergunta vazia ou acima de 500 caracteres é recusada pelo servidor.", "Acima de 20 perguntas por minuto: 'Muitas perguntas em pouco tempo. Aguarde um minuto.'"],
+    howItWorks: "O envio chama a rota da AXIA; se não houver conexão a caixa mostra 'Sem conexão com o ACC'. Enquanto uma pergunta está em andamento outra não é enviada.",
+    consequences: ["Nenhuma alteração de dados do ACC."],
+    permissions: "Usuário autenticado com participação na obra.",
+  },
+  {
+    ...D,
+    id: "integracoes.axia.sugestoes",
+    kind: "button",
+    title: "Perguntas sugeridas da AXIA",
+    shortDescription: "Atalhos com perguntas frequentes da tela atual; um clique envia a pergunta.",
+    description:
+      "Botões em forma de pílula exibidos enquanto a conversa está vazia. A lista depende do contexto de quem abriu a caixa: geral, alerta, providência, SSMA, seleção de obra ou autorização de e-mail.",
+    purpose: "Chegar às dúvidas mais comuns sem digitar.",
+    howToUse: ["Clique na sugestão; ela é enviada exatamente como está escrita."],
+    howItWorks: "O texto da sugestão é enviado pelo mesmo caminho do campo de pergunta e some ao iniciar a conversa.",
+    consequences: ["Nenhuma alteração de dados."],
+  },
+  {
+    ...D,
+    id: "integracoes.axia.nao-respondeu",
+    kind: "button",
+    title: "Isso não respondeu à minha pergunta",
+    shortDescription: "Sinaliza que a resposta completa não resolveu; a caixa passa a orientar a falar com o administrador.",
+    description:
+      "Botão que aparece abaixo de uma resposta marcada como completa (exceto pedidos de esclarecimento). Ao clicar, a resposta é marcada como não resolvida apenas neste navegador.",
+    purpose: "Indicar que a orientação não serviu e acionar a orientação de contato com o administrador.",
+    howToUse: ["Clique uma vez; o botão some e a caixa mostra a orientação de falar com o administrador."],
+    howItWorks:
+      "O estado fica somente no componente (nada é enviado ao servidor). O encaminhamento ao ADMIN é exibido como texto, sem link, porque não há canal oficial registrado; só num ambiente local de teste o link aponta para um destino fictício.",
+    consequences: ["Nenhum envio de mensagem nem registro no servidor."],
+    limitations: ["Não gera chamado nem notifica o administrador."],
+  },
+  {
+    ...D,
+    id: "integracoes.axia.voz",
+    kind: "setting",
+    title: "Voz da AXIA (Ouvir resposta e Parar)",
+    shortDescription: "Seletor de voz e botões Ouvir resposta e Parar; só aparecem com a voz habilitada.",
+    description:
+      "Controles de leitura da última resposta em áudio: seletor 'Voz', botão 'Ouvir resposta' e botão 'Parar'. Só são exibidos quando o servidor informa que a voz está disponível (ELEVENLABS_ENABLED ligado, com chave e vozes) e já existe uma resposta; hoje a AXIA responde só por texto.",
+    purpose: "Ouvir a última resposta quando a voz estiver ligada.",
+    howToUse: ["Escolha a voz (a escolha fica salva neste navegador).", "Clique em Ouvir resposta; Parar interrompe o áudio."],
+    howItWorks: "A leitura só começa por clique; o seletor fica desabilitado enquanto toca e Parar só vale durante a reprodução.",
+    missingData: "Voz desligada ou sem vozes: o bloco inteiro não é renderizado.",
+    validity: "A voz está desligada por padrão (Fase 3 do piloto); este bloco só existe quando a configuração do servidor a habilitar.",
+    limitations: ["O áudio é gerado por serviço externo configurado no servidor; nenhuma chave passa pelo navegador."],
+  },
 ];

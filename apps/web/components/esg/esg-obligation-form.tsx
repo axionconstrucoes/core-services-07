@@ -127,6 +127,7 @@ export function EsgObligationForm({
       {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
       {state.success ? <p className="text-sm text-emerald-600">Obrigação configurada.</p> : null}
 
+      {/* help-exempt: botão de envio do formulário; fluxo descrito em ssma.esg.nova-obrigacao e nos campos ssma.esg.obrigacao-* */}
       <Button type="submit" disabled={pending} className="self-start">
         {pending ? "Salvando…" : "Adicionar obrigação ao checklist"}
       </Button>

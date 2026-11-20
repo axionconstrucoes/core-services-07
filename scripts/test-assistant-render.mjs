@@ -43,7 +43,9 @@ const js = ts.transpileModule(source, {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX },
 }).outputText;
 const mod = { exports: {} };
-vm.runInNewContext(js, { module: mod, exports: mod.exports, require: (id) => webRequire(id), console });
+// O ícone de ajuda (FeatureInfo) vem do catálogo do Hover Text e é client-only: aqui entra um stub vazio para o HTML conferido ser só o dos controles.
+const requireStub = (id) => (id === "@/components/shared/feature-info" ? { FeatureInfo: () => null } : webRequire(id));
+vm.runInNewContext(js, { module: mod, exports: mod.exports, require: requireStub, console });
 const { AssistantVoiceControls } = mod.exports;
 
 const voices = [{ id: "S4M4JhZIzYGUlDsYIOow", label: "Elena Vinter", note: "feminina, português" }];

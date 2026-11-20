@@ -39,12 +39,14 @@ export function UserIntegrationMatrix({ rows, shared, warnings, measuredAt, unas
                 <caption className="sr-only">Etapas de comprovação da caixa pessoal de cada usuário vinculado ao projeto.</caption>
                 <thead className="border-b border-border bg-muted">
                   <tr>
+                    {/* help-exempt: cabeçalhos Usuário, Aceite, Conexão técnica, Coleta e Material processado; descritos em integracoes.integracoes.matriz-fontes e farol-etapa */}
                     {["Usuário", "Aceite", "Conexão técnica", "Coleta", "Material processado"].map((label) => <th key={label} scope="col" className="p-3 align-top font-semibold">{label}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {rows.map((row) => (
                     <tr key={row.userId} className="border-b border-border align-top last:border-0">
+                      {/* help-exempt: cabeçalho da linha com nome, e-mail e vínculo do usuário; descrito em integracoes.integracoes.matriz-fontes */}
                       <th scope="row" className="min-w-52 p-3 font-normal">
                         <p className="font-semibold">{row.name}</p>
                         <p className="break-all text-xs text-muted-foreground">{row.email}</p>
@@ -92,11 +94,13 @@ export function UserIntegrationMatrix({ rows, shared, warnings, measuredAt, unas
             <table className="w-full min-w-[900px] text-left text-sm">
               <caption className="sr-only">Etapas de comprovação das fontes compartilhadas da obra.</caption>
               <thead className="border-b border-border bg-muted">
+                {/* help-exempt: cabeçalhos Fonte, Conexão, Coleta e Disponível para análise; descritos em integracoes.integracoes.matriz-fontes e farol-etapa */}
                 <tr>{["Fonte", "Conexão", "Coleta", "Disponível para análise"].map((label) => <th key={label} scope="col" className="p-3 align-top font-semibold">{label}</th>)}</tr>
               </thead>
               <tbody>
                 {shared.map((row) => (
                   <tr key={row.key} className="border-b border-border align-top last:border-0">
+                    {/* help-exempt: cabeçalho da linha com o nome da fonte compartilhada e seus fatos; descrito em integracoes.integracoes.matriz-fontes */}
                     <th scope="row" className="min-w-44 p-3 font-normal">
                       <p className="font-semibold">{row.label}</p>
                       {row.facts.map((fact) => <p key={fact} className="mt-1 max-w-56 text-xs text-muted-foreground">{fact}</p>)}

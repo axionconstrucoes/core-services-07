@@ -87,6 +87,7 @@ export function EmailProjectScopeForm({
       ) : null}
 
       <div>
+        {/* help-exempt: botão de envio do formulário; regras descritas em integracoes.integracoes.escopo-exigir-correspondencia, escopo-palavras-chave e escopo-assuntos */}
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Salvando…" : "Salvar regras de escopo"}
         </Button>

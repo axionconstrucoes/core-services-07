@@ -55,6 +55,7 @@ export function ConstrumanagerVersionImpactForm({
       <p className="text-neutral-600">A análise será registrada e informada à gerência do projeto e à diretoria comercial, mesmo sem impacto.</p>
       {state.error ? <p className="font-medium text-red-700">{state.error}</p> : null}
       {state.success ? <p className="font-medium text-green-700">Análise registrada.</p> : null}
+      {/* help-exempt: botão de envio do formulário; descrito em integracoes.integracoes.construmanager-analise-impacto */}
       <Button type="submit" size="sm" disabled={pending}>{pending ? "Registrando…" : "Registrar análise completa"}</Button>
     </form>
   );

@@ -18,6 +18,7 @@ export function SsmaHeader({ title, onBack, helpId }: { title: string; onBack?: 
     <>
     <header className="flex min-h-24 items-center gap-2 bg-[#740820] px-2 text-white shadow-sm sm:px-4">
       {onBack ? (
+        // help-exempt: botão Voltar da barra superior, de rótulo autoexplicativo (aria-label Voltar)
         <button
           type="button"
           onClick={onBack}
@@ -60,6 +61,7 @@ export function SsmaBottomNav({ active, onChange, pendingCount = 0 }: { active: 
       {TABS.map(({ tab, label, Icon, helpId }) => (
         // O ícone de ajuda fica ao lado do botão da aba (nunca dentro dele): o botão continua sendo só a navegação.
         <div key={tab} className="relative flex flex-col">
+          {/* help-exempt: botão de navegação da aba; o ícone de ajuda de cada aba fica ao lado do botão */}
           <button
             type="button"
             onClick={() => onChange(tab)}

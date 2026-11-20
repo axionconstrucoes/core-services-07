@@ -149,12 +149,14 @@ export function EsgManagerialSummary({ rows }: { rows: EsgManagerialRow[] }) {
             </option>
           ))}
         </Select>
+        {/* help-exempt: campo de data inicial do período; descrito em ssma.esg.gerencial-filtros */}
         <input
           type="date"
           value={periodFrom}
           onChange={(e) => setPeriodFrom(e.target.value)}
           className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
         />
+        {/* help-exempt: campo de data final do período; descrito em ssma.esg.gerencial-filtros */}
         <input
           type="date"
           value={periodTo}

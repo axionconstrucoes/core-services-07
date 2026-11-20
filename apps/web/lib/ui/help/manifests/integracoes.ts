@@ -96,6 +96,11 @@ export const INTEGRACOES_MANIFEST: HelpManifest = {
     el(AUT, "button", "Autorizar acesso / Não autorizar / Confirmar", "integracoes.autorizacao.decisao"),
     el(AUT, "button", "Revogar autorização desta obra", "integracoes.autorizacao.revogar"),
     el(AUT, "table", "Histórico", "integracoes.autorizacao.historico"),
-    exempt(AUT, "button", "Foto do assistente de dúvidas no cabeçalho e widget do assistente", "Assistente de dúvidas de uso do ACC (componente compartilhado); documentado fora deste módulo."),
+    exempt(AUT, "button", "Gatilho 'Fale com a AXIA' (foto do assistente)", "Gatilho que apenas abre a caixa de conversa da AXIA, descrita em integracoes.axia.conversa; o rótulo e o aria-label já dizem a ação."),
+    el(AUT, "module", "AXIA — caixa de conversa (cabeçalho)", "integracoes.axia.conversa"),
+    el(AUT, "field", "Pergunta para a AXIA e Enviar pergunta", "integracoes.axia.pergunta"),
+    el(AUT, "button", "Perguntas sugeridas da AXIA", "integracoes.axia.sugestoes"),
+    el(AUT, "button", "Isso não respondeu à minha pergunta", "integracoes.axia.nao-respondeu"),
+    el(AUT, "setting", "Voz da AXIA (Ouvir resposta e Parar)", "integracoes.axia.voz"),
   ],
 };

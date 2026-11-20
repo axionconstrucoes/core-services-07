@@ -45,6 +45,7 @@ export function ConstrumanagerConnectionCheck({
       <form action={formAction}>
         <input type="hidden" name="projectId" value={projectId} />
 
+        {/* help-exempt: botão que dispara a verificação; descrito em integracoes.integracoes.construmanager-validar (ícone logo abaixo) */}
         <Button
           type="submit"
           size="sm"

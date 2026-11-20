@@ -6,6 +6,7 @@ import { VERA_AUTHORIZATION_QUESTION, openVera, type VeraContext } from "./vera-
 
 // Visível em desktop e independente da voz (só abre a conversa). Contraste: borda creme e texto branco sobre a barra escura.
 // Gatilho "Fale com a AXIA": foto circular + texto. Abre a caixa de conversa (não conversa aqui).
+// help-exempt: menção a <button> em comentário de código; o gatilho em si está descrito em integracoes.axia.conversa
 // Teclado: é um <button> (Tab/Enter/Espaço); área de toque de pelo menos 44 px; texto sempre visível.
 
 export function VeraTrigger({
@@ -27,6 +28,7 @@ export function VeraTrigger({
   const question = ask ?? (context === "autorizacao" ? VERA_AUTHORIZATION_QUESTION : undefined);
 
   return (
+    // help-exempt: gatilho que apenas abre a caixa da AXIA, descrita em integracoes.axia.conversa; o aria-label já nomeia a ação
     <button
       type="button"
       data-vera-trigger={context}

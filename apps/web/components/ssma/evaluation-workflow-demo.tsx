@@ -50,6 +50,7 @@ export function EvaluationWorkflowDemo({ viewerIsTechnician, viewerIsManager }: 
       <div className="flex flex-wrap gap-2">
         <button type="button" onClick={() => advance("ENVIAR")} disabled={!viewerIsManager || status !== "RASCUNHO"} className="min-h-11 rounded bg-[#7f1d1d] px-3 text-sm font-bold text-white disabled:bg-[#475569]">Enviar ao técnico</button>
         <button type="button" onClick={() => advance("MANIFESTAR")} disabled={!viewerIsTechnician || status !== "AGUARDANDO_MANIFESTACAO" || manifestation.trim().length < 3} className="min-h-11 rounded bg-[#7f1d1d] px-3 text-sm font-bold text-white disabled:bg-[#475569]">Registrar manifestação</button>
+        {/* help-exempt: botões do fluxo demonstrativo (dados fictícios, sem persistência); descritos em ssma.avaliacao.fluxo-demo */}
         <button type="button" onClick={() => advance("VALIDAR")} disabled={!viewerIsManager || viewerIsTechnician || status !== "MANIFESTADA"} className="min-h-11 rounded bg-[#14532d] px-3 text-sm font-bold text-white disabled:bg-[#475569]">Validar (gerente)</button>
       </div>
       <p className="text-xs">O gerente não valida a própria ficha. Depois de validada, a ficha ficaria imutável (na versão com persistência).</p>

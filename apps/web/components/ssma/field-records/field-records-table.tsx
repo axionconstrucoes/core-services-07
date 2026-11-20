@@ -23,6 +23,7 @@ export function FieldRecordsTable({ records, today }: { records: FieldRecordView
     <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
       <tr>
         {["Fato", "Tipo / categoria", "Local", "Risco", "Registrado por", "Responsável", "Prazo", "Ação corretiva", "Fotos"].map((heading) => (
+          // help-exempt: cabeçalhos da tabela do painel; descritos em ssma.registros.tabela (Risco e Ação corretiva têm ícone próprio)
           <th key={heading} className="px-3 py-2 font-semibold">
             {HEADING_HELP[heading] ? (
               <span className="inline-flex items-center gap-1.5">
