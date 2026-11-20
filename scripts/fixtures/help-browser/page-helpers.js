@@ -104,7 +104,7 @@
       let k = "corpo";
       if (el.closest("code")) k = "formula";
       else if (el.tagName === "H3") k = "secao";
-      else if (el.id && el.closest("[role=dialog]") === p && el.tagName === "P" && el.className.includes("font-semibold")) k = "titulo";
+      else if (el.id && el.closest("[role=dialog]") === p && (el.tagName === "P" || el.tagName === "H2") && el.className.includes("font-semibold")) k = "titulo";
       else if (/^Versão do texto/.test(el.textContent)) k = "versao";
       else if (el.closest("section") && /Vigência/.test(el.closest("section").querySelector("h3")?.textContent || "") && el.tagName === "P") k = "vigencia";
       add(k, m);
