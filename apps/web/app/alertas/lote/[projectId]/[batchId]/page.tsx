@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { getProjectMembers } from "@/lib/data";
 import { getContractAlertBatch } from "@/lib/email/get-contract-alert-batch";
 import { isValidContractAlertBatchAction } from "@/lib/email-actions/contract-alert-batch-validation";
@@ -60,7 +61,8 @@ export default async function CompactContractAlertBatchPage({
             <img src="/branding/acc-logo.png" alt="ACC" className="h-7 w-auto" />
           </div>
           <CardTitle className="text-base">AXION Controle de Contratos</CardTitle>
-          <CardDescription>
+          <CardDescription className="flex items-center gap-1">
+            <FeatureInfo helpId="planejamento.alerta-lote.pagina" />
             Resposta rápida · {batch.projectName} · {batch.items.length} {batch.items.length === 1 ? "alerta" : "alertas"}
           </CardDescription>
         </CardHeader>

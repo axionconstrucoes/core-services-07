@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ContractEvent } from "@axion/types";
 import { CategoryBadge, StatusBadge } from "@/components/shared/badges";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { sourceTypeShortLabels, formatDateTime } from "@/lib/labels";
 
 export function TimelineList({
@@ -20,12 +21,15 @@ export function TimelineList({
 
   return (
     <div className="flex flex-col gap-3">
-      <label className="flex items-center gap-2 text-xs text-muted-foreground">
-        <input type="checkbox" checked={allSelected} onChange={onToggleAll} />
-        {selectedEventIds.size > 0
-          ? `${selectedEventIds.size} evento(s) selecionado(s) manualmente para exportação`
-          : "Selecionar eventos específicos para exportação (opcional — sem seleção, todos os eventos filtrados abaixo são exportados)"}
-      </label>
+      <div className="flex items-center gap-1">
+        <label className="flex items-center gap-2 text-xs text-muted-foreground">
+          <input type="checkbox" checked={allSelected} onChange={onToggleAll} />
+          {selectedEventIds.size > 0
+            ? `${selectedEventIds.size} evento(s) selecionado(s) manualmente para exportação`
+            : "Selecionar eventos específicos para exportação (opcional — sem seleção, todos os eventos filtrados abaixo são exportados)"}
+        </label>
+        <FeatureInfo helpId="planejamento.timeline.lista" />
+      </div>
 
       <ol className="flex flex-col gap-0 border-l border-border pl-6">
         {events.map((event) => (

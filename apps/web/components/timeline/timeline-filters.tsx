@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import type { ImplicationCategory, SourceType } from "@axion/types";
 import { categoryLabels, sourceTypeShortLabels } from "@/lib/labels";
 import { computeNextSelection, type MultiSelectionAction } from "@/lib/timeline-export/multi-select";
@@ -29,6 +30,7 @@ export interface MultiCheckOption<T> {
 
 function MultiCheckGroup<T extends string>({
   legend,
+  helpId,
   options,
   selected,
   cleared,
@@ -37,6 +39,7 @@ function MultiCheckGroup<T extends string>({
   scroll = false,
 }: {
   legend: string;
+  helpId?: string;
   options: MultiCheckOption<T>[];
   selected: T[];
   cleared: boolean;
@@ -54,7 +57,12 @@ function MultiCheckGroup<T extends string>({
 
   return (
     <fieldset className="flex flex-col gap-1.5">
-      <legend className="text-xs font-medium text-muted-foreground">{legend}</legend>
+      <legend className="text-xs font-medium text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          {legend}
+          {helpId ? <FeatureInfo helpId={helpId} /> : null}
+        </span>
+      </legend>
 
       <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
         <input type="checkbox" checked={allChecked} onChange={() => apply({ type: "all" })} />
@@ -124,12 +132,10 @@ export function TimelineFilters({
   return (
     <div className="flex flex-col gap-4 rounded-md border border-border p-4">
       <div className="flex flex-col gap-2">
-        <label
-          htmlFor="timeline-search"
-          className="text-sm font-semibold"
-        >
-          Buscar palavra / assunto
-        </label>
+        <span className="inline-flex items-center gap-1 text-sm font-semibold">
+          <label htmlFor="timeline-search">Buscar palavra / assunto</label>
+          <FeatureInfo helpId="planejamento.timeline.busca" />
+        </span>
 
         <input
           id="timeline-search"
@@ -205,6 +211,7 @@ export function TimelineFilters({
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MultiCheckGroup
           legend="Fontes"
+          helpId="planejamento.timeline.filtro-fontes"
           options={sourceTypes.map((source) => ({ value: source, label: sourceTypeShortLabels[source] }))}
           selected={criteria.sources}
           cleared={cleared.sources}
@@ -216,6 +223,7 @@ export function TimelineFilters({
 
         <MultiCheckGroup
           legend="Categorias/Impactos"
+          helpId="planejamento.timeline.filtro-categorias"
           options={categories.map((category) => ({ value: category, label: categoryLabels[category] }))}
           selected={criteria.categories}
           cleared={cleared.categories}
@@ -226,8 +234,9 @@ export function TimelineFilters({
         />
 
         <div className="flex flex-col gap-2">
-          <span className="text-xs font-medium text-muted-foreground">
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
             Período
+            <FeatureInfo helpId="planejamento.timeline.filtro-periodo" />
           </span>
 
           <label className="flex cursor-pointer items-center gap-2 text-sm font-semibold">
@@ -290,6 +299,7 @@ export function TimelineFilters({
 
         <MultiCheckGroup
           legend="Participantes (e-mail)"
+          helpId="planejamento.timeline.filtro-participantes"
           scroll
           emptyMessage="Nenhum participante identificado nos e-mails do projeto."
           options={participants.map((participant) => ({

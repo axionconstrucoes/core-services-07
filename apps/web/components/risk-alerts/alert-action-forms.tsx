@@ -14,6 +14,7 @@ import { consultAlertAction } from "@/app/alertas/consulta-ia/[projectId]/[subje
 import { AlertConsultPanel } from "@/app/alertas/consulta-ia/[projectId]/[subject]/[id]/alert-consult-panel";
 import { initialEmailRegistryActionState } from "@/app/[projectId]/documentos/emails/actions-state";
 import { Button } from "@/components/ui/button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,6 +50,15 @@ const UI_LABEL: Record<AlertActionType, string> = {
   RESOLUTION_CONFIRMED: "CONFIRMAR RESOLUÇÃO",
 };
 const MAIN_ACTIONS: AlertActionType[] = ["RESOLVED", "TAKING_ACTION", "FORWARD", "EXPERT_CONSULTATION"];
+// Hover Text de cada botão (catálogo: lib/ui/help/modules/planejamento.ts).
+const ACTION_HELP_ID: Partial<Record<AlertActionType, string>> = {
+  RESOLVED: "planejamento.alerta.btn-resolvido",
+  TAKING_ACTION: "planejamento.alerta.btn-em-andamento",
+  FORWARD: "planejamento.alerta.btn-enviar-para",
+  EXPERT_CONSULTATION: "planejamento.alerta.btn-especialista",
+  OTHER: "planejamento.alerta.btn-outro",
+  RESOLUTION_CONFIRMED: "planejamento.alerta.btn-confirmar-resolucao",
+};
 const GRAY_BUTTON = "bg-[#6B7280] text-white hover:bg-[#4B5563]";
 const ORANGE_BUTTON = "bg-[#C2410C] text-white hover:bg-[#9A3412]";
 const buttonClass = (action: AlertActionType): string => (action === "EXPERT_CONSULTATION" ? ORANGE_BUTTON : GRAY_BUTTON);
@@ -88,14 +98,20 @@ export function AlertActionForms(props: AlertActionFormsProps) {
       {props.availableActions.length === 0 ? <p className="text-sm text-muted-foreground" data-testid="alert-actions-none">Alerta resolvido — nenhuma ação de tratamento adicional. A consulta ao especialista continua disponível.</p> : null}
       <div className="flex flex-wrap gap-2" data-testid="alert-four-buttons">
         {MAIN_ACTIONS.filter((action) => action === "EXPERT_CONSULTATION" || props.availableActions.includes(action)).map((action) => (
-          <Button key={action} type="button" size="sm" className={`${buttonClass(action)} ${selected === action ? "ring-2 ring-offset-2 ring-[#1B2A4A]" : ""}`} onClick={() => setSelected(action)} data-testid={`alert-action-${action}`} aria-pressed={selected === action}>
-            {UI_LABEL[action]}
-          </Button>
+          <span key={action} className="inline-flex items-center gap-1">
+            <Button type="button" size="sm" className={`${buttonClass(action)} ${selected === action ? "ring-2 ring-offset-2 ring-[#1B2A4A]" : ""}`} onClick={() => setSelected(action)} data-testid={`alert-action-${action}`} aria-pressed={selected === action}>
+              {UI_LABEL[action]}
+            </Button>
+            {ACTION_HELP_ID[action] ? <FeatureInfo helpId={ACTION_HELP_ID[action]!} /> : null}
+          </span>
         ))}
         {props.availableActions.filter((action) => !MAIN_ACTIONS.includes(action) && action !== "EXPERT_CONSULTATION").map((action) => (
-          <Button key={action} type="button" size="sm" variant={selected === action ? "default" : "outline"} onClick={() => setSelected(action)} data-testid={`alert-action-${action}`}>
-            {UI_LABEL[action]}
-          </Button>
+          <span key={action} className="inline-flex items-center gap-1">
+            <Button type="button" size="sm" variant={selected === action ? "default" : "outline"} onClick={() => setSelected(action)} data-testid={`alert-action-${action}`}>
+              {UI_LABEL[action]}
+            </Button>
+            {ACTION_HELP_ID[action] ? <FeatureInfo helpId={ACTION_HELP_ID[action]!} /> : null}
+          </span>
         ))}
       </div>
       {selected === "EXPERT_CONSULTATION" ? (
@@ -126,33 +142,53 @@ export function AlertActionForms(props: AlertActionFormsProps) {
 
           {(selected === "RESOLVED" || selected === "RESOLUTION_CONFIRMED") ? (
             <>
-              <label className="flex flex-col gap-1">Solução adotada<Textarea name="text" required rows={3} /></label>
-              {immediate ? <label className="flex flex-col gap-1">Evidência (obrigatória para ALTO/CRÍTICO)<Input name="evidence" required /></label> : null}
-              <label className="flex flex-col gap-1">Justificativa{props.requiresJustification ? " (obrigatória pela Matriz)" : ""}<Textarea name="justification" rows={2} required={props.requiresJustification} /></label>
-              <label className="flex items-center gap-2"><input type="checkbox" name="confirmed" required /> Confirmo a resolução (responsável e data ficam registrados).</label>
+              <div className="flex flex-col gap-1">
+                <span className="inline-flex items-center gap-1"><label htmlFor="alerta-solucao">Solução adotada</label><FeatureInfo helpId="planejamento.alerta.campo-solucao" /></span>
+                <Textarea id="alerta-solucao" name="text" required rows={3} />
+              </div>
+              {immediate ? (
+                <div className="flex flex-col gap-1">
+                  <span className="inline-flex items-center gap-1"><label htmlFor="alerta-evidencia">Evidência (obrigatória para ALTO/CRÍTICO)</label><FeatureInfo helpId="planejamento.alerta.campo-evidencia" /></span>
+                  <Input id="alerta-evidencia" name="evidence" required />
+                </div>
+              ) : null}
+              <div className="flex flex-col gap-1">
+                <span className="inline-flex items-center gap-1"><label htmlFor="alerta-justificativa">Justificativa{props.requiresJustification ? " (obrigatória pela Matriz)" : ""}</label><FeatureInfo helpId="planejamento.alerta.campo-justificativa" /></span>
+                <Textarea id="alerta-justificativa" name="justification" rows={2} required={props.requiresJustification} />
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2"><input type="checkbox" name="confirmed" required /> Confirmo a resolução (responsável e data ficam registrados).</label>
+                <FeatureInfo helpId="planejamento.alerta.campo-confirmo" />
+              </div>
             </>
           ) : null}
           {selected === "TAKING_ACTION" ? (
             <>
-              <label className="flex flex-col gap-1">Providências em andamento<Textarea name="text" required rows={3} /></label>
-              <label className="flex flex-col gap-1">
-                {immediate ? "Previsão de conclusão (data e horário — obrigatórios para ALTO/CRÍTICO)" : "Data prevista de conclusão"}
-                <Input type={immediate ? "datetime-local" : "date"} name="forecastAt" required data-testid="alert-forecast-input" onClick={(e) => { try { (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.(); } catch { /* sem suporte */ } }} />
+              <div className="flex flex-col gap-1">
+                <span className="inline-flex items-center gap-1"><label htmlFor="alerta-providencias">Providências em andamento</label><FeatureInfo helpId="planejamento.alerta.campo-providencias" /></span>
+                <Textarea id="alerta-providencias" name="text" required rows={3} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="inline-flex items-center gap-1">
+                  <label htmlFor="alerta-previsao">{immediate ? "Previsão de conclusão (data e horário — obrigatórios para ALTO/CRÍTICO)" : "Data prevista de conclusão"}</label>
+                  <FeatureInfo helpId="planejamento.alerta.campo-previsao" />
+                </span>
+                <Input id="alerta-previsao" type={immediate ? "datetime-local" : "date"} name="forecastAt" required data-testid="alert-forecast-input" onClick={(e) => { try { (e.currentTarget as HTMLInputElement & { showPicker?: () => void }).showPicker?.(); } catch { /* sem suporte */ } }} />
                 <span className="text-xs text-muted-foreground">
                   A previsão não reinicia o prazo original nem suspende os escalonamentos.
                 </span>
-              </label>
+              </div>
             </>
           ) : null}
           {selected === "FORWARD" ? (
             <>
-              <label className="flex flex-col gap-1">
-                Pesquisar colaborador (nome, e-mail, área, posição na Matriz)
-                <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Digite para filtrar…" />
-              </label>
-              <label className="flex flex-col gap-1">
-                Novo responsável (colaboradores ativos desta obra)
-                <Select name="targetUserId" required defaultValue="" className="h-10 border-[#8fa8cc] bg-[#0B1F3A] text-white [color-scheme:dark] [&>option]:bg-[#0B1F3A] [&>option]:text-white [&>option:checked]:bg-[#315783] [&>option:checked]:text-white" data-testid="alert-forward-select">
+              <div className="flex flex-col gap-1">
+                <span className="inline-flex items-center gap-1"><label htmlFor="alerta-pesquisar">Pesquisar colaborador (nome, e-mail, área, posição na Matriz)</label><FeatureInfo helpId="planejamento.alerta.campo-pesquisar-colaborador" /></span>
+                <Input id="alerta-pesquisar" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Digite para filtrar…" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="inline-flex items-center gap-1"><label htmlFor="alerta-novo-responsavel">Novo responsável (colaboradores ativos desta obra)</label><FeatureInfo helpId="planejamento.alerta.campo-novo-responsavel" /></span>
+                <Select id="alerta-novo-responsavel" name="targetUserId" required defaultValue="" className="h-10 border-[#8fa8cc] bg-[#0B1F3A] text-white [color-scheme:dark] [&>option]:bg-[#0B1F3A] [&>option]:text-white [&>option:checked]:bg-[#315783] [&>option:checked]:text-white" data-testid="alert-forward-select">
                   <option value="" disabled className="bg-[#0B1F3A] text-white">Selecione…</option>
                   {candidates.map((c) => (
                     <option key={c.userId} value={c.userId} className="bg-[#0B1F3A] text-white">
@@ -160,12 +196,20 @@ export function AlertActionForms(props: AlertActionFormsProps) {
                     </option>
                   ))}
                 </Select>
-              </label>
-              <label className="flex flex-col gap-1">Justificativa do encaminhamento (opcional)<Textarea name="text" rows={2} /></label>
+              </div>
+              <div className="flex items-start gap-1">
+                <label className="flex flex-1 flex-col gap-1">Justificativa do encaminhamento (opcional)<Textarea name="text" rows={2} /></label>
+                <FeatureInfo helpId="planejamento.alerta.campo-justificativa-encaminhamento" />
+              </div>
               <p className="text-xs text-muted-foreground">O prazo original não é alterado. Ficam registrados quem encaminhou, quem recebeu e a data/hora.</p>
             </>
           ) : null}
-          {selected === "OTHER" ? <label className="flex flex-col gap-1">Descrição (obrigatória)<Textarea name="text" required rows={3} /></label> : null}
+          {selected === "OTHER" ? (
+            <div className="flex flex-col gap-1">
+              <span className="inline-flex items-center gap-1"><label htmlFor="alerta-outro">Descrição (obrigatória)</label><FeatureInfo helpId="planejamento.alerta.campo-descricao-outro" /></span>
+              <Textarea id="alerta-outro" name="text" required rows={3} />
+            </div>
+          ) : null}
 
           <div className="flex items-center gap-3">
             <Button type="submit" size="sm" disabled={pending}>{pending ? "Registrando…" : submitLabel(selected)}</Button>

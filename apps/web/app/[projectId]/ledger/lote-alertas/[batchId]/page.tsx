@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { buttonVariants } from "@/components/ui/button";
 import { getProjectMembers } from "@/lib/data";
 import { getContractAlertBatch } from "@/lib/email/get-contract-alert-batch";
@@ -59,7 +60,7 @@ export default async function ContractAlertBatchPage({
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
       <div>
         <p className="text-sm font-medium text-primary">ACC · AXION CONTROLE DE CONTRATOS</p>
-        <h1 className="mt-1 text-2xl font-semibold">Responder alertas de contrato</h1>
+        <h1 className="mt-1 flex items-center gap-1.5 text-2xl font-semibold">Responder alertas de contrato<FeatureInfo helpId="planejamento.ledger-lote.pagina" /></h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {batch.projectName} · Responsável: {batch.recipientName} · {batch.items.length} {batch.items.length === 1 ? "alerta" : "alertas"} neste lote
         </p>

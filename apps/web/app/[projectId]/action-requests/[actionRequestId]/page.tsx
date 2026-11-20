@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { ActionRequestStatusBadge } from "@/components/shared/badges";
 import { Badge } from "@/components/ui/badge";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   getActionRequest,
@@ -70,17 +71,26 @@ export default async function ActionRequestDetailPage({
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold">{actionRequest.title}</h1>
+          <h1 className="flex items-center gap-1.5 text-lg font-semibold">
+            {actionRequest.title}
+            <FeatureInfo helpId="planejamento.solicitacao-detalhe.pagina" />
+          </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">{actionRequest.description}</p>
         </div>
-        <ActionRequestStatusBadge status={actionRequest.status} />
+        <span className="inline-flex items-center gap-1">
+          <ActionRequestStatusBadge status={actionRequest.status} />
+          <FeatureInfo helpId="planejamento.solicitacoes.status" />
+        </span>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.7fr)]">
         <div className="flex flex-col gap-6">
           <Card>
             <CardHeader>
-              <CardTitle>Envio por e-mail</CardTitle>
+              <CardTitle className="flex items-center gap-1.5">
+                Envio por e-mail
+                <FeatureInfo helpId="planejamento.solicitacao-detalhe.envio-email" />
+              </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
               {outboundStatus.state === "SENT" ? (
@@ -152,7 +162,10 @@ export default async function ActionRequestDetailPage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Respostas</CardTitle>
+              <CardTitle className="flex items-center gap-1.5">
+                Respostas
+                <FeatureInfo helpId="planejamento.solicitacao-detalhe.respostas" />
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {responses.length === 0 ? (
@@ -188,7 +201,10 @@ export default async function ActionRequestDetailPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>Responsáveis</CardTitle>
+            <CardTitle className="flex items-center gap-1.5">
+              Responsáveis
+              <FeatureInfo helpId="planejamento.solicitacao-detalhe.responsaveis" />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {assigneeUsers.filter(Boolean).length === 0 ? (

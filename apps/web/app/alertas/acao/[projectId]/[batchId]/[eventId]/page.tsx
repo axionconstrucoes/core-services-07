@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { buttonVariants } from "@/components/ui/button";
 import { getProjectMembers } from "@/lib/data";
 import { getContractAlertBatch } from "@/lib/email/get-contract-alert-batch";
@@ -50,7 +51,10 @@ export default async function CompactContractAlertActionPage({
             <img src="/branding/acc-logo.png" alt="ACC" className="h-7 w-auto" />
           </div>
           <CardTitle className="text-base">AXION Controle de Contratos</CardTitle>
-          <CardDescription>Resposta rápida ao alerta</CardDescription>
+          <CardDescription className="flex items-center gap-1">
+            Resposta rápida ao alerta
+            <FeatureInfo helpId="planejamento.alerta-email-acao.pagina" />
+          </CardDescription>
         </CardHeader>
 
         <CardContent className="flex flex-col gap-3 p-4 pt-0">

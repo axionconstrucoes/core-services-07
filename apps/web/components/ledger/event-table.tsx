@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ContractEvent } from "@axion/types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { CategoryBadge, SeverityBadge, StatusBadge } from "@/components/shared/badges";
 import { sourceTypeShortLabels, formatDate } from "@/lib/labels";
 
@@ -9,12 +10,12 @@ export function EventTable({ events, projectId }: { events: ContractEvent[]; pro
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Data</TableHead>
-          <TableHead>Evento</TableHead>
-          <TableHead>Fonte</TableHead>
-          <TableHead>Categorias</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Achado IA</TableHead>
+<TableHead><span className="inline-flex items-center gap-1">Data<FeatureInfo helpId="planejamento.ledger.col-data" /></span></TableHead>
+          <TableHead><span className="inline-flex items-center gap-1">Evento<FeatureInfo helpId="planejamento.ledger.col-evento" /></span></TableHead>
+          <TableHead><span className="inline-flex items-center gap-1">Fonte<FeatureInfo helpId="planejamento.ledger.col-fonte" /></span></TableHead>
+          <TableHead><span className="inline-flex items-center gap-1">Categorias<FeatureInfo helpId="planejamento.ledger.col-categorias" /></span></TableHead>
+          <TableHead><span className="inline-flex items-center gap-1">Status<FeatureInfo helpId="planejamento.ledger.col-status" /></span></TableHead>
+          <TableHead><span className="inline-flex items-center gap-1">Achado IA<FeatureInfo helpId="planejamento.ledger.col-achado-ia" /></span></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

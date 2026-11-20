@@ -353,7 +353,8 @@ check("Matriz de SLA: tabela SEMÂNTICA real — <table>/<thead>/<tbody>, cabeç
   assert(configPageSource.includes("<thead>") && configPageSource.includes("<tbody>"), "deveria ter <thead> e <tbody> reais");
   assert(!/grid grid-cols-\[/.test(configPageSource), "não deveria mais existir o CSS Grid antigo disfarçado de tabela");
   for (const column of ["Risco", "Unidade", "Nível 1: assumir", "Responder", "Concluir", "Nível 2", "Nível 3", "Opções", "Ações"]) {
-    assert(new RegExp(`<th scope="col"[^>]*>${column}</th>`).test(configPageSource), `coluna '${column}' não encontrada como <th scope="col"> no cabeçalho da tabela de SLA`);
+    // Hover Text universal: o rótulo pode vir acompanhado do ícone <FeatureInfo/> dentro de um <span> no próprio <th>.
+    assert(new RegExp(`<th scope="col"[^>]*>(?:<span[^>]*>)?${column}(?:<FeatureInfo[^>]*/></span>)?</th>`).test(configPageSource), `coluna '${column}' não encontrada como <th scope="col"> no cabeçalho da tabela de SLA`);
   }
   const tbodyBlock = configPageSource.slice(configPageSource.indexOf("<tbody>"), configPageSource.indexOf("</tbody>"));
   assert(/\{RISK_LEVELS\.map/.test(tbodyBlock), "as 4 linhas deveriam ser geradas por um único RISK_LEVELS.map dentro do <tbody>");

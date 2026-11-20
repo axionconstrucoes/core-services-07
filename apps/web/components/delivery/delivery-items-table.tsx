@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { reviewRiskClassificationAction } from "@/app/[projectId]/risco/actions";
 import { DeliveryItemEditor } from "@/components/delivery/delivery-item-editor";
 import { RiskReviewPanel, type RiskReviewHistoryItem } from "@/components/risk/risk-review-panel";
@@ -80,12 +81,12 @@ export function DeliveryItemsTable({
       {!projectEndDay ? (
         <p role="note" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
           Preencha a <strong>data final da obra</strong> para calcular a janela de alertas de 60 dias antes do término. Sem ela, só os prazos
-          individuais geram alerta.
+          individuais geram alerta. <FeatureInfo helpId="planejamento.providencias.aviso-data-final" />
         </p>
       ) : (
         <p className="text-xs text-muted-foreground">
           Término previsto: <strong>{formatDay(projectEndDay)}</strong> — alertas das providências de entrega começam 60 dias corridos antes
-          (ou no prazo individual, se ele vencer antes).
+          (ou no prazo individual, se ele vencer antes). <FeatureInfo helpId="planejamento.providencias.aviso-data-final" />
         </p>
       )}
 
@@ -99,15 +100,15 @@ export function DeliveryItemsTable({
         <table className="w-full min-w-[1100px] border-collapse text-sm">
           <thead className="bg-muted/60 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
-              <th className="px-3 py-2">Providência</th>
-              <th className="px-3 py-2">Fase</th>
-              <th className="px-3 py-2">Data limite</th>
-              <th className="px-3 py-2">Responsável</th>
-              <th className="px-3 py-2">Situação</th>
-              <th className="px-3 py-2">Grau de risco</th>
-              <th className="px-3 py-2">Evidência / protocolo</th>
-              <th className="px-3 py-2">Acompanhamento</th>
-              {canEdit ? <th className="px-3 py-2">Ações</th> : null}
+              <th className="px-3 py-2"><span className="inline-flex items-center gap-1">Providência<FeatureInfo helpId="planejamento.providencias.col-providencia" /></span></th>
+              <th className="px-3 py-2"><span className="inline-flex items-center gap-1">Fase<FeatureInfo helpId="planejamento.providencias.col-fase" /></span></th>
+              <th className="px-3 py-2"><span className="inline-flex items-center gap-1">Data limite<FeatureInfo helpId="planejamento.providencias.col-data-limite" /></span></th>
+              <th className="px-3 py-2"><span className="inline-flex items-center gap-1">Responsável<FeatureInfo helpId="planejamento.providencias.col-responsavel" /></span></th>
+              <th className="px-3 py-2"><span className="inline-flex items-center gap-1">Situação<FeatureInfo helpId="planejamento.providencias.col-situacao" /></span></th>
+              <th className="px-3 py-2"><span className="inline-flex items-center gap-1">Grau de risco<FeatureInfo helpId="planejamento.providencias.col-risco" /></span></th>
+              <th className="px-3 py-2"><span className="inline-flex items-center gap-1">Evidência / protocolo<FeatureInfo helpId="planejamento.providencias.col-evidencia" /></span></th>
+              <th className="px-3 py-2"><span className="inline-flex items-center gap-1">Acompanhamento<FeatureInfo helpId="planejamento.providencias.col-acompanhamento" /></span></th>
+              {canEdit ? <th className="px-3 py-2"><span className="inline-flex items-center gap-1">Ações<FeatureInfo helpId="planejamento.providencias.col-acoes" /></span></th> : null}
             </tr>
           </thead>
           <tbody>

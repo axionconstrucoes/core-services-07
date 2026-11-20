@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { EmailAlertActionType } from "@/lib/email-actions/types";
@@ -37,18 +38,20 @@ export function ConfirmEmailActionForm({
     <form action={formAction} className="flex flex-col gap-3">
       {action === "RESPOND" ? (
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground" htmlFor="comment">
-            Resposta
-          </label>
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+            <label htmlFor="comment">Resposta</label>
+            <FeatureInfo helpId="planejamento.email-action.resposta" />
+          </span>
           <Textarea id="comment" name="comment" required minLength={3} maxLength={4000} rows={4} />
         </div>
       ) : null}
 
       {action === "SET_DEADLINE" ? (
         <div className="flex flex-col gap-1">
-          <label className="text-xs font-medium text-muted-foreground" htmlFor="newDueAt">
-            Novo prazo
-          </label>
+          <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+            <label htmlFor="newDueAt">Novo prazo</label>
+            <FeatureInfo helpId="planejamento.email-action.novo-prazo" />
+          </span>
           <Input id="newDueAt" name="newDueAt" type="datetime-local" required />
 
           <label className="pt-2 text-xs font-medium text-muted-foreground" htmlFor="comment">
@@ -58,9 +61,12 @@ export function ConfirmEmailActionForm({
         </div>
       ) : null}
 
-      <Button type="submit" disabled={pending}>
-        {pending ? "Confirmando…" : "Confirmar"}
-      </Button>
+      <span className="inline-flex items-center gap-1 self-start">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Confirmando…" : "Confirmar"}
+        </Button>
+        <FeatureInfo helpId="planejamento.email-action.confirmar" />
+      </span>
 
       {state.error ? <p className="text-xs text-destructive">{state.error}</p> : null}
     </form>

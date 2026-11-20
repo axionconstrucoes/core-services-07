@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { assessScheduleDelayAction } from "@/app/[projectId]/ledger/[eventId]/assess-schedule-delay-actions";
 import { initialAssessScheduleDelayState } from "@/app/[projectId]/ledger/[eventId]/assess-schedule-delay-actions-state";
 import { Button } from "@/components/ui/button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 
 // Gatilho REAL (não o gerador de prévia) da regra do risco CRÍTICO
 // (Bloco 3/8) — só visível para quem já vê a tela do evento com
@@ -17,9 +18,12 @@ export function AssessScheduleDelayButton({ projectId, eventId }: { projectId: s
     <form action={formAction} className="flex flex-col gap-1.5">
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="eventId" value={eventId} />
-      <Button type="submit" variant="outline" size="sm" disabled={pending}>
-        {pending ? "Avaliando…" : "Avaliar risco de atraso de cronograma"}
-      </Button>
+      <span className="inline-flex items-center gap-1">
+        <Button type="submit" variant="outline" size="sm" disabled={pending}>
+          {pending ? "Avaliando…" : "Avaliar risco de atraso de cronograma"}
+        </Button>
+        <FeatureInfo helpId="planejamento.ledger-evento.avaliar-atraso" />
+      </span>
       {state.error ? <p className="text-xs text-destructive">{state.error}</p> : null}
       {state.success ? (
         <p className="text-xs text-muted-foreground">

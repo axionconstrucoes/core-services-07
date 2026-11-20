@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ContractEvent } from "@axion/types";
 
 import { Button } from "@/components/ui/button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { categoryLabels, sourceTypeShortLabels } from "@/lib/labels";
 import { recordTimelineExportAction } from "@/app/[projectId]/timeline/timeline-export-actions";
 import { sortChronological } from "@/lib/timeline-export/apply-filters";
@@ -221,18 +222,21 @@ export function TimelineExportPanel({
 
   if (!open) {
     return (
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => {
-          setOpen(true);
-          setStatus("idle");
-          setError(null);
-          setDoneMessage(null);
-        }}
-      >
-        Exportar Timeline Filtrado
-      </Button>
+      <span className="inline-flex items-center gap-1 self-start">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setOpen(true);
+            setStatus("idle");
+            setError(null);
+            setDoneMessage(null);
+          }}
+        >
+          Exportar Timeline Filtrado
+        </Button>
+        <FeatureInfo helpId="planejamento.timeline.exportar" />
+      </span>
     );
   }
 

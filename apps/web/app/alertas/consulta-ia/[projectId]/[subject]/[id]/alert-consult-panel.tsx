@@ -6,6 +6,7 @@ import { FlaskConical, Info, Loader2, Sparkles } from "lucide-react";
 import { AiPendingIndicator } from "@/components/ai/ai-pending-indicator";
 import { ExpertResponseDetails } from "@/components/ai/expert-query-panel";
 import { Button } from "@/components/ui/button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Textarea } from "@/components/ui/textarea";
 import { initialAlertConsultState, type AlertConsultState } from "@/lib/ai/alert-consult/alert-consult-state";
 import type { AlertConsultCurationResult, AlertConsultSource } from "@/lib/ai/alert-consult/run-alert-consult";
@@ -115,9 +116,10 @@ export function AlertConsultPanel({
         <input type="hidden" name="id" value={id} />
 
         <div className="flex flex-col gap-1">
-          <label htmlFor="alert-consult-specialty" className="text-xs font-medium">
-            Especialista
-          </label>
+          <span className="inline-flex items-center gap-1 text-xs font-medium">
+            <label htmlFor="alert-consult-specialty">Especialista</label>
+            <FeatureInfo helpId="planejamento.consulta-ia.especialidade" />
+          </span>
           <select
             id="alert-consult-specialty"
             name="specialty"
@@ -135,9 +137,10 @@ export function AlertConsultPanel({
         </div>
 
         <div className="flex flex-col gap-1">
-          <label htmlFor="alert-consult-question" className="text-xs font-medium">
-            Pergunta
-          </label>
+          <span className="inline-flex items-center gap-1 text-xs font-medium">
+            <label htmlFor="alert-consult-question">Pergunta</label>
+            <FeatureInfo helpId="planejamento.consulta-ia.pergunta" />
+          </span>
           <Textarea
             id="alert-consult-question"
             name="question"
@@ -148,10 +151,13 @@ export function AlertConsultPanel({
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" disabled={pending}>
-            {pending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Sparkles className="size-4" aria-hidden="true" />}
-            Consultar
-          </Button>
+          <span className="inline-flex items-center gap-1">
+            <Button type="submit" disabled={pending}>
+              {pending ? <Loader2 className="size-4 animate-spin" aria-hidden="true" /> : <Sparkles className="size-4" aria-hidden="true" />}
+              Consultar
+            </Button>
+            <FeatureInfo helpId="planejamento.consulta-ia.consultar" />
+          </span>
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
             <Info className="size-3.5 shrink-0" aria-hidden="true" />A consulta não altera o alerta e não registra nenhuma providência.
           </p>
@@ -186,7 +192,7 @@ export function AlertConsultPanel({
           {result.curation ? <CurationResult curation={result.curation} /> : null}
 
           <section className="rounded-md border p-3" aria-label="Fontes utilizadas">
-            <h3 className="mb-1 text-sm font-semibold">Fontes utilizadas (consultáveis no ACC)</h3>
+            <h3 className="mb-1 flex items-center gap-1 text-sm font-semibold">Fontes utilizadas (consultáveis no ACC)<FeatureInfo helpId="planejamento.consulta-ia.fontes" /></h3>
             <ul className="flex flex-col gap-1 text-sm">
               {result.sources.map((source, index) => (
                 <li key={`${source.kind}-${index}`} className="break-words">

@@ -33,7 +33,10 @@ export default async function ReissueApprovalPage({ params }: { params: Promise<
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Como funciona</CardTitle>
+          <CardTitle className="flex items-center gap-1.5 text-base">
+            Como funciona
+            <FeatureInfo helpId="planejamento.reemissao.como-funciona" />
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm text-gray-700">
           <p>
@@ -46,8 +49,9 @@ export default async function ReissueApprovalPage({ params }: { params: Promise<
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">
+          <CardTitle className="flex items-center gap-1.5 text-base">
             Casos Crítico/Alto abertos ({rows.length}) — elegíveis: {eligible}
+            <FeatureInfo helpId="planejamento.reemissao.contagem" />
           </CardTitle>
         </CardHeader>
         <CardContent>

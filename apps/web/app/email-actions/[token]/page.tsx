@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { getEmailAlertActionContext } from "@/lib/email-actions/get-context";
 import { getEmailAlertTitle } from "@/lib/email-actions/get-alert-title";
 import { EMAIL_ALERT_ACTION_LABELS, EMAIL_ALERT_KIND_LABELS } from "@/lib/email-actions/types";
@@ -31,7 +32,10 @@ export default async function EmailActionPage({
             <img src="/branding/acc-logo.png" alt="ACC" className="h-10 w-auto" />
           </div>
           <CardTitle className="text-base">AXION Controle de Contratos</CardTitle>
-          <CardDescription>Ação de e-mail</CardDescription>
+          <CardDescription className="flex items-center gap-1">
+            Ação de e-mail
+            <FeatureInfo helpId="planejamento.email-action.pagina" />
+          </CardDescription>
         </CardHeader>
 
         <CardContent className="flex flex-col gap-4">
@@ -80,7 +84,7 @@ async function EmailActionContextPanel({
         </span>
         <span>{alertTitle ?? "—"}</span>
 
-        <span className="pt-2 text-xs font-medium text-muted-foreground">Ação solicitada</span>
+        <span className="flex items-center gap-1 pt-2 text-xs font-medium text-muted-foreground">Ação solicitada<FeatureInfo helpId="planejamento.email-action.acao" /></span>
         <span className="font-semibold">{EMAIL_ALERT_ACTION_LABELS[context.action]}</span>
       </div>
 
