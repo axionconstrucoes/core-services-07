@@ -167,6 +167,7 @@ function DraftDetail({ draft }: { draft: DraftRow }) {
   const [blockedReasons, setBlockedReasons] = useState<string[] | null>(null);
   const trail = data.audit.filter((a) => a.entity_id === draft.id);
   const editable = draft.state === "DRAFT";
+  const editableText = draft.state !== "CANCELADA";
 
   const attempt = async () => {
     const res = await runner.run({ op: "draft_attempt_send", id: draft.id }, "Tentativa registrada na auditoria: o envio foi BLOQUEADO. Nada foi enviado.");
@@ -205,7 +206,7 @@ function DraftDetail({ draft }: { draft: DraftRow }) {
       <RunnerFeedback runner={runner} />
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {editable ? <ActionButton label="Editar minuta" helpId="seguros.acoes.minuta-editar" level="REGISTER" variant="outline" onClick={() => setMode("edit")} /> : null}
+        {editableText ? <ActionButton label="Editar minuta" helpId="seguros.acoes.minuta-editar" level="REGISTER" variant="outline" onClick={() => setMode("edit")} /> : null}
         {editable ? <ActionButton label="Aprovar (Administrador)" helpId="seguros.acoes.minuta-aprovar-abrir" level="ADMIN" variant="outline" onClick={() => setMode("approve")} /> : null}
         {draft.state !== "CANCELADA" ? <ActionButton label="Cancelar minuta" helpId="seguros.acoes.minuta-cancelar-abrir" level="REGISTER" variant="outline" onClick={() => setMode("cancel")} /> : null}
       </div>
