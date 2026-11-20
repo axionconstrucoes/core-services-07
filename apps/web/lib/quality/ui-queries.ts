@@ -1,5 +1,5 @@
 // Leitura do módulo Qualidade (fase 2). Só SELECT/RPC de leitura sob RLS, SEMPRE filtrado por project_id (isolamento entre projetos:
-// além da RLS do banco, nenhuma consulta é feita sem o escopo do projeto). Recebe o cliente Supabase do usuário (nunca service_role).
+// além da RLS do banco, nenhuma consulta é feita sem o escopo do projeto). Recebe o cliente Supabase do usuário (nunca com credencial administrativa).
 
 import { allowedTransitions } from "./state-machine";
 import { buildTransitionOptions, type TransitionOption } from "./ui-model";

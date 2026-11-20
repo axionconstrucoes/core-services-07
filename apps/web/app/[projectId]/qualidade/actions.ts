@@ -26,7 +26,7 @@ import { initialQualityActionState, type QualityActionState } from "@/lib/qualit
 import type { QualityDb } from "@/lib/quality/ui-queries";
 
 // Server Actions da Qualidade: finas — toda a regra está em lib/quality/ui-commands.ts (testável). O cliente é o do USUÁRIO (RLS);
-// nunca service_role. Arquivo "use server": só exporta funções async.
+// sem credencial administrativa. Arquivo "use server": só exporta funções async.
 
 type Command = (ctx: CommandCtx, fd: FormData) => Promise<QualityActionState>;
 

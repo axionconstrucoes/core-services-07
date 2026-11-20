@@ -1,7 +1,7 @@
 // Comandos de ESCRITA do módulo Qualidade (fase 2). Lógica das Server Actions, isolada para ser testável com um cliente simulado.
 //  - RNC (criar e transicionar) escreve SOMENTE por RPC (quality_ncr_create / quality_ncr_transition): a máquina de estados é do banco.
 //  - Registros-filhos (evidência, CAPA, inspeção, reclamação, ensaio, requisito, consequência, custo, recorrência, verificação de eficácia)
-//    não têm RPC na fase 1: o INSERT/UPDATE acontece sob RLS com o JWT do usuário (nunca service_role), com project_id fixado pela rota e
+//    não têm RPC na fase 1: o INSERT/UPDATE acontece sob RLS com o JWT do usuário (nunca com credencial administrativa), com project_id fixado pela rota e
 //    FK composta (id, project_id) no banco; auditoria por trigger. Decisão registrada no relatório.
 //  - Concorrência: toda alteração de RNC/evidência/ação envia a row_version lida; divergência => VERSION_CONFLICT.
 // A UI nunca é a autoridade: a checagem de papel aqui só evita uma ida ao banco; RLS/RPC recusam de qualquer forma.
