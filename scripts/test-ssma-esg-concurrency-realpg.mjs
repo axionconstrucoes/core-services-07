@@ -1,4 +1,4 @@
-// Concorrência em PostgreSQL REAL (conexões independentes, uma por "cliente"): migration 20261106100000.
+// Concorrência em PostgreSQL REAL (conexões independentes, uma por "cliente"): migration 20261111042824.
 // Reaplica TODAS as migrations numa base nova de um servidor PostgreSQL real e dispara operações simultâneas.
 //   A) o MESMO registro enviado por N conexões ao mesmo tempo  => 1 registro, 1 ação SSMA, 1 ação SLA, 1 evento CRIADA;
 //   B) M registros distintos simultâneos                        => M ações SSMA vinculadas a M ações SLA (1:1), sem erro;
@@ -60,7 +60,7 @@ for (const f of files) {
   const sql = readFileSync(path.join(dir, f), "utf8").replace(/^﻿/, "");
   try { await setup.query(sql); } catch (e) { console.log(`FAIL replay ${f}: ${e.message.split("\n")[0]}`); process.exit(1); }
 }
-console.log(`PostgreSQL ${version}: ${files.length} migrations (inclui 20261106100000 e 20261106110000) aplicadas em ${((Date.now() - t0) / 1000).toFixed(1)} s — base ${dbName}`);
+console.log(`PostgreSQL ${version}: ${files.length} migrations (inclui 20261111042824 e 20261111043023) aplicadas em ${((Date.now() - t0) / 1000).toFixed(1)} s — base ${dbName}`);
 
 const id = (n) => `00000000-0000-4000-8000-0000000000${String(n).padStart(2, "0")}`;
 const uuid = (p, n) => `${p}0000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -171,7 +171,7 @@ await check("F) decisão humana de duplicidade concorrente: no máximo UM 'mesmo
   eq(results.filter((r) => r.status === "fulfilled").length, 1, "uma decisão vence");
 });
 
-// ───── G) vínculo registro SSMA -> comprovação ESG (migration 20261106110000) ─────
+// ───── G) vínculo registro SSMA -> comprovação ESG (migration 20261111043023) ─────
 const catC = (await setup.query("select pg_get_constraintdef(oid) d from pg_constraint where conname = 'esg_obligations_category_check'")).rows[0].d.match(/'([A-Z_]+)'/)[1];
 const perC = (await setup.query("select pg_get_constraintdef(oid) d from pg_constraint where conname = 'esg_obligations_periodicity_check'")).rows[0].d.match(/'([A-Z_]+)'/)[1];
 const OBL1 = uuid(8, 1), SUB1 = uuid(9, 1), SUB2 = uuid(9, 2), GREC = uuid(2, 1);

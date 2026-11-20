@@ -139,7 +139,7 @@ revoke all on function public.project_member_active_for(uuid, uuid) from public,
 revoke all on function public.project_permission_for(uuid, uuid, text) from public, anon, authenticated;
 
 -- ---------- 5) Andamento / conclusão: núcleo com ator explícito ----------
--- Corpo da definição vigente (20261106100000) preservado; só auth.uid() virou p_actor e as duas verificações de
+-- Corpo da definição vigente (20261111042824) preservado; só auth.uid() virou p_actor e as duas verificações de
 -- permissão usam as réplicas com o mesmo ator.
 create or replace function public.ssma_corrective_action_update_core(
   p_actor uuid,

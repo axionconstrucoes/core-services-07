@@ -677,7 +677,7 @@ await check("59. Regras de SLA, cron e destinatários permanecem inalteradas nes
   assert(migrationSlaRuleViolations("select cron.schedule('x', '*/5 * * * *', 'select 1');").includes("pg_cron"), "detector: pg_cron");
   assert(migrationSlaRuleViolations("-- update public.sla_matrix_rules (só comentário)\nselect 1 from public.sla_area_responsibles r where r.area = 'X';\nupdate public.sla_actions set status = 'COMPLETED';\ncreate or replace function public.sla_action_assume(p uuid)").length === 0, "detector: falso positivo em leitura/comentário/operação");
   // amostras reais: a migration do agendador e a fundação de SLA SERIAM barradas se chegassem como novas
-  const scheduler = migrationSlaRuleViolations(readSource("supabase/migrations/20261118093000_scheduler_pg_cron_dispatch.sql"));
+  const scheduler = migrationSlaRuleViolations(readSource("supabase/migrations/20261119034721_scheduler_pg_cron_dispatch.sql"));
   assert(scheduler.includes("pg_cron") && scheduler.some((x) => x.startsWith("função acc_scheduler_")), `detector: agendador real ${scheduler}`);
   assert(migrationSlaRuleViolations(readSource("supabase/migrations/20260822054900_sla_escalation_foundation.sql")).includes("função escalate_sla_action"), "detector: fundação de SLA real");
   const yml = (expr) => [[".github/workflows/x.yml", `on:\n  schedule:\n    - cron: "${expr}"\n`]];

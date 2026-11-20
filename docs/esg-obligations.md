@@ -89,7 +89,7 @@ Reaproveita integralmente `is_project_member`/`has_project_permission`
 (nenhuma tabela/role nova). Mapeamento de papéis do requisito para os
 níveis reais do sistema (`VIEWER`/`EDITOR`/`ADMIN`):
 
-- **Registrar comprovação e anexar evidência** (desde a migration `20261106100000`, ainda não aplicada em
+- **Registrar comprovação e anexar evidência** (desde a migration `20261111042824`, ainda não aplicada em
   produção): **Administrador, Gerente, Gestor e Colaborador ATIVOS**; **Leitura** só consulta; membro inativo ou
   de outra obra não acessa. Sempre autoautoria (`filled_by_user_id`/`uploaded_by_user_id` = `auth.uid()`;
   impersonação bloqueada pela RLS). O **Colaborador só anexa evidência na própria comprovação**; o Administrador

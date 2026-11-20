@@ -1,6 +1,6 @@
 // Regressão das correções de segurança da auditoria do PR #149 (PostgreSQL 17 DESCARTÁVEL em PGlite; nenhum banco real é tocado):
 //   1) isolamento entre obras: o vínculo SSMA↔SLA não pode ser trocado por UPDATE nem apontar para outra obra;
-//   2) idempotência: as migrations 20261106100000 e 20261106110000 podem ser reaplicadas sem erro e sem duplicar dados;
+//   2) idempotência: as migrations 20261111042824 e 20261111043023 podem ser reaplicadas sem erro e sem duplicar dados;
 //   3) anti-oráculo de existência: quem não é membro da obra recebe o MESMO erro para um ID real e para um ID inexistente,
 //      sem mudar o comportamento de quem é membro (PROJECT_MISMATCH, FORBIDDEN, ADMIN_REQUIRED continuam para o próprio projeto).
 // Uso: node scripts/test-ssma-esg-security-regression-sql.mjs
@@ -12,8 +12,8 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, "..", "supabase", "migrations");
-const PREREQ = "20261106100000_ssma_esg_acoes_perfis_notificacoes.sql";
-const TARGET = "20261106110000_ssma_esg_evidence_reference.sql";
+const PREREQ = "20261111042824_ssma_esg_acoes_perfis_notificacoes.sql";
+const TARGET = "20261111043023_ssma_esg_evidence_reference.sql";
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 const before = files.filter((f) => f < PREREQ);
 const replaySource = readFileSync(path.join(here, "test-migrations-full-replay.mjs"), "utf8");
@@ -148,7 +148,7 @@ await check("ON DELETE SET NULL do vínculo continua funcionando (apagar o regis
 });
 
 // ---------- 2) Idempotência ----------
-await check("idempotência: reaplicar 20261106100000 e 20261106110000 DUAS vezes não dá erro, não duplica ações e preserva o isolamento", async () => {
+await check("idempotência: reaplicar 20261111042824 e 20261111043023 DUAS vezes não dá erro, não duplica ações e preserva o isolamento", async () => {
   const slaBefore = (await q("select count(*)::int n from public.sla_actions"))[0].n;
   const hBefore = await snapshot();
   const counts = [];

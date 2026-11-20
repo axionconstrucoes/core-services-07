@@ -1,4 +1,4 @@
-// Migration 20261106100000 (ação corretiva SSMA ↔ Ações/SLA, perfis ESG, notificações) contra PostgreSQL 17 DESCARTÁVEL
+// Migration 20261111042824 (ação corretiva SSMA ↔ Ações/SLA, perfis ESG, notificações) contra PostgreSQL 17 DESCARTÁVEL
 // (PGlite): reaplica TODAS as migrations anteriores, cria DADOS ANTERIORES (ações abertas, em andamento, concluídas com
 // evidência, responsável/autor que saiu da obra, ação SLA alheia, comprovação ESG), aplica a migration e confere
 // backfill, preservação do histórico, fluxo novo, concorrência/idempotência, isolamento, perfis ESG e notificações.
@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, "..", "supabase", "migrations");
-const TARGET = "20261106100000_ssma_esg_acoes_perfis_notificacoes.sql";
+const TARGET = "20261111042824_ssma_esg_acoes_perfis_notificacoes.sql";
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 const before = files.filter((f) => f < TARGET);
 const replaySource = readFileSync(path.join(here, "test-migrations-full-replay.mjs"), "utf8");
@@ -91,7 +91,7 @@ const snapshot = async () => ({
 const snap0 = await snapshot();
 const slaBefore = (await q("select count(*)::int n from public.sla_actions"))[0].n;
 
-console.log("\n======================================\nSSMA/ESG — MIGRATION 20261106100000 (PGlite, dados anteriores)\n======================================");
+console.log("\n======================================\nSSMA/ESG — MIGRATION 20261111042824 (PGlite, dados anteriores)\n======================================");
 let notices = [];
 db.onNotice?.((n) => notices.push(n));
 await check("a migration aplica sem erro sobre o estado anterior (todas as migrations anteriores reaplicadas)", async () => {

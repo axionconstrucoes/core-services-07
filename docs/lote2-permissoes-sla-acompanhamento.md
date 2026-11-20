@@ -93,7 +93,7 @@ Caminho futuro (se desejado): recriar as 91 políticas com `TO authenticated` (m
 
 ## 8. Reconciliação das 7 versões divergentes de migrations
 
-`node scripts/reconciliacao-rename-plan.mjs` (idempotente; **não renomeia**): lista os 7 `git mv`, as **71 referências em 34 arquivos** a atualizar (testes, comentários em `apps/web`, docs; inclui o arquivo `docs/ssma-esg-migration-20261106100000.md`, cujo nome também contém a versão), `--commands` (só os `git mv`), `--json`, `--check` (sai 1 enquanto houver pendência) e `--replay-realpg` (replay das duas ordens em PostgreSQL 17 real).
+`node scripts/reconciliacao-rename-plan.mjs` (idempotente; **não renomeia**): lista os 7 `git mv`, as **71 referências em 34 arquivos** a atualizar (testes, comentários em `apps/web`, docs; inclui o arquivo `docs/ssma-esg-migration-20261111042824.md`, cujo nome também contém a versão), `--commands` (só os `git mv`), `--json`, `--check` (sai 1 enquanto houver pendência) e `--replay-realpg` (replay das duas ordens em PostgreSQL 17 real).
 Resultado em PG real (160 arquivos): **ordem original 0 falhas; ordem renomeada 0 falhas; diff de schema 0×0 (7.024 linhas de impressão digital)**. O renomeio em si fica para o integrador (mesmo commit: `git mv` + substituição das referências + `--check` + `npm run test:sql`). Plano de origem e opção (a) `migration repair` como alternativa: `reconciliacao-historico-migrations.md` (fora do repositório).
 
 ## 9. Testes

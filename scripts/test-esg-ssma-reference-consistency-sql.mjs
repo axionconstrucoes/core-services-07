@@ -1,5 +1,5 @@
 // Consistência obra/obrigação/comprovação/registro da referência ESG<->SSMA depois do INSERT (PostgreSQL 17 DESCARTÁVEL em PGlite;
-// dados sintéticos; nenhum banco real é tocado). Demonstra a lacuna ANTES da migration 20261106115000 (proposta, aditiva) e a trava
+// dados sintéticos; nenhum banco real é tocado). Demonstra a lacuna ANTES da migration 20261111043226 (proposta, aditiva) e a trava
 // DEPOIS (chaves estrangeiras compostas), sem regressão para linhas sem referência. A corrida vincular x mover só é provável em um
 // servidor real (scripts do relatório de validação); aqui ficam as garantias declarativas.
 // Uso: node scripts/test-esg-ssma-reference-consistency-sql.mjs
@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, "..", "supabase", "migrations");
-const GUARD = "20261106115000_esg_ssma_reference_consistency_guard.sql";
+const GUARD = "20261111043226_esg_ssma_reference_consistency_guard.sql";
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 if (files.some((f) => /^(20261106120000|20261106130000)_/.test(f))) throw new Error("migration proibida presente");
 const PLATFORM = readFileSync(path.join(here, "test-migrations-full-replay.mjs"), "utf8").match(/const PLATFORM = `([\s\S]*?)`;/)[1];
@@ -132,7 +132,7 @@ await check("INSERT direto (service/superusuário) fora da RPC com obra divergen
   const e = await err(db.query("insert into public.esg_ssma_record_references (project_id,obligation_id,submission_id,field_record_id,created_by_user_id) values ($1,$2,$3,$4,$5)", [P2, OBL(1), SUB(1), REC(2), id(U.adm2)]));
   ok(FK.test(e ?? ""), `INSERT direto recusado: ${e}`);
 });
-await check("contrato da 20261106110000 preservado: nenhum gatilho de USUÁRIO na tabela de referências; 3 UNIQUE e 3 FK compostas, uma vez cada", async () => {
+await check("contrato da 20261111043023 preservado: nenhum gatilho de USUÁRIO na tabela de referências; 3 UNIQUE e 3 FK compostas, uma vez cada", async () => {
   eq((await q("select count(*)::int n from pg_trigger t join pg_class c on c.oid=t.tgrelid where c.relname='esg_ssma_record_references' and not t.tgisinternal"))[0].n, 0, "sem gatilho de usuário");
   const names = (await q("select conname from pg_constraint where conname in ('esg_obligations_id_project_uk','esg_obligation_submissions_chain_uk','ssma_field_records_id_project_uk','esg_ssma_record_references_submission_chain_fk','esg_ssma_record_references_obligation_project_fk','esg_ssma_record_references_record_project_fk') order by 1")).map((r) => r.conname);
   eq(names.length, 6, `constraints: ${names.join(",")}`);
