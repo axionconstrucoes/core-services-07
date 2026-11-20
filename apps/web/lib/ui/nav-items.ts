@@ -25,6 +25,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "dashboard", label: "Dashboard", icon: "LayoutDashboard", helpId: "dashboard" },
+  { href: "pilares", label: "Quatro Pilares", icon: "Gauge", helpId: "pilares.menu.item" },
   { href: "timeline", label: "Timeline", icon: "History", helpId: "timeline" },
   { href: "ledger", label: "Eventos", icon: "BookText", helpId: "event-ledger", restrictedTo: "admin" },
   { href: "action-requests", label: "Solicitações", icon: "ListChecks", helpId: "solicitacoes" },
