@@ -9,6 +9,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { precheckAiConsult, reserveAiConsult } from "./alert-consult/consult-quota";
 import { gatedProviderForExpert } from "./governance/quota-gated-provider";
+import { sessionAuditSink } from "./governance/consult-audit";
 import { resolveExpertQueryErrorMessage } from "./expert-query-request";
 import { COMMERCIAL_DIRECTOR_EXPERT_ID } from "./experts/commercial-director/identity";
 import { answerCommercialStrategyQuery, type CommercialStrategyQueryResult } from "./experts/commercial-director/strategy-query";
@@ -49,7 +50,9 @@ export async function askCommercialStrategyAction(
   const precheck = await precheckAiConsult(supabase, projectId);
   if (!precheck.ok) return { result: null, meta: null, error: precheck.error };
   const provider = gatedProviderForExpert(COMMERCIAL_DIRECTOR_EXPERT_ID, () =>
-    reserveAiConsult(supabase, projectId, "EXPERT_PANEL", proposalRaw || projectId, COMMERCIAL_DIRECTOR_EXPERT_ID)
+    reserveAiConsult(supabase, projectId, "EXPERT_PANEL", proposalRaw || projectId, COMMERCIAL_DIRECTOR_EXPERT_ID),
+    undefined,
+    sessionAuditSink(supabase, projectId, "EXPERT_PANEL", proposalRaw || projectId)
   );
 
   try {

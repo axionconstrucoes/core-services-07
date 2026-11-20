@@ -5,6 +5,7 @@ import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { LEGAL_ADMIN_ONLY_MESSAGE, isActiveAdminOfProject } from "@/lib/legal/access";
 import { precheckAiConsult, reserveAiConsult } from "./alert-consult/consult-quota";
 import { gatedProviderForExpert } from "./governance/quota-gated-provider";
+import { sessionAuditSink } from "./governance/consult-audit";
 import { LEGAL_CONSULTANT_EXPERT_ID } from "./experts/legal-consultant/identity";
 import { answerLegalConsultantQuery } from "./experts/legal-consultant/query";
 import {
@@ -73,7 +74,9 @@ export async function askLegalConsultantAction(
       supabase,
       { scope: "PROJECT", projectId, question },
       gatedProviderForExpert(LEGAL_CONSULTANT_EXPERT_ID, (expertId) =>
-        reserveAiConsult(supabase, projectId, "EXPERT_PANEL", projectId, expertId)
+        reserveAiConsult(supabase, projectId, "EXPERT_PANEL", projectId, expertId),
+        undefined,
+        sessionAuditSink(supabase, projectId, "EXPERT_PANEL", projectId)
       ),
       // A analise pre-contratual so responde com o texto do contrato/minuta
       // em maos. Sem documento legivel, answerLegalConsultantQuery lanca um

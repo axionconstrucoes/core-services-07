@@ -21,6 +21,7 @@ import { updateAdditionalProposalStatus } from "@/lib/additionals/update-additio
 import { getAdditionalProposal } from "@/lib/additionals/get-additional-proposals";
 import { runAdditionalProposalCuration } from "@/lib/additionals/curation";
 import { precheckAiConsult, reserveAiConsult } from "@/lib/ai/alert-consult/consult-quota";
+import { sessionAuditSink, withAuditSink } from "@/lib/ai/governance/consult-audit";
 import type {
   AdditionalProposalApprovalStatus,
   AdditionalProposalDocumentalState,
@@ -329,7 +330,7 @@ export async function runAdditionalProposalCurationAction(
     if (!precheck.ok) return { error: precheck.error, result: null };
 
     const result = await runAdditionalProposalCuration(supabase, proposal, {
-      reserve: (expertId) => reserveAiConsult(supabase, proposal.projectId, "CURATION", `ADICIONAL:${proposal.id}`, expertId),
+      reserve: withAuditSink((expertId: string) => reserveAiConsult(supabase, proposal.projectId, "CURATION", `ADICIONAL:${proposal.id}`, expertId), sessionAuditSink(supabase, proposal.projectId, "CURATION", `ADICIONAL:${proposal.id}`)),
     });
     return { error: null, result };
   } catch (error) {

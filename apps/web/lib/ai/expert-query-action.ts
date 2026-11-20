@@ -11,6 +11,7 @@
 import { createSupabaseServerClient } from "@axion/db/server";
 import { precheckAiConsult, reserveAiConsult } from "./alert-consult/consult-quota";
 import { gatedProviderForExpert } from "./governance/quota-gated-provider";
+import { sessionAuditSink } from "./governance/consult-audit";
 import { answerCommercialDirectorQuery } from "./experts/commercial-director/query";
 import {
   parseExpertQueryForm,
@@ -47,7 +48,9 @@ export async function askCommercialDirectorAction(
 
   try {
     const provider = gatedProviderForExpert("commercial-director", (expertId) =>
-      reserveAiConsult(supabase, parsed.request.projectId, "EXPERT_PANEL", parsed.request.eventId ?? parsed.request.projectId, expertId)
+      reserveAiConsult(supabase, parsed.request.projectId, "EXPERT_PANEL", parsed.request.eventId ?? parsed.request.projectId, expertId),
+    undefined,
+    sessionAuditSink(supabase, parsed.request.projectId, "EXPERT_PANEL", parsed.request.eventId ?? parsed.request.projectId)
     );
     const result = await answerCommercialDirectorQuery(supabase, parsed.request, provider);
 

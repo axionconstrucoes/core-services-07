@@ -19,6 +19,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { reserveAiConsultForActor, type AiConsultReservation } from "@/lib/ai/alert-consult/consult-quota";
+import { actorAuditSink, withAuditSink, type ConsultAuditSink } from "@/lib/ai/governance/consult-audit";
 import { runMultiExpertCuration } from "@/lib/ai/curation/run-multi-expert-curation";
 import type { MultiExpertCuration } from "@/lib/ai/curation/types";
 import type { OfficialExpertId } from "@/lib/ai/expert-definitions/types";
@@ -66,6 +67,8 @@ export const CYCLE_SINGLE_EXPERT_QUERIES: Record<SingleExpertId, SingleExpertFn>
 export interface CycleExpertConsultantDeps {
   /** Reserva (service_role) de 1 unidade para o usuário solicitante/obra/Expert. */
   reserve(input: { actorUserId: string | null; projectId: string; subjectId: string; expertId: OfficialExpertId }): Promise<AiConsultReservation>;
+  /** Trilha de auditoria da consulta do ciclo (RISK_CYCLE), gravada com o solicitante explícito. */
+  audit?(q: CycleExpertQuestion): ConsultAuditSink;
   /** Somente testes: provider simulado. Em produção cada Expert resolve o seu. */
   provider?: AiProvider;
   /** Somente testes: substitui a curadoria. */
@@ -110,9 +113,12 @@ export function formatCurationAnswer(curation: MultiExpertCuration): string {
 }
 
 export function createCycleExpertConsultant(supabase: SupabaseClient, deps: CycleExpertConsultantDeps) {
-  const reserveFor = (q: CycleExpertQuestion) => async (expertId: OfficialExpertId): Promise<AiConsultReservation> => {
-    const reservation = await deps.reserve({ actorUserId: q.askedByUserId, projectId: q.projectId, subjectId: q.subjectId, expertId });
-    return reservation.ok ? reservation : { ok: false, error: `Limite de IA não reservado (${expertId}): ${reservation.error}` };
+  const reserveFor = (q: CycleExpertQuestion) => {
+    const reserve = async (expertId: OfficialExpertId): Promise<AiConsultReservation> => {
+      const reservation = await deps.reserve({ actorUserId: q.askedByUserId, projectId: q.projectId, subjectId: q.subjectId, expertId });
+      return reservation.ok ? reservation : { ok: false, error: `Limite de IA não reservado (${expertId}): ${reservation.error}` };
+    };
+    return deps.audit ? withAuditSink(reserve, deps.audit(q)) : reserve;
   };
 
   return {
@@ -154,5 +160,6 @@ export function createDefaultCycleExpertConsultant(adminClient: SupabaseClient) 
   return createCycleExpertConsultant(adminClient, {
     reserve: ({ actorUserId, projectId, subjectId, expertId }) =>
       reserveAiConsultForActor(adminClient, actorUserId, projectId, "RISK_CYCLE", subjectId, expertId),
+    audit: (q) => actorAuditSink(adminClient, q.askedByUserId, q.projectId, "RISK_CYCLE", q.subjectId),
   });
 }

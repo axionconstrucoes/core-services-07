@@ -476,7 +476,7 @@ await check("painéis (experts-ia, /juridico, /esg, Diretor Comercial) e curador
     assert.match(code, /if \(!precheck\.ok\)/, `${file}: recusa interrompe`);
   }
   for (const file of ["apps/web/lib/ai/precontract-curation-action.ts", "apps/web/app/[projectId]/ledger/[eventId]/run-multi-expert-curation-actions.ts"]) {
-    assert.match(src(file), /reserve: \(expertId\) => reserveAiConsult\(supabase, projectId, "CURATION"/, file);
+    assert.match(src(file), /reserve: withAuditSink\(\(expertId: string\) => reserveAiConsult\(supabase, projectId, "CURATION"/, file);
   }
   const consult = src("apps/web/app/alertas/consulta-ia/[projectId]/[subject]/[id]/actions.ts");
   assert.match(consult, /runCuration: async \(\{ request, expertIds, reserve \}\)/);

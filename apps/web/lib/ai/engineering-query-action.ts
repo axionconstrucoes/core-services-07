@@ -9,6 +9,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { precheckAiConsult, reserveAiConsult } from "./alert-consult/consult-quota";
 import { gatedProviderForExpert } from "./governance/quota-gated-provider";
+import { sessionAuditSink } from "./governance/consult-audit";
 import { answerEngineeringDirectorQuery } from "./experts/engineering-director/query";
 import { ENGINEERING_DIRECTOR_EXPERT_ID } from "./experts/engineering-director/identity";
 import { parseExpertQueryForm, resolveExpertQueryErrorMessage } from "./expert-query-request";
@@ -41,7 +42,9 @@ export async function askEngineeringDirectorAction(
 
   try {
     const provider = gatedProviderForExpert(ENGINEERING_DIRECTOR_EXPERT_ID, (expertId) =>
-      reserveAiConsult(supabase, request.projectId, "EXPERT_PANEL", request.eventId ?? request.projectId, expertId)
+      reserveAiConsult(supabase, request.projectId, "EXPERT_PANEL", request.eventId ?? request.projectId, expertId),
+    undefined,
+    sessionAuditSink(supabase, request.projectId, "EXPERT_PANEL", request.eventId ?? request.projectId)
     );
     const result = await answerEngineeringDirectorQuery(supabase, request, provider);
     return {

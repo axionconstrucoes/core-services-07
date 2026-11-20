@@ -19,8 +19,9 @@
 import type { OfficialExpertId } from "../expert-definitions/types";
 import { ExpertQuerySafeError } from "../expert-query-request";
 import { resolveAiProviderForExpert } from "../providers/resolve-provider-for-expert";
-import type { AiProvider } from "../providers/types";
+import type { AiProvider, AiProviderResponse } from "../providers/types";
 import type { AiConsultReservation } from "../alert-consult/consult-quota";
+import { auditSinkOf, buildConsultAuditEntry, type AnyProviderRequest, type ConsultAuditEntry, type ConsultAuditSink } from "./consult-audit";
 
 /** Reserva UMA unidade; recusada = o provedor não é chamado. */
 export type ReserveUnit = () => Promise<AiConsultReservation>;
@@ -43,28 +44,44 @@ async function passGate(reserve: ReserveUnit): Promise<void> {
   if (!reservation.ok) throw new ExpertQuerySafeError(reservation.error);
 }
 
-/** Embrulha `provider`: cada chamada ao provedor reserva uma unidade imediatamente antes de delegar. */
-export function withQuotaGate(provider: AiProvider, reserve: ReserveUnit): AiProvider {
+/**
+ * Embrulha `provider`: cada chamada ao provedor reserva uma unidade imediatamente antes de delegar. `audit`
+ * (opcional) recebe a trilha da consulta DEPOIS da chamada (resposta ou erro do provedor); nunca bloqueia a resposta.
+ */
+export function withQuotaGate(provider: AiProvider, reserve: ReserveUnit, auditArg?: ConsultAuditSink, auditExpertId?: string): AiProvider {
+  const audit = auditArg ?? auditSinkOf(reserve);
   if (typeof reserve !== "function") {
     throw new Error("Provedor de IA sem reserva do limite — nenhuma chamada será feita.");
   }
+  async function run<R extends AnyProviderRequest>(request: R, call: (request: R) => Promise<AiProviderResponse>): Promise<AiProviderResponse> {
+    await passGate(reserve);
+    let response: AiProviderResponse;
+    try {
+      response = await call(request);
+    } catch (error) {
+      await auditSafely(audit, () => buildConsultAuditEntry(auditExpertId ?? request.expertId, request, provider.id, null));
+      throw error;
+    }
+    await auditSafely(audit, () => buildConsultAuditEntry(auditExpertId ?? request.expertId, request, provider.id, response));
+    return response;
+  }
   const gated = {
     id: provider.id,
-    async generateAssessment(request) {
-      await passGate(reserve);
-      return provider.generateAssessment(request);
-    },
-    async answerQuery(request) {
-      await passGate(reserve);
-      return provider.answerQuery(request);
-    },
-    async consolidateExecutiveCuration(request) {
-      await passGate(reserve);
-      return provider.consolidateExecutiveCuration(request);
-    },
+    generateAssessment: (request) => run(request, (r) => provider.generateAssessment(r)),
+    answerQuery: (request) => run(request, (r) => provider.answerQuery(r)),
+    consolidateExecutiveCuration: (request) => run(request, (r) => provider.consolidateExecutiveCuration(r)),
   } satisfies AiProvider;
   Object.defineProperty(gated, QUOTA_GATED, { value: true, enumerable: false });
   return gated;
+}
+
+async function auditSafely(audit: ConsultAuditSink | undefined, build: () => ConsultAuditEntry): Promise<void> {
+  if (!audit) return;
+  try {
+    await audit(build());
+  } catch {
+    // A auditoria nunca descarta a resposta já gerada.
+  }
 }
 
 /**
@@ -74,7 +91,8 @@ export function withQuotaGate(provider: AiProvider, reserve: ReserveUnit): AiPro
 export function gatedProviderForExpert(
   expertId: OfficialExpertId,
   reserve: (expertId: OfficialExpertId) => Promise<AiConsultReservation>,
-  base?: AiProvider
+  base?: AiProvider,
+  audit?: ConsultAuditSink
 ): AiProvider {
-  return withQuotaGate(base ?? resolveAiProviderForExpert(expertId), () => reserve(expertId));
+  return withQuotaGate(base ?? resolveAiProviderForExpert(expertId), () => reserve(expertId), audit ?? auditSinkOf(reserve), expertId);
 }

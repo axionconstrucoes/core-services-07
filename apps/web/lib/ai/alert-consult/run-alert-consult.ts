@@ -20,6 +20,7 @@ import type { ExecutiveCuration } from "../experts/ceo/types";
 import { buildAiProviderUiMetadata, type AiProviderUiMetadata } from "../provider-ui-metadata";
 import type { ExpertQueryRequest, ExpertQueryResponse } from "../query/types";
 import { routeBySubject } from "../routing/expert-topics";
+import { withAuditSink, type ConsultAuditSink } from "../governance/consult-audit";
 import type { ExpertId } from "../types";
 
 import {
@@ -63,6 +64,8 @@ export interface AlertConsultDeps {
    * chamada (falha fechada). Na curadoria é chamada uma vez por Expert (especialistas + CEO IA).
    */
   reserve?(projectId: string, subject: AlertConsultSubjectKind, id: string, expertId: OfficialExpertId): Promise<Reservation>;
+  /** Trilha de auditoria da consulta (quem/obra/Expert/pergunta/fontes/resultado); gravada após a chamada ao provedor. */
+  audit?(projectId: string, subject: AlertConsultSubjectKind, id: string): ConsultAuditSink;
   /** Pré-verificação SOMENTE LEITURA do limite (nada é gravado); recusada = nenhum contexto é montado. */
   precheck?(projectId: string): Promise<Reservation>;
   runExpert(
@@ -154,6 +157,8 @@ export async function runAlertConsult(deps: AlertConsultDeps, input: AlertConsul
       if (!precheck.ok) return precheck;
     }
 
+    const withAuditFor = <F extends (...args: never[]) => unknown>(fn: F) =>
+      deps.audit ? withAuditSink(fn, deps.audit(input.projectId, input.subject, input.id)) : fn;
     const userQuestion = input.question.trim();
     const request: ExpertQueryRequest = {
       scope: subject.scope,
@@ -175,7 +180,7 @@ export async function runAlertConsult(deps: AlertConsultDeps, input: AlertConsul
         routing.expertId,
         request,
         userQuestion,
-        reserve ? () => reserve(input.projectId, input.subject, input.id, routing.expertId as OfficialExpertId) : undefined
+        reserve ? withAuditFor(() => reserve(input.projectId, input.subject, input.id, routing.expertId as OfficialExpertId)) : undefined
       );
       return {
         ok: true,
@@ -204,8 +209,8 @@ export async function runAlertConsult(deps: AlertConsultDeps, input: AlertConsul
     const { curation, providerId } = await deps.runCuration({
       request,
       expertIds,
-      reserve: async (expertId) =>
-        deps.reserve ? deps.reserve(input.projectId, input.subject, input.id, expertId) : { ok: true },
+      reserve: withAuditFor(async (expertId: OfficialExpertId) =>
+        deps.reserve ? deps.reserve(input.projectId, input.subject, input.id, expertId) : { ok: true }),
     });
     return {
       ok: true,

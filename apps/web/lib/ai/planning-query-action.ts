@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { precheckAiConsult, reserveAiConsult } from "./alert-consult/consult-quota";
 import { gatedProviderForExpert } from "./governance/quota-gated-provider";
+import { sessionAuditSink } from "./governance/consult-audit";
 import { answerPlanningDirectorQuery } from "./experts/planning-director/query";
 import { PLANNING_DIRECTOR_EXPERT_ID } from "./experts/planning-director/identity";
 import { scheduleSourceBlockingMessage } from "./experts/planning-director/schedule-source-guard";
@@ -46,7 +47,9 @@ export async function askPlanningDirectorAction(
 
   try {
     const provider = gatedProviderForExpert(PLANNING_DIRECTOR_EXPERT_ID, (expertId) =>
-      reserveAiConsult(supabase, request.projectId, "EXPERT_PANEL", request.eventId ?? request.projectId, expertId)
+      reserveAiConsult(supabase, request.projectId, "EXPERT_PANEL", request.eventId ?? request.projectId, expertId),
+    undefined,
+    sessionAuditSink(supabase, request.projectId, "EXPERT_PANEL", request.eventId ?? request.projectId)
     );
     const result = await answerPlanningDirectorQuery(supabase, request, provider);
     return {
