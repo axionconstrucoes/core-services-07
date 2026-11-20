@@ -318,5 +318,21 @@ await check("H3 responsável, Matriz (Nível 2) e ADMINISTRADOR continuam agindo
   }
 });
 
+await check("H4 responsável NULL na transição (TOMANDO PROVIDÊNCIAS sem responsável atual; ENVIAR P/ sem anterior/destino) → recusado, responsável preservado", async () => {
+  const c = await newCase("MEDIUM");
+  const t1 = await transitionFor(c, "TAKING_ACTION", { text: "Providência." }, U.RESP);
+  const b1 = body(t1, U.RESP);
+  await asUser(U.RESP);
+  await expectRefused(rpc(c, t1.expectedState, { ...b1, caseUpdate: { ...b1.caseUpdate, currentResponsibleUserId: null } }), "incoerente");
+  const t2 = await transitionFor(c, "FORWARD", { targetUserId: U.GESTOR, text: "Frente B assume." }, U.RESP);
+  const b2 = body(t2, U.RESP);
+  for (const field of ["previousResponsibleUserId", "responsibleUserId"]) {
+    await asUser(U.RESP);
+    await expectRefused(rpc(c, t2.expectedState, { ...b2, caseUpdate: { ...b2.caseUpdate, [field]: null } }), "Transição inválida");
+  }
+  const row = await caseRow(c);
+  assert(row.state === "OPEN" && row.current_responsible_user_id === U.RESP, JSON.stringify(row));
+});
+
 console.log(`\nRESULTADO: ${passed} passaram, ${failed} falharam`);
 process.exit(failed ? 1 : 0);

@@ -10,6 +10,7 @@
 --   - permissão falha fechada (coalesce(..., false));
 --   - destinatário de e-mail do alerta (outbox, inclusive SUPPRESSED/histórico) deixa de autorizar;
 --   - substituto de Nível 2 do piloto só com exceção vigente (SET sem UNSET posterior);
+--   - responsável atual/anterior NULL na transição não apaga nem forja responsável (achado da frente N1);
 --   - revalidação da transição no servidor (estado, responsáveis, nível, evidência em ALTO/CRÍTICO, e-mails da
 --     outbox), compatível com a máquina de estados do app em produção (sem diferenças entre 09fda9b e a pilha).
 --
@@ -277,9 +278,11 @@ begin
     -- responsáveis: só TOMANDO PROVIDÊNCIAS (quem agiu) e ENVIAR P/ (destinatário) alteram; sempre membro ACTIVE
     if v_case_update ? 'currentResponsibleUserId' then
       v_guard_value := (v_case_update ->> 'currentResponsibleUserId')::uuid;
-      if not (
+      -- (20261121101000) coalesce(..., false): responsável nulo dava NULL e "if not NULL" não recusava.
+      if not coalesce(
         (v_primary_action = 'TAKING_ACTION' and (v_guard_value = v_actor or v_guard_value is not distinct from v_case.current_responsible_user_id))
-        or (v_primary_action = 'FORWARD' and v_guard_value = v_guard_forward_target)
+        or (v_primary_action = 'FORWARD' and v_guard_value = v_guard_forward_target),
+        false
       ) then
         raise exception 'Transição inválida: responsável do alerta incoerente com a ação.';
       end if;
@@ -291,11 +294,11 @@ begin
       end if;
     end if;
     if v_case_update ? 'previousResponsibleUserId'
-       and not (v_primary_action = 'FORWARD' and (v_case_update ->> 'previousResponsibleUserId')::uuid = v_actor) then
+       and not coalesce(v_primary_action = 'FORWARD' and (v_case_update ->> 'previousResponsibleUserId')::uuid = v_actor, false) then
       raise exception 'Transição inválida: responsável anterior incoerente com a ação.';
     end if;
     if v_case_update ? 'responsibleUserId'
-       and not (v_primary_action = 'FORWARD' and (v_case_update ->> 'responsibleUserId')::uuid = v_guard_forward_target) then
+       and not coalesce(v_primary_action = 'FORWARD' and (v_case_update ->> 'responsibleUserId')::uuid = v_guard_forward_target, false) then
       raise exception 'Transição inválida: só ENVIAR P/ troca o responsável da ação SLA.';
     end if;
 
@@ -318,7 +321,8 @@ begin
     -- Matriz da área define — nunca a um perfil arbitrário.
     for v_guard_entry in select * from jsonb_array_elements(coalesce(p_transition -> 'outbox', '[]'::jsonb)) loop
       v_guard_recipient := (v_guard_entry ->> 'recipientUserId')::uuid;
-      if not (
+      -- (20261121101000) coalesce(..., false): destinatário ou tipo nulo dava NULL e o e-mail passava sem autorização.
+      if not coalesce(
         (v_guard_entry ->> 'notificationType' = 'ACTION_CONFIRMATION' and v_guard_recipient = v_actor)
         or (v_guard_entry ->> 'notificationType' = 'FORWARD' and v_primary_action = 'FORWARD' and v_guard_recipient = v_guard_forward_target)
         or (v_guard_entry ->> 'notificationType' = 'ESCALATION' and jsonb_typeof(v_escalation) = 'object' and (
@@ -337,7 +341,8 @@ begin
                   and not exists (
                     select 1 from public.audit_log_entries u
                     where u.project_id = a.project_id and u.actor_type = 'USER' and u.entity_type = a.entity_type and u.entity_id = a.entity_id
-                      and u.action = 'RISK_ALERT_PILOT_LEVEL_RECIPIENT_OVERRIDE_UNSET' and u.occurred_at > a.occurred_at))))
+                      and u.action = 'RISK_ALERT_PILOT_LEVEL_RECIPIENT_OVERRIDE_UNSET' and u.occurred_at > a.occurred_at)))),
+        false
       ) then
         raise exception 'Transição inválida: destinatário de e-mail não autorizado para esta ação.';
       end if;
