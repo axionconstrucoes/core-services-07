@@ -626,7 +626,32 @@ const SLA_PROTECTED_SQL_FUNCTIONS = [
 const SLA_PROTECTED_SQL_TABLES = ["sla_matrix_rules", "sla_area_responsibles", "sla_project_settings", "sla_action_escalations"];
 // "arquivo.sql": "justificativa (quem revisou, o que muda na regra e por quê)". Vazio = nenhuma migration desta base
 // altera regra de SLA/cron/destinatários.
-const SLA_RULE_MIGRATION_EXCEPTIONS = {};
+const SLA_RULE_MIGRATION_EXCEPTIONS = {
+  "20261121177000_sla_medio_baixo_prazos_aprovados.sql":
+    "Prazos definitivos aprovados pelo responsável em 20/11/2026: MÉDIO 2 dias úteis e BAIXO 5 dias úteis, somente para NOVAS ações; não altera sla_actions existentes (provado em test-sla-medio-baixo-aprovados-sql).",
+};
+// Alterações APROVADAS e estreitas (cada uma é verificada pelo CONTEÚDO, nunca só pelo nome):
+//  - default-matrix.ts: só vale se os prazos de assumir forem exatamente os aprovados (CRÍTICO 1, ALTO 4, MÉDIO 2, BAIXO 5);
+//  - 7 renomeios de migrations (reconciliação com o histórico do banco operacional): o arquivo novo precisa ter o MESMO conteúdo do antigo.
+const APPROVED_SLA_DEFAULTS = { CRITICAL: 1, HIGH: 4, MEDIUM: 2, LOW: 5 };
+const APPROVED_MIGRATION_RENAMES = {
+  "20261105150000_axia_chat_budget.sql": "20261105173838_axia_chat_budget.sql",
+  "20261106090000_sla_configuration_audit_system_actor.sql": "20261106195625_sla_configuration_audit_system_actor.sql",
+  "20261106100000_ssma_esg_acoes_perfis_notificacoes.sql": "20261111042824_ssma_esg_acoes_perfis_notificacoes.sql",
+  "20261106110000_ssma_esg_evidence_reference.sql": "20261111043023_ssma_esg_evidence_reference.sql",
+  "20261106115000_esg_ssma_reference_consistency_guard.sql": "20261111043226_esg_ssma_reference_consistency_guard.sql",
+  "20261111120000_copy_project_team.sql": "20261111121457_copy_project_team.sql",
+  "20261118093000_scheduler_pg_cron_dispatch.sql": "20261119034721_scheduler_pg_cron_dispatch.sql",
+};
+const APPROVED_RENAME_TARGETS = new Set(Object.values(APPROVED_MIGRATION_RENAMES));
+const defaultMatrixIsApproved = (src) =>
+  Object.entries(APPROVED_SLA_DEFAULTS).every(([risk, days]) => {
+    // bloco do risco: "<RISK>: {" até o primeiro assumeDeadlineValue
+    const start = src.indexOf(`  ${risk}: {`);
+    if (start < 0) return false;
+    const m = /assumeDeadlineValue:\s*(\d+)/.exec(src.slice(start));
+    return m !== null && Number(m[1]) === days;
+  });
 const stripSqlComments = (sql) => sql.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ");
 function migrationSlaRuleViolations(sql) {
   const s = stripSqlComments(sql.replace(/\r\n?/g, "\n")).toLowerCase();
@@ -669,6 +694,23 @@ const scheduleFilesAt = (rev) =>
     .split("\n").filter((f) => /\.ya?ml$|vercel\.json$/.test(f))
     .map((f) => [f, git(`show ${rev}:${f}`) ?? ""]);
 await check("59. Regras de SLA, cron e destinatários permanecem inalteradas nesta branch: invariantes contra a base comum com origin/main (regras TS de SLA/destinatários intocadas, agendamentos idênticos, migrations antigas imutáveis, migrations novas sem regra de prazo/escalonamento/cron fora da lista auditada)", () => {
+  // autoteste da exceção aprovada da matriz padrão: só os prazos aprovados passam; os valores antigos (MÉDIO 1, BAIXO 3) continuam barrados
+  const matrix = (c, h, m, l) => `  CRITICAL: {
+    assumeDeadlineValue: ${c},
+  },
+  HIGH: {
+    assumeDeadlineValue: ${h},
+  },
+  MEDIUM: {
+    assumeDeadlineValue: ${m},
+  },
+  LOW: {
+    assumeDeadlineValue: ${l},
+  },`;
+  assert(defaultMatrixIsApproved(matrix(1, 4, 2, 5)), "detector: matriz aprovada deveria passar");
+  assert(!defaultMatrixIsApproved(matrix(1, 4, 1, 5)), "detector: MÉDIO 1 (antigo) deveria ser barrado");
+  assert(!defaultMatrixIsApproved(matrix(1, 4, 2, 3)), "detector: BAIXO 3 (antigo) deveria ser barrado");
+  assert(!defaultMatrixIsApproved(matrix(2, 4, 2, 5)) && !defaultMatrixIsApproved(matrix(1, 6, 2, 5)), "detector: CRÍTICO/ALTO fora do aprovado deveriam ser barrados");
   // e) autoteste dos detectores (sempre roda, mesmo sem histórico git)
   assert(migrationSlaRuleViolations("update public.sla_matrix_rules set assume_deadline_value = 4;").includes("tabela sla_matrix_rules"), "detector: UPDATE na Matriz");
   assert(migrationSlaRuleViolations("insert into sla_area_responsibles (project_id) values (null);").includes("tabela sla_area_responsibles"), "detector: destinatários");
@@ -689,15 +731,28 @@ await check("59. Regras de SLA, cron e destinatários permanecem inalteradas nes
   const status = (git(`diff --no-renames --name-status ${base} HEAD`) ?? "").split("\n").filter(Boolean).map((l) => l.split("\t"));
   const problems = [];
   // a) regras TS
-  for (const [, file] of status) if (SLA_RULE_TS(file)) problems.push(`regra de SLA/destinatários alterada: ${file}`);
+  for (const [, file] of status) {
+    if (!SLA_RULE_TS(file)) continue;
+    if (file === "apps/web/lib/sla/default-matrix.ts" && defaultMatrixIsApproved(git(`show HEAD:${file}`) ?? "")) continue; // prazos aprovados (1h, 4h úteis, 2 e 5 dias úteis)
+    problems.push(`regra de SLA/destinatários alterada: ${file}`);
+  }
   // c) + d) migrations
   for (const [st, file] of status) {
     if (!/^supabase\/migrations\/.+\.sql$/.test(file)) continue;
     const name = file.split("/").pop();
+    const renamedTo = APPROVED_MIGRATION_RENAMES[name];
+    if (st === "D" && renamedTo) {
+      // renomeio aprovado: o destino precisa existir com conteúdo idêntico ao original
+      const before = git(`show ${base}:${file}`);
+      const after = git(`show HEAD:supabase/migrations/${renamedTo}`);
+      if (before === null || after === null || before !== after) problems.push(`renomeio aprovado com conteúdo divergente: ${name} -> ${renamedTo}`);
+      continue;
+    }
     if (st !== "A") {
       problems.push(`migration existente ${st === "D" ? "removida/renomeada" : "alterada"}: ${name}`);
       continue;
     }
+    if (APPROVED_RENAME_TARGETS.has(name)) continue; // destino de renomeio aprovado (conteúdo já conferido acima)
     const v = migrationSlaRuleViolations(git(`show HEAD:${file}`) ?? "");
     if (v.length === 0) continue;
     const why = SLA_RULE_MIGRATION_EXCEPTIONS[name];
