@@ -8,6 +8,9 @@ import { startRouteMetrics } from "@/lib/cron/route-metrics";
 import { createSupabaseAdminClient } from "@axion/db/admin";
 import { getEmailProvider } from "@/lib/email/get-email-provider";
 import { deliverEmailReplyConfirmations } from "@/lib/email-replies/token-reply-confirmations";
+import { answerPendingSpecialistConsultations, deliverSpecialistMails } from "@/lib/email-replies/specialist-consultations";
+import { isSpecialistEmailEnabled } from "@/lib/email-replies/specialist-flag";
+import { createDefaultCycleExpertConsultant } from "@/lib/risk-alerts/experts/cycle-expert-consultant";
 
 // O GitHub usa ACC_RISK_ALERTS_CRON_SECRET. O agendador do Supabase usa
 // ACC_SCHEDULER_RISK_CRON_SECRET, restrito ao ciclo regular e à prévia.
@@ -44,6 +47,21 @@ async function deliverReplyConfirmationsIfEnabled(input: { dryRun: boolean; scop
     return await deliverEmailReplyConfirmations({ client: createSupabaseAdminClient(), provider: getEmailProvider() });
   } catch {
     return { error: "Falha ao entregar confirmações de resposta por e-mail." };
+  }
+}
+
+// ESPECIALISTA por e-mail (Lote 3): responde às consultas registradas pelo worker (Expert da área, limite diário de IA reservado
+// na fronteira do provedor) e entrega recibo/resposta ao remetente. FALHA FECHADA: só com ACC_EMAIL_SPECIALIST_ENABLED=true (valor
+// exato), nunca em dry-run nem na execução restrita a uma obra. A consulta NÃO altera o item de origem.
+async function runSpecialistEmailIfEnabled(input: { dryRun: boolean; scoped: boolean }) {
+  if (input.dryRun || input.scoped || !isSpecialistEmailEnabled()) return null;
+  try {
+    const client = createSupabaseAdminClient();
+    const answers = await answerPendingSpecialistConsultations({ client, consultant: createDefaultCycleExpertConsultant(client) });
+    const mails = await deliverSpecialistMails({ client, provider: getEmailProvider() });
+    return { answers, mails };
+  } catch {
+    return { error: "Falha ao processar as consultas ao especialista por e-mail." };
   }
 }
 
@@ -101,7 +119,8 @@ export async function GET(request: Request) {
     // da gravação). FALHA FECHADA: só com ACC_EMAIL_REPLY_CONFIRMATIONS_ENABLED=true (valor exato), nunca em dry-run nem
     // na execução restrita a uma obra. Mesmo provedor (e travas do piloto) dos alertas; erro aqui nunca derruba o ciclo.
     const replyConfirmations = await deliverReplyConfirmationsIfEnabled({ dryRun, scoped: Boolean(projectId) });
-    return Response.json({ ...result, ...(replyConfirmations ? { replyConfirmations } : {}), ...(inboundCheck ? { inboundCheck } : {}), metrics: stopMetrics() }, { status: failed > 0 ? 207 : 200 });
+    const specialistEmail = await runSpecialistEmailIfEnabled({ dryRun, scoped: Boolean(projectId) });
+    return Response.json({ ...result, ...(replyConfirmations ? { replyConfirmations } : {}), ...(specialistEmail ? { specialistEmail } : {}), ...(inboundCheck ? { inboundCheck } : {}), metrics: stopMetrics() }, { status: failed > 0 ? 207 : 200 });
   } catch {
     // Nunca vaza detalhes (tokens, e-mails) no corpo da resposta.
     return Response.json({ error: "Falha ao processar alertas de risco." }, { status: 500 });

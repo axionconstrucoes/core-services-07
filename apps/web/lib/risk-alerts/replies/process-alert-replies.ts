@@ -25,6 +25,9 @@ import { assessReplyTiming } from "./reply-timing";
 import { applyEmailCommand, rejectEmailReply } from "./apply-email-command";
 import { parseOperationalEmailCommand } from "./operational-email-command";
 import { assessOperationalEmailIntent } from "./operational-email-intent";
+import { isSpecialistEmailEnabled } from "@/lib/email-replies/specialist-flag";
+import { parseSpecialistCommand, routeSpecialistByEmail, specialistRequiresHumanReview, SPECIALIST_TEXT, type SpecialistRecord } from "@/lib/email-replies/specialist-email";
+import type { RecordSpecialistResult } from "@/lib/email-replies/specialist-consultations";
 import { authorizeReply, classifyReply, correlateReply, extractReplyTokens, filterInboundMessage, hashReplyToken, isReplyAuthFailure, parseReplyBody, replyToFormalAction, senderAuthFailureOf, type CorrelationResult } from "./reply-pipeline";
 
 export interface ProcessRepliesResult {
@@ -42,6 +45,8 @@ export interface ProcessRepliesResult {
   forecastPending?: number;
   /** Excedentes do limite de taxa por remetente (enviados à revisão humana, sem execução). */
   rateLimited?: number;
+  /** Consultas "ESPECIALISTA: ..." registradas (o alerta NÃO é alterado). */
+  specialist?: number;
 }
 
 // Modelo de entrega direta do piloto: cada colaborador responde com a PRÓPRIA identidade (From real) — a autorização é sempre por
@@ -67,6 +72,12 @@ export interface ProcessRepliesOptions {
   trustedAuthservIds?: readonly string[];
   /** Domínios com o fallback do locatário Workspace (mesma regra do caminho de token por item). Ausente => fail-closed. */
   workspaceTenantDomains?: readonly string[];
+  /** ACC_EMAIL_SPECIALIST_ENABLED (ausente => lê o ambiente; false => "ESPECIALISTA:" é recusado com explicação). */
+  specialistEnabled?: boolean;
+  /** Grava a consulta ESPECIALISTA (email_specialist_consultations). Ausente => revisão humana (nada é perdido nem executado). */
+  specialistRecorder?: (input: { actorUserId: string; caseId: string; providerMessageId: string; record: SpecialistRecord; recipientEmail: string; inReplyTo: string | null; references: string[]; originalSubject: string | null }) => Promise<RecordSpecialistResult>;
+  /** ACC_EMAIL_TOKEN_OWNER_STRICT: o token por item só vale para o dono, o encaminhado ativo ou um Administrador. Padrão desligado. */
+  ownerStrict?: boolean;
   /** Registro (log/auditoria) do resultado de CADA mensagem; falha aqui nunca bloqueia o processamento. */
   onMessageProcessed?: (entry: { message: InboundMessageRow; caseId: string | null; status: string; statusReason: string | null }) => Promise<void>;
 }
@@ -200,6 +211,21 @@ export async function processAlertReplies(baseStore: RiskAlertStore, projectId: 
       result.unauthorized += 1;
       return;
     }
+    // Token por item vinculado ao destinatário original (opcional; padrão desligado): dono, encaminhado ativo ou Administrador.
+    if (itemToken && options.ownerStrict && itemToken.recipientUserId && itemToken.recipientUserId !== authorization.userId) {
+      const activeForwardTo = loaded.snapshot.activeForward?.state === "ACTIVE" ? loaded.snapshot.activeForward.toUserId : null;
+      const senderIsAdmin = (options.targetCandidates ?? []).some((c) => c.userId === authorization.userId && /^(ADMINISTRADOR|ADMIN)$/i.test(c.permission ?? ""));
+      if (activeForwardTo !== authorization.userId && !senderIsAdmin) {
+        const outcome = await rejectEmailReply({
+          store, projectId, message, caseId: correlation.caseId, loaded, snapshot, senderUserId: authorization.userId, action: "TOKEN", code: "TOKEN_NOT_OWNER",
+          text: "Este atalho foi emitido para outra pessoa. Use o e-mail que você recebeu do ACC (ou peça ao Administrador da obra). Nada foi alterado.",
+          basePatch: { ...unauthorizedPatch, senderUserId: authorization.userId },
+        });
+        if (outcome === "REJECTED") result.recorded += 1;
+        else result.reviewRequired += 1;
+        return;
+      }
+    }
     if (itemToken) {
       const usable = tokenUsability(itemToken, message.providerMessageId, nowIso);
       if (!usable.ok) {
@@ -218,6 +244,45 @@ export async function processAlertReplies(baseStore: RiskAlertStore, projectId: 
     //  - EM ANDAMENTO + "Previsão: dd/mm/aaaa [hh:mm]": previsão validada ANTES (faltando/ inválida => resposta pedindo, nada gravado);
     //    válida => mesmo fluxo de TOMANDO PROVIDÊNCIAS da resposta livre.
     // Qualquer outra intenção sensível continua indo para revisão humana.
+    // ESPECIALISTA: consulta ESCRITA ao Expert da área. NÃO passa pela máquina de estados (não escala, não muda estado/responsável/
+    // previsão/prazo) e NÃO consome o token. Só recomendação com revisão humana; a AXIA nunca é destino.
+    const specialist = parseSpecialistCommand(parsed.clean);
+    if (specialist.reason !== "NO_COMMAND") {
+      const specialistPatch = { caseId: correlation.caseId, senderUserId: authorization.userId, bodyClean: parsed.clean, quotedText: parsed.quoted, signatureText: parsed.signature, correlationMethod: correlation.method };
+      const rejectSpecialist = async (code: string, text: string) => {
+        const outcome = await rejectEmailReply({ store, projectId, message, caseId: correlation.caseId!, loaded, snapshot, senderUserId: authorization.userId, action: "SPECIALIST", code, text, basePatch: specialistPatch });
+        if (outcome === "REJECTED") result.recorded += 1;
+        else result.reviewRequired += 1;
+      };
+      if ((snapshot.informativeAreas ?? []).includes(loaded.record.area)) {
+        await store.updateInboundMessage(message.id, { ...specialistPatch, status: "PROCESSED", statusReason: "Área informativa: consulta ao especialista registrada sem ação automática" });
+        result.recorded += 1;
+        return;
+      }
+      if (specialist.reason === "MIXED") return rejectSpecialist("COMMAND_AMBIGUOUS", SPECIALIST_TEXT.MIXED);
+      if (specialist.reason === "QUESTION_TOO_SHORT") return rejectSpecialist("SPECIALIST_QUESTION_REQUIRED", SPECIALIST_TEXT.QUESTION_TOO_SHORT);
+      if (!(options.specialistEnabled ?? isSpecialistEmailEnabled())) return rejectSpecialist("SPECIALIST_DISABLED", SPECIALIST_TEXT.DISABLED);
+      if (loaded.snapshot.state === "RESOLVED") return rejectSpecialist("ALREADY_RESOLVED", "O alerta já está resolvido: nada foi alterado.");
+      const routing = routeSpecialistByEmail({ area: loaded.record.area, question: specialist.question! });
+      if (!routing.ok) return rejectSpecialist(routing.code, SPECIALIST_TEXT.SPECIALIST_AREA_UNKNOWN);
+      if (!options.specialistRecorder) {
+        await store.updateInboundMessage(message.id, { ...specialistPatch, status: "REVIEW_REQUIRED", statusReason: "ESPECIALISTA por e-mail: gravação indisponível — revisão humana (nada executado)", requiresHumanReview: true });
+        result.reviewRequired += 1;
+        return;
+      }
+      const severity = loaded.snapshot.riskLevel as "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+      const record: SpecialistRecord = { expertId: routing.expertId, routingSource: routing.source, question: specialist.question!, area: loaded.record.area, severity, requiresHumanReview: specialistRequiresHumanReview(severity) };
+      const sender = profileByEmail.get(message.headers.from.trim().toLowerCase());
+      const recorded = await options.specialistRecorder({ actorUserId: authorization.userId, caseId: correlation.caseId, providerMessageId: message.providerMessageId, record, recipientEmail: sender?.email ?? message.headers.from, inReplyTo: message.headers.messageId ?? null, references: [...(message.headers.references ?? []), ...(message.headers.messageId ? [message.headers.messageId] : [])], originalSubject: message.headers.subject ?? null });
+      if (recorded.ok || recorded.code === "MESSAGE_ALREADY_APPLIED") {
+        await store.audit(projectId, [{ action: "RISK_ALERT_EXPERT_EMAIL_CONSULT", entityType: "RISK_ALERT_CASE", entityId: correlation.caseId, detail: `Consulta ao especialista ${routing.expertId} por e-mail (mensagem ${message.id}). O alerta não foi alterado; resposta é só recomendação com revisão humana.` }]);
+        await store.updateInboundMessage(message.id, { ...specialistPatch, expertId: routing.expertId, status: "PROCESSED", statusReason: "ESPECIALISTA registrado por e-mail (o alerta não foi alterado)" });
+        result.recorded += 1;
+        result.specialist = (result.specialist ?? 0) + (recorded.ok ? 1 : 0);
+        return;
+      }
+      return rejectSpecialist(recorded.code, recorded.text);
+    }
     const emailCommand = parseOperationalEmailCommand(parsed.clean);
     const commandPatch = { caseId: correlation.caseId, senderUserId: authorization.userId, bodyClean: parsed.clean, quotedText: parsed.quoted, signatureText: parsed.signature, correlationMethod: correlation.method };
     let explicitInProgress: { forecast: ReturnType<typeof extractForecastFromText> } | null = null;

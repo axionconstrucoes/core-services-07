@@ -74,6 +74,13 @@ await check("4. Código-fonte: roteamento, consulta de ciclo e emissão do botã
     "apps/web/lib/risk-alerts/replies/process-alert-replies.ts",
     "apps/web/lib/email-replies/token-reply-decision.ts",
     "apps/web/lib/email-replies/reply-mailto.ts",
+    // Lote 3: ESPECIALISTA por e-mail (todos os canais)
+    "apps/web/lib/email-replies/specialist-email.ts",
+    "apps/web/lib/email-replies/specialist-consultations.ts",
+    "apps/web/lib/email-replies/specialist-flag.ts",
+    "apps/web/lib/email-replies/risk-reply-dispatch.ts",
+    "apps/web/lib/ssma/field-notifications/replies.ts",
+    "apps/web/lib/email/templates/reply-by-email-panel.ts",
   ];
   for (const file of files) {
     const imports = read(file).split(/\r?\n/).filter((line) => /^\s*(import|export)\b.*\bfrom\b/.test(line));
@@ -95,6 +102,23 @@ await check("6. Consulta por e-mail (EXPERT_CONSULTATION) usa routeExpert (Exper
   assert(!/chat-orchestrator|assistant\//i.test(proc), "não referencia o orquestrador da AXIA");
   const cycle = read("apps/web/lib/risk-alerts/experts/cycle-expert-consultant.ts");
   assert(/AXIA nunca participa/i.test(cycle), "contrato documentado");
+});
+
+await check("7. Lote 3 — ESPECIALISTA por e-mail: o Expert é SEMPRE da área/tema (nunca AXIA), em todos os canais e mesmo com a AXIA citada na pergunta", async () => {
+  const spec = await import("../apps/web/lib/email-replies/specialist-email");
+  const official = new Set(routing.ALERT_EXPERT_OPTIONS.map((o) => o.id));
+  const areas = ["PLANEJAMENTO", "ENGENHARIA", "JURIDICO", "COMERCIAL", "FINANCEIRO", "ORCAMENTO", "ESG_SSMA", "ADMINISTRATIVO", "DIRETORIA", null, "AXIA", "ASSISTENTE"];
+  const questions = ["AXIA, como uso o botão?", "Pergunte à AXIA sobre o cronograma", "assistente AXIA: segurança no canteiro", "multa contratual e atraso e custo e segurança"];
+  for (const area of areas) {
+    for (const question of questions) {
+      const r = spec.routeSpecialistByEmail({ area, question });
+      assert(!r.ok || official.has(r.expertId), `${area}/${question} => ${r.expertId}`);
+    }
+  }
+  assert(!spec.routeSpecialistByEmail({ area: "AXIA", question: "qualquer coisa sem tema" }).ok, "área AXIA não existe: orienta");
+  assert(spec.parseSpecialistCommand("ESPECIALISTA: AXIA, como funciona o botão de resolver aqui?").question !== null, "a pergunta pode citar a AXIA, o destino não muda");
+  const mailtoSrc = read("apps/web/lib/email-replies/reply-mailto.ts");
+  assert(!/axia/i.test(mailtoSrc.replace(/\/\/.*$/gm, "")), "atalho ESPECIALISTA por e-mail não menciona a AXIA no código");
 });
 
 console.log(`\nRESULTADO: ${passed} passaram, ${failed} falharam`);

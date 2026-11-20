@@ -116,6 +116,16 @@ function spfMailFromDomain(props: Record<string, string>): string | null {
   return raw.includes("@") ? raw.slice(raw.lastIndexOf("@") + 1) : raw;
 }
 
+/**
+ * ACC_EMAIL_TOKEN_OWNER_STRICT=true (valor exato; falha fechada = desligado): o token por item só vale para o DONO (destinatário
+ * original do e-mail), o responsável atual do item ou um Administrador. Padrão DESLIGADO (encaminhamento informal a um ator do item
+ * continua aceito). Ver docs/email-respostas-lote3.md.
+ */
+export const TOKEN_OWNER_STRICT_ENV = "ACC_EMAIL_TOKEN_OWNER_STRICT";
+export function resolveTokenOwnerStrict(env: Record<string, string | undefined> = process.env): boolean {
+  return env[TOKEN_OWNER_STRICT_ENV] === "true";
+}
+
 export const WORKSPACE_TENANT_DOMAINS_ENV = "ACC_EMAIL_WORKSPACE_TENANT_DOMAINS";
 
 /** Domínios com o fallback do locatário Workspace habilitado (vazio/ausente => nenhum: comportamento P2 inalterado). */

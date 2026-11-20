@@ -643,15 +643,18 @@ if (phases.has("replies") && (apply || repliesDryRun)) {
         senderRateLimiter: await dispatch.senderRateLimiter(),
         trustedAuthservIds: dispatch.trustedAuthservIds,
         workspaceTenantDomains: dispatch.workspaceTenantDomains,
+        ownerStrict: dispatch.ownerStrict,
+        specialistEnabled: dispatch.specialistEnabled,
+        specialistRecorder: dispatch.specialistRecorder,
         attachmentsFor: (message, caseId) => dispatch.attachmentsFor(message, caseId),
         onMessageProcessed: (entry) => dispatch.onMessageProcessed(entry),
       });
     } catch {
-      Object.assign(replyOptions, { trustedAuthservIds: dispatch.trustedAuthservIds, workspaceTenantDomains: dispatch.workspaceTenantDomains });
+      Object.assign(replyOptions, { trustedAuthservIds: dispatch.trustedAuthservIds, workspaceTenantDomains: dispatch.workspaceTenantDomains, ownerStrict: dispatch.ownerStrict, specialistEnabled: dispatch.specialistEnabled });
     }
     if (repliesDryRun) {
       const dry = createDryRunReplyStore(riskStore, dryInbound);
-      const outcome = await processAlertReplies(dry.store, config.projectId, new Date().toISOString(), [mailbox], { ...replyOptions, tokenStore: undefined, onMessageProcessed: undefined });
+      const outcome = await processAlertReplies(dry.store, config.projectId, new Date().toISOString(), [mailbox], { ...replyOptions, tokenStore: undefined, onMessageProcessed: undefined, specialistRecorder: undefined });
       summary.replies.processed.push({ ...outcome, dryRun: true });
       console.log(`Respostas (DRY-RUN, nada gravado/enviado) projeto ${config.projectId}: ${JSON.stringify(outcome)}`);
       console.log(`  mensagens: ${JSON.stringify(dry.captured.updates.map((u) => ({ status: u.status, motivo: u.statusReason ?? null, classificacao: u.classification ?? null, correlacao: u.correlationMethod ?? null })))}`);

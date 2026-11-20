@@ -6,6 +6,7 @@ import { renderEmailActionButtonsText } from "@/lib/email-actions/render-buttons
 import { EMAIL_ALERT_ACTION_LABELS } from "@/lib/email-actions/types";
 import type { ReplyMailtoLinks } from "@/lib/email-replies/reply-mailto";
 import type { AlertLogoAvailability } from "./alert-box-style";
+import { ESPECIALISTA_BY_EMAIL_REASON } from "./reply-by-email-panel";
 import { buildUniversalAlertEmail, replyByEmailTextLines, safeReplyByEmail } from "./universal-alert-template";
 
 import { alertRiskLevelLabels, buildContractAlertSubject } from "./contract-alert-template";
@@ -75,7 +76,7 @@ export function buildSlaEscalationEmail(input: SlaEscalationEmailInput) {
         RESOLVIDO: noShortcut,
         EM_ANDAMENTO: noShortcut,
         ENVIAR_PARA: noShortcut,
-        ESPECIALISTA: "Consulta ao especialista indisponível no escalonamento de SLA.",
+        ESPECIALISTA: replyByEmail?.ESPECIALISTA ? ESPECIALISTA_BY_EMAIL_REASON : "Consulta ao especialista indisponível no escalonamento de SLA.",
       },
       details,
       replyByEmail,

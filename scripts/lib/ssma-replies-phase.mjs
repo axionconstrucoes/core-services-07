@@ -33,6 +33,8 @@ const { extractInboundFromGmail } = await import("../../apps/web/lib/risk-alerts
 const { extractReplyTokens, hashReplyToken } = await import("../../apps/web/lib/risk-alerts/replies/reply-pipeline");
 const { createSupabaseEmailReplyTokenStore, tokenUsability } = await import("../../apps/web/lib/email-replies/reply-tokens");
 const { SenderRateLimiter, resolveSenderRateLimit } = await import("../../apps/web/lib/email-replies/sender-rate-limit");
+const { isSpecialistEmailEnabled } = await import("../../apps/web/lib/email-replies/specialist-flag");
+const { recordSpecialistConsultation } = await import("../../apps/web/lib/email-replies/specialist-consultations");
 const { resolveTrustedAuthservIds, resolveWorkspaceTenantDomains } = await import("../../apps/web/lib/email-replies/sender-authentication");
 const { decodeGmailData, ssmaPhotoStoragePath, validateSsmaEvidencePhoto, MAX_EVIDENCE_ATTACHMENTS } = await import("../../apps/web/lib/email-replies/inbound-attachments");
 
@@ -226,6 +228,7 @@ export async function runSsmaRepliesPhase({ supabase, gmail, mailbox, projectId 
           corporateDomain,
           trustedAuthservIds,
           workspaceTenantDomains,
+          specialistEnabled: isSpecialistEmailEnabled(env),
         });
 
         if (decision.kind === "IGNORE") {
@@ -265,6 +268,25 @@ export async function runSsmaRepliesPhase({ supabase, gmail, mailbox, projectId 
         }
         if (decision.kind === "REJECT") {
           await rejectWithReply(action, extracted, decision.actorUserId, decision.code, decision.message, decision.command);
+          continue;
+        }
+
+        // ---------- ESPECIALISTA: consulta escrita ao Expert ESG/SSMA; NÃO altera a ação corretiva e NÃO consome o token ----------
+        if (decision.kind === "SPECIALIST") {
+          const asker = profileById.get(decision.actorUserId);
+          const recorded = await recordSpecialistConsultation(supabase, {
+            actorUserId: decision.actorUserId, projectId, flow: "SSMA", subjectKind: "SSMA_ACTION", subjectId: action.id,
+            providerMessageId: extracted.providerMessageId, record: decision.record, recipientEmail: asker?.email ?? extracted.headers.from,
+            inReplyTo: extracted.headers.messageId, references: [...extracted.headers.references, ...(extracted.headers.messageId ? [extracted.headers.messageId] : [])],
+            originalSubject: extracted.headers.subject ?? null,
+          });
+          if (recorded.ok || recorded.code === "MESSAGE_ALREADY_APPLIED") {
+            processedIds.add(extracted.providerMessageId);
+            await log(extracted, action.id, "APPLIED", "SPECIALIST");
+            summary.specialist = (summary.specialist ?? 0) + (recorded.ok ? 1 : 0);
+          } else {
+            await rejectWithReply(action, extracted, decision.actorUserId, recorded.code, recorded.text, "NONE");
+          }
           continue;
         }
 

@@ -23,7 +23,9 @@ const { extractInboundFromGmail } = await import("../../apps/web/lib/risk-alerts
 const { extractReplyTokens, hashReplyToken } = await import("../../apps/web/lib/risk-alerts/replies/reply-pipeline");
 const { createSupabaseEmailReplyTokenStore, tokenUsability } = await import("../../apps/web/lib/email-replies/reply-tokens");
 const { SenderRateLimiter, resolveSenderRateLimit } = await import("../../apps/web/lib/email-replies/sender-rate-limit");
-const { resolveTrustedAuthservIds, resolveWorkspaceTenantDomains } = await import("../../apps/web/lib/email-replies/sender-authentication");
+const { isSpecialistEmailEnabled } = await import("../../apps/web/lib/email-replies/specialist-flag");
+const { recordSpecialistConsultation } = await import("../../apps/web/lib/email-replies/specialist-consultations");
+const { resolveTrustedAuthservIds, resolveWorkspaceTenantDomains, resolveTokenOwnerStrict } = await import("../../apps/web/lib/email-replies/sender-authentication");
 const { decodeGmailData, sha256Hex, buildEvidenceText, tokenReplyEvidenceStoragePath, MAX_EVIDENCE_ATTACHMENTS, MAX_EVIDENCE_ATTACHMENT_BYTES } = await import("../../apps/web/lib/email-replies/inbound-attachments");
 
 const SEVERITY_FROM_PT = { CRITICA: "CRITICAL", ALTA: "HIGH", MEDIA: "MEDIUM", BAIXA: "LOW" };
@@ -35,7 +37,7 @@ const TOKEN_TEXT = {
 /** Estado do item para a decisão (null = não existe / fora do escopo). */
 export async function loadTokenReplyTarget(supabase, row) {
   if (row.subjectKind === "SLA_ACTION") {
-    const { data: a } = await supabase.from("sla_actions").select("id,project_id,status,responsible_user_id,risk_level,related_ssma_corrective_action_id").eq("id", row.subjectId).maybeSingle();
+    const { data: a } = await supabase.from("sla_actions").select("id,project_id,status,responsible_user_id,risk_level,area,related_ssma_corrective_action_id").eq("id", row.subjectId).maybeSingle();
     if (!a || a.project_id !== row.projectId) return null;
     const { data: linked } = await supabase.from("risk_alert_cases").select("id").eq("sla_action_id", a.id);
     const closed = a.status === "COMPLETED" || a.status === "CANCELLED";
@@ -49,7 +51,7 @@ export async function loadTokenReplyTarget(supabase, row) {
     return {
       kind: "SLA_ACTION", subjectId: a.id, projectId: a.project_id, actorUserIds: a.responsible_user_id ? [a.responsible_user_id] : [],
       closed: Boolean(closedReason), closedReason, severity: a.risk_level, currentResponsibleUserId: a.responsible_user_id,
-      evidenceRequired: a.risk_level === "HIGH" || a.risk_level === "CRITICAL",
+      evidenceRequired: a.risk_level === "HIGH" || a.risk_level === "CRITICAL", area: a.area ?? null,
     };
   }
   if (row.subjectKind === "WEEKLY_DIGEST_ITEM") {
@@ -57,7 +59,7 @@ export async function loadTokenReplyTarget(supabase, row) {
     if (!item) return null;
     const { data: digest } = await supabase.from("weekly_alert_digests").select("id,project_id,recipient_user_id,status").eq("id", item.digest_id).maybeSingle();
     if (!digest || digest.project_id !== row.projectId) return null;
-    const { data: action } = await supabase.from("sla_actions").select("responsible_user_id").eq("id", item.action_id).maybeSingle();
+    const { data: action } = await supabase.from("sla_actions").select("responsible_user_id,area").eq("id", item.action_id).maybeSingle();
     const closedReason = item.responded_at
       ? "Este item do resumo semanal já foi respondido: nada foi alterado."
       : digest.status !== "SENT"
@@ -65,7 +67,7 @@ export async function loadTokenReplyTarget(supabase, row) {
         : null;
     return {
       kind: "WEEKLY_DIGEST_ITEM", subjectId: item.id, projectId: digest.project_id, actorUserIds: [digest.recipient_user_id],
-      closed: Boolean(closedReason), closedReason, severity: item.risk_level, currentResponsibleUserId: action?.responsible_user_id ?? null, evidenceRequired: false,
+      closed: Boolean(closedReason), closedReason, severity: item.risk_level, currentResponsibleUserId: action?.responsible_user_id ?? null, evidenceRequired: false, area: action?.area ?? null,
     };
   }
   if (row.subjectKind === "CONTRACT_ALERT_ITEM") {
@@ -76,7 +78,7 @@ export async function loadTokenReplyTarget(supabase, row) {
     const closedReason = batch.status !== "SENT" ? "A resposta final deste lote de alertas já foi enviada (ou o lote não está disponível): nada foi alterado." : null;
     return {
       kind: "CONTRACT_ALERT_ITEM", subjectId: item.id, projectId: batch.project_id, actorUserIds: [batch.recipient_user_id],
-      closed: Boolean(closedReason), closedReason, severity: SEVERITY_FROM_PT[item.severity] ?? "MEDIUM", currentResponsibleUserId: item.assigned_user_id ?? null, evidenceRequired: false,
+      closed: Boolean(closedReason), closedReason, severity: SEVERITY_FROM_PT[item.severity] ?? "MEDIUM", currentResponsibleUserId: item.assigned_user_id ?? null, evidenceRequired: false, area: null,
     };
   }
   return null;
@@ -110,6 +112,7 @@ export async function runTokenRepliesPhase({ supabase, gmail, mailbox, projectId
   const tokenStore = createSupabaseEmailReplyTokenStore(supabase);
   const trustedAuthservIds = resolveTrustedAuthservIds(env);
   const workspaceTenantDomains = resolveWorkspaceTenantDomains(env);
+  const ownerStrict = resolveTokenOwnerStrict(env);
   const allowedProjects = projectIds ? new Set(projectIds) : null;
 
   // Idempotência: mensagens já registradas no fluxo TOKEN (31 dias = janela da busca + margem).
@@ -210,6 +213,9 @@ export async function runTokenRepliesPhase({ supabase, gmail, mailbox, projectId
           corporateDomain,
           trustedAuthservIds,
           workspaceTenantDomains,
+          tokenRecipientUserId: row.recipientUserId,
+          ownerStrict,
+          specialistEnabled: isSpecialistEmailEnabled(env),
         });
         if (decision.kind === "IGNORE") {
           if (decision.reason !== "ALREADY_PROCESSED") await log(row, extracted, "IGNORED", decision.reason);
@@ -241,6 +247,24 @@ export async function runTokenRepliesPhase({ supabase, gmail, mailbox, projectId
         }
         if (decision.kind === "REJECT") {
           await reject(decision.code, decision.message);
+          continue;
+        }
+
+        // ---------- ESPECIALISTA: consulta escrita ao Expert da área. NÃO altera o item e NÃO consome o token. ----------
+        if (decision.kind === "SPECIALIST") {
+          const profile = members.find((m) => m.userId === decision.actorUserId);
+          const recorded = await recordSpecialistConsultation(supabase, {
+            actorUserId: decision.actorUserId, projectId: row.projectId, flow: "TOKEN", subjectKind: row.subjectKind, subjectId: row.subjectId,
+            providerMessageId: extracted.providerMessageId, record: decision.record, recipientEmail: profile?.email ?? extracted.headers.from,
+            inReplyTo: extracted.headers.messageId, references: [...extracted.headers.references, ...(extracted.headers.messageId ? [extracted.headers.messageId] : [])],
+            originalSubject: extracted.headers.subject ?? null,
+          });
+          if (recorded.ok || recorded.code === "MESSAGE_ALREADY_APPLIED") {
+            await log(row, extracted, "APPLIED", "SPECIALIST");
+            summary.specialist = (summary.specialist ?? 0) + (recorded.ok ? 1 : 0);
+          } else {
+            await reject(recorded.code, recorded.text, "REJECTED");
+          }
           continue;
         }
 

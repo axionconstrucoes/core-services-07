@@ -1,6 +1,7 @@
 import type { ReplyMailtoLinks } from "@/lib/email-replies/reply-mailto";
 
 import type { AlertLogoAvailability } from "./alert-box-style";
+import { ESPECIALISTA_BY_EMAIL_REASON } from "./reply-by-email-panel";
 import { buildUniversalDigestEmail, replyByEmailTextLines } from "./universal-alert-template";
 
 export type WeeklyDigestRiskLevel = "MEDIUM" | "LOW";
@@ -76,7 +77,7 @@ export function buildWeeklyAlertDigestEmail(input: WeeklyAlertDigestEmailInput) 
         EM_ANDAMENTO: buildWeeklyDigestItemUrl(input.responseUrl, item.actionId, "STUDYING"),
         ENVIAR_PARA: buildWeeklyDigestItemUrl(input.responseUrl, item.actionId, "FORWARDED"),
       },
-      unavailableReasons: { ESPECIALISTA: "Consulta ao especialista indisponível no resumo semanal." },
+      unavailableReasons: { ESPECIALISTA: item.replyByEmail?.ESPECIALISTA ? ESPECIALISTA_BY_EMAIL_REASON : "Consulta ao especialista indisponível no resumo semanal." },
       // Resposta POR ITEM por e-mail (RESOLVIDO / EM ANDAMENTO / ENVIAR PARA): grava só este item, pela mesma regra do resumo.
       replyByEmail: item.replyByEmail ?? null,
     })),

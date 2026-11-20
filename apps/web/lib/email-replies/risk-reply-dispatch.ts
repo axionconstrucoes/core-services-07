@@ -13,11 +13,13 @@ import { extractReplyTokens, hashReplyToken } from "@/lib/risk-alerts/replies/re
 import { decodeGmailData, listGmailAttachments, MAX_EVIDENCE_ATTACHMENT_BYTES, MAX_EVIDENCE_ATTACHMENTS, riskEvidenceStoragePath, sha256Hex, type StoredEvidenceAttachment } from "./inbound-attachments";
 import type { TargetCandidate } from "./member-target";
 import { createSupabaseEmailReplyTokenStore, type EmailReplyTokenRow, type EmailReplyTokenStore } from "./reply-tokens";
-import { resolveTrustedAuthservIds, resolveWorkspaceTenantDomains } from "./sender-authentication";
+import { resolveTokenOwnerStrict, resolveTrustedAuthservIds, resolveWorkspaceTenantDomains } from "./sender-authentication";
+import { recordSpecialistConsultation } from "./specialist-consultations";
+import { isSpecialistEmailEnabled } from "./specialist-flag";
 import { SenderRateLimiter, resolveSenderRateLimit } from "./sender-rate-limit";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-type SupabaseLike = { from(table: string): any; storage?: { from(bucket: string): any } };
+type SupabaseLike = { from(table: string): any; rpc?(fn: string, args: Record<string, unknown>): PromiseLike<{ data?: any; error?: { message?: string } | null }>; storage?: { from(bucket: string): any } };
 type GmailLike = { users: { messages: { get(input: any): Promise<any>; attachments?: { get(input: any): Promise<any> } } } };
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -41,6 +43,12 @@ export interface RiskReplyDispatch {
   senderRateLimiter(): Promise<SenderRateLimiter>;
   trustedAuthservIds: string[];
   workspaceTenantDomains: string[];
+  /** ACC_EMAIL_TOKEN_OWNER_STRICT (padrão desligado). */
+  ownerStrict: boolean;
+  /** ACC_EMAIL_SPECIALIST_ENABLED (padrão desligado). */
+  specialistEnabled: boolean;
+  /** Grava a consulta ESPECIALISTA (nunca em dry-run: nesse caso ausente => revisão humana simulada). */
+  specialistRecorder: NonNullable<import("@/lib/risk-alerts/replies/process-alert-replies").ProcessRepliesOptions["specialistRecorder"]> | undefined;
   attachmentsFor(message: InboundMessageRow, caseId: string): Promise<StoredEvidenceAttachment[]>;
   onMessageProcessed(entry: { message: InboundMessageRow; caseId: string | null; status: string; statusReason: string | null }): Promise<void>;
 }
@@ -70,6 +78,16 @@ export function createRiskReplyDispatch(input: RiskReplyDispatchInput): RiskRepl
     tokenStore,
     trustedAuthservIds: resolveTrustedAuthservIds(env),
     workspaceTenantDomains: resolveWorkspaceTenantDomains(env),
+    ownerStrict: resolveTokenOwnerStrict(env),
+    specialistEnabled: isSpecialistEmailEnabled(env),
+    specialistRecorder:
+      input.dryRun || typeof supabase.rpc !== "function"
+        ? undefined
+        : (entry) =>
+            recordSpecialistConsultation(supabase as Parameters<typeof recordSpecialistConsultation>[0], {
+              actorUserId: entry.actorUserId, projectId, flow: "RISK", subjectKind: "RISK_CASE", subjectId: entry.caseId, providerMessageId: entry.providerMessageId,
+              record: entry.record, recipientEmail: entry.recipientEmail, inReplyTo: entry.inReplyTo, references: entry.references, originalSubject: entry.originalSubject,
+            }),
 
     async resolveItemToken(addresses) {
       const rows = await resolveRows(addresses);

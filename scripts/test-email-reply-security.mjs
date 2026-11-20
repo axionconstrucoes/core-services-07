@@ -179,8 +179,11 @@ await check("13. Destino por NOME ÚNICO (sem acento/maiúsculas); homônimos =>
 // ------------------------------------------------------------------ mailto
 await check("14. mailto: endereço +alerta-<token>, assunto com código visível, corpo curto SEM dados do alerta, RFC 6068, < 2000", () => {
   const token = tokens.generateEmailReplyToken();
-  const links = mailto.buildReplyMailtoLinks({ mailbox: "crm@axion.com.br", token, visibleCode: "ACC-ALERTA:ABCD1234", evidenceAttachment: "REQUIRED_FILE", forecastNeedsTime: true });
-  assert(links, "links");
+  const input = { mailbox: "crm@axion.com.br", token, visibleCode: "ACC-ALERTA:ABCD1234", evidenceAttachment: "REQUIRED_FILE", forecastNeedsTime: true };
+  // Lote 3: ESPECIALISTA só existe com ACC_EMAIL_SPECIALIST_ENABLED; sem a chave o padrão continua com os 3 atalhos de tratamento.
+  assert(Object.keys(mailto.buildReplyMailtoLinks({ ...input, specialist: false })).length === 3, "padrão: 3 atalhos");
+  const links = mailto.buildReplyMailtoLinks({ ...input, specialist: true });
+  assert(links && Object.keys(links).length === 4, "links");
   for (const action of mailto.REPLY_MAILTO_ORDER) {
     const url = links[action];
     assert(url.length < mailto.MAILTO_MAX_LENGTH, `${action}: ${url.length}`);
