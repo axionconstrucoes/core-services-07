@@ -276,7 +276,7 @@ await check("3.5 orçamento monetário DESLIGADO: padrão false na migration, ne
 await check("3.6 limites vigentes 20/usuário/dia e 100/obra/dia na migration (valores não alterados pelo Lote 4)", () => {
   const mig = src("supabase/migrations/20261120120000_ssma_forward_and_ai_consult_limits.sql");
   assert.match(mig, /values \('DEFAULT', 20, 100\)/);
-  const l4 = src("supabase/migrations/20261121170000_ai_consult_audit.sql");
+  const l4 = src("supabase/migrations/20261121174000_ai_consult_audit.sql");
   assert.ok(!/ai_consult_limits/.test(l4.replace(/--.*$/gm, "")), "Lote 4 não toca nos limites");
 });
 
@@ -343,7 +343,7 @@ await check("4.4 TODOS os caminhos que reservam o limite também montam a trilha
 });
 
 await check("4.5 migration de auditoria: RLS (autor ou ADMINISTRADOR), sem escrita direta, SECURITY DEFINER com search_path vazio, sem EXECUTE para anon", () => {
-  const sql = src("supabase/migrations/20261121170000_ai_consult_audit.sql");
+  const sql = src("supabase/migrations/20261121174000_ai_consult_audit.sql");
   assert.match(sql, /alter table public\.ai_consult_audit enable row level security/);
   assert.match(sql, /revoke insert, update, delete, truncate on public\.ai_consult_audit from authenticated/);
   assert.equal((sql.match(/security definer\s+set search_path = ''/g) ?? []).length, 3);

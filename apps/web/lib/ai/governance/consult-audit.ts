@@ -1,4 +1,4 @@
-// Trilha de auditoria de CADA consulta a um Expert de IA (Lote 4; migration 20261121170000_ai_consult_audit).
+// Trilha de auditoria de CADA consulta a um Expert de IA (Lote 4; migration 20261121174000_ai_consult_audit).
 //
 // Registra quem, em que obra, qual Expert, a pergunta, as fontes ENVIADAS ao provedor (identificadores — nunca o
 // texto dos documentos), o resultado resumido (severidade, confiança, revisão humana sempre exigida) e tokens/custo

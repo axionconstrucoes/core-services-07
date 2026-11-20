@@ -81,7 +81,7 @@ try {
     try { await su.query(readFileSync(path.join(dir, f), "utf8").replace(/^﻿/, "")); }
     catch (e) { console.log(`FAIL replay ${f}: ${e.message.split("\n")[0]}`); throw e; }
   }
-  console.log(`PostgreSQL ${version}: ${files.length} migrations aplicadas (inclui 20261121170000_ai_consult_audit) — base ${dbName}`);
+  console.log(`PostgreSQL ${version}: ${files.length} migrations aplicadas (inclui 20261121174000_ai_consult_audit) — base ${dbName}`);
 
   const uid = (n) => `00000000-0000-4000-8000-${String(1400 + n).padStart(12, "0")}`;
   const PA = "10000000-0000-4000-8000-0000000014a0";

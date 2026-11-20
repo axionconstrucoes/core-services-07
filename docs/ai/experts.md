@@ -733,7 +733,7 @@ Administrativo/Diretoria/Compras não pré-selecionam ninguém; sem tema e sem �
 - **Grounding no Diretor de ESG IA.** O rascunho de comunicação de um provedor real passava sem o guardrail de grounding
   (os outros quatro Experts de consulta já o aplicavam). `experts/esg-director/query.ts` agora aplica o mesmo guardrail
   (`validateDraftGrounding` / correção segura / supressão) e expõe `audit.grounding`, `audit.usage` e `audit.stopReason`.
-- **Trilha de auditoria de cada consulta** (migration `20261121170000_ai_consult_audit`, `lib/ai/governance/consult-audit.ts`):
+- **Trilha de auditoria de cada consulta** (migration `20261121174000_ai_consult_audit`, `lib/ai/governance/consult-audit.ts`):
   `ai_consult_usage` só dizia quem/obra/tipo/assunto/Expert/dia; faltavam pergunta, fontes, resultado e tokens.
   Nova tabela `ai_consult_audit` (somente acréscimo; sem INSERT/UPDATE/DELETE para `authenticated`; RLS: o autor vê a
   própria, ADMINISTRADOR da obra vê as da obra; `anon` sem acesso) gravada por `ai_consult_audit_record` (sessão) e
