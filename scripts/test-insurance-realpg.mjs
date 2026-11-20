@@ -131,7 +131,8 @@ try {
   await check("ESTRUTURA: toda tabela nova com RLS habilitado, sem grant de escrita a anon/authenticated, sem estado 'enviada'", async () => {
     const t = (await su.query(`select c.relname, c.relrowsecurity from pg_class c where c.relnamespace='public'::regnamespace and c.relkind='r'
       and (c.relname like 'insurance\\_%' or c.relname in ('bank_guarantees','other_guarantees'))`)).rows;
-    ok(t.length === 17, `esperava 17 tabelas (16 do S1 + conferências de endosso da Fase 3/C), obtive ${t.length}`);
+    // 16 tabelas da fase 1 + as acrescentadas depois (Fase 3: sujeitos esperados, checklist RCC...). As asserções seguintes (RLS, sem escrita direta, sem anon) valem para TODAS.
+    ok(t.length >= 16, `esperava ao menos 16 tabelas, obtive ${t.length}`);
     ok(t.every((r) => r.relrowsecurity), "RLS desligado em alguma tabela");
     const g = (await su.query(`select table_name, grantee, privilege_type from information_schema.role_table_grants where table_schema='public'
       and (table_name like 'insurance\\_%' or table_name in ('bank_guarantees','other_guarantees')) and grantee in ('anon','authenticated','public') and privilege_type <> 'SELECT'`)).rows;

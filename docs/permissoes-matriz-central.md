@@ -113,6 +113,23 @@ Cada conferência é uma linha append-only em `insurance_endorsement_reviews` (a
 (`ENDORSEMENT_REVIEW_APROVADO` / `ENDORSEMENT_REVIEW_RECUSADO`, mais `ENDORSEMENT_CONFERIDO` / `ENDORSEMENT_EM_REVISAO` quando o estado muda). `insurance_endorsement_advance(..., 'CONFERIDO')` continua
 aceito por compatibilidade, mas SEMPRE delega à conferência (nunca confere sozinho).
 
+### Persistência de pareceres, checklist RCC e sujeitos esperados (Fase 3 / E; migrations `20261123400000`–`402000`)
+
+Todas as tabelas são append-only (cada gravação é uma NOVA versão; UPDATE/DELETE/TRUNCATE bloqueados por trigger, inclusive para superusuário), com leitura
+por RLS pelos wrappers centrais e ZERO escrita direta. Provas: `scripts/test-f3e-persistencia.mjs` (puro) e `scripts/test-f3e-persistencia-realpg.mjs` (Postgres real).
+
+| Operação | RPC | Nível | LEITURA | COLABORADOR | GESTOR | GERENTE | ADMINISTRADOR |
+|---|---|---|---|---|---|---|---|
+| Gravar nova versão do parecer de cobertura de garantia (conclusão reverificada pelo banco) | `quality_warranty_opinion_save` | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ |
+| Listar versões do parecer | `quality_warranty_opinion_versions` / RLS | READ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Gravar nova versão do checklist RCC (toda resposta com fonte) | `insurance_rcc_checklist_save` | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ |
+| Ler checklist RCC | `insurance_rcc_checklist_get` / RLS | READ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Gravar sujeito esperado (segurado, beneficiário, final, tomador, titular), com fonte | `insurance_expected_subject_save` | MANAGE | ✘ | ✘ | ✔ | ✔ | ✔ |
+| Ler sujeitos esperados | `insurance_expected_subjects_get` / RLS | READ | ✔ | ✔ | ✔ | ✔ | ✔ |
+
+Decisão de nível: o parecer e o checklist são REGISTRO de análise (REGISTER, como as demais evidências); o sujeito esperado é o PARÂMETRO contra o qual a auditoria de
+sujeitos confere a apólice — alterá-lo poderia mascarar um segurado incorreto, por isso MANAGE. Inativo, convite pendente, ADMIN de outro projeto, authenticated sem sub e anon: sempre recusados.
+
 ## 4. Competência especializada (técnica / jurídica) — LACUNA declarada
 
 A matriz-alvo pede que decisões especializadas (p.ex. confirmar a causa técnica de uma RNC, decidir cobertura de garantia, conferir um

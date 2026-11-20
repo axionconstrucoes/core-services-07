@@ -44,6 +44,8 @@ export function parseMoney(raw: Raw, key: string, label: string, errors: string[
   let s = v.replace(/R\$|\s/g, "");
   // "1.234,56" (pt-BR) -> 1234.56 ; "1234,56" -> 1234.56 ; "1234.56" permanece
   if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  // "1.500" sem vírgula é mil e quinhentos em pt-BR (separador de milhar), nunca 1,5: mesma regra de parseDecimalPtBr (Seguros). Correção Fase 3/E.
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
   const value = /^-?\d+(\.\d+)?$/.test(s) ? Number(s) : Number.NaN;
   if (!Number.isFinite(value) || value < 0) {
     errors.push(`${label}: valor inválido (use número não negativo).`);

@@ -7,10 +7,12 @@ import { ClaimsPanel, DossierPanel } from "@/components/insurance/panel-claims";
 import { DraftsPanel } from "@/components/insurance/panel-drafts";
 import { OverviewPanel } from "@/components/insurance/panel-overview";
 import { PoliciesPanel } from "@/components/insurance/panel-policies";
-import { AuditPanel, ChannelsPanel, ReferencesPanel, SubjectsPanel } from "@/components/insurance/panel-support";
+import { AuditPanel, ChannelsPanel, ReferencesPanel } from "@/components/insurance/panel-support";
+import { PersistedSubjectsPanel } from "@/components/insurance/panel-subjects-persisted";
 import { Callout, WorkspaceProvider, type WorkspaceCtx } from "@/components/insurance/kit";
 import { SEGUROS_TABS, type SegurosTabId } from "@/lib/insurance-ui/tabs";
 import type { InsuranceCapabilities } from "@/lib/insurance-ui/permissions";
+import { EMPTY_PERSISTED, type PersistedSupport } from "@/lib/insurance-ui/persistence-data";
 import type { InsuranceWorkspaceLoad } from "@/lib/insurance-ui/types";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +22,7 @@ const SECTION_NAMES: Record<string, string> = {
   dossierItems: "dossiê", drafts: "minutas", audit: "auditoria", settings: "configuração de envio", dashboardItems: "painel", documents: "documentos",
 };
 
-export function SegurosWorkspace({ projectId, load, caps, today, nowIso, currentUserId = null }: { projectId: string; load: InsuranceWorkspaceLoad; caps: InsuranceCapabilities; today: string; nowIso: string; currentUserId?: string | null }) {
+export function SegurosWorkspace({ projectId, load, caps, today, nowIso, currentUserId = null, persisted = EMPTY_PERSISTED }: { projectId: string; load: InsuranceWorkspaceLoad; caps: InsuranceCapabilities; today: string; nowIso: string; currentUserId?: string | null; persisted?: PersistedSupport }) {
   const [tab, setTab] = useState<SegurosTabId>("painel");
   const [target, setTarget] = useState<WorkspaceCtx["target"]>({});
   const goTo = (t: string, tg: WorkspaceCtx["target"] = {}) => {
@@ -66,7 +68,7 @@ export function SegurosWorkspace({ projectId, load, caps, today, nowIso, current
         {tab === "dossies" ? <DossierPanel /> : null}
         {tab === "minutas" ? <DraftsPanel /> : null}
         {tab === "canais" ? <ChannelsPanel /> : null}
-        {tab === "sujeitos" ? <SubjectsPanel /> : null}
+        {tab === "sujeitos" ? <PersistedSubjectsPanel persisted={persisted} /> : null}
         {tab === "referencias" ? <ReferencesPanel /> : null}
         {tab === "auditoria" ? <AuditPanel /> : null}
       </div>

@@ -11,7 +11,9 @@ import { CAUSE_CATEGORY_LABELS, MAINTENANCE_STATUS_LABELS, ORIGIN_LABELS } from 
 import type { WarrantyDetail } from "@/lib/garantias/data";
 import { ActionForm } from "./action-form";
 import { CaseFields, type MemberOption } from "./case-fields";
+import { CoverageHistory } from "./coverage-history";
 import { CoveragePanel } from "./coverage-panel";
+import type { OpinionLoad } from "@/lib/garantias/opinion-data";
 import { CostsPanel, EvidencePanel, MaintenancePanel, RepairsPanel, SurveysPanel, VerificationPanel } from "./records-panels";
 import { TransitionPanel } from "./transition-panel";
 import { CriticalityBadge, Notice, SemDados, SourceLink, StateBadge, formatDay, formatMoney } from "./ui-bits";
@@ -47,6 +49,7 @@ export function CaseDetail({
   canRegister,
   canManage,
   today,
+  opinions,
 }: {
   projectId: string;
   detail: WarrantyDetail;
@@ -54,6 +57,8 @@ export function CaseDetail({
   canRegister: boolean;
   canManage: boolean;
   today: string;
+  /** versões gravadas do parecer de cobertura (servidor) */
+  opinions?: OpinionLoad;
 }) {
   const { warranty } = detail;
   const memberNames = Object.fromEntries(members.map((m) => [m.userId, m.name]));
@@ -246,7 +251,18 @@ export function CaseDetail({
             maintenanceFact={maintenanceFact}
             hints={hints}
           />
-          <p className="mt-3 text-xs text-muted-foreground">Esta consulta não é gravada: serve de apoio à decisão do responsável humano. Para limpar tudo use &quot;Limpar formulário&quot;.</p>
+          <p className="mt-3 text-xs text-muted-foreground">A consulta só é gravada quando você aciona &quot;Gravar parecer&quot; (nova versão; nada é sobrescrito) e serve de apoio à decisão do responsável humano. Para limpar o formulário use &quot;Limpar formulário&quot;.</p>
+          <CoverageHistory
+            projectId={projectId}
+            caseId={warranty.id}
+            form={coverage}
+            onLoad={setCoverage}
+            versions={opinions?.versions ?? []}
+            available={opinions?.available ?? true}
+            loadError={opinions?.error ?? null}
+            canRegister={canRegister}
+            memberNames={memberNames}
+          />
         </TabsContent>
       </Tabs>
       <Link href={`/${projectId}/garantias`} className="inline-flex min-h-11 items-center text-sm font-medium text-primary underline underline-offset-2 hover:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">

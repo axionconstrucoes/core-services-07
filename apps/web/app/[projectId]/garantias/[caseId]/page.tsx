@@ -7,6 +7,7 @@ import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { getProject, getProjectMembers } from "@/lib/data";
 import { isUuid } from "@/lib/garantias/action-logic";
 import { getWarrantyDetail } from "@/lib/garantias/data";
+import { listWarrantyOpinions } from "@/lib/garantias/opinion-data";
 import { roleSatisfies } from "@/lib/quality/state-machine";
 
 export const metadata: Metadata = { title: "Caso de garantia" };
@@ -19,7 +20,7 @@ export default async function GarantiaCasePage({ params }: { params: Promise<{ p
   // Caso de OUTRO projeto (ou inexistente) => 404: a consulta filtra por project_id e a RLS não devolve a linha.
   const detail = await getWarrantyDetail(projectId, caseId);
   if (!detail) notFound();
-  const [role, members] = await Promise.all([getCurrentProjectPermission(projectId), getProjectMembers(projectId)]);
+  const [role, members, opinions] = await Promise.all([getCurrentProjectPermission(projectId), getProjectMembers(projectId), listWarrantyOpinions(caseId)]);
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -37,6 +38,7 @@ export default async function GarantiaCasePage({ params }: { params: Promise<{ p
         canRegister={roleSatisfies(role, "REGISTER")}
         canManage={roleSatisfies(role, "MANAGE")}
         today={today}
+        opinions={opinions}
       />
     </div>
   );

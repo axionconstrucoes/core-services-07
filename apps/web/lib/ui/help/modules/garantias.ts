@@ -3,6 +3,7 @@
 // Conteúdo lido do código: migrations 20261122100000/101000 (tabelas quality_warranty_*, RPCs quality_warranty_*),
 // lib/garantias/*, lib/quality/state-machine.ts e lib/ai/legal/warranty-coverage.ts.
 import type { FeatureHelpDefinition, HelpElementKind } from "../types";
+import { GARANTIAS_PARECERES_HELP } from "./garantias-pareceres";
 
 const V = "2026-11-20";
 const REG = "Registrar/editar: Administrador, Gerente, Gestor e Colaborador. Perfil Leitura apenas consulta. A autoridade é o banco (RLS por projeto, regra única acc_project_tier); a tela só reflete.";
@@ -36,7 +37,7 @@ const tab = (id: string, title: string, short: string, description: string, extr
 const COBERTURA_LIMITS = [
   "Não é parecer jurídico: apoio estruturado à decisão do responsável humano.",
   "Os 16 itens são uma proposta de trabalho a conciliar com o texto do Bloco 5.3 (ver comentário em lib/ai/legal/insurance-warranty.ts).",
-  "A consulta não é gravada e não envia nada a ninguém.",
+  "A consulta só é gravada quando alguém aciona \"Gravar parecer\" (nova versão, append-only); nada é enviado a ninguém.",
 ];
 
 const cobItem = (key: string, title: string, description: string, owner: string): FeatureHelpDefinition =>
@@ -243,4 +244,5 @@ export const GARANTIAS_HELP: FeatureHelpDefinition[] = [
   kpi("garantias.detalhe.kpi-custo-reparos", "Custo informado nos reparos", "Soma do custo realizado dos reparos que o informaram.", "Soma de actual_cost dos reparos do caso que têm valor informado. Reparo sem valor não entra (e não é tratado como zero).", "soma de quality_warranty_repairs.actual_cost onde informado", "quality_warranty_repairs.actual_cost", "R$", "Nenhum reparo com valor: SEM DADOS."),
   h("garantias.detalhe.consequencias-lista", "table", "Consequências por pilar", "Impactos registrados em prazo, custo, segurança e qualidade.", "Lista as consequências do caso por pilar, com severidade, probabilidade (só com fundamento), fonte e status. A criticidade do caso é a pior severidade entre elas.", { source: "quality_consequences (warranty_case_id)", missingData: "Sem consequências: SEM DADOS (criticidade SEM DADOS, nunca baixa por omissão)." }),
   h("garantias.detalhe.custos-nao-qualidade", "table", "Custos de não qualidade vinculados", "Custos vinculados ao caso, sempre com fonte.", "Lista custos de quality_nonquality_costs ligados ao caso (retrabalho, material, mão de obra, multa, garantia, perda de prazo). Valor só existe com fonte; sem valor é SEM DADOS.", { source: "quality_nonquality_costs (warranty_case_id)", unit: "R$" }),
+  ...GARANTIAS_PARECERES_HELP,
 ];
