@@ -147,6 +147,7 @@ export function RegisterQualityIndication(props: Props) {
       ) : null}
 
       {phase.kind === "form" ? (
+        // help-exempt: formulário do registro de indício; cada campo e o botão de envio têm helpId próprio (fontes.indicio.*)
         <form
           className="space-y-3 rounded-md border border-border bg-card p-3 text-card-foreground"
           onSubmit={(event) => {

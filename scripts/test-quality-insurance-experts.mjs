@@ -120,7 +120,7 @@ await check("DEFINIÇÃO: quality-analyst é Expert oficial com missão, fontes,
   assert.equal(QUALITY_ANALYST_NAME, "Analista IA de Qualidade");
   // Fontes futuras declaradas como tal — nunca finge integração existente.
   const quality = d.authorizedSources.find((s) => s.sourceId === "quality_records");
-  assert.equal(quality.status, "FUTURE_SOURCE");
+  assert.equal(quality.status, "AVAILABLE");
   assert.ok(QUALITY_ANALYST_INSTRUCTIONS.includes(SPECIALIST_FRAMEWORK_INSTRUCTIONS.trim().slice(0, 80)), "Framework Comum incluído");
   assert.ok(QUALITY_ANALYST_INSTRUCTIONS.includes("quality-analyst") && QUALITY_ANALYST_INSTRUCTIONS.includes("Analista IA de Qualidade"));
 });
@@ -303,7 +303,7 @@ await check("JURÍDICO: competência SEGUROS, GARANTIAS, ENDOSSOS E SINISTROS no
   const d = defs.OFFICIAL_EXPERT_DEFINITIONS["legal-consultant"];
   assert.ok(d.capabilities.some((c) => /Seguros, garantias, endossos e sinistros/.test(c)));
   assert.ok(d.limitations.some((l) => /nunca reconhece cobertura em nome da seguradora/.test(l)));
-  assert.ok(d.authorizedSources.some((s) => s.sourceId === "insurance_guarantees" && s.status === "FUTURE_SOURCE"));
+  assert.ok(d.authorizedSources.some((s) => s.sourceId === "insurance_guarantees" && s.status === "AVAILABLE"));
   assert.ok(d.escalationRules.some((r) => /cobertura|sinistro/i.test(r.situation)));
 });
 

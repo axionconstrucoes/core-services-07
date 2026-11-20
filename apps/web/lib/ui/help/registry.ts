@@ -11,6 +11,7 @@ import { EXPERTS_HELP } from "./modules/experts";
 import { INTEGRACOES_HELP } from "./modules/integracoes";
 import { JURIDICO_HELP } from "./modules/juridico";
 import { PLANEJAMENTO_HELP } from "./modules/planejamento";
+import { FONTES_HELP } from "./modules/fontes";
 import { GARANTIAS_HELP } from "./modules/garantias";
 import { PILARES_HELP } from "./modules/pilares";
 import { QUALIDADE_HELP } from "./modules/qualidade";
@@ -35,6 +36,7 @@ export const ALL_HELP_ENTRIES: FeatureHelpDefinition[] = [
   ...EXPERTS_HELP,
   ...ADMIN_HELP,
   ...QUALIDADE_HELP,
+  ...FONTES_HELP,
   ...GARANTIAS_HELP,
   ...SEGUROS_HELP,
   ...PILARES_HELP,

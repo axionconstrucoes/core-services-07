@@ -107,6 +107,26 @@ check("o nome oficial e o id técnico de cada especialista do código constam do
   ok(bad.length === 0, bad.join(" | "));
 });
 
+check("fontes AVAILABLE no código (Qualidade/Jurídico) estão descritas como disponíveis na ajuda; fontes futuras não aparecem como disponíveis", () => {
+  const bad = [];
+  const FONTES = { "quality-analyst": ["quality_ncrs", "quality_evidence", "quality_warranty_cases"], "legal-consultant": ["insurance_policies", "insurance_endorsements", "insurance_claims", "bank_guarantees"] };
+  for (const [id, tables] of Object.entries(FONTES)) {
+    const def = OFFICIAL_EXPERT_DEFINITIONS[id];
+    const p = profile(id);
+    const disponivel = (p.data ?? []).filter((l) => /^Dispon[ií]vel/.test(l)).join(" ");
+    const naoDisponivel = (p.data ?? []).filter((l) => /^N[ãa]o dispon[ií]vel/.test(l)).join(" ");
+    for (const t of tables) {
+      if (!disponivel.includes(t)) bad.push(`${id}: ${t} deveria constar em "Disponível" na ajuda`);
+      if (naoDisponivel.includes(t)) bad.push(`${id}: ${t} consta como não disponível`);
+    }
+    for (const sid of ["quality_records", "warranty_assistance", "insurance_guarantees"]) {
+      const s = def.authorizedSources.find((x) => x.sourceId === sid);
+      if (s && s.status !== "AVAILABLE") bad.push(`${id}: ${sid} voltou a ${s.status} no código sem atualizar a ajuda`);
+    }
+  }
+  ok(bad.length === 0, bad.join(" | "));
+});
+
 check("sensibilidade do teste: uma alteração simulada de outputTypes/versão seria detectada (mutação em memória, nada é gravado)", () => {
   const id = IDS.find((x) => !OFFICIAL_EXPERT_DEFINITIONS[x].outputTypes.includes("DRAFT_LETTER"));
   ok(id, "nenhum especialista sem DRAFT_LETTER para simular");
