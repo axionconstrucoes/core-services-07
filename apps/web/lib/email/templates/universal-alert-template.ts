@@ -27,6 +27,7 @@ import {
   type AlertLogoAvailability,
 } from "@/lib/email/templates/alert-box-style";
 import { alertRiskLevelLabels, buildContractAlertSubject } from "@/lib/email/templates/contract-alert-template";
+import { REPLY_MAILTO_LABELS, REPLY_MAILTO_ORDER, isSafeReplyMailto, type ReplyMailtoLinks } from "@/lib/email-replies/reply-mailto";
 import {
   buildUniversalActionButtonsHtml,
   buildUniversalActionButtonsText,
@@ -78,6 +79,38 @@ export interface UniversalOccurrence {
   replyInstruction?: string | null;
   /** Links secundários textuais (ex.: ações legadas por token), SEM virar botões — o layout tem só os quatro. */
   extraLinks?: Array<{ label: string; url: string }>;
+  /**
+   * Atalhos "RESPONDER POR E-MAIL" (mailto com token POR ITEM). SÓ para tipos com processamento efetivo por e-mail (risco e
+   * ação corretiva SSMA); qualquer outro alerta deixa vazio — nenhum e-mail aparenta ação operacional inexistente.
+   */
+  replyByEmail?: ReplyMailtoLinks | null;
+}
+
+export const REPLY_BY_EMAIL_HEADING = "Responder por e-mail";
+export const REPLY_BY_EMAIL_NOTE =
+  "Cada atalho abre uma NOVA mensagem já endereçada ao ACC. Complete o texto e envie: o comando é registrado só depois de validar o remetente (e-mail corporativo autenticado) e você recebe a confirmação ou o que faltar.";
+
+/** Os três atalhos mailto (todos válidos) ou null. */
+export function safeReplyByEmail(links: ReplyMailtoLinks | null | undefined): ReplyMailtoLinks | null {
+  if (!links) return null;
+  return REPLY_MAILTO_ORDER.every((action) => isSafeReplyMailto(links[action])) ? links : null;
+}
+
+function replyByEmailHtml(o: UniversalOccurrence): string {
+  const links = safeReplyByEmail(o.replyByEmail);
+  if (!links) return "";
+  const anchors = REPLY_MAILTO_ORDER.map(
+    (action) =>
+      `<a href="${escapeAttr(links[action])}" style="display:inline-block;margin:0 8px 8px 0;padding:8px 12px;border:1px solid #6B7280;border-radius:6px;background-color:#FFFFFF;color:#111827;font-family:${ACC_FONT_FAMILY};font-size:15px;line-height:20px;font-weight:700;text-decoration:none;">${escapeAttr(REPLY_MAILTO_LABELS[action])}</a>`
+  ).join("");
+  return `<div class="acc-reply-by-email" style="margin:16px 0 0 0;background-color:#FFFFFF;border:1px solid #D1D5DB;border-radius:6px;padding:14px 16px;"><p style="margin:0 0 8px 0;font-family:${ACC_FONT_FAMILY};font-size:16px;line-height:24px;font-weight:700;color:#111827;">${escapeAttr(REPLY_BY_EMAIL_HEADING)}</p><p style="margin:0 0 10px 0;">${anchors}</p><p style="margin:0;font-family:${ACC_FONT_FAMILY};font-size:14px;line-height:20px;color:#374151;">${escapeAttr(REPLY_BY_EMAIL_NOTE)}</p></div>`;
+}
+
+/** Linhas de texto simples dos atalhos (mesmos links do HTML). */
+export function replyByEmailTextLines(links: ReplyMailtoLinks | null | undefined): string[] {
+  const safe = safeReplyByEmail(links);
+  if (!safe) return [];
+  return [`${REPLY_BY_EMAIL_HEADING.toUpperCase()} (nova mensagem já endereçada ao ACC):`, ...REPLY_MAILTO_ORDER.map((action) => `${REPLY_MAILTO_LABELS[action]}: ${safe[action]}`), REPLY_BY_EMAIL_NOTE];
 }
 
 /**
@@ -128,6 +161,7 @@ function contentHtml(o: UniversalOccurrence): string {
     o.replyInstruction
       ? `<div style="margin:20px 0 0 0;background-color:#FFFFFF;border:1px solid #D1D5DB;border-left:4px solid #7F1D1D;border-radius:6px;padding:16px 18px;"><p style="margin:0 0 8px 0;font-family:${ACC_FONT_FAMILY};font-size:16px;line-height:24px;font-weight:700;color:#111827;">Responder pelo e-mail</p><p style="margin:0;font-family:${ACC_FONT_FAMILY};font-size:16px;line-height:26px;color:#111827;">${escapeAttr(o.replyInstruction)}</p></div>`
       : "",
+    replyByEmailHtml(o),
     (o.extraLinks ?? []).filter((l) => isSafeActionUrl(l.url)).length > 0
       ? `<p style="margin:16px 0 0 0;${textStyle("regular", tone.text)}">Outras ações: ${(o.extraLinks ?? []).filter((l) => isSafeActionUrl(l.url)).map((l) => `<a href="${escapeAttr(l.url)}" style="${textStyle("regular", tone.link, "text-decoration:underline;")}">${escapeAttr(l.label)}</a>`).join(" · ")}</p>`
       : "",
@@ -164,6 +198,7 @@ export function buildUniversalOccurrenceText(o: UniversalOccurrence): string[] {
     ...(o.details ?? []).filter((d) => d.value).map((d) => `${d.label}: ${d.value}`),
     ...(o.notices ?? []),
     ...(o.replyInstruction ? [`RESPONDER PELO E-MAIL: ${o.replyInstruction}`] : []),
+    ...replyByEmailTextLines(o.replyByEmail),
     ...(o.extraLinks ?? []).filter((l) => isSafeActionUrl(l.url)).map((l) => `${l.label}: ${l.url}`),
     ...(o.evidences && o.evidences.length > 0 ? [`Evidências: ${o.evidences.map((e) => (isSafeActionUrl(e.url) ? `${e.label} (${e.url})` : e.label)).join("; ")}`] : []),
     ...(isSafeActionUrl(o.openUrl) ? [`Abrir no ACC: ${o.openUrl}`] : []),

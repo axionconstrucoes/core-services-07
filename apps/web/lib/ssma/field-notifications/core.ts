@@ -99,7 +99,7 @@ export interface MailContent {
   /** Mensagem operacional (sem faixa de teste do piloto). */
   operational?: boolean;
   /** Resposta no corpo do e-mail: token opaco do Reply-To (só o hash é persistido) e a ação a que se refere. */
-  reply?: { token: string; actionId: string; recordId: string };
+  reply?: { token: string; actionId: string; recordId: string; recipientUserId?: string | null };
   /** Continuidade de thread (confirmação de resposta). */
   thread?: { inReplyTo: string | null; references: string[] };
   /** Rótulo curto do destinatário lógico no piloto (sem endereço). */

@@ -27,6 +27,8 @@ export interface SsmaFollowUpContext {
   completeDue: string | null;
   /** Linha da previsão: vigente, PENDENTE (com motivo) ou ausência de resposta. */
   forecastLine: string;
+  /** Atalhos "Responder por e-mail" — só em mensagens ao RESPONSÁVEL (previsão vencida); escalonamento à Matriz não leva. */
+  replyByEmail?: import("@/lib/email-replies/reply-mailto").ReplyMailtoLinks | null;
 }
 
 export interface SsmaEscalationEmailContext extends SsmaFollowUpContext {

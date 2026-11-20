@@ -117,7 +117,8 @@ await check("Reply-To: contexto SSMA válido aceito; ids inválidos removem o ca
   assert.equal(bad.replyTo, undefined);
 });
 
-const headers = (over = {}) => ({ from: "carlos.evandro@axion.com.br", to: [`crm+alerta-${TOKEN}@axion.com.br`], messageId: "<m1@mail>", inReplyTo: "<o@acc>", references: ["<o@acc>"], subject: "Re: aviso", ...over });
+// P2: autenticação do remetente obrigatória (DMARC/DKIM alinhado, servidor confiável) — fixtures com Authentication-Results do Gmail.
+const headers = (over = {}) => ({ authenticationResults: "mx.google.com; dkim=pass header.i=@axion.com.br header.s=google; spf=pass smtp.mailfrom=axion.com.br; dmarc=pass (p=QUARANTINE) header.from=axion.com.br", from: "carlos.evandro@axion.com.br", to: [`crm+alerta-${TOKEN}@axion.com.br`], messageId: "<m1@mail>", inReplyTo: "<o@acc>", references: ["<o@acc>"], subject: "Re: aviso", ...over });
 const target = (over = {}) => ({ actionId: ACTION, recordId: RECORD, projectId: WEG_PROJECT_ID, actionStatus: "ABERTA", responsibleUserId: CARLOS, severity: "ALTA", lastProcessedReceivedAt: null, ...over });
 const decide = (body, over = {}) =>
   decideSsmaReply({
