@@ -20,6 +20,7 @@
 
 import { forwardTargetMessage, resolveForwardTarget, type TargetCandidate, type TargetResolution } from "@/lib/email-replies/member-target";
 import { senderAuthenticationMessage, verifySenderAuthentication, type SenderAuthenticationFailure } from "@/lib/email-replies/sender-authentication";
+import { parseSpecialistCommand, routeSpecialistByEmail, specialistRequiresHumanReview, SPECIALIST_TEXT, type SpecialistRecord, type SpecialistSeverity } from "@/lib/email-replies/specialist-email";
 import { applyForecastPrecision, describeForecastProblem, extractForecastFromText, type ForecastParse } from "@/lib/risk-alerts/forecast";
 import { parseOperationalEmailCommand } from "@/lib/risk-alerts/replies/operational-email-command";
 import { filterInboundMessage, parseReplyBody, type InboundFilterVerdict, type InboundHeaders } from "@/lib/risk-alerts/replies/reply-pipeline";
@@ -37,6 +38,7 @@ export const SSMA_DEFAULT_CORPORATE_DOMAIN = "axion.com.br";
 
 export type SsmaReplyStatus = "IN_PROGRESS" | "CONCLUSION_REPORTED" | "OTHER";
 export type SsmaSeverityLevel = "CRITICA" | "ALTA" | "MEDIA" | "BAIXA";
+const SSMA_TO_SPECIALIST_SEVERITY: Record<SsmaSeverityLevel, SpecialistSeverity> = { CRITICA: "CRITICAL", ALTA: "HIGH", MEDIA: "MEDIUM", BAIXA: "LOW" };
 export type SsmaReplyCommand = "RESOLVE" | "IN_PROGRESS" | "FORWARD" | "NONE";
 
 const IN_PROGRESS = /\b(em\s+andamento|tomando\s+(as\s+)?provid[êe]ncias?|providenciando|em\s+execu[çc][ãa]o|em\s+tratamento|j[áa]\s+estamos|estamos\s+(tratando|resolvendo|executando|providenciando)|iniciad[oa]s?|iniciamos)\b/i;
@@ -93,6 +95,8 @@ export interface SsmaReplyMember {
 export type SsmaUnauthorizedReason = "SENDER_NOT_CORPORATE" | "SENDER_NOT_MEMBER" | "SENDER_NOT_RESPONSIBLE" | SenderAuthenticationFailure;
 
 export type SsmaReplyDecision =
+  // ESPECIALISTA por e-mail: consulta escrita ao Expert ESG/SSMA. NÃO altera a ação corretiva e NÃO consome o token.
+  | { kind: "SPECIALIST"; actorUserId: string; isAdmin: boolean; record: SpecialistRecord; statusLabel: string }
   | { kind: "IGNORE"; reason: InboundFilterVerdict | "ALREADY_PROCESSED" | "ACTION_CLOSED" }
   | {
       kind: "UNAUTHORIZED";
@@ -147,6 +151,8 @@ export function decideSsmaReply(input: {
   corporateDomain?: string;
   trustedAuthservIds?: readonly string[];
   workspaceTenantDomains?: readonly string[];
+  /** ACC_EMAIL_SPECIALIST_ENABLED. Ausente/false => "ESPECIALISTA:" é recusado com explicação (nada gravado). */
+  specialistEnabled?: boolean;
 }): SsmaReplyDecision {
   const { message, target } = input;
   if (input.processedMessageIds.has(message.providerMessageId)) return { kind: "IGNORE", reason: "ALREADY_PROCESSED" };
@@ -169,6 +175,20 @@ export function decideSsmaReply(input: {
   const cleanText = parseReplyBody(message.bodyOriginal).clean.slice(0, 4000);
   const parsedCommand = parseOperationalEmailCommand(cleanText);
   const reject = (code: string, text: string, command: SsmaReplyCommand): SsmaReplyDecision => ({ kind: "REJECT", actorUserId: member.userId, code, message: text, command });
+  const specialist = parseSpecialistCommand(cleanText);
+  if (specialist.reason === "MIXED") return reject("COMMAND_AMBIGUOUS", SPECIALIST_TEXT.MIXED, "NONE");
+  if (specialist.reason === "QUESTION_TOO_SHORT") return reject("SPECIALIST_QUESTION_REQUIRED", SPECIALIST_TEXT.QUESTION_TOO_SHORT, "NONE");
+  if (specialist.question) {
+    if (!input.specialistEnabled) return reject("SPECIALIST_DISABLED", SPECIALIST_TEXT.DISABLED, "NONE");
+    const routing = routeSpecialistByEmail({ area: "ESG_SSMA", question: specialist.question });
+    if (!routing.ok) return reject(routing.code, SPECIALIST_TEXT.SPECIALIST_AREA_UNKNOWN, "NONE");
+    const severity = SSMA_TO_SPECIALIST_SEVERITY[target.severity];
+    return {
+      kind: "SPECIALIST", actorUserId: member.userId, isAdmin,
+      record: { expertId: routing.expertId, routingSource: routing.source, question: specialist.question, area: "ESG_SSMA", severity, requiresHumanReview: specialistRequiresHumanReview(severity) },
+      statusLabel: "Pergunta ao especialista registrada (a ação corretiva não foi alterada)",
+    };
+  }
   if (!parsedCommand.command && parsedCommand.reason) {
     return reject("COMMAND_AMBIGUOUS", `Não foi possível identificar um único comando (${parsedCommand.reason}). Responda com apenas um: RESOLVIDO, EM ANDAMENTO (com "Previsão:") ou ENVIAR PARA.`, "NONE");
   }

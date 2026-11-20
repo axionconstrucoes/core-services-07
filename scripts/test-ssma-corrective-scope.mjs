@@ -207,8 +207,8 @@ await check("confirmação: Re: na mesma thread, previsão com fuso, sem faixa d
   assert.match(c.html, /RISCO ALTO \| WEG/);
   assert.match(c.html, /acc-actions-col/);
   assert.match(c.html, /RESOLVIDO.*EM ANDAMENTO.*ENVIAR PARA.*ESPECIALISTA/s);
-  // RESOLVIDO e EM ANDAMENTO abrem o registro; ENVIAR PARA e ESPECIALISTA não têm fluxo de SSMA (desativados, com motivo).
-  assert.equal((c.html.match(/aria-disabled="true"/g) ?? []).length, 2, "só ENVIAR PARA e ESPECIALISTA desativados");
+  // Lote 3: os QUATRO botões abrem o registro SSMA (ENVIAR PARA e ESPECIALISTA abrem o formulário correspondente; desligador: ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=false).
+  assert.equal((c.html.match(/aria-disabled="true"/g) ?? []).length, 0, "os quatro botões ativos (padrão do Lote 3)");
   assert.ok(c.html.includes("registro=11111111-2222-4333-8444-555555555555&amp;acao=CONCLUIDA"), "RESOLVIDO abre o registro");
   assert.deepEqual(c.logoNeeds, { maroon: true, inverted: false });
   assert.doesNotMatch(c.text, /TESTE|PILOTO/);

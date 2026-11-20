@@ -103,11 +103,13 @@ interface SsmaAlertDetails {
 
 /**
  * ENVIAR PARA e ESPECIALISTA: os fluxos existem no registro do app SSMA (encaminhar — ssma_corrective_action_forward — e
- * consulta ao especialista com limite diário). O ATALHO por e-mail fica desativado até a validação funcional; liga-se
- * com ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=true (servidor). Desativado, o botão continua no layout com o motivo.
+ * consulta ao especialista com limite diário; ambos cobertos por test-ssma-forward-and-consult-limits-sql). O botão é só um LINK
+ * autenticado que abre o formulário (GET não altera estado). Lote 3: passou a ser o PADRÃO (os quatro botões ativos em todo aviso
+ * SSMA com registro identificado); a chave ficou como DESLIGADOR: ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=false (valor exato) volta ao
+ * comportamento anterior (botão no layout, desativado com o motivo).
  */
 export function ssmaEmailExtraActionsEnabled(): boolean {
-  return process.env.ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED === "true";
+  return process.env.ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED !== "false";
 }
 export const SSMA_FORWARD_UNAVAILABLE = "Atalho em validação: encaminhe pelo registro (ABRIR NO ACC → Encaminhar) ou responda a este e-mail indicando o novo responsável.";
 export const SSMA_SPECIALIST_UNAVAILABLE = "Atalho em validação: consulte o especialista pelo registro (ABRIR NO ACC → Consultar IA).";

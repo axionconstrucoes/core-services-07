@@ -19,6 +19,7 @@ import { forwardTargetMessage, resolveForwardTarget, type TargetCandidate } from
 import { senderAuthenticationMessage, verifySenderAuthentication, type SenderAuthenticationFailure } from "@/lib/email-replies/sender-authentication";
 import type { EmailReplySubjectKind } from "@/lib/email-replies/reply-tokens";
 import { applyForecastPrecision, describeForecastProblem, extractForecastFromText, type ForecastParse } from "@/lib/risk-alerts/forecast";
+import { parseSpecialistCommand, routeSpecialistByEmail, specialistRequiresHumanReview, SPECIALIST_TEXT, type SpecialistRecord } from "@/lib/email-replies/specialist-email";
 import { parseOperationalEmailCommand } from "@/lib/risk-alerts/replies/operational-email-command";
 import { filterInboundMessage, parseReplyBody, type InboundFilterVerdict, type InboundHeaders } from "@/lib/risk-alerts/replies/reply-pipeline";
 
@@ -53,6 +54,8 @@ export interface TokenReplyTarget {
   currentResponsibleUserId: string | null;
   /** RESOLVIDO exige anexo de evidência (ação SLA ALTO/CRÍTICO). */
   evidenceRequired: boolean;
+  /** Área do item (roteia o ESPECIALISTA). Ausente (alerta de contrato) => roteamento pelo tema da pergunta. */
+  area?: string | null;
 }
 
 export interface TokenReplyMember {
@@ -63,12 +66,14 @@ export interface TokenReplyMember {
   permission: string;
 }
 
-export type TokenReplyUnauthorizedReason = "SENDER_NOT_CORPORATE" | "SENDER_NOT_MEMBER" | "SENDER_READ_ONLY" | "SENDER_NOT_ALLOWED" | SenderAuthenticationFailure;
+export type TokenReplyUnauthorizedReason = "SENDER_NOT_CORPORATE" | "SENDER_NOT_MEMBER" | "SENDER_READ_ONLY" | "SENDER_NOT_ALLOWED" | "TOKEN_NOT_OWNER" | SenderAuthenticationFailure;
 
 export type TokenReplyDecision =
   | { kind: "IGNORE"; reason: InboundFilterVerdict | "ALREADY_PROCESSED" }
   | { kind: "UNAUTHORIZED"; reason: TokenReplyUnauthorizedReason; explainTo: string | null; explanation: string | null }
-  | { kind: "REJECT"; actorUserId: string; code: string; message: string; command: TokenReplyCommand | "NONE" }
+  | { kind: "REJECT"; actorUserId: string; code: string; message: string; command: TokenReplyCommand | "NONE" | "SPECIALIST" }
+  // ESPECIALISTA: consulta escrita ao Expert da área. NÃO altera o item e NÃO consome o token.
+  | { kind: "SPECIALIST"; actorUserId: string; isAdmin: boolean; record: SpecialistRecord; statusLabel: string }
   | {
       kind: "PROCESS";
       actorUserId: string;
@@ -100,6 +105,8 @@ export function tokenReplyForecastTracked(severity: TokenReplySeverity): boolean
   return severity === "CRITICAL" || severity === "HIGH";
 }
 
+const TOKEN_NOT_OWNER_TEXT = "Este atalho foi emitido para outra pessoa. Use o e-mail que você recebeu do ACC (ou peça ao Administrador da obra). Nada foi alterado.";
+
 const IN_PROGRESS_START = /^\s*em\s+andamento\b/i;
 
 export function decideTokenReply(input: {
@@ -111,6 +118,12 @@ export function decideTokenReply(input: {
   corporateDomain?: string;
   trustedAuthservIds?: readonly string[];
   workspaceTenantDomains?: readonly string[];
+  /** Dono do token (destinatário original do e-mail). Usado só com ownerStrict. */
+  tokenRecipientUserId?: string | null;
+  /** ACC_EMAIL_TOKEN_OWNER_STRICT: só o dono do token, o responsável atual do item ou um Administrador respondem. Padrão: desligado. */
+  ownerStrict?: boolean;
+  /** ACC_EMAIL_SPECIALIST_ENABLED. Ausente/false => "ESPECIALISTA:" é recusado com explicação (nada gravado). */
+  specialistEnabled?: boolean;
 }): TokenReplyDecision {
   const { message, target } = input;
   if (input.processedMessageIds.has(message.providerMessageId)) return { kind: "IGNORE", reason: "ALREADY_PROCESSED" };
@@ -129,16 +142,34 @@ export function decideTokenReply(input: {
     return { kind: "UNAUTHORIZED", reason: "SENDER_READ_ONLY", explainTo: member.userId, explanation: "Seu perfil nesta obra é somente leitura: comandos por e-mail não são aceitos. Nada foi alterado." };
   }
   const isAdmin = permission === "ADMINISTRADOR" || permission === "ADMIN";
+  if (input.ownerStrict && input.tokenRecipientUserId && !isAdmin && member.userId !== input.tokenRecipientUserId && member.userId !== target.currentResponsibleUserId) {
+    return { kind: "UNAUTHORIZED", reason: "TOKEN_NOT_OWNER", explainTo: member.userId, explanation: TOKEN_NOT_OWNER_TEXT };
+  }
   if (!isAdmin && !target.actorUserIds.includes(member.userId)) {
     return { kind: "UNAUTHORIZED", reason: "SENDER_NOT_ALLOWED", explainTo: member.userId, explanation: NOT_ALLOWED_TEXT[target.kind] };
   }
 
-  const reject = (code: string, text: string, command: TokenReplyCommand | "NONE"): TokenReplyDecision => ({ kind: "REJECT", actorUserId: member.userId, code, message: text, command });
+  const reject = (code: string, text: string, command: TokenReplyCommand | "NONE" | "SPECIALIST"): TokenReplyDecision => ({ kind: "REJECT", actorUserId: member.userId, code, message: text, command });
   if (target.closed) {
     return reject("ITEM_CLOSED", target.closedReason ?? `Este ${TOKEN_REPLY_KIND_LABEL[target.kind]} já foi encerrado ou respondido: nada foi alterado.`, "NONE");
   }
 
   const cleanText = parseReplyBody(message.bodyOriginal).clean.slice(0, 4000);
+  const specialist = parseSpecialistCommand(cleanText);
+  if (specialist.reason === "MIXED") return reject("COMMAND_AMBIGUOUS", SPECIALIST_TEXT.MIXED, "SPECIALIST");
+  if (specialist.reason === "QUESTION_TOO_SHORT") return reject("SPECIALIST_QUESTION_REQUIRED", SPECIALIST_TEXT.QUESTION_TOO_SHORT, "SPECIALIST");
+  if (specialist.question) {
+    if (!input.specialistEnabled) return reject("SPECIALIST_DISABLED", SPECIALIST_TEXT.DISABLED, "SPECIALIST");
+    const routing = routeSpecialistByEmail({ area: target.area ?? null, question: specialist.question });
+    if (!routing.ok) return reject(routing.code, SPECIALIST_TEXT.SPECIALIST_AREA_UNKNOWN, "SPECIALIST");
+    return {
+      kind: "SPECIALIST",
+      actorUserId: member.userId,
+      isAdmin,
+      record: { expertId: routing.expertId, routingSource: routing.source, question: specialist.question, area: target.area ?? null, severity: target.severity, requiresHumanReview: specialistRequiresHumanReview(target.severity) },
+      statusLabel: "Pergunta ao especialista registrada (o item não foi alterado)",
+    };
+  }
   const parsed = parseOperationalEmailCommand(cleanText);
   const tracked = tokenReplyForecastTracked(target.severity);
   const forecastFormat = `"Previsão: dd/mm/aaaa${tracked ? " hh:mm" : ""}"`;

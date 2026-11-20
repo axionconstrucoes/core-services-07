@@ -200,10 +200,21 @@ export interface AlertActionButtonStyle {
  * <table width=W><td width=W height=H bgcolor> + <a display:block width:W height:H line-height:H>
  * — sem padding horizontal, sem min-width e sem largura 100%: nada herdado consegue alargá-lo.
  */
+/**
+ * Botão "à prova de Outlook" (Lote 3): no Outlook desktop (motor Word) o <a display:block> não ocupa a célula e border-radius é
+ * ignorado — o clique só funcionava sobre o texto. Para o motor Word (comentário condicional `mso`) o botão vira um retângulo VML
+ * (v:roundrect) clicável por inteiro, com a MESMA cor de fundo; os demais clientes ignoram o comentário e usam o <a> de sempre.
+ * Fallback de cor: a célula mantém `bgcolor` (atributo) e `background-color` — o botão nunca depende de border-radius para existir.
+ * `mso-line-height-rule:exactly` evita a altura dupla do Word. Nada muda para Gmail/Apple Mail/Outlook web e mobile.
+ */
+export function buildOutlookVmlButton(href: string, style: AlertActionButtonStyle, w: number, h: number): string {
+  return `<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${escapeAttr(href)}" style="height:${h}px;width:${w}px;v-text-anchor:middle;" arcsize="10%" stroke="f" fillcolor="${style.background}"><w:anchorlock/><center style="color:${style.color};font-family:Arial,Helvetica,sans-serif;font-size:${BUTTON_FONT_SIZE_PX}px;font-weight:bold;mso-line-height-rule:exactly;"> ${escapeAttr(style.label)} </center></v:roundrect><![endif]-->`;
+}
+
 export function buildCompactButtonHtml(href: string, style: AlertActionButtonStyle, title: string, isFirst: boolean): string {
   const w = BUTTON_WIDTH_PX;
   const h = BUTTON_HEIGHT_PX;
-  return `<table class="acc-compact-btn" role="presentation" align="center" width="${w}" cellpadding="0" cellspacing="0" style="width:${w}px;margin:${isFirst ? "0" : "8px"} auto 0 auto;border-collapse:separate;"><tr><td width="${w}" height="${h}" align="center" bgcolor="${style.background}" style="width:${w}px;height:${h}px;background-color:${style.background};border-radius:6px;text-align:center;"><a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(title)}" aria-label="${escapeAttr(`${style.label} — ${title}`)}" style="display:block;width:${w}px;height:${h}px;line-height:${h}px;margin:0;padding:0;color:${style.color};font-family:${ACC_FONT_FAMILY};font-size:${BUTTON_FONT_SIZE_PX}px;font-weight:700;text-decoration:none;text-align:center;white-space:nowrap;overflow:hidden;">${escapeAttr(style.label)}</a></td></tr></table>`;
+  return `<table class="acc-compact-btn" role="presentation" align="center" width="${w}" cellpadding="0" cellspacing="0" style="width:${w}px;margin:${isFirst ? "0" : "8px"} auto 0 auto;border-collapse:separate;"><tr><td width="${w}" height="${h}" align="center" bgcolor="${style.background}" style="width:${w}px;height:${h}px;background-color:${style.background};border-radius:6px;text-align:center;mso-line-height-rule:exactly;">${buildOutlookVmlButton(href, style, w, h)}<!--[if !mso]><!--><a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(title)}" aria-label="${escapeAttr(`${style.label} — ${title}`)}" style="display:block;width:${w}px;height:${h}px;line-height:${h}px;margin:0;padding:0;color:${style.color};font-family:${ACC_FONT_FAMILY};font-size:${BUTTON_FONT_SIZE_PX}px;font-weight:700;text-decoration:none;text-align:center;white-space:nowrap;overflow:hidden;">${escapeAttr(style.label)}</a><!--<![endif]--></td></tr></table>`;
 }
 
 /** Cores e rótulos dos três botões (cores e funções preservadas do layout aprovado). */

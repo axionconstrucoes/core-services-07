@@ -57,8 +57,11 @@ const EMITTERS = [
 ];
 
 // Botões ATIVOS esperados por ocorrência (o restante sai desativado, com motivo). Lacunas conhecidas (sem fluxo no ACC):
-// SSMA não tem ENVIAR PARA nem ESPECIALISTA; resumo semanal não tem ESPECIALISTA; SLA não tem rota de e-mail para a ação.
-const ACTIVE = { "escalonamento de SLA": 0, "resumo semanal": 3, "SSMA ação corretiva em atraso": 2, "SSMA confirmação de resposta": 2, "SSMA registro crítico": 2 };
+// Lote 3: SSMA com registro identificado tem os 4 botões ATIVOS (ENVIAR PARA/ESPECIALISTA abrem o formulário do registro; padrão, com
+// desligador ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=false). Resumo semanal: sem botão ESPECIALISTA de link (a consulta vai por e-mail, no painel
+// "Responder por e-mail"). SLA: os botões de link ficam desativados (sem rota de link para a ação); o tratamento é pelo painel mailto,
+// só para quem pode agir (ver test-email-lote3-areas-matrix.mjs).
+const ACTIVE = { "escalonamento de SLA": 0, "resumo semanal": 3 };
 
 let failed = 0;
 const check = (name, fn) => {

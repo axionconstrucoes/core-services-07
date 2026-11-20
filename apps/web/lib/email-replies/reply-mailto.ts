@@ -7,17 +7,20 @@
 // Só tipos com processamento efetivo por e-mail recebem estes links (ver EMAIL_REPLY_PROCESSABLE_KINDS).
 
 import { buildAlertReplyAddress } from "@/lib/email/alert-reply-address";
+import { isSpecialistEmailEnabled } from "@/lib/email-replies/specialist-flag";
 
-export type ReplyMailtoAction = "RESOLVIDO" | "EM_ANDAMENTO" | "ENVIAR_PARA";
-export const REPLY_MAILTO_ORDER: readonly ReplyMailtoAction[] = ["RESOLVIDO", "EM_ANDAMENTO", "ENVIAR_PARA"];
+// ESPECIALISTA (Lote 3): consulta ESCRITA ao Expert da área — NÃO altera o item, não consome o token e não muda prazos.
+export type ReplyMailtoAction = "RESOLVIDO" | "EM_ANDAMENTO" | "ENVIAR_PARA" | "ESPECIALISTA";
+export const REPLY_MAILTO_ORDER: readonly ReplyMailtoAction[] = ["RESOLVIDO", "EM_ANDAMENTO", "ENVIAR_PARA", "ESPECIALISTA"];
 export const MAILTO_MAX_LENGTH = 2000;
 
-export type ReplyMailtoLinks = Record<ReplyMailtoAction, string>;
+export type ReplyMailtoLinks = Record<Exclude<ReplyMailtoAction, "ESPECIALISTA">, string> & { ESPECIALISTA?: string };
 
 export const REPLY_MAILTO_LABELS: Record<ReplyMailtoAction, string> = {
   RESOLVIDO: "RESOLVIDO",
   EM_ANDAMENTO: "EM ANDAMENTO",
   ENVIAR_PARA: "ENVIAR PARA",
+  ESPECIALISTA: "ESPECIALISTA",
 };
 
 export interface ReplyMailtoInput {
@@ -40,6 +43,7 @@ export const REPLY_MAILTO_PLACEHOLDERS: readonly string[] = [
   "(descreva a solução)",
   "(providência em curso)",
   "(nome completo ou e-mail corporativo)",
+  "(escreva aqui a sua pergunta ao especialista da área)",
 ];
 
 /** Remove os textos-guia do mailto (o comando continua; o que o remetente escreveu fica). */
@@ -66,6 +70,7 @@ function bodyFor(action: ReplyMailtoAction, input: ReplyMailtoInput): string {
   if (action === "EM_ANDAMENTO") {
     return [`EM ANDAMENTO: ${REPLY_MAILTO_PLACEHOLDERS[3]}`, input.forecastNeedsTime === false ? "Previsão: dd/mm/aaaa" : "Previsão: dd/mm/aaaa hh:mm"].join(CRLF);
   }
+  if (action === "ESPECIALISTA") return [`ESPECIALISTA: ${REPLY_MAILTO_PLACEHOLDERS[5]}`, ""].join(CRLF);
   return [`ENVIAR PARA: ${REPLY_MAILTO_PLACEHOLDERS[4]}`, "Justificativa: "].join(CRLF);
 }
 
@@ -88,10 +93,13 @@ export function buildReplyMailto(action: ReplyMailtoAction, input: ReplyMailtoIn
   return url.length < MAILTO_MAX_LENGTH ? url : null;
 }
 
-/** Os três atalhos ou null (nunca um conjunto parcial). */
-export function buildReplyMailtoLinks(input: ReplyMailtoInput): ReplyMailtoLinks | null {
+/** Os três atalhos de tratamento (+ ESPECIALISTA quando habilitado) ou null (nunca um conjunto parcial). */
+export function buildReplyMailtoLinks(input: ReplyMailtoInput & { specialist?: boolean }): ReplyMailtoLinks | null {
   const links = {} as ReplyMailtoLinks;
+  // ESPECIALISTA só entra com ACC_EMAIL_SPECIALIST_ENABLED (ou specialist explícito): nunca um atalho que o worker recusaria.
+  const withSpecialist = input.specialist ?? isSpecialistEmailEnabled();
   for (const action of REPLY_MAILTO_ORDER) {
+    if (action === "ESPECIALISTA" && !withSpecialist) continue;
     const url = buildReplyMailto(action, input);
     if (!url) return null;
     links[action] = url;
