@@ -218,6 +218,7 @@ export default async function DocumentosPage({
       <PageHeader
         title="Documentos"
         description="Upload manual de contratos, aditivos, editais, RFI, RFP, clarificações, propostas, relatórios e cronogramas. O Google Drive é reservado exclusivamente ao SSMA/ESG."
+        actions={<FeatureInfo helpId="juridico.documentos.pagina" />}
       />
 
       <Tabs defaultValue={["documentos", "clausulas", "cronograma", "anexos-email", ...(weeklyReportsEnabled ? ["registro-email"] : [])].includes(initialTab) ? initialTab : "documentos"}>
@@ -267,8 +268,9 @@ export default async function DocumentosPage({
           {canUpload ? (
             <Card>
               <CardHeader>
-                <CardTitle>
+                <CardTitle className="flex items-center gap-1.5">
                   Adicionar documentos
+                  <FeatureInfo helpId="juridico.documentos.upload-multiplo" />
                 </CardTitle>
               </CardHeader>
 
@@ -284,6 +286,10 @@ export default async function DocumentosPage({
                   </summary>
 
                   <div className="pt-4">
+                    <div className="mb-3 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                      Formulário de documento individual
+                      <FeatureInfo helpId="juridico.documentos.upload-individual" />
+                    </div>
                     <DocumentUploadForm
                       projectId={projectId}
                     />
@@ -313,6 +319,10 @@ export default async function DocumentosPage({
             </div>
           ) : (
             <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                Hierarquia contratual: contrato-base, aditivos e anexos
+                <FeatureInfo helpId="juridico.documentos.hierarquia" />
+              </div>
               {contractualGroups.map((group) => (
                 <ContractualDocumentGroupSection
                   key={group.principal.id}
@@ -376,8 +386,9 @@ export default async function DocumentosPage({
             <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
               <div>
                 <CardTitle>Diretor de Planejamento IA</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
                   Analise o cronograma MPP processado, prazo final, caminho crítico, folgas e riscos de atraso.
+                  <FeatureInfo helpId="juridico.documentos.cronograma-lista" />
                 </p>
               </div>
               <Link

@@ -15,6 +15,7 @@ import {
 } from "@/components/documents/email-registry/email-registry-review-forms";
 import { WeeklyReportWorkbookSection } from "@/components/documents/email-registry/weekly-report-workbook-section";
 import { PageHeader } from "@/components/layout/page-header";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -146,6 +147,7 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
         description={`E-mail recebido em ${formatDateTime(email.sentAt)}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <FeatureInfo helpId="juridico.emails.pagina" />
             <Link
               href={`/${projectId}/timeline`}
               className={cn(
@@ -249,8 +251,9 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
 
       <Card>
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
             Anexos ({attachments.length})
+            <FeatureInfo helpId="juridico.emails.anexos" />
           </CardTitle>
         </CardHeader>
 

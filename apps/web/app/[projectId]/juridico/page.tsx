@@ -6,6 +6,7 @@ import { PrecontractCurationPanel } from "@/components/ai/precontract-curation-p
 import { PrecontractWorkspaceClient } from "@/components/legal/precontract-workspace-client";
 import { LegalConsultationHistory } from "@/components/legal/legal-consultation-history";
 import { PageHeader } from "@/components/layout/page-header";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,6 +62,7 @@ export default async function ProjectLegalPage({ params, searchParams }: { param
         description={isPrecontract
           ? "Ambiente de negociação da minuta antes da contratação, separado das obras assinadas."
           : "Consulta ao contrato assinado, anexos, aditivos e especialista jurídico."}
+        actions={<FeatureInfo helpId="juridico.projeto.pagina" />}
       />
 
       {/* Identificação da análise: oportunidade e cliente sempre visíveis
@@ -87,17 +89,23 @@ export default async function ProjectLegalPage({ params, searchParams }: { param
       {isPrecontract ? (
         // Análise pré-contratual: card único de documento + consulta, com
         // o botão liberado somente quando há conteúdo extraído.
-        <PrecontractWorkspaceClient
-          projectId={projectId}
-          canUpload={canUpload}
-          existingDocuments={existingLegalDocuments}
-          classificationSnapshots={classificationSnapshots}
-        />
+        <>
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            Consulta ao especialista jurídico
+            <FeatureInfo helpId="juridico.projeto.consulta-especialista" />
+          </div>
+          <PrecontractWorkspaceClient
+            projectId={projectId}
+            canUpload={canUpload}
+            existingDocuments={existingLegalDocuments}
+            classificationSnapshots={classificationSnapshots}
+          />
+        </>
       ) : (
         <>
           <Card>
             <CardHeader className="flex-row items-center justify-between gap-4">
-              <div><CardTitle className="flex items-center gap-2"><FileText className="size-5" />Base documental</CardTitle><p className="mt-1 text-sm text-muted-foreground">Contrato ou minuta, anexos, aditivos e respectivos anexos.</p></div>
+              <div><CardTitle className="flex items-center gap-2"><FileText className="size-5" />Base documental<FeatureInfo helpId="juridico.projeto.base-documental" /></CardTitle><p className="mt-1 text-sm text-muted-foreground">Contrato ou minuta, anexos, aditivos e respectivos anexos.</p></div>
               <Link href={`/${projectId}/documentos`} className={cn(buttonVariants({ variant: "outline" }))}>Gerenciar documentos</Link>
             </CardHeader>
             <CardContent className="space-y-2">
@@ -110,6 +118,10 @@ export default async function ProjectLegalPage({ params, searchParams }: { param
             </CardContent>
           </Card>
 
+          <div className="flex items-center gap-1.5 text-sm font-medium">
+            Consulta ao especialista jurídico
+            <FeatureInfo helpId="juridico.projeto.consulta-especialista" />
+          </div>
           <ExpertQueryPanel
             projectId={projectId}
             scope="PROJECT"

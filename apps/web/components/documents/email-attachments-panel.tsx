@@ -6,6 +6,7 @@
 
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/shared/empty-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { OFFICIAL_EXPERT_DEFINITIONS } from "@/lib/ai/expert-definitions";
@@ -107,6 +108,7 @@ export function EmailAttachmentsPanel({
             {option.label}
           </button>
         ))}
+        <FeatureInfo helpId="juridico.documentos.anexos-email-filtros" />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">

@@ -15,6 +15,7 @@
 
 import { useState } from "react";
 import { EmptyState } from "@/components/shared/empty-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { ContractClause } from "@axion/types";
@@ -96,8 +97,9 @@ export function ClausesMasterDetail({ clauses }: { clauses: ContractClause[] }) 
 
       <Card>
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
             Cláusula {selected.clauseNumber} — {selected.title}
+            <FeatureInfo helpId="juridico.documentos.clausulas-lista" />
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">

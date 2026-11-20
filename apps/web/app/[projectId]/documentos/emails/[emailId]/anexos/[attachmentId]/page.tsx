@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DocumentDownloadButton } from "@/components/documents/document-download-button";
 import { PageHeader } from "@/components/layout/page-header";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
@@ -49,6 +50,7 @@ export default async function EmailAttachmentViewerPage({ params }: { params: Pr
         description={`${attachment.mime_type} · ${Math.round(Number(attachment.file_size_bytes) / 1024)} KB · SHA-256 ${String(attachment.sha256_hash).slice(0, 16)}…`}
         actions={
           <div className="flex items-center gap-2">
+            <FeatureInfo helpId="juridico.emails.anexo-pagina" />
             <Link href={`/${projectId}/documentos/emails/${emailId}`} className={cn(buttonVariants({ size: "sm", variant: "outline" }))}>
               ← E-mail
             </Link>

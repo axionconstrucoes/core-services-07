@@ -12,6 +12,7 @@
 
 import { useRef, useState } from "react";
 import { FileText, Loader2, UploadCloud, X } from "lucide-react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { documentKindLabels } from "@/lib/labels";
@@ -74,6 +75,7 @@ export function PrecontractDocumentCard({
         <CardTitle className="flex items-center gap-2 text-base">
           <FileText className="size-5" />
           Documento da negociação
+          <FeatureInfo helpId="juridico.precontratual.documento" />
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           Contrato, minuta ou aditivo em PDF, DOCX ou TXT. O especialista jurídico responde a partir do texto deste

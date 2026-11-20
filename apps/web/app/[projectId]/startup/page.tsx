@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@axion/db/server";
 import { NewProjectStartupChecklist } from "@/components/startup/new-project-startup-checklist";
 import { PageHeader } from "@/components/layout/page-header";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { buttonVariants } from "@/components/ui/button";
 import { getProjectMembers } from "@/lib/data";
 
@@ -29,9 +30,12 @@ export default async function StartupPage({ params }: { params: Promise<{ projec
         title="Start-up ACC"
         description="Checklist de implantação de novos projetos. Abra cada etapa, preencha os dados e retorne para marcar a conclusão."
         actions={
-          <Link href={`/${projectId}/dashboard`} className={buttonVariants({ variant: "outline", size: "sm" })}>
-            Dashboard
-          </Link>
+          <div className="flex items-center gap-2">
+            <FeatureInfo helpId="juridico.startup.pagina" />
+            <Link href={`/${projectId}/dashboard`} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              Dashboard
+            </Link>
+          </div>
         }
       />
       <NewProjectStartupChecklist projectId={projectId} />

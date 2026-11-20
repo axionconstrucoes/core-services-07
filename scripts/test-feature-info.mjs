@@ -71,34 +71,28 @@ check("getFeatureHelp devolve null (nunca lança) para um helpId desconhecido", 
 
 // --- Menu (sidebar): todos os itens reais têm helpId válido ---
 
+// Itens REAIS de NAV_ITEMS (apps/web/lib/ui/nav-items.ts) — 18 hoje. Os itens restritos (Eventos, Financeiro, Integrações, Usuários,
+// Autorizações, Reemissão de alertas, Start-up ACC) continuam em NAV_ITEMS; só a exibição é filtrada no layout (server).
+// "Análise Contratual"/"Análise de Cláusulas" saíram do menu (o Expert Jurídico é o ponto único; rotas e ajuda preservadas).
 const EXPECTED_SIDEBAR_LABELS = [
   "Dashboard",
   "Timeline",
   "Eventos",
   "Solicitações",
   "Ações e Escalonamentos",
-  // Expert Jurídico: ponto único para análise de contratos e consultas
-  // jurídicas (as entradas "Análise Contratual"/"Análise de Cláusulas"
-  // saíram do menu).
   "Jurídico",
-  // "Propostas de Adicionais" removida da sidebar: aba "Serviços
-  // Adicionais" descontinuada (dependia da importação automática do
-  // Drive de Orçamentos, integração cancelada) — serviço adicional
-  // aprovado agora entra por upload manual do ADM em Documentos.
-  // "Análise Contratual"/"Análise de Cláusulas" saíram do menu: o Expert
-  // Jurídico é o ponto único (rotas e ajuda preservadas).
   "Documentos",
-  // Providências e pendências para entrega (tabela única compartilhada com os alertas).
   "Providências",
-  // Financeiro: item restrito (só aparece para quem passa em
-  // evaluateFinancialDashboardAccess), mas faz parte de NAV_ITEMS.
   "Financeiro",
   "ESG/SSMA",
   "Experts IA",
-  "Start-up ACC",
   "Integrações",
   "Usuários",
+  "Autorizações",
+  "Reemissão de alertas",
   "Auditoria",
+  "Ajuda e tutorial",
+  "Start-up ACC",
 ];
 
 check(`menu ${EXPECTED_SIDEBAR_LABELS.length}/${EXPECTED_SIDEBAR_LABELS.length}: NAV_ITEMS cobre exatamente os itens reais da sidebar, todos com helpId válido`, () => {
@@ -142,10 +136,13 @@ check("Start-up tem ajuda: os 6 campos/ações internas têm entrada no registry
 });
 
 check("Start-up tem ajuda: page.tsx e os componentes internos realmente renderizam FeatureInfo com os helpIds certos", () => {
+  // A tela atual do Start-up é SÓ o checklist de implantação (commit 913d672: cabeçalho histórico, editor de datas e achados saíram da
+  // página). A página e o checklist renderizam os ícones novos; os componentes históricos preservados (não montados hoje) mantêm os seus.
   const pageSource = readSource("apps/web/app/[projectId]/startup/page.tsx");
-  assert(pageSource.includes('helpId="startup-project-start-date"'));
-  assert(pageSource.includes('helpId="startup-acc-operational-start-date"'));
-  assert(pageSource.includes('helpId="finding"'));
+  assert(pageSource.includes('helpId="juridico.startup.pagina"'));
+  const checklistSource = readSource("apps/web/components/startup/new-project-startup-checklist.tsx");
+  assert(checklistSource.includes('helpId="juridico.startup.checklist"'));
+  assert(checklistSource.includes('helpId="juridico.startup.etapa"'));
 
   const cardSource = readSource("apps/web/components/startup/historical-finding-card.tsx");
   assert(cardSource.includes('helpId="startup-dismiss"'));
@@ -337,9 +334,9 @@ const TAB_COVERAGE = [
   {
     page: "Start-up ACC",
     entries: [
-      { id: "startup-project-start-date", file: "apps/web/app/[projectId]/startup/page.tsx" },
-      { id: "startup-acc-operational-start-date", file: "apps/web/app/[projectId]/startup/page.tsx" },
-      { id: "finding", file: "apps/web/app/[projectId]/startup/page.tsx" },
+      { id: "juridico.startup.pagina", file: "apps/web/app/[projectId]/startup/page.tsx" },
+      { id: "juridico.startup.checklist", file: "apps/web/components/startup/new-project-startup-checklist.tsx" },
+      { id: "juridico.startup.etapa", file: "apps/web/components/startup/new-project-startup-checklist.tsx" },
       { id: "startup-dismiss", file: "apps/web/components/startup/historical-finding-card.tsx" },
       { id: "startup-resolve", file: "apps/web/components/startup/historical-finding-card.tsx" },
       { id: "startup-create-action", file: "apps/web/components/startup/historical-finding-card.tsx" },

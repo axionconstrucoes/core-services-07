@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { BrainCircuit, Loader2 } from "lucide-react";
 import { AiPendingIndicator } from "@/components/ai/ai-pending-indicator";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,7 +30,7 @@ export function PrecontractCurationPanel({ projectId }: { projectId: string }) {
   return (
     <Card className="border-primary/30">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><BrainCircuit className="size-5" />Análise integrada para negociação</CardTitle>
+        <CardTitle className="flex items-center gap-2"><BrainCircuit className="size-5" />Análise integrada para negociação<FeatureInfo helpId="juridico.precontratual.analise-integrada" /></CardTitle>
         <p className="text-sm text-muted-foreground">
           Consulta Jurídico, Comercial, Engenharia/Planejamento e ESG/SSMA; o CEO IA consolida as posições. Revisão humana obrigatória.
         </p>

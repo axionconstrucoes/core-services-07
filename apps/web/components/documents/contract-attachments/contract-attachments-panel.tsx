@@ -9,6 +9,7 @@
 
 import { useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@axion/db/browser";
@@ -194,7 +195,8 @@ export function ContractAttachmentsPanel({
         {loading && !loaded ? <p className="text-xs text-muted-foreground">Carregando anexos…</p> : null}
         {listError ? <p className="text-xs text-destructive">{listError}</p> : null}
 
-        <p className="text-xs text-muted-foreground">
+        <p className="flex items-start gap-1 text-xs text-muted-foreground">
+          <FeatureInfo helpId="juridico.documentos.anexos-contrato" />
           Use para a continuação deste mesmo contrato (ex.: Parte 2 de 2) e para os anexos contratuais desta versão.
           Na análise do contrato, os arquivos entram depois do arquivo principal, na ordem de envio, com a numeração
           de páginas continuada. Aditivos devem ser cadastrados como documento próprio.
