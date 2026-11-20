@@ -109,7 +109,7 @@ export default async function ProjetosPage() {
           <div className="flex min-w-0 flex-col gap-4">
             {contractedProjects.length === 0 ? (
               <Card className="border-dashed bg-white/70">
-                <CardContent className="p-6 text-sm text-slate-600">
+                <CardContent className="p-6 text-sm text-[#475569]">
                   Nenhum projeto disponível para sua conta.
                 </CardContent>
               </Card>
