@@ -25,7 +25,7 @@ export default async function SsmaProjectPickerPage() {
 
   return (
     <div className="min-h-dvh bg-slate-100">
-      <SsmaHeader title="SSMA/ESG" />
+      <SsmaHeader title="SSMA/ESG" helpId="ssma.app.obras" />
       <main className="mx-auto max-w-2xl space-y-4 p-4">
         <h2 className="text-base font-bold text-slate-900">Selecione a obra</h2>
         {authorized.length === 0 ? (

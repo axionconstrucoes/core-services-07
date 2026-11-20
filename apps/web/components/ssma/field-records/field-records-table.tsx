@@ -1,3 +1,4 @@
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { isActionOverdue, type FieldRecordView } from "@/lib/ssma/field-records/field-record-view";
 import { ACTION_STATUS_LABELS, RISK_LABELS } from "@/lib/ssma/field-records/types";
 
@@ -10,6 +11,11 @@ const RISK_BADGE: Record<string, string> = {
 const dateTime = (iso: string) => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 const dateOnly = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR");
 
+const HEADING_HELP: Record<string, string> = {
+  Risco: "ssma.registro.risco",
+  "Ação corretiva": "ssma.registro.acao-corretiva",
+};
+
 /** Tabela do painel do ACC (somente leitura). `today` = AAAA-MM-DD para marcar ações em atraso. */
 export function FieldRecordsTable({ records, today }: { records: FieldRecordView[]; today: string }) {
   return (
@@ -17,7 +23,16 @@ export function FieldRecordsTable({ records, today }: { records: FieldRecordView
     <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
       <tr>
         {["Fato", "Tipo / categoria", "Local", "Risco", "Registrado por", "Responsável", "Prazo", "Ação corretiva", "Fotos"].map((heading) => (
-          <th key={heading} className="px-3 py-2 font-semibold">{heading}</th>
+          <th key={heading} className="px-3 py-2 font-semibold">
+            {HEADING_HELP[heading] ? (
+              <span className="inline-flex items-center gap-1.5">
+                {heading}
+                <FeatureInfo helpId={HEADING_HELP[heading]} />
+              </span>
+            ) : (
+              heading
+            )}
+          </th>
         ))}
       </tr>
     </thead>

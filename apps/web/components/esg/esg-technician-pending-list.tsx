@@ -1,3 +1,4 @@
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { esgObligationCategoryLabels, formatDate, type EsgObligationCategory } from "@/lib/labels";
 
 export interface EsgPendingItem {
@@ -13,11 +14,25 @@ export interface EsgPendingItem {
 // "Pendências que preciso comprovar" (seção 21) — tela prática para o
 // técnico, sem excesso de informação: só o que falta comprovar.
 export function EsgTechnicianPendingList({ items }: { items: EsgPendingItem[] }) {
+  const heading = (
+    <p className="mb-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+      Pendências de comprovação
+      <FeatureInfo helpId="ssma.esg.pendencias-lista" />
+    </p>
+  );
+
   if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground">Nenhuma pendência no momento.</p>;
+    return (
+      <div>
+        {heading}
+        <p className="text-sm text-muted-foreground">Nenhuma pendência no momento.</p>
+      </div>
+    );
   }
 
   return (
+    <div>
+    {heading}
     <ul className="flex flex-col gap-3">
       {items.map((item) => (
         <li key={item.obligationId} className="rounded-md border p-3">
@@ -43,5 +58,6 @@ export function EsgTechnicianPendingList({ items }: { items: EsgPendingItem[] })
         </li>
       ))}
     </ul>
+    </div>
   );
 }

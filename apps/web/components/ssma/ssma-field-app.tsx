@@ -35,6 +35,7 @@ import { OFFLINE_FORM_MESSAGE, accidentNotificationWarning, friendlySubmitError 
 import { computeFileSha256Hex } from "@/lib/documents/multi-upload/sha256";
 import { sanitizeFileName } from "@/lib/documents/multi-upload/queue-core";
 import { cn } from "@/lib/utils";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { ProjectSelect } from "@/components/ssma/project-select";
 import { isAuthorizedProject, resolveInitialProject } from "@/lib/ssma/project-selection";
 import type { SsmaRecordLinkAction } from "@/lib/ssma/field-records/deep-link";
@@ -197,7 +198,10 @@ function PhotoUploadPanel({
         <CloudUpload className="size-5 text-white" aria-hidden="true" /> Selecionar fotos do computador
       </button>
 
-      <p className="text-xs font-medium text-slate-600">JPG ou PNG · até 15 MB por foto · máximo de 20 fotos</p>
+      <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+        JPG ou PNG · até 15 MB por foto · máximo de 20 fotos
+        <FeatureInfo helpId="ssma.form.fotos" />
+      </p>
       {error ? <p role="alert" className="text-sm font-bold text-red-700">{error}</p> : null}
 
       {photos.length > 0 ? (
@@ -253,7 +257,10 @@ function SavedContext({
     <section className="space-y-3">
       <ProjectSelect projects={projects} value={projectId} onChange={onProjectChange} disabled={disabled} />
       <label className="block text-sm font-bold text-slate-900">
-        Técnico responsável
+        <span className="inline-flex items-center gap-1.5">
+          Técnico responsável
+          <FeatureInfo helpId="ssma.form.contexto" />
+        </span>
         <span className="mt-1 block rounded-lg border-2 border-slate-300 bg-slate-50 px-3 py-3 text-base font-semibold text-slate-900">
           {technicianLabel}
         </span>
@@ -365,7 +372,7 @@ function ChecklistForm({
 
   return (
     <div className="min-h-dvh bg-slate-100">
-      <SsmaHeader title={checklistTitle(definition)} onBack={onBack} />
+      <SsmaHeader title={checklistTitle(definition)} onBack={onBack} helpId="ssma.form.pagina" />
       <form
         className="mx-auto max-w-2xl space-y-5 bg-white p-4 pb-28 sm:my-4 sm:rounded-xl sm:border sm:p-6"
         onSubmit={async (event) => {
@@ -524,7 +531,12 @@ function ChecklistForm({
 
         {variant ? (
           <fieldset className="space-y-2" data-testid="occurrence-type">
-            <legend className="mb-1 text-sm font-bold text-slate-900">Tipo de ocorrência *</legend>
+            <legend className="mb-1 text-sm font-bold text-slate-900">
+              <span className="inline-flex items-center gap-1.5">
+                Tipo de ocorrência *
+                <FeatureInfo helpId="ssma.form.tipo-ocorrencia" />
+              </span>
+            </legend>
             <div className="grid grid-cols-2 gap-2">
               {OCCURRENCE_TYPES.map((type) => (
                 <button
@@ -562,7 +574,12 @@ function ChecklistForm({
 
         {showRisk || isNearMiss ? (
           <fieldset>
-            <legend className="mb-2 text-sm font-bold text-slate-900">Classificação do risco</legend>
+            <legend className="mb-2 text-sm font-bold text-slate-900">
+              <span className="inline-flex items-center gap-1.5">
+                Classificação do risco
+                <FeatureInfo helpId="ssma.form.classificacao-risco" />
+              </span>
+            </legend>
             <div className="grid grid-cols-4 gap-2">
               {SSMA_RISK_LEVELS.map((level) => (
                 <button
@@ -584,7 +601,10 @@ function ChecklistForm({
 
         <fieldset className="overflow-hidden rounded-lg border-2 border-slate-300">
           <legend className="sr-only">Checklist</legend>
-          <div className="bg-slate-200 px-3 py-2 text-sm font-bold uppercase text-slate-900">Checklist</div>
+          <div className="flex items-center gap-1.5 bg-slate-200 px-3 py-2 text-sm font-bold uppercase text-slate-900">
+            Checklist
+            <FeatureInfo helpId="ssma.form.checklist" />
+          </div>
           {formChecks.map((check) => (
             <div key={check} className="grid grid-cols-[1fr_auto_auto] items-center gap-3 border-t border-slate-300 px-3 py-3 first:border-t-0">
               <span className="text-sm font-semibold text-slate-900">{checklistCheckLabel(definition, check)}</span>
@@ -637,8 +657,9 @@ function ChecklistForm({
         </>
         ) : null}
 
-        <p className="text-center text-xs font-medium text-slate-500">
+        <p className="flex items-center justify-center gap-1.5 text-center text-xs font-medium text-slate-500">
           Tela {definition.number} de 12 · Registro protegido e auditável
+          <FeatureInfo helpId="ssma.form.enviar" />
         </p>
       </form>
     </div>
@@ -725,7 +746,7 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
 
   return (
     <div className="min-h-dvh bg-slate-100 pb-20">
-      <SsmaHeader title="SSMA/ESG" />
+      <SsmaHeader title="SSMA/ESG" helpId="ssma.app.pagina" />
       <main className="mx-auto max-w-4xl space-y-4 p-4">
         <section className="rounded-xl border-2 border-slate-500 bg-white p-3">
           <p className="text-xs font-semibold text-slate-500">Projeto atual</p>
@@ -737,6 +758,7 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
           <span className={cn("flex items-center gap-1 text-xs font-bold", queue.items.some((item) => item.status !== "SYNCED") ? "text-amber-700" : "text-green-700")}>
             <CloudUpload className="size-5" />
             {queue.items.some((item) => item.status !== "SYNCED") ? "Aguardando envio" : "Sincronizado"}
+            <FeatureInfo helpId="ssma.app.sincronizacao-estado" />
           </span>
         </div>
 
@@ -744,7 +766,10 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
           <div className="flex items-center gap-3">
             <ClipboardCheck className="size-9 text-red-700" />
             <div className="flex-1">
-              <p className="font-bold text-slate-900">Checklist de hoje</p>
+              <p className="flex items-center gap-1.5 font-bold text-slate-900">
+                Checklist de hoje
+                <FeatureInfo helpId="ssma.app.checklist-hoje" />
+              </p>
               <p className="text-sm text-slate-600">{completedRoutine} de {routine.length} enviados</p>
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
                 <div className="h-full bg-sky-400 transition-all" style={{ width: `${(completedRoutine / routine.length) * 100}%` }} />
@@ -753,7 +778,10 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
           </div>
         </section>
 
-        <h2 className="text-base font-bold text-slate-900">1. Relatórios diários — obrigatórios</h2>
+        <h2 className="flex items-center gap-1.5 text-base font-bold text-slate-900">
+          1. Relatórios diários — obrigatórios
+          <FeatureInfo helpId="ssma.app.relatorios-diarios" />
+        </h2>
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {routine.map((definition) => {
             const done = completed.has(definition.slug);
@@ -782,7 +810,10 @@ export function SsmaFieldApp({ projectId, projectLabel, technicianLabel, initial
           })}
         </section>
 
-        <h2 className="text-base font-bold text-slate-900">2. Relatórios avulsos</h2>
+        <h2 className="flex items-center gap-1.5 text-base font-bold text-slate-900">
+          2. Relatórios avulsos
+          <FeatureInfo helpId="ssma.app.relatorios-avulsos" />
+        </h2>
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {occasional.map((definition) => {
           const Icon = definition.slug === "ocorrencia-acidente" ? Siren : definition.slug === "remessa-bota-fora" ? Truck : FileText;

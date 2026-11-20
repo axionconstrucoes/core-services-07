@@ -17,6 +17,7 @@ import {
 } from "@/lib/ssma/field-records/types";
 import type { NewPhotoInput } from "@/lib/ssma/field-records/queue-core";
 import { cn } from "@/lib/utils";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { ProjectSelect } from "@/components/ssma/project-select";
 import { findProject, reconcileDependentFields, resolveInitialProject, type SelectableProject } from "@/lib/ssma/project-selection";
 
@@ -168,7 +169,7 @@ export function NewRecordForm({
       <ProjectSelect projects={projects} value={projectId} onChange={changeProject} disabled={saving} hint={projectNotice} />
 
       <fieldset>
-        <legend className="mb-2 text-sm font-bold text-slate-900">Tipo de registro</legend>
+        <legend className="mb-2 text-sm font-bold text-slate-900"><span className="inline-flex items-center gap-1.5">Tipo de registro<FeatureInfo helpId="ssma.registro.tipo-categoria" /></span></legend>
         <div className="grid grid-cols-2 gap-2">
           {FIELD_RECORD_KINDS.map((option) => (
             <button
@@ -185,7 +186,7 @@ export function NewRecordForm({
       </fieldset>
 
       <label className="block text-sm font-bold text-slate-900">
-        Categoria *
+        <span className="inline-flex items-center gap-1.5">Categoria *<FeatureInfo helpId="ssma.registro.tipo-categoria" /></span>
         <select value={category} onChange={(event) => setCategory(event.target.value)} className={fieldClass} required>
           <option value="" disabled>Selecione</option>
           {FIELD_RECORD_CATEGORIES.map((item) => (
@@ -195,23 +196,23 @@ export function NewRecordForm({
       </label>
 
       <label className="block text-sm font-bold text-slate-900">
-        Descrição *
+        <span className="inline-flex items-center gap-1.5">Descrição *<FeatureInfo helpId="ssma.registro.descricao-local-data" /></span>
         <textarea value={description} onChange={(event) => setDescription(event.target.value)} rows={4} maxLength={4000} placeholder="Descreva o que foi observado, sem diagnósticos" className={fieldClass} required />
       </label>
 
       <label className="block text-sm font-bold text-slate-900">
-        Local *
+        <span className="inline-flex items-center gap-1.5">Local *<FeatureInfo helpId="ssma.registro.descricao-local-data" /></span>
         <input value={location} onChange={(event) => setLocation(event.target.value)} maxLength={200} placeholder="Ex.: Bloco B, pavimento 2" className={fieldClass} required />
       </label>
 
       <label className="block text-sm font-bold text-slate-900">
-        Data e hora do fato *
+        <span className="inline-flex items-center gap-1.5">Data e hora do fato *<FeatureInfo helpId="ssma.registro.descricao-local-data" /></span>
         <input type="datetime-local" value={occurredAt} onChange={(event) => setOccurredAt(event.target.value)} className={fieldClass} required />
         <span className="mt-1 block text-xs font-medium text-slate-500">O horário real do registro no aparelho é guardado junto, mesmo que o envio ocorra depois.</span>
       </label>
 
       <fieldset>
-        <legend className="mb-2 text-sm font-bold text-slate-900">Risco *</legend>
+        <legend className="mb-2 text-sm font-bold text-slate-900"><span className="inline-flex items-center gap-1.5">Risco *<FeatureInfo helpId="ssma.registro.risco" /></span></legend>
         <div className="grid grid-cols-4 gap-2">
           {FIELD_RECORD_RISKS.map((level) => (
             <button
@@ -228,7 +229,10 @@ export function NewRecordForm({
       </fieldset>
 
       <section className="space-y-3 rounded-lg border-2 border-slate-200 bg-slate-50 p-3">
-        <p className="text-sm font-bold uppercase text-slate-900">Ação corretiva (opcional)</p>
+        <p className="flex items-center gap-1.5 text-sm font-bold uppercase text-slate-900">
+          Ação corretiva (opcional)
+          <FeatureInfo helpId="ssma.registro.acao-corretiva-campos" />
+        </p>
         <label className="block text-sm font-bold text-slate-900">
           Responsável
           <select value={responsible} onChange={(event) => setResponsible(event.target.value)} className={fieldClass}>
@@ -257,7 +261,10 @@ export function NewRecordForm({
             <CloudUpload className="size-5 text-white" aria-hidden="true" /> Da galeria
           </button>
         </div>
-        <p className="text-xs font-medium text-slate-600">Fotos são opcionais · JPG ou PNG · até 15 MB · máximo de {MAX_PHOTOS_PER_RECORD}</p>
+        <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600">
+          Fotos são opcionais · JPG ou PNG · até 15 MB · máximo de {MAX_PHOTOS_PER_RECORD}
+          <FeatureInfo helpId="ssma.registro.fotos" />
+        </p>
         {photos.length > 0 ? (
           <div className="grid grid-cols-3 gap-2" aria-live="polite">
             {photos.map((photo) => (
@@ -280,7 +287,8 @@ export function NewRecordForm({
         </ul>
       ) : null}
 
-      <p className="text-center text-xs font-semibold text-slate-600">
+      <p className="flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-slate-600">
+        <FeatureInfo helpId="ssma.registro.salvar" />
         {online ? "Será enviado agora; se a conexão falhar, fica salvo no aparelho." : "Sem conexão: o registro ficará salvo no aparelho e será enviado quando a internet voltar."}
       </p>
 

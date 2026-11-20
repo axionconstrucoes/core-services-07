@@ -15,6 +15,7 @@ import {
   extractServerErrorCode,
   messageForServerError,
 } from "@/lib/ssma/field-records/types";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { EsgEvidenceLink } from "@/components/ssma/field-records/esg-evidence-link";
 import { RecordConsult } from "@/components/ssma/field-records/record-consult";
 import { cn } from "@/lib/utils";
@@ -201,18 +202,24 @@ export function RecordDetail({
           <dt className="font-bold text-slate-600">Fotos</dt><dd>{record.photoCount}</dd>
         </dl>
         {notice && notice.length > 0 ? (
-          <ul className="mt-2 space-y-1" aria-label="Avisos por e-mail" data-testid="notification-notice">
+          <div className="mt-2 flex items-start gap-1.5">
+          <FeatureInfo helpId="ssma.registro.aviso-email" className="mt-0.5" />
+          <ul className="space-y-1" aria-label="Avisos por e-mail" data-testid="notification-notice">
             {notice.map((line) => (
               <li key={line.text} role={line.tone === "ok" ? undefined : "alert"} className={line.tone === "error" ? "text-xs font-bold text-red-700" : line.tone === "warn" ? "text-xs font-bold text-amber-700" : "text-xs font-bold text-green-700"}>{line.text}</li>
             ))}
           </ul>
+          </div>
         ) : null}
       </section>
 
       {action ? (
         <section className="space-y-3 rounded-xl bg-white p-4 shadow-sm" aria-label="Ação corretiva">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-bold uppercase text-slate-900">Ação corretiva</h2>
+            <h2 className="flex items-center gap-1.5 font-bold uppercase text-slate-900">
+              Ação corretiva
+              <FeatureInfo helpId="ssma.registro.acao-corretiva" />
+            </h2>
             <span
               className={cn(
                 "rounded px-2 py-1 text-xs font-bold",
@@ -247,6 +254,10 @@ export function RecordDetail({
           {canUpdate ? (
             <form onSubmit={submit} className="space-y-3 border-t border-slate-200 pt-3">
               {initialEvent ? <p role="status" className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">Aberto pelo link do e-mail: o formulário já vem selecionado, mas nada foi registrado. Confira e confirme abaixo.</p> : null}
+              <p className="flex items-center gap-1.5 text-xs font-bold uppercase text-slate-600">
+                Andamento e conclusão
+                <FeatureInfo helpId="ssma.registro.andamento-conclusao" />
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 {(["ANDAMENTO", "CONCLUIDA"] as const).map((value) => (
                   <button
@@ -290,7 +301,10 @@ export function RecordDetail({
 
           {canUpdate ? (
             <form id="ssma-encaminhar" onSubmit={forward} className="space-y-3 border-t border-slate-200 pt-3" aria-label="Encaminhar ação corretiva">
-              <h3 className="text-sm font-bold uppercase text-slate-900">Encaminhar para outro responsável</h3>
+              <h3 className="flex items-center gap-1.5 text-sm font-bold uppercase text-slate-900">
+                Encaminhar para outro responsável
+                <FeatureInfo helpId="ssma.registro.encaminhar" />
+              </h3>
               {initialFocus === "ENCAMINHAR" ? <p role="status" className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">Aberto pelo link do e-mail: nada foi registrado. Escolha a pessoa, informe o motivo e confirme.</p> : null}
               <label className="block text-sm font-bold text-slate-900">
                 Novo responsável *
