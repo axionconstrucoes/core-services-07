@@ -9,6 +9,7 @@
 // demais Experts).
 
 import { createSupabaseServerClient } from "@axion/db/server";
+import { reserveAiConsult } from "./alert-consult/consult-quota";
 import { answerCommercialDirectorQuery } from "./experts/commercial-director/query";
 import {
   parseExpertQueryForm,
@@ -35,6 +36,18 @@ export async function askCommercialDirectorAction(
   }
 
   const supabase = await createSupabaseServerClient();
+
+  // Limite de IA (EXPERT_PANEL) reservado ANTES do provedor; recusado = nenhuma chamada (falha fechada).
+  const reservation = await reserveAiConsult(
+    supabase,
+    parsed.request.projectId,
+    "EXPERT_PANEL",
+    parsed.request.eventId ?? parsed.request.projectId,
+    "commercial-director"
+  );
+  if (!reservation.ok) {
+    return { response: null, error: reservation.error, meta: null };
+  }
 
   try {
     const result = await answerCommercialDirectorQuery(supabase, parsed.request);

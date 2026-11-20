@@ -20,7 +20,8 @@ não as repete, apenas descreve como elas são aplicadas em código.
 | 1 | CEO IA | `ceo` | **Implementado** — consolidação executiva (`experts/ceo/consolidate.ts`) e consulta conversacional (`experts/ceo/query.ts`) |
 | 2 | **Diretor Comercial IA** | `commercial-director` | **Implementado (v2)** |
 | 3 | Consultor Jurídico IA | `legal-consultant` | **Implementado** — `answerLegalConsultantQuery` (`experts/legal-consultant/query.ts`) |
-| 4 | Diretor de Engenharia IA | `planning-director` (ID técnico preservado) | **Implementado** — consulta dedicada e `answerPlanningDirectorQuery` (`experts/planning-director/query.ts`) |
+| 4 | Diretor de Planejamento IA | `planning-director` | **Implementado (v6)** — painel `experts-ia/diretor-planejamento` e `answerPlanningDirectorQuery` (`experts/planning-director/query.ts`) |
+| 4-A | Diretor de Engenharia e Construção IA | `engineering-director` | **Implementado (v1)** — painel `experts-ia/diretor-engenharia` e `answerEngineeringDirectorQuery` (`experts/engineering-director/query.ts`) |
 | 5 | **Diretor de ESG IA** | `esg-director` | **Implementado (v1)** — ver `docs/esg-obligations.md` |
 
 Os cinco Experts oficiais estão todos em `ExpertId`
@@ -37,6 +38,35 @@ alcançam de fato.
 > (`contract-lawyer`) chegou a ser implementado e foi **removido por
 > decisão de produto** antes de qualquer publicação — não faz parte da
 > lista oficial acima e não deve ser recriado sob esse nome.
+
+> **Frente P3 (2026-11-20).** Até a v5, `planning-director` se apresentava como "Diretor de
+> Engenharia IA" e acumulava engenharia. Agora há seis Experts oficiais: Planejamento
+> (`planning-director`: cronograma, CPM, folgas, curva S, atrasos, recuperação, 4D) e Engenharia e
+> Construção (`engineering-director`: fundações, estruturas, pisos, coberturas, métodos construtivos,
+> construtibilidade, engenharia de valor, compatibilização, análise técnico-econômica) são
+> independentes; nenhum responde pelo outro. Provider próprio: `AXION_AI_PROVIDER_ENGINEERING_DIRECTOR`.
+>
+> - **Framework comum no runtime:** o conteúdo essencial de `specialist-framework.md` está em
+>   `apps/web/lib/ai/specialist-framework.ts` e entra no prompt de todos os Experts técnicos (nos
+>   `identity.ts`; para prompts mantidos por outra frente, o `anthropic-provider` garante a inclusão
+>   única pelo marcador). A AXIA não recebe este framework.
+> - **Conhecimento técnico das skills:** `apps/web/lib/ai/expert-knowledge/planning.ts` e
+>   `engineering.ts` são RESUMOS PRÓPRIOS (paráfrase), versionados, com procedência (nome da skill,
+>   sha256 do SKILL.md lido, data). O texto original das skills não está no repositório; a skill
+>   original só existe no ambiente Claude Code local. Estado em `requested-skills.ts`:
+>   `RUNTIME_SUMMARY_INTEGRATED` (nunca "instalada no ACC").
+> - **Roteamento área/assunto** (fonte única `apps/web/lib/ai/routing/expert-topics.ts`):
+>   Planejamento→`planning-director`; Engenharia→`engineering-director`; Jurídico→`legal-consultant`;
+>   Comercial/Financeiro/Orçamento→`commercial-director`; SSMA/ESG→`esg-director`; multidisciplinar→
+>   curadoria multi-Expert (um parecer por Expert + consolidação CEO IA com autoria, divergências e
+>   incertezas). Vale para CONSULTAR IA (especialidade "Geral (pelo assunto)"), ESPECIALISTA do caso de
+>   risco (inclusive no ciclo do worker) e curadoria. A AXIA nunca participa; o ESPECIALISTA não altera
+>   estado, responsável, SLA nem escalonamento.
+> - **Limite de IA em todos os caminhos** (migration `20261120170000`): painéis (`EXPERT_PANEL`),
+>   curadoria (`CURATION`, 1 unidade por Expert chamado — cada especialista e a consolidação CEO) e
+>   ESPECIALISTA do ciclo (`RISK_CYCLE`, variante `ai_consult_reserve_for_actor` só para service_role,
+>   com o usuário que perguntou). Mesma contagem por usuário (todas as obras) e por obra; reserva sempre
+>   ANTES do provedor; sem reserva, nenhuma chamada. `ai_consult_usage.expert_id` registra o Expert.
 
 ## 2. Por que esta arquitetura existe
 

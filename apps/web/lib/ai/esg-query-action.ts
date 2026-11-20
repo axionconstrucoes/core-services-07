@@ -6,6 +6,8 @@
 // reutiliza os context builders genéricos e o provider abstrato.
 
 import { createSupabaseServerClient } from "@axion/db/server";
+import { reserveAiConsult } from "./alert-consult/consult-quota";
+import { ESG_DIRECTOR_EXPERT_ID } from "./experts/esg-director/identity";
 import { answerEsgDirectorQuery } from "./experts/esg-director/query";
 import { parseExpertQueryForm, resolveExpertQueryErrorMessage } from "./expert-query-request";
 import { buildAiProviderUiMetadata, type AiProviderUiMetadata } from "./provider-ui-metadata";
@@ -29,6 +31,18 @@ export async function askEsgDirectorAction(
   }
 
   const supabase = await createSupabaseServerClient();
+
+  // Limite de IA (EXPERT_PANEL) reservado ANTES do provedor; recusado = nenhuma chamada (falha fechada).
+  const reservation = await reserveAiConsult(
+    supabase,
+    parsed.request.projectId,
+    "EXPERT_PANEL",
+    parsed.request.eventId ?? parsed.request.projectId,
+    ESG_DIRECTOR_EXPERT_ID
+  );
+  if (!reservation.ok) {
+    return { response: null, error: reservation.error, meta: null };
+  }
 
   try {
     const result = await answerEsgDirectorQuery(supabase, parsed.request);

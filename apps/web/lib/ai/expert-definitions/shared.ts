@@ -173,13 +173,27 @@ export const EXPERT_COLLABORATION_MATRIX: ExpertCollaborationRule[] = [
   {
     topic: "DISPUTA",
     primaryExpertId: "legal-consultant",
-    supportingExpertIds: ["commercial-director", "planning-director"],
-    condition: "Diretor de Engenharia IA quando houver prazo ou execução envolvidos",
+    supportingExpertIds: ["commercial-director", "planning-director", "engineering-director"],
+    condition:
+      "Diretor de Planejamento IA quando houver prazo envolvido; Diretor de Engenharia e Construção IA quando houver questão técnica de execução",
   },
   {
     topic: "ATRASO COM MULTA",
     primaryExpertId: "planning-director",
     supportingExpertIds: ["legal-consultant", "commercial-director"],
+    condition: null,
+  },
+  {
+    topic: "ENGENHARIA E CONSTRUÇÃO",
+    primaryExpertId: "engineering-director",
+    supportingExpertIds: ["planning-director", "commercial-director"],
+    condition:
+      "Diretor de Planejamento IA quando houver efeito em prazo; Diretor Comercial IA quando houver efeito em custo/preço",
+  },
+  {
+    topic: "NÃO CONFORMIDADE DE COMPRAS",
+    primaryExpertId: "engineering-director",
+    supportingExpertIds: ["planning-director", "legal-consultant", "commercial-director"],
     condition: null,
   },
   {
@@ -191,7 +205,7 @@ export const EXPERT_COLLABORATION_MATRIX: ExpertCollaborationRule[] = [
   {
     topic: "DECISÃO EXECUTIVA",
     primaryExpertId: "ceo",
-    supportingExpertIds: ["commercial-director", "legal-consultant", "planning-director", "esg-director"],
+    supportingExpertIds: ["commercial-director", "legal-consultant", "planning-director", "engineering-director", "esg-director"],
     condition: "consulta somente os Experts necessários ao tema da decisão",
   },
 ];

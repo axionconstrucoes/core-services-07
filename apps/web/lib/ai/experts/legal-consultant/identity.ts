@@ -5,19 +5,21 @@
 // docs/ai/experts.md).
 
 import { RISK_CRITERIA_INSTRUCTIONS } from "../../risk-criteria";
+import { SPECIALIST_FRAMEWORK_INSTRUCTIONS } from "../../specialist-framework";
 
 export const LEGAL_CONSULTANT_EXPERT_ID = "legal-consultant" as const;
 
 export const LEGAL_CONSULTANT_NAME = "Consultor Jurídico IA";
 
-export const LEGAL_CONSULTANT_VERSION = "v5";
+// v6: o Framework Comum passa a ser incluído no prompt (specialist-framework.ts).
+export const LEGAL_CONSULTANT_VERSION = "v6";
 
 export const LEGAL_CONSULTANT_INSTRUCTIONS = `
 # ${LEGAL_CONSULTANT_NAME} (${LEGAL_CONSULTANT_EXPERT_ID} ${LEGAL_CONSULTANT_VERSION})
 
 Você é o Consultor Jurídico IA do AXION Acompanhamento de Contratos (ACC).
-Leia e siga integralmente as regras de docs/ai/specialist-framework.md
-antes de produzir qualquer análise — elas não são repetidas aqui.
+Siga integralmente o Framework Comum dos Especialistas AXION reproduzido
+abaixo, antes de produzir qualquer análise.
 
 ## Missão
 
@@ -195,5 +197,6 @@ vazio se nenhuma alteração for recomendada.
 Responda exclusivamente no formato estruturado solicitado pelo
 \`outputSchema\` (ExpertQueryResponse e, quando exigido, sua comparação
 \`analiseClausulas\`) — nunca texto livre como única resposta.
+${SPECIALIST_FRAMEWORK_INSTRUCTIONS}
 ${RISK_CRITERIA_INSTRUCTIONS}
 `.trim();

@@ -7,20 +7,25 @@
 //   1. escolha EXPLÍCITA no dropdown (sempre respeitada);
 //   2. nome do Expert escrito de forma inequívoca no texto;
 //   3. classificação por TEMA da pergunta (um único tema);
-//   4. dois ou mais temas relevantes => mecanismo multi-Expert existente (ceo);
+//   4. dois ou mais temas relevantes => mecanismo multi-Expert existente (ceo
+//      = curadoria multi-Expert: um parecer por Expert + consolidação CEO);
 //   5. sem confiança suficiente => EXPERT_SELECTION_REVIEW_REQUIRED
 //      (revisão humana; nada é enviado automaticamente a nenhum Expert).
 // Tudo que entrou na decisão (pergunta original, temas, confiança, Expert
 // sugerido × confirmado) sai em ExpertRouting para ser persistido/auditado.
+// Os padrões de tema vêm de lib/ai/routing/expert-topics.ts (fonte única
+// para todos os caminhos de roteamento); a AXIA nunca é destino.
 
+import { detectTopicExperts, expertForArea } from "@/lib/ai/routing/expert-topics";
 import type { SlaArea } from "@/lib/sla/types";
 
 import type { ExpertId } from "../types";
 
 export const ALERT_EXPERT_OPTIONS: Array<{ id: ExpertId; label: string; domains: string }> = [
   { id: "legal-consultant", label: "Expert Jurídico", domains: "contrato, cláusula, obrigação, multa, responsabilidade, notificação" },
-  { id: "planning-director", label: "Diretor de Planejamento", domains: "prazo, atividade, MPP, cronograma, Curva S, Histograma, marco, caminho crítico" },
-  { id: "commercial-director", label: "Diretor Comercial/Financeiro", domains: "custo, receita, faturamento, medição, pagamento, financeiro" },
+  { id: "planning-director", label: "Diretor de Planejamento", domains: "prazo, atividade, MPP, cronograma, Curva S, Histograma, marco, caminho crítico, folga, atraso" },
+  { id: "engineering-director", label: "Diretor de Engenharia e Construção", domains: "fundação, estrutura, piso, cobertura, método construtivo, construtibilidade, compatibilização" },
+  { id: "commercial-director", label: "Diretor Comercial/Financeiro", domains: "custo, receita, faturamento, medição, pagamento, financeiro, orçamento, preço" },
   { id: "esg-director", label: "ESG/SSMA", domains: "segurança, meio ambiente, acidente, SSMA, ESG" },
   { id: "ceo", label: "Multi-Expert (CEO)", domains: "multidisciplinar — só quando há mais de um tema" },
 ];
@@ -44,14 +49,8 @@ export interface ExpertRouting {
   reason: string;
 }
 
-// Temas (pista textual). Cada padrão conta um acerto; o Expert com acertos
-// em um único tema é o roteado; temas distintos => multidisciplinar.
-const TOPIC_PATTERNS: Array<[RegExp, ExpertId]> = [
-  [/\b(prazos?|atividades?|mpp|cronogramas?|curva s|histogramas?|marcos?|caminho cr[íi]tico|caminhos cr[íi]ticos|baseline|replanejamento)\b/i, "planning-director"],
-  [/\b(contrat(o|os|ual|uais)|cl[áa]usulas?|obriga[çc][õo]es|obriga[çc][ãa]o|multas?|responsabilidades?|notifica[çc][õo]es|notifica[çc][ãa]o|penalidades?|aditivos?|inadimpl\w*)\b/i, "legal-consultant"],
-  [/\b(custos?|receitas?|faturamentos?|medi[çc][õo]es|medi[çc][ãa]o|pagamentos?|financeir[oa]s?|margem|fluxo de caixa|reajustes?|boletim de medi[çc][ãa]o)\b/i, "commercial-director"],
-  [/\b(seguran[çc]a( do trabalho)?|meio ambiente|ambientais?|acidentes?|incidentes?|ssma|esg|epi|licen[çc]a ambiental|sustentabilidade)\b/i, "esg-director"],
-];
+// Temas (pista textual): EXPERT_TOPIC_PATTERNS em lib/ai/routing/expert-topics.ts.
+// O Expert com acertos em um único tema é o roteado; temas distintos => multidisciplinar.
 
 // Nome do Expert escrito de forma inequívoca ("Expert Jurídico", "Diretor de
 // Planejamento", "Diretor Comercial", "ESG/SSMA", "CEO"). Um único nome
@@ -59,6 +58,7 @@ const TOPIC_PATTERNS: Array<[RegExp, ExpertId]> = [
 const NAME_PATTERNS: Array<[RegExp, ExpertId]> = [
   [/\b(expert|consultor|especialista)\s+jur[íi]dic[oa]\b|\bjur[íi]dico\b\s*[:,-]/i, "legal-consultant"],
   [/\bdiretor(a)?\s+de\s+planejamento\b|\bexpert\s+de\s+planejamento\b|\bplanejamento\s*[:,-]/i, "planning-director"],
+  [/\bdiretor(a)?\s+de\s+engenharia\b|\bexpert\s+de\s+engenharia\b|\bengenharia\s*[:,-]/i, "engineering-director"],
   [/\bdiretor(a)?\s+comercial\b|\bdiretor(a)?\s+financeir[oa]\b|\bexpert\s+comercial\b/i, "commercial-director"],
   [/\b(expert|diretor(a)?)\s+(de\s+)?(esg|ssma)\b|\besg\s*\/\s*ssma\b/i, "esg-director"],
   [/\bceo\b|\bmulti[- ]?expert\b/i, "ceo"],
@@ -70,8 +70,7 @@ export function isKnownExpert(value: string | null | undefined): value is Expert
 
 /** Temas detectados no texto (Experts distintos, na ordem de detecção). */
 export function detectExpertTopics(question: string): ExpertId[] {
-  const q = question.toLowerCase();
-  return Array.from(new Set(TOPIC_PATTERNS.filter(([pattern]) => pattern.test(q)).map(([, id]) => id)));
+  return detectTopicExperts(question);
 }
 
 /** Expert nomeado de forma inequívoca no texto (exatamente um); null caso contrário. */
@@ -128,19 +127,7 @@ export function routeExpert(input: { question: string; selectedExpertId?: string
  * correspondência direta não sugerem nada (dropdown vazio).
  */
 export function suggestExpertForArea(area: SlaArea): ExpertId | null {
-  switch (area) {
-    case "FINANCEIRO":
-    case "COMERCIAL":
-    case "ORCAMENTO":
-      return "commercial-director";
-    case "ESG_SSMA":
-      return "esg-director";
-    case "JURIDICO":
-      return "legal-consultant";
-    case "PLANEJAMENTO":
-    case "ENGENHARIA":
-      return "planning-director";
-    default:
-      return null;
-  }
+  // PLANEJAMENTO → planning-director; ENGENHARIA → engineering-director (nunca o inverso);
+  // COMERCIAL/FINANCEIRO/ORCAMENTO → commercial-director; JURIDICO → legal-consultant; ESG_SSMA → esg-director.
+  return expertForArea(area);
 }

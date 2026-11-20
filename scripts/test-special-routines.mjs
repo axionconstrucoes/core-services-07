@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
-const engineering = read("apps/web/lib/ai/experts/planning-director/identity.ts");
+// Planejamento e Engenharia são Experts separados: a rotina de nova versão de projeto (cronograma/preço) é do
+// Diretor de Planejamento IA; não conformidade de compras/execução é do Diretor de Engenharia e Construção IA.
+const planning = read("apps/web/lib/ai/experts/planning-director/identity.ts");
+const engineering = read("apps/web/lib/ai/experts/engineering-director/identity.ts");
 const commercial = read("apps/web/lib/ai/experts/commercial-director/identity.ts");
 const esg = read("apps/web/lib/ai/experts/esg-director/identity.ts");
 const ceo = read("apps/web/lib/ai/experts/ceo/identity.ts");
@@ -15,9 +18,11 @@ const versionForm = read("apps/web/components/integrations/construmanager-versio
 const versionActions = read("apps/web/app/[projectId]/integracoes/version-impact-actions.ts");
 const versionEmail = read("apps/web/lib/email/send-version-impact-review-email.ts");
 
-assert.match(engineering, /Diretor de Engenharia IA/);
-assert.match(engineering, /Esta nova versão gera impacto no cronograma e\/ou\s*no preço\?/);
-assert.match(engineering, /orçamentista/);
+assert.match(engineering, /Diretor de Engenharia e Construção IA/);
+assert.match(planning, /Diretor de Planejamento IA/);
+assert.doesNotMatch(planning, /PLANNING_DIRECTOR_NAME = "Diretor de Engenharia/);
+assert.match(planning, /Esta nova versão gera impacto no cronograma e\/ou\s*no preço\?/);
+assert.match(planning, /orçamentista/);
 assert.match(engineering, /atraso, devolução, má qualidade, equipe\s*insuficiente ou problema de pagamento/);
 assert.match(commercial, /desentendimento técnico/);
 assert.match(commercial, /animosidade/);

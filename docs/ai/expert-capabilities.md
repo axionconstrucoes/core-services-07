@@ -30,7 +30,8 @@ verdade**.
 | 1 | CEO IA | `ceo` | **Implementado** | v1 |
 | 2 | Diretor Comercial IA | `commercial-director` | **Implementado** | v2 |
 | 3 | Consultor Jurídico IA | `legal-consultant` | **Implementado** | v1 |
-| 4 | Diretor de Engenharia IA | `planning-director` (ID técnico preservado) | **Implementado** | v2 |
+| 4 | Diretor de Planejamento IA | `planning-director` | **Implementado** | v6 |
+| 4-A | Diretor de Engenharia e Construção IA | `engineering-director` | **Implementado** | v1 |
 | 5 | Diretor de ESG IA | `esg-director` | **Implementado** | v1 |
 
 `contract-lawyer` ("Advogado Especialista em Contratos") foi rejeitado

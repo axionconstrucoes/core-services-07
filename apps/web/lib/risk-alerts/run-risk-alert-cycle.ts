@@ -14,11 +14,7 @@ import "server-only";
 
 import { createSupabaseAdminClient } from "@axion/db/admin";
 
-import { answerCeoQuery } from "@/lib/ai/experts/ceo/query";
-import { answerCommercialDirectorQuery } from "@/lib/ai/experts/commercial-director/query";
-import { answerEsgDirectorQuery } from "@/lib/ai/experts/esg-director/query";
-import { answerLegalConsultantQuery } from "@/lib/ai/experts/legal-consultant/query";
-import { answerPlanningDirectorQuery } from "@/lib/ai/experts/planning-director/query";
+import { createDefaultCycleExpertConsultant } from "./experts/cycle-expert-consultant";
 import { getAppBaseUrl } from "@/lib/app-base-url";
 import { appendAccEmailSignature } from "@/lib/email/branding/acc-email-signature";
 import { loadAccLogoInlineImage, loadAccLogoInvertedInlineImage } from "@/lib/email/branding/load-acc-logo-inline-image";
@@ -114,7 +110,7 @@ export interface RiskAlertCycleResult {
 
 /** Porta do Expert (injeção nos testes; real = Experts existentes). Só recomenda. */
 export interface ExpertConsultant {
-  answer(input: { expertId: ExpertId; projectId: string; question: string }): Promise<{ answerText: string; confidence: number; requiresHumanReview: boolean }>;
+  answer(input: { expertId: ExpertId; projectId: string; question: string; askedByUserId?: string | null; subjectId?: string }): Promise<{ answerText: string; confidence: number; requiresHumanReview: boolean }>;
 }
 
 export interface RunRiskAlertCycleOptions {
@@ -153,30 +149,12 @@ function createDefaultReplyVerifier(): (requests: ReplyCheckRequest[]) => Promis
 }
 
 function createDefaultExpertConsultant(): ExpertConsultant {
-  const client = createSupabaseAdminClient();
+  // Mapa de Experts, curadoria multidisciplinar e limite de IA (reserva service_role com o usuário que
+  // perguntou, antes de cada chamada) vivem em experts/cycle-expert-consultant.ts.
+  const consultant = createDefaultCycleExpertConsultant(createSupabaseAdminClient());
   return {
-    async answer({ expertId, projectId, question }) {
-      const request = { scope: "PROJECT" as const, projectId, question };
-      const fn = {
-        "planning-director": answerPlanningDirectorQuery,
-        "commercial-director": answerCommercialDirectorQuery,
-        "esg-director": answerEsgDirectorQuery,
-        "legal-consultant": answerLegalConsultantQuery,
-        ceo: answerCeoQuery,
-      }[expertId];
-      const result = await fn(client, request);
-      const r = result.response;
-      const answerText = [
-        r.interpretacao,
-        r.riscos.length ? `Riscos: ${r.riscos.join("; ")}` : null,
-        r.recomendacoes.length ? `Recomendações: ${r.recomendacoes.join("; ")}` : null,
-        r.fatosDocumentados.length ? `Evidências: ${r.fatosDocumentados.slice(0, 5).join("; ")}` : null,
-        r.informacoesFaltantes.length ? `Informações faltantes: ${r.informacoesFaltantes.join("; ")}` : null,
-      ]
-        .filter(Boolean)
-        .join("\n\n");
-      return { answerText, confidence: r.confidence, requiresHumanReview: true };
-    },
+    answer: ({ expertId, projectId, question, askedByUserId, subjectId }) =>
+      consultant.answer({ expertId, projectId, question, askedByUserId: askedByUserId ?? null, subjectId: subjectId ?? projectId }),
   };
 }
 
@@ -431,7 +409,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     if (expert) {
       for (const consultation of await store.listPendingExpertConsultations(projectId)) {
         try {
-          const answer = await expert.answer({ expertId: consultation.expertId, projectId, question: consultation.question });
+          const answer = await expert.answer({ expertId: consultation.expertId, projectId, question: consultation.question, askedByUserId: consultation.askedByUserId, subjectId: consultation.caseId });
           await store.recordExpertAnswer({ ...consultation, ...answer, requiresHumanReview: true });
           projectResult.expertAnswers += 1;
           // Resposta na mesma thread ao solicitante (allowlist do piloto aplicada).

@@ -292,8 +292,16 @@ const DEFINITIONS: FeatureHelpDefinition[] = [
   {
     id: "expert-planning-director",
     title: "Diretor de Planejamento IA",
-    shortDescription: "Analisa atrasos, antecipações e impactos de prazo.",
-    description: "Analisa atrasos, antecipações e impactos de prazo com consequência comercial, econômica ou contratual.",
+    shortDescription: "Analisa cronograma, caminho crítico, atrasos e recuperação de prazo.",
+    description: "Analisa cronograma, linha de base, caminho crítico, folgas, curva S, atrasos e recuperação de prazo com consequência comercial, econômica ou contratual.",
+    humanReview: "A IA analisa e recomenda. Decisões vinculantes permanecem humanas.",
+  },
+  {
+    id: "expert-engineering-director",
+    title: "Diretor de Engenharia e Construção IA",
+    shortDescription: "Analisa soluções técnicas, métodos construtivos e construtibilidade.",
+    description:
+      "Analisa fundações, estruturas, pisos, coberturas, métodos construtivos, construtibilidade, engenharia de valor e compatibilização de projetos. Não substitui projetista nem responsável técnico.",
     humanReview: "A IA analisa e recomenda. Decisões vinculantes permanecem humanas.",
   },
   {

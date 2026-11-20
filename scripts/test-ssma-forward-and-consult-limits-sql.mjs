@@ -178,7 +178,7 @@ await check("L4 limite por usuário vale somando TODAS as obras (consultas em ob
   await db.query("update public.ai_consult_limits set per_user_day = 20, per_project_day = 100 where scope = 'DEFAULT'");
 });
 await check("L5 concorrência (migration 20261120140000): a reserva trava usuário+dia ANTES de obra+dia — duas consultas simultâneas do mesmo usuário em obras diferentes são serializadas", async () => {
-  const { rows } = await db.query("select pg_get_functiondef('public.ai_consult_reserve(uuid,text,text)'::regprocedure) as def");
+  const { rows } = await db.query("select pg_get_functiondef('public.ai_consult_reserve_core(uuid,uuid,text,text,text)'::regprocedure) as def");
   const def = rows[0].def;
   const userLock = def.indexOf("'ai_consult:user:'");
   const projectLock = def.indexOf("'ai_consult:project:'");

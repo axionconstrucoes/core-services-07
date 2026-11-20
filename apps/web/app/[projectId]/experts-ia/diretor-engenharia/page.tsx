@@ -5,8 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { askEngineeringDirectorAction } from "@/lib/ai/engineering-query-action";
 import { initialAskCommercialDirectorState } from "@/lib/ai/expert-query-state";
 
-export const metadata: Metadata = { title: "Diretor de Planejamento IA" };
+export const metadata: Metadata = { title: "Diretor de Engenharia e Construção IA" };
 
+// Painel do Diretor de Engenharia e Construção IA (engineering-director). Até a separação dos
+// Experts esta página respondia pelo planning-director; o planejamento agora tem painel próprio em
+// experts-ia/diretor-planejamento.
 export default async function DiretorEngenhariaPage({
   params,
 }: {
@@ -17,8 +20,8 @@ export default async function DiretorEngenhariaPage({
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        title="Diretor de Planejamento IA"
-        description="Especialista em cronogramas e planejamento de obras. Analisa prazo, caminho crítico, desvios, relações entre atividades e impactos contratuais com base no MPP estruturado, sempre com revisão humana."
+        title="Diretor de Engenharia e Construção IA"
+        description="Especialista em engenharia de obras logísticas, industriais e de saúde: fundações, estruturas, pisos, coberturas, métodos construtivos, construtibilidade, engenharia de valor e compatibilização de projetos, sempre com revisão humana. Não substitui projetista nem responsável técnico."
       />
 
       <Card>
@@ -26,20 +29,20 @@ export default async function DiretorEngenhariaPage({
           <CardTitle>Consultas recomendadas</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-2 text-sm text-muted-foreground md:grid-cols-2">
-          <p>• Qual é a data final prevista da obra e quais atividades estão no caminho crítico?</p>
-          <p>• Quais atividades têm menor folga e maior risco de atraso?</p>
-          <p>• Quais relações entre atividades podem comprometer o prazo final?</p>
-          <p>• O cronograma carregado indica risco de impacto contratual relevante?</p>
+          <p>• Quais alternativas de fundação ou estrutura são compatíveis com as sondagens registradas?</p>
+          <p>• A revisão de projeto recebida tem interferências entre disciplinas?</p>
+          <p>• Que soluções de engenharia de valor podem reduzir custo sem perder desempenho?</p>
+          <p>• Quais riscos de execução existem no piso industrial ou na cobertura?</p>
         </CardContent>
       </Card>
 
       <ExpertQueryPanel
         projectId={projectId}
         scope="PROJECT"
-        title="Pergunte ao Diretor de Planejamento IA"
+        title="Pergunte ao Diretor de Engenharia e Construção IA"
         action={askEngineeringDirectorAction}
         initialState={initialAskCommercialDirectorState}
-        questionPlaceholder="Ex.: Qual é a data final prevista da obra, quantas atividades existem e quais estão no caminho crítico?"
+        questionPlaceholder="Ex.: Quais alternativas construtivas para a cobertura e quais os riscos de cada uma?"
       />
     </div>
   );

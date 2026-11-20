@@ -8,6 +8,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { getEvent, getUser } from "@/lib/data";
+import { reserveAiConsult } from "@/lib/ai/alert-consult/consult-quota";
 import { persistCurationAudit } from "@/lib/ai/curation/persist-curation-audit";
 import { runMultiExpertCuration } from "@/lib/ai/curation/run-multi-expert-curation";
 import type { MultiExpertCuration } from "@/lib/ai/curation/types";
@@ -72,6 +73,9 @@ export async function runMultiExpertCurationAction(
       sourceType: "EVENT",
       eventId,
       description: `${event.title}\n${event.description}`,
+    }, {
+      // Limite de IA: 1 unidade por Expert chamado (especialistas + CEO), reservada antes de cada chamada.
+      reserve: (expertId) => reserveAiConsult(supabase, projectId, "CURATION", eventId, expertId),
     });
   } catch (error) {
     return {

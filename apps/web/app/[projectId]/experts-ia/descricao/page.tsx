@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ALL_OFFICIAL_EXPERT_DEFINITIONS } from "@/lib/ai/expert-definitions";
-import { ENGINEERING_SKILL_REQUEST, requestedSkillsForExpert } from "@/lib/ai/expert-definitions/requested-skills";
+import { requestedSkillsForExpert, SKILL_STATE_LABEL } from "@/lib/ai/expert-definitions/requested-skills";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -44,7 +44,7 @@ export default async function DescricaoEspecialistasPage({params}:{params:Promis
                 <div key={skill.id} className="mt-2 rounded-md border p-3">
                   <p className="font-semibold">{skill.label}</p>
                   <p className="text-muted-foreground">{skill.purpose}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Instalada no Claude Code; integração operacional ao ACC pendente de verificação.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{SKILL_STATE_LABEL[skill.state]}</p>
                 </div>
               ))}
             </section>
@@ -66,14 +66,6 @@ export default async function DescricaoEspecialistasPage({params}:{params:Promis
           </CardContent>
         </Card>
       ))}
-      <Card>
-        <CardHeader><CardTitle>Engenharia Industrial e Logística</CardTitle></CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <p>Especialidade proposta, ainda sem Expert próprio no catálogo oficial do ACC.</p>
-          <p><strong>Skill selecionada:</strong> {ENGINEERING_SKILL_REQUEST.label}</p>
-          <p className="text-muted-foreground">{ENGINEERING_SKILL_REQUEST.purpose}</p>
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -90,7 +90,7 @@ await check("SSMA: reserva recusada → consulta não chamada; registro inexiste
 await check("as duas server actions de consulta ligam o limite (reserveAiConsult) antes do especialista", () => {
   const alertAction = readFileSync(path.join(root, "apps/web/app/alertas/consulta-ia/[projectId]/[subject]/[id]/actions.ts"), "utf8");
   const ssmaAction = readFileSync(path.join(root, "apps/web/app/ssma/consult-actions.ts"), "utf8");
-  assert.match(alertAction, /reserve: \(projectId, subject, id\) => reserveAiConsult\(supabase, projectId, subject === "risco" \? "RISCO" : "ALERTA"/);
+  assert.match(alertAction, /reserve: \(projectId, subject, id, expertId\) =>\s*reserveAiConsult\(supabase, projectId, subject === "risco" \? "RISCO" : "ALERTA", `\$\{subject\}:\$\{id\}`, expertId\)/);
   assert.match(ssmaAction, /reserve: \(pid, rid\) => reserveAiConsult\(supabase, pid, "SSMA", rid\)/);
 });
 

@@ -6,19 +6,21 @@
 // trabalho — ver docs/esg-obligations.md, seção "Limites".
 
 import { RISK_CRITERIA_INSTRUCTIONS } from "../../risk-criteria";
+import { SPECIALIST_FRAMEWORK_INSTRUCTIONS } from "../../specialist-framework";
 
 export const ESG_DIRECTOR_EXPERT_ID = "esg-director" as const;
 
 export const ESG_DIRECTOR_NAME = "Diretor de ESG IA";
 
-export const ESG_DIRECTOR_VERSION = "v3";
+// v4: o Framework Comum passa a ser incluído no prompt (specialist-framework.ts).
+export const ESG_DIRECTOR_VERSION = "v4";
 
 export const ESG_DIRECTOR_INSTRUCTIONS = `
 # ${ESG_DIRECTOR_NAME} (${ESG_DIRECTOR_EXPERT_ID} ${ESG_DIRECTOR_VERSION})
 
 Você é o Diretor de ESG IA do AXION Acompanhamento de Contratos (ACC).
-Leia e siga integralmente as regras de docs/ai/specialist-framework.md
-antes de produzir qualquer análise — elas não são repetidas aqui.
+Siga integralmente o Framework Comum dos Especialistas AXION reproduzido
+abaixo, antes de produzir qualquer análise.
 
 ## Missão (estritamente contratual)
 
@@ -110,5 +112,6 @@ contrato.
 
 Responda exclusivamente no formato estruturado ExpertQueryResponse (ver
 apps/web/lib/ai/query/types.ts) — nunca texto livre como única resposta.
+${SPECIALIST_FRAMEWORK_INSTRUCTIONS}
 ${RISK_CRITERIA_INSTRUCTIONS}
 `.trim();
