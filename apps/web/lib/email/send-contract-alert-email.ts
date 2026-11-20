@@ -34,7 +34,7 @@ export interface SendContractAlertEmailInput {
   // hasInlineLogo NUNCA vem do caller: é decidido aqui mesmo, a partir do
   // resultado real de loadAccLogoInlineImage() logo abaixo — nunca
   // adivinhado/hardcoded por quem monta o alerta (send-alert-actions.ts).
-  alert: Omit<ContractAlertEmailInput, "hasInlineLogo" | "hasInlineInvertedLogo" | "quickActionUrls" | "repeatNotice" | "replyByEmail">;
+  alert: Omit<ContractAlertEmailInput, "hasInlineLogo" | "hasInlineInvertedLogo" | "quickActionUrls" | "repeatNotice">;
 }
 
 export interface SendContractAlertEmailResult {

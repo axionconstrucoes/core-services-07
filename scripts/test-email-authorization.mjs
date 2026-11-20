@@ -223,7 +223,8 @@ await check("TODO ponto de envio passa por provider.send (que aplica a guarda e 
   const web = path.join(root, "apps/web");
   const files = walk(web).filter((f) => /\.(getEmailProvider\(\)|provider|sender)?send\(\{/.test("") || /(getEmailProvider\(\)|provider|ctx\.provider|mailer)\.send\(\{/.test(readFileSync(f, "utf8")));
   const rel = files.map((f) => path.relative(root, f).replaceAll("\\", "/"));
-  // Pontos de envio esperados (13) — um novo remetente precisa entrar aqui de propósito.
+  // Pontos de envio esperados (14) — um novo remetente precisa entrar aqui de propósito.
+  // N3: confirmações das respostas por e-mail (SLA / resumo / contrato) — mesma guarda e AXIA pelo provider.send.
   const expected = [
     "apps/web/lib/alerts/delivery-item-reminder-mailer.ts",
     "apps/web/lib/alerts/followup-engine.ts",
@@ -236,6 +237,7 @@ await check("TODO ponto de envio passa por provider.send (que aplica a guarda e 
     "apps/web/lib/email/send-version-impact-review-email.ts",
     "apps/web/lib/email/send-weekly-alert-digest-email.ts",
     "apps/web/lib/email-authorization/request.ts",
+    "apps/web/lib/email-replies/token-reply-confirmations.ts",
     "apps/web/lib/risk-alerts/run-risk-alert-cycle.ts",
     "apps/web/lib/ssma/field-notifications/server.ts",
   ].sort();
