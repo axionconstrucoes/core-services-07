@@ -119,7 +119,15 @@ const MARKERS = {
     ],
     mustNot: [[/risk_alert_outbox o where o\.case_id = p_case_id and o\.recipient_user_id = v_actor/, "e-mail recebido (outbox) como credencial (20261120130000)"]],
   },
+  // Integração N3 (20261121120000): a regra passou para sla_action_authorize_operation_for (ator explícito, usada também
+  // pelas variantes *_by_email); a função de sessão só exige usuário e delega.
   sla_action_authorize_operation: {
+    must: [
+      [/if v_user is null then raise exception 'AUTH_REQUIRED'/, "sessão obrigatória"],
+      [/return public\.sla_action_authorize_operation_for\(v_user, p_action_id, p_operation\)/, "delega à regra única (20261121120000)"],
+    ],
+  },
+  sla_action_authorize_operation_for: {
     must: [
       [/if v_permission is null then raise exception 'PROJECT_ACCESS_DENIED'/, "sem membership ativo recusa"],
       [/v_is_responsible := coalesce\(v_action\.responsible_user_id = v_user, false\)/, "responsável nulo (20261120153000)"],
@@ -153,7 +161,15 @@ const MARKERS = {
       [/if v_permission is null then\s*raise exception 'NOT_ACTIVE_MEMBER/, "autor sem membership ativo (20261121101000)"],
     ],
   },
+  // Integração N3 (20261121120000): validação e gravação por item em weekly_alert_digest_apply_item_core (mesma regra para a
+  // web e para a resposta por item via e-mail); submit_weekly_alert_digest mantém a checagem do destinatário e delega.
   submit_weekly_alert_digest: {
+    must: [
+      [/v_digest\.recipient_user_id <> v_actor_id\s*and not v_is_admin/, "só o destinatário ou ADMIN"],
+      [/public\.weekly_alert_digest_apply_item_core\(/, "delega ao núcleo por item (20261121120000)"],
+    ],
+  },
+  weekly_alert_digest_apply_item_core: {
     must: [
       [/mínimo de 10 caracteres/, "RESOLVIDO exige descrição (20261120150000)"],
       [/exige evidência da resolução/, "ALTO/CRÍTICO exige evidência"],
@@ -173,7 +189,7 @@ const MARKERS = {
   },
   ai_consult_reserve: { must: [[/if auth\.uid\(\) is null then raise exception 'AUTH_REQUIRED'/, "sessão"], [/RISK_CYCLE/, "RISK_CYCLE só pelo worker"], [/ai_consult_reserve_core\(/, "delega ao núcleo (20261120170000)"]] },
   ai_consult_reserve_expert: { must: [[/if auth\.uid\(\) is null then raise exception 'AUTH_REQUIRED'/, "sessão"], [/ai_consult_reserve_core\(/, "delega ao núcleo"]] },
-  ai_consult_reserve_for_actor: { must: [[/if p_actor_user_id is null then raise exception 'AUTH_REQUIRED'/, "ator"], [/p_kind is distinct from 'RISK_CYCLE'/, "só RISK_CYCLE"], [/ai_consult_reserve_core\(/, "delega ao núcleo"]] },
+  ai_consult_reserve_for_actor: { must: [[/if p_actor_user_id is null then raise exception 'AUTH_REQUIRED'/, "ator"], [/if p_kind is null or p_kind not in \('RISK_CYCLE', 'AUTOMATIC_CURATION'\) then raise exception 'INVALID_KIND'/, "só tipos do worker (RISK_CYCLE; AUTOMATIC_CURATION desde 20261121150000)"], [/ai_consult_reserve_core\(/, "delega ao núcleo"]] },
   has_project_permission: { must: [[/select coalesce\(public\.project_permission_for\(p_project_id, auth\.uid\(\), p_min\), false\)/, "delegação à fonte única (20261121100000)"]] },
   is_project_member: { must: [[/select coalesce\(public\.project_member_active_for\(p_project_id, auth\.uid\(\)\), false\)/, "delegação à fonte única (20261121100000)"]] },
   project_permission_for: {
@@ -217,7 +233,7 @@ await check("S3 funções auditadas: security definer, search_path = '' e anon s
     // (auth.uid() nulo => false).
     if (!ANON_RLS_HELPERS.includes(name) && (await execBy(name, "anon"))) problems.push(`${name}: anon com EXECUTE`);
   }
-  for (const name of ["ssma_corrective_action_forward_core", "ssma_field_record_register_photo_core", "ssma_corrective_action_update_core", "ai_consult_reserve_core", "ai_consult_reserve_for_actor", "project_permission_for", "project_member_active_for", "email_alert_action_risk_case_guard", "sla_action_authorize_operation"]) {
+  for (const name of ["ssma_corrective_action_forward_core", "ssma_field_record_register_photo_core", "ssma_corrective_action_update_core", "ai_consult_reserve_core", "ai_consult_reserve_for_actor", "project_permission_for", "project_member_active_for", "email_alert_action_risk_case_guard", "sla_action_authorize_operation", "sla_action_authorize_operation_for", "weekly_alert_digest_apply_item_core"]) {
     if (await execBy(name, "authenticated")) problems.push(`${name}: authenticated com EXECUTE`);
   }
   for (const name of ["record_risk_alert_action", "sla_action_assume", "sla_action_forward", "submit_weekly_alert_digest", "ai_consult_reserve", "has_project_permission", "is_project_member", "finalize_ssma_form_submission"]) {

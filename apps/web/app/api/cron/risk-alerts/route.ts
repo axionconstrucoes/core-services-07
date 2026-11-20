@@ -5,6 +5,9 @@ import { authorizePilotSingleRequest, runPilotSingleAlert } from "@/lib/risk-ale
 import { runRiskAlertCycle } from "@/lib/risk-alerts/run-risk-alert-cycle";
 import { runInboundMailboxCheck } from "@/lib/risk-alerts/replies/inbound-check";
 import { startRouteMetrics } from "@/lib/cron/route-metrics";
+import { createSupabaseAdminClient } from "@axion/db/admin";
+import { getEmailProvider } from "@/lib/email/get-email-provider";
+import { deliverEmailReplyConfirmations } from "@/lib/email-replies/token-reply-confirmations";
 
 // O GitHub usa ACC_RISK_ALERTS_CRON_SECRET. O agendador do Supabase usa
 // ACC_SCHEDULER_RISK_CRON_SECRET, restrito ao ciclo regular e à prévia.
@@ -32,6 +35,17 @@ export const runtime = "nodejs";
 export const maxDuration = 300;
 
 let inFlight = false;
+
+const EMAIL_REPLY_CONFIRMATIONS_ENABLED_ENV = "ACC_EMAIL_REPLY_CONFIRMATIONS_ENABLED";
+
+async function deliverReplyConfirmationsIfEnabled(input: { dryRun: boolean; scoped: boolean }) {
+  if (input.dryRun || input.scoped || process.env[EMAIL_REPLY_CONFIRMATIONS_ENABLED_ENV] !== "true") return null;
+  try {
+    return await deliverEmailReplyConfirmations({ client: createSupabaseAdminClient(), provider: getEmailProvider() });
+  } catch {
+    return { error: "Falha ao entregar confirmações de resposta por e-mail." };
+  }
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -83,7 +97,11 @@ export async function GET(request: Request) {
     const inboundCheck = inboundCheckRequested ? await runInboundMailboxCheck() : null;
     const result = await runRiskAlertCycle({ dryRun, projectId: projectId && /^[0-9a-f-]{36}$/i.test(projectId) ? projectId : null });
     const failed = result.projects.reduce((sum, project) => sum + project.failed, 0);
-    return Response.json({ ...result, ...(inboundCheck ? { inboundCheck } : {}), metrics: stopMetrics() }, { status: failed > 0 ? 207 : 200 });
+    // Confirmações das respostas por e-mail (SLA, resumo semanal por item, contrato — fila gravada pelo worker SÓ depois
+    // da gravação). FALHA FECHADA: só com ACC_EMAIL_REPLY_CONFIRMATIONS_ENABLED=true (valor exato), nunca em dry-run nem
+    // na execução restrita a uma obra. Mesmo provedor (e travas do piloto) dos alertas; erro aqui nunca derruba o ciclo.
+    const replyConfirmations = await deliverReplyConfirmationsIfEnabled({ dryRun, scoped: Boolean(projectId) });
+    return Response.json({ ...result, ...(replyConfirmations ? { replyConfirmations } : {}), ...(inboundCheck ? { inboundCheck } : {}), metrics: stopMetrics() }, { status: failed > 0 ? 207 : 200 });
   } catch {
     // Nunca vaza detalhes (tokens, e-mails) no corpo da resposta.
     return Response.json({ error: "Falha ao processar alertas de risco." }, { status: 500 });
