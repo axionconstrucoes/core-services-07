@@ -10,7 +10,17 @@
 //   - qualquer dmarc=fail/permerror ou dkim alinhado com fail/permerror num cabeçalho confiável => AUTH_FAILED
 //     (conflito nunca vira aceitação);
 //   - confiável sem pass alinhado => AUTH_NOT_ALIGNED.
-// O cabeçalho ARC-Authentication-Results NÃO conta (é do encaminhador, não do servidor que recebeu).
+// O cabeçalho ARC-Authentication-Results NÃO conta (é do encaminhador, não do servidor que recebeu; sem validar a cadeia
+// ARC-Seal criptograficamente ele pode ser escrito pelo próprio remetente).
+//
+// N3 — fallback OPCIONAL do locatário Google Workspace (desligado por padrão; só com `workspaceTenantDomains`):
+// domínio corporativo SEM registro DMARC e SEM DKIM próprio configurado no Workspace faz o Google assinar com a chave
+// padrão do locatário (d=<dominio-com-hifens>.<aaaammdd>.gappssmtp.com) e o servidor registra dmarc=none (não pass) —
+// respostas internas legítimas seriam recusadas (AUTH_NOT_ALIGNED). O fallback aceita SOMENTE quando, num cabeçalho de
+// servidor confiável: o From é do domínio listado; há dkim=pass com d= EXATAMENTE a chave padrão desse locatário (só o
+// Google assina com ela, e só para o locatário daquele domínio); há spf=pass com smtp.mailfrom alinhado ao From; e não
+// há dmarc=fail/permerror nem dkim alinhado com falha (conflito continua recusado). Equivale ao alinhamento SPF do
+// DMARC, amarrado à assinatura do próprio locatário — não aceita SPF sozinho nem ARC.
 
 export const TRUSTED_AUTHSERV_IDS_ENV = "ACC_EMAIL_TRUSTED_AUTHSERV_IDS";
 export const DEFAULT_TRUSTED_AUTHSERV_IDS: readonly string[] = ["mx.google.com"];
@@ -18,7 +28,7 @@ export const DEFAULT_TRUSTED_AUTHSERV_IDS: readonly string[] = ["mx.google.com"]
 export type SenderAuthenticationFailure = "AUTH_RESULTS_MISSING" | "AUTH_UNTRUSTED_SERVER" | "AUTH_FAILED" | "AUTH_NOT_ALIGNED";
 
 export type SenderAuthentication =
-  | { ok: true; method: "DMARC" | "DKIM"; authservId: string }
+  | { ok: true; method: "DMARC" | "DKIM" | "WORKSPACE_TENANT"; authservId: string }
   | { ok: false; reason: SenderAuthenticationFailure };
 
 export interface ParsedAuthenticationResult {
@@ -89,11 +99,35 @@ function dkimSigningDomain(props: Record<string, string>): string | null {
   return null;
 }
 
+/** Chave DKIM padrão do locatário Google Workspace do domínio (ex.: axion.com.br => axion-com-br.20230601.gappssmtp.com). */
+export function isWorkspaceTenantSigningDomain(signingDomain: string | null | undefined, fromDomain: string): boolean {
+  if (!signingDomain) return false;
+  const tenant = fromDomain.toLowerCase().replace(/\./g, "-").replace(/[^a-z0-9-]/g, "");
+  const signing = signingDomain.trim().toLowerCase();
+  const prefix = `${tenant}.`;
+  const suffix = ".gappssmtp.com";
+  if (!tenant || !signing.startsWith(prefix) || !signing.endsWith(suffix)) return false;
+  return /^\d{8}$/.test(signing.slice(prefix.length, signing.length - suffix.length));
+}
+
+function spfMailFromDomain(props: Record<string, string>): string | null {
+  const raw = props["smtp.mailfrom"] ?? null;
+  if (!raw) return null;
+  return raw.includes("@") ? raw.slice(raw.lastIndexOf("@") + 1) : raw;
+}
+
+export const WORKSPACE_TENANT_DOMAINS_ENV = "ACC_EMAIL_WORKSPACE_TENANT_DOMAINS";
+
+/** Domínios com o fallback do locatário Workspace habilitado (vazio/ausente => nenhum: comportamento P2 inalterado). */
+export function resolveWorkspaceTenantDomains(env: Record<string, string | undefined> = process.env): string[] {
+  return (env[WORKSPACE_TENANT_DOMAINS_ENV] ?? "").split(/[,;\s]+/).map((v) => v.trim().toLowerCase()).filter((v) => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(v));
+}
+
 /**
  * Avalia TODOS os Authentication-Results da mensagem. `headers` aceita um único valor com vários cabeçalhos separados
  * por quebra de linha (formato gravado em alert_email_messages.authentication_results) ou uma lista.
  */
-export function verifySenderAuthentication(input: { fromEmail: string; authenticationResults: string | readonly string[] | null | undefined; trustedAuthservIds?: readonly string[] }): SenderAuthentication {
+export function verifySenderAuthentication(input: { fromEmail: string; authenticationResults: string | readonly string[] | null | undefined; trustedAuthservIds?: readonly string[]; workspaceTenantDomains?: readonly string[] }): SenderAuthentication {
   const fromDomain = domainOf(input.fromEmail);
   const raw = input.authenticationResults;
   const values = (Array.isArray(raw) ? raw : typeof raw === "string" ? raw.split(/\r?\n/) : []).map((v) => String(v).trim()).filter(Boolean);
@@ -106,7 +140,14 @@ export function verifySenderAuthentication(input: { fromEmail: string; authentic
 
   let dmarcPass: string | null = null;
   let dkimPass: string | null = null;
+  let tenantPass: string | null = null;
+  const tenantEnabled = (input.workspaceTenantDomains ?? []).map((d) => d.toLowerCase()).includes(fromDomain);
   for (const header of fromTrusted) {
+    if (tenantEnabled) {
+      const tenantDkim = header.results.some((r) => r.method === "dkim" && r.result === "pass" && isWorkspaceTenantSigningDomain(dkimSigningDomain(r.props), fromDomain));
+      const spfAligned = header.results.some((r) => r.method === "spf" && r.result === "pass" && isAlignedDomain(spfMailFromDomain(r.props), fromDomain));
+      if (tenantDkim && spfAligned) tenantPass = tenantPass ?? header.authservId;
+    }
     for (const r of header.results) {
       if (r.method === "dmarc") {
         const headerFrom = r.props["header.from"] ?? null;
@@ -122,6 +163,7 @@ export function verifySenderAuthentication(input: { fromEmail: string; authentic
   // DMARC (política do domínio) tem precedência na rastreabilidade; DKIM alinhado também basta.
   if (dmarcPass) return { ok: true, method: "DMARC", authservId: dmarcPass };
   if (dkimPass) return { ok: true, method: "DKIM", authservId: dkimPass };
+  if (tenantPass) return { ok: true, method: "WORKSPACE_TENANT", authservId: tenantPass };
   return { ok: false, reason: "AUTH_NOT_ALIGNED" };
 }
 

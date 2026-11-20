@@ -2,11 +2,15 @@ import "server-only";
 
 import { createSupabaseAdminClient } from "@axion/db/admin";
 
+import { issueItemReplyMailto, SEVERITY_FROM_ALERT } from "@/lib/email-replies/issue-item-reply-mailto";
+import { createSupabaseEmailReplyTokenStore } from "@/lib/email-replies/reply-tokens";
+
 import { openFollowupsForSentBatch } from "../alerts/followup-service";
 import { getAppBaseUrl } from "../app-base-url";
 import { buildAiConsultUrl } from "../alerts/ai-consult-link";
 import { appendAccEmailSignature } from "./branding/acc-email-signature";
 import { loadAccAlertLogos } from "./branding/load-acc-logo-inline-image";
+import { ALERT_REPLY_MAILBOX_ENV } from "./alert-reply-address";
 import { EmailSendError } from "./email-provider";
 import { getEmailProvider } from "./get-email-provider";
 import {
@@ -145,6 +149,23 @@ export async function createAndSendContractAlertBatch(
     throw new EmailSendError("Falha ao registrar os itens do lote de alertas.");
   }
 
+  // Atalhos "Responder por e-mail" POR ALERTA (CONTRACT_ALERT_ITEM = contract_alert_batch_items.id), token do destinatário
+  // do lote, hash gravado ANTES do envio. Falha/caixa ausente => o alerta sai só com os botões do ACC.
+  const replyByEvent = new Map<string, Awaited<ReturnType<typeof issueItemReplyMailto>>>();
+  const replyMailbox = process.env[ALERT_REPLY_MAILBOX_ENV] ?? null;
+  if (replyMailbox) {
+    try {
+      const { data: itemRows } = await admin.from("contract_alert_batch_items").select("id,event_id,severity").eq("batch_id", batchId);
+      const store = createSupabaseEmailReplyTokenStore(admin);
+      const nowIso = new Date().toISOString();
+      for (const row of (itemRows ?? []) as Array<{ id: string; event_id: string; severity: string }>) {
+        replyByEvent.set(row.event_id, await issueItemReplyMailto({ store, mailbox: replyMailbox, projectId: input.projectId, kind: "CONTRACT_ALERT_ITEM", subjectId: row.id, recipientUserId: input.recipientUserId, severity: SEVERITY_FROM_ALERT[row.severity] ?? "MEDIUM", nowIso }));
+      }
+    } catch {
+      replyByEvent.clear();
+    }
+  }
+
   const baseUrl = getAppBaseUrl();
   const batchUrl = `${baseUrl}/${input.projectId}/ledger/lote-alertas/${batchId}`;
   const emailItems: ContractAlertBatchEmailItem[] = input.items.map((item) => ({
@@ -152,6 +173,7 @@ export async function createAndSendContractAlertBatch(
     projectName: item.projectName ?? (project.name as string),
     respondItemUrl: `${batchUrl}#evento-${item.eventId}`,
     aiConsultUrl: buildAiConsultUrl({ baseUrl, projectId: input.projectId, subject: "evento", id: item.eventId }),
+    replyByEmail: item.replyByEmail ?? replyByEvent.get(item.eventId) ?? null,
     quickActionUrl:
       input.items.length === 1
         ? `${baseUrl}/alertas/acao/${input.projectId}/${batchId}/${item.eventId}`
