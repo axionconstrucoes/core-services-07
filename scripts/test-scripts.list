@@ -106,3 +106,4 @@ scripts/test-seguros-browser.mjs
 scripts/test-implantacao-plano.mjs
 scripts/test-permissoes-tier.mjs
 scripts/test-permissoes-unificadas-realpg.mjs
+scripts/test-endossos-dupla-conferencia-realpg.mjs

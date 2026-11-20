@@ -128,7 +128,7 @@ try {
   await check("ESTRUTURA: toda tabela nova com RLS habilitado, sem grant de escrita a anon/authenticated, sem estado 'enviada'", async () => {
     const t = (await su.query(`select c.relname, c.relrowsecurity from pg_class c where c.relnamespace='public'::regnamespace and c.relkind='r'
       and (c.relname like 'insurance\\_%' or c.relname in ('bank_guarantees','other_guarantees'))`)).rows;
-    ok(t.length === 16, `esperava 16 tabelas, obtive ${t.length}`);
+    ok(t.length === 17, `esperava 17 tabelas (16 do S1 + conferências de endosso da Fase 3/C), obtive ${t.length}`);
     ok(t.every((r) => r.relrowsecurity), "RLS desligado em alguma tabela");
     const g = (await su.query(`select table_name, grantee, privilege_type from information_schema.role_table_grants where table_schema='public'
       and (table_name like 'insurance\\_%' or table_name in ('bank_guarantees','other_guarantees')) and grantee in ('anon','authenticated','public') and privilege_type <> 'SELECT'`)).rows;
@@ -284,9 +284,13 @@ try {
     await rejects(rpc(g, "insurance_endorsement_advance", e.id, an.rowVersion, "EMITIDO", JSON.stringify({ issued_text: "texto", issued_document_id: DB, issued_number: "E-1" })), /REFERENCE_OUT_OF_PROJECT/, "documento de outra obra");
     const em = await rpc(g, "insurance_endorsement_advance", e.id, an.rowVersion, "EMITIDO", JSON.stringify({ issued_text: "Inclusão de beneficiário alfa nas condições vigentes, exceto danos à própria obra", issued_document_id: D2, issued_number: "E-1/2026" }));
     eq([em.state, em.coverageEffective, em.textsMatch], ["EMITIDO", false, false], "emitido ainda sem efeito; texto diverge");
-    await rejects(rpc(g, "insurance_endorsement_advance", e.id, em.rowVersion, "CONFERIDO", JSON.stringify({})), /DIVERGENCE_NOTE_REQUIRED/, "divergência exige nota");
-    const cf = await rpc(g, "insurance_endorsement_advance", e.id, em.rowVersion, "CONFERIDO", JSON.stringify({ divergence_note: "Emitido acrescenta exclusão de danos à própria obra; aceito após análise jurídica" }));
-    eq([cf.state, cf.coverageEffective], ["CONFERIDO", true], "conferido produz efeito");
+    // Fase 3/C: pedido sem classificação (fail-closed) exige DUAS conferências independentes (nem o solicitante COLAB nem o emissor GESTOR).
+    await rejects(rpc(g, "insurance_endorsement_advance", e.id, em.rowVersion, "CONFERIDO", JSON.stringify({})), /REVIEWER_IS_ISSUER/, "emissor não confere a própria emissão");
+    await rejects(rpc(a, "insurance_endorsement_advance", e.id, em.rowVersion, "CONFERIDO", JSON.stringify({})), /DIVERGENCE_NOTE_REQUIRED/, "divergência exige nota");
+    const cf1 = await rpc(a, "insurance_endorsement_advance", e.id, em.rowVersion, "CONFERIDO", JSON.stringify({ divergence_note: "Emitido acrescenta exclusão de danos à própria obra; aceito após análise jurídica" }));
+    eq([cf1.state, cf1.coverageEffective], ["EMITIDO", false], "primeira conferência não produz efeito");
+    const cf = await rpc(await as(U.ADMINB), "insurance_endorsement_advance", e.id, cf1.rowVersion, "CONFERIDO", JSON.stringify({ divergence_note: "Segunda conferência: exclusão de danos à própria obra confirmada no documento emitido" }));
+    eq([cf.state, cf.coverageEffective], ["CONFERIDO", true], "conferido (2 conferências) produz efeito");
     const naoPend = (await a.query("select * from public.insurance_dashboard_items($1, current_date, 30) where kind='ENDOSSO_PENDENTE' and entity_id=$2", [P, e.id])).rows;
     eq(naoPend.length, 0, "conferido sai das pendências");
     // texto idêntico (normalizado) => texts_match true
