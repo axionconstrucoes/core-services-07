@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -39,6 +40,14 @@ const SHEET_STATUS_LABELS: Record<string, string> = {
   FAILED: "Falha",
 };
 
+const SHEET_HELP_IDS: Record<RegistryWorkbookSheet["category"], string> = {
+  CURVA_S: "juridico.emails.aba-curva-s",
+  LINHA_BASE: "juridico.emails.aba-linha-base",
+  FINANCEIRO: "juridico.emails.aba-financeiro",
+  HISTOGRAMA: "juridico.emails.aba-histograma",
+  SSMA: "juridico.emails.aba-ssma",
+};
+
 const WORKBOOK_STATUS_LABELS: Record<string, string> = {
   EXTRACTED: "Todas as abas extraídas",
   PARTIAL: "Extração parcial",
@@ -58,6 +67,7 @@ function SheetHeader({ sheet, fileHref }: { sheet: RegistryWorkbookSheet; fileHr
     <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
       <div className="flex flex-wrap items-center gap-2">
         <strong>{CATEGORY_LABELS[sheet.category]}</strong>
+        <FeatureInfo helpId={SHEET_HELP_IDS[sheet.category]} />
         <Badge variant="outline">{SHEET_STATUS_LABELS[sheet.status] ?? sheet.status}</Badge>
         {sheet.riskClassification ? <Badge variant="outline" className={riskBadgeClassName(sheet.riskClassification)}>{RISK_LABELS[sheet.riskClassification] ?? sheet.riskClassification}</Badge> : null}
       </div>
@@ -326,7 +336,10 @@ export function WeeklyReportWorkbookSection({ workbook, projectId, emailId, canE
   return (
     <Card data-testid="weekly-report-workbook-section">
       <CardHeader>
-        <CardTitle>Relatório Semanal (Excel) — {workbook.fileName}</CardTitle>
+        <CardTitle className="flex items-center gap-1.5">
+          Relatório Semanal (Excel) — {workbook.fileName}
+          <FeatureInfo helpId="juridico.emails.relatorio-excel" />
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {/* Resumo */}
@@ -359,7 +372,10 @@ export function WeeklyReportWorkbookSection({ workbook, projectId, emailId, canE
 
         {/* Dados de origem */}
         <section className="flex flex-col gap-1 text-xs" aria-label="Dados de origem">
-          <strong>Dados de origem</strong>
+          <span className="flex items-center gap-1">
+            <strong>Dados de origem</strong>
+            <FeatureInfo helpId="juridico.emails.dados-origem" />
+          </span>
           <p className="text-muted-foreground">
             Método {workbook.extractionMethod} · lido em {v(workbook.extractedAt)} · somente valores armazenados (macros: {safety.macrosDetected ? "detectadas e ignoradas" : "não detectadas"}; links externos: {v(safety.externalLinksDetected)}; conexões de dados: {v(safety.dataConnectionsDetected)}; fórmulas preservadas: {v(safety.formulasPreserved)}; sem valor armazenado: {v(safety.formulasWithoutCachedValue)}).
           </p>

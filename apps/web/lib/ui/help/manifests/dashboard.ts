@@ -92,7 +92,7 @@ export const DASHBOARD_MANIFEST: HelpManifest = {
       route: EXEC,
       kind: "chart",
       label: "Curva S e Histograma como gráficos",
-      gap: "Não existem gráficos de Curva S nem de histograma no Dashboard Executivo: a tela mostra só o último valor (avanço físico e efetivo atual), documentado. Se o gráfico for criado, deve ser inventariado e documentado.",
+      exempt: "Elemento inexistente (confirmado no código: nenhum componente de gráfico de Curva S ou histograma em dashboard/page.tsx). Não existem gráficos de Curva S nem de histograma no Dashboard Executivo: a tela mostra só o último valor (avanço físico e efetivo atual), documentado. Se o gráfico for criado, deve ser inventariado e documentado.",
     },
 
     // ---- Dashboard Visual (rota que redireciona) ----
@@ -106,7 +106,7 @@ export const DASHBOARD_MANIFEST: HelpManifest = {
       route: VISUAL,
       kind: "filter",
       label: "Filtro de período e cartões do Dashboard Visual (components/dashboard-visual/*)",
-      gap: "Os componentes do Dashboard Visual (filtro de período, cartões de e-mails, alertas, valor contratual, prazo, volume por fonte, experts) existem no código mas nenhuma rota os renderiza hoje; as entradas legadas dashboard-visual-* ficaram sem tela. Providência: decidir se o Dashboard Visual será reativado (então inventariar e documentar) ou se os componentes serão removidos pelo time de desenvolvimento.",
+      exempt: "Código sem rota (confirmado: nenhum arquivo em app/ ou components/ importa components/dashboard-visual/*; a rota /[projectId]/dashboard/visual apenas redireciona para /[projectId]/dashboard). Os componentes do Dashboard Visual (filtro de período, cartões de e-mails, alertas, valor contratual, prazo, volume por fonte, experts) existem no código mas nenhuma rota os renderiza hoje; as entradas legadas dashboard-visual-* ficaram sem tela. Providência: decidir se o Dashboard Visual será reativado (então inventariar e documentar) ou se os componentes serão removidos pelo time de desenvolvimento.",
     },
   ],
 };

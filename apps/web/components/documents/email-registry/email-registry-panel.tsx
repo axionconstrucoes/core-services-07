@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/shared/empty-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,8 +98,16 @@ export function EmailRegistryPanel({
       <form method="get" action={`/${projectId}/documentos`} className="grid gap-2 rounded-md border p-3 sm:grid-cols-4" role="search" aria-label="Buscar no registro documental por e-mail">
         <input type="hidden" name="tab" value="registro-email" />
 
+        <div className="flex items-center gap-1 text-sm font-semibold sm:col-span-4">
+          Buscar no registro por e-mail
+          <FeatureInfo helpId="juridico.registro-email.busca" />
+        </div>
+
         <label className="flex flex-col gap-1 text-xs sm:col-span-1">
-          Classificação
+          <span className="flex items-center gap-1">
+            Classificação
+            <FeatureInfo helpId="juridico.registro-email.classificacao" />
+          </span>
           <Select name="classificacao" defaultValue={params.classification} aria-label="Classificação">
             {REGISTRY_CLASSIFICATION_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -142,7 +151,10 @@ export function EmailRegistryPanel({
           </Select>
         </label>
         <label className="flex flex-col gap-1 text-xs">
-          Status do envio semanal
+          <span className="flex items-center gap-1">
+            Status do envio semanal
+            <FeatureInfo helpId="juridico.registro-email.status-envio" />
+          </span>
           <Select name="status" defaultValue={params.intakeStatus ?? ""} aria-label="Status">
             <option value="">Todos</option>
             {Object.entries(INTAKE_STATUS_LABELS).map(([value, label]) => (
@@ -153,7 +165,10 @@ export function EmailRegistryPanel({
           </Select>
         </label>
         <label className="flex flex-col gap-1 text-xs">
-          Risco
+          <span className="flex items-center gap-1">
+            Risco
+            <FeatureInfo helpId="juridico.registro-email.risco" />
+          </span>
           <Select name="risco" defaultValue={params.risk ?? ""} aria-label="Risco">
             <option value="">Todos</option>
             {Object.entries(RISK_LABELS).map(([value, label]) => (
@@ -194,16 +209,41 @@ export function EmailRegistryPanel({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Título / assunto</TableHead>
-                <TableHead>Classificação</TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    Título / assunto
+                    <FeatureInfo helpId="juridico.registro-email.lista" />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    Classificação
+                    <FeatureInfo helpId="juridico.registro-email.classificacao" />
+                  </span>
+                </TableHead>
                 <TableHead>Direção</TableHead>
                 <TableHead>Remetente → destinatários</TableHead>
                 <TableHead>Data / hora</TableHead>
                 <TableHead>Semana</TableHead>
                 <TableHead className="text-right">Anexos</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Revisão</TableHead>
-                <TableHead>Risco</TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    Status
+                    <FeatureInfo helpId="juridico.registro-email.status-envio" />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    Revisão
+                    <FeatureInfo helpId="juridico.registro-email.revisao" />
+                  </span>
+                </TableHead>
+                <TableHead>
+                  <span className="inline-flex items-center gap-1">
+                    Risco
+                    <FeatureInfo helpId="juridico.registro-email.risco" />
+                  </span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -220,7 +260,7 @@ export function EmailRegistryPanel({
                       <span className="flex flex-col gap-1">
                         <span>{row.classification ? EMAIL_CLASSIFICATION_LABELS[row.classification] : "Não classificado"}</span>
                         {row.sentToClient ? (
-                          <Badge variant="outline" className="w-fit" title="Filtro transversal: e-mail OUTBOUND com destinatário no domínio do cliente">
+                          <Badge variant="outline" className="w-fit">
                             Enviado ao cliente
                           </Badge>
                         ) : null}

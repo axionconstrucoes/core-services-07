@@ -16,6 +16,7 @@ import {
   validateWeeklyReportCurveValuesAction,
 } from "@/app/[projectId]/documentos/emails/actions";
 import { initialEmailRegistryActionState } from "@/app/[projectId]/documentos/emails/actions-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -142,7 +143,10 @@ export function ClassificationConfirmForm({
       <input type="hidden" name="emailId" value={emailId} />
       {emailAttachmentId ? <input type="hidden" name="emailAttachmentId" value={emailAttachmentId} /> : null}
       <label className="flex flex-col gap-1">
-        Classificação
+        <span className="flex items-center gap-1">
+          Classificação
+          <FeatureInfo helpId="juridico.emails.confirmar-classificacao" />
+        </span>
         <Select name="classification" defaultValue={current ?? "UNCLASSIFIED"} aria-label="Classificação">
           {options.map((option) => (
             <option key={option.value} value={option.value}>
@@ -232,7 +236,10 @@ export function SheetMappingForm({
       <input type="hidden" name="emailId" value={emailId} />
       <input type="hidden" name="sheetId" value={sheetId} />
       <label className="flex flex-col gap-1">
-        Aba do arquivo que corresponde a {category}
+        <span className="flex items-center gap-1">
+          Aba do arquivo que corresponde a {category}
+          <FeatureInfo helpId="juridico.emails.mapear-aba" />
+        </span>
         <Select name="sheetName" defaultValue={current ?? ""} required aria-label="Aba do arquivo">
           <option value="" disabled>
             Selecione…
@@ -274,7 +281,10 @@ export function CurveValuesValidationForm({
       <input type="hidden" name="emailId" value={emailId} />
       <input type="hidden" name="sheetId" value={sheetId} />
       <label className="flex flex-col gap-1">
-        Data de corte
+        <span className="flex items-center gap-1">
+          Data de corte
+          <FeatureInfo helpId="juridico.emails.validar-curva-s" />
+        </span>
         <Input type="date" name="cutoffDate" defaultValue={defaults.cutoffDate ?? ""} required />
       </label>
       <label className="flex flex-col gap-1">
