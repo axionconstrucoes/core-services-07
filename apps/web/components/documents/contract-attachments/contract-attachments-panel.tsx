@@ -92,25 +92,20 @@ function AttachmentRow({
           {attachment.description ? <span className="text-muted-foreground">{attachment.description}</span> : null}
         </div>
 
-        <div className="flex shrink-0 flex-wrap gap-1">
+        <div className="flex shrink-0 flex-wrap items-center gap-1">
           <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => openSignedUrl(false)}>
             Visualizar
           </Button>
+          <FeatureInfo helpId="juridico.documentos.anexos-contrato" />
           <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => openSignedUrl(true)}>
             Baixar
           </Button>
           {canDelete && !confirming ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="border-destructive text-destructive hover:bg-destructive/10"
-              disabled={busy}
-              onClick={() => setConfirming(true)}
-            >
+            <Button type="button" variant="outline" size="sm" className="border-destructive text-destructive hover:bg-destructive/10" disabled={busy} onClick={() => setConfirming(true)}>
               Remover anexo do contrato
             </Button>
           ) : null}
+          {canDelete && !confirming ? <FeatureInfo helpId="juridico.documentos.anexos-contrato" /> : null}
         </div>
       </div>
 
@@ -121,7 +116,8 @@ function AttachmentRow({
       {canDelete && confirming ? (
         <div className="flex flex-col gap-1 rounded-md border border-destructive/40 bg-destructive/5 p-1.5">
           <p>O vínculo será removido da visualização. O arquivo histórico permanecerá preservado para auditoria.</p>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-1">
+            <FeatureInfo helpId="juridico.documentos.anexos-contrato" />
             <Button
               type="button"
               variant="outline"
@@ -215,7 +211,10 @@ export function ContractAttachmentsPanel({
         {canAdd ? (
           <div className="flex flex-col gap-1 pt-1">
             <label className="flex flex-col gap-1 text-xs font-medium">
-              Identificação (opcional)
+              <span className="flex items-center gap-1">
+                Identificação (opcional)
+                <FeatureInfo helpId="juridico.documentos.anexos-contrato" />
+              </span>
               <Input
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
@@ -225,7 +224,10 @@ export function ContractAttachmentsPanel({
               />
             </label>
             <label className="flex flex-col gap-1 text-xs font-medium">
-              Adicionar parte(s) ou anexo(s) do contrato
+              <span className="flex items-center gap-1">
+                Adicionar parte(s) ou anexo(s) do contrato
+                <FeatureInfo helpId="juridico.documentos.anexos-contrato" />
+              </span>
               <input
                 ref={fileInputRef}
                 type="file"

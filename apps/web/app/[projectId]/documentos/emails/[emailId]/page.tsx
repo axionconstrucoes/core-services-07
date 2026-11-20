@@ -65,6 +65,7 @@ function buildSafeEmailHtml(
     .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
     .replace(/<object[\s\S]*?<\/object>/gi, "")
     .replace(/<embed[^>]*>/gi, "")
+    // help-exempt: remove tags form do HTML do e-mail por segurança; não é um formulário da tela
     .replace(/<form[\s\S]*?<\/form>/gi, "");
 
   return `<!doctype html>
@@ -416,11 +417,21 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
-                    <TableHead>Ext.</TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        Ext.
+                        <FeatureInfo helpId="juridico.emails.anexo-colunas-armazenamento" />
+                      </span>
+                    </TableHead>
                     <TableHead>MIME</TableHead>
                     <TableHead className="text-right">Tamanho</TableHead>
                     <TableHead>SHA-256</TableHead>
-                    <TableHead>Storage</TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        Storage
+                        <FeatureInfo helpId="juridico.emails.anexo-colunas-armazenamento" />
+                      </span>
+                    </TableHead>
                     <TableHead>
                       <span className="inline-flex items-center gap-1">
                         Status

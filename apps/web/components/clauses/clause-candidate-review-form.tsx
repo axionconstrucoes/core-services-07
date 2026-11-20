@@ -95,9 +95,12 @@ export function ClauseCandidateReviewForm({
       {restored && dirty ? (
         <div role="status" className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
           <span>Rascunho não enviado restaurado para este candidato.</span>
-          <button type="button" onClick={discard} className="font-medium underline underline-offset-2">
-            Descartar rascunho
-          </button>
+          <span className="inline-flex items-center gap-1">
+            <button type="button" onClick={discard} className="font-medium underline underline-offset-2">
+              Descartar rascunho
+            </button>
+            <FeatureInfo helpId="juridico.revisao-clausulas.rascunho" />
+          </span>
         </div>
       ) : dirty ? (
         <p className="text-xs text-muted-foreground">Alterações salvas como rascunho nesta aba (ainda não enviadas).</p>
@@ -110,17 +113,26 @@ export function ClauseCandidateReviewForm({
         <input type="hidden" name="returnTo" value={returnTo} />
 
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Número da cláusula
+          <span className="flex items-center gap-1">
+            Número da cláusula
+            <FeatureInfo helpId="juridico.revisao-clausulas.campos-aprovacao" />
+          </span>
           <input name="clauseNumber" value={draft.clauseNumber} onChange={update("clauseNumber")} required className={`h-9 ${inputClass}`} />
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Título
+          <span className="flex items-center gap-1">
+            Título
+            <FeatureInfo helpId="juridico.revisao-clausulas.campos-aprovacao" />
+          </span>
           <input name="clauseTitle" value={draft.clauseTitle} onChange={update("clauseTitle")} required className={`h-9 ${inputClass}`} />
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Texto contratual
+          <span className="flex items-center gap-1">
+            Texto contratual
+            <FeatureInfo helpId="juridico.revisao-clausulas.campos-aprovacao" />
+          </span>
           <textarea
             name="clauseText"
             value={draft.clauseText}
@@ -132,7 +144,10 @@ export function ClauseCandidateReviewForm({
         </label>
 
         <label className="flex flex-col gap-1.5 text-sm font-medium">
-          Observação da revisão <span className="text-xs font-normal text-muted-foreground">Opcional para aprovação.</span>
+          <span className="flex items-center gap-1">
+            Observação da revisão <span className="text-xs font-normal text-muted-foreground">Opcional para aprovação.</span>
+            <FeatureInfo helpId="juridico.revisao-clausulas.campos-aprovacao" />
+          </span>
           <textarea
             name="reviewNote"
             value={draft.approveNote}
@@ -152,6 +167,7 @@ export function ClauseCandidateReviewForm({
             className="mt-0.5"
           />
           Conferi número, título e texto com a página original do contrato.
+          <FeatureInfo helpId="juridico.revisao-clausulas.campos-aprovacao" />
         </label>
 
         <div className="flex items-center gap-2">
@@ -184,12 +200,15 @@ export function ClauseCandidateReviewForm({
           placeholder="Informe por que este trecho não deve ser tratado como cláusula."
           className={`resize-y p-3 ${inputClass}`}
         />
-        <button
-          type="submit"
-          className="inline-flex h-9 items-center justify-center rounded-md border border-destructive/40 px-4 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
-        >
-          Rejeitar candidato
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="submit"
+            className="inline-flex h-9 items-center justify-center rounded-md border border-destructive/40 px-4 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
+          >
+            Rejeitar candidato
+          </button>
+          <FeatureInfo helpId="juridico.revisao-clausulas.rejeitar" />
+        </div>
       </form>
     </div>
   );

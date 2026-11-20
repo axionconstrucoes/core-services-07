@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { linkClientResponseAction } from "@/app/[projectId]/documentos/link-client-response-actions";
 import { initialLinkClientResponseState } from "@/app/[projectId]/documentos/link-client-response-actions-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,7 +43,10 @@ export function LinkClientResponseControl({
         <input type="hidden" name="documentVersionId" value={documentVersionId} />
 
         <label className="flex flex-col gap-1 text-xs">
-          E-mail relacionado
+          <span className="flex items-center gap-1">
+            E-mail relacionado
+            <FeatureInfo helpId="juridico.documentos.resposta-cliente-campos" />
+          </span>
           <Select name="emailId" required defaultValue="">
             <option value="" disabled>
               Selecione o e-mail
@@ -59,7 +63,10 @@ export function LinkClientResponseControl({
         </label>
 
         <label className="flex flex-col gap-1 text-xs">
-          Relação
+          <span className="flex items-center gap-1">
+            Relação
+            <FeatureInfo helpId="juridico.documentos.resposta-cliente-campos" />
+          </span>
           <Select name="relationType" required defaultValue="RESPONDE">
             <option value="RESPONDE">Responde</option>
             <option value="DISCORDA">Discorda</option>
@@ -70,16 +77,22 @@ export function LinkClientResponseControl({
         </label>
 
         <label className="flex flex-col gap-1 text-xs">
-          Trecho relevante (opcional)
+          <span className="flex items-center gap-1">
+            Trecho relevante (opcional)
+            <FeatureInfo helpId="juridico.documentos.resposta-cliente-campos" />
+          </span>
           <Textarea name="excerpt" rows={2} />
         </label>
 
         {state.error ? <p className="text-xs text-destructive">{state.error}</p> : null}
         {state.success ? <p className="text-xs text-emerald-600">Vínculo registrado.</p> : null}
 
-        <Button type="submit" size="sm" disabled={pending} className="self-start">
-          {pending ? "Vinculando…" : "Vincular"}
-        </Button>
+        <span className="inline-flex items-center gap-1 self-start">
+          <Button type="submit" size="sm" disabled={pending}>
+            {pending ? "Vinculando…" : "Vincular"}
+          </Button>
+          <FeatureInfo helpId="juridico.documentos.respostas-cliente" />
+        </span>
       </form>
     </details>
   );

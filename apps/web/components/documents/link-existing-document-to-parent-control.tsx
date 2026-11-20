@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { linkDocumentAsContractualAttachmentAction } from "@/app/[projectId]/documentos/actions";
 import { initialLinkContractualAttachmentState } from "@/app/[projectId]/documentos/actions-state";
 import { LinkStatusIcon } from "@/components/documents/link-status-icon";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -84,7 +85,10 @@ export function LinkExistingDocumentToParentControl({
       <input type="hidden" name="confirmParentChange" value="false" />
 
       <label className="flex flex-col gap-1 font-medium">
-        Vincular documento a {parentLabel}
+        <span className="flex items-center gap-1">
+          Vincular documento a {parentLabel}
+          <FeatureInfo helpId="juridico.documentos.vincular-anexo" />
+        </span>
         <Select value={childDocumentId} onChange={(event) => setChildDocumentId(event.target.value)} required>
           <option value="" disabled>
             Selecione…
@@ -98,7 +102,10 @@ export function LinkExistingDocumentToParentControl({
       </label>
 
       <label className="flex flex-col gap-1 font-medium">
-        Fundamento da incorporação (mínimo {MIN_INCORPORATION_BASIS_LENGTH} caracteres)
+        <span className="flex items-center gap-1">
+          Fundamento da incorporação (mínimo {MIN_INCORPORATION_BASIS_LENGTH} caracteres)
+          <FeatureInfo helpId="juridico.documentos.fundamento-incorporacao" />
+        </span>
         <Textarea
           name="incorporationBasis"
           value={basis}
@@ -114,17 +121,20 @@ export function LinkExistingDocumentToParentControl({
       {state.error ? <p className="text-destructive">{state.error}</p> : null}
       {state.success ? <p className="text-emerald-600">Vínculo salvo.</p> : null}
 
-      <Button
-        type="submit"
-        size="icon"
-        title={tooltip}
-        aria-label={tooltip}
-        data-link-status={linkStatus}
-        disabled={pending || !canSubmit}
-        className={`${appearance.triggerClassName} ${appearance.disabledClassName}`}
-      >
-        <LinkStatusIcon status={linkStatus} />
-      </Button>
+      <span className="inline-flex items-center gap-1">
+        <FeatureInfo helpId="juridico.documentos.vincular-anexo" />
+        <Button
+          type="submit"
+          size="icon"
+          title={tooltip}
+          aria-label={tooltip}
+          data-link-status={linkStatus}
+          disabled={pending || !canSubmit}
+          className={`${appearance.triggerClassName} ${appearance.disabledClassName}`}
+        >
+          <LinkStatusIcon status={linkStatus} />
+        </Button>
+      </span>
     </form>
   );
 }

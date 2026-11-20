@@ -96,10 +96,13 @@ export function NewProjectStartupChecklist({ projectId }: { projectId: string })
           <div className="space-y-2">
             {STEPS.filter((step) => step.group === group).map((step) => (
               <div key={step.id} className="flex gap-3 rounded-md border p-3">
-                <input type="checkbox" id={`startup-check-${step.id}`} checked={Boolean(completed[step.id])} disabled={!loaded}
-                  onChange={(event) => toggle(step.id, event.target.checked)}
-                  aria-label={`Marcar como concluído: ${step.title}`}
-                  className="mt-1 size-5 shrink-0 cursor-pointer accent-green-600" />
+                <div className="flex shrink-0 flex-col items-center gap-1">
+                  <input type="checkbox" id={`startup-check-${step.id}`} checked={Boolean(completed[step.id])} disabled={!loaded}
+                    onChange={(event) => toggle(step.id, event.target.checked)}
+                    aria-label={`Marcar como concluído: ${step.title}`}
+                    className="mt-1 size-5 shrink-0 cursor-pointer accent-green-600" />
+                  <FeatureInfo helpId="juridico.startup.etapa" />
+                </div>
                 <div className="min-w-0 flex-1 space-y-1">
                   <Link href={`/${projectId}/${step.path}`}
                     className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary underline-offset-2 hover:underline focus-visible:underline">

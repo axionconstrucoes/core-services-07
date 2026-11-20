@@ -104,7 +104,10 @@ export function QueueItemRow({
       <Progress value={item.progressPercent} />
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted-foreground">Tipo documental:</span>
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          Tipo documental:
+          <FeatureInfo helpId="juridico.documentos.tipo-lote" />
+        </span>
         <Select
           value={item.kind}
           disabled={!canEditKind}

@@ -9,6 +9,7 @@ import {
   createPrecontractWorkspaceAction,
 } from "@/app/juridico/actions";
 import { DocumentMultiUploadPanel } from "@/components/documents/multi-upload/document-multi-upload-panel";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { initialCreatePrecontractWorkspaceState } from "@/lib/legal/precontract-workspace-state";
@@ -54,22 +55,32 @@ export function PrecontractWorkspaceCreateForm() {
   }
 
   return (
+    // help-exempt: o formulário agrupa campos e botão que têm Hover Text próprio (nome, cliente e criação da análise)
     <form action={formAction} className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
-      <Input
-        name="name"
-        required
-        placeholder="Nome da oportunidade ou concorrência"
-        title="Identifica a negociação antes de ela se tornar uma obra contratada."
-      />
-      <Input
-        name="client"
-        required
-        placeholder="Cliente"
-        title="Empresa contratante responsável pela minuta em negociação."
-      />
-      <Button type="submit" disabled={pending}>
-        {pending ? "Criando..." : "Criar e anexar documentos"}
-      </Button>
+      <div className="flex items-center gap-1">
+        <Input
+          name="name"
+          required
+          placeholder="Nome da oportunidade ou concorrência"
+          aria-label="Nome da oportunidade ou concorrência"
+        />
+        <FeatureInfo helpId="juridico.analises.nova-analise" />
+      </div>
+      <div className="flex items-center gap-1">
+        <Input
+          name="client"
+          required
+          placeholder="Cliente"
+          aria-label="Cliente"
+        />
+        <FeatureInfo helpId="juridico.analises.nova-analise" />
+      </div>
+      <span className="inline-flex items-center gap-1">
+        <Button type="submit" disabled={pending}>
+          {pending ? "Criando..." : "Criar e anexar documentos"}
+        </Button>
+        <FeatureInfo helpId="juridico.analises.nova-analise" />
+      </span>
       {state.error ? (
         <p className="text-sm text-destructive md:col-span-3">{state.error}</p>
       ) : null}

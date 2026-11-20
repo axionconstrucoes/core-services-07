@@ -157,7 +157,7 @@ function BaselineBody({ sheet }: { sheet: RegistryWorkbookSheet }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Item</TableHead>
+                <TableHead>Item <FeatureInfo helpId="juridico.emails.aba-linha-base" /></TableHead>
                 <TableHead>Início</TableHead>
                 <TableHead>Término</TableHead>
                 <TableHead>% planejado</TableHead>
@@ -232,8 +232,9 @@ function FinancialBody({ sheet }: { sheet: RegistryWorkbookSheet }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Período</TableHead>
+                <TableHead>Período <FeatureInfo helpId="juridico.emails.aba-financeiro" /></TableHead>
                 {keys.map((key) => (
+                  // help-exempt: colunas dinâmicas cujo nome vem do cabeçalho da própria planilha, descritas na ajuda do Financeiro
                   <TableHead key={key}>{data.columns?.[key] ?? key}</TableHead>
                 ))}
               </TableRow>
@@ -300,7 +301,7 @@ function SsmaBody({ sheet }: { sheet: RegistryWorkbookSheet }) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Indicador (cabeçalho original)</TableHead>
+                <TableHead>Indicador (cabeçalho original) <FeatureInfo helpId="juridico.emails.aba-ssma" /></TableHead>
                 <TableHead>Último valor</TableHead>
                 <TableHead>Período</TableHead>
                 <TableHead>Anterior</TableHead>

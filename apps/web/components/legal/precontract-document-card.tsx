@@ -87,7 +87,10 @@ export function PrecontractDocumentCard({
         {canUpload ? (
           <>
             <label className="flex flex-col gap-1 text-sm font-medium">
-              Tipo documental
+              <span className="flex items-center gap-1">
+                Tipo documental
+                <FeatureInfo helpId="juridico.precontratual.documento" />
+              </span>
               <select
                 value={kind}
                 onChange={(event) => setKind(event.target.value)}
@@ -127,6 +130,7 @@ export function PrecontractDocumentCard({
               <p className="text-xs text-muted-foreground">
                 PDF, DOCX ou TXT com texto selecionável · é possível selecionar vários de uma vez
               </p>
+              {/* help-exempt: input de arquivo oculto acionado pela área de arrastar e soltar, que é o controle documentado */}
               <input
                 ref={inputRef}
                 type="file"
@@ -185,28 +189,28 @@ export function PrecontractDocumentCard({
               </span>
 
               {item.status === "ENVIANDO" ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 shrink-0 px-2 text-xs"
-                  onClick={() => onCancel(item.id)}
-                >
-                  <X className="size-3.5" />
-                  Cancelar envio
-                </Button>
+                <span className="inline-flex shrink-0 items-center gap-1">
+                  <FeatureInfo helpId="juridico.precontratual.documento" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 shrink-0 px-2 text-xs"
+                    onClick={() => onCancel(item.id)}
+                  >
+                    <X className="size-3.5" />
+                    Cancelar envio
+                  </Button>
+                </span>
               ) : null}
 
               {item.status === "ERRO" && !item.hydrated ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 shrink-0 px-2 text-xs"
-                  onClick={() => onRetry(item.id)}
-                >
-                  Tentar novamente
-                </Button>
+                <span className="inline-flex shrink-0 items-center gap-1">
+                  <Button type="button" variant="outline" size="sm" className="h-7 shrink-0 px-2 text-xs" onClick={() => onRetry(item.id)}>
+                    Tentar novamente
+                  </Button>
+                  <FeatureInfo helpId="juridico.documentos.fila-status" />
+                </span>
               ) : null}
             </div>
 
@@ -234,6 +238,7 @@ export function PrecontractDocumentCard({
                 >
                   Registrar como nova versão
                 </Button>
+                <FeatureInfo helpId="juridico.documentos.decisao-versao" />
                 <Button
                   type="button"
                   variant="outline"
