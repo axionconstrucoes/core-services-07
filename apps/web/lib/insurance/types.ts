@@ -30,7 +30,8 @@ export type PartyRole = (typeof PARTY_ROLES)[number];
 /** Instrumentos SEPARADOS: nunca tratar como equivalentes. */
 export type InstrumentKind = "SEGURO" | "FIANCA_BANCARIA" | "CAUCAO" | "CARTA_FIANCA_NAO_BANCARIA" | "OUTRA_GARANTIA";
 
-export type EndorsementState = "SOLICITADO" | "EM_ANALISE" | "EMITIDO" | "CONFERIDO" | "RECUSADO";
+/** EM_REVISAO (Fase 3/C): uma conferência foi RECUSADA; sem efeito de cobertura até nova emissão e nova rodada de conferências. */
+export type EndorsementState = "SOLICITADO" | "EM_ANALISE" | "EMITIDO" | "CONFERIDO" | "RECUSADO" | "EM_REVISAO";
 
 export const CLAIM_STAGES = [
   "EXPECTATIVA",

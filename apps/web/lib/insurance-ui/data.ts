@@ -23,6 +23,7 @@ const TABLES: Array<{ key: SectionKey; table: string; order?: { column: string; 
   { key: "otherGuarantees", table: "other_guarantees", order: { column: "created_at", ascending: false } },
   { key: "channels", table: "insurance_official_channels", order: { column: "created_at", ascending: false } },
   { key: "endorsements", table: "insurance_endorsements", order: { column: "requested_at", ascending: false } },
+  { key: "endorsementReviews", table: "insurance_endorsement_reviews", order: { column: "reviewed_at", ascending: true }, limit: 1000 },
   { key: "advances", table: "insurance_advances", order: { column: "created_at", ascending: false } },
   { key: "amortizations", table: "insurance_advance_amortizations", order: { column: "created_at", ascending: true } },
   { key: "claims", table: "insurance_claims", order: { column: "created_at", ascending: false } },
@@ -34,7 +35,7 @@ const TABLES: Array<{ key: SectionKey; table: string; order?: { column: string; 
 
 export function emptyWorkspace(projectId: string): InsuranceWorkspaceData {
   return {
-    projectId, policies: [], versions: [], parties: [], clauses: [], bankGuarantees: [], otherGuarantees: [], channels: [], endorsements: [],
+    projectId, policies: [], versions: [], parties: [], clauses: [], bankGuarantees: [], otherGuarantees: [], channels: [], endorsements: [], endorsementReviews: [],
     advances: [], amortizations: [], claims: [], claimSteps: [], dossierItems: [], drafts: [], audit: [], settings: null, dashboardItems: [],
     documents: [], actors: {},
   };
@@ -107,7 +108,11 @@ export async function loadInsuranceWorkspace(client: InsuranceClientLike, projec
 
   // nomes de quem atuou (best effort: a RLS de profiles pode limitar; sem nome, a tela mostra o id abreviado)
   try {
-    const ids = [...new Set(data.audit.map((a) => a.actor_user_id).filter((x): x is string => Boolean(x)))];
+    const ids = [...new Set([
+      ...data.audit.map((a) => a.actor_user_id),
+      ...data.endorsementReviews.map((r) => r.reviewer_id),
+      ...data.endorsements.flatMap((e) => [e.requested_by, e.issued_by]),
+    ].filter((x): x is string => Boolean(x)))];
     if (ids.length) {
       const { data: profs } = await client.from("profiles").select("id,name").in("id", ids);
       for (const p of (profs ?? []) as Array<{ id: string; name: string | null }>) if (p.name) data.actors[p.id] = p.name;

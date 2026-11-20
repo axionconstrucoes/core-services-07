@@ -22,6 +22,8 @@ export interface WorkspaceCtx {
   projectId: string;
   data: InsuranceWorkspaceData;
   caps: InsuranceCapabilities;
+  /** Usuário autenticado (só para a interface bloquear ações que o banco recusaria; a autoridade é o banco). */
+  currentUserId: string | null;
   /** "hoje" (yyyy-mm-dd) e instante calculados no servidor: evita divergência de hidratação. */
   today: string;
   nowIso: string;

@@ -2,7 +2,7 @@
 // Dado puro (sem JSX) para ser testado em Node. Cada campo declara o helpId (Hover Text) com literal, de modo que o inventário
 // de ajuda (scripts/test-help-catalog.mjs) comprova que o texto existe e é renderizado. A validação local espelha — não substitui —
 // os CHECKs e as RPCs do banco (que continuam sendo a autoridade).
-import { CLAIM_KIND_LABEL, CAUCAO_FORM_LABEL, CHANNEL_TYPE_LABEL, CLAUSE_KIND_LABEL, DOSSIER_STATUS_LABEL, GUARANTEE_STATUS_LABEL, MODALITY_LABEL, OTHER_GUARANTEE_TYPE_LABEL, PARTY_ROLE_LABEL, POLICY_STATUS_LABEL, CLAIM_STAGE_LABEL } from "./labels";
+import { CHANGE_KIND_LABEL, CLAIM_KIND_LABEL, CAUCAO_FORM_LABEL, CHANNEL_TYPE_LABEL, CLAUSE_KIND_LABEL, DOSSIER_STATUS_LABEL, GUARANTEE_STATUS_LABEL, MODALITY_LABEL, OTHER_GUARANTEE_TYPE_LABEL, PARTY_ROLE_LABEL, POLICY_STATUS_LABEL, CLAIM_STAGE_LABEL } from "./labels";
 import { parseDecimalPtBr } from "./format";
 
 export type FieldType = "text" | "textarea" | "date" | "money" | "int" | "select" | "tristate" | "document" | "checkbox" | "multi";
@@ -244,6 +244,7 @@ export const FORMS = {
       { name: "requested_text", label: "Texto do endosso solicitado", type: "textarea", helpId: "seguros.endossos.campo-texto-solicitado", required: true },
       { name: "request_document_id", label: "Documento do pedido", type: "document", helpId: "seguros.endossos.campo-documento-pedido", optionsKey: "documents" },
       { name: "request_ref", label: "Referência do pedido (protocolo, e-mail)", type: "text", helpId: "seguros.endossos.campo-referencia-pedido" },
+      { name: "change_kinds", label: "O que o endosso altera (marque todos que se aplicam)", type: "multi", helpId: "seguros.endossos.campo-classificacao", options: opts(CHANGE_KIND_LABEL), hint: "Sem classificação, o endosso é tratado como CRÍTICO e exige dupla conferência independente." },
     ],
   },
   endorsementIssue: {
@@ -257,6 +258,7 @@ export const FORMS = {
       { name: "issued_document_id", label: "Documento do endosso emitido", type: "document", helpId: "seguros.endossos.campo-documento-emitido", required: true, optionsKey: "documents" },
       { name: "issued_text", label: "Texto do endosso emitido (copie do documento emitido)", type: "textarea", helpId: "seguros.endossos.campo-texto-emitido", required: true },
       { name: "issued_at", label: "Data de emissão", type: "date", helpId: "seguros.endossos.campo-data-emissao" },
+      { name: "change_kinds", label: "Itens que o texto EMITIDO altera (só acrescenta ao já declarado)", type: "multi", helpId: "seguros.endossos.campo-classificacao-emissao", options: opts(CHANGE_KIND_LABEL), hint: "Marque se o texto emitido altera item crítico que o pedido não declarou. Nunca reduz a criticidade já declarada." },
     ],
   },
   endorsementRefuse: {
@@ -274,6 +276,14 @@ export const FORMS = {
     submitLabel: "Conferir e tornar efetivo",
     submitHelpId: "seguros.acoes.endosso-conferir",
     fields: [{ name: "divergence_note", label: "Divergência entre solicitado e emitido (obrigatória se os textos diferem)", type: "textarea", helpId: "seguros.endossos.campo-divergencia" }],
+  },
+  endorsementReviewRefuse: {
+    id: "endorsementReviewRefuse",
+    title: "Recusar a conferência do endosso",
+    helpId: "seguros.endossos.form-conferencia-recusa",
+    submitLabel: "Registrar recusa da conferência",
+    submitHelpId: "seguros.acoes.endosso-conferencia-recusar",
+    fields: [{ name: "note", label: "Motivo da recusa da conferência (mínimo de 20 caracteres)", type: "textarea", helpId: "seguros.endossos.campo-nota-recusa-conferencia", required: true, minLength: 20 }],
   },
   advanceRegister: {
     id: "advanceRegister",

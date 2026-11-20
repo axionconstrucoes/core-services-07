@@ -16,11 +16,11 @@ import { cn } from "@/lib/utils";
 
 const SECTION_NAMES: Record<string, string> = {
   policies: "apólices", versions: "versões", parties: "partes", clauses: "cláusulas", bankGuarantees: "fianças", otherGuarantees: "outras garantias",
-  channels: "canais", endorsements: "endossos", advances: "adiantamentos", amortizations: "amortizações", claims: "sinistros", claimSteps: "etapas",
+  channels: "canais", endorsements: "endossos", endorsementReviews: "conferências de endosso", advances: "adiantamentos", amortizations: "amortizações", claims: "sinistros", claimSteps: "etapas",
   dossierItems: "dossiê", drafts: "minutas", audit: "auditoria", settings: "configuração de envio", dashboardItems: "painel", documents: "documentos",
 };
 
-export function SegurosWorkspace({ projectId, load, caps, today, nowIso }: { projectId: string; load: InsuranceWorkspaceLoad; caps: InsuranceCapabilities; today: string; nowIso: string }) {
+export function SegurosWorkspace({ projectId, load, caps, today, nowIso, currentUserId = null }: { projectId: string; load: InsuranceWorkspaceLoad; caps: InsuranceCapabilities; today: string; nowIso: string; currentUserId?: string | null }) {
   const [tab, setTab] = useState<SegurosTabId>("painel");
   const [target, setTarget] = useState<WorkspaceCtx["target"]>({});
   const goTo = (t: string, tg: WorkspaceCtx["target"] = {}) => {
@@ -28,7 +28,7 @@ export function SegurosWorkspace({ projectId, load, caps, today, nowIso }: { pro
     setTab(t as SegurosTabId);
   };
   const failed = Object.keys(load.errors);
-  const ctx: WorkspaceCtx = { projectId, data: load.data, caps, today, nowIso, goTo, target };
+  const ctx: WorkspaceCtx = { projectId, data: load.data, caps, currentUserId, today, nowIso, goTo, target };
 
   return (
     <WorkspaceProvider value={ctx}>

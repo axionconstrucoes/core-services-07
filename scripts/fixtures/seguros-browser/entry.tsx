@@ -21,7 +21,8 @@ data.parties = [
 data.clauses = [{ id: id(5), project_id: P, policy_id: id(1), kind: "COBERTURA", title: "Cobertura de inadimplemento", clause_text: null, amount: null, deadline_days: null, applies_to: ["INADIMPLEMENTO"], source_document_id: id(900), source_ref: null, source_page: "3", verified: true, added_in_version: 1 }];
 data.bankGuarantees = [{ id: id(6), project_id: P, bank_name: "Banco Sintético", guarantee_number: "FB-1", beneficiary_name: "Contratante", principal_name: "Executante", amount: 500000, currency: "BRL", start_date: "2026-01-01", end_date: "2026-11-30", calls_on_first_demand: null, claim_procedure_note: null, contract_document_id: null, contract_number: null, source_document_id: id(900), source_ref: null, status: "VIGENTE", notes: null, row_version: 1 }];
 data.channels = [{ id: id(7), project_id: P, policy_id: id(1), bank_guarantee_id: null, entity_name: "Seguradora Sintética", channel_type: "EMAIL", channel_value: "sinistros@exemplo.invalid", source_document_id: id(900), source_ref: null, active: true, verified_at: null, verified_by: null }];
-data.endorsements = [{ id: id(8), project_id: P, policy_id: id(1), endorsement_seq: 1, state: "EMITIDO", requested_text: "Incluir o proprietário final como segurado", requested_at: "2026-03-01T00:00:00Z", request_document_id: null, request_ref: "e-mail", issued_text: "Incluir o proprietário final como segurado, exceto danos estéticos", issued_at: "2026-03-10T00:00:00Z", issued_document_id: id(902), issued_number: "E-7", texts_match: false, comparison: null, divergence_note: null, verified_at: null, coverage_effective: false, refusal_note: null, row_version: 2 }];
+data.endorsements = [{ id: id(8), project_id: P, policy_id: id(1), endorsement_seq: 1, state: "EMITIDO", requested_text: "Incluir o proprietário final como segurado", requested_at: "2026-03-01T00:00:00Z", request_document_id: null, request_ref: "e-mail", issued_text: "Incluir o proprietário final como segurado, exceto danos estéticos", issued_at: "2026-03-10T00:00:00Z", issued_document_id: id(902), issued_number: "E-7", texts_match: false, comparison: null, divergence_note: null, verified_at: null, coverage_effective: false, refusal_note: null, row_version: 2, requested_by: id(701), issued_by: id(702), verified_by: null, change_kinds: ["BENEFICIARIO_PARTES"], requires_dual_review: true, dual_review_reason: "CLASSIFICACAO_CRITICA", legacy_single_review: false, review_round: 1 }];
+data.endorsementReviews = [{ id: id(950), project_id: P, endorsement_id: id(8), review_round: 1, review_no: 1, reviewer_id: id(703), outcome: "APROVADO", note: "Primeira conferência sintética: texto confere com o documento anexo.", texts_match: false, dual_required: true, reviewed_at: "2026-03-11T10:00:00Z" }];
 data.advances = [{ id: id(9), project_id: P, policy_id: id(1), contract_document_id: null, contract_number: null, advanced_amount: 100000, advance_date: "2026-02-01", purpose: "Mobilização", application_documented: false, application_document_id: null, guaranteed_limit: 50000, balance_due_informed: null, indemnifiable_informed: null, source_document_id: id(900), source_ref: null, notes: null, row_version: 2 }];
 data.amortizations = [{ id: id(10), project_id: P, advance_id: id(9), amount: 30000, amortized_on: "2026-03-01", source_document_id: id(900), source_ref: null, note: null }];
 data.claims = [
@@ -43,9 +44,11 @@ declare global {
   }
 }
 const role = new URLSearchParams(location.search).get("role") ?? "ADMINISTRADOR";
+// usuário autenticado simulado (Fase 3/C): 701 solicitou, 702 emitiu, 703 já conferiu, 704 é independente
+const user = new URLSearchParams(location.search).get("user") ?? "704";
 createRoot(document.getElementById("root")!).render(
   <div style={{ padding: 16 }} className="mx-auto max-w-[1200px]">
-    <SegurosWorkspace projectId={P} load={{ data, errors: {}, moduleUnavailable: false, foreignRowsDropped: 0 }} caps={insuranceCapabilities(role)} today="2026-11-20" nowIso="2026-11-20T12:00:00.000Z" />
+    <SegurosWorkspace projectId={P} load={{ data, errors: {}, moduleUnavailable: false, foreignRowsDropped: 0 }} caps={insuranceCapabilities(role)} currentUserId={id(Number(user))} today="2026-11-20" nowIso="2026-11-20T12:00:00.000Z" />
   </div>,
 );
 window.__ready = true;
