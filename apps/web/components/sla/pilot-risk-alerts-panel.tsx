@@ -40,12 +40,12 @@ export function PilotRiskAlertsPanel({ view }: { view: PilotRiskAlertsView }) {
       </CardHeader>
       <CardContent className="flex flex-col gap-4 text-sm">
         <div className="grid gap-2 sm:grid-cols-2">
-          <p><span className="text-muted-foreground">Timezone do projeto:</span> {view.timeZone}</p>
+          <p><span className="text-muted-foreground">Timezone do projeto:</span> {view.timeZone} <FeatureInfo helpId="planejamento.acoes-config.piloto-timezone" /></p>
           <p><span className="text-muted-foreground">Baixo/Médio:</span> consolidado único às quartas-feiras, 07:00 ({view.timeZone}) <FeatureInfo helpId="planejamento.acoes-config.piloto-agenda" /></p>
           <p><span className="text-muted-foreground">Alto/Crítico:</span> imediato + escalonamento Nível 1 → 2 → 3 pelos prazos da Matriz</p>
-          <p><span className="text-muted-foreground">Próximo consolidado:</span> {view.nextDigest}</p>
+          <p><span className="text-muted-foreground">Próximo consolidado:</span> {view.nextDigest} <FeatureInfo helpId="planejamento.acoes-config.piloto-proximo-consolidado" /></p>
           <p>
-            <span className="text-muted-foreground">Último consolidado:</span>{" "}
+            <span className="text-muted-foreground">Último consolidado:</span> <FeatureInfo helpId="planejamento.acoes-config.piloto-ultimo-consolidado" />{" "}
             {view.lastDigest ? `${view.lastDigest.window} — ${STATUS_LABEL[view.lastDigest.status] ?? view.lastDigest.status}${view.lastDigest.sentAt ? ` em ${formatDateTime(view.lastDigest.sentAt, view.timeZone)}` : ""}` : "nenhum"}
           </p>
           <p>
@@ -107,7 +107,7 @@ export function PilotRiskAlertsPanel({ view }: { view: PilotRiskAlertsView }) {
               ))}
             </ul>
           )}
-          <p className="mt-1 text-xs text-muted-foreground">Qualquer outro destinatário indicado pela Matriz é registrado como suprimido (PILOT_RECIPIENT_SUPPRESSED) e nunca recebe e-mail durante o piloto. Suprimidos até agora: {view.suppressedCount}.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Qualquer outro destinatário indicado pela Matriz é registrado como suprimido (PILOT_RECIPIENT_SUPPRESSED) e nunca recebe e-mail durante o piloto. Suprimidos até agora: {view.suppressedCount}. <FeatureInfo helpId="planejamento.acoes-config.piloto-suprimidos" /></p>
         </div>
 
         <div>

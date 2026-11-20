@@ -349,15 +349,15 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
                 <table className="w-full min-w-[720px] text-xs">
                   <thead>
                     <tr className="border-b text-left">
-                      <th scope="col" className="px-2 py-1.5 font-semibold text-muted-foreground">Risco</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Unidade</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Nível 1: assumir</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Responder</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Concluir</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Nível 2</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Nível 3</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Opções</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Ações</th>
+                      <th scope="col" className="px-2 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Risco<FeatureInfo helpId="planejamento.acoes-config.col-risco" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Unidade<FeatureInfo helpId="planejamento.acoes-config.col-unidade" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Nível 1: assumir<FeatureInfo helpId="planejamento.acoes-config.col-assumir" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Responder<FeatureInfo helpId="planejamento.acoes-config.col-responder" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Concluir<FeatureInfo helpId="planejamento.acoes-config.col-concluir" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Nível 2<FeatureInfo helpId="planejamento.acoes-config.col-nivel2" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Nível 3<FeatureInfo helpId="planejamento.acoes-config.col-nivel3" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Opções<FeatureInfo helpId="planejamento.acoes-config.col-opcoes" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Ações<FeatureInfo helpId="planejamento.acoes-config.col-acoes" /></span></th>
                     </tr>
                   </thead>
                   <tbody>

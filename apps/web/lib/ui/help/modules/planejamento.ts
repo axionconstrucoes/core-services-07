@@ -1735,7 +1735,7 @@ export const PLANEJAMENTO_HELP: FeatureHelpDefinition[] = [
     shortDescription: "Informação declarada internamente; não é evidência confirmada documentalmente.",
     description:
       "Anotações registradas por pessoas sobre o evento, com categoria, autor e data. São informação declarada internamente: não são evidência, documento, e-mail ou cláusula e não foram confirmadas documentalmente. A resposta por e-mail via RESPONDER AO ACC também aparece aqui.",
-    permissions: "Adicionar anotação exige permissão EDITOR ou ADMIN; leitura para os demais.",
+    permissions: "Adicionar anotação: a ação confere no servidor que a pessoa é ADMINISTRADOR do projeto (o banco aplica a mesma exigência); a aba Eventos é restrita a administradores.",
     humanReview: "Tratar como declaração, não como prova.",
   }),
   def({
@@ -1851,5 +1851,630 @@ export const PLANEJAMENTO_HELP: FeatureHelpDefinition[] = [
     howToUse: ["Clique em Exportar Timeline Filtrado.", "Marque os formatos.", "Clique em Confirmar exportação."],
     consequences: ["Grava auditoria da exportação; se a auditoria falhar, o arquivo foi gerado mas o erro é mostrado."],
     humanReview: "A exportação preserva as evidências originais, sem alterá-las.",
+  }),
+
+  // =====================================================================================================================
+  // FECHAMENTO (A1) — campos dos formulários compartilhados de SLA (/acoes/configuracao e /usuarios)
+  // =====================================================================================================================
+  def({
+    id: "planejamento.acoes-config.campo-timezone",
+    kind: "field",
+    title: "Timezone do projeto",
+    shortDescription: "Fuso horário (nome IANA) em que o expediente e os prazos em horas ou dias úteis deste projeto são contados.",
+    description:
+      "Campo de texto com o identificador IANA do fuso do projeto, como America/Sao_Paulo (padrão institucional). Todo cálculo de horas úteis e dias úteis do SLA e a janela do resumo semanal dos alertas de risco usam esse fuso, nunca UTC.",
+    purpose: "Garantir que o relógio do SLA e as janelas de alerta sigam o horário local da obra.",
+    howToUse: ["Digite o identificador IANA do fuso (por exemplo America/Sao_Paulo).", "Clique em Salvar no fim do formulário."],
+    criteria: ["Campo obrigatório.", "O servidor valida o nome com Intl.DateTimeFormat; nome desconhecido devolve a mensagem Timezone inválida e nada é gravado."],
+    source: "Tabela sla_project_settings (uma linha por projeto); sem linha, vale o padrão America/Sao_Paulo, 08:00 às 18:00.",
+    consequences: ["Vale para os prazos de ações NOVAS; ações já criadas mantêm os prazos já calculados."],
+    permissions: "Somente ADMINISTRADOR do projeto (a política do banco recusa os demais e a alteração é auditada).",
+    limitations: ["A tela não oferece lista de fusos: o texto precisa ser um identificador IANA válido."],
+  }),
+  def({
+    id: "planejamento.acoes-config.campo-inicio-expediente",
+    kind: "field",
+    title: "Início do expediente",
+    shortDescription: "Hora cheia (0 a 23) em que começa o dia útil usado para contar horas e dias úteis do SLA.",
+    description:
+      "Hora do dia, de 0 a 23, em que o expediente do projeto começa (padrão 8). O SLA em horas úteis ou dias úteis só avança entre o início e o fim do expediente, de segunda a sexta, descontando os feriados do calendário do projeto.",
+    purpose: "Definir a janela diária em que o relógio do SLA corre.",
+    howToUse: ["Informe um número inteiro de 0 a 23.", "Confira a linha Horário útil logo abaixo do formulário e clique em Salvar."],
+    criteria: ["Campo obrigatório, numérico, de 0 a 23.", "O banco exige que o fim do expediente seja maior que o início."],
+    source: "Coluna business_day_start_hour de sla_project_settings; padrão 8 sem configuração do projeto.",
+    consequences: ["Vale para ações novas; ações já criadas não são recalculadas."],
+    permissions: "Somente ADMINISTRADOR do projeto.",
+  }),
+  def({
+    id: "planejamento.acoes-config.campo-fim-expediente",
+    kind: "field",
+    title: "Fim do expediente",
+    shortDescription: "Hora cheia (0 a 23) em que termina o dia útil; precisa ser maior que o início do expediente.",
+    description:
+      "Hora do dia, de 0 a 23, em que o expediente do projeto termina (padrão 18). Fora da janela entre início e fim, e em fins de semana e feriados do calendário configurado, o relógio do SLA em horas e dias úteis não avança.",
+    purpose: "Definir o limite diário do expediente usado nos prazos úteis.",
+    howToUse: ["Informe um número inteiro de 0 a 23, maior que o início.", "Clique em Salvar."],
+    criteria: ["Campo obrigatório, numérico, de 0 a 23.", "Regra do banco: fim do expediente maior que o início; caso contrário o Salvar falha com a mensagem do banco."],
+    source: "Coluna business_day_end_hour de sla_project_settings; padrão 18 sem configuração do projeto.",
+    consequences: ["Vale para ações novas; ações já criadas não são recalculadas."],
+    permissions: "Somente ADMINISTRADOR do projeto.",
+  }),
+  def({
+    id: "planejamento.acoes-config.salvar-fuso-expediente",
+    kind: "button",
+    title: "Salvar fuso e expediente",
+    shortDescription: "Grava o fuso e o expediente do projeto; mostra Salvo ou o motivo da recusa.",
+    description:
+      "Envia fuso, início e fim do expediente ao servidor, que valida o fuso IANA e grava uma linha por projeto em sla_project_settings (inclui quem alterou). Em caso de sucesso aparece Salvo; em caso de erro, a mensagem em vermelho.",
+    howToUse: ["Ajuste os três campos.", "Clique em Salvar e confira a mensagem."],
+    consequences: ["Passa a valer para os prazos das ações criadas depois do salvamento.", "A alteração é registrada na auditoria de configuração do SLA."],
+    permissions: "Somente ADMINISTRADOR do projeto.",
+  }),
+  def({
+    id: "planejamento.acoes-config.campo-nivel1-responsavel",
+    kind: "field",
+    title: "Nível 1 · Responsável",
+    shortDescription: "Quem recebe e trata primeiro as ações e os alertas desta área.",
+    description:
+      "Seletor com a pessoa responsável direta (Nível 1) da área. É quem recebe a ação e o alerta de risco da área antes de qualquer escalonamento. Aceita participantes ativos do projeto e pré-cadastros aguardando o primeiro login; Não definido deixa a área sem responsável.",
+    howToUse: ["Escolha a pessoa na lista ou Não definido.", "Clique em Salvar na linha da área."],
+    criteria: ["Participante precisa estar ATIVO no projeto; pré-cadastro precisa estar aguardando o primeiro login. Do contrário o servidor recusa o salvamento."],
+    consequences: ["Área sem Nível 1 deixa a ação sem responsável atribuído e o painel de alertas de risco marca revisão de configuração."],
+    permissions: "Somente ADMINISTRADOR do projeto.",
+  }),
+  def({
+    id: "planejamento.acoes-config.campo-nivel1-corresponsavel",
+    kind: "field",
+    title: "Nível 1 · Corresponsável",
+    shortDescription: "Segunda pessoa do Nível 1, disponível só para Engenharia e Planejamento; precisa ser diferente do responsável.",
+    description:
+      "Seletor de um corresponsável adicional no Nível 1. Só aparece nas áreas Engenharia e Planejamento. O servidor recusa o corresponsável em outras áreas e recusa escolher a mesma pessoa do responsável.",
+    howToUse: ["Escolha uma pessoa diferente do Nível 1 · Responsável, ou Não definido.", "Clique em Salvar na linha da área."],
+    criteria: ["Somente áreas Engenharia e Planejamento.", "Precisa ser pessoa diferente do responsável direto."],
+    consequences: ["Em Planejamento, responsável e corresponsável formam o primeiro escalão que a Matriz reconhece para o envio do cronograma semanal por e-mail, quando esse recurso está ligado."],
+    permissions: "Somente ADMINISTRADOR do projeto.",
+  }),
+  def({
+    id: "planejamento.acoes-config.campo-nivel2-gerencia",
+    kind: "field",
+    title: "Nível 2 · Gerência",
+    shortDescription: "Quem recebe o primeiro escalonamento da área; se vazio, o escalonamento vai direto ao Nível 3.",
+    description:
+      "Seletor da pessoa da Gerência (Nível 2). Recebe o escalonamento quando o prazo do Nível 1 se esgota sem a ação ser assumida. Se ficar Não definido, o escalonamento segue direto para o Nível 3 (Diretoria).",
+    howToUse: ["Escolha a pessoa ou Não definido.", "Clique em Salvar na linha da área."],
+    criteria: ["Mesma validação do Nível 1: participante ativo ou pré-cadastro pendente."],
+    consequences: ["O prazo para o Nível 2 agir é o da coluna Nível 2 da tabela de prazos do risco."],
+    permissions: "Somente ADMINISTRADOR do projeto.",
+  }),
+  def({
+    id: "planejamento.acoes-config.campo-nivel3-diretoria",
+    kind: "field",
+    title: "Nível 3 · Diretoria",
+    shortDescription: "Último nível do escalonamento da área; esgotado o prazo dele só se registra o limite atingido.",
+    description:
+      "Seletor da pessoa da Diretoria (Nível 3), último nível da cadeia. Recebe o escalonamento depois do Nível 2 (ou direto após o Nível 1 quando não há Nível 2). Não existe Nível 4: esgotado o prazo da Diretoria, apenas o limite de escalonamento atingido é registrado.",
+    howToUse: ["Escolha a pessoa ou Não definido.", "Clique em Salvar na linha da área."],
+    criteria: ["Mesma validação do Nível 1: participante ativo ou pré-cadastro pendente."],
+    permissions: "Somente ADMINISTRADOR do projeto.",
+  }),
+  def({
+    id: "planejamento.acoes-config.salvar-area",
+    kind: "button",
+    title: "Salvar responsáveis da área",
+    shortDescription: "Grava a cadeia de responsáveis somente da área da linha; cada área é salva separadamente.",
+    description:
+      "Grava, na tabela sla_area_responsibles, o responsável, o corresponsável (quando a área admite), a Gerência e a Diretoria da área da linha. As demais áreas não são alteradas. Aparece Salvo em caso de sucesso ou a mensagem do motivo da recusa.",
+    howToUse: ["Ajuste os seletores da linha.", "Clique em Salvar da mesma linha."],
+    consequences: ["Passa a valer para ações e alertas criados depois; ações abertas mantêm o responsável que já receberam."],
+    permissions: "Somente ADMINISTRADOR do projeto (conferido no servidor).",
+    limitations: ["Salvar numa linha não grava os seletores das outras áreas."],
+  }),
+  def({
+    id: "planejamento.acoes-config.opcao-email",
+    kind: "setting",
+    title: "Opção E-mail da regra de risco",
+    shortDescription: "Liga o envio de e-mail ao destinatário de cada nível quando a regra deste risco é aplicada.",
+    description:
+      "Caixa da regra de risco. Marcada, o ACC envia e-mail de alerta ao destinatário do nível (respeitando a lista permitida do piloto). Desmarcada, o escalonamento é registrado mas o destinatário aparece como suprimido, com o motivo NOTIFY_BY_EMAIL_DISABLED.",
+    consequences: ["Sem a opção, nenhum e-mail sai para os destinatários dessa regra, embora o escalonamento continue sendo registrado."],
+    permissions: "Somente ADMINISTRADOR do projeto; vale ao clicar em Salvar na linha.",
+  }),
+  def({
+    id: "planejamento.acoes-config.opcao-confirmacao",
+    kind: "setting",
+    title: "Opção Confirmação da regra de risco",
+    shortDescription: "Em ALTO e CRÍTICO, a resolução do alerta fica proposta e aguarda confirmação humana antes de encerrar.",
+    description:
+      "Caixa da regra de risco (campo requires_acknowledgment_confirmation). Marcada, quando alguém indica RESOLVIDO num alerta ALTO ou CRÍTICO, o caso vai para Resolução proposta, aguardando revisão humana, e só encerra quando a resolução for confirmada. Desmarcada, o caso encerra direto.",
+    criteria: ["Só altera o comportamento de riscos ALTO e CRÍTICO (alertas imediatos)."],
+    consequences: ["Com a opção, o alerta continua aberto até a confirmação; sem ela, a resolução informada já o encerra."],
+    permissions: "Somente ADMINISTRADOR do projeto; vale ao clicar em Salvar na linha.",
+    humanReview: "A confirmação da resolução é feita por pessoa, nunca pela IA.",
+  }),
+  def({
+    id: "planejamento.acoes-config.opcao-justificativa",
+    kind: "setting",
+    title: "Opção Justificativa da regra de risco",
+    shortDescription: "Exige texto de justificativa para resolver um alerta deste risco; sem ele a resolução é recusada.",
+    description:
+      "Caixa da regra de risco (campo requires_delay_justification). Marcada, ao resolver um alerta de risco desse grau o campo de justificativa passa a ser obrigatório: sem texto o ACC recusa a resolução com a mensagem A Matriz exige justificativa para este risco.",
+    consequences: ["Quem resolve o alerta precisa explicar o atraso ou o tratamento em texto livre."],
+    permissions: "Somente ADMINISTRADOR do projeto; vale ao clicar em Salvar na linha.",
+  }),
+
+  // =====================================================================================================================
+  // FECHAMENTO (A1) — painel do piloto de alertas de risco por e-mail (linhas derivadas)
+  // =====================================================================================================================
+  def({
+    id: "planejamento.acoes-config.piloto-timezone",
+    kind: "message",
+    title: "Timezone do projeto (painel do piloto)",
+    shortDescription: "Fuso usado para a agenda do resumo semanal e para exibir as datas do painel do piloto.",
+    description:
+      "Mostra o fuso do projeto lido de sla_project_settings (padrão America/Sao_Paulo quando não configurado). É nele que o resumo semanal de riscos médios e baixos é agendado (quarta-feira às 07:00) e em que os horários do painel são exibidos.",
+    source: "sla_project_settings.timezone; padrão America/Sao_Paulo.",
+    howToUse: ["Para alterar o fuso use o formulário Fuso e expediente do projeto, nesta mesma tela."],
+    limitations: ["Somente leitura: o painel do piloto não altera configuração."],
+  }),
+  def({
+    id: "planejamento.acoes-config.piloto-proximo-consolidado",
+    kind: "message",
+    title: "Próximo consolidado",
+    shortDescription: "Data e hora previstas do próximo resumo semanal de riscos médios e baixos.",
+    description:
+      "Data local da próxima janela do resumo semanal e hora de abertura (07:00), no fuso do projeto. A janela é sempre uma quarta-feira: depois da quarta às 07:00 a próxima é a quarta seguinte.",
+    howItWorks: "Calculado na abertura da página por describeNextDigest a partir do relógio do servidor e do fuso; não consulta o envio real.",
+    source: "Cálculo em lib/risk-alerts/digest-window.ts (quarta-feira, 07:00 locais).",
+    limitations: ["É uma agenda calculada, não garantia de envio: o envio depende do piloto habilitado, de casos abertos e da lista de destinatários permitidos."],
+  }),
+  def({
+    id: "planejamento.acoes-config.piloto-ultimo-consolidado",
+    kind: "message",
+    title: "Último consolidado",
+    shortDescription: "Janela, situação e horário do último resumo semanal registrado na fila de envios do projeto.",
+    description:
+      "Mostra a janela (data da quarta-feira), a situação e, quando existir, o horário de envio do resumo semanal mais recente registrado na fila de envios (outbox). Situações: Pendente, Aceito pelo provedor, Falhou, Suprimido e Ignorado. Sem registro aparece nenhum.",
+    source: "risk_alert_outbox, último registro do tipo DIGEST do projeto, por data de agendamento.",
+    missingData: "Sem nenhum resumo registrado o painel mostra nenhum; isso não significa que a janela passou sem envio, apenas que não há registro.",
+    limitations: ["Aceito pelo provedor significa que o provedor de e-mail recebeu a mensagem, não que o destinatário a leu."],
+  }),
+  def({
+    id: "planejamento.acoes-config.piloto-suprimidos",
+    kind: "kpi",
+    title: "Suprimidos até agora",
+    shortDescription: "Quantidade de envios do projeto registrados como suprimidos (não enviados), sem contar casos de teste.",
+    description:
+      "Contagem de registros da fila de envios do projeto com situação Suprimido, isto é, e-mails que o ACC decidiu não enviar. Um dos motivos é o destinatário não constar da lista permitida do piloto (PILOT_RECIPIENT_SUPPRESSED); outro é a opção E-mail desligada na Matriz.",
+    formula: "Contagem de registros de risk_alert_outbox do projeto com status SUPPRESSED, excluídos os casos de TESTE do piloto.",
+    source: "risk_alert_outbox (status SUPPRESSED) do projeto; casos de teste identificados por isPilotTestCase.",
+    unit: "Quantidade de registros, desde o início do piloto neste projeto (sem janela de tempo).",
+    refresh: "A cada abertura da página de configuração.",
+    missingData: "Sem registros suprimidos o valor é 0 (contagem real); se a consulta não retornar contagem o painel assume 0.",
+    limitations: ["Conta registros da fila, não pessoas: o mesmo destinatário pode somar várias vezes."],
+  }),
+
+  // =====================================================================================================================
+  // FECHAMENTO (A1) — editor da linha de Providências
+  // =====================================================================================================================
+  def({
+    id: "planejamento.providencias.campo-data-limite",
+    kind: "field",
+    title: "Data limite de finalização",
+    shortDescription: "Prazo final da providência; base dos selos de vencimento e do calendário de alertas.",
+    description:
+      "Data (dia) até a qual a providência precisa estar concluída. Alimenta os selos Próximo do vencimento e Vencido, o calendário de alertas da coluna Acompanhamento e o prazo usado na classificação de risco.",
+    howToUse: ["Escolha a data no calendário do campo.", "Clique em Salvar dados."],
+    criteria: ["Campo opcional: vazio grava sem prazo (aparece A definir e o selo Sem prazo)."],
+    missingData: "Sem data a providência é tratada como sem prazo, nunca como prazo zero.",
+    consequences: ["Prazo anterior a hoje deixa a providência Vencida até concluir ou dispensar."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR (a função do banco recusa os demais).",
+  }),
+  def({
+    id: "planejamento.providencias.campo-prazo-interno",
+    kind: "field",
+    title: "Prazo interno antecipado (opcional)",
+    shortDescription: "Data interna anterior ao prazo legal; no CNO vale se for mais cedo que o prazo legal calculado.",
+    description:
+      "Data opcional que a equipe usa para antecipar a entrega. É gravada e exibida abaixo da data limite. Na providência de CNO, o prazo calculado é o início das atividades mais 30 dias, ou o prazo interno quando ele for anterior.",
+    howToUse: ["Preencha somente se quiser um prazo mais cedo que a data limite.", "Clique em Salvar dados."],
+    criteria: ["Opcional; vazio mantém apenas a data limite.", "Só a providência de CNO usa o prazo interno no cálculo do prazo legal."],
+    source: "Coluna internal_deadline de project_delivery_items; cálculo do CNO em lib/delivery/delivery-items.ts (computeCnoDeadline).",
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+  }),
+  def({
+    id: "planejamento.providencias.campo-responsavel",
+    kind: "field",
+    title: "Responsável interno",
+    shortDescription: "Colaborador ativo da obra que responde pela providência; A definir deixa o item sem responsável.",
+    description:
+      "Seletor com os colaboradores ATIVOS da obra. O servidor recusa quem não seja colaborador ativo. Trocar o responsável encaminha automaticamente o acompanhamento recorrente aberto da providência para a nova pessoa, sem reiniciar o calendário.",
+    howToUse: ["Escolha a pessoa (ou A definir).", "Clique em Salvar dados."],
+    criteria: ["Somente participantes com situação ATIVA na obra."],
+    consequences: ["Item aberto sem responsável recebe o selo Sem responsável.", "O histórico da providência registra a alteração de campos e o acompanhamento ganha evento de encaminhamento."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+  }),
+  def({
+    id: "planejamento.providencias.campo-dependencia",
+    kind: "field",
+    title: "Depende de",
+    shortDescription: "Tipo da parte externa que condiciona a providência: Cliente, Concessionária ou Terceiro.",
+    description:
+      "Seletor do tipo de dependência externa: Cliente, Concessionária ou Terceiro (ou Ninguém externo). A dependência não substitui o responsável interno; ela só registra de quem a providência depende. Ao escolher um tipo, o nome da parte é obrigatório.",
+    howToUse: ["Escolha o tipo e preencha Quem na caixa ao lado.", "Escolha Ninguém externo para remover a dependência."],
+    criteria: ["Tipo escolhido sem o nome da parte externa: o servidor recusa com a mensagem pedindo quem é a parte externa."],
+    consequences: ["Ninguém externo apaga também o nome da parte externa gravado."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+  }),
+  def({
+    id: "planejamento.providencias.campo-dependencia-nome",
+    kind: "field",
+    title: "Quem (nome da parte externa)",
+    shortDescription: "Nome do cliente, concessionária ou terceiro de quem a providência depende; obrigatório com um tipo escolhido.",
+    description:
+      "Texto livre com o nome da parte externa indicada em Depende de. É exibido na coluna Responsável da tabela, abaixo do responsável interno. É obrigatório quando há tipo de dependência e é apagado quando o tipo volta para Ninguém externo.",
+    criteria: ["Obrigatório se Depende de estiver preenchido; espaços nas pontas são removidos."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+  }),
+  def({
+    id: "planejamento.providencias.campo-cno",
+    kind: "field",
+    title: "Número do CNO",
+    shortDescription: "Número do Cadastro Nacional de Obras; aparece só na providência de inscrição no CNO.",
+    description:
+      "Campo de texto exibido somente na providência de CNO do checklist inicial, para registrar o número obtido. Quando há número informado, o ACC não propõe nova inscrição no CNO. Nas demais providências o campo fica oculto e o valor gravado é preservado.",
+    criteria: ["Opcional; vazio é gravado como sem número."],
+    missingData: "Sem número, a providência de CNO pode gerar a proposta de nova inscrição e os alertas de CNO por falta de responsável, prazo próximo ou atraso.",
+    source: "Coluna cno_number de project_delivery_items; regras de CNO em lib/delivery/delivery-items.ts.",
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+    humanReview: "O número informado deve ser conferido com o comprovante oficial; o ACC não consulta a Receita Federal.",
+  }),
+  def({
+    id: "planejamento.providencias.campo-evidencia",
+    kind: "field",
+    title: "Evidência / documento / protocolo (dados)",
+    shortDescription: "Comprovação da providência; registrá-la nesta caixa não altera a situação.",
+    description:
+      "Texto com a referência da evidência, do documento ou do protocolo que comprova a providência. Gravar a evidência pelo botão Salvar dados NÃO conclui a providência: registra um evento próprio no histórico e deixa a situação como está.",
+    howToUse: ["Informe o documento ou protocolo.", "Clique em Salvar dados. Para concluir, use o bloco Situação."],
+    consequences: ["Quando a situação for alterada para Concluído sem nova evidência, a evidência gravada aqui é a usada."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+    humanReview: "O ACC guarda a referência informada; conferir o documento em si é decisão humana.",
+  }),
+  def({
+    id: "planejamento.providencias.campo-bloqueia-entrega",
+    kind: "field",
+    title: "Bloqueia a entrega",
+    shortDescription: "Marca que a providência impede a entrega da obra enquanto estiver aberta.",
+    description:
+      "Caixa de marcação que indica que a pendência bloqueia a entrega. Marcada, a linha recebe o selo Bloqueia a entrega e o lembrete por e-mail da providência informa que ela bloqueia a entrega.",
+    consequences: ["Não conclui nem dispensa a providência; é apenas um sinal de prioridade e de impacto."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+  }),
+  def({
+    id: "planejamento.providencias.campo-aplicabilidade",
+    kind: "field",
+    title: "Aplicabilidade e responsabilidade contratual confirmadas",
+    shortDescription: "Confirma que o item realmente é obrigação da construtora; sem isso a linha mostra Aplicabilidade a confirmar.",
+    description:
+      "O checklist inicial não comprova que cada item seja obrigação contratual da construtora. Esta caixa registra que uma pessoa confirmou a aplicabilidade e a responsabilidade. Desmarcada, a linha mostra o selo Aplicabilidade a confirmar.",
+    consequences: ["A informação também é enviada como contexto à consulta de IA do alerta (confirmada por pessoa: sim ou não)."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+    humanReview: "A confirmação é um ato humano; nenhuma IA marca esta caixa.",
+  }),
+  def({
+    id: "planejamento.providencias.salvar-dados",
+    kind: "button",
+    title: "Salvar dados da providência",
+    shortDescription: "Grava data limite, prazo interno, responsável, dependência, CNO, evidência e as duas caixas, com histórico.",
+    description:
+      "Envia ao servidor todos os campos do bloco Dados da providência por uma função do banco que confere a permissão, valida o responsável ativo e a dependência, grava e registra no histórico quais campos mudaram. O grau de risco não é enviado por este botão.",
+    consequences: ["Cria evento Campos atualizados no histórico da providência; mudança de evidência cria também o evento Evidência registrada.", "Não altera a situação (Pendente, Em andamento, Concluído ou Não aplicável)."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR (o banco recusa os demais com mensagem).",
+  }),
+  def({
+    id: "planejamento.providencias.campo-nova-situacao",
+    kind: "field",
+    title: "Nova situação",
+    shortDescription: "Escolhe a nova situação: Pendente, Em andamento, Concluído ou Não aplicável (a atual não aparece).",
+    description:
+      "Seletor com as demais situações possíveis da providência. Concluído exige evidência ou justificativa; Não aplicável exige justificativa. Escolher a situação em que a providência já está é recusado.",
+    howToUse: ["Escolha a nova situação.", "Preencha justificativa e/ou evidência quando exigidas e clique em Confirmar situação."],
+    criteria: ["Concluído: precisa de evidência (informada agora ou já gravada) ou de justificativa.", "Não aplicável: precisa de justificativa."],
+    consequences: ["Concluído ou Não aplicável encerram o acompanhamento recorrente aberto da providência."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+    humanReview: "Concluir ou dispensar uma providência é decisão humana, sempre com histórico.",
+  }),
+  def({
+    id: "planejamento.providencias.campo-justificativa",
+    kind: "field",
+    title: "Justificativa da situação",
+    shortDescription: "Obrigatória para Não aplicável; ao concluir, vale como comprovação quando não há evidência.",
+    description:
+      "Texto que explica a mudança de situação. É obrigatório para Não aplicável e serve como comprovação para Concluído quando não houver evidência. Fica registrado no histórico junto com a mudança de situação.",
+    criteria: ["Vazia com Não aplicável: o servidor recusa.", "Vazia com Concluído e sem evidência: o servidor recusa."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+    humanReview: "Dispensar uma providência exige justificativa humana revisável no histórico.",
+  }),
+  def({
+    id: "planejamento.providencias.campo-evidencia-conclusao",
+    kind: "field",
+    title: "Evidência / documento / protocolo (para concluir)",
+    shortDescription: "Comprovação usada ao concluir; se vier vazia, vale a evidência já gravada na providência.",
+    description:
+      "Campo de evidência do bloco Situação, já preenchido com a evidência gravada. Se informado, substitui a evidência da providência ao confirmar; se vazio, vale a que já estava gravada. Concluir exige evidência ou justificativa.",
+    criteria: ["Sem evidência (nova ou gravada) e sem justificativa, a conclusão é recusada."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+  }),
+  def({
+    id: "planejamento.providencias.confirmar-situacao",
+    kind: "button",
+    title: "Confirmar situação",
+    shortDescription: "Aplica a nova situação com justificativa e evidência, registra o histórico e atualiza os acompanhamentos.",
+    description:
+      "Envia a nova situação ao servidor, que confere a permissão, exige evidência ou justificativa quando a regra pede, grava quem concluiu e quando, e registra no histórico o texto situação anterior para nova situação. Concluído e Não aplicável resolvem o acompanhamento recorrente aberto.",
+    consequences: ["Encerra os lembretes recorrentes da providência quando a situação passa a Concluído ou Não aplicável.", "Se a providência já estiver na situação escolhida, o servidor recusa."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR; o ACC pede confirmação de usuário autorizado para concluir ou alterar a situação.",
+  }),
+
+  // =====================================================================================================================
+  // FECHAMENTO (A1) — classificação de risco (RiskReviewPanel, seção do evento e aviso pré-envio)
+  // =====================================================================================================================
+  def({
+    id: "planejamento.risco.painel",
+    kind: "setting",
+    title: "Classificação de risco",
+    shortDescription: "Mostra o grau de risco, os critérios, a sugestão do sistema e o histórico de revisões do evento ou da providência.",
+    description:
+      "Painel que reúne o grau de risco atual, os critérios de classificação, o formulário de revisão (para gestor, gerente e administrador), a sugestão calculada por regras e o histórico das revisões. A sugestão apoia a decisão e nunca altera o alerta: só a revisão registrada com justificativa muda o grau.",
+    purpose: "Permitir que uma pessoa autorizada confirme ou corrija o grau de risco com justificativa rastreável.",
+    howItWorks: "A sugestão é recalculada na tela a cada declaração e novamente no servidor ao registrar, com cláusula, evidência e prazo lidos do banco (lib/risk-classification/suggest-risk.ts).",
+    source: "Evento: classificação inicial da IA em event_ai_assessments e revisões em risk_classification_reviews. Providência: coluna risk de project_delivery_items e as mesmas revisões.",
+    permissions: "Ver: quem acessa a tela. Revisar: GESTOR, GERENTE ou ADMINISTRADOR da obra.",
+    humanReview: "Toda sugestão exige revisão humana; a classificação original da IA ou inicial é preservada.",
+  }),
+  def({
+    id: "planejamento.risco.grau-atual",
+    kind: "status",
+    title: "Grau de risco atual",
+    shortDescription: "Grau vigente (Crítico, Alto, Médio, Baixo ou A definir) e o intervalo de repetição dos lembretes.",
+    description:
+      "Grau vigente do registro e a frequência com que o alerta se repete: Crítico a cada 1 dia, Alto a cada 2 dias, Médio a cada 4 dias e Baixo a cada 7 dias (dias corridos). Quando uma revisão mudou o grau, aparece também a classificação original, preservada.",
+    source: "Última revisão em risk_classification_reviews; sem revisão, a classificação da IA (evento) ou a inicial (providência). Intervalos em lib/alerts/repeat-policy.ts.",
+    missingData: "Sem classificação aparece A definir.",
+    limitations: ["Os intervalos de repetição dos lembretes não são os prazos do SLA de ações."],
+  }),
+  def({
+    id: "planejamento.risco.criterios",
+    kind: "message",
+    title: "Critérios de classificação",
+    shortDescription: "Definição dos quatro graus: Crítico, Alto, Médio e Baixo, sem número de dias que os separe.",
+    description:
+      "Lista expansível com o critério de cada grau. Crítico: risco iminente de descumprimento e penalização contratual, com necessidade de ação imediata. Alto: iminente, mas ainda existe tempo para mitigação. Médio: possível consequência a médio prazo. Baixo: risco processual, de acompanhamento e organização.",
+    limitations: ["Não existe número de dias que separe os níveis: iminência e tempo de mitigação são informados por quem revisa."],
+    source: "RISK_CRITERIA em lib/risk-classification/suggest-risk.ts.",
+  }),
+  def({
+    id: "planejamento.risco.revisar",
+    kind: "admin-action",
+    title: "Revisar classificação",
+    shortDescription: "Formulário para declarar natureza, prazo, iminência e mitigação e registrar um novo grau com justificativa.",
+    description:
+      "Formulário exibido só a gestor, gerente ou administrador. Ao registrar, o servidor recalcula a sugestão com os dados do banco, grava a revisão no histórico (grau anterior, novo, sugestão, justificativa, referência e autor) e passa o acompanhamento recorrente aberto ao intervalo do novo grau.",
+    consequences: ["O novo grau passa a valer no registro; o próximo lembrete já agendado não é antecipado nem adiado.", "Em providência, o histórico da providência ganha o evento Risco revisado."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR da obra dona do registro; os demais veem apenas o aviso de restrição.",
+    humanReview: "A decisão do grau é humana; a sugestão é apoio.",
+  }),
+  def({
+    id: "planejamento.risco.campo-natureza",
+    kind: "field",
+    title: "Natureza do risco",
+    shortDescription: "Declara se o risco é possível descumprimento contratual, processual ou ainda a confirmar.",
+    description:
+      "Seletor com A confirmar, Possível descumprimento contratual e Processual (acompanhamento e organização). Processual sugere Baixo. Possível descumprimento abre a análise de iminência, penalidade e tempo de mitigação. A confirmar deixa a sugestão indeterminada.",
+    criteria: ["Processual: sugestão Baixo.", "Descumprimento contratual: depende de iminência, penalidade com cláusula e tempo de mitigação.", "A confirmar: nenhuma sugestão."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+    humanReview: "É uma declaração da pessoa revisora, não um fato do documento.",
+  }),
+  def({
+    id: "planejamento.risco.campo-prazo-contratual",
+    kind: "field",
+    title: "Prazo contratual aplicável",
+    shortDescription: "Declara se o prazo contratual já venceu, ainda não venceu ou não existe (somente em eventos).",
+    description:
+      "Seletor A confirmar, Já vencido, Ainda não venceu e Sem prazo contratual, exibido apenas na revisão de eventos. Prazo vencido é o único dado que o ACC trata como fato derivado: conta como descumprimento em curso e torna a iminência afirmativa.",
+    criteria: ["Já vencido: iminência considerada SIM na sugestão.", "A confirmar: entra na lista de informações faltantes."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+  }),
+  def({
+    id: "planejamento.risco.prazo-providencia",
+    kind: "message",
+    title: "Prazo da providência (na revisão de risco)",
+    shortDescription: "Na revisão de providências o prazo vem do próprio registro e não pode ser digitado.",
+    description:
+      "Em vez do seletor de prazo, a revisão de uma providência mostra a data limite cadastrada (ou sem prazo cadastrado) e se está vencida. O servidor ignora qualquer prazo vindo do navegador e usa o do registro.",
+    source: "Data limite da providência (project_delivery_items.deadline).",
+    missingData: "Sem data limite aparece sem prazo cadastrado e o prazo é tratado como desconhecido.",
+  }),
+  def({
+    id: "planejamento.risco.campo-iminencia",
+    kind: "field",
+    title: "O descumprimento é iminente?",
+    shortDescription: "Declara se o descumprimento é iminente (Sim, Não ou A confirmar); nunca é calculado por número de dias.",
+    description:
+      "Seletor A confirmar, Sim ou Não. Quando a natureza é descumprimento contratual: sem penalidade confirmada em cláusula, iminência Sim sugere Médio; com penalidade confirmada, Sim sugere Alto ou Crítico conforme o tempo de mitigação. Não sugere Médio. Prazo vencido torna a resposta Sim automaticamente.",
+    criteria: ["O ACC não deduz iminência por número de dias."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+    humanReview: "É julgamento da pessoa revisora.",
+  }),
+  def({
+    id: "planejamento.risco.campo-mitigacao",
+    kind: "field",
+    title: "Ainda há tempo para mitigação?",
+    shortDescription: "Declara se ainda dá tempo de mitigar: Sim, Não ou A confirmar; distingue Alto de Crítico.",
+    description:
+      "Seletor A confirmar, Sim (há tempo) ou Não (não há tempo). Só pesa quando há descumprimento iminente com penalidade confirmada em cláusula: Não sugere Crítico e Sim sugere Alto.",
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+    humanReview: "É julgamento da pessoa revisora.",
+  }),
+  def({
+    id: "planejamento.risco.campo-consequencia",
+    kind: "field",
+    title: "Consequência/penalidade contratual prevista (opcional)",
+    shortDescription: "Descreve a penalidade; só conta como prevista se confirmada em cláusula verificada.",
+    description:
+      "Texto livre (até 600 caracteres) com a consequência ou penalidade contratual esperada. A penalidade só entra na sugestão como fato quando há descrição E a confirmação de que está prevista na cláusula verificada vinculada; sem isso, é tratada como pendência.",
+    criteria: ["Sem cláusula verificada vinculada não é possível confirmar penalidade."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+  }),
+  def({
+    id: "planejamento.risco.confirmar-consequencia",
+    kind: "field",
+    title: "Confirmo que esta consequência está prevista na cláusula",
+    shortDescription: "Confirma que a penalidade informada consta da cláusula verificada; sem cláusula vinculada a opção não existe.",
+    description:
+      "Caixa exibida quando há cláusula verificada vinculada ao registro. Marcada junto com a descrição da consequência, a penalidade passa a contar como prevista em contrato na sugestão. Sem cláusula vinculada, o painel avisa que a penalidade não pode ser tratada como prevista.",
+    humanReview: "A pessoa revisora deve conferir a cláusula antes de marcar.",
+  }),
+  def({
+    id: "planejamento.risco.sugestao",
+    kind: "message",
+    title: "Sugestão do sistema",
+    shortDescription: "Grau sugerido pelos critérios, com a incerteza e os passos separados em Fato, Inferência e Recomendação.",
+    description:
+      "Resultado do cálculo por regras: um grau (com incerteza baixa, média ou alta) ou indeterminada quando os dados não distinguem os níveis. Cada passo é marcado como Fato (dado com referência), Inferência (consequência lógica dos critérios) ou Recomendação (o que confirmar). Atualiza ao vivo conforme as declarações.",
+    howItWorks: "Função pura suggestRisk: sem número de dias, usa natureza, prazo vencido, iminência, tempo de mitigação e penalidade com cláusula.",
+    limitations: ["Não escolhe um grau quando faltam dados; não altera o alerta."],
+    humanReview: "Sempre exige revisão humana antes de qualquer registro.",
+  }),
+  def({
+    id: "planejamento.risco.base-fato-inferencia",
+    kind: "message",
+    title: "Fato, Inferência e Recomendação",
+    shortDescription: "Código de cores dos passos da sugestão: verde para fato, azul para inferência, âmbar para recomendação.",
+    description:
+      "Cada linha da sugestão traz o rótulo do tipo de afirmação. Fato vem de dado com referência consultável (cláusula, evidência, prazo). Inferência é conclusão lógica dos critérios sobre os fatos. Recomendação indica o que confirmar antes de decidir.",
+    humanReview: "O ACC mantém a distinção para a pessoa revisora não tratar inferência como fato.",
+  }),
+  def({
+    id: "planejamento.risco.campo-novo-grau",
+    kind: "field",
+    title: "Grau de risco a registrar",
+    shortDescription: "Grau que será gravado na revisão; vem pré-selecionado com a sugestão quando ela é definida.",
+    description:
+      "Seletor com Crítico, Alto, Médio e Baixo, cada um com o intervalo de repetição. Se a sugestão estiver definida, ele vem preenchido com ela, mas a pessoa pode escolher outro. O servidor recusa registrar o mesmo grau que já vale.",
+    consequences: ["O acompanhamento recorrente aberto passa ao intervalo do novo grau: crítico 24 horas, alto 48, médio 96 e baixo 168."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+  }),
+  def({
+    id: "planejamento.risco.campo-referencia",
+    kind: "field",
+    title: "Referência verificável (opcional)",
+    shortDescription: "Cláusula, documento ou protocolo que sustenta a decisão; guardada no histórico (até 300 caracteres).",
+    description:
+      "Texto curto, até 300 caracteres, com a referência que apoia o novo grau. É gravado no histórico da classificação e exibido como Referência.",
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+  }),
+  def({
+    id: "planejamento.risco.campo-justificativa",
+    kind: "field",
+    title: "Justificativa da revisão (obrigatória)",
+    shortDescription: "Explicação obrigatória do novo grau; sem ela o servidor recusa o registro.",
+    description:
+      "Texto que justifica a classificação escolhida. É obrigatório tanto na tela quanto no servidor e fica no histórico de classificação, com autor e data, para auditoria.",
+    criteria: ["Vazia: a revisão é recusada."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR.",
+    humanReview: "É o registro da decisão humana.",
+  }),
+  def({
+    id: "planejamento.risco.registrar",
+    kind: "button",
+    title: "Registrar classificação",
+    shortDescription: "Grava a revisão no histórico e passa a valer o novo grau; exige grau diferente do atual e justificativa.",
+    description:
+      "Envia a revisão a uma função do banco que confere a permissão na obra dona do registro, exige justificativa e grau diferente do atual, grava a revisão e atualiza o grau (em providências, a coluna de risco). Mostra a confirmação ou a mensagem de recusa.",
+    consequences: ["Cria uma nova linha no histórico de classificação, sem apagar as anteriores.", "Atualiza o intervalo de repetição do acompanhamento aberto."],
+    permissions: "GESTOR, GERENTE ou ADMINISTRADOR da obra.",
+  }),
+  def({
+    id: "planejamento.risco.historico",
+    kind: "table",
+    title: "Histórico de classificação",
+    shortDescription: "Lista as revisões do grau, da mais recente à mais antiga, com autor, data, sugestão e justificativa.",
+    description:
+      "Cada item mostra o grau anterior e o novo, quem revisou, quando (horário de Brasília), a sugestão do sistema na ocasião, a justificativa e a referência. Sem revisões vale a classificação original.",
+    source: "risk_classification_reviews do registro.",
+    missingData: "Sem revisão aparece a mensagem de que vale a classificação original.",
+  }),
+  def({
+    id: "planejamento.risco.aviso-pre-envio",
+    kind: "message",
+    title: "Aviso de classificação antes do envio do alerta",
+    shortDescription: "Informa o grau atual, se já foi revisado por pessoa e o que falta confirmar antes de enviar o alerta.",
+    description:
+      "Nota exibida antes do botão Enviar Alerta. Diz o grau vigente e se é classificação automática ainda não revisada ou revisada por pessoa autorizada. Se não foi revisada, lista as informações que os critérios ainda não distinguem. Não bloqueia o envio nem altera nada.",
+    howItWorks: "Usa a mesma sugestão da revisão com os fatos que o ACC já tem (cláusula, evidências, prazo); natureza, iminência e mitigação ficam desconhecidas.",
+    consequences: ["Verde: já revisada por pessoa. Âmbar: recomenda confirmar a classificação na seção Classificação de risco antes de enviar."],
+    humanReview: "A confirmação do grau antes do envio é decisão humana.",
+  }),
+
+  // =====================================================================================================================
+  // FECHAMENTO (A1) — anotações do evento e busca no acervo da Timeline
+  // =====================================================================================================================
+  def({
+    id: "planejamento.ledger-evento.anotacao-categoria",
+    kind: "field",
+    title: "Categoria da anotação",
+    shortDescription: "Classifica a anotação: Contexto Operacional, Informação Comercial, Observação Jurídica, Planejamento, Financeiro ou Outros.",
+    description:
+      "Seletor com seis categorias, obrigatório. A categoria é gravada com a anotação e exibida na lista e nas consultas de IA como Contexto interno declarado, nunca como evidência documental.",
+    howToUse: ["Escolha a categoria mais próxima do assunto.", "Escreva a anotação e clique em Adicionar anotação."],
+    criteria: ["Valor fora das seis categorias é recusado."],
+    permissions: "Ação restrita a ADMINISTRADOR do projeto, conferida no servidor.",
+  }),
+  def({
+    id: "planejamento.ledger-evento.anotacao-texto",
+    kind: "field",
+    title: "Nova anotação",
+    shortDescription: "Texto livre de contexto interno sobre o evento; declaração da equipe, não evidência.",
+    description:
+      "Campo de texto obrigatório para registrar contexto interno, como informação verbal ou prática do projeto. A anotação fica vinculada ao evento, com autor e data, e é entregue às consultas de IA marcada como declarada e não confirmada documentalmente.",
+    criteria: ["Obrigatório; texto vazio é recusado."],
+    limitations: ["Não substitui documento, e-mail ou cláusula e não prova o fato."],
+    humanReview: "Tratar como declaração, não como prova.",
+  }),
+  def({
+    id: "planejamento.ledger-evento.anotacao-adicionar",
+    kind: "button",
+    title: "Adicionar anotação",
+    shortDescription: "Grava a anotação no evento, com seu nome e a data, e registra na auditoria do projeto.",
+    description:
+      "Insere a anotação em event_notes com o autor logado. A ação confere no servidor que a pessoa é administradora do projeto e o banco aplica a mesma exigência. Em caso de sucesso a lista se atualiza; em erro, a mensagem aparece em vermelho.",
+    consequences: ["A página do evento e a auditoria do projeto são revalidadas.", "A anotação passa a ser lida pelos especialistas de IA como contexto declarado."],
+    permissions: "ADMINISTRADOR do projeto.",
+  }),
+  def({
+    id: "planejamento.timeline.resultados-acervo",
+    kind: "table",
+    title: "Resultados da busca no acervo",
+    shortDescription: "Ocorrências do termo pesquisado em e-mails, anexos, documentos, Diário, Construmanager, relatórios, eventos e anotações.",
+    description:
+      "Lista cronológica (da mais antiga à mais recente) dos itens do acervo do projeto que contêm todas as palavras pesquisadas, sem diferenciar maiúsculas e acentos. Cada resultado mostra a data, o tipo (E-mail, Anexo de e-mail, Documento, Conteúdo de documento, Construmanager, Diário de Obra, Relatório Semanal, Evento ou Anotação), a fonte, onde houve a ocorrência, o título e um trecho de cerca de 340 caracteres em torno do termo. Clicar abre o item original.",
+    howToUse: ["Digite o termo no campo Buscar palavra / assunto.", "Clique no resultado para abrir o e-mail, documento, evento ou relatório de origem."],
+    criteria: ["Todas as palavras do termo precisam aparecer no item.", "Respeita os filtros de fontes, categorias, período e participantes quando aplicáveis."],
+    source: "Consulta ao banco por projeto: emails (somente dentro do escopo do projeto), email_attachments, documents e suas versões e textos extraídos, construmanager_documents, diario_de_obra_reports, weekly_report_sheets, contract_events e event_notes.",
+    missingData: "Sem ocorrência aparece Nenhum item do acervo contém a palavra ou expressão pesquisada; conteúdo de anexo ainda não extraído não é pesquisado.",
+    limitations: ["Busca textual simples, não semântica.", "Um trecho exibido é recorte do texto original; abra o item de origem para conferir o contexto."],
+    humanReview: "O resultado localiza evidências; não as interpreta nem altera os originais.",
+  }),
+  def({
+    id: "planejamento.consulta-ia.roteamento",
+    kind: "message",
+    title: "Roteamento da consulta",
+    shortDescription: "Explica qual especialista respondeu e por quê, ou que a consulta foi multidisciplinar.",
+    description:
+      "Texto do motivo do roteamento. Se uma especialidade foi escolhida, ela é respeitada. Em Geral (pelo assunto), o ACC classifica o assunto: um tema vai a um especialista; assuntos multidisciplinares geram um parecer por especialista mais a consolidação do CEO IA. A AXIA, assistente de dúvidas de uso do ACC, nunca participa.",
+    source: "Roteamento por assunto em lib/ai/routing/expert-topics.ts e orquestração em lib/ai/alert-consult/run-alert-consult.ts.",
+    limitations: ["Classificação por regras de assunto; pode não acertar quando o texto do alerta é ambíguo, caso em que convém escolher a especialidade manualmente."],
+    humanReview: "A resposta é apoio; a decisão sobre o alerta é humana.",
   }),
 ];

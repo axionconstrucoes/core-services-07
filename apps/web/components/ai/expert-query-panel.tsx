@@ -115,8 +115,9 @@ function GroundingSummary({
           .filter((group) => group.claims.length > 0)
           .map((group) => (
             <div key={group.status} className="flex flex-col gap-1">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <span className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 {GROUNDING_STATUS_LABELS[group.status]} ({group.claims.length})
+                <FeatureInfo helpId="experts.painel.grounding-grupos" />
               </span>
               <ul className="flex flex-col gap-1">
                 {group.claims.map((claim, i) => (
@@ -172,6 +173,7 @@ const CLAUSE_ACTION_LABELS: Record<VerifiedLegalClauseComparison["action"], stri
 function ClauseRationaleTooltip({ comparison, index }: { comparison: VerifiedLegalClauseComparison; index: number }) {
   const tooltipId = `clause-rationale-${index}`;
   return (
+    <span className="inline-flex items-center gap-1">
     <span className="group relative inline-flex">
       <button
         type="button"
@@ -197,6 +199,8 @@ function ClauseRationaleTooltip({ comparison, index }: { comparison: VerifiedLeg
           </>
         ) : null}
       </span>
+    </span>
+    <FeatureInfo helpId="experts.painel.por-que-alterar" />
     </span>
   );
 }
@@ -454,7 +458,6 @@ export function ExpertQueryPanel({
               required
               rows={2}
               placeholder={questionPlaceholder}
-              title="Descreva o contexto e a pergunta. O especialista usará os documentos e dados disponíveis neste projeto; a resposta exige revisão humana."
             />
           </div>
 

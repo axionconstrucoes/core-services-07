@@ -4,6 +4,7 @@ import { useId, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { useActionState } from "react";
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -167,18 +168,27 @@ export function SlaMatrixConfigForm({
 
         <td className="px-1 py-1.5">
           <div className="flex flex-col gap-0.5 text-[10px] leading-tight">
-            <label className="flex items-center gap-1" title="Notificar por e-mail">
-              <input form={formId} type="checkbox" name="notifyByEmail" defaultChecked={rule.notifyByEmail} />
-              E-mail
-            </label>
-            <label className="flex items-center gap-1" title="Exige confirmação de recebimento">
-              <input form={formId} type="checkbox" name="requiresAcknowledgmentConfirmation" defaultChecked={rule.requiresAcknowledgmentConfirmation} />
-              Confirmação
-            </label>
-            <label className="flex items-center gap-1" title="Exige justificativa de atraso">
-              <input form={formId} type="checkbox" name="requiresDelayJustification" defaultChecked={rule.requiresDelayJustification} />
-              Justificativa
-            </label>
+            <span className="flex items-center gap-0.5">
+              <label className="flex items-center gap-1">
+                <input form={formId} type="checkbox" name="notifyByEmail" defaultChecked={rule.notifyByEmail} />
+                E-mail
+              </label>
+              <FeatureInfo helpId="planejamento.acoes-config.opcao-email" />
+            </span>
+            <span className="flex items-center gap-0.5">
+              <label className="flex items-center gap-1">
+                <input form={formId} type="checkbox" name="requiresAcknowledgmentConfirmation" defaultChecked={rule.requiresAcknowledgmentConfirmation} />
+                Confirmação
+              </label>
+              <FeatureInfo helpId="planejamento.acoes-config.opcao-confirmacao" />
+            </span>
+            <span className="flex items-center gap-0.5">
+              <label className="flex items-center gap-1">
+                <input form={formId} type="checkbox" name="requiresDelayJustification" defaultChecked={rule.requiresDelayJustification} />
+                Justificativa
+              </label>
+              <FeatureInfo helpId="planejamento.acoes-config.opcao-justificativa" />
+            </span>
           </div>
         </td>
 
