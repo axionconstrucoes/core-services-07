@@ -378,12 +378,12 @@ await check("5.2 a síntese preserva autoria: um parecer por Expert + consolida�
 });
 
 // ---------------------------------------------------------------- 6. Comercial / Orçamentos — pendências
-await check("6.1 valor fixo R$ 33.450.000 existe SOMENTE no dashboard (pendência P-COM-02); nenhum Expert/contexto comercial o recebe", () => {
+await check("6.1 valor fixo R$ 33.450.000 não existe em lugar nenhum (P-COM-02 resolvida pelo Lote 5: Aditivos só de fonte estruturada); nenhum Expert/contexto comercial o recebe", () => {
   const holders = [];
   for (const file of [...walk(path.join(root, "apps/web/lib")), ...walk(path.join(root, "apps/web/app")), ...walk(path.join(root, "packages"))].filter((f) => !f.includes("node_modules"))) {
     if (/33[_.]?450[_.]?000/.test(readFileSync(file, "utf8"))) holders.push(rel(file));
   }
-  assert.deepEqual(holders, ["apps/web/app/[projectId]/dashboard/page.tsx"]);
+  assert.deepEqual(holders, []);
 });
 
 await check("6.2 Comercial: inventário declara a ausência da fonte de Orçamentos (custos diretos/indiretos/BDI) e o Expert não substitui por zero", () => {
