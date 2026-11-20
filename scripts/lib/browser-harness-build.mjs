@@ -19,13 +19,16 @@ function tryFile(p) {
   return null;
 }
 
+let STUBS = {};
 function resolveSpec(spec, from) {
+  if (spec in STUBS) return STUBS[spec];
   if (spec.startsWith("@/")) return tryFile(path.join(webDir, spec.slice(2)));
   if (spec.startsWith(".")) return tryFile(path.resolve(path.dirname(from), spec));
   try { return createRequire(from).resolve(spec); } catch { return null; }
 }
 
-export function bundleJs(entry) {
+export function bundleJs(entry, stubs = {}) {
+  STUBS = stubs; // módulos substituídos na fixture (ex.: next/link, next/navigation) para montar componentes REAIS sem o runtime do Next
   const modules = new Map(); // abs -> {id, code, deps}
   const missing = new Set();
   function add(abs) {
@@ -70,9 +73,9 @@ export async function compileCss(extraCss = "") {
   return result.css + "\n" + extraCss;
 }
 
-export async function buildFixture({ entry, html, fixtureCss, outDir }) {
+export async function buildFixture({ entry, html, fixtureCss, outDir, stubs = {} }) {
   mkdirSync(outDir, { recursive: true });
-  const js = bundleJs(entry);
+  const js = bundleJs(entry, stubs);
   const css = await compileCss(fixtureCss);
   writeFileSync(path.join(outDir, "bundle.js"), js.code);
   writeFileSync(path.join(outDir, "fixture.css"), css);

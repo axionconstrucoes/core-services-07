@@ -54,7 +54,8 @@ const ICONS_BY_NAME: Record<string, LucideIcon> = {
 };
 
 // Ícone (i) sobre o fundo bordô da sidebar: claro sobre escuro (o padrão text-muted-foreground não tem contraste aqui).
-const SIDEBAR_HINT_CLASS = "text-white/85 hover:text-white focus-visible:text-white focus-visible:ring-white";
+// "m-0": o (i) ocupa o próprio espaço (24 px) ao lado do link, sem a margem negativa que o sobrepunha ao link em ~4 px no menu recolhido.
+const SIDEBAR_HINT_CLASS = "m-0 text-white/85 hover:text-white focus-visible:text-white focus-visible:ring-white";
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "acc.sidebar.collapsed";
 
@@ -102,7 +103,8 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
     <aside
       className={cn(
         "acc-sidebar-grid flex shrink-0 flex-col border-r border-black/10 text-brand-sidebar-foreground transition-[width] duration-150",
-        collapsed ? "w-14" : "w-[264px] max-md:w-14"
+        // Recolhido: 64 px com mouse; 81 px em celular/toque (borda 1 + preenchimento 12 + link 44 + (i) 24), para os alvos de toque não se sobreporem.
+        collapsed ? "w-16 max-md:w-[81px] pointer-coarse:w-[81px]" : "w-[264px] max-md:w-[81px]"
       )}
     >
       <div className="flex h-20 items-center justify-center border-b border-white/15">
@@ -110,7 +112,7 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
         <img src="/branding/acc-logo.png" alt="ACC" className="h-[55px] w-auto shrink-0" />
       </div>
 
-      <nav className={cn("flex flex-1 flex-col gap-0 p-2", collapsed && "px-1.5", "max-md:px-1.5")}>
+      <nav className={cn("flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto overflow-x-hidden p-2", collapsed && "px-1.5", "max-md:px-1.5")}>
         {visibleItems.map((item) => {
           const href = `/${projectId}/${item.href}`;
           const active = pathname?.startsWith(href);
@@ -133,7 +135,7 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
                 // adiantar rotas que o usuário ainda não pediu.
                 prefetch={false}
                 className={cn(
-                  "flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-[5px] px-3 py-1.5 text-[15px] font-medium transition-colors",
+                  "flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-[5px] px-3 py-1.5 text-[15px] font-medium transition-colors pointer-coarse:min-h-11 max-md:min-h-11",
                   collapsed && "justify-center px-0",
                   "max-md:justify-center max-md:px-0",
                   active ? "bg-[#f7f3ea] font-semibold text-[#5e1414]" : "text-white/85 hover:bg-white/10 hover:text-white"
@@ -142,7 +144,7 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
                 {Icon ? <Icon className="size-4 shrink-0" /> : null}
                 {!collapsed ? <span className="leading-tight break-words max-md:hidden">{item.label}</span> : null}
               </Link>
-              <FeatureInfo helpId={item.helpId} className="ml-1 shrink-0 max-md:ml-0" iconClassName={SIDEBAR_HINT_CLASS} />
+              <FeatureInfo helpId={item.helpId} className={cn("shrink-0", collapsed ? "ml-0" : "ml-1 max-md:ml-0")} iconClassName={SIDEBAR_HINT_CLASS} hitArea="vertical" />
             </div>
           );
         })}
@@ -155,7 +157,7 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
             onClick={() => setSidebarCollapsed(!collapsed)}
             aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
             className={cn(
-              "flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white",
+              "flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white pointer-coarse:min-h-11 max-md:min-h-11",
               "max-md:justify-center max-md:px-0",
               collapsed && "justify-center px-0"
             )}
@@ -167,7 +169,7 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
             )}
             {!collapsed && <span className="max-md:hidden">Recolher</span>}
           </button>
-          <FeatureInfo helpId="shared.global.menu-recolher" className="ml-1 shrink-0 max-md:ml-0" iconClassName={SIDEBAR_HINT_CLASS} />
+          <FeatureInfo helpId="shared.global.menu-recolher" className={cn("shrink-0", collapsed ? "ml-0" : "ml-1 max-md:ml-0")} iconClassName={SIDEBAR_HINT_CLASS} hitArea="vertical" />
         </div>
       </div>
     </aside>

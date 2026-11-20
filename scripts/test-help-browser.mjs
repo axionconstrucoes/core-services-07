@@ -52,6 +52,7 @@ const built = await buildFixture({
   html: readFileSync(path.join(FX, "index.template.html"), "utf8"),
   fixtureCss: readFileSync(path.join(FX, "fixture.css"), "utf8"),
   outDir: work,
+  stubs: { "next/link": path.join(FX, "stubs", "next-link.tsx"), "next/navigation": path.join(FX, "stubs", "next-navigation.ts") },
 });
 console.log(`fixture: ${built.modules} módulos, bundle ${Math.round(built.jsBytes / 1024)} KB, css ${Math.round(built.cssBytes / 1024)} KB; ausentes: ${built.missing.length ? built.missing.join(", ") : "nenhum"}`);
 
@@ -62,8 +63,8 @@ const PANEL = "document.querySelector('[role=dialog][data-help-id]')";
 
 try {
   await withBrowser(async (b) => {
-    const load = async (scene, { dark = false, mobile = false } = {}) => {
-      await b.open(built.index, { hash: `#${scene}`, query: dark ? "dark=1" : "", ...(mobile ? M : D) });
+    const load = async (scene, { dark = false, mobile = false, extra = "" } = {}) => {
+      await b.open(built.index, { hash: `#${scene}`, query: [dark ? "dark=1" : "", extra].filter(Boolean).join("&"), ...(mobile ? M : D) });
       await b.injectHelpers(HELP);
     };
     const rect = (sel) => b.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});return e?__t.rectOf(e):null})()`);
@@ -507,6 +508,219 @@ try {
         });
       }
     }
+
+    // ---------- (8) Alvos de toque e sobreposição (B3) ----------
+    // Retângulo EFETIVO de acerto do ícone = união do botão com o pseudo-elemento ::after transparente (tamanho calculado pelo navegador).
+    const HIT_JS = `(sel)=>{const b=document.querySelector(sel);const r=b.getBoundingClientRect();const a=getComputedStyle(b,'::after');
+      const w=Math.max(r.width,parseFloat(a.width)||0),h=Math.max(r.height,parseFloat(a.height)||0);const cx=r.left+r.width/2,cy=r.top+r.height/2;
+      return {btn:{l:r.left,t:r.top,r:r.right,b:r.bottom},hit:{l:cx-w/2,t:cy-h/2,r:cx+w/2,b:cy+h/2,w,h},cx,cy};}`;
+    const hitOf = (sel) => b.eval(`(${HIT_JS})(${JSON.stringify(sel)})`);
+    const inter = (A, B) => Math.max(0, Math.min(A.r, B.r) - Math.max(A.l, B.l)) * Math.max(0, Math.min(A.b, B.b) - Math.max(A.t, B.t));
+    const topAt = (x, y) => b.eval(`(()=>{const e=document.elementFromPoint(${x},${y});return e?(e.closest('button,a')?.getAttribute('aria-label')||e.tagName):'none'})()`);
+
+    await check("T1 alvo do ícone HelpHint: celular >= 44x44 (área invisível), desktop com mouse 24x24 (visual inalterado em ambos)", async () => {
+      await load("main", { mobile: true });
+      const m = await hitOf(".hint-b button");
+      const visualM = m.btn.r - m.btn.l;
+      // o acerto real: os 4 cantos da área 44x44 (a 2 px de cada borda) devem cair no botão
+      const corners = [[m.hit.l + 2, m.hit.t + 2], [m.hit.r - 2, m.hit.t + 2], [m.hit.l + 2, m.hit.b - 2], [m.hit.r - 2, m.hit.b - 2]];
+      const tops = [];
+      for (const [x, y] of corners) tops.push(await topAt(x, y));
+      const cornersOk = tops.every((t) => String(t).startsWith("Informações sobre"));
+      await load("main");
+      const d = await hitOf(".hint-b button");
+      return { ok: m.hit.w >= 44 - 0.5 && m.hit.h >= 44 - 0.5 && cornersOk && Math.abs(visualM - 24) < 0.5 && d.hit.w >= 24 - 0.5 && d.hit.h >= 24 - 0.5 && Math.abs(d.btn.r - d.btn.l - 24) < 0.5,
+        ev: `celular: área ${f1(m.hit.w)}x${f1(m.hit.h)} px (ícone visual ${f1(visualM)}); 4 cantos acertam o ícone: ${cornersOk}; desktop: ${f1(d.hit.w)}x${f1(d.hit.h)} (visual ${f1(d.btn.r - d.btn.l)})` };
+    });
+
+    // Sidebar REAL: nenhum alvo de ícone sobrepõe o link do mesmo item (nem o botão visual, nem a área expandida).
+    const SIDE_ROWS = `(()=>{const rows=[...document.querySelectorAll('nav > div')].concat([document.querySelector('aside > div:last-child > div')]);
+      window.__rows=rows;return rows.length;})()`;
+    const SIDE_ROW = (i) => `(()=>{const row=window.__rows[${i}];row.scrollIntoView({block:'nearest',behavior:'instant'});const H=${HIT_JS};
+      const a=row.querySelector('a, button[aria-label$="menu lateral"]');const hb=row.querySelector('button[aria-label^="Informações sobre"]');if(!a||!hb)return null;
+      const ar=a.getBoundingClientRect();hb.classList.add('__hb');const h=H('.__hb');hb.classList.remove('__hb');
+      return {label:a.getAttribute('aria-label'),link:{l:ar.left,t:ar.top,r:ar.right,b:ar.bottom,w:ar.width,h:ar.height},btn:h.btn,hit:h.hit,cx:h.cx,cy:h.cy};})()`;
+    const SIDE_META = `(()=>{const nav=document.querySelector('nav');return {navScroll:[nav.scrollHeight,nav.clientHeight],asideW:document.querySelector('aside').getBoundingClientRect().width,vw:innerWidth,sx:document.documentElement.scrollWidth};})()`;
+    const sideCases = [
+      { name: "menu expandido, desktop", scene: "sidebar", opts: {}, minLinkH: 36, minHitH: 24, coarse: false },
+      { name: "menu recolhido, desktop (mouse)", scene: "sidebar", opts: { extra: "collapsed=1" }, minLinkH: 36, minHitH: 24, coarse: false },
+      { name: "menu recolhido, celular", scene: "sidebar", opts: { extra: "collapsed=1", mobile: true }, minLinkH: 44, minHitH: 44, coarse: true },
+      { name: "menu expandido, celular (modo estreito)", scene: "sidebar", opts: { mobile: true }, minLinkH: 44, minHitH: 44, coarse: true },
+    ];
+    for (const sc of sideCases) {
+      await check(`T2 sidebar ${sc.name}: sem sobreposição ícone(i) x link; alvos medidos`, async () => {
+        await load(sc.scene, sc.opts);
+        const nRows = await b.eval(SIDE_ROWS);
+        const r = await b.eval(SIDE_META);
+        r.rows = [];
+        for (let i = 0; i < nRows; i += 1) {
+          const row = await b.eval(SIDE_ROW(i));
+          if (!row) continue;
+          // pontos de acerto medidos com a linha rolada para a vista (elementFromPoint só enxerga o que está visível)
+          row.t1 = await topAt(row.cx, row.cy);
+          row.t2 = await topAt((row.link.l + row.link.r) / 2, (row.link.t + row.link.b) / 2);
+          r.rows.push(row);
+        }
+        if (!r.rows.length) return { ok: false, ev: "nenhum item medido" };
+        let worst = 0; let minLinkW = 1e9; let minLinkH = 1e9; let minHitH = 1e9; let minHitW = 1e9; const bad = [];
+        for (const row of r.rows) {
+          const L = { l: row.link.l, t: row.link.t, r: row.link.r, b: row.link.b };
+          const ovBtn = inter(row.btn, L); const ovHit = inter(row.hit, L);
+          worst = Math.max(worst, ovBtn, ovHit);
+          minLinkW = Math.min(minLinkW, row.link.w); minLinkH = Math.min(minLinkH, row.link.h); minHitH = Math.min(minHitH, row.hit.h); minHitW = Math.min(minHitW, row.hit.w);
+          if (ovBtn > 0.5 || ovHit > 0.5) bad.push(`${row.label}: sobreposição ${f1(Math.max(ovBtn, ovHit))} px²`);
+          // o ponto central do ícone cai no ícone e o central do link cai no link
+          const { t1, t2 } = row;
+          if (!String(t1).startsWith("Informações sobre")) bad.push(`${row.label}: centro do (i) acerta "${t1}"`);
+          if (t2 !== row.label) bad.push(`${row.label}: centro do link acerta "${t2}"`);
+        }
+        const heightOk = minLinkH >= sc.minLinkH - 0.5 && minHitH >= sc.minHitH - 0.5 && minHitW >= 24 - 0.5;
+        if (sc.coarse && minLinkW < 44 - 0.5) bad.push(`link com largura ${f1(minLinkW)} < 44`);
+        await b.screenshot(path.join(OUT, `t2-sidebar-${sc.name.replace(/[^a-z0-9]+/gi, "-")}.png`));
+        return { ok: bad.length === 0 && heightOk && r.sx <= r.vw, ev: `${r.rows.length} itens; sidebar ${f1(r.asideW)} px; link min ${f1(minLinkW)}x${f1(minLinkH)}; área do (i) min ${f1(minHitW)}x${f1(minHitH)}; maior sobreposição ${f1(worst)} px²; nav ${r.navScroll[0] > r.navScroll[1] ? "rola" : "cabe"} (${r.navScroll[0]}/${r.navScroll[1]}); overflow-x página ${r.sx > r.vw}${bad.length ? `; FALHAS: ${bad.slice(0, 4).join(" | ")}` : ""}` };
+      });
+    }
+
+    // Popovers em cabeçalhos de tabela, cartões de Ações e formulário extenso: desktop + celular, mouse/toque/teclado.
+    for (const mobile of [false, true]) {
+      await check(`T3 popovers em <th>, cartões e formulário extenso [${mobile ? "celular" : "desktop"}]: dentro da tela, sem rolar a página, teclado abre/ESC devolve foco`, async () => {
+        await load("layout", { mobile });
+        const vp = mobile ? M : D;
+        const bad = []; let n = 0;
+        const sy0 = await b.eval("window.scrollY");
+        for (const cls of ["th-0", "th-2", "th-4", "card-0", "card-2", "form-0", "form-12", "form-23"]) {
+          await b.eval(`document.querySelector('.${cls} button').scrollIntoView({block:'center'})`);
+          const syBefore = await b.eval("window.scrollY");
+          const ir = await rect(`.${cls} button`);
+          if (mobile) await b.tap(ir.cx, ir.cy); else { await b.move(ir.cx, ir.cy); await sleep(400); }
+          await sleep(350);
+          const pr = await panelRect();
+          n += 1;
+          if (!pr) { bad.push(`${cls}: sem painel`); continue; }
+          const inside = pr.left >= 8 - 0.6 && pr.right <= vp.width - 8 + 0.6 && pr.top >= 8 - 0.6 && pr.bottom <= vp.height - 8 + 0.6;
+          const syAfter = await b.eval("window.scrollY");
+          if (!inside) bad.push(`${cls}: fora da tela [${Math.round(pr.left)},${Math.round(pr.top)}-${Math.round(pr.right)},${Math.round(pr.bottom)}]`);
+          if (syAfter !== syBefore) bad.push(`${cls}: página rolou`);
+          await b.key("Escape"); await sleep(200);
+          if (mobile && (await panelCount()) !== 0) { await b.tap(20, 20); await sleep(300); }
+          if (!mobile) { await b.move(5, vp.height - 5); await sleep(450); }
+        }
+        // teclado: Tab até o ícone do cabeçalho, Enter abre, ESC fecha e devolve o foco
+        await load("layout", { mobile });
+        await b.eval("document.querySelector('.th-1 button').focus()");
+        await b.key("Enter"); await sleep(300);
+        const opened = await panelCount();
+        await b.key("Escape"); await sleep(250);
+        const closed = await panelCount();
+        const focusBack = (await active()).includes("Informações sobre");
+        const sx = await b.eval("document.documentElement.scrollWidth<=window.innerWidth");
+        if (opened !== 1 || closed !== 0 || !focusBack) bad.push(`teclado: abriu=${opened} fechou=${closed === 0} foco=${focusBack}`);
+        if (!sx) bad.push("overflow horizontal da página");
+        await b.screenshot(path.join(OUT, `t3-layout-${mobile ? "celular" : "desktop"}.png`));
+        return { ok: bad.length === 0 && sy0 === 0, ev: `${n} popovers medidos (th, cartões, formulário)${bad.length ? `; FALHAS: ${bad.join(" | ")}` : "; todos dentro da tela, sem rolar a página"}; teclado Enter/ESC ok: ${opened === 1 && closed === 0 && focusBack}` };
+      });
+    }
+    await check("T4 alvos dos ícones nos cabeçalhos de tabela e cartões [celular] >= 44x44", async () => {
+      await load("layout", { mobile: true });
+      const rows = [];
+      for (const cls of ["th-0", "th-4", "card-0", "form-0"]) { const h = await hitOf(`.${cls} button`); rows.push(`${cls} ${f1(h.hit.w)}x${f1(h.hit.h)}`); if (h.hit.w < 43.5 || h.hit.h < 43.5) return { ok: false, ev: rows.join("; ") }; }
+      return { ok: true, ev: rows.join("; ") };
+    });
+
+    // ---------- (9) Os 16 apontamentos do auditor de contraste, medidos no Chrome com o CSS real (B3) ----------
+    // Uso das classes REAIS dos módulos em fixture isolada; sem login/Supabase. Cada linha reporta a razão medida e o limite aplicável.
+    const tab = async (anchorSel, expectSel, max = 6) => {
+      await b.eval(`document.querySelector(${JSON.stringify(anchorSel)}).focus()`);
+      for (let i = 0; i < max; i += 1) {
+        await b.key("Tab"); await sleep(60);
+        if (await b.eval(`document.activeElement===document.querySelector(${JSON.stringify(expectSel)})`)) { await sleep(350); return true; }
+      }
+      return false;
+    };
+    const mText = (sel) => b.eval(`(()=>{const m=__t.measureText(document.querySelector(${JSON.stringify(sel)}));return {ratio:m.ratio,fg:m.fg,bg:m.bg}})()`);
+    const mRing = (sel) => b.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});const r=__t.measureRing(e);const cs=getComputedStyle(e);
+      // fundo "de dentro" do controle (preenchimento do próprio elemento) para anéis que ficam entre o controle e o entorno
+      const inner=__t.effBg(e).color;const ringC=r?null:null;return r?{ratio:r.ratio,fg:r.fg,bg:r.bg,source:r.source,spread:r.spread,inner:__t.hex(inner)}:null})()`);
+    // contorno global de foco (globals.css: outline 2px #4d8dff) — complementa o anel do Tailwind em controles que o definem
+    const mOutline = (sel) => b.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});const cs=getComputedStyle(e);if(cs.outlineStyle==='none'||!(parseFloat(cs.outlineWidth)>0))return null;
+      const c=__t.rgba(cs.outlineColor);const bg=__t.effBg(e.parentElement).color;return {ratio:__t.ratio(c,bg),fg:__t.hex(c),bg:__t.hex(bg),w:cs.outlineWidth}})()`);
+    const mRingInner = (sel) => b.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});const r=__t.measureRing(e);if(!r)return null;
+      const cs=getComputedStyle(e);let c=null;const m=/(rgba?\\([^)]*\\))/.exec(cs.boxShadow);const col=m?__t.rgba(m[1]):__t.rgba(cs.outlineColor);const inner=__t.effBg(e).color;return {ratio:__t.ratio(col,inner),inner:__t.hex(inner)}})()`);
+    const mBorder = (sel) => b.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});const cs=getComputedStyle(e);const c=__t.rgba(cs.borderTopColor);const bg=__t.effBg(e.parentElement).color;return {ratio:__t.ratio(c,bg),fg:__t.hex(c),bg:__t.hex(bg)}})()`);
+    const mPlaceholder = (sel) => b.eval(`(()=>{const e=document.querySelector(${JSON.stringify(sel)});const c=__t.rgba(getComputedStyle(e,'::placeholder').color);const bg=__t.effBg(e).color;return {ratio:__t.ratio(c,bg),fg:__t.hex(c),bg:__t.hex(bg)}})()`);
+    const mIcon = (sel) => b.eval(`(()=>{const m=__t.measureIcon(document.querySelector(${JSON.stringify(sel)}));return m})()`);
+    const E = (m) => `${f2(m.ratio)}:1 (${m.fg} sobre ${m.bg})`;
+    const contrastRows = [];
+    const addRow = (id, finding, minimum, ratio, ev) => contrastRows.push({ id, finding, minimum, ratio, ok: ratio >= minimum, ev });
+
+    await check("CA1-CA16 os 16 apontamentos do auditor medidos no Chrome (CSS real, fixture isolada)", async () => {
+      await load("contrast");
+      // 1-4 vera-trigger (tone onLight) sobre #F7F4EC
+      await b.eval("document.querySelector('#vera-btn').scrollIntoView({block:'center'})");
+      const veraText0 = await mText("#vera-text");
+      const vr = await rect("#vera-btn"); await b.move(vr.cx, vr.cy); await sleep(150);
+      const veraTextHover = await mText("#vera-text"); await b.move(5, 5);
+      const okF = await tab("#anchor-vera", "#vera-btn");
+      const veraTextFocus = await mText("#vera-text");
+      const veraRing = await mRing("#vera-btn");
+      const veraOut = await mOutline("#vera-btn");
+      addRow(1, "vera-trigger.tsx:38 contorno de foco (focus-visible:!outline-black)", 3, veraOut ? veraOut.ratio : 0, veraOut ? E(veraOut) : "sem contorno");
+      addRow(2, "vera-trigger.tsx:48 texto base", 4.5, veraText0.ratio, E(veraText0));
+      addRow(3, "vera-trigger.tsx:48 texto hover", 4.5, veraTextHover.ratio, E(veraTextHover));
+      addRow(4, "vera-trigger.tsx:48 texto foco", 4.5, veraTextFocus.ratio, E(veraTextFocus) + (okF ? "" : " [foco por Tab não confirmado]"));
+      // 5-6 construmanager-panel-styles
+      await b.eval("document.querySelector('#cm-input').scrollIntoView({block:'center'})");
+      const cmText = await mText("#cm-input");
+      await tab("#anchor-cm-search", "#cm-input");
+      const cmRing = await mRing("#cm-input"); const cmRingInner = await mRingInner("#cm-input");
+      addRow(5, "construmanager-panel-styles.ts:27 texto do campo (text-black)", 4.5, cmText.ratio, E(cmText));
+      const cmOut = await mOutline("#cm-input");
+      addRow(6, `construmanager-panel-styles.ts:31 indicador de foco: anel #C2185B (${cmRing ? E(cmRing) : "sem anel"}; sobre o preenchimento branco ${cmRingInner ? f2(cmRingInner.ratio) + ":1" : "n/d"}) + contorno global (${cmOut ? E(cmOut) : "ausente"}) — vale o melhor`, 3, Math.max(cmRing ? cmRing.ratio : 0, cmOut ? cmOut.ratio : 0), `contorno global ${cmOut ? E(cmOut) : "ausente"}`);
+      // 7-8 version-impact (ícone hover/foco sobre formulário claro) — página recarregada para não carregar estado das etapas anteriores
+      await load("contrast");
+      await b.eval("document.querySelector('.cm-i2 button').scrollIntoView({block:'center'})");
+      const iconBase = await mIcon(".cm-i2 button");
+      const ic = await rect(".cm-i2 button"); await b.move(ic.cx, ic.cy); await sleep(150);
+      const iconHover = await mIcon(".cm-i2 button");
+      await load("contrast");
+      await b.eval("document.querySelector('.cm-i2 button').scrollIntoView({block:'center'})");
+      const iconFocused = await tab("#anchor-cm-impact", ".cm-i2 button", 4);
+      const iconFocus = await mIcon(".cm-i2 button");
+      addRow(7, "construmanager-version-impact-form.tsx:28 ícone hover (hover:text-black)", 3, iconHover.ratio, E(iconHover) + `; base ${f2(iconBase.ratio)}:1`);
+      addRow(8, "construmanager-version-impact-form.tsx:28 ícone foco (focus-visible:text-black)", 3, iconFocus.ratio, E(iconFocus) + (iconFocused ? "" : " [foco não confirmado]"));
+      await load("contrast");
+      // 9 legal desabilitado (+ ativo)
+      await b.eval("document.querySelector('#legal-enabled').scrollIntoView({block:'center'})");
+      const legOn = await mText("#legal-enabled"); const legOff = await mText("#legal-disabled");
+      addRow(9, `delete-legal-consultation-button.tsx:75 texto desabilitado (ativo: ${f2(legOn.ratio)}:1)`, 3, legOff.ratio, E(legOff));
+      // 10 copy-structure-wizard erro
+      const copyErr = await mText("#copy-err");
+      addRow(10, "copy-structure-wizard.tsx:205 texto de erro #b42318", 4.5, copyErr.ratio, E(copyErr));
+      // 11 create-project placeholder
+      const crPh = await mPlaceholder("#create-ph");
+      addRow(11, "create-project-form.tsx:17 placeholder #475569", 4.5, crPh.ratio, E(crPh));
+      // 12 edit-project campo: anel #7f1d1d
+      await b.eval("document.querySelector('#edit-field').scrollIntoView({block:'center'})");
+      await tab("#anchor-edit-field", "#edit-field");
+      const edRing = await mRing("#edit-field"); const edPh = await mPlaceholder("#edit-ph");
+      addRow(12, `edit-project-form.tsx:23 anel de foco do campo #7f1d1d (placeholder ${f2(edPh.ratio)}:1)`, 3, edRing ? edRing.ratio : 0, edRing ? E(edRing) : "sem anel");
+      // 13-15 cancelar (borda base, anel e borda no foco)
+      const canB = await mBorder("#edit-cancel");
+      await tab("#anchor-edit-cancel", "#edit-cancel");
+      const canRing = await mRing("#edit-cancel"); const canBorderF = await mBorder("#edit-cancel");
+      addRow(13, "edit-project-form.tsx:82 borda de controle base (!border-black)", 3, canB.ratio, E(canB));
+      addRow(14, "edit-project-form.tsx:82 anel de foco do Cancelar", 3, canRing ? canRing.ratio : 0, canRing ? E(canRing) : "sem anel");
+      addRow(15, "edit-project-form.tsx:82 borda de controle no foco", 3, canBorderF.ratio, E(canBorderF));
+      // 16 salvar: anel de foco
+      await b.eval("document.querySelector('#edit-cancel').focus()"); await b.key("Tab"); await sleep(120);
+      const saveFocused = await b.eval("document.activeElement===document.querySelector('#edit-save')");
+      const saveRing = await mRing("#edit-save");
+      addRow(16, "edit-project-form.tsx:86 anel de foco do Salvar" + (saveFocused ? "" : " [foco não confirmado]"), 3, saveRing ? saveRing.ratio : 0, saveRing ? E(saveRing) : "sem anel");
+      await b.screenshot(path.join(OUT, "ca-contraste-16-apontamentos.png"));
+      const fails = contrastRows.filter((r) => !r.ok);
+      for (const r of contrastRows) console.log(`     [CA${String(r.id).padStart(2, "0")}] ${r.ok ? "OK  " : "REAL"} ${r.finding} :: ${r.ev} (mínimo ${r.minimum}:1)`);
+      return { ok: fails.length === 0, ev: `${contrastRows.length} apontamentos medidos; reais (abaixo do mínimo): ${fails.map((r) => "CA" + r.id).join(", ") || "nenhum"}` };
+    });
 
     // erros de console da última página
     await check("Z1 sem exceções/erros de console na fixture", async () => ({ ok: b.consoleErrors.length === 0, ev: b.consoleErrors.length ? b.consoleErrors.slice(0, 3).join(" | ") : "nenhum" }));

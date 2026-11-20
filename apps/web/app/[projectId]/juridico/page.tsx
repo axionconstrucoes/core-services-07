@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Building2, FileText, Scale } from "lucide-react";
-import { ExpertQueryPanel } from "@/components/ai/expert-query-panel";
 import { PrecontractCurationPanel } from "@/components/ai/precontract-curation-panel";
 import { PrecontractWorkspaceClient } from "@/components/legal/precontract-workspace-client";
 import { LegalConsultationHistory } from "@/components/legal/legal-consultation-history";
@@ -10,8 +9,6 @@ import { FeatureInfo } from "@/components/shared/feature-info";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { initialAskCommercialDirectorState } from "@/lib/ai/expert-query-state";
-import { askLegalConsultantAction } from "@/lib/ai/legal-query-action";
 import { notFound } from "next/navigation";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { getProject } from "@/lib/data";
@@ -122,13 +119,14 @@ export default async function ProjectLegalPage({ params, searchParams }: { param
             Consulta ao especialista jurídico
             <FeatureInfo helpId="juridico.projeto.consulta-especialista" />
           </div>
-          <ExpertQueryPanel
-            projectId={projectId}
-            scope="PROJECT"
-            title="Pergunte ao especialista jurídico"
-            action={askLegalConsultantAction}
-            initialState={initialAskCommercialDirectorState}
-          />
+          {/* Regra efetiva (lib/ai/legal-query-action.ts): a consulta ao Consultor Jurídico só é aceita em espaço PRE_CONTRATUAL e por
+              administrador ativo; em obra contratada o servidor sempre recusa. Por isso não exibimos um formulário que nunca funciona. */}
+          <Card>
+            <CardContent className="py-4 text-sm text-muted-foreground" data-legal-consult-unavailable="obra-contratada">
+              A consulta ao especialista jurídico está disponível somente nas análises jurídicas pré-contratuais (espaço pré-contratual) e a
+              administradores ativos. Em uma obra contratada, use a base documental acima e as análises dos Experts de IA do Evento.
+            </CardContent>
+          </Card>
         </>
       )}
 
