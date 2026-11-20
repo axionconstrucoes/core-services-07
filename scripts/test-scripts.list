@@ -97,3 +97,4 @@ scripts/test-help-fixture-sync.mjs
 scripts/test-quality-domain.mjs
 scripts/test-insurance-domain.mjs
 scripts/test-quality-insurance-experts.mjs
+scripts/test-seguros-ui.mjs
