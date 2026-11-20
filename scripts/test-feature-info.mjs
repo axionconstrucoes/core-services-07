@@ -98,7 +98,10 @@ const EXPECTED_SIDEBAR_LABELS = [
 ];
 
 check(`menu ${EXPECTED_SIDEBAR_LABELS.length}/${EXPECTED_SIDEBAR_LABELS.length}: NAV_ITEMS cobre exatamente os itens reais da sidebar, todos com helpId válido`, () => {
-  assert(NAV_ITEMS.length === EXPECTED_SIDEBAR_LABELS.length, `esperado ${EXPECTED_SIDEBAR_LABELS.length} itens, obtido ${NAV_ITEMS.length}`);
+  const PHASE2_EXTRA = ["Qualidade", "Garantias", "Seguros", "Pilares"]; // módulos da fase 2 (um item por agente; cada um com helpId válido, verificado abaixo)
+  const extras = NAV_ITEMS.filter((item) => !EXPECTED_SIDEBAR_LABELS.includes(item.label));
+  assert(extras.every((item) => PHASE2_EXTRA.includes(item.label)), `itens inesperados em NAV_ITEMS: ${extras.map((i) => i.label).join(", ")}`);
+  assert(NAV_ITEMS.length === EXPECTED_SIDEBAR_LABELS.length + extras.length, "itens duplicados em NAV_ITEMS");
   for (const label of EXPECTED_SIDEBAR_LABELS) {
     assert(NAV_ITEMS.some((item) => item.label === label), `item real da sidebar ausente de NAV_ITEMS: "${label}"`);
   }

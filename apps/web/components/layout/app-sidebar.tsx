@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   AlertTriangle,
+  BadgeCheck,
   Bot,
   BookOpen,
   BookText,
@@ -36,6 +37,7 @@ import { cn } from "@/lib/utils";
 // componente Lucide real — mesmo padrão de components/ai/expert-visual-identity.ts.
 const ICONS_BY_NAME: Record<string, LucideIcon> = {
   AlertTriangle,
+  BadgeCheck,
   Bot,
   BookOpen,
   BookText,

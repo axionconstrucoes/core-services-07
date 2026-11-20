@@ -100,3 +100,4 @@ scripts/test-quality-insurance-experts.mjs
 scripts/test-quality-sources-ingestion.mjs
 scripts/test-pilares-dashboard.mjs
 scripts/test-garantias-ui.mjs
+scripts/test-quality-ui.mjs
