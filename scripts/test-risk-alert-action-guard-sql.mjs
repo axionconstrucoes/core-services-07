@@ -106,7 +106,7 @@ async function snapshotOf(c) {
 let minute = 0;
 async function transitionFor(c, action, payload, actor = U.RESP) {
   minute += 1;
-  const now = new Date(Date.UTC(2026, 10, 20, 12, minute)).toISOString();
+  const now = new Date(Date.now() + minute * 60_000).toISOString();
   const t = applyAlertAction({
     now, snapshot: await snapshotOf(c), action, actorUserId: actor, origin: "WEB", payload,
     policy: policyFor(c.riskLevel), config, recipients, eligibleForwardUserIds: [U.GESTOR, U.DIR, U.OTHER, U.RESP, U.ADMIN],
@@ -181,7 +181,7 @@ await check("G5 legítimo: RESOLVIDO em CRÍTICO com revisão humana vira propos
 await check("G6 legítimo: resposta por e-mail (worker, autor identificado) com confirmação ao autor na outbox", async () => {
   const c = await newCase("MEDIUM");
   minute += 1;
-  const now = new Date(Date.UTC(2026, 10, 20, 12, minute)).toISOString();
+  const now = new Date(Date.now() + minute * 60_000).toISOString();
   const msg = "00000000-0000-4000-8000-0000000007aa";
   const t = applyAlertAction({ now, snapshot: await snapshotOf(c), action: "TAKING_ACTION", actorUserId: U.RESP, origin: "EMAIL",
     payload: { text: "Em andamento pela equipe.", messageId: msg }, policy: policyFor("MEDIUM"), config, recipients, eligibleForwardUserIds: [] });

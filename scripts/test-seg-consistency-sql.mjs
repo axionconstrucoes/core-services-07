@@ -184,7 +184,7 @@ async function takingAction(c, actor) {
   minute += 1;
   const r = c.row;
   const snapshot = { id: r.id, projectId: r.project_id, sourceType: r.source_type, sourceId: r.source_id, riskLevel: r.risk_level, state: r.state, currentLevel: r.current_level, topLevelReachedAt: null, currentResponsibleUserId: r.current_responsible_user_id, previousResponsibleUserId: null, slaActionId: r.sla_action_id, title: r.title, reference: r.reference, activeForward: null, escalatedLevels: [] };
-  const t = applyAlertAction({ now: new Date(Date.UTC(2026, 10, 20, 13, minute)).toISOString(), snapshot, action: "TAKING_ACTION", actorUserId: actor, origin: "WEB", payload: { text: "Providência registrada." }, policy, config, recipients, eligibleForwardUserIds: [] });
+  const t = applyAlertAction({ now: new Date(Date.now() + minute * 60_000).toISOString(), snapshot, action: "TAKING_ACTION", actorUserId: actor, origin: "WEB", payload: { text: "Providência registrada." }, policy, config, recipients, eligibleForwardUserIds: [] });
   assert(t.ok, t.message);
   return { actionType: t.action, actorUserId: actor, actionLinkTokenHash: null, summary: t.summary, events: t.events, caseUpdate: t.caseUpdate, forward: t.forward, closeActiveForwardAs: t.closeActiveForwardAs, escalation: t.escalation, outbox: t.outbox };
 }
