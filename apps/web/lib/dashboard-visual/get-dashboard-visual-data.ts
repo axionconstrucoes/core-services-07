@@ -114,11 +114,17 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
     facts: cronogramaFacts,
     now: new Date(),
   });
-  const integrationStatusGroups = summarizeIntegrationStatuses(
-    resolveAllIntegrationStatuses(sourcesForStatus, integrationConfigs, emailStatus, {
-      CRONOGRAMA: { status: cronogramaResolution.status, detail: cronogramaResolution.detail },
-    })
-  );
+  const integrationEntries = resolveAllIntegrationStatuses(sourcesForStatus, integrationConfigs, emailStatus, {
+    CRONOGRAMA: { status: cronogramaResolution.status, detail: cronogramaResolution.detail },
+  });
+  const integrationStatusGroups = summarizeIntegrationStatuses(integrationEntries);
+  // Fatos do e-mail por etapa para o Dashboard executivo (lib/dashboard/email-pipeline-stages.ts) — só o que já foi lido acima.
+  const emailFacts = {
+    serviceStatus: emailStatus,
+    ingestionEnabled: ingestionConfig ? Boolean(ingestionConfig.enabled) : null,
+    lastSuccessfulSyncAt: ingestionConfig?.lastSyncAt ?? latestSyncRun?.completedAt ?? null,
+    enabledMailboxes: ingestionConfig ? ingestionConfig.mailboxes.filter((m) => m.enabled).length : 0,
+  };
 
   const findingsInRange = filterFindingsByRange(findings, range);
   const activeFindingsSummary = resolveActiveFindingsSummary(findingsInRange);
@@ -151,6 +157,9 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
     project,
     range,
     integrationStatusGroups,
+    integrationEntries,
+    emailFacts,
+    cronogramaResolution,
     activeFindingsSummary,
     generalSituation,
     emailSummary,
@@ -161,6 +170,7 @@ export async function getDashboardVisualData(projectId: string, searchParams: { 
     deadlineSummary,
     esgSummary,
     slaSummary,
+    slaActions,
     recentFindings: [...findings].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 3),
     ceoFinding: findings.find((f) => f.expertIds.includes("ceo")) ?? null,
   };
