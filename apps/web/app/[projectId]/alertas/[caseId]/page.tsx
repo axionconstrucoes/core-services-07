@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { AlertActionForms } from "@/components/risk-alerts/alert-action-forms";
+import { LinkedQualityNotice } from "@/components/risk-alerts/linked-quality-notice";
 import { PageHeader } from "@/components/layout/page-header";
 import { FeatureInfo } from "@/components/shared/feature-info";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
 import { slaAreaLabels, slaTimeUnitLabels } from "@/lib/labels";
+import { getAlertLinkedQuality } from "@/lib/pilares/alert-links-data";
 import { getAlertDetailView } from "@/lib/risk-alerts/alert-detail-data";
 import type { AlertActionType } from "@/lib/risk-alerts/types";
 
@@ -28,6 +30,8 @@ export default async function AlertDetailPage({ params, searchParams }: { params
   const action = typeof query.acao === "string" ? query.acao : null;
   const view = await getAlertDetailView(projectId, caseId, { token, action });
   if (!view) notFound();
+  // Aviso (somente leitura): RNC/garantia/sinistro ABERTOS vinculados a este alerta. RESOLVIDO nunca os encerra.
+  const linkedQuality = await getAlertLinkedQuality(projectId, { caseId, visibleCode: view.visibleCode });
   // Pré-seleção SEM token (links do consolidado e do botão ESPECIALISTA): só ABRE o formulário/consulta; nada é gravado
   // por GET e a autorização continua sendo a sessão autenticada + a validação do servidor no envio.
   const preselectedAction: AlertActionType | null = action === "ESPECIALISTA" ? "EXPERT_CONSULTATION" : (["RESOLVED", "TAKING_ACTION", "FORWARD"] as AlertActionType[]).includes(action as AlertActionType) ? (action as AlertActionType) : null;
@@ -45,7 +49,7 @@ export default async function AlertDetailPage({ params, searchParams }: { params
           <p><span className="text-muted-foreground">Responsável atual:</span> {view.currentResponsible.name ?? "não definido"} <FeatureInfo helpId="planejamento.alerta.responsaveis" /></p>
           <p><span className="text-muted-foreground">Responsável anterior:</span> {view.previousResponsible.name ?? "—"}</p>
           <p><span className="text-muted-foreground">Nível atual:</span> {view.currentLevelLabel} · <span className="text-muted-foreground">próximo:</span> {view.nextLevelLabel} <FeatureInfo helpId="planejamento.alerta.nivel-atual" /></p>
-          <p><span className="text-muted-foreground">Prazos (Matriz, {slaTimeUnitLabels[view.policy.timeUnit].toLowerCase()}):</span> <FeatureInfo helpId="planejamento.alerta.prazos-matriz" /> assumir {view.policy.assumeDeadlineValue}{view.policy.respondDeadlineValue !== null ? ` · responder ${view.policy.respondDeadlineValue}` : ""}{view.policy.completeDeadlineValue !== null ? ` · concluir ${view.policy.completeDeadlineValue}` : ""}{view.policy.usingDefaultRule ? " (default — simulação)" : ""}</p>
+          <p><span className="text-muted-foreground">Prazos do alerta (Matriz, {slaTimeUnitLabels[view.policy.timeUnit].toLowerCase()}):</span> <FeatureInfo helpId="planejamento.alerta.prazos-matriz" /> prazo de assunção {view.policy.assumeDeadlineValue}{view.policy.respondDeadlineValue !== null ? ` · responder ${view.policy.respondDeadlineValue}` : ""}{view.policy.completeDeadlineValue !== null ? ` · conclusão do alerta ${view.policy.completeDeadlineValue}` : ""}{view.policy.usingDefaultRule ? " (default — simulação)" : ""}</p>
           {view.slaAction ? <p><span className="text-muted-foreground">Ação SLA:</span> <FeatureInfo helpId="planejamento.alerta.acao-sla" /> {view.slaAction.status} · assumir até {fmt(view.slaAction.assumeDueAt, view.timeZone)}{view.slaAction.acknowledgedAt ? ` · assumida em ${fmt(view.slaAction.acknowledgedAt, view.timeZone)}` : ""}{view.slaAction.completedAt ? ` · concluída em ${fmt(view.slaAction.completedAt, view.timeZone)}` : ""}</p> : null}
           <p data-testid="alert-forecast">
             <span className="text-muted-foreground">Previsão de conclusão:</span> <FeatureInfo helpId="planejamento.alerta.previsao-conclusao" />{" "}
@@ -59,6 +63,8 @@ export default async function AlertDetailPage({ params, searchParams }: { params
           <p><span className="text-muted-foreground">Destinatários suprimidos (piloto):</span> {view.suppressedCount} <FeatureInfo helpId="planejamento.alerta.suprimidos" /></p>
         </CardContent>
       </Card>
+
+      <LinkedQualityNotice projectId={projectId} view={linkedQuality} />
 
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-1.5">Ações <FeatureInfo helpId="planejamento.alerta.acoes" /></CardTitle></CardHeader>
