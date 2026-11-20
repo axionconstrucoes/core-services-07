@@ -71,6 +71,7 @@ export function NcrTransitionPanel({
         {options.map((o) => (
           <li key={o.to} className="flex flex-col gap-1">
             <div className="flex flex-wrap items-center gap-1">
+              {/* help-exempt: botão de transição; o ícone (i) qualidade.rnc.botao-transicao vem logo após o botão */}
               <Button
                 type="button"
                 variant={selected === o.to ? "default" : "outline"}

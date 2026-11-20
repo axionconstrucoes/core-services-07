@@ -7,7 +7,7 @@ import { initialQualityActionState, type QualityActionState } from "@/lib/qualit
 import { cn } from "@/lib/utils";
 
 // Kit de formulários da Qualidade: contraste por tokens semânticos, alvos de toque >= 44 px em toque/estreito, mensagens em região viva.
-// O ícone (i) de cada campo fica AO LADO do rótulo (nunca dentro de <button>/<a>/<label>); o helpId é passado a cada QField no ponto de uso.
+// O ícone (i) de cada campo fica AO LADO do rótulo (nunca dentro de botão, link ou rótulo); o helpId é passado a cada QField no ponto de uso.
 
 /** Alvo de toque mínimo de 44 px em toque/telas estreitas (controles de formulário e botões). */
 export const TOUCH = "max-md:min-h-11 pointer-coarse:min-h-11";
