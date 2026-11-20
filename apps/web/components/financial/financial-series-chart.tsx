@@ -5,12 +5,24 @@
 // fonte, aria-label e formatação pt-BR.
 
 import type { FinancialChart } from "@/lib/financial/build-financial-dashboard";
+import { HelpHint } from "@/components/shared/help-hint";
 import { formatByUnit } from "@/lib/financial/format-br";
 
 const WIDTH = 680;
 const HEIGHT = 260;
 const PAD = { top: 16, right: 16, bottom: 44, left: 72 };
-const COLORS = ["#1d4ed8", "#059669", "#d97706", "#7c3aed", "#dc2626"];
+// Séries sobre o fundo escuro do cartão (#182941): tons claros, contraste >= 3:1 (gráficos). Os tons anteriores (azul, roxo, vermelho) ficavam entre 1,9:1 e 3,1:1.
+const COLORS = ["#60a5fa", "#34d399", "#fbbf24", "#c4b5fd", "#f87171"];
+
+// chart.key (lib/financial/build-financial-dashboard.ts) -> helpId do catálogo.
+const CHART_HELP_IDS: Record<string, string> = {
+  previsto_realizado: "comercial.financeiro.grafico-previsto-realizado",
+  acumulados: "comercial.financeiro.grafico-acumulados",
+  medido_faturado_recebido: "comercial.financeiro.grafico-medido-faturado-recebido",
+  receita_custo: "comercial.financeiro.grafico-receita-custo",
+  desvio_periodo: "comercial.financeiro.grafico-desvio",
+  evolucao_desvio: "comercial.financeiro.grafico-evolucao-desvio",
+};
 
 export function FinancialSeriesChart({ chart, currencySymbol }: { chart: FinancialChart; currencySymbol: string | null }) {
   const periods: string[] = [];
@@ -21,7 +33,9 @@ export function FinancialSeriesChart({ chart, currencySymbol }: { chart: Financi
   if (values.length === 0) {
     return (
       <figure className="rounded-md border p-3 text-xs" aria-label={chart.title}>
-        <figcaption className="font-medium">{chart.title}</figcaption>
+        <figcaption className="font-medium">
+          {chart.title} {CHART_HELP_IDS[chart.key] ? <HelpHint helpId={CHART_HELP_IDS[chart.key]} /> : null}
+        </figcaption>
         <p className="text-muted-foreground">Sem valores disponíveis para este gráfico no relatório selecionado.</p>
       </figure>
     );
@@ -38,7 +52,9 @@ export function FinancialSeriesChart({ chart, currencySymbol }: { chart: Financi
   return (
     <figure className="rounded-md border p-3 text-xs" aria-label={`${chart.title} — ${chart.periodLabel} — unidade ${unitLabel}`}>
       <figcaption className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="font-medium">{chart.title}</span>
+        <span className="font-medium">
+          {chart.title} {CHART_HELP_IDS[chart.key] ? <HelpHint helpId={CHART_HELP_IDS[chart.key]} /> : null}
+        </span>
         <span className="text-muted-foreground">Período {chart.periodLabel} · unidade: {unitLabel}</span>
       </figcaption>
       <div className="overflow-x-auto">
