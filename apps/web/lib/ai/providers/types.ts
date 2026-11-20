@@ -48,6 +48,11 @@ export interface AiProviderQueryRequest {
   question: string;
   eventContext: EventAnalysisContext | null;
   projectContext: ProjectAnalysisContext | null;
+  /**
+   * Fontes ADICIONAIS do especialista (Qualidade/Garantia/Seguros), já embrulhadas como DADO externo
+   * (lib/ai/context/build-quality-sources-context.ts). Opcional: os demais especialistas não usam.
+   */
+  additionalContext?: string;
   /** Ver AiProviderRequest.outputSchema — mesma ideia, para ExpertQueryResponse (genérico, ver query/json-schema.ts). */
   outputSchema: Record<string, unknown>;
 }

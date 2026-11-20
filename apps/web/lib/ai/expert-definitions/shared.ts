@@ -121,20 +121,20 @@ export const SOURCE_FORMAL_NOTIFICATIONS: AuthorizedSourceRef = {
 export const SOURCE_QUALITY_RECORDS: AuthorizedSourceRef = {
   sourceId: "quality_records",
   label: "Registros de qualidade (RNC, inspeções, ensaios/controle tecnológico, planos corretivos)",
-  status: "FUTURE_SOURCE",
-  note: "Modelo de dados de qualidade em construção em frente própria (fase 1); ainda não conectado ao context builder de nenhum Expert. Hoje só existiriam como documento/e-mail/foto genéricos.",
+  status: "AVAILABLE",
+  note: "Tabelas quality_ncrs, quality_evidence, quality_warranty_cases e quality_customer_complaints, lidas sob RLS por lib/ai/context/build-quality-sources-context.ts (somente leitura; conteúdo embrulhado como DADO externo). Sem registro no projeto = SEM DADOS.",
 };
 export const SOURCE_WARRANTY_ASSISTANCE: AuthorizedSourceRef = {
   sourceId: "warranty_assistance",
   label: "Garantias e assistência técnica (chamados pós-entrega, termos de garantia, comprovantes de manutenção)",
-  status: "FUTURE_SOURCE",
-  note: "Sem tabela dedicada consumida por Experts nesta fase; hoje só como documento/e-mail genérico.",
+  status: "AVAILABLE",
+  note: "Casos de garantia em quality_warranty_cases (e comprovantes de manutenção em quality_warranty_maintenance), lidos sob RLS por lib/ai/context/build-quality-sources-context.ts; sem registro = SEM DADOS. Chamados/comprovantes fora do ACC continuam sem fonte.",
 };
 export const SOURCE_INSURANCE_GUARANTEES: AuthorizedSourceRef = {
   sourceId: "insurance_guarantees",
   label: "Apólices, garantias, fianças, endossos e sinistros",
-  status: "FUTURE_SOURCE",
-  note: "Modelo de seguros/garantias em construção em frente própria (fase 1); ainda não conectado ao context builder. Hoje só como documento/e-mail genérico.",
+  status: "AVAILABLE",
+  note: "Tabelas insurance_policies, insurance_endorsements, insurance_claims e bank_guarantees, lidas sob RLS por lib/ai/context/build-quality-sources-context.ts (somente leitura; conteúdo embrulhado como DADO externo). Sem registro = SEM DADOS; nunca reconhece cobertura em nome da seguradora.",
 };
 export const SOURCE_LEGAL_REFERENCES_INSURANCE: AuthorizedSourceRef = {
   sourceId: "legal_references_insurance_warranty",

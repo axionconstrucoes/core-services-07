@@ -10,6 +10,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildEventAnalysisContext } from "../../context/build-event-context";
 import { buildProjectAnalysisContext } from "../../context/build-project-context";
+import { buildLegalConsultantSourcesContext, renderAdditionalSources } from "../../context/build-quality-sources-context";
 import {
   adjustConfidenceForGrounding,
   applySafeGroundingCorrection,
@@ -63,6 +64,8 @@ export interface LegalConsultantQueryResult {
       unsupportedClaimCount: number;
       humanInputRequiredClaimCount: number;
     };
+    /** Fontes adicionais lidas (somente metadados; o texto vai ao prompt já embrulhado como DADO externo). */
+    additionalSources: Array<{ sourceId: string; status: "AVAILABLE" | "UNAVAILABLE"; rowCount: number; injectionSignals: string[] }>;
   };
 }
 
@@ -134,6 +137,9 @@ export async function answerLegalConsultantQuery(
     );
   }
 
+  // Fontes de garantia/seguros: conteúdo externo embrulhado como DADO (apenas no contexto deste especialista).
+  const additionalSources = await buildLegalConsultantSourcesContext(supabase, request.projectId);
+
   const response = await provider.answerQuery({
     expertId: LEGAL_CONSULTANT_EXPERT_ID,
     expertName: LEGAL_CONSULTANT_NAME,
@@ -143,6 +149,7 @@ export async function answerLegalConsultantQuery(
     question,
     eventContext,
     projectContext,
+    additionalContext: renderAdditionalSources(additionalSources),
     outputSchema:
       options.requireContractualDocuments === true
         ? LEGAL_CONSULTANT_DOCUMENT_QUERY_RESPONSE_JSON_SCHEMA
@@ -238,6 +245,7 @@ export async function answerLegalConsultantQuery(
       stopReason: response.stopReason ?? null,
       usage: response.usage ?? null,
       grounding: groundingAudit,
+      additionalSources: additionalSources.map((s) => ({ sourceId: s.sourceId, status: s.status, rowCount: s.rowCount, injectionSignals: s.signals.map((x) => x.id) })),
     },
   };
 }

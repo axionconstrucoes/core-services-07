@@ -9,6 +9,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildEventAnalysisContext } from "../../context/build-event-context";
 import { buildProjectAnalysisContext } from "../../context/build-project-context";
+import { buildQualityAnalystSourcesContext, renderAdditionalSources } from "../../context/build-quality-sources-context";
 import {
   adjustConfidenceForGrounding,
   applySafeGroundingCorrection,
@@ -54,6 +55,8 @@ export interface QualityAnalystQueryResult {
       unsupportedClaimCount: number;
       humanInputRequiredClaimCount: number;
     };
+    /** Fontes adicionais lidas (somente metadados; o texto vai ao prompt já embrulhado como DADO externo). */
+    additionalSources: Array<{ sourceId: string; status: "AVAILABLE" | "UNAVAILABLE"; rowCount: number; injectionSignals: string[] }>;
   };
 }
 
@@ -104,6 +107,9 @@ export async function answerQualityAnalystQuery(
         })
       : null;
 
+  // Fontes quality_*: conteúdo externo embrulhado como DADO (apenas no contexto deste especialista).
+  const additionalSources = await buildQualityAnalystSourcesContext(supabase, request.projectId);
+
   const response = await provider.answerQuery({
     expertId: QUALITY_ANALYST_EXPERT_ID,
     expertName: QUALITY_ANALYST_NAME,
@@ -113,6 +119,7 @@ export async function answerQualityAnalystQuery(
     question,
     eventContext,
     projectContext,
+    additionalContext: renderAdditionalSources(additionalSources),
     outputSchema: EXPERT_QUERY_RESPONSE_JSON_SCHEMA,
   });
 
@@ -194,6 +201,7 @@ export async function answerQualityAnalystQuery(
       stopReason: response.stopReason ?? null,
       usage: response.usage ?? null,
       grounding: groundingAudit,
+      additionalSources: additionalSources.map((s) => ({ sourceId: s.sourceId, status: s.status, rowCount: s.rowCount, injectionSignals: s.signals.map((x) => x.id) })),
     },
   };
 }

@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChecklistPhotoView, ChecklistSubmissionView } from "@/lib/ssma/checklist-photos/checklist-submissions-view";
+import { RegisterQualityIndication } from "@/components/quality/register-quality-indication";
+import { buildOriginRef } from "@/lib/quality/ingestion";
 import { checklistPhotoErrorMessage } from "@/lib/ssma/checklist-photos/resolve-checklist-photo";
 
 async function diagnose(url: string): Promise<string> {
@@ -42,7 +44,7 @@ function Thumbnail({ photo, onOpen }: { photo: ChecklistPhotoView; onOpen: (phot
   );
 }
 
-export function ChecklistSubmissionsGallery({ submissions }: { submissions: ChecklistSubmissionView[] }) {
+export function ChecklistSubmissionsGallery({ submissions, projectId }: { submissions: ChecklistSubmissionView[]; projectId?: string }) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -105,6 +107,18 @@ export function ChecklistSubmissionsGallery({ submissions }: { submissions: Chec
                 ))}
               </div>
             )}
+            {projectId && submission.photos.length > 0 ? (
+              <RegisterQualityIndication
+                compact
+                projectId={projectId}
+                originTypes={["SSMA_FOTO"]}
+                originRef={buildOriginRef("ssma_form_submission", submission.id)}
+                sourceTable="ssma_form_submissions"
+                originUrl={`/${projectId}/ssma-registros#checklists-enviados`}
+                defaultTitle={`${submission.number ? `${submission.number}. ` : ""}${submission.title}`}
+                triageEligible
+              />
+            ) : null}
           </li>
         ))}
       </ul>
