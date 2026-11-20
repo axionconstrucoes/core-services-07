@@ -13,8 +13,8 @@ import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, "..", "supabase", "migrations");
-const TARGET = "20261121170000_audit_delete_proposals_and_findings.sql";
-const TARGET2 = "20261121171000_risk_sla_consistency_closed_by_source.sql";
+const TARGET = "20261121175000_audit_delete_proposals_and_findings.sql";
+const TARGET2 = "20261121176000_risk_sla_consistency_closed_by_source.sql";
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 const PLATFORM = readFileSync(path.join(here, "test-migrations-full-replay.mjs"), "utf8").match(/const PLATFORM = `([\s\S]*?)`;/)[1];
 const realUrl = process.env.ACC_REALPG_URL;
