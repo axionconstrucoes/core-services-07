@@ -1,7 +1,7 @@
 // Empacotador mínimo (sem esbuild/vite instalados): transpila TS/TSX com o compilador `typescript` do repositório, resolve o alias "@/"
 // de apps/web, empacota em CommonJS (react, react-dom, lucide-react, clsx, tailwind-merge vêm de node_modules) e compila o CSS REAL
 // (apps/web/app/globals.css) com PostCSS + @tailwindcss/postcss. Nada é instalado; a saída vai para um diretório temporário.
-import { createRequire } from "node:module";
+import { builtinModules, createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,6 +31,7 @@ export function bundleJs(entry, stubs = {}) {
   STUBS = stubs; // módulos substituídos na fixture (ex.: next/link, next/navigation) para montar componentes REAIS sem o runtime do Next
   const modules = new Map(); // abs -> {id, code, deps}
   const missing = new Set();
+  const externalNode = new Set();
   function add(abs) {
     if (modules.has(abs)) return modules.get(abs).id;
     const id = modules.size;
@@ -50,6 +51,9 @@ export function bundleJs(entry, stubs = {}) {
     while ((m = re.exec(src))) {
       const spec = m[2];
       if (spec in rec.deps) continue;
+      // Embutidos do Node (node:stream, fs, path...) pertencem ao código de SERVIDOR que a varredura estática alcança por um import que
+      // a tela nunca executa: ficam externos (require devolve {}), nunca lidos como arquivo. O build real do Next separa servidor e cliente.
+      if (spec.startsWith("node:") || builtinModules.includes(spec)) { externalNode.add(`${spec} (de ${path.relative(root, abs)})`); continue; }
       const target = resolveSpec(spec, abs);
       if (!target) { missing.add(`${spec} (de ${path.relative(root, abs)})`); continue; }
       rec.deps[spec] = add(target);
@@ -62,7 +66,7 @@ export function bundleJs(entry, stubs = {}) {
     `(function(){var process={env:{NODE_ENV:"production"}};var M={${parts.join(",")}};var C={};` +
     `function load(i){if(C[i])return C[i].exports;var mod=C[i]={exports:{}};var d=M[i];` +
     `d[0].call(mod.exports,mod,mod.exports,function(s){if(!(s in d[1])){return {};}return load(d[1][s]);});return mod.exports;}load(${entryId});})();`;
-  return { code: out, modules: modules.size, missing: [...missing] };
+  return { code: out, modules: modules.size, missing: [...missing], externalNode: [...externalNode] };
 }
 
 export async function compileCss(extraCss = "") {

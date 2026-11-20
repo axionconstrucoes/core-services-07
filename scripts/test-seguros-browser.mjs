@@ -41,6 +41,7 @@ const built = await buildFixture({
     "next/link": path.join(FX, "stubs", "next-link.tsx"),
     "next/navigation": path.join(FX, "stubs", "next-navigation.ts"),
     "@/app/[projectId]/seguros/actions": path.join(FX, "stubs", "seguros-actions.ts"),
+    "@/app/[projectId]/seguros/actions-persistencia": path.join(FX, "stubs", "seguros-actions-persistencia.ts"),
   },
 });
 console.log(`fixture: ${built.modules} módulos; ausentes: ${built.missing.length ? built.missing.join(", ") : "nenhum"}`);
