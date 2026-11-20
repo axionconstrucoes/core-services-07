@@ -82,6 +82,7 @@ export const JURIDICO_HELP: FeatureHelpDefinition[] = [
     consequences: ["Cada consulta aceita consome uma unidade do limite diário do usuário e da obra e fica registrada na trilha de uso."],
     permissions: "ADMINISTRADOR ativo do espaço. A consulta é privada: só o autor a vê.",
     limitations: [
+      "A consulta só é aceita em espaço PRE_CONTRATUAL: em obra contratada o servidor sempre a recusa (por isso a tela mostra um aviso em vez do formulário).",
       "Os limites 20/100 são valores operacionais gravados no banco, não política aprovada pela Diretoria, e podem ser ajustados pelo administrador da plataforma.",
       "A resposta se limita ao texto dos documentos carregados; base legal oficial não está disponível (nenhum corpus normativo versionado).",
     ],
@@ -382,7 +383,7 @@ export const JURIDICO_HELP: FeatureHelpDefinition[] = [
     howItWorks:
       "O triador (scripts/email-thread-contract-triage.mjs) soma pesos de termos contratuais fortes e de apoio no texto da conversa e grava candidatos PENDING_REVIEW (email_thread_event_candidates). A decisão chama a RPC review_email_thread_event_candidate, que autoriza no banco e, ao aprovar, cria o evento no Event Ledger.",
     permissions: "A interface oferece os formulários somente ao ADMINISTRADOR; as demais permissões veem a lista em modo leitura. A RPC no banco valida a permissão de novo.",
-    limitations: ["O texto de apoio da tela cita EDITOR ou ADMIN, mas o código da página libera os botões apenas para ADMINISTRADOR."],
+    limitations: ["O texto de apoio da tela citava EDITOR ou ADMIN (perfis legados); agora diz ADMINISTRADOR, que é a permissão efetiva (EDITOR equivale a ADMINISTRADOR na regra atual)."],
     humanReview: "Aprovação ou rejeição humana obrigatória; sem ela nada entra no Event Ledger.",
   },
   {

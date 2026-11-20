@@ -56,7 +56,7 @@ export async function EventNotesSection({
         <EventNoteForm projectId={projectId} eventId={eventId} />
       ) : (
         <p className="rounded-md border bg-muted p-3 text-xs text-muted-foreground">
-          Você possui acesso de leitura. Adicionar anotação exige permissão EDITOR ou ADMIN.
+          Você possui acesso de leitura. Adicionar anotação exige o perfil ADMINISTRADOR neste projeto.
         </p>
       )}
     </div>

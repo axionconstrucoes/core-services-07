@@ -373,8 +373,8 @@ export default async function ContractReviewPage({
                   ) : (
                     <p className="rounded-md border bg-muted p-3 text-sm text-muted-foreground">
                       Você possui acesso de leitura.
-                      Aprovação ou rejeição exige
-                      permissão EDITOR ou ADMIN.
+                      Aprovação ou rejeição exige o perfil
+                      ADMINISTRADOR neste projeto.
                     </p>
                   )}
                 </CardContent>

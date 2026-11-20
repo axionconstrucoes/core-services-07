@@ -3,8 +3,11 @@
 // Formulários das ações formais do alerta: [RESOLVIDO] [TOMANDO
 // PROVIDÊNCIAS] [ENVIAR P/] [ESPECIALISTA] [OUTRO]. Cada ação é um POST
 // (server action) com confirmação; nada muda por GET. Para HIGH/CRITICAL,
-// as quatro últimas provocam escalonamento imediato ao próximo nível
-// (regra única em alert-state-machine.ts) — informado aqui, decidido lá.
+// SOMENTE [OUTRO] provoca escalonamento imediato ao próximo nível
+// (IMMEDIATE_ESCALATION_ACTIONS em alert-state-machine.ts, critério de
+// 18/11/2026); TOMANDO PROVIDÊNCIAS, ENVIAR P/ e ESPECIALISTA não escalonam
+// por si e não reiniciam prazo — os escalonamentos normais por prazo vencido
+// continuam. Informado aqui (ESCALATING), decidido lá.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useActionState } from "react";
