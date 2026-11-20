@@ -71,7 +71,7 @@ check("getFeatureHelp devolve null (nunca lança) para um helpId desconhecido", 
 
 // --- Menu (sidebar): todos os itens reais têm helpId válido ---
 
-// Itens REAIS de NAV_ITEMS (apps/web/lib/ui/nav-items.ts) — 18 hoje. Os itens restritos (Eventos, Financeiro, Integrações, Usuários,
+// Itens REAIS de NAV_ITEMS (apps/web/lib/ui/nav-items.ts) — 19 hoje (inclui Seguros). Os itens restritos (Eventos, Financeiro, Integrações, Usuários,
 // Autorizações, Reemissão de alertas, Start-up ACC) continuam em NAV_ITEMS; só a exibição é filtrada no layout (server).
 // "Análise Contratual"/"Análise de Cláusulas" saíram do menu (o Expert Jurídico é o ponto único; rotas e ajuda preservadas).
 const EXPECTED_SIDEBAR_LABELS = [
@@ -84,6 +84,7 @@ const EXPECTED_SIDEBAR_LABELS = [
   "Jurídico",
   "Documentos",
   "Providências",
+  "Seguros",
   "Financeiro",
   "ESG/SSMA",
   "Garantias",

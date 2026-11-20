@@ -101,3 +101,5 @@ scripts/test-quality-sources-ingestion.mjs
 scripts/test-pilares-dashboard.mjs
 scripts/test-garantias-ui.mjs
 scripts/test-quality-ui.mjs
+scripts/test-seguros-ui.mjs
+scripts/test-seguros-browser.mjs
