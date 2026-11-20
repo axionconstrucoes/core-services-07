@@ -602,11 +602,117 @@ await check("58. ESPECIALISTA não gera escalonamento por consulta: a web recusa
   assert(legacy.ok === true, "registros/fluxo legado continuam aceitando a ação antiga");
   assert(legacy.escalation === null && !escalationOf(legacy), "consulta legada não deve escalar imediatamente");
 });
-await check("59. Regras de SLA, cron, migrations, workflows e destinatários permanecem inalterados nesta branch (diff contra origin/main)", () => {
-  const names = gitDiffNames();
-  if (names === null) return;
-  const forbidden = names.filter((n) => /^(apps\/web\/lib\/sla\/|supabase\/migrations\/|\.github\/workflows\/|apps\/web\/vercel\.json$|vercel\.json$)/.test(n) || n === "apps/web/lib/risk-alerts/plan-risk-alerts.ts" || n === "apps/web/lib/risk-alerts/recipients.ts");
-  assert(forbidden.length === 0, `arquivos que não deveriam mudar: ${forbidden.join(", ")}`);
+// ---- Trava #59 (revisada na frente N1, 21/11/2026) ----
+// Finalidade preservada: detectar mudança ACIDENTAL de regras de SLA (prazos da Matriz, escalonamento), cron e
+// destinatários. Antes a trava proibia qualquer arquivo em supabase/migrations e .github/workflows, o que reprovava
+// toda branch com correção legítima (ex.: segurança). Agora verifica INVARIANTES concretas contra a base comum com
+// origin/main (merge-base):
+//   a) regras TypeScript de SLA/destinatários (apps/web/lib/sla/**, plan-risk-alerts.ts, recipients.ts): intocadas;
+//   b) cron: os agendamentos (".github/workflows/*.yml" e "vercel.json") são idênticos — outras edições de workflow
+//      são permitidas;
+//   c) migrations já existentes nunca são alteradas, renomeadas ou removidas (só migrations NOVAS);
+//   d) migration nova não pode (re)definir funções de prazo/escalonamento/agendamento, gravar ou alterar as tabelas da
+//      Matriz/responsáveis/escalonamentos, nem mexer em pg_cron — salvo se listada em SLA_RULE_MIGRATION_EXCEPTIONS
+//      com justificativa auditável (revisão humana obrigatória);
+//   e) autoteste dos detectores com amostras sintéticas, para a trava não ficar vazia por erro de expressão regular.
+const SLA_RULE_TS = (n) => /^apps\/web\/lib\/sla\//.test(n) || n === "apps/web/lib/risk-alerts/plan-risk-alerts.ts" || n === "apps/web/lib/risk-alerts/recipients.ts";
+const SLA_PROTECTED_SQL_FUNCTIONS = [
+  "sla_add_time_units", "add_business_days", "apply_sla_action_escalation_internal", "escalate_sla_action", "escalate_sla_action_system",
+  "protect_sla_action_escalation_level", "enforce_sla_action_escalation_link", "enforce_high_risk_rejection_escalation",
+  "assert_high_risk_rejection_has_escalation", "sla_ssma_assume_due_at", "ssma_due_date_to_timestamptz", "ssma_risk_to_sla_risk",
+  "ssma_link_sla_action", "resolve_sla_matrix_invitation_on_activation", "validate_sla_area_responsible_invitations",
+  "enqueue_manual_escalation_email", "alert_followup_claim_due", "acc_scheduler_[a-z_]+",
+];
+const SLA_PROTECTED_SQL_TABLES = ["sla_matrix_rules", "sla_area_responsibles", "sla_project_settings", "sla_action_escalations"];
+// "arquivo.sql": "justificativa (quem revisou, o que muda na regra e por quê)". Vazio = nenhuma migration desta base
+// altera regra de SLA/cron/destinatários.
+const SLA_RULE_MIGRATION_EXCEPTIONS = {};
+const stripSqlComments = (sql) => sql.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ");
+function migrationSlaRuleViolations(sql) {
+  const s = stripSqlComments(sql.replace(/\r\n?/g, "\n")).toLowerCase();
+  const out = [];
+  for (const fn of SLA_PROTECTED_SQL_FUNCTIONS) {
+    const re = new RegExp(`(create\\s+(or\\s+replace\\s+)?function|drop\\s+function(\\s+if\\s+exists)?|alter\\s+function)\\s+(public\\.)?"?(${fn})"?\\s*[(;\\s]`, "g");
+    for (const m of s.matchAll(re)) out.push(`função ${m[5]}`);
+  }
+  for (const t of SLA_PROTECTED_SQL_TABLES) {
+    const re = new RegExp(`(insert\\s+into|update|delete\\s+from|truncate(\\s+table)?|alter\\s+table(\\s+if\\s+exists)?|drop\\s+table(\\s+if\\s+exists)?)\\s+(only\\s+)?(public\\.)?"?${t}"?\\b`);
+    if (re.test(s)) out.push(`tabela ${t}`);
+  }
+  if (/\bcron\s*\.\s*(schedule|unschedule|alter_job|schedule_in_database)\b/.test(s)) out.push("pg_cron");
+  return [...new Set(out)];
+}
+function cronSchedulesOf(files) {
+  const out = [];
+  for (const [file, content] of files) {
+    if (/vercel\.json$/.test(file)) {
+      try {
+        for (const c of JSON.parse(content).crons ?? []) out.push(`${file}: ${c.path} @ ${c.schedule}`);
+      } catch {
+        out.push(`${file}: JSON inválido`);
+      }
+      continue;
+    }
+    for (const m of content.replace(/\r\n?/g, "\n").matchAll(/^\s*-\s*cron:\s*["']?([^"'\n#]+?)["']?\s*(#.*)?$/gm)) out.push(`${file}: ${m[1].trim()}`);
+  }
+  return out.sort();
+}
+const git = (args) => {
+  try {
+    return execSync(`git ${args}`, { cwd: repoRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024 });
+  } catch {
+    return null;
+  }
+};
+const scheduleFilesAt = (rev) =>
+  (git(`ls-tree -r --name-only ${rev} -- .github/workflows apps/web/vercel.json vercel.json`) ?? "")
+    .split("\n").filter((f) => /\.ya?ml$|vercel\.json$/.test(f))
+    .map((f) => [f, git(`show ${rev}:${f}`) ?? ""]);
+await check("59. Regras de SLA, cron e destinatários permanecem inalteradas nesta branch: invariantes contra a base comum com origin/main (regras TS de SLA/destinatários intocadas, agendamentos idênticos, migrations antigas imutáveis, migrations novas sem regra de prazo/escalonamento/cron fora da lista auditada)", () => {
+  // e) autoteste dos detectores (sempre roda, mesmo sem histórico git)
+  assert(migrationSlaRuleViolations("update public.sla_matrix_rules set assume_deadline_value = 4;").includes("tabela sla_matrix_rules"), "detector: UPDATE na Matriz");
+  assert(migrationSlaRuleViolations("insert into sla_area_responsibles (project_id) values (null);").includes("tabela sla_area_responsibles"), "detector: destinatários");
+  assert(migrationSlaRuleViolations("create or replace function public.sla_add_time_units(p int) returns int as $$ select 1 $$;").includes("função sla_add_time_units"), "detector: função de prazo");
+  assert(migrationSlaRuleViolations("CREATE FUNCTION public.acc_scheduler_reconcile() returns void").includes("função acc_scheduler_reconcile"), "detector: agendador");
+  assert(migrationSlaRuleViolations("select cron.schedule('x', '*/5 * * * *', 'select 1');").includes("pg_cron"), "detector: pg_cron");
+  assert(migrationSlaRuleViolations("-- update public.sla_matrix_rules (só comentário)\nselect 1 from public.sla_area_responsibles r where r.area = 'X';\nupdate public.sla_actions set status = 'COMPLETED';\ncreate or replace function public.sla_action_assume(p uuid)").length === 0, "detector: falso positivo em leitura/comentário/operação");
+  // amostras reais: a migration do agendador e a fundação de SLA SERIAM barradas se chegassem como novas
+  const scheduler = migrationSlaRuleViolations(readSource("supabase/migrations/20261118093000_scheduler_pg_cron_dispatch.sql"));
+  assert(scheduler.includes("pg_cron") && scheduler.some((x) => x.startsWith("função acc_scheduler_")), `detector: agendador real ${scheduler}`);
+  assert(migrationSlaRuleViolations(readSource("supabase/migrations/20260822054900_sla_escalation_foundation.sql")).includes("função escalate_sla_action"), "detector: fundação de SLA real");
+  const yml = (expr) => [[".github/workflows/x.yml", `on:\n  schedule:\n    - cron: "${expr}"\n`]];
+  assert(JSON.stringify(cronSchedulesOf(yml("*/30 * * * *"))) !== JSON.stringify(cronSchedulesOf(yml("*/15 * * * *"))), "detector: cron alterado");
+  assert(cronSchedulesOf([["apps/web/vercel.json", '{"crons":[{"path":"/api/cron/x","schedule":"0 * * * *"}]}']]).length === 1, "detector: vercel.json");
+
+  const base = (git("merge-base origin/main HEAD") ?? "").trim();
+  if (!base) return; // sem histórico (clone raso): as invariantes por diff são puladas; o autoteste acima continua
+  const status = (git(`diff --no-renames --name-status ${base} HEAD`) ?? "").split("\n").filter(Boolean).map((l) => l.split("\t"));
+  const problems = [];
+  // a) regras TS
+  for (const [, file] of status) if (SLA_RULE_TS(file)) problems.push(`regra de SLA/destinatários alterada: ${file}`);
+  // c) + d) migrations
+  for (const [st, file] of status) {
+    if (!/^supabase\/migrations\/.+\.sql$/.test(file)) continue;
+    const name = file.split("/").pop();
+    if (st !== "A") {
+      problems.push(`migration existente ${st === "D" ? "removida/renomeada" : "alterada"}: ${name}`);
+      continue;
+    }
+    const v = migrationSlaRuleViolations(git(`show HEAD:${file}`) ?? "");
+    if (v.length === 0) continue;
+    const why = SLA_RULE_MIGRATION_EXCEPTIONS[name];
+    if (!why || String(why).trim().length < 20) problems.push(`${name} altera regra protegida (${v.join(", ")}) sem exceção auditada`);
+  }
+  // b) cron
+  const before = cronSchedulesOf(scheduleFilesAt(base));
+  const after = cronSchedulesOf(scheduleFilesAt("HEAD"));
+  if (JSON.stringify(before) !== JSON.stringify(after)) {
+    const removed = before.filter((x) => !after.includes(x));
+    const added = after.filter((x) => !before.includes(x));
+    problems.push(`agendamentos alterados — removidos: [${removed.join("; ")}] adicionados: [${added.join("; ")}]`);
+  }
+  assert(before.length > 0, "nenhum agendamento encontrado na base (detector de cron quebrado?)");
+  assert(problems.length === 0, problems.join(" | "));
 });
 await check("60. RESOLVIDO exige confirmação explícita e, em ALTO/CRÍTICO, evidência; nada é concluído sem isso", () => {
   assert(act("RESOLVED", { text: "ok" }).code === "CONFIRMATION_REQUIRED");
