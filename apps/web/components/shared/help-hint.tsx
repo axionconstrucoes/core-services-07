@@ -47,10 +47,14 @@ export function HelpHint({
   helpId,
   className,
   iconClassName,
+  hitArea = "square",
 }: {
   helpId: string;
   className?: string;
   iconClassName?: string;
+  /** Área de toque expandida (invisível) em telas estreitas/de toque: "square" = 44x44; "vertical" = 24 de largura x 44 de altura
+   *  (para quando o vizinho horizontal — ex.: link da sidebar — não pode ser sobreposto). Com mouse, o alvo continua 24x24. */
+  hitArea?: "square" | "vertical";
 }) {
   const help = ACC_FEATURE_HELP[helpId];
   const [open, setOpen] = useState(false);
@@ -268,7 +272,12 @@ export function HelpHint({
         aria-haspopup="dialog"
         aria-controls={open ? panelId : undefined}
         className={cn(
-          "-m-1 inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+          "relative -m-1 inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+          // Alvo de toque >= 44 px sem mudar o visual: pseudo-elemento transparente centrado no ícone (conta para o clique/toque).
+          "after:absolute after:left-1/2 after:top-1/2 after:-translate-x-1/2 after:-translate-y-1/2 after:content-['']",
+          hitArea === "vertical"
+            ? "max-sm:after:h-11 max-sm:after:w-6 pointer-coarse:after:h-11 pointer-coarse:after:w-6"
+            : "max-sm:after:size-11 pointer-coarse:after:size-11",
           iconClassName
         )}
         onClick={(event) => {

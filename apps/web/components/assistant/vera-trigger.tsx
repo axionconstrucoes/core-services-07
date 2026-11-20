@@ -28,6 +28,8 @@ export function VeraTrigger({
   const question = ask ?? (context === "autorizacao" ? VERA_AUTHORIZATION_QUESTION : undefined);
 
   return (
+    // O "!" no outline-black é necessário: a regra global de foco (globals.css, #4d8dff) não está em camada e vence a utilidade do Tailwind;
+    // sobre o fundo claro #F7F4EC o azul global dá 2,91:1 (< 3:1 medido no Chrome), o preto dá ~19:1.
     // help-exempt: gatilho que apenas abre a caixa da AXIA, descrita em integracoes.axia.conversa; o aria-label já nomeia a ação
     <button
       type="button"
@@ -35,7 +37,7 @@ export function VeraTrigger({
       onClick={() => openVera({ context, ask: question })}
       aria-label="Fale com a AXIA — Assistente ACC"
       title="Fale com a AXIA"
-      className={`group inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full p-0.5 pr-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 sm:pr-3 ${tone === "dark" ? "hover:bg-white/15 focus-visible:outline-white" : tone === "onLight" ? "hover:bg-black/10 focus-visible:outline-black" : "hover:bg-white/10 focus-visible:outline-[#f7f3ea]"}`}
+      className={`group inline-flex min-h-11 shrink-0 items-center gap-2 rounded-full p-0.5 pr-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 sm:pr-3 ${tone === "dark" ? "hover:bg-white/15 focus-visible:outline-white" : tone === "onLight" ? "hover:bg-black/10 focus-visible:!outline-black" : "hover:bg-white/10 focus-visible:outline-[#f7f3ea]"}`}
     >
       <Image
         src="/assistente/axia-avatar.png"
