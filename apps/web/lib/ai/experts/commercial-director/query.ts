@@ -7,8 +7,11 @@
 // MULTI_EXPERT falham explicitamente (fail closed) — nunca simulados.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { loadCommercialContext } from "../../../commercial/load-commercial-context";
+import type { CommercialContext } from "../../../commercial/types";
 import { buildEventAnalysisContext } from "../../context/build-event-context";
 import { buildProjectAnalysisContext } from "../../context/build-project-context";
+import type { EventAnalysisContext, ProjectAnalysisContext } from "../../context/types";
 import {
   adjustConfidenceForGrounding,
   applySafeGroundingCorrection,
@@ -29,6 +32,15 @@ import {
   COMMERCIAL_DIRECTOR_NAME,
   COMMERCIAL_DIRECTOR_VERSION,
 } from "./identity";
+
+/**
+ * Cópia do contexto com o bloco comercial anexado. O tipo compartilhado
+ * (context/types.ts) não declara `commercialContext` — o campo extra é
+ * serializado pelo provider junto do contexto autorizado.
+ */
+function withCommercialContext<T extends object>(context: T, commercialContext: CommercialContext): T {
+  return { ...context, commercialContext } as T;
+}
 
 const IMPLEMENTED_SCOPES: ExpertQueryScope[] = ["PROJECT", "EVENT"];
 
@@ -66,6 +78,15 @@ export interface CommercialDirectorQueryResult {
  */
 export interface CommercialDirectorQueryOptions {
   includeContractualDocuments?: boolean;
+  /**
+   * Anexa o contexto comercial × Orçamentos (apps/web/lib/commercial,
+   * somente leitura, sessão/RLS do usuário) ao contexto enviado ao
+   * provider. Padrão: true. Sem sessão de usuário (ex.: rotina com
+   * service role) o carregador não lê nada e marca SEM_AUTORIZACAO.
+   */
+  includeCommercialContext?: boolean;
+  /** Injeção para testes. */
+  loadCommercialContext?: (supabase: SupabaseClient, input: { projectId: string }) => Promise<CommercialContext>;
 }
 
 export async function answerCommercialDirectorQuery(
@@ -104,6 +125,21 @@ export async function answerCommercialDirectorQuery(
         })
       : null;
 
+  // Contexto comercial × Orçamentos: anexado somente à cópia enviada ao
+  // provider (os contextos originais continuam intactos para o
+  // enriquecimento fake e o grounding). Nunca derruba a consulta.
+  const commercialContext =
+    options.includeCommercialContext === false
+      ? null
+      : await (options.loadCommercialContext ?? loadCommercialContext)(supabase, { projectId: request.projectId }).catch(
+          () => null
+        );
+
+  const providerEventContext: EventAnalysisContext | null =
+    eventContext && commercialContext ? withCommercialContext(eventContext, commercialContext) : eventContext;
+  const providerProjectContext: ProjectAnalysisContext | null =
+    projectContext && commercialContext ? withCommercialContext(projectContext, commercialContext) : projectContext;
+
   const response = await provider.answerQuery({
     expertId: COMMERCIAL_DIRECTOR_EXPERT_ID,
     expertName: COMMERCIAL_DIRECTOR_NAME,
@@ -111,8 +147,8 @@ export async function answerCommercialDirectorQuery(
     instructions: COMMERCIAL_DIRECTOR_INSTRUCTIONS,
     scope: request.scope,
     question,
-    eventContext,
-    projectContext,
+    eventContext: providerEventContext,
+    projectContext: providerProjectContext,
     outputSchema: EXPERT_QUERY_RESPONSE_JSON_SCHEMA,
   });
 
