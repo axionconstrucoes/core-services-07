@@ -209,7 +209,7 @@ try {
     eq(snaps.map((s) => [s.version_no, Number(s.m)]), [[1, 1000000], [2, 1500000]], "versões preservadas");
     await rejects(su.query("update public.insurance_policy_versions set change_reason='x' where policy_id=$1", [pol.id]), /APPEND_ONLY/, "versão imutável");
     await rejects(su.query("delete from public.insurance_policy_versions where policy_id=$1", [pol.id]), /APPEND_ONLY|NO_DELETE/, "versão sem delete");
-    const p1 = await rpc(a, "insurance_policy_party_add", pol.id, 2, JSON.stringify({ party_role: "SEGURADO", party_name: "Contratante Sintética SA", source_document_id: D1 }));
+    const p1 = await rpc(a, "insurance_policy_party_add", pol.id, 2, JSON.stringify({ party_role: "SEGURADO", party_name: "Contratante Sintética SA", tax_id: "11.222.333/0001-81", source_document_id: D1 }));
     eq(p1.versionNo, 3, "parte gera versão");
     const c1 = await rpc(a, "insurance_policy_clause_add", pol.id, 3, JSON.stringify({ kind: "EXCLUSAO", title: "Exclusão sintética", clause_text: "texto sintético", source_document_id: D1, source_page: "p.4", applies_to: ["DANO_PROPRIA_OBRA"] }));
     eq(c1.versionNo, 4, "cláusula gera versão");
@@ -359,7 +359,7 @@ try {
   await check("CASO 21 (segurado incorreto) / CASO 22 (beneficiário final não identificado): partes aceitam NAO_IDENTIFICADO explícito; identificado exige nome; tudo com fonte", async () => {
     const a = await as(U.ADMIN);
     const pol = await mkPolicy(a);
-    const p1 = await rpc(a, "insurance_policy_party_add", pol.id, 1, JSON.stringify({ party_role: "SEGURADO", party_name: "Empresa Errada Ltda", source_document_id: D1 }));
+    const p1 = await rpc(a, "insurance_policy_party_add", pol.id, 1, JSON.stringify({ party_role: "SEGURADO", party_name: "Empresa Errada Ltda", tax_id: "12.345.678/0001-95", source_document_id: D1 }));
     const p2 = await rpc(a, "insurance_policy_party_add", pol.id, 2, JSON.stringify({ party_role: "PROPRIETARIO_FINAL", identification_status: "NAO_IDENTIFICADO", source_ref: "contrato-sint cl.2" }));
     await rejects(rpc(a, "insurance_policy_party_add", pol.id, 3, JSON.stringify({ party_role: "BENEFICIARIO", source_ref: "x" })), /check|violates/i, "identificado sem nome");
     await rejects(rpc(a, "insurance_policy_party_add", pol.id, 3, JSON.stringify({ party_role: "FIADOR", party_name: "X", source_ref: "x" })), /check|violates/i, "papel inexistente");

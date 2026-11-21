@@ -456,7 +456,7 @@ try {
   await check("CASO 21/22 + F3-E-06) sujeitos esperados PERSISTIDOS comparados com a apólice: segurado incorreto, beneficiário final não identificado, sem presumir que o beneficiário deva ser segurado", async () => {
     const pol = await mkPolicy();
     const adm = await as(U.ADMIN);
-    await addParty(adm, pol, { party_role: "SEGURADO", party_name: "Construtora Alfa Ltda", tax_id: "11.111.111/0001-11", source_ref: "Apólice p.1" });
+    await addParty(adm, pol, { party_role: "SEGURADO", party_name: "Construtora Alfa Ltda", tax_id: "11.222.333/0001-81", source_ref: "Apólice p.1" });
     await addParty(adm, { id: pol.id, rowVersion: 2 }, { party_role: "TOMADOR", party_name: "Axion Engenharia", source_ref: "Apólice p.1" });
     const ger = await as(U.GERENTE);
     const parties = async () => (await su.query("select party_role as role, party_name as name, tax_id, identification_status from public.insurance_policy_parties where policy_id=$1", [pol.id])).rows.map((p) => ({ role: p.role, name: p.name, taxId: p.tax_id, identificationStatus: p.identification_status }));
@@ -466,19 +466,19 @@ try {
     // sem expectativa persistida: o segurado não é conferido (não presume)
     ok((await codes()).includes("SEGURADO_NAO_CONFERIDO"), "sem expectativa: SEGURADO_NAO_CONFERIDO");
     // CASO 21: segurado esperado diferente do cadastrado
-    const s1 = await saveSubject(ger, pol.id, subj("SEGURADO", "ESPERADO", { expectedName: "Incorporadora Beta SA", expectedTaxId: "22.222.222/0001-22" }), 0);
+    const s1 = await saveSubject(ger, pol.id, subj("SEGURADO", "ESPERADO", { expectedName: "Incorporadora Beta SA", expectedTaxId: "12.345.678/0001-95" }), 0);
     eq(s1.versionNo, 1, "v1 do segurado esperado");
     const c1 = await codes();
     ok(c1.includes("SEGURADO_INCORRETO") && !c1.includes("SEGURADO_NAO_CONFERIDO"), `CASO 21 segurado incorreto: ${c1}`);
     // corrigir a expectativa (nova versão supersede): passa a coincidir
-    const s2 = await saveSubject(ger, pol.id, subj("SEGURADO", "ESPERADO", { expectedName: "CONSTRUTORA ALFA LTDA", expectedTaxId: "11111111000111" }), 1);
+    const s2 = await saveSubject(ger, pol.id, subj("SEGURADO", "ESPERADO", { expectedName: "CONSTRUTORA ALFA LTDA", expectedTaxId: "11222333000181" }), 1);
     eq([s2.versionNo, s2.supersedesId], [2, s1.id], "v2 supersede v1");
     ok(!(await codes()).includes("SEGURADO_INCORRETO"), "CNPJ/nome coincidentes: sem SEGURADO_INCORRETO");
     // CASO 22: o contrato aponta proprietário final, mas a apólice não o identifica
     await saveSubject(ger, pol.id, subj("PROPRIETARIO_FINAL", "ESPERADO", { expectedName: "Cliente Final SA", sourceKind: "EDITAL" }), 0);
     ok((await codes()).includes("BENEFICIARIO_FINAL_NAO_IDENTIFICADO"), "CASO 22 beneficiário final não identificado");
     // apólice passa a trazer outro proprietário final => divergência (inferência), NÃO erro de segurado
-    await addParty(adm, { id: pol.id, rowVersion: 3 }, { party_role: "PROPRIETARIO_FINAL", party_name: "Outra Empresa SA", source_ref: "Apólice p.2" });
+    await addParty(adm, { id: pol.id, rowVersion: 3 }, { party_role: "PROPRIETARIO_FINAL", party_name: "Outra Empresa SA", tax_id: "55.566.677/0001-83", source_ref: "Apólice p.2" });
     const c3 = await audit();
     const div = c3.findings.find((f) => f.code === "SUJEITO_ESPERADO_DIVERGENTE");
     ok(div && div.epistemic === "INFERENCIA" && /Cliente Final SA/.test(div.text) && /Edital/.test(div.text), `divergência do proprietário final com a fonte: ${JSON.stringify(c3.findings.map((f) => f.code))}`);
