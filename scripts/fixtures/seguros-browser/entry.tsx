@@ -38,6 +38,18 @@ data.dashboardItems = [
   { kind: "ENDOSSO_PENDENTE", project_id: P, entity_type: "INSURANCE_ENDORSEMENT", entity_id: id(8), title: "Endosso 1 (EMITIDO)", due_date: null, days_to_due: null, severity: "CONFERENCIA_PENDENTE", detail: {} },
 ];
 
+// Fase 4/A: competências. Query comp=SEGUROS,JURIDICO (padrão SEGUROS) = competências ATIVAS do usuário simulado; comp=NONE = nenhuma.
+const compParam = new URLSearchParams(location.search).get("comp") ?? "SEGUROS";
+const userNum = Number(new URLSearchParams(location.search).get("user") ?? "704");
+const compRow = (n: number, user: number, competence: string, extra: Record<string, unknown> = {}) => ({ id: id(980 + n), project_id: P, user_id: id(user), competence, status: "ACTIVE" as const, valid_from: "2026-01-01", valid_until: null, registration_kind: null, registration_number: null, evidence_document_id: null, basis_note: null, granted_by: id(799), granted_at: "2026-02-01T10:00:00Z", revoked_by: null, revoked_at: null, revoke_reason: null, row_version: 1, ...extra });
+data.competences = [
+  ...(compParam === "NONE" ? [] : compParam.split(",").map((c, i) => compRow(i, userNum, c))),
+  compRow(10, 705, "JURIDICO", { registration_kind: "OAB", registration_number: "SINT-0001" }),
+  compRow(11, 706, "TECNICO_RESPONSAVEL", { status: "REVOKED", revoked_by: id(799), revoked_at: "2026-03-01T10:00:00Z", revoke_reason: "Mudou de função na obra" }),
+];
+data.competenceMembers = [701, 702, 703, 704, 705, 706].map((n) => ({ userId: id(n), permission: n === 704 ? "GESTOR" : "GERENTE" }));
+data.actors = { [id(705)]: "Pessoa Jurídica Sintética", [id(706)]: "Pessoa Técnica Sintética", [id(799)]: "Administrador Sintético" };
+
 declare global {
   interface Window {
     __ready?: boolean;
