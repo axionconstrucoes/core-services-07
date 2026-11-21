@@ -128,3 +128,5 @@ scripts/test-f5-a-monitoramento.mjs
 scripts/test-f5-a-store-adapter.mjs
 scripts/test-f5-a-gmail-escopos.mjs
 scripts/test-f5-a-monitoramento-realpg.mjs
+scripts/test-f5-b-classificacao-email.mjs
+scripts/test-f5-b-classificacao-realpg.mjs
