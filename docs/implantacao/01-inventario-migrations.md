@@ -21,6 +21,8 @@ Escopo da leitura: SOMENTE `list_migrations`, `get_project` e SELECT em catálog
 | pendente-fora-de-ordem | Pendente e com versão MENOR que a última remota (`20261119034721`). |
 | pendente-decisao | Pendente e NÃO aplicar sem decisão expressa do dono. |
 
+> ATUALIZAÇÃO Fase 5/F (21/11/2026): o remoto continua com 134 registros (mesmo hash) e o P0 segue protegido. O local tem 192 arquivos: 134 registradas, 1 hotfix efetivo, 57 pendentes (52 pendente + 3 fora de ordem + 1 parcial + 1 decisão). A tabela abaixo (linhas por migration) está completa e é a fonte; as contagens do resumo seguinte são de 20/11 (171 arquivos, 36 pendentes) e estão superadas. Detalhe em `09-fase5-reinventario-e-preparacao.md`.
+
 ## Resumo (171 arquivos locais em 20/11/2026)
 
 | Estado | Qtde |

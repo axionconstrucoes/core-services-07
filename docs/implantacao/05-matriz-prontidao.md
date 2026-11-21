@@ -41,6 +41,10 @@ Legenda: PRONTO = sem bloqueio conhecido; DEPENDE = precisa de ação/decisão h
 
 Não está pronto para envio real. Bloqueios: (1) autenticação de domínio de e-mail (SPF e DKIM ausentes, DMARC sem relatório); (2) decisão e ensaio para aplicar 36 migrations em ordem, preservando o hotfix e tratando o registro de histórico; (3) decisões humanas: SLA MÉDIO/BAIXO, caixas/aceites, dados de teste x real. A segurança do hotfix está comprovada no remoto.
 
+## Atualização Fase 5/F (21/11/2026)
+
+Migrations: 192 arquivos locais, 57 pendentes, remoto inalterado desde 20/11 (134 registros; P0 protegido, md5 do corpo reconferido). Ensaio refeito sobre os 192 arquivos: 123 verificações, 0 falhas. SPF/DKIM/DMARC de `axion.com.br` reconsultados em 21/11/2026 (DNS público, somente leitura): inalterados (sem SPF, sem DKIM nos seletores comuns, DMARC `p=none` sem relatórios); isso bloqueia o ENVIO com autenticação alinhada, NÃO a leitura de caixas. Inventário Gmail/Outlook/Graph por camada em `04` (seção 6). Detalhe em `09`.
+
 ## Atualização Fase 4/C
 
 Migrations: sequência definida e ENSAIADA em PostgreSQL 17 local com dados representativos (105 verificações, 0 falhas; `07` e `08`). Proteção P0 de `record_risk_alert_action` verificada após cada migration, em variantes LF e CRLF, com controle negativo. Continua NÃO aplicado no operacional (48 migrations a aplicar, incluindo o portão `20261126100000`); `20261121177000` aguarda decisão; `20261123302000` aguarda o app. Prontidão do bloco: ensaio OK, execução PENDENTE de autorização.

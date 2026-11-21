@@ -4,6 +4,8 @@ Status: proposta tecnicamente ensaiada em PostgreSQL 17 local descartável. Nenh
 
 Fontes: `scripts/data/implantacao-sequencia.json` (a sequência, lida pelo ensaio e pelo teste), `scripts/ensaio-implantacao-ondas-realpg.mjs` (ensaio local), `scripts/sql/p0-verificar-record-risk-alert-action.sql` (verificação P0 somente leitura), `08-relatorio-ensaio-ondas.md` (resultado por onda: tempo, locks, P0). Este documento SUPERA o que `02-plano-aplicacao.md` diz sobre a onda C e sobre o tratamento do hotfix.
 
+> Fase 5/F (21/11/2026): contagens atualizadas em `09-fase5-reinventario-e-preparacao.md` (192 arquivos; 57 pendentes; as ondas I, P0 e J abaixo cobrem `20261124`..`20261127`; migrations das frentes A-E entram pela onda F5 automática do ensaio).
+
 ## 1. Estado de partida (remoto) e o que é "47 pendentes"
 
 Remoto: 134 migrations registradas + hotfix P0 `20261121090000` efetivo fora do histórico (corpo de `record_risk_alert_action` com md5 sem CR `930f6d75898793479b418950b0053bd9`). Localmente há 183 arquivos: 134 registradas, 1 hotfix efetivo, 47 pendentes e a nova `20261126100000` (portão P0, também pendente) = 48 a aplicar, das quais 2 ficam fora da sequência principal (`177000` por decisão e `302000` por acoplamento ao app), restando 46 na sequência principal.

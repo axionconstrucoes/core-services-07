@@ -2,6 +2,10 @@
 
 Status: PROPOSTA para decisão do dono. Nenhuma migration foi aplicada, nenhum registro de histórico foi alterado. Base: `01-inventario-migrations.md` (36 migrations pendentes, 1 aplicada fora do histórico).
 
+## 0-bis. Atualização Fase 5/F (21/11/2026)
+
+Contagem definitiva: 192 arquivos locais, 57 pendentes (não 36 nem 47), remoto inalterado (134 registros, hash `70a176da74c9f88ac06b04d80bc55891`, P0 protegido). Ensaio parametrizável (onda F5 para as migrations das frentes A-E), compatibilidade banco x app das `20261124`..`20261127`, locks, backup/PITR e rollback em `09-fase5-reinventario-e-preparacao.md`.
+
 ## 0. Atualização da Fase 4/C (prevalece sobre o texto abaixo onde divergir)
 
 A sequência foi ENSAIADA em PostgreSQL 17 local com dados representativos: ver `07-sequencia-ensaiada.md` (sequência, decisões, dependências banco x app, SLA) e `08-relatorio-ensaio-ondas.md` (tempo, locks e verificação P0 por migration). Mudanças em relação às seções 3 e 4 abaixo: (1) a 20261121090000 NÃO é reaplicada (só registro no histórico); (2) 130000 e 151000 já se ignoram quando o corpo protegido existe; a proteção é conferida após CADA migration; (3) a 20261118140000 não falha com duplicata, apenas não cria o índice (conferir a existência dele); (4) nova `20261126100000` (portão P0) ao final; (5) `20261123302000` só com o app. O total pendente passa a 48 (47 + o portão).
