@@ -139,3 +139,4 @@ scripts/test-f5-e-governanca-realpg.mjs
 scripts/test-f5-g-pipeline.mjs
 scripts/test-f5-g-pipeline-realpg.mjs
 scripts/test-quality-alert-area-sla-sql.mjs
+scripts/test-f6-h2c-experts-qualidade.mjs

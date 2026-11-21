@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadEventAlertContexts } from "@/lib/alerts/load-event-alert-context";
 import { DELIVERY_ITEM_COLUMNS, toDeliveryItem, type DeliveryItemRow } from "@/lib/delivery/delivery-mappers";
 import { DELIVERY_PHASE_LABELS } from "@/lib/delivery/delivery-items";
+import { loadEmailCaseContext } from "@/lib/risk-alerts/experts/email-signal-context";
 
 import type { AlertConsultSource, AlertConsultSubject } from "./run-alert-consult";
 import type { AlertConsultSubjectKind } from "./specialties";
@@ -79,6 +80,8 @@ async function loadRiskSubject(supabase: SupabaseClient, projectId: string, case
     supabase.from("projects").select("name").eq("id", projectId).maybeSingle(),
   ]);
   if (!row || !project) return null;
+  // Caso de origem e-mail: sinais/classificação do pipeline como DADO NÃO CONFIÁVEL com proveniência (somente leitura, RLS).
+  const emailContext = await loadEmailCaseContext(supabase, projectId, caseId);
 
   const lines = [
     `Alerta de risco: ${row.title as string}`,
@@ -89,6 +92,7 @@ async function loadRiskSubject(supabase: SupabaseClient, projectId: string, case
     `Resumo: ${(row.summary as string | null)?.trim() || NOT_DEFINED}`,
     `Impacto: ${(row.impact as string | null)?.trim() || NOT_DEFINED}`,
     `Recomendação registrada: ${(row.recommendation as string | null)?.trim() || "nenhuma"}`,
+    ...(emailContext ? ["", emailContext.text] : []),
   ];
 
   return {

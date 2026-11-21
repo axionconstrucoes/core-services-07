@@ -199,7 +199,7 @@ export function AlertConsultPanel({
           {!result.meta.isRealProvider ? (
             <p className="flex items-center gap-1.5 rounded-md border border-amber-500/40 bg-amber-500/5 p-2 text-xs text-amber-800">
               <FlaskConical className="size-3.5 shrink-0" aria-hidden="true" />
-              Resposta de TESTE ({result.meta.providerLabel}) — nenhuma análise real de IA foi realizada.
+              Resposta SIMULADA ({result.meta.providerLabel}) — nenhuma análise real de IA foi realizada; não use como parecer.
               <FeatureInfo helpId="experts.painel.provider" />
             </p>
           ) : (

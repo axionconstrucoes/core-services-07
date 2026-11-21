@@ -7,8 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ALL_OFFICIAL_EXPERT_DEFINITIONS, type OfficialExpertId } from "@/lib/ai/expert-definitions";
 import { requestedSkillsForExpert, SKILL_DISCOVERY_TOOL, SKILL_STATE_LABEL } from "@/lib/ai/expert-definitions/requested-skills";
-import { buildAiProviderUiMetadata } from "@/lib/ai/provider-ui-metadata";
-import { resolveAiProviderNameForExpert } from "@/lib/ai/providers/resolve-provider-for-expert";
+import { describeExpertProvider } from "@/lib/ai/routing/provider-status";
 import { expertAccentBorderClassName, expertIconClassName, resolveExpertIcon } from "@/components/ai/expert-visual-identity";
 import { FeatureInfo } from "@/components/shared/feature-info";
 import { EXPERT_PROFILE_HELP_ID } from "@/lib/ui/help/modules/experts";
@@ -55,7 +54,7 @@ export default async function ExpertsIaPage({ params }: { params: Promise<{ proj
         {ALL_OFFICIAL_EXPERT_DEFINITIONS.map((expert) => {
           const isActive = expert.status === "IMPLEMENTED";
           const href = EXPERT_ACCESS_HREF[expert.expertId]?.(projectId);
-          const providerMeta = buildAiProviderUiMetadata(resolveAiProviderNameForExpert(expert.expertId), null);
+          const providerStatus = describeExpertProvider(expert.expertId, process.env);
           const Icon = resolveExpertIcon(expert.visualIdentity);
           const requestedSkills = requestedSkillsForExpert(expert.expertId);
 
@@ -84,8 +83,15 @@ export default async function ExpertsIaPage({ params }: { params: Promise<{ proj
                 </div>
                 <p className="text-xs text-muted-foreground">{expert.mission}</p>
                 <div className="flex items-center gap-1">
-                  <Badge variant="outline" className="w-fit text-[10px] font-normal text-muted-foreground">
-                    Provider: {providerMeta.providerLabel}
+                  <Badge
+                    variant="outline"
+                    data-testid={`expert-provider-${expert.expertId}`}
+                    className={cn(
+                      "h-auto w-fit whitespace-normal text-left text-[11px] font-medium",
+                      providerStatus.isReal ? "border-green-700 text-green-900" : "border-amber-700 bg-amber-50 text-amber-950"
+                    )}
+                  >
+                    Provider: {providerStatus.label}
                   </Badge>
                   <FeatureInfo helpId="experts.hub.provider" />
                 </div>
