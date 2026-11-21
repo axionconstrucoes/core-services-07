@@ -59,3 +59,12 @@ B2: contagem de pendentes conferida contra `list_migrations` (hoje 69; 204 arqui
 ## Complemento da Fase 4/C (sequência ensaiada)
 
 Critérios adicionais, por bloco "migrations": (GO) o ensaio `scripts/ensaio-implantacao-ondas-realpg.mjs` repetido no dia com 0 falhas; a verificação `scripts/sql/p0-verificar-record-risk-alert-action.sql` devolve `ok = true` ANTES da janela e após CADA migration; o hotfix 20261121090000 NÃO é reaplicado (só registro); `20261123302000` só publicada junto do app; `20261121177000` só com decisão registrada do dono. (NO-GO) qualquer `ok = false` ou `P0_GATE`: parar, não prosseguir, investigar. Detalhes em `07-sequencia-ensaiada.md`; resultado do ensaio em `08-relatorio-ensaio-ondas.md`. Nenhum item deste complemento foi executado no operacional.
+
+## Fase 7 / H6d - itens adicionados ao GO/NO-GO
+
+- [ ] `supabase --version` e flags conferidos (v2 usa `--db-url/--linked`, v3 usa `--remote`): `14`, seção 3.
+- [ ] Papel/conexão com INSERT em `supabase_migrations.schema_migrations` confirmado (leitura prévia: `supabase migration list`).
+- [ ] `15`, seções 2 a 5 executadas: 10 jobs `pg_cron` pausados, 11 workflows desabilitados, nada `running`, outbox sem pendência.
+- [ ] Hotfix registrado só depois da onda B (`migration repair --status applied 20261121090000` ou insert de `12`), P0 `930f6d75...` conferido.
+- [ ] Adiadas (`20261121177000`, `20261123302000`) fora da pasta/da onda até a decisão e o app; `--dry-run` lista exatamente a onda.
+- [ ] Onda M (H6e, `20261211*`) só entra com o JSON atualizado (`14`, seção 7).

@@ -81,3 +81,7 @@ Cada migration pendente tem `supabase/rollbacks/<nome>.rollback.sql` e linha de 
 ## 7. Estado de nada aplicado
 
 Nenhuma das 57 pendentes foi aplicada. A decisão de aplicar (por onda) é do dono. O ensaio local não substitui homologação autenticada.
+
+## Atualização Fase 7 / H6d (21/11/2026)
+
+Os números desta página foram superados: registradas 134 (inalterado), arquivos locais 204, pendentes 69 + hotfix (a Fase 6 acrescentou as ondas I a L). Ver `14` (inventário e CLI), `15` (pausa de jobs) e `12` (plano por ondas).

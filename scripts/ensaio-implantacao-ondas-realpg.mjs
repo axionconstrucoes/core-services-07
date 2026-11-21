@@ -323,7 +323,7 @@ async function runVariant(variant) {
     const h = (await su.query("select count(*)::int n, max(version) m, md5(string_agg(version||'_'||name, ',' order by version)) h from supabase_migrations.schema_migrations")).rows[0];
     ok(h.n === 134 && h.m === seq.ultimaVersaoRemota && h.h === "70a176da74c9f88ac06b04d80bc55891", JSON.stringify(h));
   });
-  await check(`[${variant}] CLI-like: db push sem --include-all RECUSA (3 versoes locais < ultima remota); pendentes por versao = ${allStems.length - 134} (69 das ondas/adiadas + hotfix)`, async () => {
+  await check(`[${variant}] CLI-like: o push sem a opcao include-all RECUSA (3 versoes locais < ultima remota); pendentes por versao = ${allStems.length - 134} (69 das ondas/adiadas + hotfix)`, async () => {
     const reg = new Set((await su.query("select version from supabase_migrations.schema_migrations")).rows.map((r) => r.version));
     const pend = allStems.filter((x) => !reg.has(x.slice(0, 14)));
     const ooo = pend.filter((x) => x.slice(0, 14) < seq.ultimaVersaoRemota);

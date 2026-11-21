@@ -84,3 +84,7 @@ Procedimento proposto (cada comando só toca o registro, nunca o schema; executa
 ## 7. Depois da janela
 
 Rodar `03-rollback-validacao.md` seção 3 (validação) e a seção 4 (testes de segurança); só então liberar o agendador. Atualizar o inventário e a matriz de prontidão (`05`).
+
+## 8. Atualização Fase 7 / H6d (21/11/2026) - histórico e CLI
+
+Reconfirmado somente leitura: 134 registradas (hash `70a176da74c9f88ac06b04d80bc55891`), 204 arquivos locais, **70 não registrados = 69 pendentes (67 em 12 ondas + 2 adiadas) + o hotfix**; P0 md5 `930f6d75898793479b418950b0053bd9`. A seção 5 continua válida; a análise da CLI oficial (`db push`, `--include-all`, `migration repair`, `--workdir`), a tabela (a)/(b)/CLI e a recomendação (aplicar por (b) com `psql -1` e usar a CLI só para conferência `migration list` e `db push --dry-run`) estão em `14`. O hotfix só deve ser registrado DEPOIS da onda B (senão as 12 `20261120*` ficam fora de ordem para a CLI). Pausa e retomada de jobs: `15`.

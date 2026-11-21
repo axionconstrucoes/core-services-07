@@ -52,3 +52,12 @@ Migrations: 204 arquivos locais, 69 pendentes (134 registradas + 1 hotfix fora d
 ## Atualização Fase 4/C
 
 Migrations: sequência definida e ENSAIADA em PostgreSQL 17 local com dados representativos (105 verificações, 0 falhas; `07` e `08`). Proteção P0 de `record_risk_alert_action` verificada após cada migration, em variantes LF e CRLF, com controle negativo. Continua NÃO aplicado no operacional (48 migrations a aplicar, incluindo o portão `20261126100000`); `20261121177000` aguarda decisão; `20261123302000` aguarda o app. Prontidão do bloco: ensaio OK, execução PENDENTE de autorização.
+
+## 9. Atualização Fase 7 / H6d (21/11/2026)
+
+| Item | Situação (evidência) | Prontidão | Ação |
+|---|---|---|---|
+| Inventário | 134 registradas (hash conferido em 21/11), 204 locais, 69 pendentes + hotfix fora do histórico | DEPENDE | autorização do Dono por onda |
+| Compatibilidade com a CLI oficial | documentada e ensaiada (`14`); `db push` direto aplicaria 70 arquivos (inclui hotfix e adiadas): NÃO usar sem pasta cumulativa por onda | DEPENDE | decisão (a)/(b)/CLI: recomendado (b) + CLI só leitura |
+| Permissão para escrever no histórico | só `postgres`/`supabase_admin` (catálogo); `service_role`/`authenticated` sem acesso | BLOQUEADO até a conexão de manutenção ser fornecida | confirmar o papel na janela |
+| Pausa de jobs | 11 jobs `pg_cron` e 11 workflows com `schedule` listados (`15`); a lista de `12` 1.4 estava incompleta | DEPENDE | executar o runbook na janela |
