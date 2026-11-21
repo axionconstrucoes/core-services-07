@@ -1,9 +1,20 @@
 -- Rollback de 20261205100000_competence_validation_requests.sql (Fase 5/E).
 -- Solicitações, validadores e eventos são EVIDÊNCIA de auditoria: o script RECUSA apagar se houver registro; exporte antes e decida.
+-- funcao TEMPORARIA (pg_temp; some ao fim da sessao): torna a guarda idempotente (tabela ja removida => sem linhas)
+begin;
+create or replace function pg_temp.rb_has_rows(p_table text, p_where text default 'true') returns boolean
+language plpgsql as $f$
+declare r boolean;
+begin
+  if to_regclass('public.' || p_table) is null then return false; end if;
+  execute format('select exists (select 1 from public.%I where %s)', p_table, p_where) into r;
+  return r;
+exception when undefined_column then return false;
+end $f$;
 do $$
 begin
-  if exists (select 1 from public.project_competence_requests) or exists (select 1 from public.project_competence_validators)
-     or exists (select 1 from public.project_competence_governance_events) then
+  if pg_temp.rb_has_rows('project_competence_requests') or pg_temp.rb_has_rows('project_competence_validators')
+     or pg_temp.rb_has_rows('project_competence_governance_events') then
     raise exception 'ROLLBACK_BLOCKED: há solicitações/validadores/eventos registrados; exporte-os (evidência) e remova manualmente com autorização';
   end if;
 end $$;
@@ -45,3 +56,4 @@ drop function if exists public.acc_is_designated_competence_validator(uuid, uuid
 alter table public.project_competences drop constraint if exists project_competences_habilitation_status_chk;
 alter table public.project_competences drop column if exists habilitation_request_id;
 alter table public.project_competences drop column if exists habilitation_status;
+commit;

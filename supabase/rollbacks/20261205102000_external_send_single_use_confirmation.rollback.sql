@@ -1,8 +1,19 @@
 -- Rollback de 20261205102000_external_send_single_use_confirmation.sql (Fase 5/E).
 -- Preparações e usos são EVIDÊNCIA de auditoria: o script RECUSA apagar se houver registro; exporte antes e decida.
+-- funcao TEMPORARIA (pg_temp; some ao fim da sessao): torna a guarda idempotente (tabela ja removida => sem linhas)
+begin;
+create or replace function pg_temp.rb_has_rows(p_table text, p_where text default 'true') returns boolean
+language plpgsql as $f$
+declare r boolean;
+begin
+  if to_regclass('public.' || p_table) is null then return false; end if;
+  execute format('select exists (select 1 from public.%I where %s)', p_table, p_where) into r;
+  return r;
+exception when undefined_column then return false;
+end $f$;
 do $$
 begin
-  if exists (select 1 from public.external_send_preparations) or exists (select 1 from public.external_recipient_confirmation_uses) then
+  if pg_temp.rb_has_rows('external_send_preparations') or pg_temp.rb_has_rows('external_recipient_confirmation_uses') then
     raise exception 'ROLLBACK_BLOCKED: há preparações/usos registrados; exporte-os (evidência) e remova manualmente com autorização';
   end if;
 end $$;
@@ -42,3 +53,4 @@ alter table public.external_recipient_confirmations drop column if exists conten
 alter table public.external_recipient_confirmations drop column if exists action_kind;
 drop table if exists public.external_send_preparations;
 drop function if exists public.external_send_preparations_guard();
+commit;

@@ -1,5 +1,6 @@
 -- ROLLBACK (manual, NÃO é migration) de 20261123301000_quality_rpcs_children.sql: remove só as RPCs/auxiliares novos.
 -- Reverter ANTES 20261123302000 (devolver os GRANTs diretos), senão a aplicação perde o caminho de escrita.
+begin;
 drop function if exists public.quality_evidence_register(uuid,text,text,text,text,uuid,uuid,uuid,uuid,uuid,text,text,timestamptz,text);
 drop function if exists public.quality_evidence_revise(uuid,integer,text,text,text,text);
 drop function if exists public.quality_capa_register(uuid,uuid,text,text,date,uuid);
@@ -22,3 +23,4 @@ drop function if exists public.quality_case_lookup(uuid,uuid,boolean);
 drop function if exists public.quality_case_accepts_children(text,text);
 drop function if exists public.quality_rpc_audit(uuid,text,text,uuid,jsonb);
 drop function if exists public.quality_member_active(uuid,uuid);
+commit;

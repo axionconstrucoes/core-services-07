@@ -1,8 +1,22 @@
 -- Rollback de 20261124102000_endorsement_review_requester_competence.sql (Fase 4/A): volta à regra da Fase 3/C (conferente != solicitante E != emissor).
 -- BLOQUEIA se já existir conferência feita pelo próprio solicitante (a regra antiga a invalidaria); nesse caso mantenha a migration.
+-- funcao TEMPORARIA (pg_temp; some ao fim da sessao): guarda idempotente (tabela/coluna ja removida => sem linhas)
+begin;
+create or replace function pg_temp.rb_has_rows(p_table text, p_where text default 'true') returns boolean
+language plpgsql as $f$
+declare r boolean;
+begin
+  if to_regclass('public.' || p_table) is null then return false; end if;
+  execute format('select exists (select 1 from public.%I where %s)', p_table, p_where) into r;
+  return r;
+exception when undefined_column then return false;
+end $f$;
 do $$
 begin
-  if exists (select 1 from public.insurance_endorsement_reviews where reviewer_is_requester is true) then
+  if pg_temp.rb_has_rows('insurance_endorsement_reviews', 'reviewer_competence is not null') then
+    raise exception 'ROLLBACK_BLOCKED: ha conferencias com reviewer_competence registrada (auditoria); nada foi alterado';
+  end if;
+  if pg_temp.rb_has_rows('insurance_endorsement_reviews', 'reviewer_is_requester is true') then
     raise exception 'ROLLBACK_BLOCKED: há conferências feitas pelo solicitante (Fase 4/A); a regra antiga as invalidaria';
   end if;
 end $$;
@@ -17,7 +31,9 @@ begin
              and reviewer_id <> requested_by_snapshot and reviewer_id <> issued_by_snapshot));
   end if;
 end $$;
--- As colunas aditivas reviewer_is_requester / reviewer_competence permanecem (auditoria; não se apaga dado).
+-- H5: as colunas aditivas reviewer_is_requester / reviewer_competence saem, SO se nao houver valor gravado (guarda no topo).
+alter table public.insurance_endorsement_reviews drop column if exists reviewer_is_requester;
+alter table public.insurance_endorsement_reviews drop column if exists reviewer_competence;
 -- Função de conferência da Fase 3/C (create or replace; mesma assinatura e GRANTs):
 -- ---------- Conferência humana (simples ou dupla) ----------
 create or replace function public.insurance_endorsement_review(p_id uuid, p_expected_row_version integer, p_outcome text, p_data jsonb)
@@ -91,3 +107,4 @@ begin
           from public.insurance_endorsements x where x.id = p_id);
 end;
 $$;
+commit;
