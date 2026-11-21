@@ -50,12 +50,12 @@ export interface EmailRiskSignalRow {
   } | null;
 }
 
-/** Pilar => área da Matriz de SLA. Não há área "Qualidade" na Matriz: Qualidade responde pela ENGENHARIA (decisão documentada). */
+/** Pilar => área da Matriz de SLA. Fase 6/H2c: QUALIDADE tem área própria (SlaArea "QUALIDADE", Expert quality-analyst); antes respondia pela ENGENHARIA. */
 export const EMAIL_PILLAR_AREA: Record<EmailSignalPillar, SlaArea> = {
   PRAZO: "PLANEJAMENTO",
   CUSTO: "COMERCIAL",
   SEGURANCA: "ESG_SSMA",
-  QUALIDADE: "ENGENHARIA",
+  QUALIDADE: "QUALIDADE",
   JURIDICO: "JURIDICO",
 };
 

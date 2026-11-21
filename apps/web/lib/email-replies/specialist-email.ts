@@ -16,6 +16,7 @@
 // consulta NÃO é feita e o remetente é orientado (nunca cai em Planejamento por falta de classificação).
 
 import { expertForArea, type TopicExpertId } from "@/lib/ai/routing/expert-topics";
+import { isSimulatedAnswerText, SIMULATED_ANSWER_LABEL } from "@/lib/ai/routing/provider-status";
 import { stripReplyPlaceholders } from "@/lib/email-replies/reply-mailto";
 import { routeExpert } from "@/lib/risk-alerts/experts/route-alert-expert";
 
@@ -99,6 +100,16 @@ export const SPECIALIST_TEXT = {
 
 /** Corpo da resposta do Expert: recomendação (nunca decisão), com a ressalva de revisão humana. */
 export function buildSpecialistAnswerText(input: { expertLabel: string; answerText: string; requiresHumanReview: boolean; confidence: number | null }): string {
+  // Fase 6/H2c: resposta de provedor fake/teste NUNCA é apresentada como parecer real — o aviso abre o corpo.
+  if (isSimulatedAnswerText(input.answerText)) {
+    return [
+      `${input.expertLabel} — ${SIMULATED_ANSWER_LABEL}`,
+      "Este texto foi gerado por um provedor de TESTE (fake): não houve análise real de IA e ele NÃO deve ser usado como parecer.",
+      input.answerText.replace(SIMULATED_ANSWER_LABEL, "").trim().slice(0, 6000),
+      "",
+      "Esta consulta não alterou o item no ACC. Para registrar uma ação, responda com RESOLVIDO, EM ANDAMENTO ou ENVIAR PARA.",
+    ].join("\n");
+  }
   const conf = input.confidence === null ? "" : ` Confiança do especialista: ${Math.round(Math.min(1, Math.max(0, input.confidence)) * 100)}%.`;
   return [
     `Parecer de ${input.expertLabel} (IA) — RECOMENDAÇÃO, não decisão.`,

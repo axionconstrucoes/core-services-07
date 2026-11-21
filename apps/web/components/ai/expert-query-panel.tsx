@@ -427,7 +427,7 @@ export function ExpertQueryPanel({
           <div className="flex items-start gap-2 rounded-md border border-severity-alta/40 bg-severity-alta/10 p-2.5 text-xs text-severity-alta">
             <FlaskConical className="mt-0.5 size-3.5 shrink-0" />
             <p>
-              <strong>Provider: {meta.providerLabel}.</strong> Esta resposta é gerada por um provider
+              <strong>Provider: {meta.providerLabel}.</strong> Resposta SIMULADA: gerada por um provider
               determinístico (fake) — não é IA real. Nada aqui deve ser tratado como análise inteligente de fato.{" "}
               <FeatureInfo helpId="experts.painel.provider" />
             </p>

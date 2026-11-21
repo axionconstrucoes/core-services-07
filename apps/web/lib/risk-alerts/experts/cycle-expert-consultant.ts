@@ -33,6 +33,9 @@ import { gatedProviderForExpert } from "@/lib/ai/governance/quota-gated-provider
 import type { AiProvider } from "@/lib/ai/providers/types";
 import type { ExpertQueryRequest, ExpertQueryResponse } from "@/lib/ai/query/types";
 import { detectTopicExperts } from "@/lib/ai/routing/expert-topics";
+import { describeExpertProvider, isRealProviderId, labelAnswerForProvider } from "@/lib/ai/routing/provider-status";
+
+import { loadEmailCaseContext } from "./email-signal-context";
 
 import type { ExpertId } from "../types";
 
@@ -47,13 +50,20 @@ export interface CycleExpertQuestion {
 }
 
 export interface CycleExpertAnswer {
+  /** Texto com o rótulo SIMULADA no início quando nenhum provedor real o produziu (Fase 6/H2c). */
   answerText: string;
   confidence: number;
   requiresHumanReview: true;
+  /** true quando o provedor NÃO é real (fake/teste): a resposta NUNCA deve ser apresentada como análise real. */
+  simulated: boolean;
+  /** Provedores efetivos (ids) que produziram a resposta. */
+  providerIds: string[];
+  /** Caso de origem e-mail: o contexto estruturado do sinal foi enviado ao Expert como DADO NÃO CONFIÁVEL. */
+  emailSignalContextUsed: boolean;
 }
 
 type SingleExpertId = Exclude<ExpertId, "ceo">;
-type SingleExpertFn = (supabase: SupabaseClient, request: ExpertQueryRequest, provider?: AiProvider) => Promise<{ response: ExpertQueryResponse }>;
+type SingleExpertFn = (supabase: SupabaseClient, request: ExpertQueryRequest, provider?: AiProvider) => Promise<{ response: ExpertQueryResponse; audit?: { providerId?: string } }>;
 
 /** Mapa ESPECIALISTA → Expert único do ciclo (o "ceo" vai à curadoria). */
 export const CYCLE_SINGLE_EXPERT_QUERIES: Record<SingleExpertId, SingleExpertFn> = {
@@ -75,6 +85,10 @@ export interface CycleExpertConsultantDeps {
   provider?: AiProvider;
   /** Somente testes: substitui a curadoria. */
   runCuration?: typeof runMultiExpertCuration;
+  /** Contexto estruturado do caso de e-mail (somente leitura, por obra). Padrão: loadEmailCaseContext no cliente do ciclo. */
+  loadCaseContext?(projectId: string, caseId: string): Promise<{ text: string } | null>;
+  /** Somente testes: ambiente para resolver o nome do provedor quando o Expert não informa (padrão: process.env). */
+  env?: Readonly<Record<string, string | undefined>>;
 }
 
 function formatSingleAnswer(r: ExpertQueryResponse): string {
@@ -125,7 +139,16 @@ export function createCycleExpertConsultant(supabase: SupabaseClient, deps: Cycl
 
   return {
     async answer(q: CycleExpertQuestion): Promise<CycleExpertAnswer> {
-      const request: ExpertQueryRequest = { scope: "PROJECT", projectId: q.projectId, question: q.question };
+      // Caso de origem e-mail: sinais/classificação do pipeline entram como DADO NÃO CONFIÁVEL com proveniência.
+      const emailContext = await (deps.loadCaseContext ? deps.loadCaseContext(q.projectId, q.subjectId) : loadEmailCaseContext(supabase, q.projectId, q.subjectId));
+      const question = emailContext ? `${q.question}\n\n${emailContext.text}` : q.question;
+      const request: ExpertQueryRequest = { scope: "PROJECT", projectId: q.projectId, question };
+      const env = deps.env ?? process.env;
+      const providerNameFor = (id: OfficialExpertId) => deps.provider?.id ?? describeExpertProvider(id, env).providerName;
+      const finish = (answerText: string, confidence: number, providerIds: string[]): CycleExpertAnswer => {
+        const labeled = labelAnswerForProvider(answerText, providerIds);
+        return { answerText: labeled, confidence, requiresHumanReview: true, simulated: !(providerIds.length > 0 && providerIds.every(isRealProviderId)), providerIds, emailSignalContextUsed: Boolean(emailContext) };
+      };
 
       if (q.expertId === "ceo") {
         const topics = detectTopicExperts(q.question);
@@ -134,25 +157,23 @@ export function createCycleExpertConsultant(supabase: SupabaseClient, deps: Cycl
           {
             projectId: q.projectId,
             sourceType: "PROJECT",
-            description: q.question,
+            description: question,
             requestedExpertIds: topics.length > 1 ? topics : undefined,
           },
           { reserve: reserveFor(q), provider: deps.provider }
         );
         const confidences = curation.expertResults.map((item) => item.response.confidence);
-        return {
-          answerText: formatCurationAnswer(curation),
-          // Conservador: a confiança consolidada nunca supera a do parecer menos confiante.
-          confidence: confidences.length ? Math.min(...confidences) : 0,
-          requiresHumanReview: true,
-        };
+        // Provedores efetivos: cada Expert consultado + a consolidação do CEO IA.
+        const providerIds = Array.from(new Set([...curation.expertResults.map((item) => providerNameFor(item.expertId)), providerNameFor("ceo")]));
+        // Conservador: a confiança consolidada nunca supera a do parecer menos confiante.
+        return finish(formatCurationAnswer(curation), confidences.length ? Math.min(...confidences) : 0, providerIds);
       }
 
       const fn = CYCLE_SINGLE_EXPERT_QUERIES[q.expertId];
       if (!fn) throw new Error(`Expert "${q.expertId}" não disponível no ciclo.`);
       // Reserva na fronteira do provedor do Expert (depois dos guards dele).
       const result = await fn(supabase, request, gatedProviderForExpert(q.expertId, reserveFor(q), deps.provider));
-      return { answerText: formatSingleAnswer(result.response), confidence: result.response.confidence, requiresHumanReview: true };
+      return finish(formatSingleAnswer(result.response), result.response.confidence, [result.audit?.providerId ?? providerNameFor(q.expertId as OfficialExpertId)]);
     },
   };
 }

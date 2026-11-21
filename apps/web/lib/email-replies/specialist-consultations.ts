@@ -8,6 +8,7 @@
 // o recibo ("pergunta registrada") e a resposta (recomendação, revisão humana) na MESMA conversa do remetente, uma vez cada.
 // A AXIA nunca participa: o Expert vem de TopicExpertId/ExpertId oficiais.
 
+import { isSimulatedAnswerText, SIMULATED_SUBJECT_TAG } from "@/lib/ai/routing/provider-status";
 import type { EmailProvider } from "@/lib/email/email-provider";
 import { buildSpecialistAnswerText, SPECIALIST_EXPERT_LABEL, SPECIALIST_TEXT, type SpecialistExpertId, type SpecialistRecord } from "@/lib/email-replies/specialist-email";
 
@@ -173,7 +174,8 @@ export function buildSpecialistAnswerEmail(row: Pick<SpecialistMailRow, "expert_
     row.status === "ANSWERED" && row.answer_text
       ? buildSpecialistAnswerText({ expertLabel: label, answerText: row.answer_text, requiresHumanReview: row.requires_human_review, confidence: row.answer_confidence }).split("\n")
       : [row.status === "QUOTA_BLOCKED" ? SPECIALIST_TEXT.QUOTA : SPECIALIST_TEXT.FAILED];
-  return { subject: baseSubject(row), ...wrap(["ACC - AXION Controle de Contratos", "", ...body]) };
+  const simulated = row.status === "ANSWERED" && isSimulatedAnswerText(row.answer_text);
+  return { subject: simulated ? `${SIMULATED_SUBJECT_TAG} ${baseSubject(row)}`.slice(0, 200) : baseSubject(row), ...wrap(["ACC - AXION Controle de Contratos", "", ...body]) };
 }
 
 export interface SpecialistDeliverResult {
