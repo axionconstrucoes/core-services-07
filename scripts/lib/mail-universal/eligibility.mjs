@@ -1,7 +1,7 @@
 // Fase 5/A — regra de elegibilidade da amostra. SEM filtro por palavra-chave: só participantes e período.
 import { hasParticipantInDomain } from "./participants.mjs";
 
-/** Regra do piloto WEG: qualquer participante (from/to/cc/bcc) no domínio exato weg.net. */
+/** Regra do piloto WEG: qualquer participante (from/to/cc/bcc) no domínio weg.net ou subdomínio legítimo (*.weg.net). */
 export const WEG_RULE = Object.freeze({ id: "WEG_ANY_PARTICIPANT_V1", kind: "ANY_PARTICIPANT_DOMAIN", domain: "weg.net" });
 
 /** @returns {{eligible:boolean, reason:string|null}} reason ∈ NO_PARTICIPANTS | RULE_NOT_MATCHED | OUT_OF_PERIOD */

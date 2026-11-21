@@ -62,16 +62,17 @@ await check("14 cópia (Cc) e cópia oculta (Bcc) com @weg.net entram; cc/bcc pr
   assert.deepEqual(t.store.state.emails.find((e) => e.provider_message_id === "c2").bcc_addresses, ["auditoria@weg.net"]);
 });
 
-await check("domínio EXATO: weg.net.exemplo, xweg.net, sub.weg.net e mensagem sem @weg.net são excluídas com motivo; palavra-chave não decide", async () => {
+await check("weg.net e subdomínios (sub.weg.net) entram; weg.net.exemplo, xweg.net, evilweg.net e mensagem sem @weg.net são excluídas com motivo; palavra-chave não decide", async () => {
   const t = gmailRun([
     gm({ id: "x1", from: "a@weg.net.exemplo", to: [BOX_A], date: day(9), messageId: "<x1@x>" }),
     gm({ id: "x2", from: "a@xweg.net", to: [BOX_A], date: day(9), messageId: "<x2@x>" }),
-    gm({ id: "x3", from: "a@sub.weg.net", to: [BOX_A], date: day(9), messageId: "<x3@x>" }),
+    gm({ id: "x3", from: "a@evilweg.net", to: [BOX_A], date: day(9), messageId: "<x3@x>" }),
     gm({ id: "x4", from: "a@cliente.com", to: [BOX_A], subject: "WEG contrato aditivo medição", text: "weg.net contrato", date: day(9), messageId: "<x4@x>" }),
     gm({ id: "x5", from: "a@weg.net", to: [BOX_A], subject: "oi", text: "sem nenhuma palavra especial", date: day(9), messageId: "<x5@x>" }),
+    gm({ id: "x6", from: "a@obras.sub.weg.net", to: [BOX_A], subject: "oi", text: "subdomínio legítimo", date: day(9), messageId: "<x6@x>" }),
   ]);
   const r = await t.go();
-  assert.equal(r.counts.processed, 1);
+  assert.equal(r.counts.processed, 2);
   assert.equal(r.counts.excluded, 4);
   assert.ok(r.exclusions.filter((x) => x.reason === "RULE_NOT_MATCHED").length === 4);
   assert.ok(ident(r.run));

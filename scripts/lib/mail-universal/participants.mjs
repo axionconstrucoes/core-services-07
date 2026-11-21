@@ -24,8 +24,29 @@ export function participantsFromGmailHeaders(headers) {
   return { from: extractAddresses(get("from")), to: extractAddresses(get("to")), cc: extractAddresses(get("cc")), bcc: extractAddresses(get("bcc")) };
 }
 
-/** Domínio EXATO (sem subdomínio, sem sufixo): "weg.net" casa a@weg.net; não casa a@weg.net.exemplo, a@xweg.net, a@sub.weg.net. */
+/**
+ * Fase 6/H3 — o domínio casa se for IGUAL ao alvo ou SUBDOMÍNIO legítimo dele, com fronteira de domínio:
+ * "weg.net" e "x.weg.net" casam; "evilweg.net", "weg.net.evil.com", "weg.net." e "weg.network" NÃO casam.
+ */
+export function domainMatchesOrSubdomain(domain, target) {
+  const d = String(domain ?? "").trim().toLowerCase();
+  const t = String(target ?? "").trim().toLowerCase().replace(/^\.+/, "");
+  if (!d || !t || d.includes("..") || d.startsWith(".") || d.endsWith(".")) return false;
+  return d === t || d.endsWith("." + t);
+}
+
+export function addressMatchesDomain(address, target) {
+  return domainMatchesOrSubdomain(domainOf(address), target);
+}
+
+/** weg.net e SUBDOMÍNIOS legítimos casam (regra de sufixo ".weg.net" com fronteira); ver domainMatchesOrSubdomain. */
 export function hasParticipantInDomain(participants, domain) {
+  return [...(participants.from ?? []), ...(participants.to ?? []), ...(participants.cc ?? []), ...(participants.bcc ?? [])]
+    .some((address) => addressMatchesDomain(address, domain));
+}
+
+/** Variante ESTRITA (domínio exato, sem subdomínio) — mantida para quem precisar da regra antiga. */
+export function hasParticipantInExactDomain(participants, domain) {
   const target = String(domain).toLowerCase();
   return [...(participants.from ?? []), ...(participants.to ?? []), ...(participants.cc ?? []), ...(participants.bcc ?? [])]
     .some((address) => domainOf(address) === target);
