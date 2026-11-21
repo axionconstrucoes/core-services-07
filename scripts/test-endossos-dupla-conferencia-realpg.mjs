@@ -9,6 +9,7 @@ import { createRequire } from "node:module";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { grantCompetences } from "./lib/f4a-competences.mjs";
 import { register } from "node:module";
 
 const url = process.env.ACC_REALPG_URL;
@@ -28,6 +29,8 @@ const pg = createRequire(path.join(process.env.ACC_REALPG_PKG_DIR ?? here, "x.js
 const dir = path.join(here, "..", "supabase", "migrations");
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 const MINE_FILE = "20261123200000_endorsement_dual_review.sql";
+// Fase 4/A redefine a regra de conferência (solicitante pode conferir com competência); é reaplicada DEPOIS da migration da Fase 3.
+const F4_FILE = "20261124102000_endorsement_review_requester_competence.sql";
 const PLATFORM = readFileSync(path.join(here, "test-migrations-full-replay.mjs"), "utf8").match(/const PLATFORM = `([\s\S]*?)`;/)[1];
 
 const GOTRUE = `
@@ -95,12 +98,15 @@ try {
   const mineSql = strip(readFileSync(path.join(dir, MINE_FILE), "utf8"));
   await su.query(mineSql);
   await su.query(mineSql);
-  console.log(`PostgreSQL ${version}: ${files.length} migrations aplicadas (+ ${MINE_FILE} reaplicada 2x) — base ${main.name}`);
+  const f4Sql = strip(readFileSync(path.join(dir, F4_FILE), "utf8"));
+  await su.query(f4Sql);
+  await su.query(f4Sql);
+  console.log(`PostgreSQL ${version}: ${files.length} migrations aplicadas (+ ${MINE_FILE} e ${F4_FILE} reaplicadas 2x) — base ${main.name}`);
 
   const uid = (n) => `00000000-0000-4000-8000-${String(2400 + n).padStart(12, "0")}`;
   const P = "10000000-0000-4000-8000-0000000024a0";
   const P2 = "10000000-0000-4000-8000-0000000024b0";
-  const U = { ADMIN: 1, ADMIN2: 2, GESTOR: 3, GERENTE: 4, COLAB: 5, LEITURA: 6, INATIVO: 7, PENDENTE: 8, ADMINB: 9 };
+  const U = { ADMIN: 1, ADMIN2: 2, GESTOR: 3, GERENTE: 4, COLAB: 5, LEITURA: 6, INATIVO: 7, PENDENTE: 8, ADMINB: 9, GSC: 10 };
   for (const n of Object.values(U)) {
     await su.query("insert into auth.users (id,email) values ($1,$2)", [uid(n), `endc-${n}@axion.com.br`]);
     await su.query("insert into public.profiles (id,name,email) values ($1,$2,$3) on conflict (id) do nothing", [uid(n), `ENDC ${n}`, `endc-${n}@axion.com.br`]);
@@ -111,12 +117,14 @@ try {
   await mem(P, U.ADMIN2, "ADMINISTRADOR");
   await mem(P, U.GESTOR, "GESTOR");
   await mem(P, U.GERENTE, "GERENTE");
+  await mem(P, U.GSC, "GESTOR"); // GESTOR SEM competência registrada (Fase 4/A)
   await mem(P, U.COLAB, "COLABORADOR");
   await mem(P, U.LEITURA, "LEITURA");
   await mem(P, U.INATIVO, "ADMINISTRADOR", "INACTIVE");
   await mem(P2, U.ADMINB, "ADMINISTRADOR");
   await su.query("insert into public.project_member_invitations (project_id,email,name,permission,created_by) values ($1,$2,'Pendente','ADMINISTRADOR',$3)", [P, `endc-${U.PENDENTE}@axion.com.br`, uid(U.ADMIN)]);
   const doc = async (project, title) => (await su.query("insert into public.documents (project_id,kind,title) values ($1,'ESPECIFICACAO',$2) returning id", [project, title])).rows[0].id;
+  await grantCompetences(su, P, [uid(U.ADMIN), uid(U.ADMIN2), uid(U.GESTOR), uid(U.GERENTE)]);
   const D1 = await doc(P, "Apólice A (sintético)");
   const D2 = await doc(P, "Endosso emitido (sintético)");
 
@@ -245,17 +253,35 @@ try {
     await rejects(rpc(a, "insurance_endorsement_advance", x.id, r1.rowVersion, "CONFERIDO", "{}"), /ALREADY_REVIEWED/, "avanço CONFERIDO delega à regra");
   });
 
-  await check("CASO F3-C-02 (conferente = solicitante): bloqueado na RPC e no banco, mesmo para ADMINISTRADOR/GERENTE", async () => {
+  await check("CASO F3-C-02 / F4-A-01 (conferente = solicitante): PODE conferir com nível MANAGE + competência SEGUROS/JURIDICO; sem competência, sem nível, competência vencida ou de outra área NÃO; independência do emissor intacta", async () => {
+    // solicitante GERENTE (com competência) confere; o 2º conferente é outro usuário; o emissor GESTOR não confere
     const x = await mkIssued({ kinds: ["SEGURADO"], requester: U.GERENTE, issuer: U.GESTOR });
-    await rejects(review(await as(U.GERENTE), x.id, x.issued.rowVersion), /REVIEWER_IS_REQUESTER/, "GERENTE solicitante");
+    const r1 = await review(await as(U.GERENTE), x.id, x.issued.rowVersion);
+    eq([r1.state, r1.approved, r1.coverageEffective], ["EMITIDO", 1, false], "solicitante é o 1º conferente; ainda sem efeito");
+    await rejects(review(await as(U.GESTOR), x.id, r1.rowVersion), /REVIEWER_IS_ISSUER/, "emissor não confere");
+    const r2 = await review(await as(U.ADMIN2), x.id, r1.rowVersion);
+    eq([r2.state, r2.coverageEffective, r2.approved], ["CONFERIDO", true, 2], "solicitante + outro conferente independente do emissor");
+    const rv = await reviews(x.id);
+    eq(rv.map((r) => [r.reviewer_id === uid(U.GERENTE), r.reviewer_is_requester, r.reviewer_competence !== null]), [[true, true, true], [false, false, true]], "snapshots de auditoria: solicitante identificado e competência registrada");
+    // ADMINISTRADOR solicitante também pode (com competência)
     const y = await mkIssued({ kinds: ["SEGURADO"], requester: U.ADMIN, issuer: U.GESTOR });
-    await rejects(review(await as(U.ADMIN), y.id, y.issued.rowVersion), /REVIEWER_IS_REQUESTER/, "ADMINISTRADOR solicitante");
-    // direto no banco: snapshots vêm do endosso (o cliente não controla) e o CHECK de independência barra
-    await rejects(su.query("insert into public.insurance_endorsement_reviews (project_id,endorsement_id,review_round,review_no,reviewer_id,outcome,note,dual_required,requested_by_snapshot,issued_by_snapshot) values ($1,$2,1,1,$3,'APROVADO',$4,false,null,null)", [P, y.id, uid(U.ADMIN), NOTE]), /check constraint|violates/i, "constraint: conferente = solicitante");
-    eq(await n("select count(*)::int n from public.insurance_endorsement_reviews where endorsement_id in ($1,$2)", [x.id, y.id]), 0, "nada gravado");
-    // outros usuários independentes conseguem
-    const ok1 = await review(await as(U.ADMIN2), x.id, x.issued.rowVersion);
-    eq(ok1.approved, 1, "independente confere");
+    eq((await review(await as(U.ADMIN), y.id, y.issued.rowVersion)).approved, 1, "ADMINISTRADOR solicitante confere");
+    // solicitante SEM competência (GESTOR sem registro): bloqueado na RPC e no banco (gatilho), mesmo forjando dual_required=false
+    const z = await mkIssued({ kinds: ["VALOR_PREMIO"], requester: U.GSC, issuer: U.GESTOR });
+    await rejects(review(await as(U.GSC), z.id, z.issued.rowVersion), /COMPETENCE_REQUIRED/, "GESTOR solicitante sem competência");
+    await rejects(su.query("insert into public.insurance_endorsement_reviews (project_id,endorsement_id,review_round,review_no,reviewer_id,outcome,note,dual_required) values ($1,$2,1,1,$3,'APROVADO',$4,false)", [P, z.id, uid(U.GSC), NOTE]), /COMPETENCE_REQUIRED/, "gatilho: dual_required forjado é refeito e a competência é exigida");
+    // competência VENCIDA não vale
+    await su.query("insert into public.project_competences (project_id,user_id,competence,valid_from,valid_until,granted_by) values ($1,$2,'SEGUROS','2025-01-01','2025-12-31',$3)", [P, uid(U.GSC), uid(U.ADMIN)]);
+    await rejects(review(await as(U.GSC), z.id, z.issued.rowVersion), /COMPETENCE_REQUIRED/, "competência vencida");
+    // competência de OUTRA área (técnica) não habilita endosso
+    await su.query("insert into public.project_competences (project_id,user_id,competence,granted_by) values ($1,$2,'TECNICO_RESPONSAVEL',$3)", [P, uid(U.GSC), uid(U.ADMIN)]);
+    await rejects(review(await as(U.GSC), z.id, z.issued.rowVersion), /COMPETENCE_REQUIRED/, "competência técnica não substitui seguros/jurídico");
+    // COLABORADOR com competência registrada continua barrado pelo NÍVEL (competência é adicional, nunca substitui)
+    await su.query("insert into public.project_competences (project_id,user_id,competence,granted_by) values ($1,$2,'SEGUROS',$3)", [P, uid(U.COLAB), uid(U.ADMIN)]);
+    await rejects(review(await as(U.COLAB), z.id, z.issued.rowVersion), /FORBIDDEN/, "COLABORADOR com competência: nível insuficiente");
+    eq(await n("select count(*)::int n from public.insurance_endorsement_reviews where endorsement_id=$1", [z.id]), 0, "nada gravado nas tentativas barradas");
+    // a independência do EMISSOR também vale no banco (CHECK), mesmo com competência
+    await rejects(su.query("insert into public.insurance_endorsement_reviews (project_id,endorsement_id,review_round,review_no,reviewer_id,outcome,note,dual_required) values ($1,$2,1,1,$3,'APROVADO',$4,true)", [P, z.id, uid(U.GESTOR), NOTE]), /check constraint|violates/i, "constraint: conferente = emissor");
   });
 
   await check("CASO F3-C-03 (conferente = quem registrou a emissão): bloqueado na RPC e no banco", async () => {
@@ -481,9 +507,9 @@ try {
     await rejects(su.query("truncate public.insurance_endorsement_reviews"), /INSURANCE_NO_DELETE|INSURANCE_APPEND_ONLY/, "truncate");
     await rejects(su.query("update public.insurance_audit_events set action='x' where entity_id=$1", [x.id]), /INSURANCE_APPEND_ONLY/, "auditoria append-only");
     // tentativa recusada não deixa rastro de conferência nem de efeito
-    const y = await mkIssued({ kinds: ["SEGURADO"], requester: U.ADMIN });
+    const y = await mkIssued({ kinds: ["SEGURADO"], requester: U.GSC });
     const before = await n("select count(*)::int n from public.insurance_audit_events where entity_id=$1", [y.id]);
-    await rejects(review(await as(U.ADMIN), y.id, y.issued.rowVersion), /REVIEWER_IS_REQUESTER/, "recusada");
+    await rejects(review(await as(U.GSC), y.id, y.issued.rowVersion), /COMPETENCE_REQUIRED/, "recusada");
     eq(await n("select count(*)::int n from public.insurance_audit_events where entity_id=$1", [y.id]), before, "tentativa barrada não grava auditoria de conferência");
   });
 
@@ -551,6 +577,7 @@ try {
     const before = await snap();
     const cnt = await n("select count(*)::int n from public.insurance_endorsement_reviews");
     await su.query(strip(readFileSync(path.join(dir, MINE_FILE), "utf8")));
+    await su.query(strip(readFileSync(path.join(dir, F4_FILE), "utf8")));
     eq(await snap(), before, "dados preservados na reaplicação");
     eq(await n("select count(*)::int n from public.insurance_endorsement_reviews"), cnt, "conferências preservadas");
     eq(await n("select count(*)::int n from pg_trigger where tgname in ('insurance_endorsements_guard','insurance_endorsement_reviews_prepare','insurance_endorsement_reviews_append_only') and not tgisinternal"), 3, "triggers únicos");

@@ -9,6 +9,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { register } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { grantCompetences } from "./lib/f4a-competences.mjs";
 
 const url = process.env.ACC_REALPG_URL;
 if (!url) {
@@ -103,6 +104,7 @@ try {
   await mem(PA, U.LEITURA, "LEITURA");
   await mem(PA, U.INATIVO, "ADMINISTRADOR", "INACTIVE");
   await mem(PB, U.ADMINB, "ADMINISTRADOR");
+  await grantCompetences(su, PA, [uid(U.ADMIN), uid(U.GESTOR), uid(U.GERENTE)]); await grantCompetences(su, PB, [uid(U.ADMINB), uid(U.ADMIN)]);
 
   async function as(n, role = "authenticated") {
     const c = new pg.Client({ connectionString: dbUrl });
