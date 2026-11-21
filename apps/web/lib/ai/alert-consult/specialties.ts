@@ -160,6 +160,8 @@ export function specialtyForSlaArea(area: string | null | undefined): AlertConsu
       return "ssma";
     case "JURIDICO":
       return "juridico";
+    case "QUALIDADE":
+      return "qualidade";
     default:
       return "geral";
   }

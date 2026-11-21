@@ -61,7 +61,7 @@ const CRM = "crm@axion.com.br";
 const T0 = "2026-11-17T13:00:00.000Z"; // terça 10:00 em Brasília
 const U = { rey: "a1111111-0000-4000-8000-000000000011", jaime: "b2222222-0000-4000-8000-000000000012", carlos: "c3333333-0000-4000-8000-000000000013" };
 const EMAIL = { [U.rey]: "reynaldo@axion.com.br", [U.jaime]: "jaime.ramos@axion.com.br", [U.carlos]: "carlos.evandro@axion.com.br" };
-const AREAS = ["DIRETORIA", "ADMINISTRATIVO", "COMERCIAL", "FINANCEIRO", "ENGENHARIA", "ORCAMENTO", "JURIDICO", "PLANEJAMENTO", "ESG_SSMA"];
+const AREAS = ["DIRETORIA", "ADMINISTRATIVO", "COMERCIAL", "FINANCEIRO", "ENGENHARIA", "ORCAMENTO", "JURIDICO", "PLANEJAMENTO", "ESG_SSMA", "QUALIDADE"];
 
 // SLAs APROVADOS (briefing): CRÍTICO 1h corrida, ALTO 4h úteis, MÉDIO 2 d.u., BAIXO 5 d.u.
 const APPROVED = { CRITICAL: ["CLOCK_HOURS", 1], HIGH: ["BUSINESS_HOURS", 4], MEDIUM: ["BUSINESS_DAYS", 2], LOW: ["BUSINESS_DAYS", 5] };
@@ -104,7 +104,7 @@ await check("2. Nível por regra; INDÍCIO não confirmado nunca passa de ALTO; 
   assert(lvl("AUMENTO_PRECO_REAJUSTE") === "MEDIUM" && lvl("RENEGOCIAÇÃO") === "MEDIUM");
   assert(lvl("TIPO_NOVO_DESCONHECIDO") === "REVIEW_REQUIRED", "nunca um default ativo");
   const area = (pillar, signal_kind = "X") => emailSignalArea({ pillar, signal_kind });
-  assert(area("PRAZO") === "PLANEJAMENTO" && area("CUSTO") === "COMERCIAL" && area("SEGURANCA") === "ESG_SSMA" && area("QUALIDADE") === "ENGENHARIA" && area("JURIDICO") === "JURIDICO");
+  assert(area("PRAZO") === "PLANEJAMENTO" && area("CUSTO") === "COMERCIAL" && area("SEGURANCA") === "ESG_SSMA" && area("QUALIDADE") === "QUALIDADE" && area("JURIDICO") === "JURIDICO");
   assert(area("CUSTO", "SINISTRO_SEGURO") === "JURIDICO" && area("QUALIDADE", "GARANTIA_VENCIDA") === "JURIDICO", "seguros/garantias/sinistros => Jurídico");
   assert(area("DESCONHECIDO") === null);
 });
@@ -170,7 +170,7 @@ const emailRows = () => [
   sig({ pillar: "PRAZO", signal_kind: "ATRASO_ENTREGA" }), // ALTO / PLANEJAMENTO
   sig({ pillar: "SEGURANCA", signal_kind: "RISCO_PARALISACAO", confirmed: true }), // CRÍTICO / ESG_SSMA
   sig({ pillar: "CUSTO", signal_kind: "AUMENTO_PRECO_REAJUSTE" }), // MÉDIO / COMERCIAL
-  sig({ pillar: "QUALIDADE", signal_kind: "DEFEITO_MONTAGEM" }), // MÉDIO / ENGENHARIA
+  sig({ pillar: "QUALIDADE", signal_kind: "DEFEITO_MONTAGEM" }), // MÉDIO / QUALIDADE (área própria, Fase 6/H2c)
   sig({ pillar: "JURIDICO", signal_kind: "ORDEM_FORA_DA_COMPETENCIA" }), // ALTO / JURIDICO
 ];
 
@@ -226,7 +226,7 @@ const snap = (area, riskLevel, state = "OPEN") => ({ id: "c-1", projectId: P, so
 const run = (area, riskLevel, action, payload) =>
   applyAlertAction({ now: "2026-11-17T14:00:00.000Z", snapshot: snap(area, riskLevel), action, actorUserId: U.jaime, origin: "WEB", payload, policy: policyFor(area, riskLevel), config: configA, recipients: recipientsA, eligibleForwardUserIds: [U.carlos, U.rey, U.jaime] });
 
-await check("8. As QUATRO ações funcionam em TODAS as 9 áreas (RESOLVIDO / EM ANDAMENTO / ENVIAR PARA / ESPECIALISTA) e em todos os graus", () => {
+await check("8. As QUATRO ações funcionam em TODAS as 10 áreas (RESOLVIDO / EM ANDAMENTO / ENVIAR PARA / ESPECIALISTA) e em todos os graus", () => {
   for (const area of AREAS) {
     for (const level of ["LOW", "MEDIUM", "HIGH", "CRITICAL"]) {
       const resolved = run(area, level, "RESOLVED", { confirmed: true, evidence: "Evidência anexada ao ACC", text: "Resolvido", justification: "Justificativa registrada" });
@@ -259,7 +259,7 @@ await check("9. RESOLVIDO só encerra o CASO/ação SLA do alerta: a transição
 await check("10. ESPECIALISTA: Expert da área e do ASSUNTO do alerta de e-mail (Qualidade => Analista de Qualidade); nunca AXIA; áreas sem Expert dedicado são declaradas", () => {
   assert(!ALERT_EXPERT_OPTIONS.some((o) => /axia/i.test(`${o.id}${o.label}`)), "AXIA nunca é destino");
   const byArea = Object.fromEntries(AREAS.map((a) => [a, expertForArea(a)]));
-  assert(byArea.PLANEJAMENTO === "planning-director" && byArea.ENGENHARIA === "engineering-director" && byArea.JURIDICO === "legal-consultant" && byArea.ESG_SSMA === "esg-director");
+  assert(byArea.PLANEJAMENTO === "planning-director" && byArea.ENGENHARIA === "engineering-director" && byArea.JURIDICO === "legal-consultant" && byArea.ESG_SSMA === "esg-director" && byArea.QUALIDADE === "quality-analyst");
   assert(byArea.COMERCIAL === "commercial-director" && byArea.FINANCEIRO === "commercial-director" && byArea.ORCAMENTO === "commercial-director");
   assert(byArea.DIRETORIA === null && byArea.ADMINISTRATIVO === null, "sem Expert dedicado: declarado (seleção explícita/curadoria multi-Expert)");
   const pick = (over) => {

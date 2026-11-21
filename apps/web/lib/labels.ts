@@ -290,6 +290,7 @@ export const slaAreaLabels: Record<SlaArea, string> = {
   JURIDICO: "Jurídico",
   PLANEJAMENTO: "Planejamento",
   ESG_SSMA: "ESG/SSMA",
+  QUALIDADE: "Qualidade",
 };
 
 export const slaActionStatusLabels: Record<SlaActionStatus, string> = {

@@ -81,6 +81,7 @@ const SPECIALIST_BY_AREA: Partial<Record<SlaArea, string>> = {
   ENGENHARIA: "Especialista Engenharia",
   PLANEJAMENTO: "Especialista Planejamento",
   JURIDICO: "Especialista Jurídico/Contratos",
+  QUALIDADE: "Analista de Qualidade",
 };
 function specialistLabelFor(area: SlaArea): string {
   return SPECIALIST_BY_AREA[area] ?? `Especialista (${slaAreaLabels[area]}) — consulta geral`;
