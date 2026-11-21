@@ -71,3 +71,48 @@ Gerado em 20/11/2026 sobre `integration/acc-noturna`. Tudo local: nenhuma migrat
 - **Casos 10 a 14 e 33** têm parecer de cobertura de garantia persistido por versão (`quality_warranty_coverage_opinions`) com a conclusão REVERIFICADA em SQL (paridade TS x SQL em 5.184 combinações).
 - Defeitos corrigidos na revisão funcional (cada um com teste em `scripts/test-f3e-revisao-funcional.mjs`): garantia legal potencial com prazo FORA não é mais "potencialmente coberto"; restrição sem fonte aplicável ao evento não é mais ignorada; data do evento com hora no último dia da vigência não é "fora da vigência"; "1.500" em Garantias é R$ 1.500; etapas de fiança/caução não usam termos da seguradora.
 
+
+## Reexecução da Fase 3 (20/11/2026, sobre `integration/acc-noturna`)
+
+Os 40 casos foram reexecutados depois das frentes B (permissões unificadas), C (dupla conferência de endossos), D (RPCs transacionais e vínculos) e E (persistência e revisão funcional). Nada foi aplicado ao Supabase operacional; a única leitura operacional foi a Frente A (função `record_risk_alert_action`: **PROTEGIDO**, corpo idêntico ao corrigido por MD5).
+
+### Regressão completa
+
+| Verificação | Resultado |
+|---|---|
+| `test:scripts` (lista `scripts/test-scripts.list`) | 114/114 scripts, 1.676 OK, 0 falha |
+| `test:sql` | 688 OK |
+| `test:email` / `test:alerts` | 753 / 519 OK |
+| `test:ssma` / `test:alert-sim` | 186 / 62 OK |
+| lint / `tsc` / build | verdes |
+| Chrome real, varredura do catálogo | 50/50 (1.528 painéis, desktop e celular) |
+| Chrome real, Seguros | 9/9 |
+| Contraste (auditor) | 16 reprovações conhecidas, nenhuma nova |
+
+### Postgres 17 real (todos os testes `*realpg*` da árvore final)
+
+| Teste | OK |
+|---|---:|
+| test-quality-realpg | 30 |
+| test-quality-rpc-realpg (RPCs transacionais, encerramento indevido, vínculos) | 54 |
+| test-insurance-realpg | 19 |
+| test-endossos-dupla-conferencia-realpg | 20 |
+| test-f3e-persistencia-realpg | 14 |
+| test-permissoes-unificadas-realpg | 31 |
+| test-lote4-isolation-realpg | 19 |
+| test-ssma-esg-concurrency-realpg | 18 |
+| test-reissue-approval-realpg | 10 |
+| test-email-specialist-realpg | 6 |
+
+### Casos novos da Fase 3 (nomeados `CASO F3-x-NN`)
+
+- **F3-C** (endossos): autoconferência dupla, conferente igual ao solicitante, conferente igual a quem emitiu, mesmo usuário em duas conferências, corrida de conferências, conferência simples, fail-closed, recusa e EM_REVISAO, dados legados, integridade, envio real bloqueado, replay idempotente.
+- **F3-D** (RPCs): escrita direta negada em todas as tabelas, COLABORADOR não reclassifica evidência nem edita campos e custos, encerramento indevido por todos os caminhos (RPC, UPDATE direto, superusuário, service_role, INSERT já encerrado, salto de estado, verificação forjada), RESOLVIDO de alerta não encerra, reabertura, evidência travada, vínculos estruturados e backfill, privilégios, reversibilidade.
+- **F3-E** (persistência): parecer imutável e append-only, conclusão adulterada rejeitada, versão que substitui a anterior, checklist RCC com fonte obrigatória, sujeitos esperados comparados com a apólice, isolamento entre projetos, concorrência de duas versões.
+- **Permissões**: 22 operações x 9 perfis (LEITURA, COLABORADOR, GESTOR, GERENTE, ADMINISTRADOR, inativo, convite pendente, ADMIN de outro projeto, authenticated sem sub), mais anon e service_role sem usuário.
+
+### Limites declarados
+
+- **Nenhuma tela foi homologada em sessão autenticada.** Não havia credencial legítima disponível e o login não foi contornado. As telas de Qualidade, Garantias, Seguros, Pilares, SSMA e Alertas foram verificadas por análise estática, cliente simulado e harness de Chrome com stubs (Seguros, catálogo de Hover Text e sidebar). **Telas não vistas não são declaradas homologadas.**
+- A competência técnica ou jurídica do usuário não é verificada além do nível MANAGE: não há atributo confiável de competência por membro (lacuna declarada em `docs/permissoes-matriz-central.md`).
+- Seguros e Qualidade nunca foram exercitados contra o Supabase operacional, porque as migrations 20261122*/20261123* não estão aplicadas lá.
