@@ -10,7 +10,8 @@ export type CompetenceRequestOp =
   | "request_reject"
   | "validator_designate"
   | "validator_accept"
-  | "validator_revoke";
+  | "validator_revoke"
+  | "competence_revalidate";
 
 export interface CompetenceRequestInput {
   projectId?: string;
@@ -57,7 +58,7 @@ const version = (v: unknown): number => {
 };
 
 export function isCompetenceRequestOp(v: unknown): v is CompetenceRequestOp {
-  return ["request_create", "request_cancel", "request_approve", "request_reject", "validator_designate", "validator_accept", "validator_revoke"].includes(v as string);
+  return ["request_create", "request_cancel", "request_approve", "request_reject", "validator_designate", "validator_accept", "validator_revoke", "competence_revalidate"].includes(v as string);
 }
 
 export function buildCompetenceRequestCall(input: CompetenceRequestInput): { rpc: string; params: Record<string, unknown> } {
@@ -97,6 +98,10 @@ export function buildCompetenceRequestCall(input: CompetenceRequestInput): { rpc
       return { rpc: "project_competence_validator_accept", params: { p_id: uuid(input.id, "designação") } };
     case "validator_revoke":
       return { rpc: "project_competence_validator_revoke", params: { p_id: uuid(input.id, "designação"), p_reason: text(input.reason, 10, 1000, "Motivo") } };
+    case "competence_revalidate":
+      // Fase 6/H2a (migration 20261208100000): revalidação independente de competência anterior.
+      if (input.evidenceChecked !== true) throw new CompetenceRequestInputError("Confirme que a evidência documental foi conferida.");
+      return { rpc: "project_competence_revalidate", params: { p_id: uuid(input.id, "competência"), p_expected_row_version: version(input.expectedRowVersion), p_note: text(input.note, 20, 2000, "O que foi conferido"), p_evidence_checked: true } };
     default:
       throw new CompetenceRequestInputError("Operação desconhecida.");
   }

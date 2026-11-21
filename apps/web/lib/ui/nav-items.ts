@@ -50,6 +50,9 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "experts-ia", label: "Experts IA", icon: "Bot", helpId: "experts-ia" },
   { href: "integracoes", label: "Integrações", icon: "Plug", helpId: "integracoes", restrictedTo: "admin" },
   { href: "usuarios", label: "Usuários", icon: "Users", helpId: "usuarios", restrictedTo: "admin" },
+  // Fase 6/H2a: visibilidade por nível em lib/permissions/nav-access.ts (TIER_GATED_SEGMENTS) e guarda de rota nos layouts dos segmentos.
+  { href: "competencias", label: "Competências", icon: "BadgeCheck", helpId: "governanca.competencias.menu" },
+  { href: "aprovacoes-externas", label: "Aprovações externas", icon: "ClipboardCheck", helpId: "governanca.aprovacoes.menu" },
   { href: "autorizacoes", label: "Autorizações", icon: "ShieldCheck", helpId: "autorizacoes-email", restrictedTo: "admin" },
   { href: "reemissao-alertas", label: "Reemissão de alertas", icon: "ShieldCheck", helpId: "reemissao-alertas", restrictedTo: "admin" },
   { href: "auditoria", label: "Auditoria", icon: "AlertTriangle", helpId: "auditoria" },

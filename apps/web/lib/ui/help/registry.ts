@@ -9,6 +9,7 @@ import { DASHBOARD_HELP } from "./modules/dashboard";
 import { ENGENHARIA_HELP } from "./modules/engenharia";
 import { EXPERTS_HELP } from "./modules/experts";
 import { INTEGRACOES_HELP } from "./modules/integracoes";
+import { GOVERNANCA_HELP } from "./modules/governanca";
 import { INTEGRACOES_CONTATOS_HELP } from "./modules/integracoes-contatos";
 import { JURIDICO_HELP } from "./modules/juridico";
 import { PLANEJAMENTO_HELP } from "./modules/planejamento";
@@ -35,6 +36,7 @@ export const ALL_HELP_ENTRIES: FeatureHelpDefinition[] = [
   ...ENGENHARIA_HELP,
   ...INTEGRACOES_HELP,
   ...INTEGRACOES_CONTATOS_HELP,
+  ...GOVERNANCA_HELP,
   ...EXPERTS_HELP,
   ...ADMIN_HELP,
   ...QUALIDADE_HELP,
