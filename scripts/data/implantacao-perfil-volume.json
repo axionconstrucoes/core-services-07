@@ -1,0 +1,26 @@
+{
+  "descricao": "PERFIL DE VOLUME do Supabase operacional (somente CONTAGENS e TAMANHOS de pg_class/pg_stat_user_tables; nenhum conteudo, nenhum dado pessoal). Lido em 21/11/2026 via leitura somente-leitura. Usado para gerar dados SINTETICOS de mesma ordem de grandeza no banco local descartavel (scripts/ensaio-implantacao-volume-lib.mjs).",
+  "lidoEm": "2026-11-21",
+  "banco": { "tamanhoTotal": "64 MB", "tabelasPublic": 130, "projetos": 10, "perfis": 86, "membershipsAtivas": 21, "cronJobs": 11, "conexoesNaoOciosas": 1 },
+  "distribuicao": {
+    "emailsPorProviderDirecao": { "GMAIL/INBOUND": 510, "GMAIL/OUTBOUND": 168, "sem_provider": 32 },
+    "slaActionsPorStatusRisco": { "ESCALATED/CRITICAL": 6, "PENDING/HIGH": 1, "ESCALATED/LOW": 1, "PENDING/MEDIUM": 6, "ESCALATED/HIGH": 9, "PENDING/LOW": 2 },
+    "casosDeAlertaPorEstado": { "OPEN": 43 }
+  },
+  "tabelas": [
+    { "nome": "document_text_segments", "linhas": 19168, "heapBytes": 5128192, "totalBytes": 9216000, "indices": 3 },
+    { "nome": "emails", "linhas": 710, "heapBytes": 1523712, "totalBytes": 6021120, "indices": 12 },
+    { "nome": "audit_log_entries", "linhas": 4363, "heapBytes": 1720320, "totalBytes": 2662400, "indices": 5 },
+    { "nome": "email_attachments", "linhas": 573, "heapBytes": 1073152, "totalBytes": 2416640, "indices": 7 },
+    { "nome": "document_extractions", "linhas": 190, "heapBytes": 90112, "totalBytes": 1859584, "indices": 2 },
+    { "nome": "email_inline_images", "linhas": 546, "heapBytes": 540672, "totalBytes": 917504, "indices": 4 },
+    { "nome": "diario_de_obra_reports", "linhas": 201, "heapBytes": 425984, "totalBytes": 917504, "indices": 6 },
+    { "nome": "clause_extraction_candidates", "linhas": 327, "heapBytes": 401408, "totalBytes": 729088, "indices": 4 },
+    { "nome": "weekly_report_sheets", "linhas": 280, "heapBytes": 270336, "totalBytes": 565248, "indices": 4 },
+    { "nome": "email_triage_results", "linhas": 480, "heapBytes": 98304, "totalBytes": 327680, "indices": 6 },
+    { "nome": "schedule_activities", "linhas": 550, "heapBytes": 122880, "totalBytes": 352256, "indices": 5 },
+    { "nome": "risk_alert_outbox", "linhas": 36, "heapBytes": 49152, "totalBytes": 163840, "indices": 5 },
+    { "nome": "risk_alert_cases", "linhas": 43, "heapBytes": 57344, "totalBytes": 180224, "indices": 5 }
+  ],
+  "observacao": "Linhas = n_live_tup (estimativa do autovacuum, nao COUNT(*) exato). As tabelas novas das migrations pendentes nao existem no remoto (volume 0)."
+}

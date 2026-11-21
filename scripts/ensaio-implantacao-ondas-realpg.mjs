@@ -50,6 +50,10 @@ create or replace function auth.jwt() returns jsonb language sql stable as $$
 grant execute on function auth.uid(), auth.role(), auth.jwt() to anon, authenticated, service_role;`;
 const platform = PLATFORM.replace(/^create role .*$/gm, "").replace(/^create function auth\.(uid|role|jwt)\(\).*$/gm, "-- stub removido") + "\n" + GOTRUE;
 
+// VOLUME (Fase 6/H4): ACC_ENSAIO_VOLUME_SCALE=1 gera dados SINTETICOS na ordem de grandeza do perfil (scripts/data/implantacao-perfil-volume.json); 10 = 10x.
+import { semearVolume } from "./ensaio-implantacao-volume-lib.mjs";
+const VOL_SCALE = Number(process.env.ACC_ENSAIO_VOLUME_SCALE ?? 0);
+const VOL_PERFIL = JSON.parse(readFileSync(path.join(here, "data", "implantacao-perfil-volume.json"), "utf8"));
 const reportArg = process.argv.indexOf("--report");
 const reportPath = process.env.ACC_ENSAIO_REPORT || (reportArg > 0 ? process.argv[reportArg + 1] : null);
 
@@ -242,6 +246,14 @@ async function buildMirror(tag, variant) {
   await db.su.query(variantText(body("20261121090000_hotfix_risk_alert_action_authorization"), variant));
   const s = await seed(db.su);
   db.caseId = s.caseId;
+  if (VOL_SCALE > 0) {
+    db.volume = await semearVolume(db.su, VOL_PERFIL, VOL_SCALE);
+    if (!volumeLogged) {
+      volumeLogged = true;
+      out(`[volume] perfil sintetico escala ${VOL_SCALE}x (somente contagens do operacional; dados 100% sinteticos): ` + db.volume.map((r) => `${r.tabela}=${r.status === "OK" ? r.linhas : r.status}`).join("; "));
+      report.volume = db.volume;
+    }
+  }
   db.notices = notices;
   return db;
 }
@@ -260,6 +272,25 @@ const anonExecCount = async (su) => (await su.query(
   `select count(*)::int n from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prosecdef and has_function_privilege('anon', p.oid, 'execute')`)).rows[0].n;
 
 const report = { variants: {} };
+// Executa scripts/sql/verificacao-onda-<id>.sql (gerado; somente leitura) no espelho. Converte as meta-comandos do psql (\if/\set) e :'fase'.
+// Para a onda "novas" regera em memoria (as migrations novas nao estao no JSON). Devolve {n, falhas, detalhe}.
+async function verificarOnda(su, vArq, fase, migrations) {
+  const { sqlDaOnda } = await import("./gen-verificacao-onda.mjs");
+  const txt = sqlDaOnda(vArq, "ensaio", migrations, dir);
+  const sql = txt.split("\n").filter((l) => !l.startsWith("\\") && !l.startsWith("--")).join("\n").replace(/:'fase'/g, `'${fase}'`);
+  const parts = sql.split(/;[ \t]*\n/).map((x) => x.trim()).filter(Boolean);
+  let falhas = 0; let n = 0; const det = [];
+  for (const part of parts) {
+    if (/^begin read only|^rollback/i.test(part)) continue;
+    const r = await su.query(part);
+    for (const row of r.rows) {
+      if ("ok" in row && "objetos_verificados" in row) { falhas = Number(row.falhas); n = Number(row.objetos_verificados); }
+      else if (row.ok === false) det.push(`${row.tipo}:${row.objeto}`);
+    }
+  }
+  return { n, falhas, detalhe: det.slice(0, 8).join(", ") };
+}
+let volumeLogged = false;
 
 async function runVariant(variant) {
   out(`\n=== Variante ${variant}: espelho do remoto (134 registradas + hotfix efetivo) e sequencia por ondas ===`);
@@ -274,6 +305,11 @@ async function runVariant(variant) {
   let totalMs = 0;
   for (const w of seq.ondas) {
     const wt0 = Date.now();
+    const vArq = w.id === "F5" ? "novas" : w.id.toLowerCase();
+    await check(`[${variant}] onda ${w.id}: verificacao-onda-${vArq}.sql fase=antes (objetos novos ausentes, somente leitura)`, async () => {
+      const r = await verificarOnda(su, vArq, "antes", w.migrations);
+      ok(r.falhas === 0, `falhas=${r.falhas}: ${r.detalhe}`);
+    });
     for (const stem of w.migrations) {
       let r;
       try {
@@ -288,6 +324,10 @@ async function runVariant(variant) {
       rows.push({ w: w.id, stem, ms: r.ms, locks: r.locks, p0: p.good, md5: p.md5, raw: p.raw, notices: r.notices });
       await check(`[${variant}] onda ${w.id} ${stem} (${r.ms.toFixed(0)} ms): P0 protegido apos a migration`, async () => ok(p.good, p.detail));
     }
+    await check(`[${variant}] onda ${w.id}: verificacao-onda-${vArq}.sql fase=depois (objetos novos presentes, somente leitura)`, async () => {
+      const r = await verificarOnda(su, vArq, "depois", w.migrations);
+      ok(r.falhas === 0 && r.n > 0 || r.n === 0, `falhas=${r.falhas}: ${r.detalhe}`);
+    });
     out(`[${variant}] fim da onda ${w.id}: ${Date.now() - wt0} ms (inclui verificacoes P0)`);
   }
   const after = await snapshotData(su);

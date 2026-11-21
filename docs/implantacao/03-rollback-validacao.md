@@ -2,6 +2,8 @@
 
 Complementa `02-plano-aplicacao.md`. Rollback aqui é descrição; nenhum comando foi rodado no projeto operacional.
 
+> Fase 6/H4: verificações por onda somente leitura em `scripts/sql/verificacao-onda-<id>.sql` (geradas por `scripts/gen-verificacao-onda.mjs`, fases `antes` e `depois`) e comandos exatos de rollback por onda em `12`. Lacuna registrada: 43 das 65 pendentes não têm `supabase/rollbacks/*.rollback.sql` (rollback só descrito nesta tabela, dependente da captura de definições pré-janela).
+
 ## 1. Estratégia geral de rollback
 
 1. Ponto de restauração: anotar a hora UTC imediatamente antes da primeira migration e o identificador do backup lógico (`supabase db dump`, `docs/backup-restore-procedure.md`) e do PITR, se o plano do projeto o oferecer (confirmar no painel; não verificável por esta leitura).
