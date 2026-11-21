@@ -265,7 +265,9 @@ const snapshotData = async (su) => {
     open_med_low_n: (await su.query("select count(*)::int n from public.sla_actions where risk_level in ('LOW','MEDIUM') and status in ('PENDING','IN_PROGRESS')")).rows[0].n,
     cases: await q("select md5(string_agg(id::text||state||coalesce(current_responsible_user_id::text,''), ',' order by id)) h from public.risk_alert_cases"),
     members: await q("select md5(string_agg(project_id::text||user_id::text||permission||status, ',' order by project_id,user_id)) h from public.project_memberships"),
-    rules: await q("select md5(string_agg(id::text||risk_level||coalesce(area,'')||assume_deadline_value::text||active::text, ',' order by id)) h from public.sla_matrix_rules"),
+    rules: await q("select md5(string_agg(id::text||risk_level||coalesce(area,'')||assume_deadline_value::text||active::text, ',' order by id)) h from public.sla_matrix_rules where area is distinct from 'QUALIDADE'"),
+    // Fase 6/H5: a onda L (20261210100000) SEMEIA regras da area QUALIDADE (aditivo/prospectivo); o hash acima cobre todas as OUTRAS regras.
+    qualidade_rules: await q("select md5(string_agg(id::text||risk_level||assume_deadline_value::text||active::text, ',' order by id)) h from public.sla_matrix_rules where area = 'QUALIDADE'"),
   };
 };
 const anonExecCount = async (su) => (await su.query(
@@ -340,6 +342,17 @@ async function runVariant(variant) {
     await applyFile(su, "20261126100000_p0_gate_record_risk_alert_action", variant, db.notices);
     ok((await p0Full(su, db.caseId)).good, "P0");
   });
+  const ondaL = seq.ondas.find((w) => w.id === "L");
+  if (ondaL) {
+    await check(`[${variant}] onda L: ${ondaL.migrations.length} migration(s) idempotente(s) (aplicadas 2x sem erro, P0 intacto, dados e as 9 abertas preservados; regras QUALIDADE semeadas e estaveis)`, async () => {
+      const pre = await snapshotData(su);
+      ok(pre.qualidade_rules, "H2c nao semeou regras de QUALIDADE");
+      for (const stem of ondaL.migrations) await applyFile(su, stem, variant, db.notices);
+      const post = await snapshotData(su);
+      for (const k of ["actions", "open_med_low", "cases", "members", "rules", "qualidade_rules"]) ok(pre[k] === post[k], `${k} mudou ao reaplicar`);
+      ok((await p0Full(su, db.caseId)).good, "P0 apos reaplicar");
+    });
+  }
   if (tailStems.length) {
     await check(`[${variant}] onda F5: ${tailStems.length} migration(s) nova(s) idempotente(s) (aplicadas 2x sem erro, P0 intacto, dados preservados)`, async () => {
       const pre = await snapshotData(su);

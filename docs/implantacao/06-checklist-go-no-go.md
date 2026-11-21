@@ -52,6 +52,10 @@ O GO global exige B1, B2, B3, B5, B6 e B8 em GO; B4 e B9 conforme o escopo da ab
 
 B2: o critério passa a ser o ensaio sobre TODAS as migrations do diretório de integração (`ACC_ENSAIO_MIGRATIONS_DIR`; migrations novas entram na onda F5 com P0 por arquivo e idempotência), 0 falhas, no dia da janela; contagem de pendentes conferida contra `list_migrations` (hoje 57). B3 permanece NO-GO para envio real; leitura de caixas não depende de SPF/DKIM/DMARC (ver `04`, seção 6).
 
+## Complemento da Fase 6/H5 (onda L e competências)
+
+B2: contagem de pendentes conferida contra `list_migrations` (hoje 69; 204 arquivos). B2/B5: a ordem banco -> app -> competências -> revalidação -> validador -> pipeline em simulação é a de `12`; para competências é OBRIGATÓRIA: (1) aplicar `20261208100000`; (2) ADMINISTRADOR designa validador (documento/ata, aceite, prazo <= 180 dias); (3) revalidar as competências (todas viram `REQUIRED` na migração; `project_competence_revalidate`); (4) só então atos críticos. (NO-GO) ato crítico executado antes da revalidação; qualquer `ok = false` do P0 após um arquivo da onda L. Rollback: toda pendente tem arquivo em `supabase/rollbacks/` (`test-implantacao-rollbacks`).
+
 ## Complemento da Fase 4/C (sequência ensaiada)
 
 Critérios adicionais, por bloco "migrations": (GO) o ensaio `scripts/ensaio-implantacao-ondas-realpg.mjs` repetido no dia com 0 falhas; a verificação `scripts/sql/p0-verificar-record-risk-alert-action.sql` devolve `ok = true` ANTES da janela e após CADA migration; o hotfix 20261121090000 NÃO é reaplicado (só registro); `20261123302000` só publicada junto do app; `20261121177000` só com decisão registrada do dono. (NO-GO) qualquer `ok = false` ou `P0_GATE`: parar, não prosseguir, investigar. Detalhes em `07-sequencia-ensaiada.md`; resultado do ensaio em `08-relatorio-ensaio-ondas.md`. Nenhum item deste complemento foi executado no operacional.

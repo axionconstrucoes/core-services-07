@@ -3,7 +3,7 @@
 Data da leitura: 20/11/2026. Projeto `plbcvwostmdmdmrziwmd` (nome no painel: "axion-contract-intelligence-dev", Postgres 17.6, sa-east-1, ACTIVE_HEALTHY). Este é o único projeto Supabase do ACC e é o operacional.
 Escopo da leitura: SOMENTE `list_migrations`, `get_project` e SELECT em catálogos (`pg_proc`, `information_schema`, `pg_indexes`, `pg_trigger`). Nada foi aplicado, registrado ou alterado.
 
-> Fase 6/H4 (21/11/2026): contagem reconfirmada em `10`: 200 arquivos, 134 registradas, 1 efetiva fora do histórico, **65 pendentes** (60 pendente + 3 fora de ordem + 1 parcial + 1 decisão). Nenhuma migration nova da H4 (a H4 não cria migrations); as de H2a (`20261208*`), H2b (`20261209*`) e H2c (`20261210*`) entram aqui quando integradas (procedimento em `12`, seção 7).
+> Fase 6/H5 (21/11/2026): contagem atual: **204 arquivos**, 134 registradas, 1 efetiva fora do histórico, **69 pendentes** (64 pendente + 3 fora de ordem + 1 parcial + 1 decisão). As 4 migrations da Fase 6 (`20261208100000`, `20261209100000`, `20261209101000`, `20261210100000`; linhas ao final da tabela) formam a **onda L** da sequência (cauda após K e após o portão P0). Rollback em arquivo: 26 das 69 antes da H5; os 43 restantes foram gerados pela H5 (`supabase/rollbacks/`, ver `03`). (A H4 havia reconfirmado 200 arquivos e 65 pendentes em `10`, antes da integração da Fase 6.)
 
 ## Método
 
