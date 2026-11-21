@@ -99,7 +99,7 @@ try {
   const uid = (n) => `00000000-0000-4000-8000-${String(2600 + n).padStart(12, "0")}`;
   const PA = "10000000-0000-4000-8000-0000000026a0";
   const PB = "10000000-0000-4000-8000-0000000026b0";
-  const U = { ADMIN: 1, ADMIN2: 2, GESTOR: 3, GERENTE: 4, COLAB: 5, LEITURA: 6, INATIVO: 7, PENDENTE: 8, ADMINB: 9, GJUR: 10, GTEC: 11, GSEG: 12, GNADA: 13 };
+  const U = { ADMIN: 1, ADMIN2: 2, GESTOR: 3, GERENTE: 4, COLAB: 5, LEITURA: 6, INATIVO: 7, PENDENTE: 8, ADMINB: 9, GJUR: 10, GTEC: 11, GSEG: 12, GNADA: 13, VALIDADOR: 14 };
   for (const n of Object.values(U)) {
     await su.query("insert into auth.users (id,email) values ($1,$2)", [uid(n), `comp-${n}@axion.com.br`]);
     await su.query("insert into public.profiles (id,name,email) values ($1,$2,$3) on conflict (id) do nothing", [uid(n), `COMP ${n}`, `comp-${n}@axion.com.br`]);
@@ -130,7 +130,18 @@ try {
   }
   const rpc = async (c, fn, ...args) => (await c.query(`select public.${fn}(${args.map((_, i) => `$${i + 1}`).join(",")}) as r`, args)).rows[0].r;
   const n = async (sql, params = []) => Number((await su.query(sql, params)).rows[0].n);
-  const grant = (c, project, user, comp, data = {}) => rpc(c, "project_competence_grant", project, uid(user), comp, JSON.stringify(data));
+  // Fase 5/E: a RPC antiga valida tudo e RECUSA gravar (HABILITATION_VALIDATION_REQUIRED). Quando as validações dela passam, a concessão
+  // efetiva segue o caminho NOVO: solicitação (ADMIN) + validação independente (VALIDADOR designado, fora da obra além da designação).
+  let valClient;
+  const grant = async (c, project, user, comp, data = {}) => {
+    try { return await rpc(c, "project_competence_grant", project, uid(user), comp, JSON.stringify(data)); }
+    catch (e) {
+      if (!/HABILITATION_VALIDATION_REQUIRED/.test(e.message)) throw e;
+      const req = await rpc(c, "project_competence_request_create", project, uid(user), comp, JSON.stringify({ evidence_document_id: DA, ...data }));
+      const d = await rpc(valClient, "project_competence_request_decide", req.id, 1, "APPROVE", "Documento de habilitação sintético conferido pelo validador designado.", true);
+      return { id: d.competenceId, status: "ACTIVE", userId: uid(user), competence: comp, rowVersion: 1 };
+    }
+  };
   const has = async (user, project, comp) => (await (await as(user)).query("select public.acc_has_competence($1,$2) r", [project, comp])).rows[0].r;
   let seq = 0;
   const uniq = () => `${Date.now().toString(36)}-${(seq += 1)}`;
@@ -138,7 +149,11 @@ try {
   // Concessões pelo CAMINHO REAL (RPC, só ADMIN; ninguém concede a si mesmo): ADMIN concede a ADMIN2 e aos especialistas; ADMIN2 concede a ADMIN.
   const a1 = await as(U.ADMIN);
   const a2 = await as(U.ADMIN2);
-  keepAll.push(...open.splice(0)); // a1/a2 duram o teste inteiro (os demais são fechados a cada caso)
+  // validador designado (pessoa externa à obra): designação com documento + prazo + ACEITE do próprio designado
+  const des = await rpc(a1, "project_competence_validator_designate", PA, uid(U.VALIDADOR), DA, "Designação sintética de validador independente (ata da diretoria).", new Date(Date.now() + 90 * 864e5).toISOString().slice(0, 10));
+  valClient = await as(U.VALIDADOR);
+  await rpc(valClient, "project_competence_validator_accept", des.id);
+  keepAll.push(...open.splice(0)); // a1/a2/validador duram o teste inteiro (os demais são fechados a cada caso)
   const gJUR = await grant(a1, PA, U.GJUR, "JURIDICO", { registration_kind: "OAB", registration_number: "SINT-0001", basis_note: "Advogado sintético" });
   const gTEC = await grant(a1, PA, U.GTEC, "TECNICO_RESPONSAVEL", { registration_kind: "CREA", registration_number: "SINT-0002" });
   const gSEG = await grant(a1, PA, U.GSEG, "SEGUROS");
@@ -201,7 +216,7 @@ try {
     eq(await n("select count(*)::int n from public.project_competences where user_id=$1", [uid(U.GNADA)]), 0, "nada gravado para GNADA");
     // registro é TEXTO declarado: gravado como informado, sem validar nem completar
     const r = (await su.query("select registration_kind, registration_number, granted_by, status, row_version from public.project_competences where id=$1", [gJUR.id])).rows[0];
-    eq([r.registration_kind, r.registration_number, r.granted_by, r.status, r.row_version], ["OAB", "SINT-0001", uid(U.ADMIN), "ACTIVE", 1], "registro declarado");
+    eq([r.registration_kind, r.registration_number, r.granted_by, r.status, r.row_version], ["OAB", "SINT-0001", uid(U.VALIDADOR), "ACTIVE", 1], "registro declarado");
     // sem número informado: continua nulo (nunca inventado)
     eq((await su.query("select registration_kind, registration_number from public.project_competences where id=$1", [gSEG.id])).rows[0], { registration_kind: null, registration_number: null }, "registro não inventado");
     // evidência do MESMO projeto aceita
@@ -427,11 +442,11 @@ try {
 
   await check("CASO 37 / F4-A-20 (AUDITORIA): concessão e revogação geram evento append-only (com ator e nível) e entrada em audit_log_entries; eventos e auditoria não são alteráveis nem por superusuário", async () => {
     const ev = (await su.query("select action, actor_user_id, actor_tier, target_user_id, competence, detail from public.project_competence_events where competence_id=$1 order by created_at", [gJUR.id])).rows;
-    eq(ev.map((e) => [e.action, e.actor_user_id, e.actor_tier, e.target_user_id, e.competence]), [["GRANTED", uid(U.ADMIN), "ADMIN", uid(U.GJUR), "JURIDICO"]], "evento de concessão");
+    eq(ev.map((e) => [e.action, e.actor_user_id, e.actor_tier, e.target_user_id, e.competence]), [["GRANTED", uid(U.VALIDADOR), "VALIDATOR_DESIGNATED", uid(U.GJUR), "JURIDICO"]], "evento de concessão");
     eq(ev[0].detail.hasRegistrationNumber, true, "indica que há número, sem repetir dado sensível desnecessário");
     ok(/não valida o registro/.test(ev[0].detail.note), "evento declara que o registro não é validado");
     const au = (await su.query("select action, actor_user_id, entity_type, entity_id from public.audit_log_entries where action in ('PROJECT_COMPETENCE_GRANTED','PROJECT_COMPETENCE_REVOKED') and project_id=$1", [PA])).rows;
-    ok(au.some((a) => a.action === "PROJECT_COMPETENCE_GRANTED" && a.entity_id === gJUR.id && a.actor_user_id === uid(U.ADMIN)), "auditoria central da concessão");
+    ok(au.some((a) => a.action === "PROJECT_COMPETENCE_GRANTED" && a.entity_id === gJUR.id && a.actor_user_id === uid(U.VALIDADOR)), "auditoria central da concessão");
     ok(au.some((a) => a.action === "PROJECT_COMPETENCE_REVOKED"), "auditoria central da revogação");
     // (fixtures inseridos direto como superusuário, marcados 'fixture-direto', não passam pela RPC e ficam fora da contagem)
     eq(await n("select count(*)::int n from public.project_competence_events where action='GRANTED'"), await n("select count(*)::int n from public.project_competences where coalesce(basis_note,'') <> 'fixture-direto'"), "um evento de concessão por registro concedido pela RPC");
@@ -473,7 +488,7 @@ try {
     const conns = await Promise.all(Array.from({ length: 6 }, (_, i) => as(i % 2 ? U.ADMIN : U.ADMIN2)));
     const res = await Promise.allSettled(conns.map((c) => grant(c, PA, U.LEITURA, "SEGUROS")));
     eq(res.filter((r) => r.status === "fulfilled").length, 1, "um vencedor na concessão");
-    ok(res.filter((r) => r.status === "rejected").every((r) => /ALREADY_ACTIVE/.test(r.reason.message)), "perdedores recebem ALREADY_ACTIVE");
+    ok(res.filter((r) => r.status === "rejected").every((r) => /ALREADY_ACTIVE|ALREADY_PENDING/.test(r.reason.message)), "perdedores recebem ALREADY_ACTIVE ou ALREADY_PENDING");
     eq(await n("select count(*)::int n from public.project_competences where user_id=$1 and competence='SEGUROS' and status='ACTIVE'", [uid(U.LEITURA)]), 1, "um ativo");
     const id = (await su.query("select id from public.project_competences where user_id=$1 and competence='SEGUROS' and status='ACTIVE'", [uid(U.LEITURA)])).rows[0].id;
     const conns2 = await Promise.all(Array.from({ length: 6 }, (_, i) => as(i % 2 ? U.ADMIN : U.ADMIN2)));
@@ -516,7 +531,7 @@ try {
     // base legada: replay SEM as migrations da Fase 4/A, registra decisão de sinistro e RNC confirmada, depois aplica a Fase 4/A
     const legacy = await newDb("legacy");
     try {
-      for (const f of files.filter((x) => !F4.includes(x))) await legacy.su.query(read(f));
+      for (const f of files.filter((x) => !F4.includes(x) && !/^20261205[0-9]{6}_/.test(x))) await legacy.su.query(read(f)); // Fase 5/E depende das competências: fora do estado legado
       const lu = (k) => `00000000-0000-4000-8000-${String(2700 + k).padStart(12, "0")}`;
       const LP = "10000000-0000-4000-8000-0000000027a0";
       for (const k of [1, 2]) {
