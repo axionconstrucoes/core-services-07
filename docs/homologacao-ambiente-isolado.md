@@ -1,6 +1,6 @@
 # Ambiente ISOLADO de homologação autenticada do ACC (Fase 6 / H1)
 
-Estado em 21/11/2026. Este documento entrega: (1) as opções reais de backend isolado COM Supabase Auth, com custo e comando; (2) o que só uma pessoa pode fazer;
+Estado em 21/11/2026 (revisto na Fase 7 / H6a: **o projeto `acc-homolog` (ref `gtadbeaevxglrqkhcwfz`, sa-east-1, vazio) já foi criado em 21/11/2026 10:46Z**; custo e passo a passo em `docs/homologacao-acc-homolog-passo-a-passo.md`). Este documento entrega: (1) as opções reais de backend isolado COM Supabase Auth, com custo e comando; (2) o que só uma pessoa pode fazer;
 (3) o KIT executável em `scripts/homolog/*` e como usá-lo; (4) variáveis; (5) rollback; (6) o que o kit prova e o que NÃO prova.
 Complementa `docs/homologacao-autenticada-roteiro.md` (as 36 linhas e o status honesto por linha, seção 13).
 
@@ -19,20 +19,20 @@ legítimo de autenticação (login Google real de contas de teste + pré-cadastr
 | Só ADMINISTRADOR pré-cadastra; projeto novo não tem administrador | `pre_register_project_member` | **Bootstrap do 1º administrador** por ação do dono do projeto de homologação (seção 4, passo K4); não é sessão forjada |
 | O banco impede obra sem Administrador ativo; a auditoria é imutável | gatilho de `20260824090000`; `audit_log_entries` | O "reset" completo do ambiente é **descartar e recriar o projeto** (seção 7) |
 | Sem Docker nesta máquina; `npx supabase` 2.114.0 existe; WSL existe | levantamento prévio + `supabase --version` | `supabase start` (stack local com GoTrue) **não é executável aqui**; ver opção C |
-| A organização Supabase é **Axion (plano Pro)**; projetos existentes: `axion-contract-intelligence-dev` (operacional ACC), `Comercial Axion`, `Planejamento Axion` | MCP Supabase `list_organizations`/`get_organization`/`list_projects` (somente leitura) | Nenhum projeto de homologação existe. **Os três projetos atuais são operacionais** e estão na lista negra da guarda |
+| A organização Supabase é **Axion (plano Pro)**; projetos existentes: `axion-contract-intelligence-dev` (operacional ACC), `Comercial Axion`, `Planejamento Axion` | MCP Supabase `list_organizations`/`get_organization`/`list_projects` (somente leitura) | Na Fase 6 nenhum projeto de homologação existia; **em 21/11/2026 10:46Z o `acc-homolog` passou a existir (vazio: 0 tabelas, 0 migrations)** — Fase 7/H6a. **Os três projetos anteriores são operacionais** e estão na lista negra da guarda; o `acc-homolog` é o alvo |
 
 ## 2. Opções de backend isolado
 
 | Opção | Auth (Google) | Isolamento | Custo | Viabilidade agora | Veredito |
 |---|---|---|---|---|---|
-| **A. Novo projeto Supabase `acc-homolog`** (mesma organização, projeto SEPARADO) | Sim (GoTrue gerenciado; configurar Google no painel) | Total: ref, banco, chaves e Auth próprios | Compute Micro **≈ US$ 10/mês (≈ US$ 0,01344/h ≈ US$ 0,32/dia)**; o crédito de computação do plano Pro (US$ 10) já é consumido pelos projetos atuais, então o custo marginal é o do Micro. Valores de REFERÊNCIA da tabela pública; **confirmar no painel antes de criar** (a API de custo do MCP não está exposta nesta sessão). Cobrança para ao excluir o projeto | Imediata, depende de 3 ações humanas (seção 3) | **RECOMENDADA** |
+| **A. Novo projeto Supabase `acc-homolog`** (mesma organização, projeto SEPARADO) | Sim (GoTrue gerenciado; configurar Google no painel) | Total: ref, banco, chaves e Auth próprios | Compute Micro **≈ US$ 10/mês (≈ US$ 0,01344/h ≈ US$ 0,32/dia)**; o crédito de computação do plano Pro (US$ 10) já é consumido pelos projetos atuais, então o custo marginal é o do Micro. Confirmado em 21/11/2026 nas páginas oficiais (docs de compute e preços): Micro US$ 0,01344/h ≈ US$ 10/mês; crédito Pro de US$ 10 aplicado uma vez à organização; projeto pausado não conta compute; excluir encerra a cobrança (detalhes e fontes na seção 1 do passo a passo). O MCP não expõe API de custo. Cobrança para ao excluir (ou pausar) o projeto | Imediata, depende de 3 ações humanas (seção 3) | **RECOMENDADA** |
 | B. Branch Supabase do projeto operacional | Sim | Banco separado, mas **nasce atrelado ao projeto operacional** (mesma família de ref, `merge_branch` existe) | ≈ US$ 0,01344/h por branch ativa | Possível, porém o risco de operar perto do operacional e o descompasso das 65 migrations pendentes tornam a guarda menos clara | **Não recomendada** |
 | C. Stack local completa (`supabase start` / `scripts/sql/start-clean-local-stack.mjs`) | Sim (GoTrue local), mas o login é Google: precisaria de OAuth client apontando para localhost; o app local usa `http://127.0.0.1:3000` | Total | Zero | **Bloqueada: sem Docker nesta máquina** (instalar Docker Desktop é ação humana). Documentada em `docs/stack-local-completa-descartavel.md` | Alternativa gratuita se o responsável instalar Docker |
 | D. Postgres 17 local (127.0.0.1:55434) | **Não** (sem GoTrue/PostgREST) | Total | Zero | Já em uso | Serve para RLS/regras por claims JWT no banco (EXECUTADO-BANCO-REAL), **não** para login/telas |
 
 **Recomendação:** opção A, região `sa-east-1` (mesma do operacional, latência), plano Micro, com a guarda dura do kit.
 
-### Pedido de confirmação (NÃO executado)
+### Pedido de confirmação (projeto JÁ criado fora deste agente; criação NÃO executada por agente)
 
 Custo estimado: **≈ US$ 10/mês (Micro) enquanto existir; excluir o projeto ao final encerra a cobrança**. Comando exato, a ser rodado **pelo responsável** (ou autorizado por ele) com a CLI logada na organização Axion:
 
