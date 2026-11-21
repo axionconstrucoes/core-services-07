@@ -346,9 +346,34 @@ export interface InsuranceWorkspaceData {
   documents: DocumentRef[];
   /** Nome legível de quem atuou (profiles); ausente => o id abreviado é exibido. */
   actors: Record<string, string>;
+  /** Fase 4/A: competências profissionais do projeto (a RLS devolve só as próprias a quem não é gestão) e membros ativos. */
+  competences: ProjectCompetenceRow[];
+  competenceMembers: Array<{ userId: string; permission: string }>;
+  /** Não nulo quando as competências não puderam ser lidas (a tela trata como SEM competência). */
+  competencesError: string | null;
 }
 
-export type SectionKey = Exclude<keyof InsuranceWorkspaceData, "projectId" | "actors">;
+export interface ProjectCompetenceRow {
+  id: InsuranceUuid;
+  project_id: InsuranceUuid;
+  user_id: InsuranceUuid;
+  competence: string;
+  status: "ACTIVE" | "REVOKED";
+  valid_from: string;
+  valid_until: string | null;
+  registration_kind: string | null;
+  registration_number: string | null;
+  evidence_document_id: InsuranceUuid | null;
+  basis_note: string | null;
+  granted_by: InsuranceUuid;
+  granted_at: string;
+  revoked_by: InsuranceUuid | null;
+  revoked_at: string | null;
+  revoke_reason: string | null;
+  row_version: number;
+}
+
+export type SectionKey = Exclude<keyof InsuranceWorkspaceData, "projectId" | "actors" | "competences" | "competenceMembers" | "competencesError">;
 
 export interface InsuranceWorkspaceLoad {
   data: InsuranceWorkspaceData;

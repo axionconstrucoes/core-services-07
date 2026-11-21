@@ -7,6 +7,7 @@ import { createRequire } from "node:module";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { grantCompetences } from "./lib/f4a-competences.mjs";
 import { register } from "node:module";
 
 register("./ts-module-resolver.mjs", import.meta.url);
@@ -104,6 +105,7 @@ try {
   await mem(P, U.LEITURA, "LEITURA");
   await mem(P, U.INATIVO, "ADMINISTRADOR", "INACTIVE");
   await mem(P2, U.ADMIN2, "ADMINISTRADOR");
+  await grantCompetences(su, P, [uid(U.ADMIN), uid(U.GESTOR), uid(U.ADMINB)]); await grantCompetences(su, P2, [uid(U.ADMIN2), uid(U.ADMIN)]);
   const doc = async (project, title) => (await su.query("insert into public.documents (project_id,kind,title) values ($1,'ESPECIFICACAO',$2) returning id", [project, title])).rows[0].id;
   const D1 = await doc(P, "Apólice A (sintético)");
   const D2 = await doc(P, "Endosso emitido (sintético)");

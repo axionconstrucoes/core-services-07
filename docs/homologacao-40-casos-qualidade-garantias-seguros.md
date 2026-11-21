@@ -114,7 +114,7 @@ Os 40 casos foram reexecutados depois das frentes B (permissões unificadas), C 
 ### Limites declarados
 
 - **Nenhuma tela foi homologada em sessão autenticada.** Não havia credencial legítima disponível e o login não foi contornado. As telas de Qualidade, Garantias, Seguros, Pilares, SSMA e Alertas foram verificadas por análise estática, cliente simulado e harness de Chrome com stubs (Seguros, catálogo de Hover Text e sidebar). **Telas não vistas não são declaradas homologadas.**
-- A competência técnica ou jurídica do usuário não é verificada além do nível MANAGE: não há atributo confiável de competência por membro (lacuna declarada em `docs/permissoes-matriz-central.md`).
+- (Fase 3, SUPERADO na Fase 4/A) A competência técnica ou jurídica não era verificada além do nível MANAGE. Agora há `project_competences` + `acc_has_competence`, mas a competência é **declarada** pelo Administrador: o sistema não valida CREA/OAB. Ver `docs/permissoes-matriz-central.md` seção 8.
 - Seguros e Qualidade nunca foram exercitados contra o Supabase operacional, porque as migrations 20261122*/20261123* não estão aplicadas lá.
 
 ## Fase 4 / D — casos novos (autorização, menu e destinatário externo)
@@ -131,3 +131,34 @@ Provas: `scripts/test-menu-permissoes.mjs` (10 OK), `scripts/test-destinatarios-
 | F4-D-06 | Trilha de confirmação (quem, quando, destinatário, motivo) append-only, inclusive para superusuário; RLS só gestão do próprio projeto | realpg | BANCO |
 | F4-D-07 | Canal oficial de Seguros tipo e-mail: confirmação de outro usuário/projeto/contexto/endereço ou expirada não vale; canal legado intacto | realpg | BANCO |
 | F4-D-08 | Formulário de canal com confirmação e motivo: ajuda, rótulos, 44 px, contraste (desktop e celular) e envio de confirmação ao servidor | seguros-browser B10 | CHROME |
+## Fase 4 / Agente A — Endossos e competências (casos `CASO F4-A-nn`)
+
+Casos 31, 37 e 39 reforçados para as operações que passaram a exigir competência. Provas: `test-competencias` (puro, 9 OK), `test-competencias-realpg` (Postgres 17 real, 15 OK),
+`test-endossos-dupla-conferencia` (11 OK) e `test-endossos-dupla-conferencia-realpg` (20 OK, regra nova), além das suítes `*realpg*` existentes com competência nos fixtures.
+Nível de prova: BANCO + DOMÍNIO + UI-ESTÁTICO. **Nenhuma tela foi vista em sessão autenticada nesta fase**; o painel de competências e os bloqueios proativos só foram verificados
+por tipos, lint, análise estática e Hover Text.
+
+| Caso | Tema | Teste |
+|---|---|---|
+| F4-A-01 | espelho TS de `acc_user_has_competence` (vigente, vencida, futura, revogada, outro usuário/projeto, membro inativo) | competencias |
+| F4-A-02/03 | matriz de atos e paridade TS × SQL dos gatilhos | competencias |
+| F4-A-04/05 | contrato estático das migrations (RLS, zero escrita direta, append-only, sem anon, independência só do emissor) | competencias |
+| F4-A-06/07 | allowlist de operações, validações, mensagens claras (`COMPETENCE_REQUIRED` não substituída por nível) | competencias |
+| F4-A-08/09 | UI (bloqueios proativos, painel só por Server Action, sem segredo no cliente) e Hover Text/manifesto | competencias |
+| F4-A-10 | estrutura no banco: RLS, grants, funções fechadas | competencias-realpg |
+| F4-A-11 | concessão: matriz negativa por perfil (LEITURA, COLABORADOR, GESTOR, GERENTE, inativo, pendente, outro projeto, anon, sem sub, GESTOR com competência) | competencias-realpg |
+| F4-A-12 | validações de concessão: autoconcessão, membro, lista fechada, validade, registro declarado, evidência de outro projeto, duplicada | competencias-realpg |
+| F4-A-13 | `acc_has_competence` (vigência, membro inativo, projeto) e paridade com o TS | competencias-realpg |
+| F4-A-14 | revogação (só ADMIN, motivo, versão, efeito imediato, imutabilidade, histórico) | competencias-realpg |
+| F4-A-15 | sinistro: decisão/negativa/contestação/indenização por papel e por competência (só SEGUROS/TÉCNICO não basta) | competencias-realpg |
+| F4-A-16 | minuta: ADMINISTRADOR sem competência de minuta recusado; GESTOR com JURIDICO recusado por nível; envio real continua desligado | competencias-realpg |
+| F4-A-17/18 | Qualidade: laudo técnico da RNC e parecer de cobertura de garantia por papel e por competência | competencias-realpg |
+| F4-A-19 | efeito imediato da revogação, vencimento, escrita direta por superusuário, carga de manutenção sem autor | competencias-realpg |
+| F4-A-20 | auditoria: eventos e auditoria central, append-only | competencias-realpg |
+| F4-A-21 | isolamento entre projetos e RLS de leitura | competencias-realpg |
+| F4-A-22 | concorrência: 6 concessões e 6 revogações simultâneas | competencias-realpg |
+| F4-A-23 | endosso crítico: competência exigida de todo conferente; solicitante confere; emissor barrado | competencias-realpg |
+| F4-A-24 | idempotência (3 aplicações) e base legada: decisões antigas permanecem; atos novos exigem competência | competencias-realpg |
+| F3-C-01..04 (reescritos) | independência: emissor, repetição, não-gestor e sem competência barrados; solicitante com competência confere | endossos-dupla-conferencia (puro e realpg) |
+
+Limites: a competência é declarada pelo Administrador (CREA/OAB não são validados); nenhuma tela foi homologada em sessão autenticada; as migrations 20261124* não foram aplicadas ao Supabase operacional.

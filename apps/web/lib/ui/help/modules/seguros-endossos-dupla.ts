@@ -5,7 +5,7 @@ import type { FeatureHelpDefinition } from "../types";
 import { P_MANAGE, P_READ, seg } from "./seguros-base";
 
 const INDEP =
-  "Independência imposta pelo banco: os dois conferentes são pessoas distintas entre si, ambas com nível de gestão, e nenhuma delas é quem solicitou o endosso nem quem registrou a emissão.";
+  "Independência imposta pelo banco: os dois conferentes são pessoas distintas entre si, ambas com nível de gestão e com a competência Seguros ou Jurídico registrada no projeto, e nenhuma delas é quem registrou a emissão. Quem solicitou o endosso pode conferir, desde que tenha o nível e a competência.";
 const CONFLICT = "Se outra pessoa alterou o endosso antes (VERSION_CONFLICT), nada é gravado e a tela oferece Recarregar dados.";
 
 export const SEGUROS_ENDOSSOS_DUPLA: FeatureHelpDefinition[] = [
@@ -50,7 +50,7 @@ export const SEGUROS_ENDOSSOS_DUPLA: FeatureHelpDefinition[] = [
     "Obrigatório, mínimo de 20 caracteres (REVIEW_NOTE_REQUIRED). Fica gravado na conferência, que é append-only, e na auditoria.",
     { permissions: P_MANAGE }),
   seg("acoes.endosso-conferencia-recusar-abrir", "button", "Recusar conferência (abrir)", "Abre o formulário para recusar a conferência do endosso emitido.",
-    "Apenas abre o formulário de recusa da conferência; nada é gravado até enviar. Fica bloqueado para quem solicitou o endosso, para quem registrou a emissão e para quem já conferiu na rodada.",
+    "Apenas abre o formulário de recusa da conferência; nada é gravado até enviar. Fica bloqueado para quem registrou a emissão, para quem já conferiu na rodada e para quem não tem a competência Seguros ou Jurídico registrada no projeto (endosso crítico). Quem solicitou o endosso pode conferir.",
     { permissions: P_MANAGE }),
   seg("acoes.endosso-conferencia-recusar", "button", "Registrar recusa da conferência", "Grava a recusa da conferência e leva o endosso a Em revisão.",
     `Chama a RPC insurance_endorsement_review (SECURITY DEFINER, com auditoria e controle de versão) com resultado RECUSADO. Estado EM_REVISAO; sem efeito de cobertura. ${CONFLICT}`,

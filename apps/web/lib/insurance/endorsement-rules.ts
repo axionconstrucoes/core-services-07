@@ -3,8 +3,9 @@
 // insurance_endorsement_review (SQL).
 //
 // FASE 3 / C — DUPLA CONFERÊNCIA HUMANA INDEPENDENTE. Endossos que alteram segurados, beneficiários/partes, obrigações garantidas,
-// valores ou coberturas exigem DUAS conferências aprovadas de usuários distintos entre si e distintos de quem SOLICITOU e de quem
-// registrou a EMISSÃO. Classificação fail-closed: sem `change_kinds` válido = crítico. A autoridade é o banco; este módulo só
+// valores ou coberturas exigem DUAS conferências aprovadas de usuários distintos entre si e distintos de quem registrou a EMISSÃO.
+// FASE 4 / A (substitui a regra estrita da Fase 3, que também excluía o SOLICITANTE): o solicitante PODE conferir se tiver nível >= MANAGE
+// e competência SEGUROS ou JURIDICO (20261124102000); o emissor nunca confere a própria emissão. Competência vale para todo conferente. Classificação fail-closed: sem `change_kinds` válido = crítico. A autoridade é o banco; este módulo só
 // espelha as regras para a interface (o que mostrar/habilitar) e é verificado contra o banco por scripts/test-endossos-dupla-conferencia.mjs.
 import type { EndorsementState, EndorsementSummary } from "./types";
 
@@ -178,13 +179,13 @@ export function reviewProgress(e: EndorsementReviewState, reviews: readonly Endo
   };
 }
 
-export type ReviewBlockCode = "NOT_EMITTED" | "NO_USER" | "NOT_MANAGER" | "IS_REQUESTER" | "IS_ISSUER" | "ALREADY_REVIEWED";
+export type ReviewBlockCode = "NOT_EMITTED" | "NO_USER" | "NOT_MANAGER" | "NO_COMPETENCE" | "IS_ISSUER" | "ALREADY_REVIEWED";
 
 const BLOCK_TEXT: Record<ReviewBlockCode, string> = {
   NOT_EMITTED: "O endosso só pode ser conferido depois de EMITIDO e enquanto aguarda conferência.",
   NO_USER: "Não foi possível identificar o usuário; recarregue a página.",
   NOT_MANAGER: "Conferir endosso exige nível de gestão (Gestor, Gerente ou Administrador).",
-  IS_REQUESTER: "Você solicitou este endosso: a conferência precisa ser de outra pessoa (independência).",
+  NO_COMPETENCE: "Conferir endosso crítico exige a competência 'Seguros' ou 'Jurídico' registrada para você neste projeto (nível de gestão não substitui). Peça a um Administrador do projeto.",
   IS_ISSUER: "Você registrou a emissão deste endosso: a conferência precisa ser de outra pessoa (independência).",
   ALREADY_REVIEWED: "Você já conferiu este endosso nesta rodada; a segunda conferência precisa ser de outro usuário.",
 };
@@ -202,13 +203,16 @@ export function reviewBlock(
   canManage: boolean,
   e: EndorsementReviewState,
   reviews: readonly EndorsementReviewLite[],
+  /** Competência SEGUROS ou JURIDICO vigente do usuário no projeto. FAIL-CLOSED: ausente = sem competência. */
+  hasReviewCompetence = false,
 ): ReviewBlockCode | null {
   if (e.state !== "EMITIDO") return "NOT_EMITTED";
   if (!userId) return "NO_USER";
   if (!canManage) return "NOT_MANAGER";
   if (e.requiresDualReview) {
-    if (e.requestedBy && e.requestedBy === userId) return "IS_REQUESTER";
+    // o SOLICITANTE pode conferir (Fase 4/A); só o EMISSOR é barrado. A competência é exigida de todo conferente de endosso crítico.
     if (e.issuedBy && e.issuedBy === userId) return "IS_ISSUER";
+    if (!hasReviewCompetence) return "NO_COMPETENCE";
   }
   if (reviews.some((r) => r.reviewRound === e.reviewRound && r.reviewerId === userId)) return "ALREADY_REVIEWED";
   return null;

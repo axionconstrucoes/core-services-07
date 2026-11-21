@@ -42,6 +42,7 @@ const built = await buildFixture({
     "next/navigation": path.join(FX, "stubs", "next-navigation.ts"),
     "@/app/[projectId]/seguros/actions": path.join(FX, "stubs", "seguros-actions.ts"),
     "@/app/[projectId]/seguros/actions-persistencia": path.join(FX, "stubs", "seguros-actions-persistencia.ts"),
+    "@/app/[projectId]/seguros/actions-competencias": path.join(FX, "stubs", "seguros-actions-competencias.ts"),
   },
 });
 console.log(`fixture: ${built.modules} módulos; ausentes: ${built.missing.length ? built.missing.join(", ") : "nenhum"}`);
@@ -67,8 +68,8 @@ const SMALL_TARGETS = `(()=>{const out=[];for(const el of document.querySelector
   return out.slice(0,8);})()`;
 
 await withBrowser(async (b) => {
-  const load = async ({ role = "ADMINISTRADOR", mobile = false, mode = "ok", user = "704" } = {}) => {
-    await b.open(built.index, { query: `role=${role}&user=${user}`, ...(mobile ? M : D) });
+  const load = async ({ role = "ADMINISTRADOR", mobile = false, mode = "ok", user = "704", comp = "SEGUROS" } = {}) => {
+    await b.open(built.index, { query: `role=${role}&user=${user}&comp=${comp}`, ...(mobile ? M : D) });
     await b.eval(`window.__mode=${JSON.stringify(mode)}`);
     await b.injectHelpers(HELP);
   };
@@ -167,7 +168,8 @@ await withBrowser(async (b) => {
     const problems = [];
     const ROW = `(()=>{const tr=[...document.querySelectorAll("tbody tr")].find(r=>r.offsetParent!==null&&(r.textContent||"").includes("/ #1"));if(!tr)return false;const bt=tr.querySelector("button");if(!bt)return false;bt.click();return true;})()`;
     const BTN = (t) => `(()=>{const el=[...document.querySelectorAll("button")].find(e=>e.offsetParent!==null&&(e.textContent||"").trim()==="${t}");return el?{disabled:el.disabled}:null;})()`;
-    for (const [user, expectEnabled, reasonPart] of [["704", true, ""], ["701", false, "solicitou"], ["702", false, "registrou a emissão"], ["703", false, "já conferiu"]]) {
+    // Fase 4/A: o SOLICITANTE (701) PODE conferir (com competência); emissor (702) e quem já conferiu (703) seguem barrados
+    for (const [user, expectEnabled, reasonPart] of [["704", true, ""], ["701", true, ""], ["702", false, "registrou a emissão"], ["703", false, "já conferiu"]]) {
       await load({ user });
       await tab("Endossos");
       if (!(await b.eval(ROW))) { problems.push(`${user}: linha do endosso não encontrada`); continue; }
@@ -189,7 +191,59 @@ await withBrowser(async (b) => {
       const small = await b.eval(SMALL_TARGETS);
       if (small.length) problems.push(`${user}: alvos pequenos ${JSON.stringify(small.slice(0, 3))}`);
     }
-    return { ok: problems.length === 0, ev: problems.length ? problems.join(" | ").slice(0, 600) : "4 perfis (independente, solicitante, emissor, já conferiu); sem reprovações" };
+    return { ok: problems.length === 0, ev: problems.length ? problems.join(" | ").slice(0, 600) : "4 perfis (independente, solicitante com competência, emissor, já conferiu); sem reprovações" };
+  });
+
+  await check("B10 competências (Fase 4/A): conferir endosso crítico SEM competência fica bloqueado com explicação (nível de gestão não substitui); painel de competências na aba Auditoria com ajuda, contraste e alvos 44 px; só Administrador vê o formulário de concessão", async () => {
+    const problems = [];
+    const ROW = `(()=>{const tr=[...document.querySelectorAll("tbody tr")].find(r=>r.offsetParent!==null&&(r.textContent||"").includes("/ #1"));if(!tr)return false;const bt=tr.querySelector("button");if(!bt)return false;bt.click();return true;})()`;
+    const BTN = (t) => `(()=>{const el=[...document.querySelectorAll("button")].find(e=>e.offsetParent!==null&&(e.textContent||"").trim()==="${t}");return el?{disabled:el.disabled}:null;})()`;
+    // sem competência: bloqueado mesmo sendo independente e GESTOR
+    await load({ user: "704", comp: "NONE" });
+    await tab("Endossos");
+    if (!(await b.eval(ROW))) problems.push("linha do endosso não encontrada");
+    await sleep(80);
+    const none = await b.eval(BTN("Conferir texto emitido"));
+    if (!none || none.disabled !== true) problems.push(`sem competência: botão deveria estar desabilitado (${JSON.stringify(none)})`);
+    if (!(await b.eval(TEXT("competência")))) problems.push("sem competência: falta a explicação");
+    // só competência TECNICO_RESPONSAVEL não habilita endosso
+    await load({ user: "704", comp: "TECNICO_RESPONSAVEL" });
+    await tab("Endossos");
+    await b.eval(ROW);
+    await sleep(80);
+    const tec = await b.eval(BTN("Conferir texto emitido"));
+    if (!tec || tec.disabled !== true) problems.push("competência técnica não deveria habilitar endosso");
+    // JURIDICO habilita
+    await load({ user: "704", comp: "JURIDICO" });
+    await tab("Endossos");
+    await b.eval(ROW);
+    await sleep(80);
+    const jur = await b.eval(BTN("Conferir texto emitido"));
+    if (!jur || jur.disabled !== false) problems.push("JURIDICO deveria habilitar a conferência");
+    // painel de competências (Administrador)
+    await load({ role: "ADMINISTRADOR", user: "704", comp: "SEGUROS" });
+    await tab("Auditoria");
+    for (const t of ["Competências profissionais", "Minhas competências vigentes", "Conceder competência (somente Administrador)", "Pessoa Jurídica Sintética", "OAB SINT-0001", "Revogada", "não valida"]) if (!(await b.eval(TEXT(t)))) problems.push(`painel (ADMIN): falta "${t}"`);
+    await b.eval(CLICK("Revogar")); await sleep(80);
+    if (!(await b.eval(TEXT("Motivo da revogação")))) problems.push("formulário de revogação não abriu");
+    const c = await b.eval(CONTRAST);
+    if (c.failCount) problems.push(`contraste ${c.failCount} ${JSON.stringify(c.fails.slice(0, 2))}`);
+    const small = await b.eval(SMALL_TARGETS);
+    if (small.length) problems.push(`alvos pequenos ${JSON.stringify(small.slice(0, 3))}`);
+    // perfil que NÃO é Administrador: sem formulário de concessão nem botão Revogar
+    await load({ role: "GESTOR", user: "704", comp: "SEGUROS" });
+    await tab("Auditoria");
+    if (await b.eval(TEXT("Conceder competência (somente Administrador)"))) problems.push("GESTOR vê o formulário de concessão");
+    if (await b.eval(`[...document.querySelectorAll("button")].some(e=>e.offsetParent!==null&&(e.textContent||"").trim()==="Revogar")`)) problems.push("GESTOR vê Revogar");
+    if (!(await b.eval(TEXT("Somente o Administrador do projeto concede ou revoga competências")))) problems.push("GESTOR sem a explicação");
+    // celular
+    await load({ role: "ADMINISTRADOR", mobile: true });
+    await tab("Auditoria");
+    const overflow = await b.eval(`document.documentElement.scrollWidth > document.documentElement.clientWidth + 1`);
+    if (overflow) problems.push("rolagem horizontal da página no celular");
+    const smallM = await b.eval(SMALL_TARGETS);
+    if (smallM.length) problems.push(`celular: alvos pequenos ${JSON.stringify(smallM.slice(0, 3))}`);
+    return { ok: problems.length === 0, ev: problems.length ? problems.join(" | ").slice(0, 700) : "sem competência bloqueia (inclusive só técnica); JURIDICO habilita; painel ADMIN com ajuda, contraste e 44 px; GESTOR sem concessão; celular sem rolagem horizontal" };
   });
 
   await check("B10 destinatário externo (Fase 4/D): canal e-mail mostra confirmação e motivo com ajuda, rótulos ligados, alvos 44 px e contraste; confirmação e motivo seguem para o servidor", async () => {

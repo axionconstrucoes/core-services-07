@@ -4,6 +4,7 @@ import { useState } from "react";
 import { HelpHint } from "@/components/shared/help-hint";
 import { SELECT_CLASS } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { useCompetenceFor } from "@/components/insurance/use-competence";
 import { ActionButton, Callout, DataTable, NoData, RunnerFeedback, Section, SpecForm, StatusBadge, useInsuranceRunner, useWorkspace, type Column } from "@/components/insurance/kit";
 import { claimStageLabelFor } from "@/lib/insurance-ui/claim-labels";
 import { FORMS } from "@/lib/insurance-ui/forms";
@@ -160,6 +161,7 @@ function CreateDraftButton({ draft, link, disabledReason }: { draft: BuiltDraft;
 }
 
 function DraftDetail({ draft }: { draft: DraftRow }) {
+  const approveComp = useCompetenceFor("DRAFT_APPROVE"); // Fase 4/A: aprovar minuta exige competência Seguros ou Jurídico (além de Administrador)
   const { data, caps } = useWorkspace();
   const channel = draft.official_channel_id ? data.channels.find((c) => c.id === draft.official_channel_id) ?? null : null;
   const send = draftSendView(draft, channel, data.settings);
@@ -208,7 +210,7 @@ function DraftDetail({ draft }: { draft: DraftRow }) {
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {editableText ? <ActionButton label="Editar minuta" helpId="seguros.acoes.minuta-editar" level="REGISTER" variant="outline" onClick={() => setMode("edit")} /> : null}
-        {editable ? <ActionButton label="Aprovar (Administrador)" helpId="seguros.acoes.minuta-aprovar-abrir" level="ADMIN" variant="outline" onClick={() => setMode("approve")} /> : null}
+        {editable ? <ActionButton label="Aprovar (Administrador)" helpId="seguros.acoes.minuta-aprovar-abrir" level="ADMIN" variant="outline" extraDisabled={!approveComp.ok} extraReason={approveComp.blockText ?? undefined} onClick={() => setMode("approve")} /> : null}
         {draft.state !== "CANCELADA" ? <ActionButton label="Cancelar minuta" helpId="seguros.acoes.minuta-cancelar-abrir" level="REGISTER" variant="outline" onClick={() => setMode("cancel")} /> : null}
       </div>
       {mode === "edit" ? <div className="mt-3"><SpecForm spec={FORMS.draftEdit} initial={{ subject: draft.subject, body: draft.body }} level="REGISTER" okMessage="Minuta salva." onCancel={() => setMode(null)} onDone={() => setMode(null)} toInput={(b) => ({ op: "draft_update", id: draft.id, expectedRowVersion: draft.row_version, args: b.args })} /></div> : null}

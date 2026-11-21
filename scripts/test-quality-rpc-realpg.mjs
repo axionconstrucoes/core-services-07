@@ -9,6 +9,7 @@ import { createRequire } from "node:module";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { grantCompetences } from "./lib/f4a-competences.mjs";
 
 const url = process.env.ACC_REALPG_URL;
 if (!url) {
@@ -101,6 +102,7 @@ try {
   await mem(PA, U.INATIVO, "ADMINISTRADOR", "INACTIVE");
   await mem(PB, U.ADMINB, "ADMINISTRADOR");
   await mem(PB, U.GESTORB, "GESTOR");
+  await grantCompetences(su, PA, [uid(U.ADMIN), uid(U.GESTOR), uid(U.GERENTE)]); await grantCompetences(su, PB, [uid(U.ADMINB), uid(U.GESTORB)]);
   await su.query("insert into public.project_member_invitations (project_id,email,name,permission,created_by) values ($1,$2,'Pendente','ADMINISTRADOR',$3)", [PA, `d3-${U.PENDENTE}@axion.com.br`, uid(U.ADMIN)]);
 
   /** Conexão com a identidade (claims JWT + role). Memoizada por check; `fresh` força conexão nova (concorrência). */

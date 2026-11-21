@@ -132,7 +132,7 @@ export function endorsementReviewState(e: EndorsementRow): EndorsementReviewStat
   };
 }
 
-export function endorsementView(e: EndorsementRow, reviews: EndorsementReviewRow[] = [], userId: string | null = null, canManage = false): EndorsementView {
+export function endorsementView(e: EndorsementRow, reviews: EndorsementReviewRow[] = [], userId: string | null = null, canManage = false, hasReviewCompetence = false): EndorsementView {
   const summary = toEndorsementSummary(e);
   const nextActions: EndorsementView["nextActions"] =
     e.state === "SOLICITADO" ? ["EM_ANALISE", "EMITIDO", "RECUSADO"] : e.state === "EM_ANALISE" || e.state === "EM_REVISAO" ? ["EMITIDO", "RECUSADO"] : e.state === "EMITIDO" ? ["CONFERIDO"] : [];
@@ -144,7 +144,7 @@ export function endorsementView(e: EndorsementRow, reviews: EndorsementReviewRow
     reviewState,
     progress,
     progressText: reviewProgressLabel(reviewState, progress),
-    reviewBlock: reviewBlock(userId, canManage, reviewState, lite),
+    reviewBlock: reviewBlock(userId, canManage, reviewState, lite, hasReviewCompetence),
     currentReviews: mine.filter((r) => r.review_round === reviewState.reviewRound).sort((a, b) => a.review_no - b.review_no),
     statusText: endorsementStatusLabel(summary),
     extendsCoverage: endorsementExtendsCoverage(summary),

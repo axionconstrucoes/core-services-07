@@ -9,6 +9,7 @@ import { OverviewPanel } from "@/components/insurance/panel-overview";
 import { PoliciesPanel } from "@/components/insurance/panel-policies";
 import { AuditPanel, ChannelsPanel, ReferencesPanel } from "@/components/insurance/panel-support";
 import { PersistedSubjectsPanel } from "@/components/insurance/panel-subjects-persisted";
+import { CompetencesPanel } from "@/components/insurance/panel-competences";
 import { Callout, WorkspaceProvider, type WorkspaceCtx } from "@/components/insurance/kit";
 import { SEGUROS_TABS, type SegurosTabId } from "@/lib/insurance-ui/tabs";
 import type { InsuranceCapabilities } from "@/lib/insurance-ui/permissions";
@@ -71,6 +72,7 @@ export function SegurosWorkspace({ projectId, load, caps, today, nowIso, current
         {tab === "sujeitos" ? <PersistedSubjectsPanel persisted={persisted} /> : null}
         {tab === "referencias" ? <ReferencesPanel /> : null}
         {tab === "auditoria" ? <AuditPanel /> : null}
+        {tab === "auditoria" ? <CompetencesPanel /> : null}
       </div>
     </WorkspaceProvider>
   );

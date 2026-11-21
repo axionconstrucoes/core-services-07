@@ -11,6 +11,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { register } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { grantCompetences } from "./lib/f4a-competences.mjs";
 
 const url = process.env.ACC_REALPG_URL;
 if (!url) {
@@ -99,6 +100,7 @@ try {
   await mem(PA, U.LEITURA, "LEITURA");
   await mem(PA, U.INATIVO, "ADMINISTRADOR", "INACTIVE");
   await mem(PB, U.ADMINB, "ADMINISTRADOR");
+  await grantCompetences(su, PA, [uid(U.ADMIN), uid(U.GESTOR), uid(U.GERENTE)]);
   // PENDENTE: convite pendente (sem membership) — convite NÃO concede acesso.
   await su.query("insert into public.project_member_invitations (project_id,email,name,permission,created_by) values ($1,$2,'Pendente','ADMINISTRADOR',$3)", [PA, `perm-${U.PENDENTE}@axion.com.br`, uid(U.ADMIN)]);
 

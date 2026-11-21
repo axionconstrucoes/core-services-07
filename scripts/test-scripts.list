@@ -118,3 +118,5 @@ scripts/ensaio-implantacao-ondas-realpg.mjs
 scripts/test-destinatarios-externos.mjs
 scripts/test-menu-permissoes.mjs
 scripts/test-destinatarios-externos-realpg.mjs
+scripts/test-competencias.mjs
+scripts/test-competencias-realpg.mjs

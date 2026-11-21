@@ -96,23 +96,29 @@ check("CASO F3-C-07 (puro): classificação fail-closed — sem classificação,
 const st = (o = {}) => ({ requiresDualReview: true, legacySingleReview: false, state: "EMITIDO", reviewRound: 1, requestedBy: REQ, issuedBy: ISS, ...o });
 const rv = (reviewerId, outcome = "APROVADO", reviewRound = 1) => ({ reviewRound, reviewNo: 1, reviewerId, outcome });
 
-check("CASO F3-C-01/02/03/04 (puro): independência — solicitante, emissor, mesmo usuário duas vezes e não-gestor são bloqueados; independentes passam", () => {
-  const B_ = I.reviewBlock;
-  assert.equal(B_(B, true, st(), []), null, "usuário independente confere");
-  assert.equal(B_(REQ, true, st(), []), "IS_REQUESTER", "conferente = solicitante");
+check("CASO F3-C-01/02/03/04 + F4-A-01 (puro): independência — emissor, mesmo usuário duas vezes, não-gestor e SEM competência são bloqueados; o SOLICITANTE pode conferir com competência", () => {
+  const B_ = (u, mgr, s, r, comp = true) => I.reviewBlock(u, mgr, s, r, comp);
+  assert.equal(B_(B, true, st(), []), null, "usuário independente com competência confere");
+  assert.equal(B_(REQ, true, st(), []), null, "Fase 4/A: o solicitante PODE conferir (nível MANAGE + competência)");
+  assert.equal(B_(REQ, true, st(), [], false), "NO_COMPETENCE", "solicitante sem competência é bloqueado");
+  assert.equal(B_(B, true, st(), [], false), "NO_COMPETENCE", "qualquer conferente de endosso crítico precisa de competência");
+  assert.equal(I.reviewBlock(B, true, st(), []), "NO_COMPETENCE", "fail-closed: competência não informada = sem competência");
   assert.equal(B_(ISS, true, st(), []), "IS_ISSUER", "conferente = quem emitiu");
+  assert.equal(B_(ISS, true, st(), [], false), "IS_ISSUER", "o emissor é barrado antes da competência");
   assert.equal(B_(A, true, st(), [rv(A)]), "ALREADY_REVIEWED", "mesmo usuário em duas conferências");
   assert.equal(B_(A, true, st(), [rv(A, "RECUSADO")]), "ALREADY_REVIEWED", "mesmo usuário aprovando e depois recusando");
   assert.equal(B_(B, true, st(), [rv(A)]), null, "o segundo conferente, distinto, passa");
-  assert.equal(B_(A, false, st(), []), "NOT_MANAGER", "COLABORADOR/LEITURA não conferem");
+  assert.equal(B_(REQ, true, st(), [rv(A)]), null, "solicitante como 2º conferente");
+  assert.equal(B_(A, false, st(), []), "NOT_MANAGER", "COLABORADOR/LEITURA não conferem (competência não substitui o nível)");
   assert.equal(B_(null, true, st(), []), "NO_USER");
   for (const state of ["SOLICITADO", "EM_ANALISE", "CONFERIDO", "RECUSADO", "EM_REVISAO"]) assert.equal(B_(B, true, st({ state }), []), "NOT_EMITTED", state);
   // nova rodada: quem conferiu na rodada anterior pode conferir de novo (a rodada reinicia)
   assert.equal(B_(A, true, st({ reviewRound: 2 }), [rv(A, "APROVADO", 1)]), null);
-  // conferência simples (não crítico): a independência de solicitante/emissor não se aplica (regra do banco), a de repetição sim
-  assert.equal(B_(REQ, true, st({ requiresDualReview: false }), []), null);
+  // conferência simples (não crítico): sem exigência de competência nem independência de solicitante/emissor (regra do banco), a de repetição sim
+  assert.equal(B_(REQ, true, st({ requiresDualReview: false }), [], false), null);
   assert.equal(B_(A, true, st({ requiresDualReview: false }), [rv(A)]), "ALREADY_REVIEWED");
-  for (const c of ["NOT_EMITTED", "NO_USER", "NOT_MANAGER", "IS_REQUESTER", "IS_ISSUER", "ALREADY_REVIEWED"]) assert.ok(I.reviewBlockText(c).length > 20, c);
+  for (const c of ["NOT_EMITTED", "NO_USER", "NOT_MANAGER", "NO_COMPETENCE", "IS_ISSUER", "ALREADY_REVIEWED"]) assert.ok(I.reviewBlockText(c).length > 20, c);
+  assert.equal(I.reviewBlockText("IS_REQUESTER"), undefined, "o código IS_REQUESTER deixou de existir (Fase 4/A)");
 });
 
 check("CASO F3-C-05/06 (puro): andamento — dupla exige 2 aprovações, simples 1, legado 1 já cumprida; recusa é contada à parte", () => {
@@ -149,14 +155,15 @@ check("CASO F3-C-09 (puro): dados legados — CONFERIDO histórico continua com 
 check("CASO 24/38/39 (view model): endorsementView — andamento 1 de 2, bloqueio por usuário e conferências de outro endosso/rodada ignoradas", () => {
   const e = endorsement();
   const reviews = [review({ reviewer_id: A }), review({ endorsement_id: id(99), reviewer_id: B }), review({ review_round: 0, reviewer_id: B })];
-  const asB = M.endorsementView(e, reviews, B, true);
+  const asB = M.endorsementView(e, reviews, B, true, true);
   assert.equal(asB.progress.approved, 1);
   assert.equal(asB.reviewBlock, null, "B ainda pode conferir (as conferências de outro endosso não contam)");
   assert.equal(asB.currentReviews.length, 1);
-  assert.equal(M.endorsementView(e, reviews, A, true).reviewBlock, "ALREADY_REVIEWED");
-  assert.equal(M.endorsementView(e, reviews, REQ, true).reviewBlock, "IS_REQUESTER");
-  assert.equal(M.endorsementView(e, reviews, ISS, true).reviewBlock, "IS_ISSUER");
-  assert.equal(M.endorsementView(e, reviews, B, false).reviewBlock, "NOT_MANAGER");
+  assert.equal(M.endorsementView(e, reviews, A, true, true).reviewBlock, "ALREADY_REVIEWED");
+  assert.equal(M.endorsementView(e, reviews, REQ, true, true).reviewBlock, null, "Fase 4/A: solicitante com competência pode conferir");
+  assert.equal(M.endorsementView(e, reviews, REQ, true).reviewBlock, "NO_COMPETENCE", "sem competência informada: bloqueado (fail-closed)");
+  assert.equal(M.endorsementView(e, reviews, ISS, true, true).reviewBlock, "IS_ISSUER");
+  assert.equal(M.endorsementView(e, reviews, B, false, true).reviewBlock, "NOT_MANAGER");
   // fail-closed: linha de banco antigo, sem os campos novos, é tratada como dupla conferência
   const old = { ...e };
   delete old.requires_dual_review;
@@ -231,7 +238,7 @@ check("CASO 37/F3-C-12 (contrato da migration): constraints, triggers, RLS, appe
     "reviewer_id <> requested_by_snapshot", "reviewer_id <> issued_by_snapshot",
     "insurance_endorsements_dual_classification_check", "insurance_endorsements_guard", "insurance_endorsement_review_prepare",
     "enable row level security", "insurance_block_mutation", "'MANAGE'", "grant execute on function public.insurance_endorsement_review",
-    "LEGACY_FLAG_IMMUTABLE", "CLASSIFICATION_DOWNGRADE", "REVIEWER_IS_REQUESTER", "REVIEWER_IS_ISSUER", "ALREADY_REVIEWED", "VERSION_CONFLICT", "insurance_int_audit",
+    "LEGACY_FLAG_IMMUTABLE", "CLASSIFICATION_DOWNGRADE", "REVIEWER_IS_ISSUER", "ALREADY_REVIEWED", "VERSION_CONFLICT", "insurance_int_audit",
   ]) assert.ok(sql.includes(needle), needle);
   assert.ok(!/real_send_enabled\s*=\s*true/i.test(sql) && !/update public\.insurance_settings/i.test(sql), "a migration não toca na trava de envio real");
   assert.ok(!/record_risk_alert_action/.test(sql), "não toca o hotfix P0");
