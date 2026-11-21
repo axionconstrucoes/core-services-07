@@ -138,3 +138,4 @@ scripts/test-f5-e-governanca.mjs
 scripts/test-f5-e-governanca-realpg.mjs
 scripts/test-f5-g-pipeline.mjs
 scripts/test-f5-g-pipeline-realpg.mjs
+scripts/test-homolog-guard.mjs
