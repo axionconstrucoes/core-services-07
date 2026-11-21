@@ -29,6 +29,8 @@ import {
   type SheetSourceRow,
 } from "./collect-risk-cases";
 import type { ActiveForward, AlertCaseSnapshot } from "./alert-state-machine";
+import { collectEmailRiskCases } from "./collect-email-risk-cases";
+import { loadEmailRiskSignalRows } from "./load-email-risk-signals";
 import { isPilotTestCase } from "./pilot-test-case";
 import { LEVEL_OVERRIDE_ENTITY_TYPE, LEVEL_OVERRIDE_SET_ACTION, LEVEL_OVERRIDE_UNSET_ACTION, resolvePilotLevelOverrides, type LevelOverrideAuditRow } from "./pilot-level-overrides";
 import { INFORMATIVE_ENTITY_TYPE, INFORMATIVE_SET_ACTION, INFORMATIVE_UNSET_ACTION, resolveInformativeAreas, type InformativeAuditRow } from "./informative-areas";
@@ -158,6 +160,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         };
       });
       const alertRows = (alerts ?? []) as unknown as IngestionAlertSourceRow[];
+      const emailCases = collectEmailRiskCases(await loadEmailRiskSignalRows(client, projectId));
 
       // Caso de TESTE do piloto fica fora do planejamento do ciclo (não é fechado, escalado, contado nem entra em consolidado).
       const allCases: RiskCaseRecord[] = (existing ?? [])
@@ -381,7 +384,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         pilotLevelOverrides,
         suspendedCaseIds,
         settings: mapSettings((settings as Row | null) ?? null),
-        cases: [...collectComparisonCases(comparisonRows), ...collectSheetCases(sheetRows), ...collectIngestionAlertCases(alertRows, (config?.risk_alert_severity_map as IngestionAlertSeverityMap | null) ?? null)],
+        cases: [...collectComparisonCases(comparisonRows), ...collectSheetCases(sheetRows), ...collectIngestionAlertCases(alertRows, (config?.risk_alert_severity_map as IngestionAlertSeverityMap | null) ?? null), ...emailCases],
         existingCases,
         testCases,
         linkedActions,
