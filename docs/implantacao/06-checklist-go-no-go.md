@@ -67,4 +67,4 @@ Critérios adicionais, por bloco "migrations": (GO) o ensaio `scripts/ensaio-imp
 - [ ] `15`, seções 2 a 5 executadas: 10 jobs `pg_cron` pausados, 11 workflows desabilitados, nada `running`, outbox sem pendência.
 - [ ] Hotfix registrado só depois da onda B (`migration repair --status applied 20261121090000` ou insert de `12`), P0 `930f6d75...` conferido.
 - [ ] Adiadas (`20261121177000`, `20261123302000`) fora da pasta/da onda até a decisão e o app; `--dry-run` lista exatamente a onda.
-- [ ] Onda M (H6e, `20261211*`) só entra com o JSON atualizado (`14`, seção 7).
+- [ ] Onda M (H6e, `20261211100000`, cauda após L; depende de `20261203*`/`20261209101000`): P0 conferido após o arquivo; SEM TENANT_ADMIN registrado as alterações globais de organizações externas ficam bloqueadas (fail-closed): o bootstrap (SQL de manutenção de `docs/permissoes-matriz-central.md`) é ato à parte, com aprovação do Dono.

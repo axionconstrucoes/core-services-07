@@ -90,3 +90,5 @@ Workflows: `gh workflow list --all` mostra os 11 como `disabled_manually`; nenhu
 ## 7. O que não foi verificado
 
 Em 21/11, às leituras, `net.http_request_queue` = 0 e nenhuma execução `running` (medido, sem pausa); a fila real de runs do GitHub (sem `gh`; o log das execuções é objeto da frente H6b); que desabilitar um workflow não cancela um run em andamento (esperar terminar).
+
+Nota Fase 7: a onda M (H6e) não altera jobs nem workflows; vale a mesma pausa das demais ondas (seções 4 a 6) e a retomada só depois do bootstrap do TENANT_ADMIN, se as telas de contatos externos forem usadas na validação.

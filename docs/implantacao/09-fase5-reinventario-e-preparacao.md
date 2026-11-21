@@ -84,4 +84,4 @@ Nenhuma das 57 pendentes foi aplicada. A decisão de aplicar (por onda) é do do
 
 ## Atualização Fase 7 / H6d (21/11/2026)
 
-Os números desta página foram superados: registradas 134 (inalterado), arquivos locais 204, pendentes 69 + hotfix (a Fase 6 acrescentou as ondas I a L). Ver `14` (inventário e CLI), `15` (pausa de jobs) e `12` (plano por ondas).
+Os números desta página foram superados: registradas 134 (inalterado), arquivos locais 205, pendentes 70 + hotfix (a Fase 6 acrescentou as ondas I a L; a Fase 7/H6e, a onda M). Ver `14` (inventário e CLI), `15` (pausa de jobs) e `12` (plano por ondas).
