@@ -7,6 +7,7 @@ import { ENGENHARIA_MANIFEST } from "./engenharia";
 import { EXPERTS_MANIFEST } from "./experts";
 import { INTEGRACOES_MANIFEST } from "./integracoes";
 import { INTEGRACOES_CONTATOS_MANIFEST } from "./integracoes-contatos";
+import { SINAIS_EMAIL_MANIFEST } from "./sinais-email";
 import { JURIDICO_MANIFEST } from "./juridico";
 import { PLANEJAMENTO_MANIFEST } from "./planejamento";
 import { FONTES_MANIFEST } from "./fontes";
@@ -27,6 +28,7 @@ export const ALL_HELP_MANIFESTS: HelpManifest[] = [
   ENGENHARIA_MANIFEST,
   INTEGRACOES_MANIFEST,
   INTEGRACOES_CONTATOS_MANIFEST,
+  SINAIS_EMAIL_MANIFEST,
   EXPERTS_MANIFEST,
   ADMIN_MANIFEST,
   QUALIDADE_MANIFEST,

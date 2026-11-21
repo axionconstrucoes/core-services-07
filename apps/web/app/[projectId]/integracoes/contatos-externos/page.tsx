@@ -6,11 +6,12 @@ import { createSupabaseServerClient } from "@axion/db/server";
 import { PageHeader } from "@/components/layout/page-header";
 import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CHANGE_KIND_LABEL, CHANGE_STATUS_LABEL, describeChange, globalDataMode } from "@/lib/external-parties/change-requests";
 import { getExternalPartiesOverview } from "@/lib/external-parties/get-overview";
 import { SEM_DADOS } from "@/lib/external-parties/overview";
 import { ORG_KINDS, type ExternalOrgProjectLink } from "@/lib/external-parties/types";
 import { getProjectTier } from "@/lib/permissions/project-tier-server";
-import { addDomainAction, createOrganizationAction, decideCandidateAction, setContactAction, setLinkAction } from "./actions";
+import { addDomainAction, cancelChangeRequestAction, createOrganizationAction, decideCandidateAction, decideChangeRequestAction, setContactAction, setLinkAction, updateOrganizationAction } from "./actions";
 
 export const metadata: Metadata = { title: "Contatos externos monitorados" };
 
@@ -23,6 +24,11 @@ const FLASH: Record<string, string> = {
   contato: "Contato atualizado e auditado.",
   "candidato-confirmado": "Candidato confirmado como contato da organização e auditado.",
   "candidato-rejeitado": "Candidato rejeitado e auditado. O e-mail não será tratado como contato desta organização.",
+  "organizacao-atualizada": "Dados da organização atualizados e auditados.",
+  "solicitacao-enviada": "Solicitação registrada. Nenhum dado global foi alterado: o ADMINISTRADOR do projeto decide e a decisão fica na auditoria.",
+  "solicitacao-aprovada": "Solicitação aprovada e aplicada pelo ADMINISTRADOR; a aplicação ficou na auditoria.",
+  "solicitacao-recusada": "Solicitação recusada com motivo registrado. Nada foi alterado.",
+  "solicitacao-cancelada": "Solicitação cancelada. Nada foi alterado.",
 };
 const ERRORS: Record<string, string> = {
   permissao: "Somente GESTOR, GERENTE ou ADMINISTRADOR ativo do projeto gerencia contatos externos. Nada foi alterado.",
@@ -33,6 +39,9 @@ const ERRORS: Record<string, string> = {
   organizacao: "Escolha a organização do contato. Nada foi alterado.",
   "sem-vinculo": "A organização escolhida não tem vínculo neste projeto. Crie o vínculo antes de confirmar o contato.",
   duplicado: "Registro duplicado. Nada foi alterado.",
+  motivo: "Informe o motivo da solicitação (mínimo de 5 caracteres). Nada foi alterado.",
+  nota: "Informe o motivo da recusa (mínimo de 5 caracteres). Nada foi alterado.",
+  "ja-decidida": "Esta solicitação já foi decidida ou cancelada. Nada foi alterado.",
   falha: "Não foi possível concluir. Nada foi alterado.",
 };
 const LINK_STYLE: Record<string, string> = {
@@ -47,6 +56,7 @@ const KIND_LABEL: Record<string, string> = {
 };
 const INPUT = "min-h-11 w-full rounded-md border border-gray-400 bg-white px-2 py-1 text-sm text-gray-900";
 const BTN = "min-h-11 rounded-md bg-brand-sidebar px-4 py-2 text-sm font-bold text-white";
+const BTN2 = "min-h-11 rounded-md border border-gray-500 bg-white px-4 py-2 text-sm font-bold text-gray-900";
 
 function first(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
@@ -93,6 +103,8 @@ export default async function ContatosExternosPage({
   const tier = await getProjectTier(projectId);
   if (tier !== "MANAGE" && tier !== "ADMIN") notFound(); // gestão (GESTOR/GERENTE/ADMINISTRADOR); demais perfis nem veem a rota
 
+  const mode = globalDataMode(tier);
+  const isAdmin = mode === "DIRECT";
   const query = await searchParams;
   const ok = first(query.ok);
   const erro = first(query.erro);
@@ -112,7 +124,13 @@ export default async function ContatosExternosPage({
         description="Organizações e pessoas de fora da Axion que trocam e-mails com este projeto: quem são, com qual vínculo e com que limite de competência."
         actions={<FeatureInfo helpId="integracoes.contatos-externos.pagina" />}
       />
-      <p className="text-sm"><Link href={`/${projectId}/integracoes`} className="font-semibold text-brand-sidebar hover:underline">← Integrações</Link></p>
+      <p className="flex flex-wrap gap-4 text-sm">
+        <Link href={`/${projectId}/integracoes`} className="font-semibold text-brand-sidebar hover:underline">← Integrações</Link>
+        <Link href={`/${projectId}/integracoes/sinais-email`} className="font-semibold text-brand-sidebar hover:underline">Sinais de risco de e-mail →</Link>
+      </p>
+      <p className="rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-900">
+        Dados globais da organização (razão social, CNPJ, tipo, domínios e contatos) só o ADMINISTRADOR altera{isAdmin ? "." : "; você solicita a alteração e o ADMINISTRADOR decide."} Os vínculos e os contatos descobertos deste projeto continuam sob a gestão do projeto.<FeatureInfo helpId="integracoes.contatos-externos.dados-globais" />
+      </p>
 
       {flash ? (
         <p role="status" className={`rounded-md border px-3 py-2 text-sm ${flash.ok ? "border-emerald-700 bg-emerald-50 text-emerald-900" : "border-red-700 bg-red-50 text-red-900"}`}>{flash.text}</p>
@@ -219,14 +237,24 @@ export default async function ContatosExternosPage({
                   <summary className="min-h-11 cursor-pointer py-2 font-semibold">Corrigir vínculos, domínios e contatos</summary>
                   <div className="space-y-3 pt-2">
                     {links.map((l) => <LinkEditor key={l.id} projectId={projectId} link={l} />)}
+                    <form action={updateOrganizationAction} className="grid gap-2 rounded-md border border-gray-300 p-3 md:grid-cols-4">
+                      <input type="hidden" name="projectId" value={projectId} /><input type="hidden" name="orgId" value={o.id} />
+                      <label className="text-xs font-semibold">Razão social<FeatureInfo helpId="integracoes.contatos-externos.campo-razao" /><input name="legalName" required minLength={2} maxLength={300} defaultValue={o.legal_name} className={INPUT} /></label>
+                      <label className="text-xs font-semibold">CNPJ / identificação fiscal<FeatureInfo helpId="integracoes.contatos-externos.campo-cnpj" /><input name="taxId" maxLength={32} defaultValue={o.tax_id ?? ""} className={INPUT} /></label>
+                      <label className="text-xs font-semibold">Tipo<FeatureInfo helpId="integracoes.contatos-externos.campo-papel" />
+                        <select name="orgKind" defaultValue={o.org_kind} className={INPUT}>{ORG_KINDS.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}</select>
+                      </label>
+                      <label className="text-xs font-semibold">Motivo{isAdmin ? "" : " (obrigatório)"}<FeatureInfo helpId="integracoes.contatos-externos.campo-motivo" /><input name="reason" required={!isAdmin} maxLength={500} className={INPUT} /></label>
+                      <div className="md:col-span-4"><button type="submit" className={BTN}>{isAdmin ? "Salvar dados da organização" : "Solicitar alteração dos dados"}</button><FeatureInfo helpId="integracoes.contatos-externos.acao-alterar-dados" /></div>
+                    </form>
                     <form action={addDomainAction} className="grid gap-2 rounded-md border border-gray-300 p-3 md:grid-cols-3">
                       <input type="hidden" name="projectId" value={projectId} /><input type="hidden" name="orgId" value={o.id} />
                       <label className="text-xs font-semibold">Domínio (ex.: empresa.com.br)<FeatureInfo helpId="integracoes.contatos-externos.campo-dominio" /><input name="domain" required maxLength={253} className={INPUT} /></label>
                       <label className="text-xs font-semibold">Situação<FeatureInfo helpId="integracoes.contatos-externos.campo-situacao" />
                         <select name="active" defaultValue="sim" className={INPUT}><option value="sim">Ativo</option><option value="nao">Inativo</option></select>
                       </label>
-                      <label className="text-xs font-semibold">Motivo<FeatureInfo helpId="integracoes.contatos-externos.campo-motivo" /><input name="reason" maxLength={500} className={INPUT} /></label>
-                      <div className="md:col-span-3"><button type="submit" className={BTN}>Salvar domínio</button><FeatureInfo helpId="integracoes.contatos-externos.acao-salvar-dominio" /></div>
+                      <label className="text-xs font-semibold">Motivo{isAdmin ? "" : " (obrigatório)"}<FeatureInfo helpId="integracoes.contatos-externos.campo-motivo" /><input name="reason" required={!isAdmin} maxLength={500} className={INPUT} /></label>
+                      <div className="md:col-span-3"><button type="submit" className={BTN}>{isAdmin ? "Salvar domínio" : "Solicitar domínio"}</button><FeatureInfo helpId="integracoes.contatos-externos.acao-salvar-dominio" /></div>
                     </form>
                     <form action={setContactAction} className="grid gap-2 rounded-md border border-gray-300 p-3 md:grid-cols-4">
                       <input type="hidden" name="projectId" value={projectId} /><input type="hidden" name="orgId" value={o.id} />
@@ -235,8 +263,8 @@ export default async function ContatosExternosPage({
                       <label className="text-xs font-semibold">Situação<FeatureInfo helpId="integracoes.contatos-externos.campo-situacao" />
                         <select name="status" defaultValue="CONFIRMED" className={INPUT}><option value="CONFIRMED">Confirmado</option><option value="CANDIDATE">Candidato</option><option value="REJECTED">Rejeitado</option></select>
                       </label>
-                      <label className="text-xs font-semibold">Motivo<FeatureInfo helpId="integracoes.contatos-externos.campo-motivo" /><input name="reason" maxLength={500} className={INPUT} /></label>
-                      <div className="md:col-span-4"><button type="submit" className={BTN}>Salvar contato</button><FeatureInfo helpId="integracoes.contatos-externos.acao-salvar-contato" /></div>
+                      <label className="text-xs font-semibold">Motivo{isAdmin ? "" : " (obrigatório)"}<FeatureInfo helpId="integracoes.contatos-externos.campo-motivo" /><input name="reason" required={!isAdmin} maxLength={500} className={INPUT} /></label>
+                      <div className="md:col-span-4"><button type="submit" className={BTN}>{isAdmin ? "Salvar contato" : "Solicitar contato"}</button><FeatureInfo helpId="integracoes.contatos-externos.acao-salvar-contato" /></div>
                     </form>
                   </div>
                 </details>
@@ -247,7 +275,7 @@ export default async function ContatosExternosPage({
       </Card>
 
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-1.5 text-base">Nova organização neste projeto<FeatureInfo helpId="integracoes.contatos-externos.nova-organizacao" /></CardTitle></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-1.5 text-base">{isAdmin ? "Nova organização neste projeto" : "Solicitar cadastro de nova organização"}<FeatureInfo helpId="integracoes.contatos-externos.nova-organizacao" /></CardTitle></CardHeader>
         <CardContent>
           <form action={createOrganizationAction} className="grid gap-2 md:grid-cols-3">
             <input type="hidden" name="projectId" value={projectId} />
@@ -259,20 +287,44 @@ export default async function ContatosExternosPage({
                 {ORG_KINDS.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
               </select>
             </label>
+            {isAdmin ? (<>
             <label className="text-xs font-semibold">Contrato / referência<FeatureInfo helpId="integracoes.contatos-externos.campo-contrato" /><input name="contractRef" maxLength={200} className={INPUT} /></label>
             <label className="text-xs font-semibold">Cláusula de delegação<FeatureInfo helpId="integracoes.contatos-externos.campo-clausula" /><input name="clauseRef" maxLength={200} className={INPUT} /></label>
             <label className="text-xs font-semibold">Limites de competência (vírgula)<FeatureInfo helpId="integracoes.contatos-externos.campo-escopo" /><input name="scope" maxLength={400} className={INPUT} /></label>
             <label className="text-xs font-semibold">Vigência de<FeatureInfo helpId="integracoes.contatos-externos.campo-vigencia" /><input type="date" name="validFrom" className={INPUT} /></label>
             <label className="text-xs font-semibold">Vigência até<FeatureInfo helpId="integracoes.contatos-externos.campo-vigencia" /><input type="date" name="validUntil" className={INPUT} /></label>
             <label className="text-xs font-semibold">Domínio principal<FeatureInfo helpId="integracoes.contatos-externos.campo-dominio" /><input name="domain" maxLength={253} className={INPUT} /></label>
+            </>) : null}
             <label className="text-xs font-semibold md:col-span-3">Observações / motivo<FeatureInfo helpId="integracoes.contatos-externos.campo-observacoes" /><input name="notes" maxLength={500} className={INPUT} /></label>
-            <input type="hidden" name="reason" value="Cadastro pela tela de contatos externos" />
-            <label className="flex min-h-11 items-center gap-2 text-xs md:col-span-3">
+            {isAdmin ? <input type="hidden" name="reason" value="Cadastro pela tela de contatos externos" /> : <label className="text-xs font-semibold md:col-span-3">Motivo da solicitação (obrigatório)<FeatureInfo helpId="integracoes.contatos-externos.campo-motivo" /><input name="reason" required minLength={5} maxLength={500} className={INPUT} /></label>}
+            {isAdmin ? <label className="flex min-h-11 items-center gap-2 text-xs md:col-span-3">
               <input type="checkbox" name="confirm" value="sim" className="size-5" />
               <span>Confirmo o vínculo como ATIVO (conferi contrato e delegação). Desmarcado, o vínculo fica como CANDIDATO e não confere autoridade.</span><FeatureInfo helpId="integracoes.contatos-externos.campo-confirmacao" />
-            </label>
-            <div className="md:col-span-3"><button type="submit" className={BTN}>Cadastrar</button><FeatureInfo helpId="integracoes.contatos-externos.acao-cadastrar" /></div>
+            </label> : null}
+            <div className="md:col-span-3"><button type="submit" className={BTN}>{isAdmin ? "Cadastrar" : "Solicitar cadastro"}</button><FeatureInfo helpId="integracoes.contatos-externos.acao-cadastrar" /></div>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-1.5 text-base">Solicitações de alteração de dados globais ({ov.changeRequests.filter((r) => r.status === "PENDING").length} pendente(s))<FeatureInfo helpId="integracoes.contatos-externos.solicitacoes" /></CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {ov.changeRequests.length === 0 ? <p className="text-sm">Nenhuma solicitação registrada.</p> : null}
+          {ov.changeRequests.map((r) => (
+            <div key={r.id} className="space-y-2 rounded-md border border-gray-300 p-3 text-sm">
+              <p><span className="rounded bg-gray-200 px-2 py-0.5 text-xs font-bold text-gray-900">{CHANGE_STATUS_LABEL[r.status]}</span> <strong>{CHANGE_KIND_LABEL[r.kind]}</strong> — {describeChange(r.kind, r.payload)}</p>
+              <p className="text-xs text-gray-800">Pedido em {fmtDate(r.requested_at)} · motivo: {r.reason}{r.decided_at ? ` · decidido em ${fmtDate(r.decided_at)}${r.decision_note ? ` — ${r.decision_note}` : ""}` : ""}</p>
+              {r.status === "PENDING" ? (
+                <form action={decideChangeRequestAction} className="grid gap-2 md:grid-cols-[1fr_auto_auto_auto]">
+                  <input type="hidden" name="projectId" value={projectId} /><input type="hidden" name="requestId" value={r.id} />
+                  <label className="text-xs font-semibold">{isAdmin ? "Nota da decisão (obrigatória para recusar)" : "Nota (opcional)"}<FeatureInfo helpId="integracoes.contatos-externos.campo-nota-decisao" /><input name="note" maxLength={500} className={INPUT} /></label>
+                  {isAdmin ? <div className="flex items-end gap-1"><button type="submit" name="decision" value="APPROVE" className={BTN}>Aprovar e aplicar</button><FeatureInfo helpId="integracoes.contatos-externos.acao-aprovar-solicitacao" /></div> : null}
+                  {isAdmin ? <div className="flex items-end gap-1"><button type="submit" name="decision" value="REJECT" className={BTN2}>Recusar</button><FeatureInfo helpId="integracoes.contatos-externos.acao-recusar-solicitacao" /></div> : null}
+                  <div className="flex items-end gap-1"><button type="submit" formAction={cancelChangeRequestAction} className={BTN2}>Cancelar solicitação</button><FeatureInfo helpId="integracoes.contatos-externos.acao-cancelar-solicitacao" /></div>
+                </form>
+              ) : null}
+            </div>
+          ))}
         </CardContent>
       </Card>
 

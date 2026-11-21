@@ -138,3 +138,5 @@ scripts/test-f5-e-governanca.mjs
 scripts/test-f5-e-governanca-realpg.mjs
 scripts/test-f5-g-pipeline.mjs
 scripts/test-f5-g-pipeline-realpg.mjs
+scripts/test-f6-h2b-sinais-pilares.mjs
+scripts/test-f6-h2b-sinais-orgs-realpg.mjs
