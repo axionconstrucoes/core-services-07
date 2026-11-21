@@ -66,8 +66,8 @@ Mesma ordem de login/checagem. Jaime é o 2º gestor (independência de conferen
 | J8 | `<obra>/action-requests` | Destinatário externo sem confirmação / com confirmação+motivo válidos | Sem confirmação recusado; com ambos segue e fica na auditoria | `destinatario-externo-gestor` |
 | J9 | `<obra>/integracoes/contatos-externos` | Solicitar alteração de dado global (organização/domínio) | Gestor SOLICITA mas NÃO altera dado global (sem gravação direta) | `contatos-gestor-solicita` |
 | J10 | `<obra>/integracoes/sinais-email` | Confirmar/descartar um sinal (se houver; senão registrar SEM DADOS) | Confirma/descarta com motivo; ou estado vazio SEM DADOS | `sinais-gestor` |
-| J11 | `<obra>/aprovacoes-externas` | Decidir aprovação externa preparada (exceto minuta de Seguros) | Decide; hash do conteúdo conferido; divergência bloqueia; NUNCA envia | `aprovacoes-gestor-decide` |
-| J12 | `<obra>/competencias` | Validar competência solicitada por OUTRA pessoa (ex.: do reynaldo) | Validador independente aceito; não valida a própria solicitação | `competencias-validador` |
+| J11 | `<obra>/aprovacoes-externas` | Decidir aprovação externa preparada (exceto minuta de Seguros). A preparação já decidida em 21/11 expira em 24 h: preparar uma NOVA antes (a pendente `OUTRO` v1 pode ser usada) | Decide; hash do conteúdo conferido; divergência bloqueia; NUNCA envia | `aprovacoes-gestor-decide` |
+| J12 | `<obra>/competencias` | Validar competência solicitada por OUTRA pessoa (ex.: do reynaldo). ATENÇÃO: a tela diz que valida "segundo administrador ou validador designado"; um GESTOR sem designação provavelmente NÃO valida. Antes, o reynaldo designa Jaime (ata sintética (e)) e Jaime ACEITA a própria designação | Validador independente aceito; não valida a própria solicitação | `competencias-validador` |
 | J13 | rotas restritas (Integrações, Usuários, Eventos, Start-up) | Colar URL | Negado | `rota-restrita-negada-gestor` |
 | J14 | `/<id TESTE-2>/...` | Colar URL | Negado | `isolamento-obra2-gestor` |
 
