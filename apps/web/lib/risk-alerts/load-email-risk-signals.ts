@@ -3,6 +3,8 @@
 // aplicadas) => lista vazia, declarado: nenhum caso EMAIL é criado — nunca erro que derrube o ciclo dos demais casos.
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import { legacyPillarOf } from "@/lib/email-classification/pillars";
+
 import type { EmailRiskSignalRow } from "./collect-email-risk-cases";
 
 const MISSING_RELATION_CODES = new Set(["42P01", "PGRST205", "PGRST200"]);
@@ -13,9 +15,10 @@ type Row = Record<string, unknown>;
 export async function loadEmailRiskSignalRows(client: SupabaseClient, projectId: string): Promise<EmailRiskSignalRow[]> {
   const { data: signals, error } = await client
     .from("email_risk_signals")
-    .select("id,email_id,classification_id,project_id,pillar,signal_kind,summary,evidence_excerpt,evidence_ref,is_indication,confirmed,quantified_impact,created_at")
+    .select("id,email_id,classification_id,project_id,pillar,functional_area,signal_kind,summary,evidence_excerpt,evidence_ref,is_indication,confirmed,quantified_impact,created_at")
     .eq("project_id", projectId)
     .eq("is_indication", true)
+    .neq("review_status", "DISCARDED") // Fase 6/H2b: sinal descartado por revisão humana não gera caso
     .order("created_at", { ascending: false })
     .limit(SIGNAL_LIMIT);
   if (error) {
@@ -39,7 +42,8 @@ export async function loadEmailRiskSignalRows(client: SupabaseClient, projectId:
       id: row.id as string,
       email_id: row.email_id as string,
       project_id: (row.project_id as string | null) ?? null,
-      pillar: row.pillar as string,
+      // Fase 6/H2b: pilar agora só PRAZO/CUSTO/SEGURANCA/QUALIDADE; área jurídica volta como JURIDICO (contrato que este coletor lê).
+      pillar: legacyPillarOf({ pillar: (row.pillar as string | null) ?? null, functional_area: (row.functional_area as string | null) ?? null }) ?? "",
       signal_kind: row.signal_kind as string,
       summary: (row.summary as string | null) ?? null,
       evidence_excerpt: (row.evidence_excerpt as string | null) ?? null,

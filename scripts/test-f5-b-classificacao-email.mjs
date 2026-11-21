@@ -52,8 +52,9 @@ const ctx = (over = {}) => ({
 });
 let seq = 0;
 const mail = (from, subject, bodyText, extra = {}) => ({ id: `eml-${++seq}`, candidateProjectId: P1, subject, bodyText, from, to: ["obra@axion.com.br"], direction: "INBOUND", ...extra });
-const kinds = (r) => r.signals.map((s) => `${s.pillar}:${s.signal_kind}`).sort();
-const has = (r, pillar, kind) => r.signals.some((s) => s.pillar === pillar && (!kind || s.signal_kind === kind));
+// Fase 6/H2b: pilares são só PRAZO/CUSTO/SEGURANCA/QUALIDADE; "JURIDICO" aqui é a ÁREA funcional (functional_area).
+const kinds = (r) => r.signals.map((s) => `${s.pillar ?? `area:${s.functional_area}`}:${s.signal_kind}`).sort();
+const has = (r, axis, kind) => r.signals.some((s) => (axis === "JURIDICO" ? s.functional_area === "JURIDICO" : s.pillar === axis) && (!kind || s.signal_kind === kind));
 
 await check("1 cliente reclamação: OFICIAL_CLIENTE, sinal jurídico de reclamação como INDÍCIO, evidência rastreável", () => {
   const r = classifyEmail(mail("cliente@weg.net", "Reclamação", "Formalmente reclamamos da condução da obra no setor B. Estamos insatisfeitos."), ctx());

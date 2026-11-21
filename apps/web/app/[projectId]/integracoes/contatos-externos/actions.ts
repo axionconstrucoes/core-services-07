@@ -3,7 +3,9 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@axion/db/server";
 
+import { changeErrorCode, globalDataMode, type ChangeKind } from "@/lib/external-parties/change-requests";
 import { ORG_KINDS } from "@/lib/external-parties/types";
+import type { ProjectTier } from "@/lib/permissions/project-tier";
 import { getProjectTier } from "@/lib/permissions/project-tier-server";
 
 const UUID = /^[0-9a-fA-F-]{36}$/;
@@ -15,32 +17,43 @@ function back(projectId: string, query: string): never {
 
 // Toda ação: (1) formato; (2) nível MANAGE/ADMIN no servidor (acc_project_tier); (3) RPC (o banco repete a checagem e grava a auditoria).
 // Sucesso só é informado depois que a RPC retorna sem erro. Nunca envia e-mail nem altera mensagens.
-async function guard(formData: FormData): Promise<string> {
+// Fase 6/H2b: DADOS GLOBAIS (razão social, CNPJ, tipo, domínios, contatos) só o ADMINISTRADOR grava; GESTOR/GERENTE geram uma SOLICITAÇÃO
+// (acc_external_change_request) que o ADMINISTRADOR decide. Vínculos e candidatos do projeto continuam com a gestão (MANAGE/ADMIN).
+async function guard(formData: FormData): Promise<{ projectId: string; tier: ProjectTier }> {
   const projectId = String(formData.get("projectId") ?? "");
   if (!UUID.test(projectId)) redirect("/projetos");
   const tier = await getProjectTier(projectId);
   if (tier !== "MANAGE" && tier !== "ADMIN") back(projectId, "erro=permissao");
+  return { projectId, tier };
+}
+
+async function guardAdmin(formData: FormData): Promise<string> {
+  const { projectId, tier } = await guard(formData);
+  if (tier !== "ADMIN") back(projectId, "erro=permissao");
   return projectId;
 }
 
-function errCode(message: string): string {
-  if (/FORBIDDEN|AUTH_REQUIRED/i.test(message)) return "permissao";
-  if (/INVALID_DOMAIN/.test(message)) return "dominio";
-  if (/INVALID_EMAIL/.test(message)) return "email";
-  if (/NO_LINK/.test(message)) return "sem-vinculo";
-  if (/duplicate|unique/i.test(message)) return "duplicado";
-  if (/check|violates/i.test(message)) return "dados";
-  return "falha";
-}
-
+const errCode = changeErrorCode;
 const text = (f: FormData, k: string): string => String(f.get(k) ?? "").trim();
 const scopeOf = (raw: string): string[] => raw.split(/[,;\n]/).map((s) => s.trim().toUpperCase().replace(/\s+/g, "_")).filter(Boolean).slice(0, 20);
 
+/** GESTOR/GERENTE: registra o pedido de alteração global (não altera nada); o ADMINISTRADOR decide. */
+async function requestChange(projectId: string, kind: ChangeKind, orgId: string | null, payload: Record<string, unknown>, reason: string): Promise<never> {
+  const supabase = await createSupabaseServerClient();
+  const r = await supabase.rpc("acc_external_change_request", { p_project_id: projectId, p_kind: kind, p_org_id: orgId, p_payload: payload, p_reason: reason });
+  if (r.error) back(projectId, `erro=${errCode(r.error.message)}`);
+  back(projectId, "ok=solicitacao-enviada");
+}
+
 export async function createOrganizationAction(formData: FormData): Promise<void> {
-  const projectId = await guard(formData);
+  const { projectId, tier } = await guard(formData);
   const kind = text(formData, "orgKind");
   const name = text(formData, "legalName");
   if (!(ORG_KINDS as readonly string[]).includes(kind) || name.length < 2) back(projectId, "erro=dados");
+  if (globalDataMode(tier) === "REQUEST") {
+    // O vínculo é criado pelo ADMINISTRADOR na aprovação (CANDIDATO); depois o gestor completa/valida o vínculo do seu projeto.
+    await requestChange(projectId, "ORG_CREATE", null, { legal_name: name, tax_id: text(formData, "taxId") || undefined, org_kind: kind, notes: text(formData, "notes") || undefined, role_in_project: kind }, text(formData, "reason") || "Cadastro solicitado pela tela de contatos externos");
+  }
   const confirm = formData.get("confirm") === "sim";
   const validFrom = text(formData, "validFrom");
   const validUntil = text(formData, "validUntil");
@@ -75,8 +88,24 @@ export async function createOrganizationAction(formData: FormData): Promise<void
   back(projectId, confirm ? "ok=organizacao-ativa" : "ok=organizacao-candidata");
 }
 
+/** Alteração de razão social / CNPJ / tipo de uma organização existente: ADMINISTRADOR grava; GESTOR/GERENTE solicitam. */
+export async function updateOrganizationAction(formData: FormData): Promise<void> {
+  const { projectId, tier } = await guard(formData);
+  const orgId = text(formData, "orgId");
+  const name = text(formData, "legalName");
+  const kind = text(formData, "orgKind");
+  if (!UUID.test(orgId) || name.length < 2 || !(ORG_KINDS as readonly string[]).includes(kind)) back(projectId, "erro=dados");
+  const org = { id: orgId, legal_name: name, tax_id: text(formData, "taxId"), org_kind: kind };
+  const reason = text(formData, "reason");
+  if (globalDataMode(tier) === "REQUEST") await requestChange(projectId, "ORG_UPDATE", orgId, { legal_name: name, tax_id: org.tax_id, org_kind: kind }, reason);
+  const supabase = await createSupabaseServerClient();
+  const r = await supabase.rpc("acc_external_org_save", { p_project_id: projectId, p_org: org, p_reason: reason || null });
+  if (r.error) back(projectId, `erro=${errCode(r.error.message)}`);
+  back(projectId, "ok=organizacao-atualizada");
+}
+
 export async function setLinkAction(formData: FormData): Promise<void> {
-  const projectId = await guard(formData);
+  const { projectId } = await guard(formData);
   const linkId = text(formData, "linkId");
   const status = text(formData, "status");
   if (!UUID.test(linkId) || !["ACTIVE", "CANDIDATE", "ENDED"].includes(status)) back(projectId, "erro=dados");
@@ -91,20 +120,23 @@ export async function setLinkAction(formData: FormData): Promise<void> {
 }
 
 export async function addDomainAction(formData: FormData): Promise<void> {
-  const projectId = await guard(formData);
+  const { projectId, tier } = await guard(formData);
   const orgId = text(formData, "orgId");
   if (!UUID.test(orgId)) back(projectId, "erro=dados");
+  const active = formData.get("active") !== "nao";
+  if (globalDataMode(tier) === "REQUEST") await requestChange(projectId, "DOMAIN_SET", orgId, { domain: text(formData, "domain"), active }, text(formData, "reason"));
   const supabase = await createSupabaseServerClient();
-  const r = await supabase.rpc("acc_external_domain_set", { p_project_id: projectId, p_org_id: orgId, p_domain: text(formData, "domain"), p_active: formData.get("active") !== "nao", p_reason: text(formData, "reason") || null });
+  const r = await supabase.rpc("acc_external_domain_set", { p_project_id: projectId, p_org_id: orgId, p_domain: text(formData, "domain"), p_active: active, p_reason: text(formData, "reason") || null });
   if (r.error) back(projectId, `erro=${errCode(r.error.message)}`);
   back(projectId, (r.data as { domain_shared?: boolean } | null)?.domain_shared ? "ok=dominio-compartilhado" : "ok=dominio");
 }
 
 export async function setContactAction(formData: FormData): Promise<void> {
-  const projectId = await guard(formData);
+  const { projectId, tier } = await guard(formData);
   const orgId = text(formData, "orgId");
   const status = text(formData, "status");
   if (!UUID.test(orgId) || !["CONFIRMED", "CANDIDATE", "REJECTED"].includes(status)) back(projectId, "erro=dados");
+  if (globalDataMode(tier) === "REQUEST") await requestChange(projectId, "CONTACT_SET", orgId, { email: text(formData, "email"), display_name: text(formData, "displayName") || undefined, status }, text(formData, "reason"));
   const supabase = await createSupabaseServerClient();
   const r = await supabase.rpc("acc_external_contact_set", { p_project_id: projectId, p_org_id: orgId, p_email: text(formData, "email"), p_display_name: text(formData, "displayName") || null, p_status: status, p_reason: text(formData, "reason") || null });
   if (r.error) back(projectId, `erro=${errCode(r.error.message)}`);
@@ -112,7 +144,7 @@ export async function setContactAction(formData: FormData): Promise<void> {
 }
 
 export async function decideCandidateAction(formData: FormData): Promise<void> {
-  const projectId = await guard(formData);
+  const { projectId } = await guard(formData);
   const candidateId = text(formData, "candidateId");
   const decision = text(formData, "decision");
   const orgId = text(formData, "orgId");
@@ -122,4 +154,28 @@ export async function decideCandidateAction(formData: FormData): Promise<void> {
   const r = await supabase.rpc("acc_external_candidate_decide", { p_project_id: projectId, p_candidate_id: candidateId, p_decision: decision, p_org_id: UUID.test(orgId) ? orgId : null, p_reason: text(formData, "reason") || null });
   if (r.error) back(projectId, `erro=${errCode(r.error.message)}`);
   back(projectId, decision === "CONFIRM" ? "ok=candidato-confirmado" : "ok=candidato-rejeitado");
+}
+
+/** Decisão sobre a solicitação de alteração global: somente ADMINISTRADOR (o banco repete a regra). APPROVE aplica a alteração. */
+export async function decideChangeRequestAction(formData: FormData): Promise<void> {
+  const projectId = await guardAdmin(formData);
+  const requestId = text(formData, "requestId");
+  const decision = text(formData, "decision");
+  if (!UUID.test(requestId) || !["APPROVE", "REJECT"].includes(decision)) back(projectId, "erro=dados");
+  const note = text(formData, "note");
+  if (decision === "REJECT" && note.length < 5) back(projectId, "erro=nota");
+  const supabase = await createSupabaseServerClient();
+  const r = await supabase.rpc("acc_external_change_decide", { p_request_id: requestId, p_decision: decision, p_note: note || null });
+  if (r.error) back(projectId, `erro=${errCode(r.error.message)}`);
+  back(projectId, decision === "APPROVE" ? "ok=solicitacao-aprovada" : "ok=solicitacao-recusada");
+}
+
+export async function cancelChangeRequestAction(formData: FormData): Promise<void> {
+  const { projectId } = await guard(formData);
+  const requestId = text(formData, "requestId");
+  if (!UUID.test(requestId)) back(projectId, "erro=dados");
+  const supabase = await createSupabaseServerClient();
+  const r = await supabase.rpc("acc_external_change_cancel", { p_request_id: requestId, p_note: text(formData, "note") || null });
+  if (r.error) back(projectId, `erro=${errCode(r.error.message)}`);
+  back(projectId, "ok=solicitacao-cancelada");
 }

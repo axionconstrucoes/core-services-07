@@ -2,9 +2,12 @@
 // minúscula). Uma sentença pode disparar várias regras (ex.: prazo + custo). Resultado é INDÍCIO, nunca fato comprovado.
 import type { Pillar } from "./types";
 
+/** Pilar de ORIGEM da regra: um dos quatro pilares ou "JURIDICO" (regra jurídica; pilar final e área saem de signalAxes em pillars.ts). */
+export type RulePillar = Pillar | "JURIDICO";
+
 export interface SignalRule {
   id: string;
-  pillar: Pillar;
+  pillar: RulePillar;
   kind: string;
   summary: string;
   /** Todas as expressões devem casar na MESMA sentença. */

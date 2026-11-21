@@ -231,7 +231,7 @@ try {
         const run = async () => {
           ok(/^[a-z_,]+$/.test(q.cols.replace(/\s/g, "")) || q.cols === "*", "colunas");
           const params = [];
-          const where = q.where.map(([c, op, v]) => { params.push(v); return op === "in" ? `${c} = any($${params.length})` : `${c} = $${params.length}`; });
+          const where = q.where.map(([c, op, v]) => { params.push(v); return op === "in" ? `${c} = any($${params.length})` : op === "<>" ? `${c} <> $${params.length}` : `${c} = $${params.length}`; });
           const sql = `select ${q.cols} from public.${table}${where.length ? ` where ${where.join(" and ")}` : ""}${q.order ? ` order by ${q.order[0]} ${q.order[1] ? "asc" : "desc"}` : ""}${q.lim ? ` limit ${q.lim}` : ""}`;
           const r = await su.query(sql, params);
           return { data: r.rows, error: null };
@@ -239,6 +239,7 @@ try {
         const b = {
           select(c) { q.cols = c; return b; },
           eq(c, v) { q.where.push([c, "=", v]); return b; },
+          neq(c, v) { q.where.push([c, "<>", v]); return b; }, // Fase 6/H2b: o coletor ignora sinais DESCARTADOS
           in(c, v) { q.where.push([c, "in", v]); return b; },
           order(c, o) { q.order = [c, o?.ascending !== false]; return b; },
           limit(n) { q.lim = n; return b; },
