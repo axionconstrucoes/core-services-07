@@ -48,7 +48,7 @@ grant execute on function auth.uid(), auth.role(), auth.jwt() to anon, authentic
 const platform = PLATFORM.replace(/^create role .*$/gm, "").replace(/^create function auth\.(uid|role|jwt)\(\).*$/gm, "-- stub removido") + "\n" + GOTRUE;
 
 const reportArg = process.argv.indexOf("--report");
-const reportPath = reportArg > 0 ? process.argv[reportArg + 1] : null;
+const reportPath = process.env.ACC_ENSAIO_REPORT || (reportArg > 0 ? process.argv[reportArg + 1] : null);
 
 let passed = 0;
 let failed = 0;
@@ -65,6 +65,7 @@ await admin.connect();
 const version = (await admin.query("show server_version")).rows[0].server_version;
 const stamp = Date.now().toString(36);
 const dbs = [];
+const clients = [];
 for (const [role, extra] of [["anon", "nologin"], ["authenticated", "nologin"], ["service_role", "nologin bypassrls"]]) {
   await admin.query(`do $$ begin create role ${role} ${extra}; exception when duplicate_object then null; end $$`);
 }
@@ -75,7 +76,9 @@ async function newDb(tag) {
   const b = new URL(url);
   b.pathname = `/${name}`;
   const su = new pg.Client({ connectionString: b.toString() });
+  su.on("error", () => {});
   await su.connect();
+  clients.push(su);
   await su.query(platform);
   return { su, name };
 }
@@ -134,16 +137,16 @@ async function seed(su) {
       [id, P, `Acao ${k} (SIMULADA)`, risk, AREA, U.RESP, status, String(hours)]);
     return id;
   };
-  for (const [r, st, h] of [["MEDIUM", "OPEN", 20], ["MEDIUM", "OPEN", 30], ["MEDIUM", "IN_PROGRESS", 40], ["MEDIUM", "OPEN", 50], ["MEDIUM", "OPEN", 60],
-    ["LOW", "OPEN", 70], ["LOW", "IN_PROGRESS", 80], ["LOW", "OPEN", 90], ["LOW", "OPEN", 100]]) await act(r, st, h);
+  for (const [r, st, h] of [["MEDIUM", "PENDING", 20], ["MEDIUM", "PENDING", 30], ["MEDIUM", "IN_PROGRESS", 40], ["MEDIUM", "PENDING", 50], ["MEDIUM", "PENDING", 60],
+    ["LOW", "PENDING", 70], ["LOW", "IN_PROGRESS", 80], ["LOW", "PENDING", 90], ["LOW", "PENDING", 100]]) await act(r, st, h);
   for (const [r, h] of [["MEDIUM", -300], ["LOW", -400], ["MEDIUM", -500]]) {
-    const id = await act(r, "OPEN", h);
+    const id = await act(r, "PENDING", h);
     await su.query("update public.sla_actions set status='COMPLETED', completed_at = now(), completed_by_user_id = $2, completion_note='concluida (SIMULADA)' where id=$1", [id, U.RESP]);
   }
-  await act("HIGH", "OPEN", 3);
-  await act("CRITICAL", "OPEN", 1);
+  await act("HIGH", "PENDING", 3);
+  await act("CRITICAL", "PENDING", 1);
   // Caso de alerta para a sonda P0 (acao SLA propria).
-  const sla = await act("HIGH", "OPEN", 2);
+  const sla = await act("HIGH", "PENDING", 2);
   const caseId = "00000000-0000-4000-8000-0000000f4e01";
   await su.query(
     "insert into public.risk_alert_cases (id,project_id,source_type,source_id,area,risk_level,title,fingerprint,sla_action_id,current_responsible_user_id) values ($1,$2,'INGESTION_ALERT',gen_random_uuid(),$3,'HIGH','Atraso no cronograma (SIMULADO)','fp-f4c-1',$4,$5)",
@@ -240,8 +243,8 @@ const snapshotData = async (su) => {
   const q = async (sql) => (await su.query(sql)).rows[0].h;
   return {
     actions: await q("select md5(string_agg(id::text||'|'||status||'|'||coalesce(assume_due_at::text,'')||'|'||coalesce(responsible_user_id::text,''), ',' order by id)) h from public.sla_actions"),
-    open_med_low: await q("select md5(string_agg(id::text||'|'||assume_due_at::text, ',' order by id)) h from public.sla_actions where risk_level in ('LOW','MEDIUM') and status in ('OPEN','IN_PROGRESS')"),
-    open_med_low_n: (await su.query("select count(*)::int n from public.sla_actions where risk_level in ('LOW','MEDIUM') and status in ('OPEN','IN_PROGRESS')")).rows[0].n,
+    open_med_low: await q("select md5(string_agg(id::text||'|'||assume_due_at::text, ',' order by id)) h from public.sla_actions where risk_level in ('LOW','MEDIUM') and status in ('PENDING','IN_PROGRESS')"),
+    open_med_low_n: (await su.query("select count(*)::int n from public.sla_actions where risk_level in ('LOW','MEDIUM') and status in ('PENDING','IN_PROGRESS')")).rows[0].n,
     cases: await q("select md5(string_agg(id::text||state||coalesce(current_responsible_user_id::text,''), ',' order by id)) h from public.risk_alert_cases"),
     members: await q("select md5(string_agg(project_id::text||user_id::text||permission||status, ',' order by project_id,user_id)) h from public.project_memberships"),
     rules: await q("select md5(string_agg(id::text||risk_level||coalesce(area,'')||assume_deadline_value::text||active::text, ',' order by id)) h from public.sla_matrix_rules"),
@@ -334,7 +337,7 @@ try {
     const again = await snapshotData(su);
     ok(again.rules === post.rules && again.open_med_low === post.open_med_low, "nao e idempotente");
     // Nova acao criada depois usa o prazo novo; as antigas nao se movem.
-    await su.query("insert into public.sla_actions (project_id,origin,title,risk_level,area,responsible_user_id,status,assume_due_at,created_by_type) values ($1,'OTHER','Nova acao MEDIO (SIMULADA)','MEDIUM',$2,$3,'OPEN',public.sla_ssma_assume_due_at($1,'MEDIUM',$4::timestamptz),'SYSTEM')", [P, AREA, U.RESP, start]);
+    await su.query("insert into public.sla_actions (project_id,origin,title,risk_level,area,responsible_user_id,status,assume_due_at,created_by_type) values ($1,'OTHER','Nova acao MEDIO (SIMULADA)','MEDIUM',$2,$3,'PENDING',public.sla_ssma_assume_due_at($1,'MEDIUM',$4::timestamptz),'SYSTEM')", [P, AREA, U.RESP, start]);
     const fin = await snapshotData(su);
     ok(fin.open_med_low === post.open_med_low || true, "");
     const nw = (await su.query("select assume_due_at d from public.sla_actions where title like 'Nova acao MEDIO%'")).rows[0].d.toISOString();
@@ -363,12 +366,28 @@ try {
     const post = await snapshotData(dup.su);
     ok(pre.rules === post.rules && pre.actions === post.actions, "houve efeito parcial");
   });
+  // Controle negativo: prova que a verificacao P0 e o portao DETECTAM um corpo intermediario (anterior ao hotfix).
+  await check("[controle] corpo INTERMEDIARIO (130000 sem a guarda) e detectado pela verificacao P0 e o portao 20261126100000 falha fechado", async () => {
+    const src = body("20261120130000_risk_alert_action_server_side_guard");
+    const a = src.indexOf("execute $ACC_FN$") + "execute $ACC_FN$".length;
+    const b = src.indexOf("$ACC_FN$;", a);
+    ok(a > 20 && b > a, "corpo intermediario nao localizado");
+    await dup.su.query(src.slice(a, b));
+    const p = await p0Full(dup.su, dup.caseId);
+    ok(p.good === false && p.md5 !== "930f6d75898793479b418950b0053bd9", "verificacao P0 nao detectou o corpo intermediario");
+    let msg = "";
+    try { await applyFile(dup.su, "20261126100000_p0_gate_record_risk_alert_action", "LF", dup.notices); } catch (e) { msg = e.message; }
+    ok(/P0_GATE/.test(msg), `portao deveria falhar: ${msg}`);
+    await applyFile(dup.su, "20261121101000_null_safe_authorization_residual", "LF", dup.notices); // recoloca o corpo protegido
+    ok((await p0Full(dup.su, dup.caseId)).good, "101000 nao restaurou o corpo protegido");
+    await applyFile(dup.su, "20261126100000_p0_gate_record_risk_alert_action", "LF", dup.notices);
+  });
   await dup.su.end();
 } catch (e) {
   out(`FAIL ensaio abortado: ${String(e.message).split("\n")[0]}`);
   failed += 1;
 } finally {
-  await admin.query("select 1");
+  for (const c of clients) await c.end().catch(() => {});
   for (const n of dbs) await admin.query(`drop database if exists ${n} with (force)`).catch(() => {});
   await admin.end();
 }
