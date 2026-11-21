@@ -26,8 +26,9 @@ const HOTFIX = "20261121090000_hotfix_risk_alert_action_authorization";
 check("toda migration pendente aparece exatamente uma vez na sequência (onda, adiada ou já efetiva)", () => {
   const all = [...ordered, ...deferred, ...seq.jaEfetivaNaoReaplicar];
   assert(new Set(all).size === all.length, "migration repetida na sequência");
+  // Fase 5: migrations >= 20261201 (frentes A-E) sao descobertas pelo ensaio (onda F5) e adicionadas ao JSON na integracao.
   const pending = local.filter((s) => !registered.has(s));
-  const missing = pending.filter((s) => !all.includes(s));
+  const missing = pending.filter((s) => !all.includes(s) && s.slice(0, 14) < "20261201000000");
   const extra = all.filter((s) => !pending.includes(s));
   assert(missing.length === 0, `faltam na sequência: ${missing.join(", ")}`);
   assert(extra.length === 0, `na sequência sem ser pendente/inexistente: ${extra.join(", ")}`);
@@ -84,6 +85,12 @@ check("o ensaio é local-only: recusa host diferente de 127.0.0.1:55434 e não c
   const src = read("scripts/ensaio-implantacao-ondas-realpg.mjs");
   assert(/127\.0\.0\.1/.test(src) && /55434/.test(src) && /RECUSADO/.test(src));
   assert(!/supabase\.co|plbcvwostmdmdmrziwmd|apply_migration|db push/i.test(src), "referência operacional no ensaio");
+});
+
+check("o ensaio é parametrizável: lê o diretório (ACC_ENSAIO_MIGRATIONS_DIR) e inclui migrations novas na onda F5, com idempotência e P0", () => {
+  const src = read("scripts/ensaio-implantacao-ondas-realpg.mjs");
+  assert(/ACC_ENSAIO_MIGRATIONS_DIR/.test(src) && /id: "F5"/.test(src) && /tailStems/.test(src));
+  assert(/idempotente\(s\)/.test(src), "sem teste de idempotência da onda F5");
 });
 
 check("os documentos 07 e 08 existem e o 07 cita todas as ondas, a regra de não reaplicar o hotfix e o status de nada aplicado", () => {
