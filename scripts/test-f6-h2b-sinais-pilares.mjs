@@ -138,7 +138,8 @@ check("revisão: códigos de erro da RPC mapeados; texto de terceiros sanitizado
 });
 
 check("organizações globais: só ADMIN altera direto; GESTOR/GERENTE solicitam; demais nada; pedido descrito sem interpretar conteúdo; erros mapeados", () => {
-  eq(CR.globalDataMode("ADMIN"), "DIRECT", "admin"); eq(CR.globalDataMode("MANAGE"), "REQUEST", "gestor");
+  eq(CR.globalDataMode("ADMIN"), "REQUEST", "admin de projeto sem TENANT_ADMIN solicita"); eq(CR.globalDataMode("ADMIN", true), "DIRECT", "tenant admin"); eq(CR.globalDataMode("MANAGE"), "REQUEST", "gestor");
+  eq(CR.globalDataMode("READ", true), "NONE", "tenant admin sem gestao do projeto nao ve a tela");
   for (const t of ["REGISTER", "READ", "NONE"]) eq(CR.globalDataMode(t), "NONE", t);
   eq(CR.CHANGE_KINDS.length, 4, "tipos");
   ok(CR.describeChange("DOMAIN_SET", { domain: "x.com.br", active: false }).includes("desativar"), "domínio");
@@ -173,7 +174,7 @@ check("ações e telas: sinais-email usa a RPC (sem escrita direta), valida memb
   ok(!/sendMail|nodemailer|gmail\.users\.messages\.send|smtp/i.test(a + pg), "sem envio");
   ok(pg.includes("notFound()") && /min-h-11/.test(pg), "rota fechada a quem não é membro; alvos >= 44px");
   const ca = read("apps/web/app/[projectId]/integracoes/contatos-externos/actions.ts");
-  ok(ca.includes("acc_external_change_request") && ca.includes("acc_external_change_decide") && ca.includes("guardAdmin") && ca.includes('globalDataMode(tier) === "REQUEST"'), "solicitar/decidir");
+  ok(ca.includes("acc_external_change_request") && ca.includes("acc_external_change_decide") && ca.includes("guardAdmin") && ca.includes('globalDataMode(tier, tenant) === "REQUEST"'), "solicitar/decidir");
   const cp = read("apps/web/app/[projectId]/integracoes/contatos-externos/page.tsx");
   ok(cp.includes("integracoes.contatos-externos.solicitacoes") && cp.includes("integracoes.contatos-externos.acao-aprovar-solicitacao") && cp.includes("integracoes/sinais-email"), "ajuda e link para a nova rota");
   for (const id of [...pg.matchAll(/helpId="([^"]+)"/g)].map((m) => m[1])) ok(read("apps/web/lib/ui/help/modules/sinais-email.ts").includes(`"${id}"`) || read("apps/web/lib/ui/help/modules/sinais-email.ts").includes(id.split(".").pop()), `helpId sem catálogo: ${id}`);

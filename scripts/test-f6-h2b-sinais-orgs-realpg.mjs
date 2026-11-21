@@ -31,7 +31,7 @@ const rbDir = path.join(here, "..", "supabase", "rollbacks");
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
 const PRE = files.filter((f) => f < "20261209100000");
 const MINE = files.filter((f) => /^20261209(100000|101000)_/.test(f));
-const AFTER = files.filter((f) => f > "20261209101000");
+const AFTER = files.filter((f) => f > "20261209101000" && f < "20261211"); // a H6e (20261211*) muda a autorizacao global: coberta por test-f7-h6e-tenant-admin-realpg.mjs
 const PLATFORM = readFileSync(path.join(here, "test-migrations-full-replay.mjs"), "utf8").match(/const PLATFORM = `([\s\S]*?)`;/)[1];
 const GOTRUE = `
 create or replace function auth.uid() returns uuid language sql stable as $$

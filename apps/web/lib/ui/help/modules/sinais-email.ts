@@ -148,23 +148,23 @@ export const SINAIS_EMAIL_HELP: FeatureHelpDefinition[] = [
     id: "integracoes.contatos-externos.dados-globais",
     kind: "message",
     title: "Dados globais da organização",
-    shortDescription: "Razão social, CNPJ, tipo, domínios e contatos só o Administrador altera; Gestor/Gerente solicitam.",
+    shortDescription: "Razão social, CNPJ, tipo, domínios e contatos só o administrador global (TENANT_ADMIN) altera; Administrador, Gestor e Gerente da obra solicitam.",
     description:
-      "A organização externa é um cadastro global, compartilhado entre obras. Por isso a alteração de razão social, CNPJ/identificação fiscal, tipo, domínios e contatos é do Administrador. Gestor e Gerente solicitam a alteração (o pedido não muda nada) e continuam gerindo os vínculos e os contatos descobertos da PRÓPRIA obra. Hoje 'Administrador' significa Administrador ativo da obra de onde a ação parte; não existe ainda um administrador de todo o ambiente.",
+      "A organização externa é um cadastro global, compartilhado entre obras. Por isso a alteração de razão social, CNPJ/identificação fiscal, tipo, domínios e contatos é do administrador global (TENANT_ADMIN, Fase 7). Administrador, Gestor e Gerente da obra solicitam a alteração (o pedido não muda nada) e continuam gerindo os vínculos e os contatos descobertos da PRÓPRIA obra. Antes da Fase 7, 'Administrador' significava Administrador ativo da obra de onde a ação parte; não existe ainda um administrador de todo o ambiente.",
     permissions: P_MANAGE,
-    humanReview: "A decisão sobre dado global é do Administrador, com nota registrada na auditoria.",
+    humanReview: "A decisão sobre dado global é do administrador global (TENANT_ADMIN), com nota registrada na auditoria.",
   },
   {
     ...D,
     id: "integracoes.contatos-externos.solicitacoes",
     kind: "table",
     title: "Solicitações de alteração de dados globais",
-    shortDescription: "Pedidos de Gestor/Gerente para alterar dados globais; o Administrador aprova (e aplica) ou recusa.",
+    shortDescription: "Pedidos de Gestor/Gerente para alterar dados globais; o administrador global aprova (e aplica) ou recusa.",
     description:
       "Cada pedido registra o tipo (cadastrar organização, alterar dados, domínio ou contato), o conteúdo solicitado, o motivo, quem pediu e quando. Aprovar aplica a alteração na mesma operação e registra a auditoria; recusar exige motivo; o solicitante ou o Administrador pode cancelar enquanto pendente. Cadastro aprovado cria a organização com um vínculo CANDIDATO neste projeto (sem autoridade até a validação).",
     source: "external_org_change_requests; decisão por acc_external_change_decide, cancelamento por acc_external_change_cancel.",
     permissions: P_MANAGE,
-    humanReview: "Somente o Administrador aprova ou recusa; o pedido nunca altera dado por si.",
+    humanReview: "Somente o administrador global (TENANT_ADMIN) aprova ou recusa; o pedido nunca altera dado por si.",
   },
   ...([
     ["acao-alterar-dados", "admin-action", "Salvar / solicitar alteração dos dados da organização", "Administrador grava razão social, CNPJ e tipo; Gestor e Gerente registram a solicitação.", "Para o Administrador chama acc_external_org_save; para Gestor e Gerente chama acc_external_change_request (tipo ORG_UPDATE) e nada é alterado até a decisão."],

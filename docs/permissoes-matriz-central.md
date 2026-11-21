@@ -384,3 +384,32 @@ Migration `20261208100000_competence_revalidation_send_content.sql` (rollback em
 Limites declarados: um validador designado que NÃO é membro do projeto não consegue abrir as telas do projeto (precisa de ao menos uma membership ativa, que não lhe dá poder
 algum de competência); o painel antigo de competências em Seguros usa a RPC `project_competence_grant`, recusada desde a Fase 5/E (`HABILITATION_VALIDATION_REQUIRED`): o fluxo
 vigente é a tela Competências.
+
+## 11. Fase 7 / H6e — TENANT_ADMIN (administração global de dados de organizações externas)
+
+Migration `20261211100000_tenant_admin_global_external_data.sql` (rollback em `supabase/rollbacks/`; onda M em `docs/implantacao/`). Prova: `scripts/test-f7-h6e-tenant-admin-realpg.mjs` (Postgres 17 real, claims JWT, 10 verificações).
+
+**Problema confirmado (H6E-01, antes da migration):** a organização externa é um cadastro global e a visibilidade vem de QUALQUER vínculo do projeto do usuário. O ADMINISTRADOR do projeto A, ao ver uma organização também usada pelo projeto B, alterava razão social, domínio e contatos que valem para B. (Organização que só o B usa já estava fora do alcance do ADMINISTRADOR de A.)
+
+| Ato | Quem pode agora | Como é aplicado |
+|---|---|---|
+| Criar/alterar organização, domínio, contato (`acc_external_org_save`, `acc_external_domain_set`, `acc_external_contact_set`) | somente TENANT_ADMIN | `acc_external_assert_global_admin` passou a exigir `acc_is_tenant_admin()` |
+| Decidir solicitação de alteração global (`acc_external_change_decide`) | somente TENANT_ADMIN | mesma guarda; ADMINISTRADOR/GESTOR do projeto não decidem mais |
+| Solicitar alteração global (`acc_external_change_request`) | GESTOR, GERENTE ou ADMINISTRADOR do projeto (como antes) | não altera dado; só registra o pedido |
+| Vínculos, candidatos, competências, validadores e delegações do PROJETO | ADMINISTRADOR/GESTOR/GERENTE do projeto (como antes) | inalterado |
+| Ver todas as organizações | TENANT_ADMIN (além da regra por vínculo/criador) | `acc_external_org_visible` |
+
+**Modelo (menor e seguro):** `tenant_admins(user_id pk, granted_by, granted_at, reason, revoked_at, revoked_by)` + `tenant_admin_audit` (append-only; GRANT/REVOKE/REGRANT). NÃO existe RPC de concessão para `authenticated`: não há auto-concessão e não há "segundo olhar" no app. A concessão é SQL de manutenção, executado uma vez por quem detém o banco (superusuário/service_role), mediante aprovação do responsável. Sem nenhum TENANT_ADMIN ativo, toda alteração global fica BLOQUEADA (fail-closed); as solicitações continuam sendo registradas e esperam.
+
+**Bootstrap (executar por quem detém o banco, depois da migration; substituir o UUID do usuário em `auth.users`):**
+
+```sql
+insert into public.tenant_admins (user_id, reason)
+values ('<uuid do usuário em auth.users>', 'Bootstrap do administrador global aprovado por <responsável> em <data>');
+-- revogar:  update public.tenant_admins set revoked_at = now() where user_id = '<uuid>';
+-- reconceder: update public.tenant_admins set revoked_at = null, revoked_by = null, granted_at = now() where user_id = '<uuid>';
+```
+
+**Impacto operacional:** (1) até o bootstrap, ninguém cria organização nem altera dado global (a tela mostra "Solicitar"); (2) a aprovação de `ORG_CREATE` também cria um vínculo CANDIDATO no projeto solicitante e por isso exige que o TENANT_ADMIN seja também GESTOR/GERENTE/ADMINISTRADOR ativo daquele projeto (senão é recusada e a solicitação segue pendente); (3) a interface só espelha a regra (`getIsTenantAdmin`, fail-closed); a autoridade é o banco.
+
+**Efeito sobre migrations anteriores:** `scripts/test-f6-h2b-sinais-orgs-realpg.mjs` aplica só até a H2b (a H6e muda a autorização que ele afirma); `globalDataMode` ganhou o parâmetro `isTenantAdmin` (padrão false).
