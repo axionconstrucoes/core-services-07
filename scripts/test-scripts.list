@@ -113,3 +113,5 @@ scripts/test-f3e-persistencia.mjs
 scripts/test-f3e-revisao-funcional.mjs
 scripts/test-quality-rpc-realpg.mjs
 scripts/test-alert-links-estruturados.mjs
+scripts/test-f4b-garantias-seguros.mjs
+scripts/test-f4b-garantias-seguros-realpg.mjs

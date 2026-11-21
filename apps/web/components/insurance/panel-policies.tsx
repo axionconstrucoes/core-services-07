@@ -5,7 +5,7 @@ import { HelpHint } from "@/components/shared/help-hint";
 import { SELECT_CLASS } from "@/components/ui/select";
 import { ActionButton, Callout, DataTable, NoData, Section, SourceLink, SpecForm, StatusBadge, buildOptionSets, useWorkspace, type Column } from "@/components/insurance/kit";
 import { FORMS } from "@/lib/insurance-ui/forms";
-import { formatDate, formatDateTime, formatMoney, textOrNoData } from "@/lib/insurance-ui/format";
+import { NO_DATA, formatDate, formatDateTime, formatMoney, textOrNoData } from "@/lib/insurance-ui/format";
 import { CLAUSE_KIND_LABEL, MODALITY_LABEL, PARTY_ROLE_LABEL, POLICY_STATUS_LABEL, labelOf } from "@/lib/insurance-ui/labels";
 import { policyStatusAlert, policyTitle, policyValidity, snapshotSummary } from "@/lib/insurance-ui/model";
 import type { ClauseRow, PartyRow, PolicyRow, PolicyVersionRow } from "@/lib/insurance-ui/types";
@@ -124,6 +124,7 @@ function PolicyDetail({ policy }: { policy: PolicyRow }) {
   const clauseCols: Column<ClauseRow>[] = [
     { key: "kind", label: "Tipo", render: (c) => labelOf(CLAUSE_KIND_LABEL, c.kind) },
     { key: "title", label: "Título", render: (c) => c.title },
+    { key: "ident", label: "Identificação no texto", render: (c) => (c.clause_identifier ? c.clause_identifier : c.kind === "COBERTURA" ? "SEM IDENTIFICAÇÃO (não prova cobertura)" : NO_DATA) },
     { key: "applies", label: "Aplica-se a", render: (c) => (c.applies_to?.length ? c.applies_to.join(", ") : "não declarado") },
     { key: "amount", label: "Valor", render: (c) => formatMoney(c.amount) },
     { key: "days", label: "Prazo (dias)", render: (c) => (c.deadline_days === null ? "SEM DADOS" : String(c.deadline_days)) },

@@ -86,15 +86,6 @@ export function assessCoverage(input: CoverageInput): CoverageAssessment {
     return out("NAO_COBERTO", exclusions);
   }
 
-  // RC CRUZADA: sem o checklist RCC pronto não se afirma cobertura (apenas exclusão com fonte prevalece, tratada acima)
-  const needsRcc = input.modality === "RC_CRUZADA" || input.claimKind === "RC_CRUZADA";
-  if (needsRcc && input.rccReady !== true) {
-    missing.push("CHECKLIST_RCC_COMPLETO");
-    reasons.push({ code: "RCC_INCOMPLETO", epistemic: "FATO", text: "Responsabilidade civil cruzada: o checklist RCC (10 perguntas com fonte e natureza do bem definida) não está pronto; sem ele não se avalia cobertura." });
-    recommendations.push("Complete o checklist RCC com fonte para cada pergunta antes de qualquer posição sobre cobertura.");
-    return out("INFORMACOES_INSUFICIENTES");
-  }
-
   // Fase 4/B: cláusula GENÉRICA não é prova de cobertura — só cobertura específica, identificada e com fonte conta.
   for (const c of sourced.filter((x) => (x.kind === "CLAUSULA" || x.kind === "OUTRO" || x.kind === "COBERTURA") && !isSpecificCoverage(x) && applies(x, input.claimKind))) {
     reasons.push({
@@ -117,6 +108,15 @@ export function assessCoverage(input: CoverageInput): CoverageAssessment {
           ? `Apólice de responsabilidade civil: não se presume cobertura de ${input.claimKind} (defeito de execução/dano à própria obra) sem cláusula expressa com fonte.`
           : `Nenhuma cláusula com fonte declara cobrir ${input.claimKind}.`,
     });
+    return out("INFORMACOES_INSUFICIENTES");
+  }
+
+  // RC CRUZADA: sem o checklist RCC pronto não se afirma cobertura (exclusão com fonte e ausência de cláusula específica já foram tratadas acima)
+  const needsRcc = input.modality === "RC_CRUZADA" || input.claimKind === "RC_CRUZADA";
+  if (needsRcc && input.rccReady !== true) {
+    missing.push("CHECKLIST_RCC_COMPLETO");
+    reasons.push({ code: "RCC_INCOMPLETO", epistemic: "FATO", text: "Responsabilidade civil cruzada: o checklist RCC (10 perguntas com fonte e natureza do bem definida) não está pronto; sem ele não se avalia cobertura." });
+    recommendations.push("Complete o checklist RCC com fonte para cada pergunta antes de qualquer posição sobre cobertura.");
     return out("INFORMACOES_INSUFICIENTES");
   }
 

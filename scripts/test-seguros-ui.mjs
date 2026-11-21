@@ -54,7 +54,7 @@ const NOW = new Date("2026-11-20T12:00:00Z");
 const TODAY = "2026-11-20";
 
 const policy = (o = {}) => ({ id: id(1), project_id: P1, modality: "SEGURO_GARANTIA_EXECUTANTE", policy_number: "AP-1", insurer_name: "Seguradora Sintética", broker_name: null, contract_document_id: null, contract_number: "CT-9", source_document_id: id(900), source_ref: null, status: "VIGENTE", coverage_start: "2026-01-01", coverage_end: "2027-01-01", max_amount: 1000000, currency: "BRL", notes: null, version_no: 1, row_version: 1, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", ...o });
-const clause = (o = {}) => ({ id: id(10), project_id: P1, policy_id: id(1), kind: "COBERTURA", title: "Cobertura sintética", clause_text: null, amount: null, deadline_days: null, applies_to: ["INADIMPLEMENTO"], source_document_id: id(900), source_ref: null, source_page: "3", verified: true, added_in_version: 1, ...o });
+const clause = (o = {}) => ({ id: id(10), project_id: P1, policy_id: id(1), kind: "COBERTURA", title: "Cobertura sintética", clause_text: null, amount: null, deadline_days: null, applies_to: ["INADIMPLEMENTO"], source_document_id: id(900), source_ref: null, source_page: "3", verified: true, added_in_version: 1, clause_identifier: "Cláusula 4.1", ...o });
 const claim = (o = {}) => ({ id: id(20), project_id: P1, policy_id: id(1), bank_guarantee_id: null, other_guarantee_id: null, advance_id: null, claim_kind: "INADIMPLEMENTO", title: "Evento sintético", stage: "AVISO", protocol: null, occurrence_date: "2026-06-01", claimed_amount: null, notice_deadline_at: null, notice_deadline_basis: null, contractual_basis_clause_id: null, contractual_basis_note: null, no_instrument_reason: null, decision_outcome: null, source_document_id: id(900), source_ref: null, row_version: 1, created_at: "2026-06-02T00:00:00Z", ...o });
 const channel = (o = {}) => ({ id: id(30), project_id: P1, policy_id: id(1), bank_guarantee_id: null, entity_name: "Seguradora Sintética", channel_type: "EMAIL", channel_value: "sinistros@exemplo.invalid", source_document_id: id(900), source_ref: null, active: true, verified_at: "2026-02-01T00:00:00Z", verified_by: null, ...o });
 const bank = (o = {}) => ({ id: id(40), project_id: P1, bank_name: "Banco Sintético", guarantee_number: "FB-1", beneficiary_name: null, principal_name: null, amount: 500000, currency: "BRL", start_date: "2026-01-01", end_date: "2027-01-01", calls_on_first_demand: null, claim_procedure_note: null, contract_document_id: null, contract_number: null, source_document_id: id(900), source_ref: null, status: "VIGENTE", notes: null, row_version: 1, ...o });
@@ -283,7 +283,7 @@ await check("CASO 32: tentativa de envio real bloqueada — nenhuma operação e
   const call = OPS.buildRpcCall({ projectId: P1, op: "draft_attempt_send", id: id(90) });
   assert.equal(call.rpc, "insurance_draft_attempt_send");
   assert.deepEqual(Object.keys(call.params), ["p_id"]);
-  const rpcs = OPS.ALL_INSURANCE_OPS.map((op) => OPS.buildRpcCall({ projectId: P1, op, id: id(1), expectedRowVersion: 1, args: { toState: "EMITIDO", outcome: "APROVADO", toStage: "AVISO", status: "PENDENTE", items: [{ key: "a" }], reason: "motivo suficiente" }, data: {} }).rpc);
+  const rpcs = OPS.ALL_INSURANCE_OPS.map((op) => OPS.buildRpcCall({ projectId: P1, op, id: id(1), expectedRowVersion: 1, args: { sourceKind: "CONTRATO", field: "OBJETO", toState: "EMITIDO", outcome: "APROVADO", toStage: "AVISO", status: "PENDENTE", items: [{ key: "a" }], reason: "motivo suficiente" }, data: {} }).rpc);
   assert.ok(rpcs.every((r) => !/settings/.test(r)), "nenhuma RPC liga a trava de envio");
   // mesmo com TUDO satisfeito (flag ligada, aprovada, canal verificado) o resultado é bloqueio
   const d = { state: "APROVADA_PARA_ENVIO", approved_body_hash: "abc" };
@@ -328,8 +328,8 @@ await check("CASO 33: dados insuficientes — dado ausente é SEM DADOS (nunca z
 
 /* ---------------------------------------------------------- casos 37 (auditoria), 38 (concorrência), 39 (isolamento) ---------------------------------------------------------- */
 await check("CASO 37: auditoria — toda RPC da UI grava insurance_int_audit; a aba lê a trilha append-only; rótulos cobrem os objetos auditados", () => {
-  const sql = read("supabase/migrations/20261122201000_seguros_garantias_rpcs.sql") + " " + read("supabase/migrations/20261123200000_endorsement_dual_review.sql"); // RPCs da Fase 3/C (conferência) incluídas
-  const rpcNames = new Set(OPS.ALL_INSURANCE_OPS.map((op) => OPS.buildRpcCall({ projectId: P1, op, id: id(1), expectedRowVersion: 1, args: { toState: "EMITIDO", outcome: "APROVADO", toStage: "AVISO", status: "PENDENTE", items: [{ key: "a" }] }, data: {} }).rpc));
+  const sql = read("supabase/migrations/20261122201000_seguros_garantias_rpcs.sql") + " " + read("supabase/migrations/20261123200000_endorsement_dual_review.sql") + " " + read("supabase/migrations/20261125200000_insurance_coherence.sql"); // RPCs da Fase 3/C (conferência) incluídas
+  const rpcNames = new Set(OPS.ALL_INSURANCE_OPS.map((op) => OPS.buildRpcCall({ projectId: P1, op, id: id(1), expectedRowVersion: 1, args: { sourceKind: "CONTRATO", field: "OBJETO", toState: "EMITIDO", outcome: "APROVADO", toStage: "AVISO", status: "PENDENTE", items: [{ key: "a" }] }, data: {} }).rpc));
   for (const name of rpcNames) {
     const start = sql.indexOf(`create or replace function public.${name}(`);
     assert.ok(start >= 0, `RPC ${name} existe`);
