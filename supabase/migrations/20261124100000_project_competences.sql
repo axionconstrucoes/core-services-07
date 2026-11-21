@@ -159,6 +159,7 @@ declare
   v_num text := nullif(btrim(coalesce(p_data ->> 'registration_number', '')), '');
   v_doc uuid;
   v_note text := nullif(btrim(coalesce(p_data ->> 'basis_note', '')), '');
+  v_old uuid;
 begin
   if v_uid is null then raise exception 'AUTH_REQUIRED'; end if;
   if p_project_id is null or public.acc_project_tier(p_project_id) <> 'ADMIN' then raise exception 'FORBIDDEN: só o administrador do projeto concede competência'; end if;
@@ -183,6 +184,16 @@ begin
   end if;
   -- serializa concessões da mesma tripla
   perform pg_advisory_xact_lock(hashtextextended('acc-competence:' || p_project_id::text || p_user_id::text || p_competence, 0));
+  -- competência ATIVA mas já VENCIDA não bloqueia a renovação: é encerrada (revogada pelo sistema, com o administrador como autor) e substituída
+  for v_old in
+    update public.project_competences set status = 'REVOKED', revoked_by = v_uid, revoked_at = now(),
+           revoke_reason = 'Vencida em ' || valid_until::text || '; substituída por nova concessão.', row_version = row_version + 1
+     where project_id = p_project_id and user_id = p_user_id and competence = p_competence and status = 'ACTIVE' and valid_until < current_date
+    returning id
+  loop
+    insert into public.project_competence_events (project_id, competence_id, action, target_user_id, competence, actor_user_id, actor_tier, detail)
+    values (p_project_id, v_old, 'REVOKED', p_user_id, p_competence, v_uid, 'ADMIN', jsonb_build_object('reason', 'VENCIDA_SUBSTITUIDA', 'auto', true));
+  end loop;
   if exists (select 1 from public.project_competences c where c.project_id = p_project_id and c.user_id = p_user_id and c.competence = p_competence and c.status = 'ACTIVE') then
     raise exception 'ALREADY_ACTIVE: já existe esta competência ativa para a pessoa; revogue antes de conceder de novo';
   end if;
