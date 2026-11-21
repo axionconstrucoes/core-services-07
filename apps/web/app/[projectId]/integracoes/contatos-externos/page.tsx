@@ -63,21 +63,21 @@ function LinkEditor({ projectId, link }: { projectId: string; link: ExternalOrgP
     <form action={setLinkAction} className="grid gap-2 rounded-md border border-gray-300 p-3 md:grid-cols-2">
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="linkId" value={link.id} />
-      <label className="text-xs font-semibold">Situação
+      <label className="text-xs font-semibold">Situação<FeatureInfo helpId="integracoes.contatos-externos.campo-situacao" />
         <select name="status" defaultValue={link.status} className={INPUT}>
           <option value="ACTIVE">Ativo</option><option value="CANDIDATE">Candidato</option><option value="ENDED">Encerrado</option>
         </select>
       </label>
-      <label className="text-xs font-semibold">Contrato / referência<input name="contractRef" defaultValue={link.contract_ref ?? ""} maxLength={200} className={INPUT} /></label>
-      <label className="text-xs font-semibold">Cláusula de delegação<input name="clauseRef" defaultValue={link.delegation_clause_ref ?? ""} maxLength={200} className={INPUT} /></label>
-      <label className="text-xs font-semibold">Limites de competência (separe por vírgula)<input name="scope" defaultValue={link.delegation_scope.join(", ")} maxLength={400} className={INPUT} /></label>
-      <label className="text-xs font-semibold">Vigência até<input type="date" name="validUntil" defaultValue={link.valid_until ?? ""} className={INPUT} /></label>
-      <label className="text-xs font-semibold">Motivo da alteração<input name="reason" maxLength={500} className={INPUT} /></label>
+      <label className="text-xs font-semibold">Contrato / referência<FeatureInfo helpId="integracoes.contatos-externos.campo-contrato" /><input name="contractRef" defaultValue={link.contract_ref ?? ""} maxLength={200} className={INPUT} /></label>
+      <label className="text-xs font-semibold">Cláusula de delegação<FeatureInfo helpId="integracoes.contatos-externos.campo-clausula" /><input name="clauseRef" defaultValue={link.delegation_clause_ref ?? ""} maxLength={200} className={INPUT} /></label>
+      <label className="text-xs font-semibold">Limites de competência (separe por vírgula)<FeatureInfo helpId="integracoes.contatos-externos.campo-escopo" /><input name="scope" defaultValue={link.delegation_scope.join(", ")} maxLength={400} className={INPUT} /></label>
+      <label className="text-xs font-semibold">Vigência até<FeatureInfo helpId="integracoes.contatos-externos.campo-vigencia" /><input type="date" name="validUntil" defaultValue={link.valid_until ?? ""} className={INPUT} /></label>
+      <label className="text-xs font-semibold">Motivo da alteração<FeatureInfo helpId="integracoes.contatos-externos.campo-motivo" /><input name="reason" maxLength={500} className={INPUT} /></label>
       <label className="flex min-h-11 items-center gap-2 text-xs md:col-span-2">
         <input type="checkbox" name="confirm" value="sim" className="size-5" />
-        <span>Confirmo que conferi o documento de delegação/contrato (necessário para ATIVO)</span>
+        <span>Confirmo que conferi o documento de delegação/contrato (necessário para ATIVO)</span><FeatureInfo helpId="integracoes.contatos-externos.campo-confirmacao" />
       </label>
-      <div className="md:col-span-2"><button type="submit" className={BTN}>Salvar vínculo</button></div>
+      <div className="md:col-span-2"><button type="submit" className={BTN}>Salvar vínculo</button><FeatureInfo helpId="integracoes.contatos-externos.acao-salvar-vinculo" /></div>
     </form>
   );
 }
@@ -164,16 +164,16 @@ export default async function ContatosExternosPage({
                 <p className="font-semibold">{c.email}</p>
                 <p className="text-xs text-gray-700">{c.message_count} mensagem(ns) · visto por último em {fmtDate(c.last_seen_at)} · domínio {c.domain}</p>
               </div>
-              <label className="text-xs font-semibold">Organização
+              <label className="text-xs font-semibold">Organização<FeatureInfo helpId="integracoes.contatos-externos.campo-organizacao" />
                 <select name="orgId" defaultValue={c.suggested_org_id ?? ""} className={INPUT}>
                   <option value="">Escolher…</option>
                   {ov.organizations.map((o) => <option key={o.id} value={o.id}>{o.legal_name}</option>)}
                 </select>
               </label>
-              <label className="text-xs font-semibold">Motivo<input name="reason" maxLength={500} className={INPUT} /></label>
+              <label className="text-xs font-semibold">Motivo<FeatureInfo helpId="integracoes.contatos-externos.campo-motivo" /><input name="reason" maxLength={500} className={INPUT} /></label>
               <div className="flex flex-wrap gap-2 md:col-span-4">
-                <button type="submit" name="decision" value="CONFIRM" className={BTN}>Confirmar contato</button>
-                <button type="submit" name="decision" value="REJECT" className="min-h-11 rounded-md border border-gray-500 bg-white px-4 py-2 text-sm font-bold text-gray-900">Rejeitar</button>
+                <button type="submit" name="decision" value="CONFIRM" className={BTN}>Confirmar contato</button><FeatureInfo helpId="integracoes.contatos-externos.acao-confirmar-contato" />
+                <button type="submit" name="decision" value="REJECT" className="min-h-11 rounded-md border border-gray-500 bg-white px-4 py-2 text-sm font-bold text-gray-900">Rejeitar</button><FeatureInfo helpId="integracoes.contatos-externos.acao-rejeitar" />
               </div>
             </form>
           ))}
@@ -221,22 +221,22 @@ export default async function ContatosExternosPage({
                     {links.map((l) => <LinkEditor key={l.id} projectId={projectId} link={l} />)}
                     <form action={addDomainAction} className="grid gap-2 rounded-md border border-gray-300 p-3 md:grid-cols-3">
                       <input type="hidden" name="projectId" value={projectId} /><input type="hidden" name="orgId" value={o.id} />
-                      <label className="text-xs font-semibold">Domínio (ex.: empresa.com.br)<input name="domain" required maxLength={253} className={INPUT} /></label>
-                      <label className="text-xs font-semibold">Situação
+                      <label className="text-xs font-semibold">Domínio (ex.: empresa.com.br)<FeatureInfo helpId="integracoes.contatos-externos.campo-dominio" /><input name="domain" required maxLength={253} className={INPUT} /></label>
+                      <label className="text-xs font-semibold">Situação<FeatureInfo helpId="integracoes.contatos-externos.campo-situacao" />
                         <select name="active" defaultValue="sim" className={INPUT}><option value="sim">Ativo</option><option value="nao">Inativo</option></select>
                       </label>
-                      <label className="text-xs font-semibold">Motivo<input name="reason" maxLength={500} className={INPUT} /></label>
-                      <div className="md:col-span-3"><button type="submit" className={BTN}>Salvar domínio</button></div>
+                      <label className="text-xs font-semibold">Motivo<FeatureInfo helpId="integracoes.contatos-externos.campo-motivo" /><input name="reason" maxLength={500} className={INPUT} /></label>
+                      <div className="md:col-span-3"><button type="submit" className={BTN}>Salvar domínio</button><FeatureInfo helpId="integracoes.contatos-externos.acao-salvar-dominio" /></div>
                     </form>
                     <form action={setContactAction} className="grid gap-2 rounded-md border border-gray-300 p-3 md:grid-cols-4">
                       <input type="hidden" name="projectId" value={projectId} /><input type="hidden" name="orgId" value={o.id} />
-                      <label className="text-xs font-semibold">E-mail<input type="email" name="email" required maxLength={254} className={INPUT} /></label>
-                      <label className="text-xs font-semibold">Nome<input name="displayName" maxLength={200} className={INPUT} /></label>
-                      <label className="text-xs font-semibold">Situação
+                      <label className="text-xs font-semibold">E-mail<FeatureInfo helpId="integracoes.contatos-externos.campo-email" /><input type="email" name="email" required maxLength={254} className={INPUT} /></label>
+                      <label className="text-xs font-semibold">Nome<FeatureInfo helpId="integracoes.contatos-externos.campo-nome" /><input name="displayName" maxLength={200} className={INPUT} /></label>
+                      <label className="text-xs font-semibold">Situação<FeatureInfo helpId="integracoes.contatos-externos.campo-situacao" />
                         <select name="status" defaultValue="CONFIRMED" className={INPUT}><option value="CONFIRMED">Confirmado</option><option value="CANDIDATE">Candidato</option><option value="REJECTED">Rejeitado</option></select>
                       </label>
-                      <label className="text-xs font-semibold">Motivo<input name="reason" maxLength={500} className={INPUT} /></label>
-                      <div className="md:col-span-4"><button type="submit" className={BTN}>Salvar contato</button></div>
+                      <label className="text-xs font-semibold">Motivo<FeatureInfo helpId="integracoes.contatos-externos.campo-motivo" /><input name="reason" maxLength={500} className={INPUT} /></label>
+                      <div className="md:col-span-4"><button type="submit" className={BTN}>Salvar contato</button><FeatureInfo helpId="integracoes.contatos-externos.acao-salvar-contato" /></div>
                     </form>
                   </div>
                 </details>
@@ -251,27 +251,27 @@ export default async function ContatosExternosPage({
         <CardContent>
           <form action={createOrganizationAction} className="grid gap-2 md:grid-cols-3">
             <input type="hidden" name="projectId" value={projectId} />
-            <label className="text-xs font-semibold">Razão social<input name="legalName" required minLength={2} maxLength={300} className={INPUT} /></label>
-            <label className="text-xs font-semibold">CNPJ / identificação fiscal<input name="taxId" maxLength={32} className={INPUT} /></label>
-            <label className="text-xs font-semibold">Papel no projeto
+            <label className="text-xs font-semibold">Razão social<FeatureInfo helpId="integracoes.contatos-externos.campo-razao" /><input name="legalName" required minLength={2} maxLength={300} className={INPUT} /></label>
+            <label className="text-xs font-semibold">CNPJ / identificação fiscal<FeatureInfo helpId="integracoes.contatos-externos.campo-cnpj" /><input name="taxId" maxLength={32} className={INPUT} /></label>
+            <label className="text-xs font-semibold">Papel no projeto<FeatureInfo helpId="integracoes.contatos-externos.campo-papel" />
               <select name="orgKind" required defaultValue="" className={INPUT}>
                 <option value="" disabled>Escolher…</option>
                 {ORG_KINDS.map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
               </select>
             </label>
-            <label className="text-xs font-semibold">Contrato / referência<input name="contractRef" maxLength={200} className={INPUT} /></label>
-            <label className="text-xs font-semibold">Cláusula de delegação<input name="clauseRef" maxLength={200} className={INPUT} /></label>
-            <label className="text-xs font-semibold">Limites de competência (vírgula)<input name="scope" maxLength={400} className={INPUT} /></label>
-            <label className="text-xs font-semibold">Vigência de<input type="date" name="validFrom" className={INPUT} /></label>
-            <label className="text-xs font-semibold">Vigência até<input type="date" name="validUntil" className={INPUT} /></label>
-            <label className="text-xs font-semibold">Domínio principal<input name="domain" maxLength={253} className={INPUT} /></label>
-            <label className="text-xs font-semibold md:col-span-3">Observações / motivo<input name="notes" maxLength={500} className={INPUT} /></label>
+            <label className="text-xs font-semibold">Contrato / referência<FeatureInfo helpId="integracoes.contatos-externos.campo-contrato" /><input name="contractRef" maxLength={200} className={INPUT} /></label>
+            <label className="text-xs font-semibold">Cláusula de delegação<FeatureInfo helpId="integracoes.contatos-externos.campo-clausula" /><input name="clauseRef" maxLength={200} className={INPUT} /></label>
+            <label className="text-xs font-semibold">Limites de competência (vírgula)<FeatureInfo helpId="integracoes.contatos-externos.campo-escopo" /><input name="scope" maxLength={400} className={INPUT} /></label>
+            <label className="text-xs font-semibold">Vigência de<FeatureInfo helpId="integracoes.contatos-externos.campo-vigencia" /><input type="date" name="validFrom" className={INPUT} /></label>
+            <label className="text-xs font-semibold">Vigência até<FeatureInfo helpId="integracoes.contatos-externos.campo-vigencia" /><input type="date" name="validUntil" className={INPUT} /></label>
+            <label className="text-xs font-semibold">Domínio principal<FeatureInfo helpId="integracoes.contatos-externos.campo-dominio" /><input name="domain" maxLength={253} className={INPUT} /></label>
+            <label className="text-xs font-semibold md:col-span-3">Observações / motivo<FeatureInfo helpId="integracoes.contatos-externos.campo-observacoes" /><input name="notes" maxLength={500} className={INPUT} /></label>
             <input type="hidden" name="reason" value="Cadastro pela tela de contatos externos" />
             <label className="flex min-h-11 items-center gap-2 text-xs md:col-span-3">
               <input type="checkbox" name="confirm" value="sim" className="size-5" />
-              <span>Confirmo o vínculo como ATIVO (conferi contrato e delegação). Desmarcado, o vínculo fica como CANDIDATO e não confere autoridade.</span>
+              <span>Confirmo o vínculo como ATIVO (conferi contrato e delegação). Desmarcado, o vínculo fica como CANDIDATO e não confere autoridade.</span><FeatureInfo helpId="integracoes.contatos-externos.campo-confirmacao" />
             </label>
-            <div className="md:col-span-3"><button type="submit" className={BTN}>Cadastrar</button></div>
+            <div className="md:col-span-3"><button type="submit" className={BTN}>Cadastrar</button><FeatureInfo helpId="integracoes.contatos-externos.acao-cadastrar" /></div>
           </form>
         </CardContent>
       </Card>
