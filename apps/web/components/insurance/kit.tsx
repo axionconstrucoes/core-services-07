@@ -224,6 +224,7 @@ function FieldControl({ f, value, onChange, options, id, invalid, describedBy, d
   const common = { id, disabled, "aria-invalid": invalid || undefined, "aria-describedby": describedBy } as const;
   switch (f.type) {
     case "textarea":
+    case "lines":
       // help-exempt: campo gerado da especificação do formulário (FORMS); o helpId literal do campo está na especificação e o ícone é renderizado ao lado do rótulo
       return <textarea {...common} className={cn(INPUT_CLASS, "min-h-24 py-2")} value={value} onChange={(e) => onChange(e.target.value)} />;
     case "select":
@@ -341,7 +342,7 @@ export function SpecForm({ spec, options = {}, initial = {}, level, extraValidat
           .map((f) => {
             const id = `${base}-${f.name}`;
             const err = errors[f.name];
-            const wide = f.type === "textarea" || f.type === "multi";
+            const wide = f.type === "textarea" || f.type === "lines" || f.type === "multi";
             return (
               <div key={f.name} className={cn("flex flex-col gap-1", wide && "sm:col-span-2")}>
                 <div className="flex items-center gap-1">

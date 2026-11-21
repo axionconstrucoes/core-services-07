@@ -87,6 +87,7 @@ export function toClauseEvidence(c: ClauseRow): ClauseEvidence {
     id: c.id,
     kind: c.kind,
     title: c.title,
+    identifier: c.clause_identifier ?? null,
     appliesTo: c.applies_to ?? [],
     amount: toNumber(c.amount),
     deadlineDays: c.deadline_days,
@@ -221,6 +222,7 @@ export function claimCoverageView(c: ClaimRow, data: InsuranceWorkspaceData, now
     clauses: policy ? data.clauses.filter((x) => x.policy_id === policy.id).map(toClauseEvidence) : [],
     endorsements: policy ? data.endorsements.filter((e) => e.policy_id === policy.id).map(toEndorsementSummary) : [],
     noticeDeadline: evaluateNoticeDeadline(c.notice_deadline_at, c.notice_deadline_basis, now),
+    rccReady: data.rccReady?.[c.id] ?? null,
   });
   return { assessment, notApplicableReason: null };
 }

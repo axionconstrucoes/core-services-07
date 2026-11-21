@@ -29,6 +29,10 @@ export interface RccChecklistResult {
   answeredWithSource: number;
   total: 10;
   readyForCoverageAssessment: boolean;
+  /** Perguntas sem resposta com fonte (SEM DADOS ou sem fonte). */
+  missingKeys: RccKey[];
+  /** Natureza do bem (bens de terceiros x própria obra) indefinida: o checklist não fica pronto. */
+  scopeUndefined: boolean;
   warnings: string[];
   neverPresumed: string[];
   requiresHumanReview: true;
@@ -51,11 +55,16 @@ export function evaluateRccChecklist(answers: Partial<Record<RccKey, RccAnswer>>
   }
   if (scope === "INDEFINIDO" || scope === null) warnings.push("Natureza do bem atingido indefinida: não concluir cobertura.");
   const answeredWithSource = items.filter((i) => i.status === "RESPONDIDA_COM_FONTE").length;
+  const missingKeys = items.filter((i) => i.status !== "RESPONDIDA_COM_FONTE").map((i) => i.key);
+  const scopeUndefined = !(scope === "BENS_TERCEIROS" || scope === "PROPRIA_OBRA" || scope === "AMBOS");
   return {
     items,
     answeredWithSource,
     total: 10,
-    readyForCoverageAssessment: answeredWithSource === 10,
+    // Fase 4/B (espelha insurance_rcc_readiness): as 10 perguntas com fonte E a natureza do bem definida (indefinido não conta)
+    readyForCoverageAssessment: answeredWithSource === 10 && !scopeUndefined,
+    missingKeys,
+    scopeUndefined,
     warnings,
     neverPresumed: [
       "RCC cobre defeito de execução / retrabalho do próprio segurado",

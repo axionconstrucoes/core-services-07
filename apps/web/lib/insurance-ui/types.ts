@@ -70,6 +70,8 @@ export interface ClauseRow {
   source_page: string | null;
   verified: boolean;
   added_in_version: number;
+  /** Identificação específica da cláusula no texto da apólice (Fase 4/B); null em dados legados. */
+  clause_identifier?: string | null;
 }
 
 export type GuaranteeStatus = "RASCUNHO" | "VIGENTE" | "VENCIDA" | "CANCELADA" | "EXECUTADA" | "DEVOLVIDA";
@@ -323,6 +325,68 @@ export interface DocumentRef {
   latestVersionId: InsuranceUuid | null;
 }
 
+/** Termos declarados por um instrumento (CONTRATO | APOLICE | MINUTA) para a conferência de coerência (insurance_instrument_terms). */
+export interface InstrumentTermsRow {
+  id: InsuranceUuid;
+  project_id: InsuranceUuid;
+  policy_id: InsuranceUuid;
+  source_kind: "CONTRATO" | "APOLICE" | "MINUTA";
+  draft_id: InsuranceUuid | null;
+  insured_name: string | null;
+  insured_tax_id: string | null;
+  beneficiary_name: string | null;
+  beneficiary_tax_id: string | null;
+  object_text: string | null;
+  coverage_start: string | null;
+  coverage_end: string | null;
+  insured_amount: number | string | null;
+  guaranteed_obligation: string | null;
+  source_document_id: InsuranceUuid | null;
+  source_ref: string | null;
+  source_page: string | null;
+  note: string | null;
+  created_by: InsuranceUuid;
+  created_at: string;
+}
+
+export interface CoherenceJustificationRow {
+  id: InsuranceUuid;
+  project_id: InsuranceUuid;
+  draft_id: InsuranceUuid;
+  field: string;
+  fingerprint: string;
+  justification: string;
+  source_document_id: InsuranceUuid | null;
+  source_ref: string | null;
+  created_by: InsuranceUuid;
+  created_at: string;
+}
+
+export interface GuaranteeUpdateRow {
+  id: InsuranceUuid;
+  project_id: InsuranceUuid;
+  guarantee_kind: "FIANCA_BANCARIA" | "CAUCAO_OUTRA";
+  guarantee_id: InsuranceUuid;
+  from_row_version: number;
+  to_row_version: number;
+  changed_keys: string[];
+  source_document_id: InsuranceUuid | null;
+  source_ref: string | null;
+  reason: string;
+  created_by: InsuranceUuid;
+  created_at: string;
+}
+
+/** Resultado de insurance_coherence_check (jsonb) — ver apps/web/lib/insurance/coherence.ts para a regra. */
+export interface CoherenceCheckView {
+  status: "COERENTE" | "DIVERGENTE_JUSTIFICADA" | "DIVERGENTE" | "SEM_DADOS";
+  missingKinds: string[];
+  divergences: Array<{ field: string; kind: string; values: Record<string, unknown>; sources: Record<string, string>; fingerprint: string; justified: boolean; justificationId: string | null }>;
+  unjustified: number;
+  justified: number;
+  approvalAllowed: boolean;
+}
+
 export interface InsuranceWorkspaceData {
   projectId: string;
   policies: PolicyRow[];
@@ -343,6 +407,15 @@ export interface InsuranceWorkspaceData {
   audit: AuditEventRow[];
   settings: SettingsRow | null;
   dashboardItems: DashboardItemRow[];
+  instrumentTerms: InstrumentTermsRow[];
+  coherenceJustifications: CoherenceJustificationRow[];
+  guaranteeUpdates: GuaranteeUpdateRow[];
+  /** Coerência minuta x apólice x contrato por minuta em DRAFT (insurance_coherence_check); ausente = não calculada. */
+  coherence: Record<string, CoherenceCheckView>;
+  /** Checklist RCC pronto por evento de RC cruzada (insurance_rcc_readiness). */
+  rccReady: Record<string, boolean>;
+  /** Adiantamentos consolidados sem dupla contagem (insurance_advances_consolidated); null = indisponível. */
+  advancesConsolidated: import("@/lib/insurance/advances").ConsolidatedAdvances | null;
   documents: DocumentRef[];
   /** Nome legível de quem atuou (profiles); ausente => o id abreviado é exibido. */
   actors: Record<string, string>;

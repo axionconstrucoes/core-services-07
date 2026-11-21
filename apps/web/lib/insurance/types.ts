@@ -79,6 +79,8 @@ export interface ClauseEvidence {
   id: string;
   kind: "COBERTURA" | "CLAUSULA" | "CONDICAO" | "EXCLUSAO" | "SUBLIMITE" | "FRANQUIA" | "PRAZO_AVISO" | "OUTRO";
   title: string;
+  /** Identificação ESPECÍFICA da cláusula no texto da apólice (ex.: "Cláusula 4.2"). Sem ela, a cláusula não prova cobertura (Fase 4/B). */
+  identifier?: string | null;
   /** Tipos de evento a que a cláusula declara se aplicar (ex.: "DANO_PROPRIA_OBRA"). Vazio = não declarado. */
   appliesTo: string[];
   amount?: number | null;

@@ -17,6 +17,11 @@ export interface CoverageInput {
   /** Endossos em que o argumento de cobertura se apoia. */
   reliesOnEndorsementIds?: string[];
   noticeDeadline?: NoticeDeadline | null;
+  /**
+   * Checklist RCC pronto (10 perguntas com fonte e natureza do bem definida; insurance_rcc_readiness). Só é exigido quando a modalidade ou o evento
+   * é de RC CRUZADA: sem ele (false/null/ausente) a conclusão nunca passa de INFORMACOES_INSUFICIENTES (exclusão com fonte ainda prevalece).
+   */
+  rccReady?: boolean | null;
 }
 
 export interface CoverageReason {
@@ -43,6 +48,9 @@ export const RC_NEVER_PRESUMED_KINDS: ClaimKind[] = ["DANO_PROPRIA_OBRA", "INADI
 
 const hasSource = (c: ClauseEvidence) => Boolean(c.source?.documentId || (c.source?.ref && c.source.ref.trim()));
 const applies = (c: ClauseEvidence, kind: ClaimKind) => c.appliesTo.includes(kind);
+/** Cláusula ESPECÍFICA de cobertura: tipo COBERTURA + identificação no texto da apólice (nº/título da cláusula) + fonte. */
+export const hasClauseIdentifier = (c: ClauseEvidence) => typeof c.identifier === "string" && c.identifier.trim().length >= 2;
+const isSpecificCoverage = (c: ClauseEvidence) => c.kind === "COBERTURA" && hasClauseIdentifier(c);
 
 export function assessCoverage(input: CoverageInput): CoverageAssessment {
   const reasons: CoverageReason[] = [];
@@ -78,7 +86,27 @@ export function assessCoverage(input: CoverageInput): CoverageAssessment {
     return out("NAO_COBERTO", exclusions);
   }
 
-  const covering = sourced.filter((c) => (c.kind === "COBERTURA" || c.kind === "CLAUSULA") && applies(c, input.claimKind));
+  // RC CRUZADA: sem o checklist RCC pronto não se afirma cobertura (apenas exclusão com fonte prevalece, tratada acima)
+  const needsRcc = input.modality === "RC_CRUZADA" || input.claimKind === "RC_CRUZADA";
+  if (needsRcc && input.rccReady !== true) {
+    missing.push("CHECKLIST_RCC_COMPLETO");
+    reasons.push({ code: "RCC_INCOMPLETO", epistemic: "FATO", text: "Responsabilidade civil cruzada: o checklist RCC (10 perguntas com fonte e natureza do bem definida) não está pronto; sem ele não se avalia cobertura." });
+    recommendations.push("Complete o checklist RCC com fonte para cada pergunta antes de qualquer posição sobre cobertura.");
+    return out("INFORMACOES_INSUFICIENTES");
+  }
+
+  // Fase 4/B: cláusula GENÉRICA não é prova de cobertura — só cobertura específica, identificada e com fonte conta.
+  for (const c of sourced.filter((x) => (x.kind === "CLAUSULA" || x.kind === "OUTRO" || x.kind === "COBERTURA") && !isSpecificCoverage(x) && applies(x, input.claimKind))) {
+    reasons.push({
+      code: "CLAUSULA_GENERICA_NAO_E_COBERTURA",
+      epistemic: "FATO",
+      clauseId: c.id,
+      text: c.kind === "COBERTURA"
+        ? `Cobertura "${c.title}" sem identificação da cláusula no texto da apólice: não vale como prova de cobertura até ser identificada (ex.: Cláusula 4.2).`
+        : `Cláusula "${c.title}" é genérica (${c.kind}): cláusula genérica não prova cobertura; é preciso uma cláusula de COBERTURA específica, identificada, com fonte.`,
+    });
+  }
+  const covering = sourced.filter((c) => isSpecificCoverage(c) && applies(c, input.claimKind));
   if (!covering.length) {
     missing.push("CLAUSULA_DE_COBERTURA_PARA_O_EVENTO");
     reasons.push({
