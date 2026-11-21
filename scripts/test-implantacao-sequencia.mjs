@@ -57,7 +57,8 @@ check("dependências declaradas das adiadas são aplicadas antes na sequência (
 });
 
 check("o portão P0 é a última migration da sequência principal (só a onda J, sem tocar record_risk_alert_action, vem depois) e existe com rollback", () => {
-  const afterJ = seq.ondas.filter((o) => o.id === "J").flatMap((o) => o.migrations);
+  // Cauda após o portão: onda J (Fase 4/D) e onda K (Fase 5), ambas sem tocar record_risk_alert_action.
+  const afterJ = seq.ondas.filter((o) => o.id === "J" || o.id === "K").flatMap((o) => o.migrations);
   const main = ordered.filter((s) => !afterJ.includes(s));
   const last = main[main.length - 1];
   assert(last === "20261126100000_p0_gate_record_risk_alert_action", `última: ${last}`);

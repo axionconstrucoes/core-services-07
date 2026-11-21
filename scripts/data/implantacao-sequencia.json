@@ -119,6 +119,20 @@
       "migrations": [
         "20261127100000_external_recipient_controls"
       ]
+    },
+    {
+      "nome": "Fase 5: monitoramento universal (A), classificacao (B), contatos externos (C), fonte de risco EMAIL (D) e governanca (E). Aplicar junto com o app da Fase 5; nenhuma redefine record_risk_alert_action (P0 conferido apos cada arquivo)",
+      "id": "K",
+      "migrations": [
+        "20261201100000_email_universal_monitoring",
+        "20261202100000_email_classification_and_risk_signals",
+        "20261203100000_external_parties_contract",
+        "20261203110000_external_parties_management",
+        "20261204100000_risk_alert_cases_email_source",
+        "20261205100000_competence_validation_requests",
+        "20261205101000_closed_case_material_change_guards",
+        "20261205102000_external_send_single_use_confirmation"
+      ]
     }
   ],
   "adiadas": [
