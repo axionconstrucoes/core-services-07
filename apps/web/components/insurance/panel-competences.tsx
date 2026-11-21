@@ -169,6 +169,7 @@ export function CompetencesPanel() {
         </div>
       ) : null}
       {caps.admin ? (
+        // help-exempt: formulário cujo título tem o ícone de ajuda seguros.competencias.form-conceder e cujos campos e botão têm ícones próprios
         <form
           className="mt-4 grid gap-3 rounded-md border border-border p-3 md:grid-cols-2"
           onSubmit={(e) => {
