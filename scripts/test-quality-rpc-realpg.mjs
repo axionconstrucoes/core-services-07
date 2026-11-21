@@ -24,7 +24,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const pg = createRequire(path.join(process.env.ACC_REALPG_PKG_DIR ?? here, "x.js"))("pg");
 const dir = path.join(here, "..", "supabase", "migrations");
 const files = readdirSync(dir).filter((f) => f.endsWith(".sql")).sort();
-const MINE = files.filter((f) => /^2026112330\d{4}_/.test(f));
+const MINE = files.filter((f) => /^2026112330\d{4}_/.test(f) || /^202611251\d{5}_/.test(f)); // Fase 4/B: 20261125100000 redefine funcoes de 20261123300000/301000 e precisa ser reaplicada depois delas
 const read = (f) => readFileSync(path.join(dir, f), "utf8").replace(/^﻿/, "");
 const PLATFORM = readFileSync(path.join(here, "test-migrations-full-replay.mjs"), "utf8").match(/const PLATFORM = `([\s\S]*?)`;/)[1];
 
@@ -157,6 +157,10 @@ try {
   const wtrans = (c, id, to, ver, just = null, evs = null) => rpc(c, "quality_warranty_transition", id, to, ver, just, evs);
   const accept = async (c, wId, evId, name = "Cliente Sintético") =>
     rpc(c ?? await as(U.GESTOR), "quality_warranty_acceptance_register", wId, (await wRow(wId)).row_version, "2026-11-10", name, evId);
+  // Fase 4/B: só o aceite COMPROVADO (evidência + hash SHA-256 + manifestante externo) libera o encerramento
+  const TODAY = new Date().toISOString().slice(0, 10);
+  const acceptProven = async (c, wId, evId, name = "Cliente Sintético") =>
+    rpc(c ?? await as(U.GESTOR), "quality_warranty_acceptance_prove", wId, (await wRow(wId)).row_version, TODAY, name, "Cliente Exemplo SA", `cliente.${uniq()}@cliente.example`, evId, "a".repeat(64), null);
 
   /** Leva uma RNC nova ao estado `target` (caminho feliz, tudo por RPC). */
   async function ncrUntil(target) {
@@ -551,8 +555,12 @@ try {
     await rejects(su.query("update public.quality_warranty_cases set state='ENCERRADA', closed_at=now() where id=$1", [w.id]), /STATE_CHANGE_REQUIRES_ACTOR/, "superusuário sem ator");
     await rejects(forged.query("update public.quality_warranty_cases set state='ENCERRADA', closed_at=now() where id=$1", [w.id]), /TRANSITION_BLOCKED: .*CUSTOMER_ACCEPTANCE_REQUIRED/, "identidade forjada sem aceite");
     await accept(g, w.id, evAc);
+    const row0 = await wRow(w.id);
+    eq([row0.accepted_by_name, row0.accepted_evidence_id, row0.acceptance_status], ["Cliente Sintético", evAc, "INFORMADO"], "aceite INFORMADO registrado com a evidência");
+    await rejects(wtrans(g, w.id, "ENCERRADA", row0.row_version, J), /CUSTOMER_ACCEPTANCE_NOT_PROVEN/, "aceite apenas informado não encerra");
+    await acceptProven(g, w.id, evAc);
     const row = await wRow(w.id);
-    eq([row.accepted_by_name, row.accepted_evidence_id], ["Cliente Sintético", evAc], "aceite registrado com a evidência");
+    eq([row.accepted_by_name, row.accepted_evidence_id, row.acceptance_status], ["Cliente Sintético", evAc, "COMPROVADO"], "aceite COMPROVADO registrado com a evidência");
     await rejects(rpc(g, "quality_evidence_revise", evAc, 1, "SUSPEITA", "FATO", null, J), /EVIDENCE_LOCKED|VERSION_CONFLICT/, "evidência do aceite travada");
     const done = await wtrans(g, w.id, "ENCERRADA", row.row_version, "Aceite do cliente registrado após reinspeção.");
     eq(done.to, "ENCERRADA", "encerrada com verificação EFICAZ + aceite");
@@ -582,14 +590,16 @@ try {
     const w = await warUntil("REPARADA");
     await verifyW(g, w.id, await ev(g, { warranty: w.id, ref: `v-${uniq()}` }));
     await wtrans(g, w.id, "VERIFICADA", (await wRow(w.id)).row_version, J);
-    await accept(g, w.id, await ev(g, { warranty: w.id, ref: `a-${uniq()}` }));
+    { const evA = await ev(g, { warranty: w.id, ref: `a-${uniq()}` }); await accept(g, w.id, evA); await acceptProven(g, w.id, evA); }
     await wtrans(g, w.id, "ENCERRADA", (await wRow(w.id)).row_version, J);
     const eRe2 = await ev(g, { warranty: w.id, cls: "INDICIO", ref: `re-${uniq()}` });
     await rejects(wtrans(g, w.id, "REABERTA", (await wRow(w.id)).row_version, J, [eOther]), /EVIDENCE_INVALID/, "evidência de outro caso");
     await wtrans(g, w.id, "REABERTA", (await wRow(w.id)).row_version, J, [eRe2]);
     const rr = await wRow(w.id);
     eq([rr.accepted_at, rr.accepted_by_name, rr.accepted_evidence_id, rr.reopen_count, rr.closed_at], [null, null, null, 1, null], "aceite anterior descartado na reabertura");
-    ok((await su.query("select 1 from public.audit_log_entries where action='QUALITY_WARRANTY_ACCEPTANCE' and entity_id=$1", [w.id])).rowCount === 1, "o aceite anterior segue na trilha de auditoria");
+    ok((await su.query("select 1 from public.audit_log_entries where action='QUALITY_WARRANTY_ACCEPTANCE' and entity_id=$1", [w.id])).rowCount === 2, "o aceite anterior (informado + comprovado) segue na trilha de auditoria");
+    eq([rr.acceptance_status, rr.current_acceptance_id], ["NENHUM", null], "status do aceite zerado na reabertura");
+    eq((await su.query("select kind from public.quality_warranty_acceptances where warranty_case_id=$1 order by created_at, kind desc", [w.id])).rows.map((x) => x.kind).sort(), ["COMPROVADO", "INFORMADO"], "histórico de aceites preservado após a reabertura");
     // novo ciclo: sem novo aceite não encerra
     let wv = (await wRow(w.id)).row_version;
     for (const s of ["EM_VISTORIA", "EM_ANALISE"]) wv = (await wtrans(g, w.id, s, wv)).rowVersion;
