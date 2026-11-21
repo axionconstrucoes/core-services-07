@@ -208,6 +208,7 @@ await check("E5 rollback recusa-se com casos EMAIL (nada apagado); sem eles volt
     await db.exec(rollbackSql);
   } catch (error) {
     blocked = /ROLLBACK_BLOCKED/.test(String(error.message));
+    await db.exec("rollback"); // o rollback é transacional (begin): encerra a transação abortada pela recusa esperada
   }
   assert(blocked, "rollback deveria ser recusado");
   assert((await db.query("select count(*)::int n from public.risk_alert_cases where source_type='EMAIL'")).rows[0].n > 0, "casos EMAIL preservados");
