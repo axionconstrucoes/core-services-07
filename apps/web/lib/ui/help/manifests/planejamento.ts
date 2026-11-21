@@ -148,6 +148,8 @@ export const PLANEJAMENTO_MANIFEST: HelpManifest = {
     el(SOLICITACAO, "status", "Status da solicitação", "planejamento.solicitacoes.status"),
     el(SOLICITACAO, "button", "Enviar solicitação por e-mail", "planejamento.solicitacao-detalhe.envio-email"),
     el(SOLICITACAO, "field", "Destinatário", "planejamento.solicitacao-detalhe.campo-destinatario"),
+    el(SOLICITACAO, "field", "Confirmo o destinatário externo", "planejamento.solicitacao-detalhe.campo-confirmar-externo"),
+    el(SOLICITACAO, "field", "Motivo do destinatário externo", "planejamento.solicitacao-detalhe.campo-motivo-externo"),
     el(SOLICITACAO, "field", "Assunto", "planejamento.solicitacao-detalhe.campo-assunto"),
     el(SOLICITACAO, "field", "Mensagem", "planejamento.solicitacao-detalhe.campo-mensagem"),
     el(SOLICITACAO, "table", "Respostas", "planejamento.solicitacao-detalhe.respostas"),

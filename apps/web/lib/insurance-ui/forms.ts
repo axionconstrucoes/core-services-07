@@ -227,6 +227,8 @@ export const FORMS = {
       { name: "entity_name", label: "Seguradora ou banco", type: "text", helpId: "seguros.canais.campo-entidade", required: true },
       { name: "channel_type", label: "Tipo de canal", type: "select", helpId: "seguros.canais.campo-tipo", required: true, options: opts(CHANNEL_TYPE_LABEL) },
       { name: "channel_value", label: "Endereço do canal (e-mail, portal, endereço, telefone)", type: "text", helpId: "seguros.canais.campo-valor", required: true },
+      { name: "external_confirm", label: "Confirmo o destinatário externo (e-mail com domínio fora da Axion)", type: "checkbox", helpId: "seguros.canais.campo-confirmar-externo" },
+      { name: "external_reason", label: "Motivo do canal externo (mínimo de 10 caracteres)", type: "textarea", helpId: "seguros.canais.campo-motivo-externo" },
       { name: "policy_id", label: "Apólice vinculada", type: "select", helpId: "seguros.canais.campo-apolice", optionsKey: "policies" },
       { name: "bank_guarantee_id", label: "Fiança bancária vinculada", type: "select", helpId: "seguros.canais.campo-fianca", optionsKey: "bankGuarantees" },
       SRC_DOC,
