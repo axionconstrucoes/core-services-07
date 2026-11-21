@@ -267,8 +267,16 @@ const snapshotData = async (su) => {
     members: await q("select md5(string_agg(project_id::text||user_id::text||permission||status, ',' order by project_id,user_id)) h from public.project_memberships"),
     rules: await q("select md5(string_agg(id::text||risk_level||coalesce(area,'')||assume_deadline_value::text||active::text, ',' order by id)) h from public.sla_matrix_rules where area is distinct from 'QUALIDADE'"),
     // Fase 6/H5: a onda L (20261210100000) SEMEIA regras da area QUALIDADE (aditivo/prospectivo); o hash acima cobre todas as OUTRAS regras.
+    // linhas completas (id -> linha, area): base da comparacao ESTREITA de regras (rulesOk)
+    rules_rows: Object.fromEntries((await su.query("select r.id::text as id, r::text as row, r.area from public.sla_matrix_rules r")).rows.map((x) => [x.id, { row: x.row, area: x.area }])),
     qualidade_rules: await q("select md5(string_agg(id::text||risk_level||assume_deadline_value::text||active::text, ',' order by id)) h from public.sla_matrix_rules where area = 'QUALIDADE'"),
   };
+};
+// Regra ESTREITA (H5): toda regra que existia ANTES deve permanecer IDENTICA (linha inteira, mesmo id/area); so podem ENTRAR regras NOVAS com area = 'QUALIDADE'.
+const rulesOk = (pre, post) => {
+  for (const [id, r] of Object.entries(pre.rules_rows)) { if (!post.rules_rows[id]) return `regra ${id} removida`; if (post.rules_rows[id].row !== r.row) return `regra ${id} alterada`; }
+  for (const [id, r] of Object.entries(post.rules_rows)) if (!pre.rules_rows[id] && r.area !== "QUALIDADE") return `regra nova ${id} fora da area QUALIDADE (area=${r.area})`;
+  return null;
 };
 const anonExecCount = async (su) => (await su.query(
   `select count(*)::int n from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prosecdef and has_function_privilege('anon', p.oid, 'execute')`)).rows[0].n;
@@ -334,7 +342,8 @@ async function runVariant(variant) {
   }
   const after = await snapshotData(su);
   await check(`[${variant}] dados representativos preservados apos todas as ondas (acoes, prazos das 9 abertas, casos, membros, regras de SLA)`, async () => {
-    for (const k of ["actions", "open_med_low", "cases", "members", "rules"]) ok(before[k] === after[k], `${k} mudou`);
+    for (const k of ["actions", "open_med_low", "cases", "members"]) ok(before[k] === after[k], `${k} mudou`);
+    ok(!rulesOk(before, after), rulesOk(before, after) ?? "");
   });
   await check(`[${variant}] sequencia nao ampliou funcoes SECURITY DEFINER executaveis por anon alem das novas ja revisadas (informativo: antes ${anon0}, depois ${await anonExecCount(su)})`, async () => ok(true));
   await check(`[${variant}] portao P0 e idempotente (reaplicar 2x nao altera nada)`, async () => {
@@ -350,9 +359,19 @@ async function runVariant(variant) {
       for (const stem of ondaL.migrations) await applyFile(su, stem, variant, db.notices);
       const post = await snapshotData(su);
       for (const k of ["actions", "open_med_low", "cases", "members", "rules", "qualidade_rules"]) ok(pre[k] === post[k], `${k} mudou ao reaplicar`);
+      ok(!rulesOk(pre, post), rulesOk(pre, post) ?? "");
       ok((await p0Full(su, db.caseId)).good, "P0 apos reaplicar");
     });
   }
+  await check(`[${variant}] controle negativo das regras de SLA: alterar regra antiga, remover regra ou criar regra nova fora de QUALIDADE FALHA`, async () => {
+    const base = { rules_rows: { a: { row: "(a,1)", area: null }, q: { row: "(q,1)", area: "QUALIDADE" } } };
+    ok(!rulesOk(base, { rules_rows: { ...base.rules_rows, n: { row: "(n)", area: "QUALIDADE" } } }), "nova QUALIDADE deveria passar");
+    ok(rulesOk(base, { rules_rows: { ...base.rules_rows, a: { row: "(a,2)", area: null } } }), "alteracao de regra antiga deveria falhar");
+    ok(rulesOk(base, { rules_rows: { a: base.rules_rows.a } }), "remocao deveria falhar");
+    ok(rulesOk(base, { rules_rows: { ...base.rules_rows, n: { row: "(n)", area: "JURIDICO" } } }), "nova fora de QUALIDADE deveria falhar");
+    // regra antiga mudando de area para QUALIDADE tambem muda a linha => falha
+    ok(rulesOk(base, { rules_rows: { ...base.rules_rows, a: { row: "(a,1,Q)", area: "QUALIDADE" } } }), "mudar area de regra antiga deveria falhar");
+  });
   if (tailStems.length) {
     await check(`[${variant}] onda F5: ${tailStems.length} migration(s) nova(s) idempotente(s) (aplicadas 2x sem erro, P0 intacto, dados preservados)`, async () => {
       const pre = await snapshotData(su);
