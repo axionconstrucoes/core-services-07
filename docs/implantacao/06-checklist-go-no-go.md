@@ -48,6 +48,10 @@ Regra geral: NO-GO prevalece. Um bloco só vira GO com todos os critérios obrig
 ## Decisão consolidada
 O GO global exige B1, B2, B3, B5, B6 e B8 em GO; B4 e B9 conforme o escopo da abertura; B7 define o escopo do piloto. Hoje: B1 pendente de registro; B2 pendente de ensaio e autorização; B3 NO-GO; B4 aguardando decisão; B5 a B9 dependem do B2.
 
+## Complemento da Fase 5/F
+
+B2: o critério passa a ser o ensaio sobre TODAS as migrations do diretório de integração (`ACC_ENSAIO_MIGRATIONS_DIR`; migrations novas entram na onda F5 com P0 por arquivo e idempotência), 0 falhas, no dia da janela; contagem de pendentes conferida contra `list_migrations` (hoje 57). B3 permanece NO-GO para envio real; leitura de caixas não depende de SPF/DKIM/DMARC (ver `04`, seção 6).
+
 ## Complemento da Fase 4/C (sequência ensaiada)
 
 Critérios adicionais, por bloco "migrations": (GO) o ensaio `scripts/ensaio-implantacao-ondas-realpg.mjs` repetido no dia com 0 falhas; a verificação `scripts/sql/p0-verificar-record-risk-alert-action.sql` devolve `ok = true` ANTES da janela e após CADA migration; o hotfix 20261121090000 NÃO é reaplicado (só registro); `20261123302000` só publicada junto do app; `20261121177000` só com decisão registrada do dono. (NO-GO) qualquer `ok = false` ou `P0_GATE`: parar, não prosseguir, investigar. Detalhes em `07-sequencia-ensaiada.md`; resultado do ensaio em `08-relatorio-ensaio-ondas.md`. Nenhum item deste complemento foi executado no operacional.

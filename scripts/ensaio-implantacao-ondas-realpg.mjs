@@ -33,7 +33,10 @@ const { resolveMatrixPolicy } = await import("../apps/web/lib/sla/resolve-matrix
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const pg = createRequire(path.join(process.env.ACC_REALPG_PKG_DIR ?? here, "x.js"))("pg");
-const dir = path.join(here, "..", "supabase", "migrations");
+// PARAMETRIZAVEL (Fase 5/F): ACC_ENSAIO_MIGRATIONS_DIR aponta outro diretorio de migrations (ex.: a integracao das frentes A-E);
+// toda migration do diretorio com versao > ultimaVersaoRemota que NAO esteja na sequencia JSON entra automaticamente na onda
+// "F5" (ordem numerica, depois da onda J), com verificacao P0 apos cada uma e teste de idempotencia (aplicada 2x).
+const dir = process.env.ACC_ENSAIO_MIGRATIONS_DIR ? path.resolve(process.env.ACC_ENSAIO_MIGRATIONS_DIR) : path.join(here, "..", "supabase", "migrations");
 const seq = JSON.parse(readFileSync(path.join(here, "data", "implantacao-sequencia.json"), "utf8"));
 const P0_SQL = readFileSync(path.join(here, "sql", "p0-verificar-record-risk-alert-action.sql"), "utf8");
 const PLATFORM = readFileSync(path.join(here, "test-migrations-full-replay.mjs"), "utf8").match(/const PLATFORM = `([\s\S]*?)`;/)[1];
@@ -85,6 +88,9 @@ async function newDb(tag) {
 const body = (f) => readFileSync(path.join(dir, `${f}.sql`), "utf8").replace(/^﻿/, "").replace(/\r\n/g, "\n");
 const variantText = (sql, variant) => (variant === "CRLF" ? sql.replace(/\n/g, "\r\n") : sql);
 const allStems = readdirSync(dir).filter((f) => f.endsWith(".sql")).map((f) => f.replace(/\.sql$/, "")).sort();
+const knownInSeq = new Set([...seq.ondas.flatMap((o) => o.migrations), ...seq.adiadas.map((a) => a.migration), ...seq.jaEfetivaNaoReaplicar]);
+const tailStems = allStems.filter((x) => x.slice(0, 14) > seq.ultimaVersaoRemota && !knownInSeq.has(x));
+if (tailStems.length) seq.ondas.push({ id: "F5", nome: "Migrations novas das frentes (descobertas no diretorio, ordem numerica, apos a onda J)", migrations: tailStems });
 const OOO = ["20261107090000", "20261116090000", "20261118140000"];
 const baselineStems = allStems.filter((s) => s.slice(0, 14) <= seq.ultimaVersaoRemota && !OOO.includes(s.slice(0, 14)));
 
@@ -294,6 +300,15 @@ async function runVariant(variant) {
     await applyFile(su, "20261126100000_p0_gate_record_risk_alert_action", variant, db.notices);
     ok((await p0Full(su, db.caseId)).good, "P0");
   });
+  if (tailStems.length) {
+    await check(`[${variant}] onda F5: ${tailStems.length} migration(s) nova(s) idempotente(s) (aplicadas 2x sem erro, P0 intacto, dados preservados)`, async () => {
+      const pre = await snapshotData(su);
+      for (const stem of tailStems) await applyFile(su, stem, variant, db.notices);
+      const post = await snapshotData(su);
+      for (const k of ["actions", "open_med_low", "cases", "members", "rules"]) ok(pre[k] === post[k], `${k} mudou ao reaplicar`);
+      ok((await p0Full(su, db.caseId)).good, "P0 apos reaplicar");
+    });
+  }
   const withErr = rows.filter((r) => r.erro).length;
   report.variants[variant] = { rows, totalMs, base };
   return { db, rows, withErr, before };

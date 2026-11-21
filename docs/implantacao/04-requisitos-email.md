@@ -64,3 +64,42 @@ Riscos do plano: SPF incompleto bloqueia remetentes legítimos; DKIM ligado ante
 | `GOOGLE_GMAIL_*` (remetente, cliente, token, delegação de domínio) e `ACC_SCHEDULER_*_CRON_SECRET` | Credenciais server-side (Vercel/GitHub secrets) | nunca no frontend nem no repositório; conferir presença, não valor |
 
 Travas no código: `pilot-outbound-guard.ts` (modo piloto fail-closed, allowlist), `send-guard.ts` do módulo de seguros (flag + aprovação humana), `reissue-send-gate.ts`, estados de entrega (`20261121130000`: aceito pelo provedor x entrega comprovada).
+
+## 6. Fase 5/F (21/11/2026): DNS reconsultado e inventário Gmail / Outlook / Graph por camada
+
+Somente leitura: consultas DNS públicas (`nslookup`) e leitura de código, workflows e documentos. Nenhuma chamada a Gmail, Microsoft Graph ou seguradoras; nenhum e-mail enviado; nenhum valor de variável lido (apenas nomes).
+
+### 6.1 DNS público de `axion.com.br` em 21/11/2026 (igual a 20/11)
+
+| Registro | Resultado |
+|---|---|
+| MX | `1 aspmx.l.google.com` (único) |
+| TXT (raiz) | somente `google-gws-recovery-domain-verification=...`; NÃO há SPF (`v=spf1`) |
+| `_dmarc` TXT | `v=DMARC1;p=none;` (sem `rua`/`ruf`) |
+| DKIM (seletores `google`, `default`, `selector1`, `selector2`, `k1`, `s1`, `mail`, `dkim`) | nenhum registro (NXDOMAIN); outro seletor não pode ser descartado: confirmar no Admin do Google Workspace |
+
+Princípio: SPF, DKIM e DMARC NÃO bloqueiam a LEITURA de caixas (a leitura usa a API do provedor, autenticada pelo OAuth/delegação, e não depende do DNS do remetente). Eles afetam o ENVIO (entregabilidade e spoofing) e a aceitação de RESPOSTAS por e-mail pelo ACC (fail-closed sem `pass` alinhado, seção 3).
+
+### 6.2 Inventário por camada
+
+Legenda de estado: REAL = existe no código/workflow e é só mecanismo (não prova que a credencial/caixa está ativa em produção); AUSENTE = não existe neste commit; FRENTE A = em implementação na Fase 5 (transporte falso, sem chamada real).
+
+| Camada | Gmail (Google Workspace) | Outlook / Microsoft Graph |
+|---|---|---|
+| **A. Leitura** (monitoramento de caixas) | REAL (mecanismo): escopo único `gmail.readonly`, caixa personificada `sub` sempre explícita (`scripts/lib/gmail-delegated-auth.mjs`, `gmail-delegation-config.mjs`, `gmail-mailbox-gate.mjs`); caixa do proprietário (`scripts/lib/gmail-owner-mailbox.mjs`). Workflows: `gmail-inbound-sync` (cron a cada 15 min), `gmail-owner-mailbox-sync` (minutos 7 e 37 de cada hora), `gmail-delegated-sync`, `gmail-historical-backfill` e `gmail-recover-existing` (manuais). Quais caixas estão de fato autorizadas e ativas: dado operacional (tabela `email_access_authorizations` e config), NÃO verificado nesta fase. | AUSENTE neste commit. A camada `MailReader` (Gmail + Graph, delta/cursor, dedupe, anexos) é a FRENTE A, testada só com transporte falso. Monitoramento de Outlook NÃO está comprovado. |
+| **B. Processamento** | REAL: triagem e alertas (`api/cron/risk-alerts`, `weekly-schedule-email-ingestion` a cada hora no minuto 20, ingestão de anexos). Classificação de risco por e-mail: FRENTE B. | Igual ao Gmail, depois que A entregar mensagens em `emails`. |
+| **C. Ações do usuário** (responder/confirmar por e-mail) | REAL, desligado por padrão: respostas por e-mail (`ACC_EMAIL_REPLY_CONFIRMATIONS_ENABLED`, limite por remetente), autenticação via cabeçalho `Authentication-Results` do Google (`apps/web/lib/email-replies/sender-authentication.ts`). | Sem leitura Graph não há autenticação de resposta equivalente; HTML dos modelos já considera o motor do Outlook (compatibilidade de renderização), sem prova visual real. |
+| **D. Envio pelo ACC** | REAL, travado: API do Gmail com OAuth (`gmail.send` + `userinfo.email` para provar a conta); modo piloto fail-closed e allowlist (`ACC_OUTBOUND_MODE` diferente de `production`); `ACC_RISK_ALERT_REISSUE_SEND_ENABLED`, `ACC_INSURANCE_REAL_SEND_ENABLED` desligadas. Envio real de teste: nunca executado nesta fase. | AUSENTE: não há envio por Graph/SMTP. Mensagens do ACC chegam a destinatários Outlook apenas como destino. |
+| **E. Segurança de domínio** | SPF ausente; DKIM não encontrado; DMARC `p=none` sem relatórios (6.1). Plano em 4. | Destinatários Outlook/Microsoft 365 filtram por SPF/DKIM/DMARC e reputação: mesma pendência. |
+
+Quotas e limites (limites PÚBLICOS dos provedores, NÃO medidos neste ambiente; conferir na documentação/console antes de dimensionar): Gmail API aplica cota por projeto e por usuário (unidades por segundo; `messages.list` e `messages.get` consomem unidades), por isso o backfill é manual e controlado (dry-run por padrão na Fase 5). Microsoft Graph aplica limitação (HTTP 429/`Retry-After`) por aplicativo e por caixa; o leitor Graph deve respeitar `Retry-After` e usar delta para não varrer a caixa inteira.
+
+### 6.3 BLOQUEIO exato para leitura real de Outlook / Microsoft Graph
+
+Nada abaixo existe ou foi testado; é o que falta antes de qualquer uso real (o código da FRENTE A roda só com transporte falso):
+1. Registro de aplicativo no Microsoft Entra ID (tenant da organização), com identificador do aplicativo e segredo/certificado guardados APENAS server-side (Vercel/GitHub secrets; nunca no frontend nem no repositório).
+2. Permissão de aplicativo `Mail.Read` (somente leitura; `Mail.ReadBasic` não traz corpo/anexos) com CONSENTIMENTO DE ADMINISTRADOR do tenant; avaliar restringir às caixas autorizadas por política de acesso a aplicativos do Exchange Online (Application Access Policy / RBAC for Applications) para não ler todas as caixas.
+3. Lista das caixas Outlook a monitorar, com autorização do titular e base legal (LGPD), registrada em `email_access_authorizations` ou equivalente.
+4. Decisão do dono sobre o escopo (inclusive WEG: mensagens com `@weg.net` em remetente/destinatário/cópia) e sobre a retenção do conteúdo.
+5. Teste controlado com uma caixa de homologação antes de qualquer caixa real.
+Enquanto 1 a 3 não existirem: Outlook = NÃO monitorado.
