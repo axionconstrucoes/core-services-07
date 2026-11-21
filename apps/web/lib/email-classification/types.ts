@@ -17,7 +17,9 @@ export type AuthorityCheck =
   | "FORMAL_CHANGE"
   | "POSSIBLY_OUT_OF_SCOPE"
   | "NOT_APPLICABLE";
-export type Pillar = "PRAZO" | "CUSTO" | "SEGURANCA" | "QUALIDADE" | "JURIDICO";
+/** Pilares: SOMENTE estes quatro (decisão do responsável, Fase 6). Jurídico e Comercial são ÁREAS funcionais (FunctionalArea). */
+export type Pillar = "PRAZO" | "CUSTO" | "SEGURANCA" | "QUALIDADE";
+export type FunctionalArea = "JURIDICO" | "COMERCIAL";
 export type ClassificationStatus = "ANALYZED" | "NO_INDICATION" | "CANNOT_ANALYZE";
 
 /** Espelha o JSON de `public.acc_resolve_external_party` (contrato da Frente C). Fail-closed: ausente => known=false. */
@@ -93,7 +95,10 @@ export interface ClassifyContext {
 }
 
 export interface RiskSignalDraft {
-  pillar: Pillar;
+  /** Pilar de impacto; nulo quando o sinal é puramente jurídico/comercial. */
+  pillar: Pillar | null;
+  /** Área funcional (JURIDICO | COMERCIAL); nula quando só há pilar. */
+  functional_area: FunctionalArea | null;
   signal_kind: string;
   summary: string;
   evidence_excerpt: string;

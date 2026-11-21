@@ -30,6 +30,7 @@ import {
   type ProjectLinkStatus,
   type RiskSignalDraft,
 } from "./types";
+import { signalAxes } from "./pillars";
 
 interface Source {
   ref: string;
@@ -65,7 +66,7 @@ function declaredValues(sentence: string): Record<string, unknown> {
   return out;
 }
 
-function quantify(pillar: Pillar, sentenceNorm: string, ctx: ClassifyContext): Record<string, unknown> | null {
+function quantify(pillar: string, sentenceNorm: string, ctx: ClassifyContext): Record<string, unknown> | null {
   if (pillar !== "CUSTO" && pillar !== "PRAZO") return null;
   const order = (ctx.facts.orders ?? []).find((o) => o.ref && sentenceNorm.includes(norm(o.ref)));
   const declared = declaredValues(sentenceNorm);
@@ -237,7 +238,7 @@ export function classifyEmail(email: EmailInput, ctx: ClassifyContext): Classifi
         const quant = quantify(rule.pillar, n, ctx);
         if (seen.has(key)) {
           // Mesmo tipo já visto (ex.: assunto sem valores): troca por evidência mais rica (valores declarados/correlação).
-          const idx = signals.findIndex((x) => x.pillar === rule.pillar && x.signal_kind === rule.kind);
+          const idx = signals.findIndex((x) => x.signal_kind === rule.kind);
           const cur = signals[idx]?.quantified_impact as { status?: string } | null;
           if (idx >= 0 && cur?.status === "SEM_DADOS" && quant && (quant as { status?: string }).status !== "SEM_DADOS") {
             signals[idx] = { ...signals[idx], evidence_excerpt: ev, evidence_ref: ref, quantified_impact: quant };
@@ -246,7 +247,7 @@ export function classifyEmail(email: EmailInput, ctx: ClassifyContext): Classifi
         }
         seen.add(key);
         signals.push({
-          pillar: rule.pillar,
+          ...signalAxes(rule.kind, rule.pillar),
           signal_kind: rule.kind,
           summary: `${prefix}${fwdPrefix}${rule.summary} Indício extraído da mensagem; não é fato comprovado.`,
           evidence_excerpt: ev,
@@ -261,7 +262,7 @@ export function classifyEmail(email: EmailInput, ctx: ClassifyContext): Classifi
       if ((o === "OFICIAL_GERENCIADORA" || o === "OFICIAL_CLIENTE" || o === "REPRESENTANTE_DELEGADO") && NOTIFICATION_RE.test(n) && !seen.has("JURIDICO|NOTIFICACAO_OFICIAL")) {
         seen.add("JURIDICO|NOTIFICACAO_OFICIAL");
         signals.push({
-          pillar: "JURIDICO",
+          ...signalAxes("NOTIFICACAO_OFICIAL", "JURIDICO"),
           signal_kind: "NOTIFICACAO_OFICIAL",
           summary: `${fwdPrefix}Notificação oficial de parte reconhecida (${verdict.party_kind}); verificar prazo de resposta contratual. Não implica reconhecimento de procedência.`,
           evidence_excerpt: ev,
@@ -307,7 +308,7 @@ export function classifyEmail(email: EmailInput, ctx: ClassifyContext): Classifi
               ? `Instrução sobre ${t.topic} altera termos contratuais: mensagem, ainda que oficial, não substitui aditivo/formalização`
               : `Instrução sobre ${t.topic} com impacto de custo/prazo: depende de aprovação do cliente`;
         signals.push({
-          pillar: "JURIDICO",
+          ...signalAxes(kind, "JURIDICO"),
           signal_kind: kind,
           summary: `${prefix}${fwdPrefix}${why}. Questão jurídica/comercial para revisão humana; nada foi executado ou aceito.`,
           evidence_excerpt: ev,
@@ -321,7 +322,7 @@ export function classifyEmail(email: EmailInput, ctx: ClassifyContext): Classifi
   }
   if (excludedByInjection > 0) notes.push(`${excludedByInjection} sentença(s) com instrução embutida excluída(s) da análise (permanecem no e-mail original)`);
 
-  const pillars = [...new Set(signals.map((s) => s.pillar))];
+  const pillars = [...new Set(signals.map((s) => s.pillar).filter((p): p is Pillar => p !== null))];
   const status = signals.length > 0 || authority !== "NOT_APPLICABLE" ? "ANALYZED" : "NO_INDICATION";
   return { ...base, authority_check: authority, clause_ref, pillars, status, signals };
 }
