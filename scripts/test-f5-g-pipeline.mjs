@@ -229,5 +229,14 @@ await check("anexo indisponível não derruba a mensagem (classificada, sem inve
   eq(r.reconciliation.classified, 1, "classificada");
 });
 
+await check("--limit: lotes sucessivos avançam (mensagens sem classificação vêm primeiro; as já classificadas não ocupam o lote)", async () => {
+  const store = createMemoryStore({ emails: [1, 2, 3, 4, 5].map((i) => mail({ subject: `Lote ${i}`, body_text: "Segue informação." })) });
+  await run(store, { apply: true, limit: 2 });
+  await run(store, { apply: true, limit: 2 });
+  const r = await run(store, { apply: true, limit: 2 });
+  eq(store.classifications.length, 5, "cinco classificadas em três lotes de 2");
+  eq(r.totals.failed, 0, "sem falhas");
+});
+
 console.log(`\n${passed} OK, ${failed} FAIL`);
 process.exit(failed === 0 ? 0 : 1);

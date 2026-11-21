@@ -31,11 +31,12 @@ export function createMemoryStore(seed: {
     async listEmails({ projectId, ruleVersion, limit }) {
       return seed.emails
         .filter((e) => !projectId || e.project_id === projectId)
-        .slice(0, limit)
         .map((e) => {
           const c = classifications.find((x) => x.email_id === e.id && x.rule_version === ruleVersion);
           return { ...e, existing: c ? { status: c.status, cannot_reason: c.cannot_reason, project_link_status: c.project_link_status } : null };
-        });
+        })
+        .sort((a, b) => Number(a.existing !== null) - Number(b.existing !== null)) // sem classificação primeiro (igual ao SQL)
+        .slice(0, limit);
     },
     async loadProjectContext(projectId) {
       return seed.contexts?.[projectId] ?? { facts: { projectId }, otherProjectRefs: [] };

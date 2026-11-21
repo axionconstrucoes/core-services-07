@@ -45,7 +45,7 @@ export function createSqlPipelineStore(client: SqlClient): PipelineStore {
            from public.emails e
            left join public.email_message_classifications c on c.email_id = e.id and c.rule_version = $2
           where ($1::uuid is null or e.project_id = $1::uuid)
-          order by e.sent_at asc, e.id asc
+          order by (c.id is not null) asc, e.sent_at asc, e.id asc
           limit $3`,
         [projectId ?? null, ruleVersion, limit],
       );
