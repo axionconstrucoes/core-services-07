@@ -134,3 +134,5 @@ scripts/test-f5-c-contatos.mjs
 scripts/test-f5-c-contatos-realpg.mjs
 scripts/test-f5-d-email-alerts.mjs
 scripts/test-f5-d-email-alerts-sql.mjs
+scripts/test-f5-e-governanca.mjs
+scripts/test-f5-e-governanca-realpg.mjs

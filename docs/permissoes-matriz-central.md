@@ -332,3 +332,38 @@ conferido continuam sendo etapas registradas, cada uma com seu autor; o banco n�
 Provas: `scripts/test-f4b-garantias-seguros-realpg.mjs` (CASO F4-B-R04 e R13: 10 perfis; LEITURA, COLABORADOR, GESTOR, GERENTE, ADMINISTRADOR, inativo, convite pendente, outro projeto, anon, authenticated sem sub).
 
 Lacuna que PERMANECE (decisão do dono): competência técnica/jurídica do usuário não é verificada além do nível MANAGE (escopo A da Fase 4 trata da tabela de competências); a conferência humana da identidade do manifestante e do hash também permanece humana.
+
+## 9. Fase 5 / Frente E — governança: habilitação validada, caso encerrado e envio externo de uso único
+
+Migrations `20261205100000_competence_validation_requests.sql`, `20261205101000_closed_case_material_change_guards.sql` e `20261205102000_external_send_single_use_confirmation.sql` (rollbacks em `supabase/rollbacks/`). Provas: `scripts/test-f5-e-governanca.mjs` (puro) e `scripts/test-f5-e-governanca-realpg.mjs` (Postgres 17 real). Esta seção SUBSTITUI a regra de concessão da seção 8.2 (Fase 4/A) e acrescenta as demais.
+
+### 9.1 Competência especializada só com validação INDEPENDENTE de habilitação
+
+| Regra | Efeito |
+|---|---|
+| Conceder competência é SOLICITAÇÃO (`project_competence_requests`) | Só ADMINISTRADOR do projeto solicita (inclusive para si). A solicitação NÃO produz poderes (`grantsAuthority=false`). Exige documento de habilitação do próprio projeto. |
+| Validação independente | Quem valida é diferente de quem solicitou E de quem recebe: (a) segundo ADMINISTRADOR ativo do projeto, ou (b) VALIDADOR DESIGNADO. Exige confirmar que a evidência foi conferida e nota >= 20 caracteres. Solicitação vence em 30 dias. |
+| Organização com administrador único | O administrador designa um validador (pessoa externa/diretoria): documento da designação (ata/ofício), prazo máximo de 180 dias, ACEITE do próprio designado, revogável por ele ou pelo administrador; trilha append-only. O validador NÃO vira membro nem lê dados da obra; só valida solicitações. |
+| CREA/OAB/SUSEP | Continua TEXTO declarado; NUNCA comprova habilitação. Sem a validação, nenhuma autoridade especializada. |
+| Caminho antigo | `project_competence_grant` e INSERT direto (authenticated, service_role) são recusados (`HABILITATION_VALIDATION_REQUIRED`). Carga por superusuário fora da aplicação fica `MAINTENANCE` (vale, mas identificável). Linhas já existentes ao aplicar a migration ficam `UNVALIDATED` (sem poder até nova validação). |
+| Decisões | `acc_user_has_competence` exige `habilitation_status in (VALIDATED, MAINTENANCE)`; todas as exigências da seção 8.3 passam a valer só com habilitação validada. |
+
+### 9.2 Caso encerrado (RNC, garantia, sinistro)
+
+Já existia: RPCs de Qualidade recusam edição/filhos em caso fechado; reabertura de RNC/garantia é transição auditada (MANAGE, justificativa + evidência). Fechado agora no banco (vale também para service_role/superusuário): UPDATE material de RNC/garantia ENCERRADA, filhos novos (CAPA, eficácia, vistoria/manutenção/reparo, custos) e UPDATE/passo novo em sinistro ENCERRADO são recusados (`CLOSED_CASE_IMMUTABLE`). Evidência NOVA continua aceita (aditiva; caminho da reabertura). Sinistro: reabertura auditada `insurance_claim_reopen` (MANAGE; destino DOC_COMPLEMENTAR/REGULACAO/CONTESTACAO; motivo >= 20 + fonte; evento append-only). Registro complementar controlado `acc_closed_case_complement_add` (MANAGE/ADMIN; só caso encerrado; fonte obrigatória; não altera o original).
+
+### 9.3 Envio externo: confirmação de uso único
+
+| Etapa | Quem | Regra |
+|---|---|---|
+| Preparar (`acc_external_send_prepare`) | COLABORADOR ou acima | Destinatários (até 20, validados) + ação + SHA-256 do conteúdo + versão. Nada é enviado. |
+| Aprovar/recusar (`acc_external_send_decide`) | GESTOR, GERENTE ou ADMINISTRADOR; minuta de Seguros só ADMINISTRADOR | Destinatário externo exige motivo >= 10. Grava uma confirmação por externo, ligada à preparação (ação + hash). |
+| Usar (`acc_external_send_consume`) | SÓ quem aprovou | Mesmos destinatários, ação e hash aprovados; vale 24 h; consome UMA vez (chave primária em `external_recipient_confirmation_uses`). Conteúdo alterado = nova aprovação. Não envia: o envio real segue as travas do ACC. |
+| Canal oficial de Seguros | GESTOR+ | A confirmação passa a ser consumida no cadastro (uso único), não mais reutilizável por 24 h. |
+
+Sem allowlist: qualquer domínio externo VÁLIDO pode ser preparado/analisado e, quando autorizado, usado; `acc_recipient_domains` só dispensa a confirmação (TENANT/PERMITIDO). LEITURA/consulta de mensagens já recebidas ou enviadas NÃO passa por este fluxo e não exige a aprovação excepcional de novo envio.
+
+### 9.4 Decisões e riscos para o dono
+- O segundo administrador pode ser uma conta cadastrada pelo próprio solicitante; a independência real depende de quem cadastra administradores. O validador designado reduz o risco, mas a designação é feita pelo administrador: recomenda-se que o dono mantenha a lista de validadores aceitos.
+- Linhas de competência já existentes ficam UNVALIDATED: se algum ambiente já usa competências, será preciso revalidar.
+- Não há tela para solicitar/validar competência nem para preparar/aprovar envio externo (apenas RPCs e módulos TS): UI pendente.
