@@ -269,6 +269,7 @@ try {
   await check("ROLLBACK: com e-mails OUTLOOK o rollback RECUSA; sem eles executa, remove colunas/tabelas e a migration é reaplicável", async () => {
     const rb = readFileSync(path.join(here, "..", "supabase", "rollbacks", "20261201100000_email_universal_monitoring.rollback.sql"), "utf8");
     await rejects(su.query(rb), /ROLLBACK_BLOCKED/, "rollback com OUTLOOK");
+    await su.query("rollback"); // o rollback é transacional (begin): encerra a transação abortada pela recusa esperada
     await su.query("delete from public.emails where provider = 'OUTLOOK'");
     await su.query(rb);
     eq(await nq("select count(*) n from information_schema.columns where table_name='emails' and column_name in ('cc_addresses','canonical_message_key')"), 0, "colunas removidas");

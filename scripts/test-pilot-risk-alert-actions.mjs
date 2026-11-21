@@ -627,6 +627,8 @@ const SLA_PROTECTED_SQL_TABLES = ["sla_matrix_rules", "sla_area_responsibles", "
 // "arquivo.sql": "justificativa (quem revisou, o que muda na regra e por quê)". Vazio = nenhuma migration desta base
 // altera regra de SLA/cron/destinatários.
 const SLA_RULE_MIGRATION_EXCEPTIONS = {
+  "20261210100000_quality_alert_area_sla.sql":
+    "Decisão do responsável (21/11/2026): Qualidade com área própria de alertas e SLA por criticidade. Só AMPLIA o CHECK de área e SEMEIA regras QUALIDADE (CRÍTICO 1h corrida, ALTO 4h úteis, MÉDIO 2 e BAIXO 5 dias úteis, nunca mais frouxas que a regra geral da obra) onde já há regra geral ativa; não altera regras existentes nem sla_actions (provado em test-quality-alert-area-sla-sql e no ensaio por ondas).",
   "20261121177000_sla_medio_baixo_prazos_aprovados.sql":
     "Prazos definitivos aprovados pelo responsável em 20/11/2026: MÉDIO 2 dias úteis e BAIXO 5 dias úteis, somente para NOVAS ações; não altera sla_actions existentes (provado em test-sla-medio-baixo-aprovados-sql).",
 };
@@ -734,6 +736,11 @@ await check("59. Regras de SLA, cron e destinatários permanecem inalteradas nes
   for (const [, file] of status) {
     if (!SLA_RULE_TS(file)) continue;
     if (file === "apps/web/lib/sla/default-matrix.ts" && defaultMatrixIsApproved(git(`show HEAD:${file}`) ?? "")) continue; // prazos aprovados (1h, 4h úteis, 2 e 5 dias úteis)
+    // Qualidade como área própria (decisão do responsável): só vale se TODAS as linhas alteradas de types.ts mencionarem QUALIDADE.
+    if (file === "apps/web/lib/sla/types.ts") {
+      const changed = (git(`diff --no-renames -U0 ${base} HEAD -- ${file}`) ?? "").split("\n").filter((l) => (l.startsWith("+") || l.startsWith("-")) && !l.startsWith("+++") && !l.startsWith("---"));
+      if (changed.some((l) => l.includes("QUALIDADE")) && changed.every((l) => l.includes("QUALIDADE") || l.includes("\"ESG_SSMA\""))) continue; // só acrescenta o membro da união (a linha anterior perde o ponto e vírgula)
+    }
     problems.push(`regra de SLA/destinatários alterada: ${file}`);
   }
   // c) + d) migrations

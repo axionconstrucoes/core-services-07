@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Checklist de VARIÁVEIS do app de homologação isolada (Fase 6 / H1). Lê um arquivo dotenv FORA do repositório (ex.: C:\vibe\homolog\.env.homolog)
+// Checklist de VARIÁVEIS do app de homologação isolada (Fase 6 / H1). Lê um arquivo dotenv FORA do repositório (ex.: <pasta-fora-do-repositorio>/.env.homolog)
 // e valida NOMES e COERÊNCIA sem imprimir nenhum valor. Nunca lê o .env.local operacional.
 // Uso: HOMOLOG_TARGET_REF=<ref> node scripts/homolog/check-env.mjs --file=<caminho>
 import { readFileSync, existsSync } from "node:fs";
