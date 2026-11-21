@@ -282,7 +282,7 @@ try {
     c = await rpc(await as(U.COLAB), "insurance_claim_advance", c.id, c.rowVersion, "REGULACAO", JSON.stringify({ note: "Regulação iniciada (sintético)." }));
     return c;
   }
-  const adv = (c, claim, to, extra = {}) => rpc(c, "insurance_claim_advance", claim.id, claim.rowVersion, to, JSON.stringify({ note: "Registro fundamentado do ato (sintético).", ...extra }));
+  const adv = (c, claim, to, extra = {}) => rpc(c, "insurance_claim_advance", claim.id, claim.rowVersion, to, JSON.stringify({ note: "Registro fundamentado do ato (sintético).", source_refs: ["parecer-sint p.1"], ...extra }));
   const stageOf = async (id) => (await su.query("select stage from public.insurance_claims where id=$1", [id])).rows[0].stage;
 
   await check("CASO 31 / F4-A-15 (SINISTRO): decisão, negativa, contestação e indenização exigem JURIDICO além do nível MANAGE — GESTOR/GERENTE/ADMIN sem competência, ou só com SEGUROS/TÉCNICO, são recusados; etapas operacionais seguem sem competência", async () => {
@@ -322,7 +322,13 @@ try {
     const pol = await mkPolicy();
     const mk = async () => rpc(a1, "insurance_draft_create", PA, JSON.stringify({ policy_id: pol.id, draft_kind: "AVISO_SINISTRO", subject: "Minuta sintética", body: "Prezados, segue minuta sintética de comunicação para a seguradora, sem dados reais." }));
     const CONF = "APROVO O CONTEUDO PARA ENVIO";
+    // Fase 4/B: a aprovação exige termos coerentes de CONTRATO, APOLICE e MINUTA (com fonte); a competência segue sendo o que barra/permite
+    const TERMS = { insured_name: "Construtora Alfa Ltda", insured_tax_id: "11.222.333/0001-81", beneficiary_name: "Incorporadora Beta SA", beneficiary_tax_id: "12.345.678/0001-95", object_text: "Edifício comercial, Fase 1", coverage_start: "2026-01-01", coverage_end: "2027-01-01", insured_amount: 1000000, guaranteed_obligation: "Execução da obra conforme contrato" };
+    const saveTerms = (kind, draftId) => rpc(a1, "insurance_instrument_terms_save", pol.id, kind, draftId, JSON.stringify({ ...TERMS, source_ref: `${kind}-sint p.1` }));
+    await saveTerms("CONTRATO", null);
+    await saveTerms("APOLICE", null);
     const d = await mk();
+    await saveTerms("MINUTA", d.id);
     // ADMINISTRADOR cujo único registro é TECNICO_RESPONSAVEL: nível ADMIN, sem competência de minuta
     await su.query("update public.project_memberships set status='ACTIVE' where project_id=$1 and user_id=$2", [PA, uid(U.ADMIN)]);
     const admTec = await as(U.ADMIN); // ADMIN tem TECNICO_RESPONSAVEL e SEGUROS (concedidas por ADMIN2): usar ADMIN2? ver abaixo
@@ -340,6 +346,7 @@ try {
     const okA = await rpc(admTec, "insurance_draft_approve", d.id, d.rowVersion, CONF); // ADMIN tem SEGUROS
     eq([okA.state, okA.sent], ["APROVADA_PARA_ENVIO", false], "ADMINISTRADOR com SEGUROS aprova; nada é enviado");
     const d2 = await mk();
+    await saveTerms("MINUTA", d2.id);
     eq((await rpc(a2, "insurance_draft_approve", d2.id, d2.rowVersion, CONF)).state, "APROVADA_PARA_ENVIO", "ADMINISTRADOR com JURIDICO também aprova");
     eq((await su.query("select real_send_enabled from public.insurance_settings where project_id=$1", [PA])).rows[0]?.real_send_enabled ?? false, false, "trava de envio real desligada");
   });
@@ -531,7 +538,7 @@ try {
       const pol = await lr(await lc(1), "insurance_policy_create", LP, JSON.stringify({ ...POL, source_document_id: ld, policy_number: "LEG-1" }));
       let cl = await lr(await lc(2), "insurance_claim_open", LP, JSON.stringify({ claim_kind: "OUTRO", title: "Legado", stage: "AVISO", policy_id: pol.id, source_ref: "leg-1" }));
       cl = await lr(await lc(2), "insurance_claim_advance", cl.id, cl.rowVersion, "REGULACAO", JSON.stringify({ note: "Regulação legada (sintético)." }));
-      const legacyDecision = await lr(await lc(2), "insurance_claim_advance", cl.id, cl.rowVersion, "DECISAO", JSON.stringify({ note: "Decisão legada (sintético).", decision_outcome: "DEFERIDO" }));
+      const legacyDecision = await lr(await lc(2), "insurance_claim_advance", cl.id, cl.rowVersion, "DECISAO", JSON.stringify({ note: "Decisão legada (sintético).", source_refs: ["parecer-sint p.1"], decision_outcome: "DEFERIDO" }));
       eq(legacyDecision.stage, "DECISAO", "decisão legada registrada pelo GESTOR (regra antiga: sem competência)");
       const beforeSteps = (await legacy.su.query("select id, stage, created_by from public.insurance_claim_steps order by created_at, id")).rows;
       for (const f of F4) { await legacy.su.query(read(f)); await legacy.su.query(read(f)); }
@@ -539,9 +546,9 @@ try {
       eq(afterSteps, beforeSteps, "passos legados preservados byte a byte");
       eq((await legacy.su.query("select stage from public.insurance_claims where id=$1", [cl.id])).rows[0].stage, "DECISAO", "decisão legada continua válida");
       // ato NOVO sem competência: bloqueado; com competência (concedida pelo ADMIN): permitido
-      await rejects(lr(await lc(2), "insurance_claim_advance", cl.id, legacyDecision.rowVersion, "INDENIZACAO_CUMPRIMENTO", JSON.stringify({ note: "Indenização nova sem competência." })), /COMPETENCE_REQUIRED/, "ato novo exige competência");
+      await rejects(lr(await lc(2), "insurance_claim_advance", cl.id, legacyDecision.rowVersion, "INDENIZACAO_CUMPRIMENTO", JSON.stringify({ note: "Indenização nova sem competência.", source_refs: ["parecer-sint p.1"] })), /COMPETENCE_REQUIRED/, "ato novo exige competência");
       await lr(await lc(1), "project_competence_grant", LP, lu(2), "JURIDICO", "{}");
-      eq((await lr(await lc(2), "insurance_claim_advance", cl.id, legacyDecision.rowVersion, "INDENIZACAO_CUMPRIMENTO", JSON.stringify({ note: "Indenização nova com competência." }))).stage, "INDENIZACAO_CUMPRIMENTO", "ato novo com competência");
+      eq((await lr(await lc(2), "insurance_claim_advance", cl.id, legacyDecision.rowVersion, "INDENIZACAO_CUMPRIMENTO", JSON.stringify({ note: "Indenização nova com competência.", source_refs: ["parecer-sint p.1"] }))).stage, "INDENIZACAO_CUMPRIMENTO", "ato novo com competência");
     } finally {
       await legacy.su.end().catch(() => {});
     }

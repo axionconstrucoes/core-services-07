@@ -1,65 +1,143 @@
 {
   "descricao": "Sequencia de implantacao ENSAIADA (somente ensaio local; nenhum comando de aplicacao operacional). Ordem = ordem numerica das migrations pendentes, com tres excecoes decididas: (1) 20261121090000 NAO e reaplicada (hotfix ja efetivo; so registro no historico, ver docs/implantacao/07); (2) 20261121177000 fica FORA ate decisao do dono; (3) 20261123302000 fica por ultimo e so junto com o app que chama as RPCs.",
   "ultimaVersaoRemota": "20261119034721",
-  "jaEfetivaNaoReaplicar": ["20261121090000_hotfix_risk_alert_action_authorization"],
+  "jaEfetivaNaoReaplicar": [
+    "20261121090000_hotfix_risk_alert_action_authorization"
+  ],
   "ondas": [
-    { "id": "A", "nome": "Fora de ordem (versao menor que a ultima remota)", "migrations": [
-      "20261107090000_email_mailbox_collection_controls",
-      "20261116090000_list_addable_profiles_for_project",
-      "20261118140000_sla_matrix_rules_unique_active_key" ] },
-    { "id": "B", "nome": "Seguranca e permissao de 20/11 (inclui as duas intermediarias de record_risk_alert_action)", "migrations": [
-      "20261120100000_sla_action_operations_by_responsible",
-      "20261120110000_risk_case_sla_consistency_guards",
-      "20261120120000_ssma_forward_and_ai_consult_limits",
-      "20261120130000_risk_alert_action_server_side_guard",
-      "20261120140000_ai_consult_reserve_global_user_lock",
-      "20261120150000_weekly_digest_evidence_and_guards",
-      "20261120151000_risk_alert_action_no_outbox_authorization",
-      "20261120152000_risk_sla_consistency_report_and_email_guards",
-      "20261120153000_null_safe_authorization_checks",
-      "20261120160000_email_reply_tokens_and_ssma_by_email",
-      "20261120170000_ai_consult_all_expert_paths",
-      "20261120190000_null_safe_ssma_cores" ] },
-    { "id": "C", "nome": "Centralizacao de permissao e residual null-safe (a 090000 NAO e reaplicada)", "migrations": [
-      "20261121100000_centralize_project_permission_rule",
-      "20261121101000_null_safe_authorization_residual" ] },
-    { "id": "D", "nome": "E-mail, envio, IA e SLA L2", "migrations": [
-      "20261121110000_email_mailbox_controls_hardening",
-      "20261121120000_email_replies_sla_digest_contract_by_email",
-      "20261121130000_outbound_delivery_states",
-      "20261121150000_ai_consult_governance",
-      "20261121160000_revoke_anon_list_addable_profiles",
-      "20261121170000_l2_revoke_anon_trigger_functions",
-      "20261121171000_l2_forecast_followup_and_guards",
-      "20261121172000_l2_sla_forward_by_email_audit",
-      "20261121173000_email_specialist_consultations",
-      "20261121174000_ai_consult_audit",
-      "20261121175000_audit_delete_proposals_and_findings",
-      "20261121176000_risk_sla_consistency_closed_by_source" ] },
-    { "id": "F", "nome": "Fluxo de aprovacao de reemissao", "migrations": [
-      "20261121178000_reissue_approval_flow" ] },
-    { "id": "G", "nome": "Qualidade e Seguros/Garantias (base)", "migrations": [
-      "20261122100000_quality_foundation",
-      "20261122101000_quality_rpcs",
-      "20261122200000_seguros_garantias_model",
-      "20261122201000_seguros_garantias_rpcs",
-      "20261122300000_quality_analyst_expert_id" ] },
-    { "id": "H1", "nome": "Fase 3: permissoes, integridade, RPCs, vinculos e persistencia", "migrations": [
-      "20261123100000_acc_project_tier",
-      "20261123101000_unified_permission_wrappers",
-      "20261123102000_insurance_claim_advance_manage_stages",
-      "20261123200000_endorsement_dual_review",
-      "20261123300000_quality_integrity_guards",
-      "20261123301000_quality_rpcs_children",
-      "20261123303000_acc_alert_links",
-      "20261123400000_f3e_persistence_model",
-      "20261123401000_f3e_warranty_opinion_rpcs",
-      "20261123402000_f3e_insurance_persistence_rpcs" ] },
-    { "id": "P0", "nome": "Portao P0 final (confere e reafirma; nao redefine)", "migrations": [
-      "20261126100000_p0_gate_record_risk_alert_action" ] }
+    {
+      "id": "A",
+      "nome": "Fora de ordem (versao menor que a ultima remota)",
+      "migrations": [
+        "20261107090000_email_mailbox_collection_controls",
+        "20261116090000_list_addable_profiles_for_project",
+        "20261118140000_sla_matrix_rules_unique_active_key"
+      ]
+    },
+    {
+      "id": "B",
+      "nome": "Seguranca e permissao de 20/11 (inclui as duas intermediarias de record_risk_alert_action)",
+      "migrations": [
+        "20261120100000_sla_action_operations_by_responsible",
+        "20261120110000_risk_case_sla_consistency_guards",
+        "20261120120000_ssma_forward_and_ai_consult_limits",
+        "20261120130000_risk_alert_action_server_side_guard",
+        "20261120140000_ai_consult_reserve_global_user_lock",
+        "20261120150000_weekly_digest_evidence_and_guards",
+        "20261120151000_risk_alert_action_no_outbox_authorization",
+        "20261120152000_risk_sla_consistency_report_and_email_guards",
+        "20261120153000_null_safe_authorization_checks",
+        "20261120160000_email_reply_tokens_and_ssma_by_email",
+        "20261120170000_ai_consult_all_expert_paths",
+        "20261120190000_null_safe_ssma_cores"
+      ]
+    },
+    {
+      "id": "C",
+      "nome": "Centralizacao de permissao e residual null-safe (a 090000 NAO e reaplicada)",
+      "migrations": [
+        "20261121100000_centralize_project_permission_rule",
+        "20261121101000_null_safe_authorization_residual"
+      ]
+    },
+    {
+      "id": "D",
+      "nome": "E-mail, envio, IA e SLA L2",
+      "migrations": [
+        "20261121110000_email_mailbox_controls_hardening",
+        "20261121120000_email_replies_sla_digest_contract_by_email",
+        "20261121130000_outbound_delivery_states",
+        "20261121150000_ai_consult_governance",
+        "20261121160000_revoke_anon_list_addable_profiles",
+        "20261121170000_l2_revoke_anon_trigger_functions",
+        "20261121171000_l2_forecast_followup_and_guards",
+        "20261121172000_l2_sla_forward_by_email_audit",
+        "20261121173000_email_specialist_consultations",
+        "20261121174000_ai_consult_audit",
+        "20261121175000_audit_delete_proposals_and_findings",
+        "20261121176000_risk_sla_consistency_closed_by_source"
+      ]
+    },
+    {
+      "id": "F",
+      "nome": "Fluxo de aprovacao de reemissao",
+      "migrations": [
+        "20261121178000_reissue_approval_flow"
+      ]
+    },
+    {
+      "id": "G",
+      "nome": "Qualidade e Seguros/Garantias (base)",
+      "migrations": [
+        "20261122100000_quality_foundation",
+        "20261122101000_quality_rpcs",
+        "20261122200000_seguros_garantias_model",
+        "20261122201000_seguros_garantias_rpcs",
+        "20261122300000_quality_analyst_expert_id"
+      ]
+    },
+    {
+      "id": "H1",
+      "nome": "Fase 3: permissoes, integridade, RPCs, vinculos e persistencia",
+      "migrations": [
+        "20261123100000_acc_project_tier",
+        "20261123101000_unified_permission_wrappers",
+        "20261123102000_insurance_claim_advance_manage_stages",
+        "20261123200000_endorsement_dual_review",
+        "20261123300000_quality_integrity_guards",
+        "20261123301000_quality_rpcs_children",
+        "20261123303000_acc_alert_links",
+        "20261123400000_f3e_persistence_model",
+        "20261123401000_f3e_warranty_opinion_rpcs",
+        "20261123402000_f3e_insurance_persistence_rpcs"
+      ]
+    },
+    {
+      "id": "I",
+      "nome": "Fase 4 A+B: competencias profissionais, endosso com dupla conferencia, aceite comprovado e coerencia/fundamentacao de seguros",
+      "migrations": [
+        "20261124100000_project_competences",
+        "20261124101000_competence_enforcement",
+        "20261124102000_endorsement_review_requester_competence",
+        "20261125100000_warranty_acceptance_proof",
+        "20261125200000_insurance_coherence",
+        "20261125201000_insurance_subjects_rcc_clause_id",
+        "20261125202000_insurance_sources_and_grounds",
+        "20261125203000_insurance_advances_consolidated"
+      ]
+    },
+    {
+      "id": "P0",
+      "nome": "Portao P0 final (confere e reafirma; nao redefine)",
+      "migrations": [
+        "20261126100000_p0_gate_record_risk_alert_action"
+      ]
+    },
+    {
+      "id": "J",
+      "nome": "Fase 4 D: controles de destinatario externo (apos o portao P0; nao toca record_risk_alert_action)",
+      "migrations": [
+        "20261127100000_external_recipient_controls"
+      ]
+    }
   ],
   "adiadas": [
-    { "migration": "20261121177000_sla_medio_baixo_prazos_aprovados", "onda": "E", "motivo": "DECISAO DO DONO (SLA MEDIO 2 e BAIXO 5 dias uteis, prospectivo). Ensaiada a parte, nunca aplicada junto das demais.", "depende": ["20261118140000_sla_matrix_rules_unique_active_key"] },
-    { "migration": "20261123302000_quality_revoke_direct_writes", "onda": "H2", "motivo": "SO com a versao do app que chama as RPCs de 20261123301000; revoga a escrita direta (reversivel).", "depende": ["20261123300000_quality_integrity_guards", "20261123301000_quality_rpcs_children"] }
+    {
+      "migration": "20261121177000_sla_medio_baixo_prazos_aprovados",
+      "onda": "E",
+      "motivo": "DECISAO DO DONO (SLA MEDIO 2 e BAIXO 5 dias uteis, prospectivo). Ensaiada a parte, nunca aplicada junto das demais.",
+      "depende": [
+        "20261118140000_sla_matrix_rules_unique_active_key"
+      ]
+    },
+    {
+      "migration": "20261123302000_quality_revoke_direct_writes",
+      "onda": "H2",
+      "motivo": "SO com a versao do app que chama as RPCs de 20261123301000; revoga a escrita direta (reversivel).",
+      "depende": [
+        "20261123300000_quality_integrity_guards",
+        "20261123301000_quality_rpcs_children"
+      ]
+    }
   ]
 }

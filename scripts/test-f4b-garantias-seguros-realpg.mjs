@@ -107,6 +107,14 @@ try {
   await mem(PB, U.ADMINB, "ADMINISTRADOR");
   await mem(PB, U.GESTORB, "GESTOR");
   await su.query("insert into public.project_member_invitations (project_id,email,name,permission,created_by) values ($1,$2,'Pendente','ADMINISTRADOR',$3)", [PA, `f4b-${U.PENDENTE}@axion.com.br`, uid(U.ADMIN)]);
+  // Interação Fase 4/A x 4/B: parecer COBERTA/NAO_COBERTA (TECNICO_RESPONSAVEL), decisão de sinistro (JURIDICO) e aprovação de minuta (SEGUROS/JURIDICO)
+  // agora exigem competência registrada. Este teste verifica as regras de B, então as fixtures concedem as competências a quem decide (carga de
+  // manutenção como superusuário, marcada 'fixture-direto'; a concessão pela RPC e a autorização negativa por competência são provadas em test-competencias-realpg).
+  for (const n of [U.ADMIN, U.GESTOR, U.GERENTE]) {
+    for (const comp of ["TECNICO_RESPONSAVEL", "JURIDICO", "SEGUROS"]) {
+      await su.query("insert into public.project_competences (project_id,user_id,competence,valid_from,granted_by,basis_note) values ($1,$2,$3,'2025-01-01',$4,'fixture-direto')", [PA, uid(n), comp, uid(n === U.ADMIN ? U.GESTOR : U.ADMIN)]);
+    }
+  }
 
   async function as(n, role = "authenticated", fresh = false) {
     const key = `${n}|${role}`;

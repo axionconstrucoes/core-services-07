@@ -19,7 +19,9 @@ Remoto: 134 migrations registradas + hotfix P0 `20261121090000` efetivo fora do 
 | F | 20261121178000 | Fluxo de aprovação de reemissão. |
 | G | 20261122100000, 101000, 200000, 201000, 300000 | A 300000 (lista de Experts, inclui `quality-analyst`) deve estar aplicada ANTES de publicar o código de Qualidade/Seguros que roteia para esse Expert; antes disso o banco recusaria a consulta (falha fechada, `INVALID_EXPERT`). |
 | H1 | 20261123100000, 101000, 102000, 200000, 300000, 301000, 303000, 400000, 401000, 402000 | Fase 3. |
+| I | 20261124100000, 101000, 102000, 20261125100000, 200000, 201000, 202000, 203000 (8 arquivos) | Fase 4 A+B (competências, dupla conferência de endosso, aceite comprovado, coerência/fundamentação de seguros). Redefinem funções de Seguros/Qualidade, nunca `record_risk_alert_action`; aplicadas ANTES do portão P0. Código do app da Fase 4 deve ser publicado junto (RPCs exigem competência/fonte). |
 | P0 | 20261126100000 | Portão final: confere e reafirma a proteção; não redefine nada. |
+| J | 20261127100000 | Fase 4 D (destinatários externos). Aplicada após o portão P0; não toca `record_risk_alert_action`; o ensaio confere o P0 depois dela também. |
 | H2 (adiada, app) | 20261123302000 | **Só junto com a versão do app que chama as RPCs de 301000.** Ver seção 6. |
 | E (adiada, decisão) | 20261121177000 | SLA MÉDIO 2 e BAIXO 5 dias úteis, prospectivo. Seção 7. |
 

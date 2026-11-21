@@ -289,7 +289,8 @@ await withBrowser(async (b) => {
       if (small.length) problems.push(`${where}: alvos pequenos ${JSON.stringify(small.slice(0, 3))}`);
     };
     for (const mobile of [false, true]) {
-      await load({ mobile });
+      // Fase 4/A: a decisão de sinistro exige JURIDICO (além de SEGUROS); este caso testa a fundamentação (B), então o usuário simulado tem ambas
+      await load({ mobile, comp: "SEGUROS,JURIDICO" });
       const tag = mobile ? "mobile" : "desktop";
       // --- coerência da minuta ---
       await tab("Minutas e acionamento");
