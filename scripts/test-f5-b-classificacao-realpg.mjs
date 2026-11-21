@@ -277,11 +277,10 @@ try {
       /projeto do sinal difere/i,
       "projeto diferente",
     );
-    await rejects(
-      su.query("insert into public.email_risk_signals (email_id,classification_id,project_id,pillar,signal_kind,summary,evidence_excerpt,evidence_ref) values ($1,$2,$3,'PRAZO','ATRASO_FABRICACAO_ENTREGA','s','e','r')", [ids.forn, cls, PA]),
-      /duplicate key|unique/i,
-      "duplicata",
-    );
+    // Fase 6/H2b: duplicata (mesmo tipo na mesma classificação) é DESCARTADA em silêncio pelo gatilho de normalização (equivale a ON CONFLICT DO NOTHING).
+    const antes = (await su.query("select count(*)::int n from public.email_risk_signals where classification_id=$1", [cls])).rows[0].n;
+    await su.query("insert into public.email_risk_signals (email_id,classification_id,project_id,pillar,signal_kind,summary,evidence_excerpt,evidence_ref) values ($1,$2,$3,'PRAZO','ATRASO_FABRICACAO_ENTREGA','s','e','r')", [ids.forn, cls, PA]);
+    eq((await su.query("select count(*)::int n from public.email_risk_signals where classification_id=$1", [cls])).rows[0].n, antes, "duplicata descartada");
     await rejects(su.query("insert into public.email_risk_signals (email_id,classification_id,project_id,pillar,signal_kind,summary,evidence_excerpt,evidence_ref) values ($1,$2,$3,'COMERCIAL','K','s','e','r')", [ids.forn, cls, PA]), /check constraint|violates/i, "pilar inválido");
   });
   await check("A mensagem original em emails permanece intacta após classificar (corpo e assunto)", async () => {

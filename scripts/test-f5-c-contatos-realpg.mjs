@@ -83,6 +83,8 @@ try {
   }
   ok(MINE.length === 2, `esperadas 2 migrations da frente C, achei ${MINE.length}`);
   for (let i = 0; i < 2; i += 1) for (const f of MINE) await su.query(readFileSync(path.join(dir, f), "utf8")); // idempotência
+  // Fase 6/H2b: a migration 20261209101000 REDEFINE as RPCs de gestão global (somente ADMINISTRADOR); reaplicada depois das da C para valer na ordem real.
+  for (const f of files.filter((x) => /^20261209101000_/.test(x))) await su.query(readFileSync(path.join(dir, f), "utf8"));
   console.log(`PostgreSQL ${version}: ${files.length} migrations aplicadas (+ ${MINE.length} da fase 5/C reaplicadas 2x) — base ${dbName}`);
 
   const uid = (n) => `00000000-0000-4000-8000-${String(5300 + n).padStart(12, "0")}`;
@@ -124,21 +126,22 @@ try {
 
   // Estado compartilhado dos cenários (criado pela gestão, não por INSERT direto).
   const g = await as(U.GESTOR, "authenticated", true);
+  const adm = await as(U.ADMIN, "authenticated", true); // Fase 6/H2b: dados globais (organização, domínio, contato) só por ADMINISTRADOR
   let ORG_G, ORG_FORN1, ORG_FORN2, ORG_CLI;
 
-  await check("gestão: GESTOR cria organizações (GERENCIADORA, CLIENTE, 2 FORNECEDORES) e o banco guarda criador e auditoria", async () => {
-    ORG_G = await saveOrg(g, PA, { legal_name: "Gerenciadora Sintética Ltda", tax_id: "11.111.111/0001-11", org_kind: "GERENCIADORA" });
-    ORG_CLI = await saveOrg(g, PA, { legal_name: "Cliente Sintético SA", tax_id: "22.222.222/0001-22", org_kind: "CLIENTE" });
-    ORG_FORN1 = await saveOrg(g, PA, { legal_name: "Fornecedor Um Ltda", org_kind: "FORNECEDOR" });
-    ORG_FORN2 = await saveOrg(g, PA, { legal_name: "Fornecedor Dois Ltda", org_kind: "FORNECEDOR" });
+  await check("gestão: ADMINISTRADOR cria organizações (GERENCIADORA, CLIENTE, 2 FORNECEDORES) e o banco guarda criador e auditoria", async () => {
+    ORG_G = await saveOrg(adm, PA, { legal_name: "Gerenciadora Sintética Ltda", tax_id: "11.111.111/0001-11", org_kind: "GERENCIADORA" });
+    ORG_CLI = await saveOrg(adm, PA, { legal_name: "Cliente Sintético SA", tax_id: "22.222.222/0001-22", org_kind: "CLIENTE" });
+    ORG_FORN1 = await saveOrg(adm, PA, { legal_name: "Fornecedor Um Ltda", org_kind: "FORNECEDOR" });
+    ORG_FORN2 = await saveOrg(adm, PA, { legal_name: "Fornecedor Dois Ltda", org_kind: "FORNECEDOR" });
     ok(ORG_G && ORG_CLI && ORG_FORN1 && ORG_FORN2, "ids");
-    eq(await nq("select count(*)::int n from public.external_organizations where created_by=$1", [uid(U.GESTOR)]), 4, "criador gravado");
-    eq(await nq("select count(*)::int n from public.external_contacts_audit where action='ORG_CREATE' and actor_id=$1", [uid(U.GESTOR)]), 4, "auditoria de criação");
+    eq(await nq("select count(*)::int n from public.external_organizations where created_by=$1", [uid(U.ADMIN)]), 4, "criador gravado");
+    eq(await nq("select count(*)::int n from public.external_contacts_audit where action='ORG_CREATE' and actor_id=$1", [uid(U.ADMIN)]), 4, "auditoria de criação");
   });
 
-  await check("gestão: só GESTOR/GERENTE/ADMINISTRADOR gravam; LEITURA, COLABORADOR, inativo, outro projeto, anon e sem sub são recusados sem gravar", async () => {
-    for (const [label, n, role, can] of [["LEITURA", U.LEITURA, "authenticated", false], ["COLABORADOR", U.COLAB, "authenticated", false], ["GESTOR", U.GESTOR, "authenticated", true],
-      ["GERENTE", U.GERENTE, "authenticated", true], ["ADMINISTRADOR", U.ADMIN, "authenticated", true], ["INATIVO", U.INATIVO, "authenticated", false],
+  await check("gestão de dados GLOBAIS (Fase 6/H2b): só ADMINISTRADOR grava; GESTOR, GERENTE, LEITURA, COLABORADOR, inativo, outro projeto, anon e sem sub são recusados sem gravar", async () => {
+    for (const [label, n, role, can] of [["LEITURA", U.LEITURA, "authenticated", false], ["COLABORADOR", U.COLAB, "authenticated", false], ["GESTOR", U.GESTOR, "authenticated", false],
+      ["GERENTE", U.GERENTE, "authenticated", false], ["ADMINISTRADOR", U.ADMIN, "authenticated", true], ["INATIVO", U.INATIVO, "authenticated", false],
       ["OUTRO_PROJETO", U.ADMINB, "authenticated", false], ["SEM_SUB", null, "authenticated", false], ["ANON", null, "anon", false]]) {
       const c = await as(n, role);
       const before = await nq("select count(*)::int n from public.external_organizations");
@@ -157,14 +160,14 @@ try {
   });
 
   await check("vínculo: ACTIVE grava confirmado_por/em; GERENCIADORA com contratante, contrato, cláusula, delegação, vigência; domínio e contato", async () => {
-    await saveLink(g, PA, { organization_id: ORG_G, role_in_project: "GERENCIADORA", contract_ref: "CT-001", delegation_clause_ref: "Cl. 4.2", delegation_scope: ["os_rotina", "NOTIFICACAO_PRAZO", "OS_ROTINA"], valid_from: "2026-01-01", status: "ACTIVE" }, "Delegação conferida com a cláusula 4.2");
+    await saveLink(adm, PA, { organization_id: ORG_G, role_in_project: "GERENCIADORA", contract_ref: "CT-001", delegation_clause_ref: "Cl. 4.2", delegation_scope: ["os_rotina", "NOTIFICACAO_PRAZO", "OS_ROTINA"], valid_from: "2026-01-01", status: "ACTIVE" }, "Delegação conferida com a cláusula 4.2");
     const l = (await su.query("select * from public.external_org_project_links where organization_id=$1", [ORG_G])).rows[0];
-    eq(l.status, "ACTIVE", "status"); eq(l.confirmed_by, uid(U.GESTOR), "confirmado por"); ok(l.confirmed_at, "confirmado em");
+    eq(l.status, "ACTIVE", "status"); eq(l.confirmed_by, uid(U.ADMIN), "confirmado por"); ok(l.confirmed_at, "confirmado em");
     eq(l.delegation_scope.sort(), ["NOTIFICACAO_PRAZO", "OS_ROTINA"], "escopo normalizado sem duplicata");
-    await rpc(g, "acc_external_domain_set", PA, ORG_G, "gerenciadora-sintetica.com.br", true, null);
-    await rpc(g, "acc_external_contact_set", PA, ORG_G, "Fiscal.Obra@Gerenciadora-Sintetica.com.br", "Fiscal de obra", "CONFIRMED");
-    await rejects(rpc(g, "acc_external_domain_set", PA, ORG_G, "nao é domínio", true, null), /INVALID_DOMAIN/, "domínio inválido");
-    await rejects(rpc(g, "acc_external_contact_set", PA, ORG_G, "a@b.com\r\nBcc: x@y.com", null, "CONFIRMED"), /INVALID_EMAIL/, "e-mail com injeção");
+    await rpc(adm, "acc_external_domain_set", PA, ORG_G, "gerenciadora-sintetica.com.br", true, null);
+    await rpc(adm, "acc_external_contact_set", PA, ORG_G, "Fiscal.Obra@Gerenciadora-Sintetica.com.br", "Fiscal de obra", "CONFIRMED");
+    await rejects(rpc(adm, "acc_external_domain_set", PA, ORG_G, "nao é domínio", true, null), /INVALID_DOMAIN/, "domínio inválido");
+    await rejects(rpc(adm, "acc_external_contact_set", PA, ORG_G, "a@b.com\r\nBcc: x@y.com", null, "CONFIRMED"), /INVALID_EMAIL/, "e-mail com injeção");
     await rejects(saveLink(g, PA, { organization_id: ORG_G, role_in_project: "GERENCIADORA", status: "ACTIVE", valid_from: "2026-05-01", valid_until: "2026-01-01" }), /check|violates/i, "vigência invertida");
   });
 
@@ -195,14 +198,14 @@ try {
   });
 
   await check("RESOLVE: vínculo CANDIDATE aparece mas known=false; vencido => valid_now=false; ENDED não casa; contato REJECTED não casa", async () => {
-    await rpc(g, "acc_external_domain_set", PA, ORG_CLI, "cliente-sintetico.com.br", true, null);
-    const lc = await saveLink(g, PA, { organization_id: ORG_CLI, role_in_project: "CLIENTE", contract_ref: "CT-001", status: "CANDIDATE" });
+    await rpc(adm, "acc_external_domain_set", PA, ORG_CLI, "cliente-sintetico.com.br", true, null);
+    const lc = await saveLink(adm, PA, { organization_id: ORG_CLI, role_in_project: "CLIENTE", contract_ref: "CT-001", status: "CANDIDATE" });
     let r = await resolve(g, PA, "obra@cliente-sintetico.com.br");
     eq(r.known, false, "candidato não é conhecido"); eq(r.matches[0].link_status, "CANDIDATE", "listado como candidato"); eq(r.matches[0].valid_now, false, "não vigente");
     await saveLink(g, PA, { id: lc, status: "ACTIVE", valid_from: "2025-01-01", valid_until: "2025-12-31" });
     r = await resolve(g, PA, "obra@cliente-sintetico.com.br");
     eq(r.known, true, "ACTIVE"); eq(r.matches[0].valid_now, false, "vencido: nunca vigente");
-    await rpc(g, "acc_external_contact_set", PA, ORG_CLI, "spam@cliente-sintetico.com.br", null, "REJECTED");
+    await rpc(adm, "acc_external_contact_set", PA, ORG_CLI, "spam@cliente-sintetico.com.br", null, "REJECTED");
     eq((await resolve(g, PA, "spam@cliente-sintetico.com.br")).matches.length, 0, "rejeitado não casa mesmo com domínio");
     await saveLink(g, PA, { id: lc, status: "ENDED" });
     eq(await resolve(g, PA, "obra@cliente-sintetico.com.br"), { matches: [], ambiguous: false, domain_shared: false, known: false }, "ENDED não casa");
@@ -237,9 +240,9 @@ try {
   // ======================= cenário 17 =======================
   await check("CENÁRIO 17 — contato em dois projetos: mesma organização com vínculos distintos; resolução por projeto, sem vazar entre projetos", async () => {
     const a = await as(U.ADMINB);
-    await rpc(g, "acc_external_domain_set", PA, ORG_FORN1, "fornecedor-um.com.br", true, null);
-    await rpc(g, "acc_external_contact_set", PA, ORG_FORN1, "vendas@fornecedor-um.com.br", "Vendas", "CONFIRMED");
-    await saveLink(g, PA, { organization_id: ORG_FORN1, role_in_project: "FORNECEDOR", contract_ref: "OC-100", status: "ACTIVE" });
+    await rpc(adm, "acc_external_domain_set", PA, ORG_FORN1, "fornecedor-um.com.br", true, null);
+    await rpc(adm, "acc_external_contact_set", PA, ORG_FORN1, "vendas@fornecedor-um.com.br", "Vendas", "CONFIRMED");
+    await saveLink(adm, PA, { organization_id: ORG_FORN1, role_in_project: "FORNECEDOR", contract_ref: "OC-100", status: "ACTIVE" });
     // Projeto B: o ADMIN de B não enxerga a organização enquanto ela não tiver vínculo em B (segregação).
     eq((await a.query("select count(*)::int n from public.external_organizations where id=$1", [ORG_FORN1])).rows[0].n, 0, "B não vê a organização de A");
     await rejects(saveLink(a, PB, { organization_id: ORG_FORN1, role_in_project: "FORNECEDOR", status: "CANDIDATE" }), DENIED, "B não vincula organização que não enxerga");
@@ -264,27 +267,27 @@ try {
 
   // ======================= cenário 18 =======================
   await check("CENÁRIO 18 — domínio compartilhado: duas organizações no mesmo domínio => ambiguous/domain_shared; contato confirmado exato desempata; nunca vincula por coincidência", async () => {
-    await rpc(g, "acc_external_domain_set", PA, ORG_FORN2, "grupo-comum.com.br", true, null);
-    const r1 = await rpc(g, "acc_external_domain_set", PA, ORG_FORN2, "grupo-comum.com.br", true, null);
+    await rpc(adm, "acc_external_domain_set", PA, ORG_FORN2, "grupo-comum.com.br", true, null);
+    const r1 = await rpc(adm, "acc_external_domain_set", PA, ORG_FORN2, "grupo-comum.com.br", true, null);
     eq(r1.domain_shared, false, "sozinho ainda não é compartilhado");
-    const x = await saveOrg(g, PA, { legal_name: "Prestador Sintético ME", org_kind: "PRESTADOR" });
-    const r2 = await rpc(g, "acc_external_domain_set", PA, x, "grupo-comum.com.br", true, null);
+    const x = await saveOrg(adm, PA, { legal_name: "Prestador Sintético ME", org_kind: "PRESTADOR" });
+    const r2 = await rpc(adm, "acc_external_domain_set", PA, x, "grupo-comum.com.br", true, null);
     eq(r2.domain_shared, true, "agora compartilhado");
-    await saveLink(g, PA, { organization_id: ORG_FORN2, role_in_project: "FORNECEDOR", contract_ref: "OC-300", status: "ACTIVE" });
+    await saveLink(adm, PA, { organization_id: ORG_FORN2, role_in_project: "FORNECEDOR", contract_ref: "OC-300", status: "ACTIVE" });
     // Só uma das duas organizações está vinculada ao projeto: AINDA assim é ambíguo (compartilhado, sem contato exato).
     let r = await resolve(g, PA, "alguem@grupo-comum.com.br");
     eq(r.domain_shared, true, "domain_shared"); eq(r.ambiguous, true, "ambíguo por domínio compartilhado"); eq(r.matches.length, 1, "1 vínculo");
-    await saveLink(g, PA, { organization_id: x, role_in_project: "PRESTADOR", contract_ref: "PS-1", status: "ACTIVE" });
+    await saveLink(adm, PA, { organization_id: x, role_in_project: "PRESTADOR", contract_ref: "PS-1", status: "ACTIVE" });
     r = await resolve(g, PA, "alguem@grupo-comum.com.br");
     eq(r.ambiguous, true, "duas organizações casam"); eq(r.matches.length, 2, "2 casamentos");
     // Contato confirmado exato desempata (uma organização só): deixa de ser ambíguo, mas domain_shared continua verdadeiro.
-    await rpc(g, "acc_external_contact_set", PA, ORG_FORN2, "joao@grupo-comum.com.br", "João", "CONFIRMED");
+    await rpc(adm, "acc_external_contact_set", PA, ORG_FORN2, "joao@grupo-comum.com.br", "João", "CONFIRMED");
     r = await resolve(g, PA, "joao@grupo-comum.com.br");
     eq(r.matches.length, 2, "o domínio ainda casa as duas, mas...");
     eq(r.ambiguous, true, "...com 2 organizações casando continua ambíguo (consumidor NUNCA vincula)");
     ok(!R.hasDelegatedScope(r, "OS_ROTINA"), "ambíguo nunca autoriza");
     // Desativar o domínio da outra organização resolve a ambiguidade de domínio.
-    await rpc(g, "acc_external_domain_set", PA, x, "grupo-comum.com.br", false, "Domínio não é mais usado por esta organização");
+    await rpc(adm, "acc_external_domain_set", PA, x, "grupo-comum.com.br", false, "Domínio não é mais usado por esta organização");
     r = await resolve(g, PA, "joao@grupo-comum.com.br");
     eq(r.domain_shared, false, "deixou de ser compartilhado"); eq(r.ambiguous, false, "sem ambiguidade"); eq(r.matches.length, 1, "1 casamento"); eq(r.matches[0].organization_id, ORG_FORN2, "org do contato");
   });

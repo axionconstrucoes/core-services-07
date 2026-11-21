@@ -4,7 +4,7 @@
 do $$
 begin
   if exists (select 1 from public.email_signal_review_delegations) or exists (select 1 from public.email_signal_review_audit)
-     or exists (select 1 from public.email_risk_signals where review_status <> 'PENDING') then
+     or exists (select 1 from public.email_risk_signals where review_status <> 'PENDING' and reviewed_by is not null) then
     raise exception 'ROLLBACK_BLOCKED: há revisões/delegações/auditoria de sinais; exporte-as (evidência) e remova manualmente com autorização';
   end if;
 end $$;
