@@ -315,5 +315,22 @@ await check("11. Mecanismo (SIMULADO, transporte falso): HTML Gmail-like (https 
   assert(blocked, "rede cortada no teste");
 });
 
+// ---------------------------------------------------------------- situação dos EXPERTS (documento x código)
+await check("12. Documento de EXPERTS: todo Expert oficial do código aparece com id, status e fontes idênticos; nenhum Expert fantasma; AXIA ausente da tabela", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { ALL_OFFICIAL_EXPERT_DEFINITIONS: defs } = await import("../apps/web/lib/ai/expert-definitions/definitions");
+  const doc = readFileSync(new URL("../docs/f5-d-alertas-por-email-e-experts.md", import.meta.url), "utf8").replace(/\r\n/g, "\n");
+  const section = doc.slice(doc.indexOf("## 4. Situação dos EXPERTS"), doc.indexOf("## 5."));
+  const rows = section.split("\n").filter((l) => l.startsWith("| ") && /`[a-z-]+`\)/.test(l));
+  assert(rows.length === defs.length, `linhas ${rows.length} x Experts ${defs.length}`);
+  for (const d of defs) {
+    const row = rows.find((l) => l.includes("(`" + d.expertId + "`)"));
+    assert(row, `Expert ${d.expertId} ausente do documento`);
+    assert(row.includes(d.status), `status de ${d.expertId}`);
+    for (const src of d.authorizedSources) assert(row.includes(src.sourceId), `fonte ${src.sourceId} de ${d.expertId}`);
+  }
+  assert(!/axia/i.test(section.split("Observação importante")[0]), "AXIA não é Expert de alerta");
+});
+
 console.log(`\nResultado: ${passed} OK, ${failed} FAIL`);
 process.exit(failed === 0 ? 0 : 1);
