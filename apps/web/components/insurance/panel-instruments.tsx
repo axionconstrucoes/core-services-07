@@ -9,6 +9,7 @@ import { FORMS, validateEndorsementVerify } from "@/lib/insurance-ui/forms";
 import { formatDate, formatDateTime, formatMoney, textOrNoData, NO_DATA } from "@/lib/insurance-ui/format";
 import { CHANGE_KIND_LABEL, DUAL_REVIEW_REASON_LABEL, ENDORSEMENT_STATE_LABEL, GUARANTEE_STATUS_LABEL, OTHER_GUARANTEE_TYPE_LABEL, CAUCAO_FORM_LABEL, labelOf } from "@/lib/insurance-ui/labels";
 import { advanceView, endorsementView, prepareEndorsementDraft } from "@/lib/insurance-ui/model";
+import { hasCompetence } from "@/lib/permissions/competences";
 import type { AdvanceRow, BankGuaranteeRow, EndorsementReviewRow, EndorsementRow, OtherGuaranteeRow } from "@/lib/insurance-ui/types";
 
 /* ------------------------------------------------------------- fianças e garantias ------------------------------------------------------------- */
@@ -137,9 +138,14 @@ function reviewsCell(e: EndorsementRow, reviews: EndorsementReviewRow[]) {
 }
 
 function EndorsementDetail({ e, goTo }: { e: EndorsementRow; goTo: (tab: string, t?: { endorsementId?: string }) => void }) {
-  const { data, caps, currentUserId } = useWorkspace();
+  const { data, caps, currentUserId, today } = useWorkspace();
   const options = buildOptionSets(data);
-  const v = endorsementView(e, data.endorsementReviews, currentUserId, caps.manage);
+  // Fase 4/A: conferir endosso crítico exige competência Seguros ou Jurídico vigente (além do nível MANAGE). Fail-closed: sem leitura das competências = sem competência.
+  const hasReviewCompetence = hasCompetence(
+    data.competences.map((c) => ({ userId: c.user_id, projectId: c.project_id, competence: c.competence, status: c.status, validFrom: c.valid_from, validUntil: c.valid_until })),
+    currentUserId, data.projectId, ["SEGUROS", "JURIDICO"], today, caps.read,
+  );
+  const v = endorsementView(e, data.endorsementReviews, currentUserId, caps.manage, hasReviewCompetence);
   const nameOf = (id: string) => data.actors[id] ?? `usuário ${id.slice(0, 8)}`;
   const kinds = e.change_kinds && e.change_kinds.length ? e.change_kinds.map((k) => labelOf(CHANGE_KIND_LABEL, k)).join("; ") : null;
   const [mode, setMode] = useState<null | "EMITIDO" | "RECUSADO" | "CONFERIDO" | "EM_ANALISE" | "REVISAO_RECUSA">(null);
@@ -192,7 +198,7 @@ function EndorsementDetail({ e, goTo }: { e: EndorsementRow; goTo: (tab: string,
           <p className="mt-1 text-muted-foreground">Nenhuma conferência registrada nesta rodada (rodada {v.progress.round}).</p>
         )}
         {e.state === "EMITIDO" && v.reviewBlock ? <p className="mt-2 font-medium" role="status">Conferir está bloqueado para você: {reviewBlockText(v.reviewBlock)}</p> : null}
-        <p className="mt-1 text-xs text-muted-foreground">Quem solicitou e quem registrou a emissão não conferem; a mesma pessoa não confere duas vezes. O banco impõe essas regras; a tela apenas as antecipa.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Quem registrou a emissão não a confere; a mesma pessoa não confere duas vezes; em endosso crítico, quem confere precisa ter a competência Seguros ou Jurídico registrada (quem solicitou pode conferir). O banco impõe essas regras; a tela apenas as antecipa.</p>
       </div>
       {e.refusal_note ? <p className="mt-3 text-sm">Motivo da recusa: {e.refusal_note}</p> : null}
       <div className="mt-3 flex flex-wrap items-center gap-2">

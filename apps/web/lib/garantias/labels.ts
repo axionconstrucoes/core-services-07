@@ -114,6 +114,7 @@ export function blockerMessage(code: string): string {
 export const ERROR_MESSAGES: Record<string, string> = {
   AUTH_REQUIRED: "Sessão expirada. Entre novamente.",
   FORBIDDEN: "Você não tem permissão para esta ação neste projeto.",
+  COMPETENCE_REQUIRED: "Esta decisão exige uma competência profissional (por exemplo, responsável técnico) registrada para você neste projeto. O nível de gestão não a substitui: peça a um Administrador do projeto.",
   VERSION_REQUIRED: "Versão do caso não informada. Recarregue a página.",
   VERSION_CONFLICT: "O caso foi alterado por outra pessoa ou por outra aba. Nada foi gravado: recarregue para ver a versão atual e refaça a ação.",
   INVALID_TRANSITION: "Transição não permitida a partir do estado atual.",

@@ -3,6 +3,7 @@
 // Colunas de tabela: descritas no helpId da tabela (campo `data`) ou, quando relevantes, com helpId próprio (status.*).
 import type { HelpManifest } from "../types";
 import { SEGUROS_ENDOSSOS_DUPLA_ELEMENTS } from "./seguros-endossos-dupla";
+import { SEGUROS_COMPETENCIAS_ELEMENTS } from "./seguros-competencias";
 import { SEGUROS_PERSISTENCIA_MANIFEST } from "../modules/seguros-persistencia";
 
 export const SEGUROS_MANIFEST: HelpManifest = {
@@ -254,6 +255,7 @@ export const SEGUROS_MANIFEST: HelpManifest = {
     { route: "/[projectId]/seguros", tab: "Canais oficiais", kind: "button", label: "Cadastrar canal", helpId: "seguros.acoes.canal-cadastrar" },
     { route: "/[projectId]/seguros", tab: "Canais oficiais", kind: "button", label: "Marcar canal como verificado", helpId: "seguros.acoes.canal-verificar" },
     ...SEGUROS_ENDOSSOS_DUPLA_ELEMENTS,
+    ...SEGUROS_COMPETENCIAS_ELEMENTS,
     ...SEGUROS_PERSISTENCIA_MANIFEST,
   ],
 };

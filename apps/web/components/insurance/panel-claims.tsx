@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { HelpHint } from "@/components/shared/help-hint";
 import { SELECT_CLASS } from "@/components/ui/select";
+import { ClaimStageButton } from "@/components/insurance/competence-buttons";
 import { ActionButton, Callout, DataTable, NoData, RunnerFeedback, Section, SourceLink, SpecForm, StatusBadge, buildOptionSets, useInsuranceRunner, useWorkspace, type Column } from "@/components/insurance/kit";
 import { claimStageLevel } from "@/lib/insurance-ui/permissions";
 import { FORMS, deriveClaimInstrument, validateClaimOpen, validateDossierItem } from "@/lib/insurance-ui/forms";
@@ -99,7 +100,7 @@ function ClaimDetail({ claim, goTo }: { claim: ClaimRow; goTo: (tab: string, t?:
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         {next.map((st) => (
-          <ActionButton key={st} label={`Avançar para: ${claimStageLabelFor(st, instrument.kind)}`} helpId="seguros.acoes.sinistro-avancar-abrir" level={claimStageLevel(st)} variant="outline" onClick={() => setToStage(st)} />
+          <ClaimStageButton key={st} stage={st} label={`Avançar para: ${claimStageLabelFor(st, instrument.kind)}`} onClick={() => setToStage(st)} />
         ))}
         {next.length === 0 ? <span className="text-sm text-muted-foreground">Evento encerrado: sem novas etapas.</span> : null}
         <ActionButton label="Preparar acionamento" helpId="seguros.acoes.acionamento-preparar" level="REGISTER" onClick={() => goTo("minutas", { claimId: claim.id })} />

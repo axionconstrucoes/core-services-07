@@ -3,7 +3,7 @@
 // Falha de uma seção NUNCA vira lista vazia silenciosa: o erro é devolvido e a tela o exibe. Linhas de outro projeto são descartadas
 // (defesa em profundidade; a RLS já isola — CASO 39).
 import { isModuleUnavailable } from "./errors";
-import type { DocumentRef, InsuranceWorkspaceData, InsuranceWorkspaceLoad, SectionKey } from "./types";
+import type { DocumentRef, InsuranceWorkspaceData, InsuranceWorkspaceLoad, ProjectCompetenceRow, SectionKey } from "./types";
 
 type QueryError = { message?: string | null; code?: string | null } | null;
 type QueryResult = { data: unknown; error: QueryError };
@@ -37,7 +37,7 @@ export function emptyWorkspace(projectId: string): InsuranceWorkspaceData {
   return {
     projectId, policies: [], versions: [], parties: [], clauses: [], bankGuarantees: [], otherGuarantees: [], channels: [], endorsements: [], endorsementReviews: [],
     advances: [], amortizations: [], claims: [], claimSteps: [], dossierItems: [], drafts: [], audit: [], settings: null, dashboardItems: [],
-    documents: [], actors: {},
+    documents: [], actors: {}, competences: [], competenceMembers: [], competencesError: null,
   };
 }
 
@@ -106,12 +106,29 @@ export async function loadInsuranceWorkspace(client: InsuranceClientLike, projec
     })(),
   ]);
 
+  // Fase 4/A: competências profissionais (project_competences) e membros ativos. FORA de TABLES de propósito: a ausência da migration de
+  // competências NÃO pode derrubar o módulo Seguros; falha => lista vazia + competencesError (a tela nega por padrão e avisa — fail-closed).
+  try {
+    const { data: comp, error } = (await client.from("project_competences").select("*").eq("project_id", projectId).order("granted_at", { ascending: false }).limit(500)) as QueryResult;
+    if (error) {
+      data.competencesError = "Não foi possível carregar as competências profissionais; decisões que as exigem ficam bloqueadas nesta tela.";
+    } else {
+      data.competences = own((comp ?? []) as ProjectCompetenceRow[]);
+      const { data: mem } = (await client.from("project_memberships").select("user_id,permission,status").eq("project_id", projectId).eq("status", "ACTIVE")) as QueryResult;
+      data.competenceMembers = ((mem ?? []) as Array<{ user_id: string; permission: string }>).map((m) => ({ userId: m.user_id, permission: m.permission }));
+    }
+  } catch {
+    data.competencesError = "Não foi possível carregar as competências profissionais; decisões que as exigem ficam bloqueadas nesta tela.";
+  }
+
   // nomes de quem atuou (best effort: a RLS de profiles pode limitar; sem nome, a tela mostra o id abreviado)
   try {
     const ids = [...new Set([
       ...data.audit.map((a) => a.actor_user_id),
       ...data.endorsementReviews.map((r) => r.reviewer_id),
       ...data.endorsements.flatMap((e) => [e.requested_by, e.issued_by]),
+      ...data.competences.flatMap((c) => [c.user_id, c.granted_by, c.revoked_by]),
+      ...data.competenceMembers.map((m) => m.userId),
     ].filter((x): x is string => Boolean(x)))];
     if (ids.length) {
       const { data: profs } = await client.from("profiles").select("id,name").in("id", ids);
