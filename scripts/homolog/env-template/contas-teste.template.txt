@@ -1,0 +1,10 @@
+# Contas Google REAIS (@axion.com.br) dos perfis de teste da HOMOLOGAÇÃO. Copie para %SystemDrive%\vibe\homolog\contas-teste.txt (FORA do repositório).
+# Uma linha por perfil: CODIGO=email. Uma pessoa distinta por perfil (o seed recusa e-mail repetido). NÃO invente contas.
+# Mínimo para iniciar: P-ADM. Recomendado para os 36 casos: P-ADM, P-GES, P-COL (e depois P-LEI, P-GES2/P-GER, P-ADM2, P-INA, P-PEN).
+#   P-ADM  = ADMINISTRADOR da obra TESTE (primeiro administrador: entra UMA vez com o Google antes do seed --apply)
+#   P-GES  = GESTOR         P-GER = GESTOR de outra pessoa (equivale a GERENTE)   P-GES2 = segundo GESTOR
+#   P-COL  = COLABORADOR    P-LEI = LEITURA   P-ADM2 = ADMINISTRADOR só da obra TESTE 2 (sem vínculo com TESTE)
+#   P-INA  = colaborador que será INATIVADO depois do 1º login   P-PEN = convite PENDENTE (a pessoa NÃO deve entrar)
+P-ADM=
+P-GES=
+P-COL=

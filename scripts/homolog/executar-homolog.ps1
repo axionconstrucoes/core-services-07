@@ -29,6 +29,13 @@ $env:NODE_NO_WARNINGS = '1'
 if (-not $env:ACC_REALPG_PKG_DIR) { $env:ACC_REALPG_PKG_DIR = Join-Path $env:SystemDrive 'vibe\pgtest\node' }
 $pw = $null; $enc = $null
 
+# Contas de teste (seed): arquivo FORA do repositório, uma por linha, CODIGO=email@axion.com.br (ver env-template/contas-teste.template.txt).
+$contas = Join-Path $env:SystemDrive 'vibe\homolog\contas-teste.txt'
+if (Test-Path -LiteralPath $contas) {
+  $linhas = Get-Content -LiteralPath $contas | ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') -and $_ -match '^P-[A-Z0-9]+=' }
+  if ($linhas) { $env:HOMOLOG_TEST_ACCOUNTS = ($linhas -join ';') }
+}
+
 $map = @{
   'ping'        = @('scripts/homolog/apply-migrations.mjs');
   'apply-dry'   = @('scripts/homolog/apply-migrations.mjs');
