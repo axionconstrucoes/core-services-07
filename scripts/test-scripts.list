@@ -149,3 +149,6 @@ scripts/test-quality-alert-area-sla-sql.mjs
 scripts/test-f6-h2c-experts-qualidade.mjs
 scripts/test-f6-h2b-sinais-pilares.mjs
 scripts/test-f6-h2b-sinais-orgs-realpg.mjs
+scripts/test-f6-h2a-governanca-realpg.mjs
+scripts/test-f6-h2a-governanca.mjs
+scripts/test-f6-h2a-browser.mjs

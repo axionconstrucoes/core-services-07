@@ -13,6 +13,8 @@ export type MinTier = Exclude<ProjectTier, "NONE">;
  *   qualidade / garantias -> quality_can_read  = tier >= READ
  *   seguros               -> insurance_access(.., 'READ') = tier >= READ
  *   pilares               -> consolida Qualidade/Garantias/Seguros (leitura) = tier >= READ
+ *   competencias          -> project_competences_select (próprio registro ou gestão) = tier >= READ
+ *   aprovacoes-externas   -> acc_external_send_prepare exige REGISTER+ = tier >= REGISTER
  * Todos exigem membership ATIVA (tier NONE = inativo, convite pendente, outro projeto, sem login). Acrescentar um segmento aqui
  * o torna restrito por nível no menu E na rota (layout do segmento chama requireProjectTier).
  */
@@ -21,6 +23,10 @@ export const TIER_GATED_SEGMENTS: Readonly<Record<string, MinTier>> = {
   garantias: "READ",
   seguros: "READ",
   pilares: "READ",
+  // Fase 6/H2a: Competências (todo membro vê as próprias; gestão/validadores veem as da obra, por RLS) e Aprovações externas
+  // (preparar exige COLABORADOR+; LEITURA não tem o que fazer ali e o banco só entrega preparações a preparador/gestão).
+  competencias: "READ",
+  "aprovacoes-externas": "REGISTER",
 };
 
 export function normalizeTier(value: unknown): ProjectTier {

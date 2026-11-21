@@ -28,28 +28,37 @@ function check(name, fn) {
   }
 }
 
-const GATED = ["pilares", "qualidade", "garantias", "seguros"];
+const GATED = ["pilares", "qualidade", "garantias", "seguros"]; // Fase 4/D: os quatro com nível mínimo READ
+// Fase 6/H2a: dois segmentos acrescentados — competencias (READ) e aprovacoes-externas (REGISTER: preparar envio exige colaborador ou acima).
+const H2A = { competencias: "READ", "aprovacoes-externas": "REGISTER" };
+const ALL_GATED = [...GATED, ...Object.keys(H2A)];
 
-check("segmentos restritos por nível: exatamente Quatro Pilares, Qualidade, Garantias e Seguros, todos existentes no menu", () => {
-  assert.deepEqual(Object.keys(N.TIER_GATED_SEGMENTS).sort(), [...GATED].sort());
+check("segmentos restritos por nível: Quatro Pilares, Qualidade, Garantias, Seguros (+ Competências e Aprovações externas da Fase 6/H2a), todos existentes no menu", () => {
+  assert.deepEqual(Object.keys(N.TIER_GATED_SEGMENTS).sort(), [...ALL_GATED].sort());
   const hrefs = NAV.NAV_ITEMS.map((i) => i.href);
-  for (const s of GATED) assert.ok(hrefs.includes(s), s);
+  for (const s of ALL_GATED) assert.ok(hrefs.includes(s), s);
+  for (const [s, min] of Object.entries(H2A)) assert.equal(N.TIER_GATED_SEGMENTS[s], min, s);
 });
 
-check("matriz perfil x item: LEITURA, COLABORADOR, GESTOR, GERENTE e ADMINISTRADOR ativos veem os quatro itens", () => {
+check("matriz perfil x item: LEITURA, COLABORADOR, GESTOR, GERENTE e ADMINISTRADOR ativos veem os quatro itens (e os da H2a conforme o nível mínimo)", () => {
   for (const role of ["LEITURA", "COLABORADOR", "GESTOR", "GERENTE", "ADMINISTRADOR", "VIEWER", "EDITOR", "ADMIN"]) {
     const tier = T.projectTierFor(role, "ACTIVE");
-    assert.deepEqual(N.hiddenSegmentsForTier(tier), [], role);
     for (const s of GATED) assert.equal(N.canAccessSegment(s, tier), true, `${role}/${s}`);
+    for (const [s, min] of Object.entries(H2A)) assert.equal(N.canAccessSegment(s, tier), T.tierAtLeast(tier, min), `${role}/${s}`);
+    const expectHidden = Object.entries(H2A).filter(([, min]) => !T.tierAtLeast(tier, min)).map(([s]) => s).sort();
+    assert.deepEqual(N.hiddenSegmentsForTier(tier).sort(), expectHidden, role);
   }
+  // LEITURA não vê Aprovações externas; COLABORADOR+ vê
+  assert.equal(N.canAccessSegment("aprovacoes-externas", "READ"), false);
+  assert.equal(N.canAccessSegment("aprovacoes-externas", "REGISTER"), true);
 });
 
-check("fail-closed: inativo, convite pendente, papel desconhecido, sem membership, nível inválido/nulo/objeto => os quatro itens ocultos e rotas negadas", () => {
+check("fail-closed: inativo, convite pendente, papel desconhecido, sem membership, nível inválido/nulo/objeto => todos os itens restritos ocultos e rotas negadas", () => {
   const cases = [T.projectTierFor("ADMINISTRADOR", "INACTIVE"), T.projectTierFor("ADMINISTRADOR", "PENDING"), T.projectTierFor("SUPERUSER", "ACTIVE"),
     T.projectTierFor(null), T.projectTierFor(undefined), "NONE", "admin", "ADMIN ", "", null, undefined, 4, {}, [], "READ\n", "__proto__", "constructor"];
   for (const tier of cases) {
-    assert.deepEqual(N.hiddenSegmentsForTier(tier).sort(), [...GATED].sort(), JSON.stringify(tier));
-    for (const s of GATED) assert.equal(N.canAccessSegment(s, tier), false, `${JSON.stringify(tier)}/${s}`);
+    assert.deepEqual(N.hiddenSegmentsForTier(tier).sort(), [...ALL_GATED].sort(), JSON.stringify(tier));
+    for (const s of ALL_GATED) assert.equal(N.canAccessSegment(s, tier), false, `${JSON.stringify(tier)}/${s}`);
   }
 });
 
@@ -76,7 +85,7 @@ check("layout do projeto: oculta pelo nível usando a MESMA função da guarda d
 });
 
 check("guarda de rota: layout.tsx em cada segmento restrito chama requireSegmentAccess com o segmento correto (acesso direto por URL negado)", () => {
-  for (const s of GATED) {
+  for (const s of ALL_GATED) {
     const p = `apps/web/app/[projectId]/${s}/layout.tsx`;
     assert.ok(existsSync(path.join(here, "..", p)), p);
     const src = read(p);
