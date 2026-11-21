@@ -1,11 +1,11 @@
 // Piloto WEG (Fase 5/A): TODA mensagem acessível nas caixas autorizadas em que o domínio EXATO weg.net aparece em
 // qualquer participante (From, To, Cc, Bcc) entra na amostra — recebidas, enviadas, cópias e threads. Sem filtro por
-// palavra-chave. Domínio exato: "weg.net.exemplo" e "xweg.net" NÃO contam; subdomínios também não (ambíguo).
+// palavra-chave. Fase 6/H3: weg.net E subdomínios legítimos (*.weg.net, fronteira de domínio) contam; "weg.net.exemplo", "evilweg.net" e "weg.net.evil.com" NÃO.
 // Estas funções só decidem LEITURA; as travas de ENVIO (only-recipient-guard, pilot-outbound-guard) são outros arquivos e não foram tocadas.
 export const WEG_PILOT_PROJECT = "00000000-0000-4000-8000-000000000001";
 export const WEG_PILOT_DOMAIN = "weg.net";
 
-const WEG_ADDRESS = /^[^\s@]+@weg\.net$/i;
+const WEG_ADDRESS = /^[^\s@]+@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)*weg\.net$/i;
 
 /** Verdadeiro se QUALQUER endereço da lista pertence ao domínio exato weg.net. Outros projetos: sem restrição aqui. */
 export function pilotSenderMatches(projectId, addresses) {
