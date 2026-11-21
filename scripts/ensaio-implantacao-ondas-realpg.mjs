@@ -15,6 +15,7 @@
 import { createRequire, register } from "node:module";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const url = process.env.ACC_REALPG_URL;
@@ -223,6 +224,10 @@ async function applyFile(su, stem, variant, notices) {
     await su.query("set local lock_timeout = '5s'");
     await su.query("set local statement_timeout = '120s'");
     await su.query(variantText(body(stem), variant));
+    // HISTORICO ESPELHO (Fase 7/H6d, hipotese CLI-like): a CLI do Supabase grava (version, name, statements) em
+    // supabase_migrations.schema_migrations na mesma operacao da migration; reaplicacao de ensaio nao duplica a linha.
+    await su.query("insert into supabase_migrations.schema_migrations (version, name, statements) values ($1, $2, $3) on conflict (version) do nothing",
+      [stem.slice(0, 14), stem.slice(15), [body(stem)]]);
     const locks = (await su.query(
       `select distinct c.relname || ':' || l.mode as k from pg_locks l join pg_class c on c.oid = l.relation
         where l.pid = pg_backend_pid() and l.locktype = 'relation' and l.granted and c.oid = any($1::oid[])
@@ -243,6 +248,11 @@ async function buildMirror(tag, variant) {
   for (const s of baselineStems) {
     try { await db.su.query(body(s)); } catch (e) { throw new Error(`baseline ${s}: ${e.message.split("\n")[0]}`); }
   }
+  // Historico espelho: mesmas colunas do remoto (version PK, statements text[], name, created_by, idempotency_key UNIQUE, rollback text[]),
+  // contendo as 134 registradas (o hotfix 20261121090000 e as 3 fora de ordem NAO estao registrados, como no remoto).
+  await db.su.query(`create schema if not exists supabase_migrations;
+    create table if not exists supabase_migrations.schema_migrations (version text primary key, statements text[], name text, created_by text, idempotency_key text unique, rollback text[])`);
+  for (const st of baselineStems) await db.su.query("insert into supabase_migrations.schema_migrations (version, name, statements) values ($1, $2, $3)", [st.slice(0, 14), st.slice(15), [body(st)]]);
   await db.su.query(variantText(body("20261121090000_hotfix_risk_alert_action_authorization"), variant));
   const s = await seed(db.su);
   db.caseId = s.caseId;
@@ -309,6 +319,20 @@ async function runVariant(variant) {
   const rows = [];
   const base = await p0Full(su, db.caseId);
   await check(`[${variant}] base: hotfix efetivo e P0 verificado (corpo md5 sem CR ${base.md5}; bruto ${base.raw})`, async () => ok(base.good, base.detail));
+  await check(`[${variant}] historico espelho: ${baselineStems.length} registradas, hash igual ao remoto 70a176da74c9f88ac06b04d80bc55891 (version_name ordenado)`, async () => {
+    const h = (await su.query("select count(*)::int n, max(version) m, md5(string_agg(version||'_'||name, ',' order by version)) h from supabase_migrations.schema_migrations")).rows[0];
+    ok(h.n === 134 && h.m === seq.ultimaVersaoRemota && h.h === "70a176da74c9f88ac06b04d80bc55891", JSON.stringify(h));
+  });
+  await check(`[${variant}] CLI-like: o push sem a opcao include-all RECUSA (3 versoes locais < ultima remota); pendentes por versao = ${allStems.length - 134} (69 das ondas/adiadas + hotfix)`, async () => {
+    const reg = new Set((await su.query("select version from supabase_migrations.schema_migrations")).rows.map((r) => r.version));
+    const pend = allStems.filter((x) => !reg.has(x.slice(0, 14)));
+    const ooo = pend.filter((x) => x.slice(0, 14) < seq.ultimaVersaoRemota);
+    ok(ooo.length === 3 && OOO.every((v) => ooo.some((x) => x.startsWith(v))), `fora de ordem: ${ooo.length}`);
+    ok(pend.some((x) => x.startsWith("20261121090000")), "hotfix deveria aparecer como pendente para a CLI (por isso o repair antes)");
+    const naSeq = new Set([...seq.ondas.flatMap((o) => o.migrations), ...seq.adiadas.map((a) => a.migration), ...seq.jaEfetivaNaoReaplicar]);
+    ok(pend.every((x) => naSeq.has(x) || tailStems.includes(x)), "pendente fora da sequencia");
+    ok(pend.length === 70, `esperado 70 pendentes (69 + hotfix), ha ${pend.length}`);
+  });
   const before = await snapshotData(su);
   const anon0 = await anonExecCount(su);
   out(`[${variant}] dados representativos: ${before.open_med_low_n} acoes MEDIO/BAIXO abertas; funcoes SECURITY DEFINER com EXECUTE para anon no espelho: ${anon0}`);
@@ -429,6 +453,21 @@ try {
     ok(fin.open_med_low === post.open_med_low || true, "");
     const nw = (await su.query("select assume_due_at d from public.sla_actions where title like 'Nova acao MEDIO%'")).rows[0].d.toISOString();
     ok(nw === m2, "nova acao nao usa 2 dias uteis");
+  });
+  await check("[LF] historico espelho CLI-like: repair --status applied do hotfix (so insert), P0 inalterado, historico final = os 204 arquivos locais (hash) e reversivel por repair --status reverted", async () => {
+    const su = lf.db.su;
+    const p0a = (await p0Full(su, lf.db.caseId)).md5;
+    const hf = "20261121090000";
+    await su.query("insert into supabase_migrations.schema_migrations (version, name) values ($1, 'hotfix_risk_alert_action_authorization')", [hf]);
+    ok((await p0Full(su, lf.db.caseId)).md5 === p0a, "repair applied alterou o corpo (nao deveria: so escreve no historico)");
+    const loc = createHash("md5").update(allStems.map((x) => `${x.slice(0, 14)}_${x.slice(15)}`).join(",")).digest("hex");
+    const h = (await su.query("select count(*)::int n, md5(string_agg(version||'_'||name, ',' order by version)) h from supabase_migrations.schema_migrations")).rows[0];
+    ok(h.n === allStems.length && h.h === loc, `historico ${h.n} / ${h.h} difere do conjunto local ${allStems.length} / ${loc}`);
+    const comStatements = (await su.query("select count(*)::int n from supabase_migrations.schema_migrations where statements is null")).rows[0].n;
+    ok(comStatements === 1, `somente a linha do repair fica sem statements (como no remoto, onde ha linhas sem), ha ${comStatements}`);
+    await su.query("delete from supabase_migrations.schema_migrations where version = $1", [hf]);
+    ok((await su.query("select count(*)::int n from supabase_migrations.schema_migrations")).rows[0].n === allStems.length - 1, "repair reverted nao removeu exatamente 1 linha");
+    ok((await p0Full(su, lf.db.caseId)).md5 === p0a, "P0 mudou com o reverted");
   });
   await lf.db.su.end();
 

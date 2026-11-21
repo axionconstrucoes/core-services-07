@@ -147,3 +147,10 @@ Pré-condições: ondas A a L e o app publicados; competências revalidadas (se�
 4. `cron.alter_job` e as flags do `supabase db dump` precisam ser conferidos na versão instalada antes da janela.
 5. Escrita em `supabase_migrations.schema_migrations` (opção b) exige confirmar o papel/permissão de `CONN`.
 6. Nada neste plano foi executado contra o operacional; o ensaio local não substitui a homologação autenticada.
+
+## 9. Atualização Fase 7 / H6d (21/11/2026)
+
+1. **Pausa**: a lista de workflows da seção 1.4 estava incompleta; usar `15` (10 jobs `pg_cron` + 11 workflows com `schedule`, com verificação antes/depois e retomada).
+2. **Hotfix**: registrar `20261121090000` só depois da onda B (`14`, 4(i)).
+3. **CLI oficial**: comparação e recomendação em `14`; a CLI entra só para conferência (`supabase migration list`, `db push --dry-run --skip-vault` em pasta cumulativa: `node scripts/implantacao-cli-workdir.mjs --onda <ID> --out <pasta fora do repositório>`). A aplicação continua por `psql -1` (seção 2).
+4. **Onda M** (H6e, `20261211*`): inclui-se após a L conforme `14`, seção 7.
