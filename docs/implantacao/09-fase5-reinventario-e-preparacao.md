@@ -2,6 +2,8 @@
 
 Data da leitura: 21/11/2026. Base: `7085834` (integration/acc-noturna). Supabase operacional (`plbcvwostmdmdmrziwmd`): somente `list_migrations`, `get_project` e SELECT. Nada foi aplicado, registrado ou alterado; o hotfix P0 NÃO foi reaplicado.
 
+> Atualizado pela Fase 6/H4 (`10` a `13`): 200 arquivos e 65 pendentes (a onda K, Fase 5, já está na sequência).
+
 ## 1. Reinventário definitivo local x remoto (por NOME e versão)
 
 Leitura do remoto em 21/11/2026 (recomprovada do zero):

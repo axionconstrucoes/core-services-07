@@ -2,6 +2,8 @@
 
 Status: PROPOSTA para decisão do dono. Nenhuma migration foi aplicada, nenhum registro de histórico foi alterado. Base: `01-inventario-migrations.md` (36 migrations pendentes, 1 aplicada fora do histórico).
 
+> Fase 6/H4 (21/11/2026): a contagem confirmada é 200 arquivos locais e **65 pendentes** (ver `10`); a comparação das opções (a)/(b) da seção 5 está em `11` (sem escolha; recomendação fundamentada) e o plano executável por ondas com verificações SQL somente leitura e rollback está em `12`. Ensaio com perfil de volume sintético: `10`, seção 4. DNS: `13`.
+
 ## 0-bis. Atualização Fase 5/F (21/11/2026)
 
 Contagem definitiva: 192 arquivos locais, 57 pendentes (não 36 nem 47), remoto inalterado (134 registros, hash `70a176da74c9f88ac06b04d80bc55891`, P0 protegido). Ensaio parametrizável (onda F5 para as migrations das frentes A-E), compatibilidade banco x app das `20261124`..`20261127`, locks, backup/PITR e rollback em `09-fase5-reinventario-e-preparacao.md`.

@@ -3,6 +3,8 @@
 Data da leitura: 20/11/2026. Projeto `plbcvwostmdmdmrziwmd` (nome no painel: "axion-contract-intelligence-dev", Postgres 17.6, sa-east-1, ACTIVE_HEALTHY). Este é o único projeto Supabase do ACC e é o operacional.
 Escopo da leitura: SOMENTE `list_migrations`, `get_project` e SELECT em catálogos (`pg_proc`, `information_schema`, `pg_indexes`, `pg_trigger`). Nada foi aplicado, registrado ou alterado.
 
+> Fase 6/H4 (21/11/2026): contagem reconfirmada em `10`: 200 arquivos, 134 registradas, 1 efetiva fora do histórico, **65 pendentes** (60 pendente + 3 fora de ordem + 1 parcial + 1 decisão). Nenhuma migration nova da H4 (a H4 não cria migrations); as de H2a (`20261208*`), H2b (`20261209*`) e H2c (`20261210*`) entram aqui quando integradas (procedimento em `12`, seção 7).
+
 ## Método
 
 1. Correspondência por NOME e versão. O `list_migrations` remoto tem 134 registros; a última versão é `20261119034721 scheduler_pg_cron_dispatch`.
