@@ -52,6 +52,9 @@ export interface WarrantyCaseView {
   costSourceRef: string | null;
   /** Evidência que sustenta o aceite do cliente (null em aceites legados). */
   acceptedEvidenceId: string | null;
+  /** NENHUM | INFORMADO | COMPROVADO (Fase 4/B). Só COMPROVADO libera o encerramento. */
+  acceptanceStatus: string;
+  currentAcceptanceId: string | null;
   stateJustification: string | null;
   closedAt: string | null;
   reopenCount: number;
@@ -94,6 +97,8 @@ export function mapWarrantyCaseRow(r: Row): WarrantyCaseView {
     acceptedByName: str(r.accepted_by_name),
     costSourceRef: str(r.cost_source_ref),
     acceptedEvidenceId: str(r.accepted_evidence_id),
+    acceptanceStatus: str(r.acceptance_status) ?? "NENHUM",
+    currentAcceptanceId: str(r.current_acceptance_id),
     stateJustification: str(r.state_justification),
     closedAt: str(r.closed_at),
     reopenCount: Number(r.reopen_count ?? 0),
@@ -292,4 +297,37 @@ export interface MaintenanceStatusView {
 export interface ClosureReadinessView {
   ready: boolean;
   blockers: string[];
+}
+
+/** Linha do histórico append-only de aceites (quality_warranty_acceptances). */
+export interface AcceptanceRecordView {
+  id: string;
+  kind: "INFORMADO" | "COMPROVADO";
+  acceptedAt: string;
+  acceptedByName: string;
+  manifestantOrganization: string | null;
+  manifestantContact: string | null;
+  evidenceId: string | null;
+  evidenceSourceRef: string | null;
+  sourceHash: string | null;
+  note: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export function mapAcceptanceRow(r: Row): AcceptanceRecordView {
+  return {
+    id: req(r.id, "id"),
+    kind: r.kind === "COMPROVADO" ? "COMPROVADO" : "INFORMADO",
+    acceptedAt: req(r.accepted_at, "accepted_at"),
+    acceptedByName: req(r.accepted_by_name, "accepted_by_name"),
+    manifestantOrganization: str(r.manifestant_organization),
+    manifestantContact: str(r.manifestant_contact),
+    evidenceId: str(r.evidence_id),
+    evidenceSourceRef: str(r.evidence_source_ref),
+    sourceHash: str(r.source_hash),
+    note: str(r.note),
+    createdBy: str(r.created_by),
+    createdAt: req(r.created_at, "created_at"),
+  };
 }

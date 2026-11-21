@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import {
   buildAcceptanceInput,
+  buildAcceptanceProofInput,
   buildCaseUpdatePayload,
   buildEditJustification,
   buildCreateCasePayload,
@@ -126,6 +127,33 @@ export async function registerAcceptanceAction(projectId: string, caseId: string
     p_accepted_at: built.args.acceptedAt,
     p_accepted_by_name: built.args.acceptedByName,
     p_evidence_id: built.args.evidenceId,
+  });
+  if (error) return translateDbError(error);
+  refresh(projectId, caseId);
+  return { ok: true, rowVersion: Number((data as { rowVersion?: number } | null)?.rowVersion ?? expectedVersion) };
+}
+
+/**
+ * Aceite COMPROVADO do cliente (Fase 4/B): manifestação rastreável — evidência (e-mail/documento/ata ingerido), hash SHA-256 da fonte,
+ * data e manifestante EXTERNO (nome + e-mail). É o único aceite que libera o encerramento; o lançamento interno (registerAcceptanceAction)
+ * fica como "informado". MANAGE; o banco repete todas as validações e grava o histórico append-only com auditoria.
+ */
+export async function proveAcceptanceAction(projectId: string, caseId: string, expectedVersion: number, raw: Raw): Promise<ActionResult<{ rowVersion: number }>> {
+  const built = buildAcceptanceProofInput(raw);
+  if (!built.ok) return failFromErrors(built.errors);
+  const ctx = await context(projectId, "MANAGE");
+  if (ctx.error) return ctx.error;
+  if (!isUuid(caseId) || !Number.isInteger(expectedVersion) || expectedVersion < 1) return fail("VERSION_REQUIRED", ERROR_MESSAGES.VERSION_REQUIRED);
+  const { data, error } = await ctx.supabase.rpc("quality_warranty_acceptance_prove", {
+    p_case_id: caseId,
+    p_expected_version: expectedVersion,
+    p_accepted_at: built.args.acceptedAt,
+    p_manifestant_name: built.args.manifestantName,
+    p_manifestant_organization: built.args.manifestantOrganization,
+    p_manifestant_contact: built.args.manifestantContact,
+    p_evidence_id: built.args.evidenceId,
+    p_source_hash: built.args.sourceHash,
+    p_note: built.args.note,
   });
   if (error) return translateDbError(error);
   refresh(projectId, caseId);

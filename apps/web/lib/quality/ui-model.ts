@@ -170,6 +170,7 @@ export const BLOCKER_LABEL: Record<string, string> = {
   NOT_VERIFIED: "O caso precisa estar verificado.",
   REPAIR_RECORD_REQUIRED: "Falta o registro de reparo executado.",
   CUSTOMER_ACCEPTANCE_REQUIRED: "Falta o aceite do cliente.",
+  CUSTOMER_ACCEPTANCE_NOT_PROVEN: "O aceite do cliente foi só informado: falta o aceite comprovado.",
   FORBIDDEN: "Seu perfil não permite esta transição.",
   JUSTIFICATION_REQUIRED: "Justificativa obrigatória (mínimo de 10 caracteres).",
   EVIDENCE_REQUIRED: "Evidência obrigatória nesta transição.",

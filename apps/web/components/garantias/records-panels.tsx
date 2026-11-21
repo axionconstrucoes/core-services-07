@@ -8,6 +8,7 @@ import {
   addMaintenanceAction,
   addRepairAction,
   addSurveyAction,
+  proveAcceptanceAction,
   registerAcceptanceAction,
   registerVerificationAction,
 } from "@/app/[projectId]/garantias/actions";
@@ -19,8 +20,10 @@ import {
   VERIFICATION_RESULT_LABELS,
   CRITICALITY_LABELS,
 } from "@/lib/garantias/labels";
+import { ACCEPTANCE_DISPLAY_LABELS, acceptanceDisplay } from "@/lib/garantias/acceptance";
 import { MAINTENANCE_FACT_NOTICE } from "@/lib/garantias/coverage-form";
 import type {
+  AcceptanceRecordView,
   ComplaintView,
   ConsequenceView,
   EvidenceView,
@@ -391,14 +394,18 @@ export function VerificationPanel({
   warranty,
   verifications,
   evidence,
+  acceptances,
   canManage,
 }: {
   projectId: string;
   warranty: WarrantyCaseView;
   verifications: VerificationView[];
   evidence: EvidenceView[];
+  acceptances: AcceptanceRecordView[];
   canManage: boolean;
 }) {
+  const display = acceptanceDisplay({ acceptanceStatus: warranty.acceptanceStatus, acceptedAt: warranty.acceptedAt, acceptedByName: warranty.acceptedByName, state: warranty.state });
+  const proofEvidence = evidence.filter((e) => e.epistemic === "FATO" && (e.sourceType === "EMAIL" || e.sourceType === "DOCUMENTO"));
   const acceptDisabled = !canManage
     ? "Registrar o aceite do cliente exige perfil de gestão (Administrador, Gerente ou Gestor)."
     : warranty.state !== "REPARADA" && warranty.state !== "VERIFICADA"
@@ -490,9 +497,36 @@ export function VerificationPanel({
               <>Aceite: <span className="font-semibold">SEM DADOS</span> — necessário para encerrar o caso.</>
             )}
           </p>
+          <p className="flex items-center gap-1 text-sm font-medium text-foreground" data-testid="aceite-situacao">
+            {ACCEPTANCE_DISPLAY_LABELS[display]}
+            <FeatureInfo helpId="garantias.detalhe.aceite-situacao-prova" />
+          </p>
+          {display !== "COMPROVADO" ? (
+            <Notice>
+              Só o aceite COMPROVADO (manifestação do cliente com evidência, hash e manifestante externo) libera o encerramento. O lançamento feito por
+              usuário interno fica registrado como INFORMADO e não substitui a manifestação do cliente.
+            </Notice>
+          ) : null}
+          <ul className="space-y-1 text-sm" data-testid="aceite-historico">
+            {acceptances.length === 0 ? (
+              <li className="text-muted-foreground">Histórico de aceites: SEM DADOS.</li>
+            ) : (
+              acceptances.map((a) => (
+                <li key={a.id} className="rounded-md border border-border p-2" data-testid={`aceite-${a.kind.toLowerCase()}`}>
+                  <span className="font-semibold">{a.kind === "COMPROVADO" ? "Comprovado" : "Informado"}</span> · {formatDay(a.acceptedAt)} · {a.acceptedByName}
+                  {a.manifestantContact ? <> · {a.manifestantContact}</> : null}
+                  {a.manifestantOrganization ? <> ({a.manifestantOrganization})</> : null}
+                  <span className="block text-xs text-muted-foreground">
+                    Fonte: {a.evidenceSourceRef ?? "SEM DADOS"}
+                    {a.sourceHash ? <> · SHA-256 {a.sourceHash.slice(0, 12)}…</> : null} · registrado em {formatDateTime(a.createdAt)}
+                  </span>
+                </li>
+              ))
+            )}
+          </ul>
           <ActionForm
             action={(raw) => registerAcceptanceAction(projectId, warranty.id, warranty.rowVersion, raw)}
-            submitLabel="Registrar aceite"
+            submitLabel="Registrar aceite informado (interno)"
             submitHelp={<FeatureInfo helpId="garantias.detalhe.aceite-registrar" />}
             conflictHelp={<FeatureInfo helpId="garantias.detalhe.conflito-versao" />}
             disabledReason={acceptDisabled}
@@ -521,6 +555,59 @@ export function VerificationPanel({
               </div>
             </div>
           </ActionForm>
+          <div className="rounded-md border border-border p-3" data-testid="aceite-comprovado-form">
+            <p className="mb-2 flex items-center gap-1 text-sm font-semibold text-foreground">
+              Aceite comprovado do cliente
+              <FeatureInfo helpId="garantias.detalhe.aceite-comprovado-secao" />
+            </p>
+            <ActionForm
+              action={(raw) => proveAcceptanceAction(projectId, warranty.id, warranty.rowVersion, raw)}
+              submitLabel="Registrar aceite comprovado"
+              submitHelp={<FeatureInfo helpId="garantias.detalhe.aceite-comprovado-registrar" />}
+              conflictHelp={<FeatureInfo helpId="garantias.detalhe.conflito-versao" />}
+              disabledReason={acceptDisabled}
+            >
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1">
+                  <FieldLabel htmlFor="acp-data" label="Data da manifestação do cliente" helpId="garantias.detalhe.aceite-comprovado-data" required />
+                  <input id="acp-data" name="acceptedAt" type="date" required className={FIELD_CLASS} />
+                </div>
+                <div className="space-y-1">
+                  <FieldLabel htmlFor="acp-nome" label="Manifestante do cliente (nome)" helpId="garantias.detalhe.aceite-comprovado-manifestante" required />
+                  <input id="acp-nome" name="manifestantName" required minLength={2} maxLength={200} className={FIELD_CLASS} />
+                </div>
+                <div className="space-y-1">
+                  <FieldLabel htmlFor="acp-email" label="E-mail do manifestante (externo)" helpId="garantias.detalhe.aceite-comprovado-contato" required />
+                  <input id="acp-email" name="manifestantContact" type="email" required maxLength={254} className={FIELD_CLASS} />
+                </div>
+                <div className="space-y-1">
+                  <FieldLabel htmlFor="acp-org" label="Organização do manifestante" helpId="garantias.detalhe.aceite-comprovado-organizacao" />
+                  <input id="acp-org" name="manifestantOrganization" maxLength={200} className={FIELD_CLASS} />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <FieldLabel htmlFor="acp-evi" label="Evidência (e-mail, documento ou ata ingerida)" helpId="garantias.detalhe.aceite-comprovado-evidencia" required />
+                  <select id="acp-evi" name="evidenceId" required defaultValue="" className={cn(SELECT_CLASS, "min-h-11 w-full")}>
+                    <option value="" disabled>
+                      Selecione uma evidência do caso (fato; e-mail ou documento)
+                    </option>
+                    {proofEvidence.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.sourceRef}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <FieldLabel htmlFor="acp-hash" label="Hash SHA-256 da fonte" helpId="garantias.detalhe.aceite-comprovado-hash" required />
+                  <input id="acp-hash" name="sourceHash" required minLength={64} maxLength={64} pattern="[0-9a-fA-F]{64}" className={cn(FIELD_CLASS, "font-mono")} />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <FieldLabel htmlFor="acp-nota" label="Observação" helpId="garantias.detalhe.aceite-comprovado-observacao" />
+                  <input id="acp-nota" name="note" maxLength={2000} className={FIELD_CLASS} />
+                </div>
+              </div>
+            </ActionForm>
+          </div>
         </CardContent>
       </Card>
     </div>
