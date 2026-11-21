@@ -13,7 +13,7 @@ import type { CaseCommunicationLedger } from "./communication-ledger";
 import type { SlaArea, SlaEscalationLevel, SlaRiskLevel } from "@/lib/sla/types";
 import type { MatrixPolicy } from "@/lib/sla/resolve-matrix-policy";
 
-export type RiskCaseSourceType = "SCHEDULE_COMPARISON" | "WEEKLY_REPORT_SHEET" | "INGESTION_ALERT";
+export type RiskCaseSourceType = "SCHEDULE_COMPARISON" | "WEEKLY_REPORT_SHEET" | "INGESTION_ALERT" | "EMAIL";
 export type RiskCaseLevel = SlaRiskLevel | "REVIEW_REQUIRED";
 export type RiskNotificationType = "IMMEDIATE" | "ESCALATION" | "DIGEST" | "FORWARD" | "RETURNED" | "EXPERT_ANSWER" | "ACTION_CONFIRMATION";
 export type RiskOutboxOrigin = "AUTOMATIC" | "MANUAL" | "EMAIL_REPLY" | "WEB_ACTION";
