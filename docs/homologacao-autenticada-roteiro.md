@@ -3,7 +3,7 @@
 Fase 4 / Frente D (item 8). Este roteiro é para uma PESSOA executar no aplicativo real, logada, com perfis diferentes. Ele NÃO prova nada sozinho:
 tudo que existe até aqui (testes puros, Postgres real local, navegador com dados sintéticos) valida regras e componentes, mas nenhuma tela foi vista em
 sessão autenticada real. **Regra: nenhuma tela é declarada homologada sem execução registrada neste roteiro, com evidência (print) e responsável.**
-Estado inicial de TODAS as telas: **NÃO EXECUTADO** (quadro da seção 9).
+Estado de TODAS as telas: nenhuma está EXECUTADO-AUTENTICADO (quadro da seção 9, atualizado na Fase 5/E com status honesto por linha; ver seção 12).
 
 ## 0. Antes de começar (pré-condições do ambiente)
 
@@ -205,42 +205,42 @@ Legenda: NÃO EXECUTADO (padrão) · OK · FALHOU · BLOQUEADO. Só vale OK com 
 
 | Tela / rota | Passos | Status | Data | Executor | Evidência |
 |---|---|---|---|---|---|
-| Menu e autorização por nível (transversal) | A-01 a A-11 | NÃO EXECUTADO | — | — | — |
-| Qualidade — Dashboard | Q-01, Q-11 | NÃO EXECUTADO | — | — | — |
-| Qualidade — RNC (lista e detalhe) | Q-02 a Q-09, Q-12 | NÃO EXECUTADO | — | — | — |
-| Qualidade — Evidências | Q-01, Q-04 | NÃO EXECUTADO | — | — | — |
-| Qualidade — Inspeções | Q-01 | NÃO EXECUTADO | — | — | — |
-| Qualidade — Reclamações | Q-01 | NÃO EXECUTADO | — | — | — |
-| Qualidade — Ensaios e laudos | Q-01 | NÃO EXECUTADO | — | — | — |
-| Qualidade — Requisitos | Q-01 | NÃO EXECUTADO | — | — | — |
-| Qualidade — Ações (CAPA) | Q-01, Q-06 | NÃO EXECUTADO | — | — | — |
-| Qualidade — Eficácia | Q-01, Q-06, Q-07 | NÃO EXECUTADO | — | — | — |
-| Qualidade — Recorrências | Q-01 | NÃO EXECUTADO | — | — | — |
-| Qualidade — Custos de não qualidade | Q-01 | NÃO EXECUTADO | — | — | — |
-| Qualidade — Auditoria | Q-01, Q-06 | NÃO EXECUTADO | — | — | — |
-| Garantias — Lista | G-01, G-02 | NÃO EXECUTADO | — | — | — |
-| Garantias — Detalhe do caso (cobertura, transição, registros, referências) | G-03 a G-10 | NÃO EXECUTADO | — | — | — |
-| Seguros — Painel | S-01 | NÃO EXECUTADO | — | — | — |
-| Seguros — Apólices | S-01 a S-03 | NÃO EXECUTADO | — | — | — |
-| Seguros — Fianças e garantias | S-01 | NÃO EXECUTADO | — | — | — |
-| Seguros — Endossos (dupla conferência) | S-04 a S-09 | NÃO EXECUTADO | — | — | — |
-| Seguros — Adiantamentos | S-10 | NÃO EXECUTADO | — | — | — |
-| Seguros — Sinistros e eventos | S-11 a S-13 | NÃO EXECUTADO | — | — | — |
-| Seguros — Dossiês | S-01 | NÃO EXECUTADO | — | — | — |
-| Seguros — Minutas e acionamento | S-14 a S-16 | NÃO EXECUTADO | — | — | — |
-| Seguros — Canais oficiais | D-07 a D-09 | NÃO EXECUTADO | — | — | — |
-| Seguros — Sujeitos e RCC | S-01 | NÃO EXECUTADO | — | — | — |
-| Seguros — Referências | S-01 | NÃO EXECUTADO | — | — | — |
-| Seguros — Auditoria | S-18 | NÃO EXECUTADO | — | — | — |
-| Quatro Pilares | PIL-01 a PIL-03 | NÃO EXECUTADO | — | — | — |
-| Alertas — detalhe do alerta | AL-01 a AL-03 | NÃO EXECUTADO | — | — | — |
-| Solicitações — lista e detalhe | AL-04, D-01 a D-06 | NÃO EXECUTADO | — | — | — |
-| Reemissão de alertas / Autorizações | AL-05 | NÃO EXECUTADO | — | — | — |
-| SSMA — registros e avaliação | SS-01 a SS-04 | NÃO EXECUTADO | — | — | — |
-| SSMA — fluxo offline | SS-05 | NÃO EXECUTADO | — | — | — |
-| ESG | SS-03 | NÃO EXECUTADO | — | — | — |
-| Hover Text (todas as telas acima) | H-01 a H-05 | NÃO EXECUTADO | — | — | — |
-| Contraste e legibilidade (todas as telas acima) | C-01 a C-03 | NÃO EXECUTADO | — | — | — |
+| Menu e autorização por nível (transversal) | A-01 a A-11 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Regra de nível, RLS e paridade do menu em Postgres 17 local: test-permissoes-unificadas-realpg, test-destinatarios-externos-realpg, test-competencias-realpg. Tela/menu NÃO visto: BLOQUEADO |
+| Qualidade — Dashboard | Q-01, Q-11 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Só leitura de aba; sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| Qualidade — RNC (lista e detalhe) | Q-02 a Q-09, Q-12 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Transições, evidência, encerramento, reabertura e auditoria: test-quality-realpg, test-quality-rpc-realpg, test-f5-e-governanca-realpg. Tela NÃO vista |
+| Qualidade — Evidências | Q-01, Q-04 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Registro de evidência/classificação: test-quality-rpc-realpg. Tela NÃO vista |
+| Qualidade — Inspeções | Q-01 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Só leitura de aba; sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| Qualidade — Reclamações | Q-01 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Só leitura de aba; sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| Qualidade — Ensaios e laudos | Q-01 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Só leitura de aba; sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| Qualidade — Requisitos | Q-01 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Só leitura de aba; sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| Qualidade — Ações (CAPA) | Q-01, Q-06 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Transições, evidência, encerramento, reabertura e auditoria: test-quality-realpg, test-quality-rpc-realpg, test-f5-e-governanca-realpg. Tela NÃO vista |
+| Qualidade — Eficácia | Q-01, Q-06, Q-07 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Transições, evidência, encerramento, reabertura e auditoria: test-quality-realpg, test-quality-rpc-realpg, test-f5-e-governanca-realpg. Tela NÃO vista |
+| Qualidade — Recorrências | Q-01 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Só leitura de aba; sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| Qualidade — Custos de não qualidade | Q-01 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Só leitura de aba; sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| Qualidade — Auditoria | Q-01, Q-06 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Transições, evidência, encerramento, reabertura e auditoria: test-quality-realpg, test-quality-rpc-realpg, test-f5-e-governanca-realpg. Tela NÃO vista |
+| Garantias — Lista | G-01, G-02 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Cobertura, aceite comprovado, encerramento e reabertura: test-quality-rpc-realpg, test-f4b-garantias-seguros-realpg. Tela NÃO vista |
+| Garantias — Detalhe do caso (cobertura, transição, registros, referências) | G-03 a G-10 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Cobertura, aceite comprovado, encerramento e reabertura: test-quality-rpc-realpg, test-f4b-garantias-seguros-realpg. Tela NÃO vista |
+| Seguros — Painel | S-01 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Só leitura de aba; sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| Seguros — Apólices | S-01 a S-03 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Cadastro e trilha: test-insurance-realpg. Tela NÃO vista |
+| Seguros — Fianças e garantias | S-01 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Só leitura de aba; sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| Seguros — Endossos (dupla conferência) | S-04 a S-09 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Dupla conferência, saldos, decisão fundamentada, minuta, canal e reabertura de sinistro: test-endossos-dupla-conferencia-realpg, test-f4b-garantias-seguros-realpg, test-destinatarios-externos-realpg, test-f5-e-governanca-realpg. Tela NÃO vista |
+| Seguros — Adiantamentos | S-10 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Dupla conferência, saldos, decisão fundamentada, minuta, canal e reabertura de sinistro: test-endossos-dupla-conferencia-realpg, test-f4b-garantias-seguros-realpg, test-destinatarios-externos-realpg, test-f5-e-governanca-realpg. Tela NÃO vista |
+| Seguros — Sinistros e eventos | S-11 a S-13 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Dupla conferência, saldos, decisão fundamentada, minuta, canal e reabertura de sinistro: test-endossos-dupla-conferencia-realpg, test-f4b-garantias-seguros-realpg, test-destinatarios-externos-realpg, test-f5-e-governanca-realpg. Tela NÃO vista |
+| Seguros — Dossiês | S-01 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Só leitura de aba; sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| Seguros — Minutas e acionamento | S-14 a S-16 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Dupla conferência, saldos, decisão fundamentada, minuta, canal e reabertura de sinistro: test-endossos-dupla-conferencia-realpg, test-f4b-garantias-seguros-realpg, test-destinatarios-externos-realpg, test-f5-e-governanca-realpg. Tela NÃO vista |
+| Seguros — Canais oficiais | D-07 a D-09 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Dupla conferência, saldos, decisão fundamentada, minuta, canal e reabertura de sinistro: test-endossos-dupla-conferencia-realpg, test-f4b-garantias-seguros-realpg, test-destinatarios-externos-realpg, test-f5-e-governanca-realpg. Tela NÃO vista |
+| Seguros — Sujeitos e RCC | S-01 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Só leitura de aba; sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| Seguros — Referências | S-01 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Só leitura de aba; sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| Seguros — Auditoria | S-18 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Cadastro e trilha: test-insurance-realpg. Tela NÃO vista |
+| Quatro Pilares | PIL-01 a PIL-03 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| Alertas — detalhe do alerta | AL-01 a AL-03 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| Solicitações — lista e detalhe | AL-04, D-01 a D-06 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Validação/confirmação de destinatário, uso único e cenários 25-27: test-destinatarios-externos-realpg, test-f5-e-governanca-realpg. Tela NÃO vista |
+| Reemissão de alertas / Autorizações | AL-05 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Aprovação de reemissão: test-reissue-approval-realpg. Tela NÃO vista |
+| SSMA — registros e avaliação | SS-01 a SS-04 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Concorrência/registro SSMA: test-ssma-esg-concurrency-realpg. Tela NÃO vista |
+| SSMA — fluxo offline | SS-05 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| ESG | SS-03 | **BLOQUEADO** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Sem harness de tela e sem sessão autenticada (ambiente: o Supabase remoto lido em 21/11/2026 não tem as tabelas das fases 3 a 5; sem credencial de teste legítima) |
+| Hover Text (todas as telas acima) | H-01 a H-05 | **FIXTURE** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Catálogo/manifesto e contraste verificados por teste estático (test-help-*, test-contrast-*); leitura em tela real NÃO feita |
+| Contraste e legibilidade (todas as telas acima) | C-01 a C-03 | **FIXTURE** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Catálogo/manifesto e contraste verificados por teste estático (test-help-*, test-contrast-*); leitura em tela real NÃO feita |
 
 ## 10. Critérios de aceite do conjunto
 
@@ -253,3 +253,18 @@ Legenda: NÃO EXECUTADO (padrão) · OK · FALHOU · BLOQUEADO. Só vale OK com 
 ## 11. O que este roteiro NÃO substitui
 
 Testes automatizados (puros, Postgres real local, navegador com dados sintéticos) continuam sendo a rede de segurança da regressão; eles NÃO equivalem a homologação autenticada. O que já foi provado em ambiente local está em `docs/homologacao-40-casos-qualidade-garantias-seguros.md` e nos relatórios das fases. Regras de autorização: `docs/permissoes-matriz-central.md`. Implantação e GO/NO-GO: `docs/implantacao/`.
+
+## 12. Fase 5 / E — status honesto por linha do quadro (21/11/2026)
+
+Legenda: **EXECUTADO-AUTENTICADO** (pessoa logada vendo a tela, com print) · **EXECUTADO-BANCO-REAL** (regra provada em Postgres 17 local com identidade por claims JWT simulados no banco; a TELA não foi vista) · **FIXTURE** (teste estático/dados sintéticos) · **BLOQUEADO** (com o motivo).
+
+Verificação de ambiente e credenciais (sem imprimir segredos, sem contornar autenticação):
+- **Nenhuma linha é EXECUTADO-AUTENTICADO.** Não existe, no repositório nem no ambiente local do agente, credencial de teste legítima (usuário/senha ou sessão de teste) para uma obra "TESTE". As únicas chaves presentes em `apps/web/.env.local` (arquivo não versionado) apontam para o projeto Supabase operacional; usá-las para forjar sessão ou criar usuário seria contornar a autenticação e é proibido.
+- **Ambiente não atende a pré-condição 0.2.** Leitura somente-leitura do projeto operacional em 21/11/2026: `quality_ncrs`, `quality_warranty_cases`, `insurance_policies`, `project_competences` e `external_recipient_confirmations` NÃO existem (migrations das fases 3 a 5 pendentes). Sem essas tabelas as telas de Qualidade, Garantias e Seguros não são executáveis lá.
+- O banco local de desenvolvimento (Docker, 95 migrations) e o Postgres 17 de homologação (127.0.0.1:55434) não têm a aplicação autenticada (GoTrue + app) com as migrations atuais; o segundo foi usado só como base descartável para os testes "banco real".
+
+Executado (Postgres 17.12 local, base descartável, 195 migrations em replay): test-f5-e-governanca-realpg 14 OK/0 FAIL; test-competencias-realpg 15/0; test-destinatarios-externos-realpg 17/0; test-quality-realpg 30/0; test-quality-rpc-realpg 54/0; test-insurance-realpg 19/0; test-f4b-garantias-seguros-realpg 13/0; test-f3e-persistencia-realpg 14/0; test-endossos-dupla-conferencia-realpg 20/0; test-permissoes-unificadas-realpg 31/0; test-lote4-isolation-realpg 19/0; test-email-specialist-realpg 6/0; test-reissue-approval-realpg 10/0; test-ssma-esg-concurrency-realpg 18/0.
+
+Cenários novos do item 14 em banco real: **25** (destinatário externo sem confirmação), **26** (uso único; nada é enviado) e **27** (colaborador prepara, aprovação conforme a matriz) — `scripts/test-f5-e-governanca-realpg.mjs`. Os passos D-01 a D-10 continuam exigindo pessoa logada para homologar a TELA.
+
+**Para homologar de verdade:** (1) o dono aplica as migrations no ambiente de TESTE (não no operacional sem decisão); (2) cria a obra "TESTE" e os perfis da seção 1 pelo fluxo normal da tela Usuários; (3) uma pessoa executa os passos e anexa prints. Só então uma linha passa a EXECUTADO-AUTENTICADO.
