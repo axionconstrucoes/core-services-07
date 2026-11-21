@@ -201,3 +201,38 @@ Inativo, convite pendente, ADMIN de outro projeto, `authenticated` sem `sub` e `
 
 CASO 1-9, 12-14, 31, 33-39 reexercitados por RPC e `CASO F3-D-01` (escrita direta negada), `-02` (COLABORADOR não reclassifica), `-03/03b` (campos e custos), `-04` (encerramento indevido da RNC por todos os caminhos), `-05` (garantia/aceite), `-06` (RESOLVIDO do alerta não encerra),
 `-07` (reabertura), `-08` (evidência travada e nunca apagada), `-10` (vínculos), `-11` (backfill), `-12` (privilégios), `-14` (NC comprovada = FATO), `-15` (CAPA), `-18` (relatório de integridade), `-19` (reversibilidade).
+
+## 8. Fase 4 / Frente D — menu por nível, rotas e destinatário externo (migration `20261127100000`)
+
+### 8.1 Menu e rotas por nível
+
+Fonte do nível: `acc_project_tier` (RPC; se a RPC ainda não existir no ambiente, a interface usa a MESMA tabela de papéis sobre a membership ATIVA — nunca abre mais do que ela permite). Regra pura: `apps/web/lib/permissions/nav-access.ts`
+(`TIER_GATED_SEGMENTS`); servidor: `apps/web/lib/permissions/project-tier-server.ts`. O layout do projeto oculta os itens e um `layout.tsx` em cada segmento nega o acesso direto por URL (404).
+O menu nunca é a barreira única: loader, actions, RPCs e RLS repetem a regra.
+
+| Item do menu / rota | Nível mínimo | Espelho no banco | LEITURA | COLABORADOR | GESTOR | GERENTE | ADMINISTRADOR | inativo / pendente / outro projeto / sem login |
+|---|---|---|---|---|---|---|---|---|
+| Qualidade (`/qualidade`, `/qualidade/rnc/<id>`) | READ | `quality_can_read` | ✔ | ✔ | ✔ | ✔ | ✔ | ✘ (item oculto, rota 404) |
+| Garantias (`/garantias`, `/garantias/<id>`) | READ | `quality_can_read` | ✔ | ✔ | ✔ | ✔ | ✔ | ✘ |
+| Seguros (`/seguros`) | READ | `insurance_access(.., 'READ')` | ✔ | ✔ | ✔ | ✔ | ✔ | ✘ |
+| Quatro Pilares (`/pilares`) | READ | consolida Qualidade, Garantias e Seguros (leitura) | ✔ | ✔ | ✔ | ✔ | ✔ | ✘ |
+| Itens `restrictedTo: "admin"` (Eventos, Integrações, Usuários, Autorizações, Reemissão, Start-up) | ADMINISTRADOR | `has_project_permission('ADMINISTRADOR')` | ✘ | ✘ | ✘ | ✘ | ✔ | ✘ |
+| Financeiro | regra própria (`evaluateFinancialDashboardAccess`) | — | conforme regra | conforme regra | conforme regra | conforme regra | conforme regra | ✘ |
+
+Hoje todo nível ATIVO lê os quatro módulos (é o que o banco faz); a diferença visível está entre ter membership ativa ou não. Se a Diretoria quiser esconder um módulo de um papel (por exemplo, Seguros para COLABORADOR),
+basta subir o mínimo do segmento em `TIER_GATED_SEGMENTS` E o espelho no banco (`insurance_access`/RLS) — as duas pontas precisam mudar juntas; o teste `test-destinatarios-externos-realpg.mjs` (seção MENU) acusa divergência.
+Provas: `scripts/test-menu-permissoes.mjs` (puro) e seção MENU de `scripts/test-destinatarios-externos-realpg.mjs` (paridade com o Postgres real).
+
+### 8.2 Destinatário externo de e-mail
+
+| Operação | Função / RPC | Quem | Regra |
+|---|---|---|---|
+| Validar e normalizar endereço | `acc_email_normalize` / `validateRecipientEmail` | servidor e banco | um único endereço, até 254 caracteres (local 64, rótulo 63), TLD alfabético, sem espaço/vírgula/ponto e vírgula/aspas/`<>`/controle (CR, LF, NUL, U+2028), domínios reservados recusados |
+| Classificar domínio | `acc_recipient_domain_status` / `classifyRecipientDomain` | servidor e banco | INTERNO (TENANT, semente `axion.com.br`), PERMITIDO, EXTERNO; casamento EXATO (subdomínio não herda) |
+| Confirmar destinatário externo | `acc_external_recipient_confirm` | GESTOR, GERENTE ou ADMINISTRADOR do projeto | motivo de 10 a 1000 caracteres; grava quem, quando, destinatário, domínio, contexto, motivo, fonte e nível |
+| Ler a trilha | RLS de `external_recipient_confirmations` | MANAGE ou ADMIN do próprio projeto | append-only (nem superusuário altera/apaga); sem escrita direta |
+| Canal oficial de Seguros (tipo e-mail) | gatilho `insurance_official_channels_recipient_guard` | quem cadastra (MANAGE) | domínio EXTERNO só entra com confirmação do MESMO usuário, projeto, contexto e endereço nas últimas 24 h; valor normalizado; canais legados intactos |
+
+Pontos de destinatário encontrados e tratados: (1) **Solicitações** (`action-requests`, campo livre `recipientEmail`): validação e confirmação no servidor antes de emitir botões ou enviar; (2) **Canal oficial de Seguros** (campo `channel_value` do tipo e-mail): servidor + gatilho no banco.
+Verificados e SEM digitação livre de destinatário externo: Alertas do ledger (`send-alert-actions`: destinatário é MEMBRO do projeto), Ações/escalonamentos (`acoes/actions`: e-mail do perfil de membro), Autorizações de e-mail (`accountEmail`: a RPC exige conta do domínio da empresa),
+Integrações (`emailAddress`: padrão `@axion.com.br`), digests e SLA (destinatários vindos de membros) — nenhum aceita endereço externo digitado. Qualidade e Garantias não têm campo de destinatário de e-mail (só referência de fonte). Envio real continua impossível por este controle: nada aqui chama provedor de e-mail.

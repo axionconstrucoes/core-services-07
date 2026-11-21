@@ -346,7 +346,7 @@ try {
     eq((await su.query("select policy_id, bank_guarantee_id from public.insurance_claims where id=$1", [c.id])).rows[0], { policy_id: null, bank_guarantee_id: f.id }, "evento na fiança");
     const ch = await rpc(a, "insurance_channel_register", P, JSON.stringify({ bank_guarantee_id: f.id, entity_name: "Banco Sintético SA", channel_type: "PORTAL", channel_value: "portal-sintetico (cadastro manual)", source_ref: "carta-fianca-sintetica p.2" }));
     eq(ch.verified, false, "canal nasce não verificado");
-    await rejects(rpc(a, "insurance_channel_register", P, JSON.stringify({ entity_name: "Sem fonte", channel_type: "EMAIL", channel_value: "x" })), /check|violates/i, "canal sem fonte");
+    await rejects(rpc(a, "insurance_channel_register", P, JSON.stringify({ entity_name: "Sem fonte", channel_type: "EMAIL", channel_value: "x@axion.com.br" })), /check|violates/i, "canal sem fonte");
     const u = await rpc(a, "bank_guarantee_update", f.id, 1, JSON.stringify({ calls_on_first_demand: true, claim_procedure_note: "Conforme cláusula 5 do instrumento (sintético)" }));
     await rejects(rpc(a, "bank_guarantee_update", f.id, 1, JSON.stringify({ amount: 1 })), /VERSION_CONFLICT/, "fiança concorrência otimista");
     eq(u.rowVersion, 2, "versão da fiança");
@@ -387,7 +387,7 @@ try {
     ok(r1.reasons.includes("FLAG_OFF") && r1.reasons.includes("NO_OFFICIAL_CHANNEL") && !r1.reasons.includes("NOT_APPROVED"), "aprovada, mas flag/canal ainda bloqueiam");
     // liga a flag (somente superusuário consegue) e cadastra+verifica canal: AINDA bloqueado (fase 1 sem transporte)
     await su.query("insert into public.insurance_settings (project_id, real_send_enabled) values ($1, true) on conflict (project_id) do update set real_send_enabled = true", [P]);
-    const chn = await rpc(a, "insurance_channel_register", P, JSON.stringify({ policy_id: pol.id, entity_name: "Seguradora Sintética SA", channel_type: "EMAIL", channel_value: "sinistros@seguradora-sintetica.invalid", source_document_id: D1 }));
+    const chn = await rpc(a, "insurance_channel_register", P, JSON.stringify({ policy_id: pol.id, entity_name: "Seguradora Sintética SA", channel_type: "EMAIL", channel_value: "sinistros@axion.com.br", source_document_id: D1 }));
     const r2 = await rpc(a, "insurance_draft_attempt_send", d.id);
     ok(r2.sent === false && r2.reasons.includes("PHASE1_NO_SEND_TRANSPORT"), "flag ligada ainda bloqueia");
     await su.query("update public.insurance_drafts set official_channel_id=$2 where id=$1", [d.id, chn.id]);

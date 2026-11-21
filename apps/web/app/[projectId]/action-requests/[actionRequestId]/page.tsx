@@ -14,6 +14,7 @@ import {
   getUser,
 } from "@/lib/data";
 import { formatDateTime } from "@/lib/labels";
+import { recipientMessageForCode } from "@/lib/email/recipient-validation";
 
 import { sendActionRequestEmailAction } from "../actions";
 
@@ -45,10 +46,14 @@ async function resolveOutboundStatus(actionRequestId: string): Promise<OutboundS
 
 export default async function ActionRequestDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ projectId: string; actionRequestId: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { projectId, actionRequestId } = await params;
+  const rawRecipientCode = (await searchParams)?.destinatario;
+  const recipientProblem = recipientMessageForCode(Array.isArray(rawRecipientCode) ? rawRecipientCode[0] : rawRecipientCode);
 
   const actionRequest = await getActionRequest(actionRequestId);
   if (!actionRequest || actionRequest.projectId !== projectId) {
@@ -123,9 +128,44 @@ export default async function ActionRequestDetailPage({
                       name="recipientEmail"
                       required
                       placeholder="destinatario@exemplo.com"
+                      aria-describedby="action-request-recipient-help"
                       className="h-10 rounded-md border bg-background px-3 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
                     />
+                    {recipientProblem ? (
+                      <p role="alert" data-testid="recipient-problem" className="rounded-md border border-red-300 bg-red-50 p-2 text-sm text-red-900">
+                        {recipientProblem}
+                      </p>
+                    ) : null}
+                    <p id="action-request-recipient-help" className="text-xs text-muted-foreground">
+                      O servidor valida o endereço. Se o domínio for externo (fora de axion.com.br), confirme abaixo — a confirmação fica registrada na auditoria.
+                    </p>
                   </div>
+
+                  <fieldset className="flex flex-col gap-2 rounded-md border border-border p-3" data-testid="external-recipient-fieldset">
+                    <legend className="px-1 text-sm font-medium">Destinatário externo (só se o domínio não for da Axion)</legend>
+                    <div className="flex items-start gap-2">
+                      <input id="action-request-external-confirm" type="checkbox" name="externalConfirm" className="mt-3 size-5 shrink-0" />
+                      <span className="inline-flex flex-1 items-start gap-1 text-sm">
+                        <label htmlFor="action-request-external-confirm" className="flex min-h-11 flex-1 items-center">
+                          Confirmo que este destinatário externo deve receber a solicitação
+                        </label>
+                        <FeatureInfo helpId="planejamento.solicitacao-detalhe.campo-confirmar-externo" />
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <span className="inline-flex items-center gap-1 text-sm font-medium">
+                        <label htmlFor="action-request-external-reason">Motivo (mínimo de 10 caracteres)</label>
+                        <FeatureInfo helpId="planejamento.solicitacao-detalhe.campo-motivo-externo" />
+                      </span>
+                      <textarea
+                        id="action-request-external-reason"
+                        name="externalReason"
+                        rows={2}
+                        maxLength={1000}
+                        className="resize-y rounded-md border bg-background p-2 text-sm font-normal outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </div>
+                  </fieldset>
 
                   <div className="flex flex-col gap-1.5">
                     <span className="inline-flex items-center gap-1 text-sm font-medium">

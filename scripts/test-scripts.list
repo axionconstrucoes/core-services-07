@@ -115,3 +115,6 @@ scripts/test-quality-rpc-realpg.mjs
 scripts/test-alert-links-estruturados.mjs
 scripts/test-implantacao-sequencia.mjs
 scripts/ensaio-implantacao-ondas-realpg.mjs
+scripts/test-destinatarios-externos.mjs
+scripts/test-menu-permissoes.mjs
+scripts/test-destinatarios-externos-realpg.mjs

@@ -192,6 +192,39 @@ await withBrowser(async (b) => {
     return { ok: problems.length === 0, ev: problems.length ? problems.join(" | ").slice(0, 600) : "4 perfis (independente, solicitante, emissor, já conferiu); sem reprovações" };
   });
 
+  await check("B10 destinatário externo (Fase 4/D): canal e-mail mostra confirmação e motivo com ajuda, rótulos ligados, alvos 44 px e contraste; confirmação e motivo seguem para o servidor", async () => {
+    const problems = [];
+    for (const mobile of [false, true]) {
+      await load({ mobile });
+      await tab("Canais oficiais");
+      await b.eval(CLICK("Cadastrar canal")); await sleep(100);
+      const fields = await b.eval(`(()=>{const cb=document.querySelector('input[type=checkbox][id$="-external_confirm"]');const ta=document.querySelector('textarea[id$="-external_reason"]');
+        const label=(el)=>el?document.querySelector('label[for="'+el.id+'"]'):null;
+        const help=(el)=>{const l=label(el);const w=l&&l.parentElement;return !!(w&&w.querySelector("button[aria-haspopup],button[aria-expanded],button svg"));};
+        return {cb:!!cb,ta:!!ta,cbLabel:!!label(cb),taLabel:!!label(ta),cbHelp:help(cb),taHelp:help(ta),cbText:label(cb)?.textContent.trim()||""};})()`);
+      if (!fields.cb || !fields.ta || !fields.cbLabel || !fields.taLabel) problems.push(`${mobile ? "celular" : "desktop"}: campos/rótulos ausentes ${JSON.stringify(fields)}`);
+      if (!fields.cbHelp || !fields.taHelp) problems.push(`${mobile ? "celular" : "desktop"}: sem ícone (i) ao lado do rótulo ${JSON.stringify(fields)}`);
+      const small = await b.eval(SMALL_TARGETS);
+      if (small.length) problems.push(`${mobile ? "celular" : "desktop"}: alvos pequenos ${JSON.stringify(small)}`);
+      const c = await b.eval(CONTRAST);
+      if (c.failCount) problems.push(`${mobile ? "celular" : "desktop"}: contraste ${JSON.stringify(c.fails.slice(0, 2))}`);
+    }
+    await load();
+    await tab("Canais oficiais");
+    await b.eval(CLICK("Cadastrar canal")); await sleep(100);
+    await b.eval(`(()=>{const setI=(el,v)=>{const proto=el.tagName==="TEXTAREA"?HTMLTextAreaElement.prototype:el.tagName==="SELECT"?HTMLSelectElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(proto,"value").set.call(el,v);el.dispatchEvent(new Event(el.tagName==="SELECT"?"change":"input",{bubbles:true}));};
+      const q=(s)=>document.querySelector(s);
+      setI(q('input[id$="-entity_name"]'),"Seguradora Externa SA");setI(q('select[id$="-channel_type"]'),"EMAIL");setI(q('input[id$="-channel_value"]'),"sinistros@seguradora-externa.com.br");setI(q('input[id$="-source_ref"]'),"Apólice p. 3");
+      q('input[type=checkbox][id$="-external_confirm"]').click();setI(q('textarea[id$="-external_reason"]'),"Endereço consta da apólice; seguradora é externa.");})()`);
+    await sleep(80);
+    await b.eval(CLICK("Cadastrar canal", "form button, button[type=submit]")); await sleep(200);
+    const calls = JSON.parse(await b.eval(`JSON.stringify(window.__calls||[])`));
+    const ch = calls.find((x) => x.op === "channel_register");
+    if (!ch) problems.push("a chamada channel_register não foi feita");
+    else if (ch.data?.external_confirm !== true || !String(ch.data?.external_reason ?? "").includes("seguradora é externa") || ch.data?.channel_value !== "sinistros@seguradora-externa.com.br") problems.push(`dados enviados sem confirmação/motivo: ${JSON.stringify(ch.data)}`);
+    return { ok: problems.length === 0, ev: problems.join(" | ") || "campos, ajuda, 44 px, contraste (desktop e celular) e envio de confirmação/motivo ao servidor" };
+  });
+
   await check("B8 axe-core (wcag2a/aa, 2.1, 2.2, boas práticas): sem violações sérias ou críticas nas abas principais", async () => {
     await load();
     const serious = [];

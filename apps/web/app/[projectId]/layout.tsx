@@ -6,6 +6,8 @@ import { TopBar } from "@/components/layout/top-bar";
 import { getProject } from "@/lib/data";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
 import { canViewProjectFinancialDashboard } from "@/lib/financial/access-server";
+import { hiddenSegmentsForTier } from "@/lib/permissions/nav-access";
+import { getProjectTier } from "@/lib/permissions/project-tier-server";
 import { NAV_ITEMS } from "@/lib/ui/nav-items";
 
 export default async function WorkspaceLayout({
@@ -21,11 +23,12 @@ export default async function WorkspaceLayout({
 
   const supabase = await createSupabaseServerClient();
 
-  const [{ data: authData }, canViewFinancial] = await Promise.all([
+  const [{ data: authData }, canViewFinancial, projectTier] = await Promise.all([
     supabase.auth.getUser(),
     isWeeklyReportsEnabled()
       ? canViewProjectFinancialDashboard({ projectId })
       : Promise.resolve(false),
+    getProjectTier(projectId),
   ]);
 
   let isAdmin = false;
@@ -43,7 +46,11 @@ export default async function WorkspaceLayout({
       membership?.permission === "ADMINISTRADOR";
   }
 
+  // Itens por nível (Qualidade, Garantias, Seguros, Pilares): mesma regra da guarda de rota e do banco (acc_project_tier), fail-closed.
+  const hiddenByTier = new Set(hiddenSegmentsForTier(projectTier));
+
   const hiddenHrefs = NAV_ITEMS.filter((item) => {
+    if (hiddenByTier.has(item.href)) return true;
     if (item.restrictedTo === "financial" && !canViewFinancial) return true;
     if (item.restrictedTo === "admin" && !isAdmin) return true;
     return false;

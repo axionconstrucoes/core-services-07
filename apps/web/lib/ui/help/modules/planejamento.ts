@@ -2524,8 +2524,31 @@ export const PLANEJAMENTO_HELP: FeatureHelpDefinition[] = [
       "Endereço de e-mail digitado livremente (campo do tipo e-mail, obrigatório) que receberá a solicitação. O ACC emite, para esse destinatário, os botões de ação do e-mail (DAR CIÊNCIA, ASSUMIR RESPONSABILIDADE, DEFINIR PRAZO e RESPONDER AO ACC) e os anexa ao corpo; se a emissão dos botões falhar, o e-mail segue sem eles.",
     howToUse: ["Informe o e-mail completo de quem deve responder.", "Revise antes de enviar: o envio não pode ser desfeito."],
     consequences: ["O destinatário recebe a solicitação e os botões nominais; a resposta fica registrada em Respostas."],
-    limitations: ["O formulário aceita qualquer e-mail válido digitado; não há seletor de membros. Confira o endereço antes de enviar."],
+    limitations: ["O servidor valida e normaliza o endereço (um único e-mail, sem quebra de linha, domínio plausível). Domínio fora da lista da Axion exige confirmação explícita e motivo, gravados na auditoria. Não há seletor de membros: confira o endereço antes de enviar."],
     humanReview: "A escolha do destinatário é decisão humana antes do envio.",
+  }),
+  def({
+    id: "planejamento.solicitacao-detalhe.campo-confirmar-externo",
+    kind: "field",
+    title: "Confirmo o destinatário externo",
+    shortDescription: "Obrigatório quando o e-mail é de domínio fora da Axion; a confirmação fica registrada na auditoria.",
+    description:
+      "Caixa de confirmação para destinatário externo (domínio fora de axion.com.br e fora da lista de domínios permitidos). Sem ela, o servidor recusa a solicitação antes de emitir botões ou enviar qualquer coisa. Ao confirmar, o ACC grava quem confirmou, quando, o destinatário e o motivo em trilha que não pode ser alterada nem apagada. Somente Administrador, Gestor ou Gerente do projeto pode confirmar.",
+    howToUse: ["Marque somente se o endereço externo foi conferido e o envio é necessário.", "Preencha o motivo logo abaixo."],
+    consequences: ["Sem a marcação, nada é emitido nem enviado.", "Com a marcação, a confirmação é gravada e o fluxo normal de envio continua."],
+    limitations: ["Para e-mail de domínio da Axion ou permitido, a marcação não é exigida.", "Colaborador e Leitura não confirmam destinatário externo."],
+    humanReview: "A decisão de enviar a um destinatário externo é humana e fica registrada em nome de quem confirmou.",
+  }),
+  def({
+    id: "planejamento.solicitacao-detalhe.campo-motivo-externo",
+    kind: "field",
+    title: "Motivo do destinatário externo",
+    shortDescription: "Por que o envio a este endereço externo é necessário; de 10 a 1000 caracteres.",
+    description:
+      "Texto livre obrigatório apenas quando o destinatário é externo. É gravado junto com a confirmação (quem, quando, destinatário) e não pode ser alterado depois.",
+    howToUse: ["Explique em uma frase quem é o destinatário e por que ele precisa receber esta solicitação."],
+    consequences: ["Motivo curto demais com destinatário externo: a solicitação é recusada e nada é enviado."],
+    missingData: "Em branco com destinatário externo = solicitação recusada.",
   }),
   def({
     id: "planejamento.solicitacao-detalhe.campo-assunto",

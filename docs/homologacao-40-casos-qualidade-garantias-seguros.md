@@ -116,3 +116,18 @@ Os 40 casos foram reexecutados depois das frentes B (permissões unificadas), C 
 - **Nenhuma tela foi homologada em sessão autenticada.** Não havia credencial legítima disponível e o login não foi contornado. As telas de Qualidade, Garantias, Seguros, Pilares, SSMA e Alertas foram verificadas por análise estática, cliente simulado e harness de Chrome com stubs (Seguros, catálogo de Hover Text e sidebar). **Telas não vistas não são declaradas homologadas.**
 - A competência técnica ou jurídica do usuário não é verificada além do nível MANAGE: não há atributo confiável de competência por membro (lacuna declarada em `docs/permissoes-matriz-central.md`).
 - Seguros e Qualidade nunca foram exercitados contra o Supabase operacional, porque as migrations 20261122*/20261123* não estão aplicadas lá.
+
+## Fase 4 / D — casos novos (autorização, menu e destinatário externo)
+
+Provas: `scripts/test-menu-permissoes.mjs` (10 OK), `scripts/test-destinatarios-externos.mjs` (17 OK), `scripts/test-destinatarios-externos-realpg.mjs` (17 OK em Postgres 17 local), `scripts/test-seguros-browser.mjs` B10 (Chrome real, dados sintéticos). Nenhuma tela foi vista em sessão autenticada real: ver `docs/homologacao-autenticada-roteiro.md` (todas NÃO EXECUTADO).
+
+| Caso | Tema | Prova | Nível |
+|---|---|---|---|
+| F4-D-01 | Menu: LEITURA, COLABORADOR, GESTOR, GERENTE e ADMINISTRADOR ativos veem Qualidade, Garantias, Seguros e Pilares; inativo, pendente, outro projeto e sem login não veem | test-menu-permissoes, MENU (realpg) | PURO + BANCO |
+| F4-D-02 | Rota direta negada (404) para quem não tem nível, em todas as subrotas dos quatro segmentos | test-menu-permissoes | UI-ESTÁTICO |
+| F4-D-03 | Menu == banco: tier de `acc_project_tier`, `quality_can_read` e `insurance_access` coincidem com a visibilidade; mudança de papel vale na próxima chamada | MENU (realpg) | BANCO |
+| F4-D-04 | Validação de e-mail no servidor: sintaxe, normalização, limites, domínio reservado, injeção de cabeçalho (CR/LF/NUL/U+2028), lista de destinatários | test-destinatarios-externos + PARIDADE (realpg) | PURO + BANCO |
+| F4-D-05 | Destinatário externo sem confirmação é recusado; com confirmação sem motivo é recusado; só gestão confirma | test-destinatarios-externos, realpg | PURO + BANCO |
+| F4-D-06 | Trilha de confirmação (quem, quando, destinatário, motivo) append-only, inclusive para superusuário; RLS só gestão do próprio projeto | realpg | BANCO |
+| F4-D-07 | Canal oficial de Seguros tipo e-mail: confirmação de outro usuário/projeto/contexto/endereço ou expirada não vale; canal legado intacto | realpg | BANCO |
+| F4-D-08 | Formulário de canal com confirmação e motivo: ajuda, rótulos, 44 px, contraste (desktop e celular) e envio de confirmação ao servidor | seguros-browser B10 | CHROME |
