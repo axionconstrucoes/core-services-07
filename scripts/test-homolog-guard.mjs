@@ -1,6 +1,7 @@
 // Teste PURO da guarda dura do kit de homologação isolada (scripts/homolog/guard.mjs) e do parser de contas do seed. Sem rede, sem banco.
 import { evaluateTarget, forbiddenEnvNames, OPERATIONAL_REFS } from "./homolog/guard.mjs";
 import { parseAccounts } from "./homolog/seed-lib.mjs";
+import { checkEnvMap, parseDotenv } from "./homolog/check-env.mjs";
 
 let passed = 0;
 let failed = 0;
@@ -51,6 +52,19 @@ const throws = (f) => { try { f(); return false; } catch { return true; } };
 ok("parser recusa domínio externo", throws(() => parseAccounts("P-ADM=fulano@gmail.com")));
 ok("parser recusa código desconhecido", throws(() => parseAccounts("P-XYZ=a@axion.com.br")));
 ok("parser recusa e-mail repetido", throws(() => parseAccounts("P-ADM=a@axion.com.br;P-GES=a@axion.com.br")));
+
+console.log(`\n${passed} OK / ${failed} FAIL`);
+// ---- checklist de variáveis ----
+const good = { NEXT_PUBLIC_SUPABASE_URL: `https://${FAKE_REF}.supabase.co`, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "pub", SUPABASE_SECRET_KEY: "sec", AXION_APP_BASE_URL: "https://h.example.com" };
+ok("env coerente passa", checkEnvMap(good, { targetRef: FAKE_REF }).ok);
+ok("env recusa URL operacional", !checkEnvMap({ ...good, NEXT_PUBLIC_SUPABASE_URL: `https://${OPERATIONAL_REFS[0]}.supabase.co` }, { targetRef: FAKE_REF }).ok);
+ok("env recusa URL diferente do alvo", !checkEnvMap({ ...good, NEXT_PUBLIC_SUPABASE_URL: "https://zzzzzzzzzzzzzzzzzzzz.supabase.co" }, { targetRef: FAKE_REF }).ok);
+ok("env recusa Gmail real presente", !checkEnvMap({ ...good, GOOGLE_GMAIL_REFRESH_TOKEN: "x" }, { targetRef: FAKE_REF }).ok);
+ok("env recusa ACC_OUTBOUND_MODE=production", !checkEnvMap({ ...good, ACC_OUTBOUND_MODE: "production" }, { targetRef: FAKE_REF }).ok);
+ok("env recusa segredo NEXT_PUBLIC", !checkEnvMap({ ...good, NEXT_PUBLIC_SUPABASE_SECRET: "x" }, { targetRef: FAKE_REF }).ok);
+ok("env recusa variável faltando", !checkEnvMap({ NEXT_PUBLIC_SUPABASE_URL: good.NEXT_PUBLIC_SUPABASE_URL }, { targetRef: FAKE_REF }).ok);
+ok("env: relatório não contém valores", (() => { const r = checkEnvMap({ ...good, GOOGLE_GMAIL_REFRESH_TOKEN: "VALOR-SECRETO" }, { targetRef: FAKE_REF }); return !JSON.stringify(r).includes("VALOR-SECRETO"); })());
+ok("parseDotenv lê pares e ignora comentários", (() => { const m = parseDotenv(["# c", "A=1", "export B=\"2\""].join("\n")); return m.A === "1" && m.B === "2" && !("#" in m); })());
 
 console.log(`\n${passed} OK / ${failed} FAIL`);
 process.exit(failed ? 1 : 0);
