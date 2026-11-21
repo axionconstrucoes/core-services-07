@@ -297,3 +297,18 @@ Rótulos: **EXECUTADO-BANCO-REAL** = regra provada no banco; a TELA não foi vis
 ### 13.3 Como o kit transforma a linha em EXECUTADO-AUTENTICADO
 
 1. Os passos H1–H5 acima são feitos pelo responsável. 2. O kit (`scripts/homolog/*`) aplica as migrations SOMENTE no projeto novo (guarda recusa `plbcvwostmdmdmrziwmd` e qualquer host desconhecido), cria as obras fictícias e os pré-cadastros; os perfis nascem no **primeiro login Google real** de cada conta. 3. Uma pessoa executa as seções 4 a 8 deste roteiro e anexa prints. Só então a linha do quadro pode ser marcada EXECUTADO-AUTENTICADO, com data, executor, perfil e evidência.
+
+## 14. Execução no acc-homolog (21/11/2026) — evidências reais até agora
+
+Projeto `gtadbeaevxglrqkhcwfz` (acc-homolog, sa-east-1, Postgres 17), isolado do operacional. **Nenhuma tela foi vista em sessão autenticada ainda**: o navegador controlado pelo agente não tinha a sessão Google (tela de login com a etiqueta SISTEMA EM TESTE). Nada abaixo é homologação de tela.
+
+| Evidência | Rótulo | Resultado |
+|---|---|---|
+| 205 migrations aplicadas pelo kit com guarda (marcador, transação por arquivo, `lock_timeout`) | PROVISIONAMENTO | 205 registradas, 0 pendentes; 218 tabelas em `public`, 0 sem RLS, 260 políticas |
+| P0 `record_risk_alert_action` no acc-homolog | BANCO-REAL | md5 do corpo sem CR `930f6d75898793479b418950b0053bd9`, SECURITY DEFINER, `search_path` vazio, sem EXECUTE para anon |
+| Operacional após o provisionamento (leitura) | BANCO-REAL | 134 migrations, última `20261119034721`, mesmo md5 do P0: inalterado |
+| Primeiro login Google do P-ADM | AUTENTICADO (criação do usuário) | usuário criado pelo provedor Google, sem senha local, e-mail confirmado, perfil pelo trigger `handle_new_user`, 0 memberships e 0 obras antes do seed |
+| Seed sintético TESTE e TESTE-2 + perfis (P-ADM ADMINISTRADOR; P-GES, P-COL, P-GES2 pré-cadastro PENDING) | PROVISIONAMENTO | 2 obras, 1 membership ACTIVE, 3 convites PENDING |
+| TENANT_ADMIN: ADMINISTRADOR de projeto não altera dado global; TENANT_ADMIN altera mas não ganha competência nem poder em obra sem vínculo; bootstrap auditado | BANCO-REAL (claims JWT simulados no banco; NÃO é sessão de tela) | 11 OK / 0 FAIL (`scripts/homolog/validar-tenant-admin.mjs`) |
+
+Pendente: as 36 verificações de tela exigem sessão real. Um perfil por pessoa: P-GES, P-COL e P-GES2 só ativam no primeiro login Google de cada uma.

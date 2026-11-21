@@ -5,8 +5,9 @@
 #   powershell -NoProfile -File scripts\homolog\executar-homolog.ps1 -Etapa <etapa> [-Pooler aws-0-sa-east-1.pooler.supabase.com]
 # Etapas: ping | apply-dry | init-marker | apply | verify | seed-dry | seed-apply
 param(
-  [Parameter(Mandatory = $true)][ValidateSet('ping', 'apply-dry', 'init-marker', 'apply', 'verify', 'seed-dry', 'seed-apply')][string]$Etapa,
-  [string]$Pooler = ''
+  [Parameter(Mandatory = $true)][ValidateSet('ping', 'apply-dry', 'init-marker', 'apply', 'verify', 'seed-dry', 'seed-apply', 'tenant-dry', 'tenant-apply')][string]$Etapa,
+  [string]$Pooler = '',
+  [string]$Email = ''
 )
 $ErrorActionPreference = 'Stop'
 $ref = 'gtadbeaevxglrqkhcwfz'
@@ -43,7 +44,9 @@ $map = @{
   'apply'       = @('scripts/homolog/apply-migrations.mjs', '--apply');
   'verify'      = @('scripts/homolog/apply-migrations.mjs', '--verify');
   'seed-dry'    = @('scripts/homolog/seed-e-perfis.mjs');
-  'seed-apply'  = @('scripts/homolog/seed-e-perfis.mjs', '--apply')
+  'seed-apply'  = @('scripts/homolog/seed-e-perfis.mjs', '--apply');
+  'tenant-dry'  = @('scripts/homolog/validar-tenant-admin.mjs', "--email=$Email");
+  'tenant-apply' = @('scripts/homolog/validar-tenant-admin.mjs', "--email=$Email", '--apply')
 }
 $args2 = $map[$Etapa]
 node --no-warnings @args2
