@@ -114,6 +114,7 @@ scripts/test-f3e-revisao-funcional.mjs
 scripts/test-quality-rpc-realpg.mjs
 scripts/test-alert-links-estruturados.mjs
 scripts/test-implantacao-sequencia.mjs
+scripts/test-implantacao-cli.mjs
 scripts/ensaio-implantacao-ondas-realpg.mjs
 scripts/test-f5-f-reinventario.mjs
 scripts/test-destinatarios-externos.mjs
