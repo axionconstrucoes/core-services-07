@@ -2,6 +2,10 @@
 
 Status: PROPOSTA para decisão do dono. Nenhuma migration foi aplicada, nenhum registro de histórico foi alterado. Base: `01-inventario-migrations.md` (36 migrations pendentes, 1 aplicada fora do histórico).
 
+## 0. Atualização da Fase 4/C (prevalece sobre o texto abaixo onde divergir)
+
+A sequência foi ENSAIADA em PostgreSQL 17 local com dados representativos: ver `07-sequencia-ensaiada.md` (sequência, decisões, dependências banco x app, SLA) e `08-relatorio-ensaio-ondas.md` (tempo, locks e verificação P0 por migration). Mudanças em relação às seções 3 e 4 abaixo: (1) a 20261121090000 NÃO é reaplicada (só registro no histórico); (2) 130000 e 151000 já se ignoram quando o corpo protegido existe; a proteção é conferida após CADA migration; (3) a 20261118140000 não falha com duplicata, apenas não cria o índice (conferir a existência dele); (4) nova `20261126100000` (portão P0) ao final; (5) `20261123302000` só com o app. O total pendente passa a 48 (47 + o portão).
+
 ## 1. Premissas e medidas
 
 - Banco pequeno (maiores tabelas: `document_text_segments` ~9 MB, `emails` ~6 MB, `audit_log_entries` ~2,6 MB; leitura de `pg_class`). Nenhuma migration pendente reescreve tabela grande: as alterações de tabela são `add column`, `add constraint`, criação de tabelas e índices novos, e `create or replace function`/gatilho/política. Nenhuma pendente contém `drop table`, `truncate` nem `delete` de dados (varredura dos arquivos: só `drop trigger/policy/constraint if exists` seguido de recriação).
