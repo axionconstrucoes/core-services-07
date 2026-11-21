@@ -42,7 +42,7 @@ check("CASO 11 (revisão) garantia legal potencial SIM com prazo de reclamação
 
 const src = { ref: "Apólice p.3" };
 const base = { modality: "SEGURO_GARANTIA_EXECUTANTE", claimKind: "INADIMPLEMENTO", eventDate: "2026-06-01", policy: { coverageStart: "2026-01-01", coverageEnd: "2027-01-01" } };
-const clause = (kind, appliesTo, extra = {}) => ({ id: `${kind}-${appliesTo.join()}`, kind, title: `${kind} sintética`, appliesTo, source: src, verified: true, ...extra });
+const clause = (kind, appliesTo, extra = {}) => ({ id: `${kind}-${appliesTo.join()}`, kind, title: `${kind} sintética`, identifier: "Cláusula 4.1", appliesTo, source: src, verified: true, ...extra });
 
 check("CASO 28/33 (revisão) exclusão/condição/franquia/sublimite SEM fonte aplicável ao evento não é ignorada: cobertura vira CONDICIONADO com o motivo; sem cláusula restritiva continua POTENCIALMENTE_COBERTO", () => {
   for (const kind of ["EXCLUSAO", "CONDICAO", "FRANQUIA", "SUBLIMITE"]) {

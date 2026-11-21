@@ -5,7 +5,7 @@ import { HelpHint } from "@/components/shared/help-hint";
 import { SELECT_CLASS } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useCompetenceFor } from "@/components/insurance/use-competence";
-import { ActionButton, Callout, DataTable, NoData, RunnerFeedback, Section, SpecForm, StatusBadge, useInsuranceRunner, useWorkspace, type Column } from "@/components/insurance/kit";
+import { ActionButton, Callout, DataTable, NoData, RunnerFeedback, Section, SpecForm, StatusBadge, buildOptionSets, useInsuranceRunner, useWorkspace, type Column } from "@/components/insurance/kit";
 import { claimStageLabelFor } from "@/lib/insurance-ui/claim-labels";
 import { FORMS } from "@/lib/insurance-ui/forms";
 import { formatDateTime, textOrNoData } from "@/lib/insurance-ui/format";
@@ -13,6 +13,7 @@ import { AUDIT_ENTITY_LABEL, DRAFT_KIND_LABEL, DRAFT_STATE_LABEL, SEND_BLOCK_REA
 import { CHANNEL_AVAILABILITY_TEXT, claimInstrument, draftSendView, prepareAcionamento, prepareEndorsementDraft, type AcionamentoPlan } from "@/lib/insurance-ui/model";
 import type { BuiltDraft } from "@/lib/insurance/index";
 import type { DraftRow } from "@/lib/insurance-ui/types";
+import { COHERENCE_FIELD_LABELS, COHERENCE_INSTRUMENTS, COHERENCE_INSTRUMENT_LABELS, COHERENCE_STATUS_LABELS, type CoherenceField, type CoherenceStatus } from "@/lib/insurance/coherence";
 
 export function DraftsPanel() {
   const { data, target } = useWorkspace();
@@ -190,6 +191,8 @@ function DraftDetail({ draft }: { draft: DraftRow }) {
       <BasisView basis={draft.basis} />
       <p className="mt-2 text-sm">Canal oficial vinculado: {channel ? `${channel.entity_name} — ${channel.channel_type}: ${channel.channel_value} (${channel.active ? "ativo" : "INATIVO"}, ${channel.verified_at ? "verificado" : "NÃO verificado"})` : <NoData text="SEM CANAL" />}</p>
 
+      <CoherenceBlock draft={draft} />
+
       <h3 className="mb-1 mt-4 flex items-center gap-1 text-sm font-semibold">Envio real<HelpHint helpId="seguros.minutas.envio-bloqueado" /></h3>
       <Callout tone="danger">
         <p className="mb-2">O envio real não existe nesta fase. Motivos de bloqueio avaliados agora:</p>
@@ -221,5 +224,86 @@ function DraftDetail({ draft }: { draft: DraftRow }) {
       <h3 className="mb-1 mt-4 flex items-center gap-1 text-sm font-semibold">Trilha de auditoria da minuta<HelpHint helpId="seguros.minutas.trilha" /></h3>
       {trail.length ? <ul className="text-sm">{trail.map((a) => (<li key={a.id}>{formatDateTime(a.occurred_at)} — {labelOf(AUDIT_ENTITY_LABEL, a.entity_type)} · {a.action} · {a.actor_user_id ? data.actors[a.actor_user_id] ?? a.actor_user_id.slice(0, 8) : "SEM DADOS"}</li>))}</ul> : <p className="text-sm text-muted-foreground">{textOrNoData(null)}: sem eventos na janela carregada (últimos 300 do projeto).</p>}
     </Section>
+  );
+}
+
+/* ---------------------------------------------------------------- coerência minuta x apólice x contrato ---------------------------------------------------------------- */
+
+function CoherenceBlock({ draft }: { draft: DraftRow }) {
+  const { data } = useWorkspace();
+  const check = data.coherence[draft.id] ?? null;
+  const policyId = draft.policy_id ?? data.claims.find((c) => c.id === draft.claim_id)?.policy_id ?? data.endorsements.find((e) => e.id === draft.endorsement_id)?.policy_id ?? null;
+  const [termsKind, setTermsKind] = useState<(typeof COHERENCE_INSTRUMENTS)[number] | null>(null);
+  const [justify, setJustify] = useState(false);
+  if (!policyId) {
+    return (
+      <>
+        <h3 className="mb-1 mt-4 flex items-center gap-1 text-sm font-semibold">Coerência minuta × apólice × contrato<HelpHint helpId="seguros.coerencia.painel" /></h3>
+        <p className="text-sm" data-testid="seguros-coerencia-sem-apolice">Esta minuta não está ligada a uma apólice (fiança/garantia): a conferência de coerência de apólice não se aplica.</p>
+      </>
+    );
+  }
+  const status = (check?.status ?? null) as CoherenceStatus | null;
+  const present = (kind: (typeof COHERENCE_INSTRUMENTS)[number]) => data.instrumentTerms.some((t) => t.policy_id === policyId && t.source_kind === kind && (kind !== "MINUTA" || t.draft_id === draft.id));
+  const canJustify = draft.state === "DRAFT" && (check?.unjustified ?? 0) > 0;
+  return (
+    <>
+      <h3 className="mb-1 mt-4 flex items-center gap-1 text-sm font-semibold">Coerência minuta × apólice × contrato<HelpHint helpId="seguros.coerencia.painel" /></h3>
+      <div className="rounded-md border border-border p-3 text-sm" data-testid="seguros-coerencia">
+        {!status ? (
+          <p data-testid="seguros-coerencia-indisponivel">SEM DADOS: a conferência de coerência não pôde ser carregada. A aprovação continua bloqueada pelo banco enquanto os termos não forem conferidos.</p>
+        ) : (
+          <>
+            <p className="mb-2 flex flex-wrap items-center gap-2">
+              <StatusBadge text={COHERENCE_STATUS_LABELS[status]} variant={status === "COERENTE" ? "success" : status === "DIVERGENTE_JUSTIFICADA" ? "warning" : "destructive"} helpId="seguros.coerencia.status" />
+              <span>Compara segurado, beneficiário, objeto, vigência, importância segurada e obrigação garantida. Valor ausente é SEM DADOS (não é divergência).</span>
+            </p>
+            <ul className="mb-2 flex flex-wrap gap-2" data-testid="seguros-coerencia-termos">
+              {COHERENCE_INSTRUMENTS.map((k) => (
+                <li key={k} className="rounded-md border border-border px-2 py-1">
+                  {COHERENCE_INSTRUMENT_LABELS[k]}: {present(k) ? "termos registrados" : <NoData text="SEM TERMOS" />}
+                </li>
+              ))}
+            </ul>
+            {check?.divergences.length ? (
+              <ul className="mb-2 flex flex-col gap-2" data-testid="seguros-coerencia-divergencias">
+                {check.divergences.map((d) => (
+                  <li key={d.field} className="rounded-md border border-border p-2">
+                    <p className="flex flex-wrap items-center gap-2 font-medium">
+                      {COHERENCE_FIELD_LABELS[d.field as CoherenceField] ?? d.field}
+                      <StatusBadge text={d.justified ? "Justificada" : "SEM justificativa"} variant={d.justified ? "warning" : "destructive"} helpId="seguros.coerencia.divergencias" />
+                    </p>
+                    <ul className="text-xs text-muted-foreground">
+                      {COHERENCE_INSTRUMENTS.filter((k) => d.values[k] !== undefined).map((k) => (
+                        <li key={k}>{COHERENCE_INSTRUMENT_LABELS[k]}: {String(d.values[k])} (fonte: {d.sources[k] || "SEM DADOS"})</li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {COHERENCE_INSTRUMENTS.map((k) => (
+            <ActionButton key={k} label={`Termos: ${COHERENCE_INSTRUMENT_LABELS[k]}`} helpId="seguros.acoes.termos-abrir" level={k === "MINUTA" ? "REGISTER" : "MANAGE"} variant="outline" onClick={() => setTermsKind(k)} />
+          ))}
+          {canJustify ? <ActionButton label="Justificar divergência" helpId="seguros.acoes.divergencia-abrir" level="MANAGE" variant="outline" onClick={() => setJustify(true)} /> : null}
+        </div>
+        {termsKind ? (
+          <div className="mt-3">
+            <SpecForm spec={{ ...FORMS.instrumentTerms, title: `Termos do instrumento: ${COHERENCE_INSTRUMENT_LABELS[termsKind]}` }} options={buildOptionSets(data)} level={termsKind === "MINUTA" ? "REGISTER" : "MANAGE"} okMessage="Termos gravados (nova versão)." onCancel={() => setTermsKind(null)} onDone={() => setTermsKind(null)}
+              toInput={(b) => ({ op: "terms_save", id: policyId, data: b.data, args: { sourceKind: termsKind, draftId: termsKind === "MINUTA" ? draft.id : null } })} />
+          </div>
+        ) : null}
+        {justify ? (
+          <div className="mt-3">
+            <SpecForm spec={FORMS.coherenceJustify} options={buildOptionSets(data)} level="MANAGE" okMessage="Justificativa registrada." onCancel={() => setJustify(false)} onDone={() => setJustify(false)}
+              extraValidate={(v): Record<string, string> => (!(v.source_document_id ?? "").trim() && !(v.source_ref ?? "").trim() ? { source_ref: "A justificativa exige fonte (documento do projeto ou referência)." } : {})}
+              toInput={(b) => ({ op: "coherence_justify", id: draft.id, args: b.args })} />
+          </div>
+        ) : null}
+      </div>
+    </>
   );
 }

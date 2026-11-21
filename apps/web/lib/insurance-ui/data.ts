@@ -30,6 +30,9 @@ const TABLES: Array<{ key: SectionKey; table: string; order?: { column: string; 
   { key: "claimSteps", table: "insurance_claim_steps", order: { column: "occurred_at", ascending: true }, limit: 1000 },
   { key: "dossierItems", table: "insurance_dossier_items", order: { column: "updated_at", ascending: true } },
   { key: "drafts", table: "insurance_drafts", order: { column: "created_at", ascending: false } },
+  { key: "instrumentTerms", table: "insurance_instrument_terms", order: { column: "created_at", ascending: true }, limit: 1000 },
+  { key: "coherenceJustifications", table: "insurance_coherence_justifications", order: { column: "created_at", ascending: true }, limit: 1000 },
+  { key: "guaranteeUpdates", table: "insurance_guarantee_updates", order: { column: "created_at", ascending: false }, limit: 500 },
   { key: "audit", table: "insurance_audit_events", order: { column: "occurred_at", ascending: false }, limit: 300 },
 ];
 
@@ -37,6 +40,7 @@ export function emptyWorkspace(projectId: string): InsuranceWorkspaceData {
   return {
     projectId, policies: [], versions: [], parties: [], clauses: [], bankGuarantees: [], otherGuarantees: [], channels: [], endorsements: [], endorsementReviews: [],
     advances: [], amortizations: [], claims: [], claimSteps: [], dossierItems: [], drafts: [], audit: [], settings: null, dashboardItems: [],
+    instrumentTerms: [], coherenceJustifications: [], guaranteeUpdates: [], coherence: {}, rccReady: {}, advancesConsolidated: null,
     documents: [], actors: {}, competences: [], competenceMembers: [], competencesError: null,
   };
 }
@@ -120,6 +124,44 @@ export async function loadInsuranceWorkspace(client: InsuranceClientLike, projec
   } catch {
     data.competencesError = "Não foi possível carregar as competências profissionais; decisões que as exigem ficam bloqueadas nesta tela.";
   }
+  // Fase 4/B — leituras derivadas (RPCs de leitura; falha NUNCA vira "coerente"/"pronto": a seção fica sem valor e a tela o diz)
+  try {
+    const { data: cons, error } = await client.rpc("insurance_advances_consolidated", { p_project_id: projectId, p_policy_id: null });
+    if (error) fail("advancesConsolidated", error);
+    else data.advancesConsolidated = cons as InsuranceWorkspaceData["advancesConsolidated"];
+  } catch {
+    fail("advancesConsolidated", { message: "exceção" });
+  }
+  const draftPolicy = (d: InsuranceWorkspaceData["drafts"][number]): string | null =>
+    d.policy_id ?? data.claims.find((c) => c.id === d.claim_id)?.policy_id ?? data.endorsements.find((e) => e.id === d.endorsement_id)?.policy_id ?? null;
+  await Promise.all([
+    ...data.drafts
+      .filter((d) => d.state === "DRAFT")
+      .slice(0, 30)
+      .map(async (d) => {
+        const pid = draftPolicy(d);
+        if (!pid) return;
+        try {
+          const { data: chk, error } = await client.rpc("insurance_coherence_check", { p_policy_id: pid, p_draft_id: d.id });
+          if (error) return fail("coherence", error);
+          data.coherence[d.id] = chk as InsuranceWorkspaceData["coherence"][string];
+        } catch {
+          fail("coherence", { message: "exceção" });
+        }
+      }),
+    ...data.claims
+      .filter((c) => c.policy_id && (c.claim_kind === "RC_CRUZADA" || data.policies.find((p) => p.id === c.policy_id)?.modality === "RC_CRUZADA"))
+      .slice(0, 30)
+      .map(async (c) => {
+        try {
+          const { data: r, error } = await client.rpc("insurance_rcc_readiness", { p_policy_id: c.policy_id, p_claim_id: c.id });
+          if (error) return fail("rccReady", error);
+          data.rccReady[c.id] = (r as { ready?: boolean } | null)?.ready === true;
+        } catch {
+          fail("rccReady", { message: "exceção" });
+        }
+      }),
+  ]);
 
   // nomes de quem atuou (best effort: a RLS de profiles pode limitar; sem nome, a tela mostra o id abreviado)
   try {

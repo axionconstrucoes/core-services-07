@@ -244,7 +244,7 @@ export function CaseDetail({
         </TabsContent>
 
         <TabsContent value="verificacao">
-          <VerificationPanel projectId={projectId} warranty={warranty} verifications={detail.verifications} evidence={detail.evidence} canManage={canManage} />
+          <VerificationPanel projectId={projectId} warranty={warranty} verifications={detail.verifications} evidence={detail.evidence} acceptances={detail.acceptances} canManage={canManage} />
         </TabsContent>
 
         <TabsContent value="custos">

@@ -120,3 +120,6 @@ scripts/test-menu-permissoes.mjs
 scripts/test-destinatarios-externos-realpg.mjs
 scripts/test-competencias.mjs
 scripts/test-competencias-realpg.mjs
+scripts/test-f4b-garantias-seguros.mjs
+scripts/test-f4b-garantias-seguros-realpg.mjs
+scripts/test-garantias-browser.mjs

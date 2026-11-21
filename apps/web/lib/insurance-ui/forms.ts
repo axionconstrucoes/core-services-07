@@ -4,8 +4,10 @@
 // os CHECKs e as RPCs do banco (que continuam sendo a autoridade).
 import { CHANGE_KIND_LABEL, CLAIM_KIND_LABEL, CAUCAO_FORM_LABEL, CHANNEL_TYPE_LABEL, CLAUSE_KIND_LABEL, DOSSIER_STATUS_LABEL, GUARANTEE_STATUS_LABEL, MODALITY_LABEL, OTHER_GUARANTEE_TYPE_LABEL, PARTY_ROLE_LABEL, POLICY_STATUS_LABEL, CLAIM_STAGE_LABEL } from "./labels";
 import { parseDecimalPtBr } from "./format";
+import { checkClaimGrounds, checkGuaranteeUpdate, GROUNDS_MESSAGES, GUARANTEE_UPDATE_MESSAGES } from "../insurance/grounds";
+import { COHERENCE_FIELDS, COHERENCE_FIELD_LABELS } from "../insurance/coherence";
 
-export type FieldType = "text" | "textarea" | "date" | "money" | "int" | "select" | "tristate" | "document" | "checkbox" | "multi";
+export type FieldType = "text" | "textarea" | "lines" | "date" | "money" | "int" | "select" | "tristate" | "document" | "checkbox" | "multi";
 
 export type OptionsKey =
   | "documents"
@@ -45,6 +47,8 @@ export interface FormSpec {
   submitHelpId: string;
   /** Exige documento-fonte OU referência de fonte (CHECK source_document_id/source_ref do banco). */
   requireSource?: boolean;
+  /** Nomes dos campos [documento, referência] da fonte exigida (padrão: source_document_id / source_ref). */
+  sourceFields?: [string, string];
   /** Atualização: só as chaves alteradas vão no p_data (RPC usa `p_data ? 'chave'`). */
   onlyChanged?: boolean;
   fields: FieldSpec[];
@@ -56,6 +60,9 @@ const SRC_DOC: FieldSpec = { name: "source_document_id", label: "Documento-fonte
 const SRC_REF: FieldSpec = { name: "source_ref", label: "Referência da fonte (página, cláusula, protocolo)", type: "text", helpId: "seguros.campos.referencia-fonte" };
 const NOTES: FieldSpec = { name: "notes", label: "Observações", type: "textarea", helpId: "seguros.campos.observacoes" };
 const REASON = (minLength = 10): FieldSpec => ({ name: "reason", label: "Motivo", type: "textarea", helpId: "seguros.campos.motivo", required: true, target: "arg", minLength });
+const UPD_SRC_DOC: FieldSpec = { name: "update_source_document_id", label: "Documento-fonte da atualização", type: "document", helpId: "seguros.garantias.campo-atualizacao-fonte-documento", optionsKey: "documents", target: "arg" };
+const UPD_SRC_REF: FieldSpec = { name: "update_source_ref", label: "Referência da fonte da atualização (aditivo, carta, protocolo)", type: "text", helpId: "seguros.garantias.campo-atualizacao-fonte-referencia", target: "arg" };
+const UPD_REASON: FieldSpec = { name: "update_reason", label: "Motivo da atualização", type: "textarea", helpId: "seguros.garantias.campo-atualizacao-motivo", required: true, target: "arg", minLength: 10 };
 const START: FieldSpec = { name: "start_date", label: "Início da vigência", type: "date", helpId: "seguros.campos.vigencia-inicio" };
 const END: FieldSpec = { name: "end_date", label: "Fim da vigência", type: "date", helpId: "seguros.campos.vigencia-fim" };
 
@@ -127,6 +134,7 @@ export const FORMS = {
     fields: [
       { name: "kind", label: "Tipo", type: "select", helpId: "seguros.apolices.campo-clausula-tipo", required: true, options: opts(CLAUSE_KIND_LABEL) },
       { name: "title", label: "Título", type: "text", helpId: "seguros.apolices.campo-clausula-titulo", required: true },
+      { name: "clause_identifier", label: "Identificação da cláusula no texto da apólice (ex.: Cláusula 4.2) — obrigatória para COBERTURA", type: "text", helpId: "seguros.apolices.campo-clausula-identificacao" },
       { name: "clause_text", label: "Texto", type: "textarea", helpId: "seguros.apolices.campo-clausula-texto" },
       { name: "applies_to", label: "Declara aplicar-se a", type: "multi", helpId: "seguros.apolices.campo-clausula-aplica-se", options: opts(CLAIM_KIND_LABEL) },
       { name: "amount", label: "Valor (R$)", type: "money", helpId: "seguros.apolices.campo-clausula-valor" },
@@ -168,6 +176,8 @@ export const FORMS = {
     submitLabel: "Gravar alteração",
     submitHelpId: "seguros.acoes.fianca-atualizar",
     onlyChanged: true,
+    requireSource: true,
+    sourceFields: ["update_source_document_id", "update_source_ref"],
     fields: [
       { name: "amount", label: "Valor (R$)", type: "money", helpId: "seguros.garantias.campo-valor" },
       END,
@@ -175,6 +185,9 @@ export const FORMS = {
       { name: "claim_procedure_note", label: "Procedimento de cobrança conforme o instrumento", type: "textarea", helpId: "seguros.garantias.campo-procedimento" },
       { name: "status", label: "Situação", type: "select", helpId: "seguros.garantias.campo-status", options: opts(GUARANTEE_STATUS_LABEL) },
       NOTES,
+      UPD_SRC_DOC,
+      UPD_SRC_REF,
+      UPD_REASON,
     ],
   },
   otherRegister: {
@@ -208,12 +221,17 @@ export const FORMS = {
     submitLabel: "Gravar alteração",
     submitHelpId: "seguros.acoes.outra-atualizar",
     onlyChanged: true,
+    requireSource: true,
+    sourceFields: ["update_source_document_id", "update_source_ref"],
     fields: [
       { name: "amount", label: "Valor (R$)", type: "money", helpId: "seguros.garantias.campo-valor" },
       END,
       { name: "release_conditions", label: "Condições de liberação / devolução", type: "textarea", helpId: "seguros.garantias.campo-liberacao" },
       { name: "status", label: "Situação", type: "select", helpId: "seguros.garantias.campo-status", options: opts(GUARANTEE_STATUS_LABEL) },
       NOTES,
+      UPD_SRC_DOC,
+      UPD_SRC_REF,
+      UPD_REASON,
     ],
   },
   channelRegister: {
@@ -358,8 +376,44 @@ export const FORMS = {
     fields: [
       { name: "note", label: "Nota da etapa", type: "textarea", helpId: "seguros.sinistros.campo-nota-etapa", target: "data" },
       { name: "protocol", label: "Protocolo da etapa", type: "text", helpId: "seguros.sinistros.campo-protocolo" },
-      { name: "document_id", label: "Documento da etapa", type: "document", helpId: "seguros.sinistros.campo-documento-etapa", optionsKey: "documents" },
+      { name: "document_id", label: "Documento da etapa (fonte da fundamentação)", type: "document", helpId: "seguros.sinistros.campo-documento-etapa", optionsKey: "documents" },
+      { name: "source_refs", label: "Fontes da fundamentação (uma por linha: carta, e-mail, cláusula, protocolo)", type: "lines", helpId: "seguros.sinistros.campo-fontes-etapa", target: "data" },
       { name: "decision_outcome", label: "Resultado da decisão", type: "select", helpId: "seguros.sinistros.campo-resultado-decisao", options: [{ value: "DEFERIDO", label: "Deferido" }, { value: "INDEFERIDO", label: "Indeferido" }, { value: "PARCIAL", label: "Parcial" }] },
+    ],
+  },
+  instrumentTerms: {
+    id: "instrumentTerms",
+    title: "Termos do instrumento para a conferência de coerência",
+    helpId: "seguros.coerencia.form-termos",
+    submitLabel: "Gravar termos (nova versão)",
+    submitHelpId: "seguros.acoes.termos-gravar",
+    requireSource: true,
+    fields: [
+      { name: "insured_name", label: "Segurado (nome / razão social)", type: "text", helpId: "seguros.coerencia.campo-segurado-nome" },
+      { name: "insured_tax_id", label: "Segurado (CNPJ / CPF)", type: "text", helpId: "seguros.coerencia.campo-segurado-documento" },
+      { name: "beneficiary_name", label: "Beneficiário (nome / razão social)", type: "text", helpId: "seguros.coerencia.campo-beneficiario-nome" },
+      { name: "beneficiary_tax_id", label: "Beneficiário (CNPJ / CPF)", type: "text", helpId: "seguros.coerencia.campo-beneficiario-documento" },
+      { name: "object_text", label: "Objeto", type: "textarea", helpId: "seguros.coerencia.campo-objeto" },
+      { name: "coverage_start", label: "Início da vigência", type: "date", helpId: "seguros.campos.vigencia-inicio" },
+      { name: "coverage_end", label: "Fim da vigência", type: "date", helpId: "seguros.campos.vigencia-fim" },
+      { name: "insured_amount", label: "Importância segurada / garantida (R$)", type: "money", helpId: "seguros.coerencia.campo-importancia" },
+      { name: "guaranteed_obligation", label: "Obrigação garantida", type: "textarea", helpId: "seguros.coerencia.campo-obrigacao" },
+      { name: "source_page", label: "Página / item", type: "text", helpId: "seguros.apolices.campo-clausula-pagina" },
+      SRC_DOC,
+      SRC_REF,
+    ],
+  },
+  coherenceJustify: {
+    id: "coherenceJustify",
+    title: "Justificar divergência de coerência",
+    helpId: "seguros.coerencia.form-justificar",
+    submitLabel: "Registrar justificativa",
+    submitHelpId: "seguros.acoes.divergencia-justificar",
+    fields: [
+      { name: "field", label: "Campo divergente", type: "select", helpId: "seguros.coerencia.campo-campo-divergente", required: true, target: "arg", options: COHERENCE_FIELDS.map((f) => ({ value: f, label: COHERENCE_FIELD_LABELS[f] })) },
+      { name: "justification", label: "Justificativa (mínimo de 20 caracteres)", type: "textarea", helpId: "seguros.coerencia.campo-justificativa", required: true, target: "arg", minLength: 20 },
+      { name: "source_document_id", label: "Documento-fonte da justificativa", type: "document", helpId: "seguros.campos.documento-fonte", optionsKey: "documents", target: "arg" },
+      { name: "source_ref", label: "Referência da fonte da justificativa", type: "text", helpId: "seguros.campos.referencia-fonte", target: "arg" },
     ],
   },
   dossierItem: {
@@ -428,6 +482,7 @@ export function buildForm(spec: FormSpec, values: FormValues, initial: FormValue
     else if (f.type === "tristate") v = raw === "true";
     else if (f.type === "checkbox") v = raw === "true";
     else if (f.type === "multi") v = raw.split(",").map((s) => s.trim()).filter(Boolean);
+    else if (f.type === "lines") v = (values[f.name] ?? "").split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
     (f.target === "arg" ? args : data)[f.name] = v;
   }
   return { data, args };
@@ -454,8 +509,9 @@ export function validateForm(spec: FormSpec, values: FormValues, initial: FormVa
     if (f.type === "int" && !/^\d+$/.test(raw)) errors[f.name] = "Informe um número inteiro maior ou igual a zero.";
     if (f.type === "date" && !DATE_RE.test(raw)) errors[f.name] = "Data inválida.";
   }
-  if (spec.requireSource && !get("source_document_id") && !get("source_ref")) {
-    errors.source_ref = "Informe o documento-fonte OU a referência da fonte: nenhum dado entra sem origem rastreável.";
+  const [srcDoc, srcRef] = spec.sourceFields ?? ["source_document_id", "source_ref"];
+  if (spec.requireSource && !get(srcDoc) && !get(srcRef)) {
+    errors[srcRef] = "Informe o documento-fonte OU a referência da fonte: nenhum dado entra sem origem rastreável.";
   }
   if (spec.onlyChanged) {
     const changed = spec.fields.some((f) => f.target !== "arg" && get(f.name) !== (initial[f.name] ?? "").trim());
@@ -466,6 +522,23 @@ export function validateForm(spec: FormSpec, values: FormValues, initial: FormVa
     if (get(a) && get(b) && DATE_RE.test(get(a)) && DATE_RE.test(get(b)) && get(b) < get(a)) errors[b] = "O fim não pode ser anterior ao início.";
   }
   return errors;
+}
+
+/** Fundamentação das etapas de decisão/indenização/negativa/contestação (espelha insurance_claim_advance). */
+export function validateClaimGrounds(toStage: string, values: FormValues): FormErrors {
+  const refs = (values.source_refs ?? "").split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+  const code = checkClaimGrounds(toStage, { note: values.note, sourceRefs: refs, documentId: (values.document_id ?? "").trim() || null });
+  if (!code) return {};
+  return { [code === "GROUNDS_SOURCES_REQUIRED" ? "source_refs" : "note"]: GROUNDS_MESSAGES[code] };
+}
+
+/** Atualização de fiança/caução exige fonte + motivo + ao menos um campo alterado (espelha as RPCs). */
+export function validateGuaranteeUpdate(values: FormValues, initial: FormValues): FormErrors {
+  const get = (n: string) => (values[n] ?? "").trim();
+  const changed = ["amount", "end_date", "calls_on_first_demand", "claim_procedure_note", "release_conditions", "status", "notes"].filter((k) => k in values && get(k) !== (initial[k] ?? "").trim());
+  const code = checkGuaranteeUpdate({ changedKeys: changed, updateSourceRef: get("update_source_ref"), updateSourceDocumentId: get("update_source_document_id") || null, updateReason: get("update_reason") });
+  if (!code) return {};
+  return { [code === "UPDATE_SOURCE_REQUIRED" ? "update_source_ref" : code === "UPDATE_REASON_REQUIRED" ? "update_reason" : "_form"]: GUARANTEE_UPDATE_MESSAGES[code] };
 }
 
 /** Regras específicas por formulário que dependem de mais de um campo (espelham as RPCs). */

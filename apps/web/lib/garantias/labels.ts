@@ -104,6 +104,7 @@ export const BLOCKER_MESSAGES: Record<string, string> = {
   NOT_VERIFIED: "O caso ainda não está no estado Verificada.",
   REPAIR_RECORD_REQUIRED: "Registre ao menos um reparo executado antes de marcar como Reparada.",
   CUSTOMER_ACCEPTANCE_REQUIRED: "Falta o aceite do cliente (data e nome de quem aceitou).",
+  CUSTOMER_ACCEPTANCE_NOT_PROVEN: "O aceite do cliente foi apenas INFORMADO por usuário interno: registre o aceite COMPROVADO (evidência, hash e manifestante externo).",
 };
 
 export function blockerMessage(code: string): string {
@@ -132,7 +133,13 @@ export const ERROR_MESSAGES: Record<string, string> = {
   COST_SOURCE_REQUIRED: "Valor sem fonte não é aceito: informe a fonte do custo (nota, orçamento, medição). Sem valor o custo fica SEM DADOS.",
   DUPLICATE_EVIDENCE: "Esta fonte já foi registrada como evidência neste caso (nada foi duplicado).",
   DUPLICATE_RECORD: "Registro já existente (nada foi duplicado).",
+  ACCEPTANCE_ALREADY_PROVEN: "O aceite deste ciclo já está comprovado; um lançamento interno não o substitui.",
+  MANIFESTANT_CONTACT_REQUIRED: "Informe o e-mail de contato do manifestante externo (formato válido).",
+  SOURCE_HASH_REQUIRED: "Informe o hash SHA-256 (64 caracteres hexadecimais) do documento ou e-mail ingerido.",
+  MANIFESTANT_IS_INTERNAL: "O manifestante não pode ser quem registra nem membro do projeto: um lançamento interno não substitui a manifestação do cliente.",
+  ACCEPTANCE_BEFORE_REPAIR: "A manifestação do cliente é anterior ao último reparo executado: o aceite deve ser posterior ao reparo.",
+  ACCEPTANCE_PROOF_REQUIRED: "Aceite comprovado exige o registro de prova correspondente.",
 };
 
 /** Códigos cuja mensagem do banco já é legível e específica (em português): é exibida no lugar do texto genérico. */
-export const DETAIL_ERROR_CODES = new Set(["INVALID_DATA", "INVALID_STATE", "CASE_NOT_ACTIVE", "COST_SOURCE_REQUIRED", "EPISTEMIC_INVALID", "EVIDENCE_LOCKED"]);
+export const DETAIL_ERROR_CODES = new Set(["INVALID_DATA", "INVALID_STATE", "CASE_NOT_ACTIVE", "COST_SOURCE_REQUIRED", "EPISTEMIC_INVALID", "EVIDENCE_LOCKED", "ACCEPTANCE_BEFORE_REPAIR", "EVIDENCE_INVALID", "MANIFESTANT_IS_INTERNAL"]);

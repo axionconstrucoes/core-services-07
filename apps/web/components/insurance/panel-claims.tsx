@@ -6,7 +6,7 @@ import { SELECT_CLASS } from "@/components/ui/select";
 import { ClaimStageButton } from "@/components/insurance/competence-buttons";
 import { ActionButton, Callout, DataTable, NoData, RunnerFeedback, Section, SourceLink, SpecForm, StatusBadge, buildOptionSets, useInsuranceRunner, useWorkspace, type Column } from "@/components/insurance/kit";
 import { claimStageLevel } from "@/lib/insurance-ui/permissions";
-import { FORMS, deriveClaimInstrument, validateClaimOpen, validateDossierItem } from "@/lib/insurance-ui/forms";
+import { FORMS, deriveClaimInstrument, validateClaimGrounds, validateClaimOpen, validateDossierItem } from "@/lib/insurance-ui/forms";
 import { formatDate, formatDateTime, formatMoney, textOrNoData } from "@/lib/insurance-ui/format";
 import { claimStageLabelFor } from "@/lib/insurance-ui/claim-labels";
 import { CLAIM_KIND_LABEL, CLAIM_STAGE_LABEL, COVERAGE_CONCLUSION_LABEL, DOSSIER_STATUS_LABEL, EPISTEMIC_LABEL, labelOf } from "@/lib/insurance-ui/labels";
@@ -109,6 +109,7 @@ function ClaimDetail({ claim, goTo }: { claim: ClaimRow; goTo: (tab: string, t?:
         <div className="mt-3">
           <SpecForm spec={{ ...FORMS.claimAdvance, title: `Avançar para: ${claimStageLabelFor(toStage, instrument.kind)}` }} options={buildOptionSets(data)} level={claimStageLevel(toStage)} okMessage="Etapa registrada." onCancel={() => setToStage(null)} onDone={() => setToStage(null)}
             hideFields={toStage === "DECISAO" ? [] : ["decision_outcome"]}
+            extraValidate={(v) => validateClaimGrounds(toStage, v)}
             toInput={(b) => ({ op: "claim_advance", id: claim.id, expectedRowVersion: claim.row_version, data: b.data, args: { toStage } })} />
         </div>
       ) : null}

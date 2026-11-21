@@ -5,7 +5,7 @@ import { HelpHint } from "@/components/shared/help-hint";
 import { SELECT_CLASS } from "@/components/ui/select";
 import { ActionButton, Callout, DataTable, NoData, Section, SourceLink, SpecForm, StatusBadge, buildOptionSets, useWorkspace, type Column } from "@/components/insurance/kit";
 import { bankGuaranteeExecutionStatus, reviewBlockText } from "@/lib/insurance/index";
-import { FORMS, validateEndorsementVerify } from "@/lib/insurance-ui/forms";
+import { FORMS, validateEndorsementVerify, validateGuaranteeUpdate } from "@/lib/insurance-ui/forms";
 import { formatDate, formatDateTime, formatMoney, textOrNoData, NO_DATA } from "@/lib/insurance-ui/format";
 import { CHANGE_KIND_LABEL, DUAL_REVIEW_REASON_LABEL, ENDORSEMENT_STATE_LABEL, GUARANTEE_STATUS_LABEL, OTHER_GUARANTEE_TYPE_LABEL, CAUCAO_FORM_LABEL, labelOf } from "@/lib/insurance-ui/labels";
 import { advanceView, endorsementView, prepareEndorsementDraft } from "@/lib/insurance-ui/model";
@@ -66,7 +66,8 @@ export function GuaranteesPanel() {
           <div className="mt-3">
             <SpecForm spec={FORMS.bankUpdate} level="MANAGE" okMessage="Fiança atualizada." onCancel={() => setEditBank(null)} onDone={() => setEditBank(null)}
               initial={{ amount: editBank.amount === null ? "" : String(editBank.amount), end_date: editBank.end_date ?? "", calls_on_first_demand: editBank.calls_on_first_demand === null ? "" : String(editBank.calls_on_first_demand), claim_procedure_note: editBank.claim_procedure_note ?? "", status: editBank.status, notes: editBank.notes ?? "" }}
-              toInput={(b) => ({ op: "bank_update", id: editBank.id, expectedRowVersion: editBank.row_version, data: b.data })} />
+              extraValidate={(v) => validateGuaranteeUpdate(v, bankInitial(editBank))}
+              toInput={(b) => ({ op: "bank_update", id: editBank.id, expectedRowVersion: editBank.row_version, data: b.data, args: b.args })} />
           </div>
         ) : null}
       </Section>
@@ -77,7 +78,8 @@ export function GuaranteesPanel() {
           <div className="mt-3">
             <SpecForm spec={FORMS.otherUpdate} level="MANAGE" okMessage="Garantia atualizada." onCancel={() => setEditOther(null)} onDone={() => setEditOther(null)}
               initial={{ amount: editOther.amount === null ? "" : String(editOther.amount), end_date: editOther.end_date ?? "", release_conditions: editOther.release_conditions ?? "", status: editOther.status, notes: editOther.notes ?? "" }}
-              toInput={(b) => ({ op: "other_update", id: editOther.id, expectedRowVersion: editOther.row_version, data: b.data })} />
+              extraValidate={(v) => validateGuaranteeUpdate(v, otherInitial(editOther))}
+              toInput={(b) => ({ op: "other_update", id: editOther.id, expectedRowVersion: editOther.row_version, data: b.data, args: b.args })} />
           </div>
         ) : null}
       </Section>
@@ -255,6 +257,7 @@ export function AdvancesPanel() {
         Valor adiantado ≠ saldo não amortizado ≠ saldo devido ≠ valor indenizável. A tela calcula apenas o saldo não amortizado (adiantado menos amortizações registradas). Saldo devido e valor indenizável só aparecem se informados por quem tem a fonte: o sistema NÃO calcula indenização.
         <HelpHint helpId="seguros.adiantamentos.aviso-sem-indenizacao" />
       </Callout>
+      <ConsolidatedAdvancesCard />
       <Section title="Adiantamentos" helpId="seguros.adiantamentos.tabela" actions={<ActionButton label={showNew ? "Fechar formulário" : "Registrar adiantamento"} helpId="seguros.acoes.adiantamento-novo" level="REGISTER" variant="outline" onClick={() => setShowNew((v) => !v)} />}>
         <DataTable columns={cols} rows={data.advances} empty="SEM DADOS: nenhum adiantamento registrado." caption="Adiantamentos" />
         {showNew ? <div className="mt-3"><SpecForm spec={FORMS.advanceRegister} options={options} level="REGISTER" okMessage="Adiantamento registrado." onCancel={() => setShowNew(false)} onDone={() => setShowNew(false)} toInput={(b) => ({ op: "advance_register", data: b.data })} /></div> : null}
@@ -275,5 +278,48 @@ export function AdvancesPanel() {
         />
       </Section>
     </div>
+  );
+}
+
+/* ---------------------------------------------------------------- consolidação (sem dupla contagem) ---------------------------------------------------------------- */
+
+function bankInitial(b: BankGuaranteeRow): Record<string, string> {
+  return { amount: b.amount === null ? "" : String(b.amount), end_date: b.end_date ?? "", calls_on_first_demand: b.calls_on_first_demand === null ? "" : String(b.calls_on_first_demand), claim_procedure_note: b.claim_procedure_note ?? "", status: b.status, notes: b.notes ?? "" };
+}
+function otherInitial(o: OtherGuaranteeRow): Record<string, string> {
+  return { amount: o.amount === null ? "" : String(o.amount), end_date: o.end_date ?? "", release_conditions: o.release_conditions ?? "", status: o.status, notes: o.notes ?? "" };
+}
+
+function ConsolidatedAdvancesCard() {
+  const { data } = useWorkspace();
+  const c = data.advancesConsolidated;
+  return (
+    <Section title="Consolidado de adiantamentos (sem dupla contagem)" helpId="seguros.adiantamentos.consolidado">
+      {!c ? (
+        <p className="text-sm text-muted-foreground" data-testid="seguros-consolidado-sem-dados">SEM DADOS: o consolidado não pôde ser carregado (nunca é exibido como zero).</p>
+      ) : (
+        <div className="flex flex-col gap-2 text-sm" data-testid="seguros-consolidado">
+          <dl className="grid gap-2 sm:grid-cols-3">
+            <div><dt className="text-muted-foreground">Soma dos adiantamentos</dt><dd className="font-semibold" data-testid="seguros-consolidado-adiantado">{formatMoney(c.totals.advanced)}</dd></div>
+            <div><dt className="text-muted-foreground">Amortizado (efetivo)</dt><dd className="font-semibold" data-testid="seguros-consolidado-amortizado">{formatMoney(c.totals.amortized)}</dd></div>
+            <div><dt className="text-muted-foreground">Saldo não amortizado</dt><dd className="font-semibold" data-testid="seguros-consolidado-saldo">{formatMoney(c.totals.unamortized)}</dd></div>
+          </dl>
+          {c.totals.duplicateAdvances + c.totals.duplicateAmortizations > 0 ? (
+            <Callout tone="warn">
+              Duplicidades excluídas da soma: {c.totals.duplicateAdvances} adiantamento(s) e {c.totals.duplicateAmortizations} amortização(ões) idênticos (mesma apólice, contrato, data, valor e fonte). Confira os registros: nada foi apagado.
+            </Callout>
+          ) : null}
+          {c.totals.overAmortized > 0 ? <Callout tone="warn">{c.totals.overAmortized} adiantamento(s) com amortização acima do adiantado (legado): o excesso não vira saldo negativo.</Callout> : null}
+          <ul className="flex flex-col gap-1" data-testid="seguros-consolidado-apolices">
+            {c.byPolicy.map((p) => (
+              <li key={p.policyId ?? "sem-apolice"} className="flex flex-wrap items-center gap-2">
+                <span>{p.policyId ? (data.policies.find((x) => x.id === p.policyId)?.policy_number ?? "apólice") : "Sem apólice vinculada"}: saldo {formatMoney(p.unamortized)} · teto {p.ceiling === null ? NO_DATA : formatMoney(p.ceiling)}</span>
+                <StatusBadge text={p.guarantee === "SEM_DADOS" ? NO_DATA : p.guarantee} variant={p.guarantee === "INSUFICIENTE" ? "destructive" : p.guarantee === "SUFICIENTE" ? "success" : "secondary"} />
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </Section>
   );
 }

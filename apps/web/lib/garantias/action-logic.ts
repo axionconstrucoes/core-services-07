@@ -3,6 +3,7 @@
 // se evita ida-e-volta inútil e se traduz o erro para o usuário. Escrita: RPC (criação e transição) e INSERT/UPDATE sob RLS
 // (registros filhos: não há RPC dedicada na fase 1).
 
+import { validateProofInput } from "./acceptance";
 import { parseQualityError } from "@/lib/quality/mappers";
 import { MIN_JUSTIFICATION_LENGTH, findTransition } from "@/lib/quality/state-machine";
 import { DETAIL_ERROR_CODES, ERROR_MESSAGES } from "./labels";
@@ -245,6 +246,15 @@ export function buildAcceptanceInput(raw: Raw) {
   return errors.length
     ? ({ ok: false, errors } as const)
     : ({ ok: true, args: { acceptedAt: day as string, acceptedByName: acceptedBy, evidenceId } } as const);
+}
+
+/**
+ * Aceite COMPROVADO (RPC quality_warranty_acceptance_prove). Validação de FORMATO no servidor (data, nome, e-mail, hash SHA-256,
+ * evidência); o banco repete e acrescenta o que depende de dados (manifestante externo, evidência do caso/tipo, posterior ao reparo).
+ */
+export function buildAcceptanceProofInput(raw: Raw, today: string = new Date().toISOString().slice(0, 10)) {
+  const r = validateProofInput(raw, { today, lastRepairDay: null, internalEmails: [], registrantName: null });
+  return r.ok ? ({ ok: true, args: r.input } as const) : ({ ok: false, errors: r.messages } as const);
 }
 
 /** Justificativa livre da edição (a RPC exige quando os dados que definem cobertura/custos já estavam informados). */

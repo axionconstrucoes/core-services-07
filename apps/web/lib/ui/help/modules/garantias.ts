@@ -4,6 +4,7 @@
 // lib/garantias/*, lib/quality/state-machine.ts e lib/ai/legal/warranty-coverage.ts.
 import type { FeatureHelpDefinition, HelpElementKind } from "../types";
 import { GARANTIAS_PARECERES_HELP } from "./garantias-pareceres";
+import { GARANTIAS_ACEITE_HELP } from "./garantias-aceite";
 import { GARANTIAS_RPC_HELP } from "./qualidade-rpc";
 
 const V = "2026-11-20";
@@ -235,10 +236,10 @@ export const GARANTIAS_HELP: FeatureHelpDefinition[] = [
   field("garantias.detalhe.verificacao-criterio", "Critério da verificação", "Como se verificou a eficácia.", "Critério objetivo usado (5 a 2000 caracteres), por exemplo ensaio de estanqueidade ou inspeção após período de uso.", { source: "quality_effectiveness_verifications.criteria", permissions: MAN }),
   field("garantias.detalhe.verificacao-observacoes", "Observações da verificação", "Notas adicionais.", "Observações livres sobre como a verificação de eficácia foi conduzida.", { source: "quality_effectiveness_verifications.notes", permissions: MAN }),
   btn("garantias.detalhe.verificacao-registrar", "Registrar verificação", "Grava a verificação (somente gestão, caso Reparada).", "Chama a RPC quality_verification_register com a versão lida do caso. O banco exige o caso no estado Reparada, perfil de gestão e evidência do mesmo caso (fato); o ponto do histórico de estados é gravado automaticamente.", { permissions: MAN }),
-  h("garantias.detalhe.aceite-situacao", "status", "Aceite do cliente", "Se o cliente já aceitou o reparo.", "Mostra data e nome de quem aceitou. Sem aceite, o encerramento é bloqueado (CUSTOMER_ACCEPTANCE_REQUIRED).", { source: "quality_warranty_cases.accepted_at/accepted_by_name", missingData: "Sem aceite: SEM DADOS." }),
+  h("garantias.detalhe.aceite-situacao", "status", "Aceite do cliente", "Se o cliente já aceitou o reparo.", "Mostra data e nome de quem aceitou. Sem aceite, o encerramento é bloqueado (CUSTOMER_ACCEPTANCE_REQUIRED); aceite só informado por usuário interno também bloqueia (CUSTOMER_ACCEPTANCE_NOT_PROVEN): é preciso o aceite comprovado.", { source: "quality_warranty_cases.accepted_at/accepted_by_name", missingData: "Sem aceite: SEM DADOS." }),
   field("garantias.detalhe.aceite-data", "Data do aceite", "Dia em que o cliente aceitou.", "Data do aceite do cliente, obrigatória para registrar o aceite do reparo.", { source: "quality_warranty_cases.accepted_at" }),
   field("garantias.detalhe.aceite-nome", "Nome de quem aceitou", "Pessoa do cliente que aceitou.", "Nome da pessoa do cliente que aceitou o reparo (2 a 200 caracteres, obrigatório).", { source: "quality_warranty_cases.accepted_by_name" }),
-  btn("garantias.detalhe.aceite-registrar", "Registrar aceite", "Grava o aceite com controle de versão e evidência.", "Chama a RPC quality_warranty_acceptance_register: exige perfil de gestão, a versão lida, a evidência (fato) do próprio caso e o caso Reparado ou Verificado. O aceite vale para um ciclo: novo reparo ou reabertura o descarta (fica na auditoria) e exige novo aceite.", { permissions: MAN }),
+  btn("garantias.detalhe.aceite-registrar", "Registrar aceite informado (interno)", "Grava o aceite INFORMADO (não libera o encerramento).", "Registra o aceite como INFORMADO por usuário interno, que NÃO libera o encerramento (use o aceite comprovado). Chama a RPC quality_warranty_acceptance_register: exige perfil de gestão, a versão lida, a evidência (fato) do próprio caso e o caso Reparado ou Verificado. O aceite vale para um ciclo: novo reparo ou reabertura o descarta (fica na auditoria) e exige novo aceite.", { permissions: MAN }),
 
   kpi("garantias.detalhe.kpi-custo-estimado", "Custo estimado do caso", "Valor estimado informado no caso.", "Custo estimado informado por pessoa no próprio caso de garantia, sem soma automática.", "valor do campo estimated_cost do caso (não soma outros registros)", "quality_warranty_cases.estimated_cost", "R$", "Sem valor: SEM DADOS (nunca R$ 0,00)."),
   kpi("garantias.detalhe.kpi-custo-realizado", "Custo realizado do caso", "Valor realizado informado no caso.", "Custo realizado informado por pessoa no próprio caso de garantia, sem soma automática.", "valor do campo actual_cost do caso (não soma outros registros)", "quality_warranty_cases.actual_cost", "R$", "Sem valor: SEM DADOS (nunca R$ 0,00)."),
@@ -247,4 +248,5 @@ export const GARANTIAS_HELP: FeatureHelpDefinition[] = [
   h("garantias.detalhe.custos-nao-qualidade", "table", "Custos de não qualidade vinculados", "Custos vinculados ao caso, sempre com fonte.", "Lista custos de quality_nonquality_costs ligados ao caso (retrabalho, material, mão de obra, multa, garantia, perda de prazo). Valor só existe com fonte; sem valor é SEM DADOS.", { source: "quality_nonquality_costs (warranty_case_id)", unit: "R$" }),
   ...GARANTIAS_PARECERES_HELP,
   ...GARANTIAS_RPC_HELP,
+  ...GARANTIAS_ACEITE_HELP,
 ];

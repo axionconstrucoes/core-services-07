@@ -10,6 +10,8 @@ export type InsuranceOp =
   | "party_add"
   | "party_set_active"
   | "clause_add"
+  | "terms_save"
+  | "coherence_justify"
   | "channel_register"
   | "channel_verify"
   | "bank_register"
@@ -60,10 +62,12 @@ export class InsuranceInputError extends Error {
 
 const POLICY_KEYS = ["modality", "policy_number", "insurer_name", "broker_name", "contract_document_id", "contract_number", "source_document_id", "source_ref", "status", "coverage_start", "coverage_end", "max_amount", "notes"];
 const PARTY_KEYS = ["party_role", "party_name", "tax_id", "identification_status", "source_document_id", "source_ref"];
-const CLAUSE_KEYS = ["kind", "title", "clause_text", "amount", "deadline_days", "applies_to", "source_document_id", "source_ref", "source_page", "verified"];
+const CLAUSE_KEYS = ["kind", "title", "clause_identifier", "clause_text", "amount", "deadline_days", "applies_to", "source_document_id", "source_ref", "source_page", "verified"];
 const CHANNEL_KEYS = ["entity_name", "channel_type", "channel_value", "policy_id", "bank_guarantee_id", "source_document_id", "source_ref"];
 const BANK_KEYS = ["bank_name", "guarantee_number", "beneficiary_name", "principal_name", "amount", "start_date", "end_date", "calls_on_first_demand", "claim_procedure_note", "contract_document_id", "contract_number", "source_document_id", "source_ref", "status", "notes"];
 const BANK_UPDATE_KEYS = ["amount", "end_date", "calls_on_first_demand", "claim_procedure_note", "status", "notes"];
+/** Fonte e motivo da atualização de fiança/caução (Fase 4/B): vão no p_data da RPC. */
+const UPDATE_META_KEYS = ["update_source_document_id", "update_source_ref", "update_reason"];
 const OTHER_KEYS = ["guarantee_type", "caucao_form", "issuer_name", "beneficiary_name", "principal_name", "amount", "start_date", "end_date", "release_conditions", "contract_document_id", "contract_number", "source_document_id", "source_ref", "status", "notes"];
 const OTHER_UPDATE_KEYS = ["amount", "end_date", "release_conditions", "status", "notes"];
 const ENDORSEMENT_REQUEST_KEYS = ["requested_text", "request_document_id", "request_ref", "change_kinds"];
@@ -73,7 +77,9 @@ const ENDORSEMENT_REVIEW_OUTCOMES = ["APROVADO", "RECUSADO"];
 const ADVANCE_KEYS = ["policy_id", "contract_document_id", "contract_number", "advanced_amount", "advance_date", "purpose", "application_document_id", "guaranteed_limit", "balance_due_informed", "indemnifiable_informed", "source_document_id", "source_ref", "notes"];
 const AMORTIZE_KEYS = ["amount", "amortized_on", "source_document_id", "source_ref", "note"];
 const CLAIM_OPEN_KEYS = ["stage", "claim_kind", "title", "policy_id", "bank_guarantee_id", "other_guarantee_id", "advance_id", "protocol", "occurrence_date", "claimed_amount", "notice_deadline_at", "notice_deadline_basis", "contractual_basis_clause_id", "contractual_basis_note", "no_instrument_reason", "source_document_id", "source_ref"];
-const CLAIM_ADVANCE_KEYS = ["note", "protocol", "document_id", "decision_outcome"];
+const CLAIM_ADVANCE_KEYS = ["note", "protocol", "document_id", "decision_outcome", "source_refs"];
+const TERMS_KEYS = ["insured_name", "insured_tax_id", "beneficiary_name", "beneficiary_tax_id", "object_text", "coverage_start", "coverage_end", "insured_amount", "guaranteed_obligation", "source_document_id", "source_ref", "source_page", "note"];
+const TERMS_KINDS = ["CONTRATO", "APOLICE", "MINUTA"];
 const DRAFT_KEYS = ["draft_kind", "policy_id", "bank_guarantee_id", "claim_id", "endorsement_id", "official_channel_id", "subject", "body", "basis"];
 
 function pick(data: Record<string, unknown> | undefined, keys: string[]): Record<string, unknown> {
@@ -123,6 +129,10 @@ export function levelForOp(op: InsuranceOp, input?: Pick<InsuranceActionInput, "
     case "dossier_sync":
     case "endorsement_review":
       return "MANAGE";
+    case "terms_save":
+      return input?.args?.sourceKind === "MINUTA" ? "REGISTER" : "MANAGE";
+    case "coherence_justify":
+      return "MANAGE";
     case "endorsement_advance":
       return input?.args?.toState === "EM_ANALISE" ? "REGISTER" : "MANAGE";
     case "claim_advance":
@@ -154,6 +164,16 @@ export function buildRpcCall(input: InsuranceActionInput): RpcCall {
       return call("insurance_policy_party_set_active", { p_party_id: uuid(input.id, "parte"), p_expected_row_version: rowVersion(input.expectedRowVersion), p_active: args.active === true, p_reason: str(args.reason) ?? "" });
     case "clause_add":
       return call("insurance_policy_clause_add", { p_policy_id: uuid(input.id, "apólice"), p_expected_row_version: rowVersion(input.expectedRowVersion), p_data: pick(data, CLAUSE_KEYS) });
+    case "terms_save": {
+      const kind = str(args.sourceKind);
+      if (!kind || !TERMS_KINDS.includes(kind)) throw new InsuranceInputError("Tipo de instrumento inválido (contrato, apólice ou minuta).");
+      return call("insurance_instrument_terms_save", { p_policy_id: uuid(input.id, "apólice"), p_source_kind: kind, p_draft_id: kind === "MINUTA" ? uuid(args.draftId, "minuta") : null, p_data: pick(data, TERMS_KEYS) });
+    }
+    case "coherence_justify": {
+      const field = str(args.field);
+      if (!field) throw new InsuranceInputError("Informe o campo divergente.");
+      return call("insurance_coherence_justify", { p_draft_id: uuid(input.id, "minuta"), p_field: field, p_justification: str(args.justification) ?? "", p_source_ref: str(args.source_ref), p_source_document_id: optUuid(args.source_document_id) });
+    }
     case "channel_register":
       return call("insurance_channel_register", { p_project_id: projectId, p_data: pick(data, CHANNEL_KEYS) });
     case "channel_verify":
@@ -161,11 +181,11 @@ export function buildRpcCall(input: InsuranceActionInput): RpcCall {
     case "bank_register":
       return call("bank_guarantee_register", { p_project_id: projectId, p_data: pick(data, BANK_KEYS) });
     case "bank_update":
-      return call("bank_guarantee_update", { p_id: uuid(input.id, "fiança"), p_expected_row_version: rowVersion(input.expectedRowVersion), p_data: pick(data, BANK_UPDATE_KEYS) });
+      return call("bank_guarantee_update", { p_id: uuid(input.id, "fiança"), p_expected_row_version: rowVersion(input.expectedRowVersion), p_data: { ...pick(data, BANK_UPDATE_KEYS), ...pick(args, UPDATE_META_KEYS) } });
     case "other_register":
       return call("other_guarantee_register", { p_project_id: projectId, p_data: pick(data, OTHER_KEYS) });
     case "other_update":
-      return call("other_guarantee_update", { p_id: uuid(input.id, "garantia"), p_expected_row_version: rowVersion(input.expectedRowVersion), p_data: pick(data, OTHER_UPDATE_KEYS) });
+      return call("other_guarantee_update", { p_id: uuid(input.id, "garantia"), p_expected_row_version: rowVersion(input.expectedRowVersion), p_data: { ...pick(data, OTHER_UPDATE_KEYS), ...pick(args, UPDATE_META_KEYS) } });
     case "endorsement_request":
       return call("insurance_endorsement_request", { p_policy_id: uuid(input.id, "apólice"), p_data: pick(data, ENDORSEMENT_REQUEST_KEYS) });
     case "endorsement_advance": {
@@ -225,7 +245,7 @@ export function buildRpcCall(input: InsuranceActionInput): RpcCall {
 }
 
 export const ALL_INSURANCE_OPS: InsuranceOp[] = [
-  "policy_create", "policy_new_version", "party_add", "party_set_active", "clause_add", "channel_register", "channel_verify",
+  "policy_create", "policy_new_version", "party_add", "party_set_active", "clause_add", "terms_save", "coherence_justify", "channel_register", "channel_verify",
   "bank_register", "bank_update", "other_register", "other_update", "endorsement_request", "endorsement_advance", "endorsement_review",
   "advance_register", "advance_amortize", "claim_open", "claim_advance", "dossier_sync", "dossier_item_set",
   "draft_create", "draft_update", "draft_approve", "draft_cancel", "draft_attempt_send",

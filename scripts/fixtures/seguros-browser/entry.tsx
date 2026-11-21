@@ -49,6 +49,27 @@ data.competences = [
 ];
 data.competenceMembers = [701, 702, 703, 704, 705, 706].map((n) => ({ userId: id(n), permission: n === 704 ? "GESTOR" : "GERENTE" }));
 data.actors = { [id(705)]: "Pessoa Jurídica Sintética", [id(706)]: "Pessoa Técnica Sintética", [id(799)]: "Administrador Sintético" };
+// ---- Fase 4/B: coerência, fundamentação, consolidação (dados sintéticos) ----
+data.claims.push({ ...data.claims[0], id: id(21), title: "Evento em regulação", stage: "REGULACAO", row_version: 3 });
+const T = (n: number, kind: "CONTRATO" | "APOLICE" | "MINUTA", o: Record<string, unknown> = {}) => ({
+  id: id(n), project_id: P, policy_id: id(1), source_kind: kind, draft_id: kind === "MINUTA" ? id(15) : null, insured_name: "Contratante Sintética SA", insured_tax_id: "11.222.333/0001-81",
+  beneficiary_name: null, beneficiary_tax_id: null, object_text: "Edifício comercial", coverage_start: "2026-01-01", coverage_end: "2026-12-01", insured_amount: 1000000, guaranteed_obligation: "Execução da obra",
+  source_document_id: id(900), source_ref: null, source_page: null, note: null, created_by: id(704), created_at: "2026-06-01T00:00:00Z", ...o,
+});
+data.instrumentTerms = [T(60, "CONTRATO"), T(61, "APOLICE"), T(62, "MINUTA", { coverage_end: "2027-06-01" })] as typeof data.instrumentTerms;
+data.coherence = {
+  [id(15)]: {
+    status: "DIVERGENTE", missingKinds: [], unjustified: 1, justified: 0, approvalAllowed: false,
+    divergences: [{ field: "VIGENCIA_FIM", kind: "DIVERGENTE", values: { CONTRATO: "2026-12-01", APOLICE: "2026-12-01", MINUTA: "2027-06-01" }, sources: { CONTRATO: "documento", APOLICE: "documento", MINUTA: "documento" }, fingerprint: "a".repeat(32), justified: false, justificationId: null }],
+  },
+};
+data.rccReady = {};
+data.advancesConsolidated = {
+  totals: { advanced: 100000, amortized: 30000, unamortized: 70000, advances: 1, duplicateAdvances: 1, duplicateAmortizations: 1, overAmortized: 0 },
+  advances: [{ id: id(9), policyId: id(1), advanced: 100000, amortized: 30000, unamortized: 70000, overAmortized: false, overAmount: 0, guarantee: "SUFICIENTE", uncoveredExcess: 0 }],
+  byPolicy: [{ policyId: id(1), advances: 1, advanced: 100000, amortized: 30000, unamortized: 70000, ceiling: 1000000, guarantee: "SUFICIENTE", uncoveredExcess: 0 }],
+  duplicates: { advances: [{ id: id(99), duplicateOf: id(9) }], amortizations: [{ id: id(98), duplicateOf: id(10) }] },
+};
 
 declare global {
   interface Window {

@@ -175,6 +175,7 @@ nas 15 tabelas de Qualidade/Garantias foi REVOGADO (migration `20261123302000`, 
 | Atualizar status da CAPA (`quality_capa_update_status`) | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ | transições válidas; CANCELADA exige MANAGE + justificativa; desfazer EXECUTADA exige justificativa |
 | Verificação de eficácia (`quality_verification_register`) | MANAGE | ✘ | ✘ | ✔ | ✔ | ✔ | evidência obrigatória do mesmo caso e FATO; só em VERIFICACAO (RNC) / REPARADA (garantia); versão lida do caso |
 | Aceite do cliente (`quality_warranty_acceptance_register`) | **MANAGE** | ✘ | ✘ | ✔ | ✔ | ✔ | decisão do dono: quem registra o aceite é gestão, com evidência FATO do caso, só em REPARADA/VERIFICADA; vale para um ciclo (novo reparo/reabertura o descarta) |
+| Aceite do cliente COMPROVADO (`quality_warranty_acceptance_prove`; único que libera o encerramento — Fase 4/B; o `register` acima passou a gravar só o aceite INFORMADO) | **MANAGE** | ✘ | ✘ | ✔ | ✔ | ✔ | evidência FATO do caso (e-mail/documento), hash SHA-256, manifestante externo (e-mail que não é de membro ativo nem do registrante), data não anterior ao último reparo |
 | Reparo / reincidência (`quality_warranty_repair_register`) | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ | custo só com fonte; reincidência aponta reparo anterior do MESMO caso |
 | Vistoria, manutenção (`quality_warranty_survey_register`, `..._maintenance_register`) | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ | — |
 | Consequência por pilar, custo, recorrência (`quality_consequence_register`, `quality_cost_register`, `quality_recurrence_register`) | REGISTER | ✘ | ✔ | ✔ | ✔ | ✔ | consequência exige fonte; probabilidade só com fundamento; valor de custo só com fonte; criticidade = pior pilar |
@@ -313,3 +314,21 @@ conferido continuam sendo etapas registradas, cada uma com seu autor; o banco n�
 3. O sistema **não valida** CREA/OAB; a concessão é uma declaração do Administrador. Validação junto ao conselho é decisão futura.
 4. `ENCERRADO` do sinistro e o aceite do cliente não exigem competência; confirmar se devem.
 5. `acc_has_competence` consulta só o próprio usuário (sem parâmetro de pessoa), para não vazar competência alheia.
+
+## 5. Fase 4 / B — Seguros e Garantias: novas operações e níveis (nenhum nível existente mudou)
+
+| Operação | Nível | Observação |
+|---|---|---|
+| Registrar termos do CONTRATO ou da APÓLICE para a conferência de coerência (`insurance_instrument_terms_save`) | MANAGE | fonte obrigatória; append-only |
+| Registrar termos da MINUTA (`insurance_instrument_terms_save`) | REGISTER | idem |
+| Justificar divergência de coerência (`insurance_coherence_justify`) | MANAGE | texto de 20 a 4000 caracteres + fonte; só minuta em DRAFT |
+| Consultar coerência, prontidão do RCC e consolidado de adiantamentos (`insurance_coherence_check`, `insurance_rcc_readiness`, `insurance_advances_consolidated`) | READ | somente leitura |
+| Aprovar minuta (`insurance_draft_approve`) | ADMIN (inalterado) | agora também exige coerência: termos dos três instrumentos e nenhuma divergência sem justificativa |
+| Atualizar fiança/caução (`bank_guarantee_update`, `other_guarantee_update`) | MANAGE (inalterado) | agora exige fonte da mudança e motivo; grava histórico append-only |
+| Decisão, indenização/cumprimento, negativa, contestação (`insurance_claim_advance`) | MANAGE (inalterado) | agora exigem nota (>= 20) e fonte; RC cruzada exige checklist RCC pronto em Decisão/Indenização |
+| Aceite COMPROVADO da garantia (`quality_warranty_acceptance_prove`) | MANAGE | ver tabela de Qualidade e Garantias |
+| Listar histórico de aceites (`quality_warranty_acceptances_list`) | READ | |
+
+Provas: `scripts/test-f4b-garantias-seguros-realpg.mjs` (CASO F4-B-R04 e R13: 10 perfis; LEITURA, COLABORADOR, GESTOR, GERENTE, ADMINISTRADOR, inativo, convite pendente, outro projeto, anon, authenticated sem sub).
+
+Lacuna que PERMANECE (decisão do dono): competência técnica/jurídica do usuário não é verificada além do nível MANAGE (escopo A da Fase 4 trata da tabela de competências); a conferência humana da identidade do manifestante e do hash também permanece humana.

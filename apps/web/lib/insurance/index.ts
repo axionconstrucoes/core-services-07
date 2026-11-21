@@ -10,3 +10,6 @@ export * from "./dossier";
 export * from "./send-guard";
 export * from "./drafts";
 export * from "./references";
+export * from "./tax-id";
+export * from "./coherence";
+export * from "./grounds";

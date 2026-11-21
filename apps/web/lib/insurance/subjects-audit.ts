@@ -1,6 +1,7 @@
 // Auditoria dos SUJEITOS da apólice (partes). Compara o cadastrado com o esperado pelo contrato quando houver.
 // Não presume que o beneficiário final deva ser segurado; ausência de dado vira achado de FATO, divergência vira INFERENCIA.
 import type { Epistemic, PartyRole } from "./types";
+import { isValidTaxId, normalizeText, taxIdDigits } from "./tax-id";
 
 export interface PolicyParty {
   role: PartyRole;
@@ -27,7 +28,7 @@ export interface ExpectedSubject {
   sourceLabel?: string | null;
 }
 export interface SubjectFinding {
-  code: "SEGURADO_AUSENTE" | "SEGURADO_INCORRETO" | "BENEFICIARIO_FINAL_NAO_IDENTIFICADO" | "TOMADOR_AUSENTE" | "SEGURADORA_AUSENTE" | "SEGURADO_NAO_CONFERIDO" | "SUJEITO_ESPERADO_DIVERGENTE" | "SUJEITO_NAO_ESPERADO_CADASTRADO";
+  code: "SEGURADO_AUSENTE" | "SEGURADO_INCORRETO" | "BENEFICIARIO_FINAL_NAO_IDENTIFICADO" | "TOMADOR_AUSENTE" | "SEGURADORA_AUSENTE" | "SEGURADO_NAO_CONFERIDO" | "SUJEITO_ESPERADO_DIVERGENTE" | "SUJEITO_NAO_ESPERADO_CADASTRADO" | "DOCUMENTO_FISCAL_INVALIDO" | "PARTE_SEM_DOCUMENTO_FISCAL" | "PARTE_DUPLICADA";
   severity: "ALTA" | "MEDIA" | "INFO";
   epistemic: Epistemic;
   text: string;
@@ -98,6 +99,27 @@ export function auditPolicySubjects(parties: PolicyParty[], rawExpected: Expecte
     } else if (candidates.length > 0) {
       findings.push({ code: "SUJEITO_NAO_ESPERADO_CADASTRADO", severity: "INFO", epistemic: "INFERENCIA", text: `A fonte registrada indica que não há ${g.label}${via}, mas há ${g.label} cadastrado (${candidates.map((p) => p.name ?? "?").join("; ")}): conferir.` });
     }
+  }
+  // Fase 4/B — identificação: documento fiscal (CPF/CNPJ) válido, obrigatório para segurado/beneficiário/proprietário final/titular IDENTIFICADOS,
+  // e dedupe por documento normalizado (só dígitos) — ou por nome normalizado quando não há documento. Nunca inventa documento.
+  const KEY_ROLES: PartyRole[] = ["SEGURADO", "BENEFICIARIO", "PROPRIETARIO_FINAL", "TITULAR_INTERESSE_SEGURAVEL"];
+  for (const p of parties) {
+    const tax = taxIdDigits(p.taxId);
+    if (tax && !isValidTaxId(p.taxId)) {
+      findings.push({ code: "DOCUMENTO_FISCAL_INVALIDO", severity: "ALTA", epistemic: "FATO", text: `${p.role}: documento fiscal "${p.taxId}" é inválido (CPF/CNPJ pelos dígitos verificadores): conferir com a apólice/contrato.` });
+    }
+    if (p.identificationStatus === "IDENTIFICADO" && KEY_ROLES.includes(p.role) && !tax) {
+      findings.push({ code: "PARTE_SEM_DOCUMENTO_FISCAL", severity: "MEDIA", epistemic: "FATO", text: `${p.role} "${p.name ?? "?"}" está identificado sem documento fiscal: informe o CPF/CNPJ ou registre como NÃO identificado.` });
+    }
+  }
+  const seen = new Map<string, PolicyParty>();
+  for (const p of parties.filter((x) => x.identificationStatus === "IDENTIFICADO")) {
+    const tax = taxIdDigits(p.taxId);
+    const key = `${p.role}|${tax ? `T:${tax}` : `N:${normalizeText(p.name)}`}`;
+    if (!tax && !normalizeText(p.name)) continue;
+    if (seen.has(key)) {
+      findings.push({ code: "PARTE_DUPLICADA", severity: "MEDIA", epistemic: "FATO", text: `${p.role} "${p.name ?? "?"}" aparece mais de uma vez com o mesmo ${tax ? "documento fiscal" : "nome"}: não conte a mesma parte duas vezes.` });
+    } else seen.set(key, p);
   }
   if (!by("TOMADOR").length) findings.push({ code: "TOMADOR_AUSENTE", severity: "MEDIA", epistemic: "FATO", text: "Tomador não cadastrado." });
   if (!by("SEGURADORA").length) findings.push({ code: "SEGURADORA_AUSENTE", severity: "MEDIA", epistemic: "FATO", text: "Seguradora não cadastrada como parte." });

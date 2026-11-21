@@ -162,3 +162,37 @@ por tipos, lint, análise estática e Hover Text.
 | F3-C-01..04 (reescritos) | independência: emissor, repetição, não-gestor e sem competência barrados; solicitante com competência confere | endossos-dupla-conferencia (puro e realpg) |
 
 Limites: a competência é declarada pelo Administrador (CREA/OAB não são validados); nenhuma tela foi homologada em sessão autenticada; as migrations 20261124* não foram aplicadas ao Supabase operacional.
+## Fase 4 / B — Garantias (aceite comprovado) e Seguros (coerência, fundamentação, fonte, consolidação)
+
+Escopo B da Fase 4 (migrations `20261125100000`..`203000`; nada aplicado ao Supabase operacional). Casos novos nomeados `CASO F4-B-NN` (puros) e `CASO F4-B-Rnn` (Postgres 17 real, base descartável com replay de todas as migrations reaplicadas 2x).
+
+| Caso | O que prova | Teste | Nível |
+|---|---|---|---|
+| F4-B-01..03 | Aceite do cliente: situação (sem aceite, informado, comprovado, legado), bloqueio de encerramento espelhando o banco, validação do aceite comprovado (evidência e-mail/documento FATO, hash SHA-256, data, manifestante externo, posterior ao reparo) e máquina de estados TS | `test-f4b-garantias-seguros` | DOMÍNIO |
+| F4-B-04 | CPF/CNPJ pelos dígitos verificadores, normalização e igualdade de partes | `test-f4b-garantias-seguros` | DOMÍNIO |
+| F4-B-05 | Coerência minuta x apólice x contrato (7 campos), valor ausente não diverge, instrumento ausente = SEM DADOS, justificativa presa ao fingerprint | `test-f4b-garantias-seguros` | DOMÍNIO |
+| F4-B-06..07 | Fundamentação de sinistro (nota >= 20 + fonte) e fonte + motivo na atualização de fiança/caução | `test-f4b-garantias-seguros` | DOMÍNIO |
+| F4-B-08 | Consolidação de adiantamentos sem dupla contagem (duplicidades, amortização acima, teto, centavos) | `test-f4b-garantias-seguros` | DOMÍNIO |
+| F4-B-09..11 | Cláusula genérica não prova cobertura; RC cruzada exige RCC pronto; prontidão do RCC; identificação de partes (documento inválido/ausente/duplicado) | `test-f4b-garantias-seguros` | DOMÍNIO |
+| F4-B-12..13 | Migrations (RLS, append-only, sem grant a anon, search_path vazio, rollback, inventário); níveis de autorização e Hover Text das operações novas | `test-f4b-garantias-seguros` | ESTÁTICO |
+| F4-B-R01 (casos 36, 35) | Aceite informado não encerra; comprovado libera; 24 recusas (papéis, hash, contato, manifestante interno, evidência de tipo/caso errado, anterior ao reparo, versão); histórico append-only; novo ciclo na reabertura | `test-f4b-garantias-seguros-realpg` | BANCO |
+| F4-B-R02 (caso 35) | Aceite comprovado nunca nasce por atalho (UPDATE, superusuário, INSERT); legado já encerrado continua válido; legado aberto exige novo aceite | idem | BANCO |
+| F4-B-R03 (casos 37, 38, 39) | Concorrência (um vence), RLS por projeto, anon, escrita direta negada, auditoria com hash e manifestante | idem | BANCO |
+| F4-B-R04 (casos 31, 39) | Termos dos instrumentos por perfil (10 perfis x 3 operações), fonte obrigatória, append-only, isolamento | idem | BANCO |
+| F4-B-R05 | Coerência: SEM_DADOS, divergente, justificada, nova versão reabre o bloqueio, paridade TS x SQL (texto canônico e md5), aprovação mantém as guardas antigas e audita a coerência | idem | BANCO |
+| F4-B-R06 | Paridade TS x SQL em lote determinístico (CPF/CNPJ, normalização de texto, igualdade de partes) | idem | BANCO |
+| F4-B-R07 (casos 21, 22) | Partes: documento válido e obrigatório quando identificado, dedupe por documento/nome, reativação, NAO_IDENTIFICADO explícito, legado preservado | idem | BANCO |
+| F4-B-R08 (caso 20) | Cláusula de cobertura exige identificação; genérica e legado sem identificação não provam cobertura | idem | BANCO |
+| F4-B-R09 (casos 25..28) | Decisão/Indenização/Negativa/Contestação sem nota ou sem fonte bloqueadas; RC cruzada exige RCC pronto; paridade da prontidão RCC TS x SQL | idem | BANCO |
+| F4-B-R10 (caso 18) | Atualização de fiança/caução exige fonte + motivo; histórico antes/depois append-only; versão otimista; isolamento | idem | BANCO |
+| F4-B-R11 (caso 17) | Adiantamentos consolidados: paridade TS x SQL, duplicidades, amortização acima, teto, isolamento | idem | BANCO |
+| F4-B-R12 | Privilégios (anon sem EXECUTE, authenticated só RPC), RLS, idempotência (3 aplicações), hotfix P0 intacto | idem | BANCO |
+| F4-B-R13 (caso 31) | Autorização negativa por perfil (10 perfis) nas RPCs de aceite | idem | BANCO |
+| B10 | Seguros no Chrome: coerência (divergência, termos, justificativa), fundamentação da decisão, fonte na atualização de fiança, consolidado; desktop e 390 px; contraste e alvos 44 px | `test-seguros-browser` | CHROME |
+| G1..G4 | Garantias no Chrome: situação do aceite (4 estados), formulário do aceite comprovado (evidência filtrada, hash, recusa do banco, conflito de versão), perfil sem gestão, 390 px, contraste, axe-core | `test-garantias-browser` | CHROME |
+
+### Mudanças de comportamento da Fase 4/B (documentadas)
+
+- **Garantias**: `quality_warranty_acceptance_register` passou a gravar aceite **INFORMADO** (não libera o encerramento). O encerramento exige aceite **COMPROVADO** (`quality_warranty_acceptance_prove`). Encerrada antes da regra continua válida (legado); caso aberto com aceite legado precisa de novo aceite comprovado.
+- **Seguros**: a aprovação de minuta ligada a apólice exige os termos de contrato, apólice e minuta e coerência (ou divergência justificada com texto e fonte); decisão, indenização, negativa e contestação exigem nota (>= 20 caracteres) e fonte; atualização de fiança/caução exige fonte e motivo; cobertura exige identificação da cláusula; segurado, beneficiário, proprietário final e titular identificados exigem documento fiscal válido (senão `NAO_IDENTIFICADO`).
+- **Limites**: o sistema registra e compara o que foi DECLARADO nos termos; não lê o PDF do contrato/apólice nem recalcula o hash a partir do arquivo; a conferência da evidência, do hash e da identidade do manifestante continua humana. Nenhuma tela foi homologada em sessão autenticada.

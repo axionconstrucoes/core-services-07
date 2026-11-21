@@ -5,6 +5,7 @@ import type { HelpManifest } from "../types";
 import { SEGUROS_DESTINATARIOS_ELEMENTS } from "./seguros-destinatarios";
 import { SEGUROS_ENDOSSOS_DUPLA_ELEMENTS } from "./seguros-endossos-dupla";
 import { SEGUROS_COMPETENCIAS_ELEMENTS } from "./seguros-competencias";
+import { SEGUROS_F4B_MANIFEST } from "../modules/seguros-f4b";
 import { SEGUROS_PERSISTENCIA_MANIFEST } from "../modules/seguros-persistencia";
 
 export const SEGUROS_MANIFEST: HelpManifest = {
@@ -259,5 +260,6 @@ export const SEGUROS_MANIFEST: HelpManifest = {
     ...SEGUROS_DESTINATARIOS_ELEMENTS,
     ...SEGUROS_COMPETENCIAS_ELEMENTS,
     ...SEGUROS_PERSISTENCIA_MANIFEST,
+    ...SEGUROS_F4B_MANIFEST,
   ],
 };

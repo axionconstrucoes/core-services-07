@@ -25,7 +25,7 @@ function check(name, fn) {
 }
 
 const src = { ref: "apolice-sintetica p.3" };
-const clause = (o) => ({ id: "c1", kind: "COBERTURA", title: "Cobertura sintética", appliesTo: [], source: src, verified: true, ...o });
+const clause = (o) => ({ id: "c1", kind: "COBERTURA", title: "Cobertura sintética", identifier: "Cláusula 4.1", appliesTo: [], source: src, verified: true, ...o });
 const pol = { coverageStart: "2026-01-01", coverageEnd: "2027-01-01" };
 const base = { modality: "SEGURO_GARANTIA_EXECUTANTE", claimKind: "INADIMPLEMENTO", eventDate: "2026-06-01", policy: pol, clauses: [], endorsements: [] };
 

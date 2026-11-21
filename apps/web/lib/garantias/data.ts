@@ -4,6 +4,7 @@
 
 import { createSupabaseServerClient } from "@axion/db/server";
 import {
+  mapAcceptanceRow,
   mapComplaintRow,
   mapConsequenceRow,
   mapEvidenceViewRow,
@@ -14,6 +15,7 @@ import {
   mapSurveyRow,
   mapVerificationViewRow,
   mapWarrantyCaseRow,
+  type AcceptanceRecordView,
   type ClosureReadinessView,
   type ComplaintView,
   type ConsequenceView,
@@ -61,6 +63,8 @@ export interface WarrantyDetail {
   repairs: RepairView[];
   evidence: EvidenceView[];
   verifications: VerificationView[];
+  /** Histórico append-only do aceite do cliente (informado x comprovado), mais recente primeiro. */
+  acceptances: AcceptanceRecordView[];
   events: StateEventView[];
   complaints: ComplaintView[];
   consequences: ConsequenceView[];
@@ -82,12 +86,13 @@ export async function getWarrantyDetail(projectId: string, caseId: string): Prom
   const byCase = (table: string, order = "created_at") =>
     supabase.from(table).select("*").eq("project_id", projectId).eq("warranty_case_id", caseId).order(order, { ascending: true });
 
-  const [maint, surveys, repairs, evidence, verifs, events, complaints, conseq, costs, transitions, maintStatus, readiness, ncr] = await Promise.all([
+  const [maint, surveys, repairs, evidence, verifs, acceptances, events, complaints, conseq, costs, transitions, maintStatus, readiness, ncr] = await Promise.all([
     byCase("quality_warranty_maintenance"),
     byCase("quality_warranty_surveys", "surveyed_at"),
     byCase("quality_warranty_repairs"),
     byCase("quality_evidence"),
     byCase("quality_effectiveness_verifications"),
+    supabase.from("quality_warranty_acceptances").select("*").eq("project_id", projectId).eq("warranty_case_id", caseId).order("created_at", { ascending: false }),
     supabase.from("quality_state_events").select("*").eq("project_id", projectId).eq("entity_type", "WARRANTY").eq("entity_id", caseId).order("seq", { ascending: true }),
     byCase("quality_customer_complaints", "received_at"),
     byCase("quality_consequences"),
@@ -127,6 +132,7 @@ export async function getWarrantyDetail(projectId: string, caseId: string): Prom
     repairs: rows(repairs).map(mapRepairRow),
     evidence: rows(evidence).map(mapEvidenceViewRow),
     verifications: rows(verifs).map(mapVerificationViewRow),
+    acceptances: rows(acceptances).map(mapAcceptanceRow),
     events: rows(events).map(mapStateEventRow),
     complaints: rows(complaints).map(mapComplaintRow),
     consequences: rows(conseq).map(mapConsequenceRow),

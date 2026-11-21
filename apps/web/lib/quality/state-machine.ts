@@ -114,7 +114,12 @@ export interface TransitionContext {
   duplicateOfId?: string | null;
   /** garantia */
   hasRepairRecord?: boolean;
+  /** @deprecated legado: verdadeiro libera. Prefira `acceptanceStatus` (Fase 4/B: só COMPROVADO libera o encerramento). */
   customerAccepted?: boolean;
+  /** NENHUM | INFORMADO | COMPROVADO (quality_warranty_cases.acceptance_status). Tem precedência sobre `customerAccepted`. */
+  acceptanceStatus?: "NENHUM" | "INFORMADO" | "COMPROVADO";
+  /** accepted_at preenchido sem classificação (aceite anterior à regra): informado em caso aberto; válido se o caso já estava encerrado. */
+  legacyAcceptance?: boolean;
 }
 
 export interface TransitionVerdict {
@@ -182,7 +187,15 @@ function warrantyGuards(ctx: TransitionContext, blockers: string[]): void {
   if (ctx.to === "VERIFICADA" || ctx.to === "ENCERRADA") {
     blockers.push(...verificationBlockers("WARRANTY", ctx.verifications, ctx.events));
   }
-  if (ctx.to === "ENCERRADA" && !ctx.customerAccepted) blockers.push("CUSTOMER_ACCEPTANCE_REQUIRED");
+  if (ctx.to === "ENCERRADA") {
+    if (ctx.acceptanceStatus === undefined) {
+      if (!ctx.customerAccepted) blockers.push("CUSTOMER_ACCEPTANCE_REQUIRED");
+    } else if (ctx.acceptanceStatus === "INFORMADO" || (ctx.acceptanceStatus === "NENHUM" && ctx.legacyAcceptance === true)) {
+      blockers.push("CUSTOMER_ACCEPTANCE_NOT_PROVEN");
+    } else if (ctx.acceptanceStatus === "NENHUM") {
+      blockers.push("CUSTOMER_ACCEPTANCE_REQUIRED");
+    }
+  }
 }
 
 /** "Pronto para encerrar?" — sem checar papel/justificativa (isso é da transição). */

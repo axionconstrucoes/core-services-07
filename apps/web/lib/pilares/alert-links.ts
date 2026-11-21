@@ -142,6 +142,7 @@ export const BLOCKER_LABELS: Record<string, string> = {
   ACTIONS_NOT_EXECUTED: "há ações corretivas ainda não executadas",
   REPAIR_RECORD_REQUIRED: "falta o registro do reparo",
   CUSTOMER_ACCEPTANCE_REQUIRED: "falta o aceite do cliente",
+  CUSTOMER_ACCEPTANCE_NOT_PROVEN: "o aceite do cliente foi só informado: falta o aceite comprovado",
   EFFECTIVENESS_VERIFICATION_REQUIRED: "falta a verificação de eficácia com evidência",
   VERIFICATION_EVIDENCE_REQUIRED: "a verificação de eficácia não tem evidência",
   LATEST_VERIFICATION_NOT_EFFECTIVE: "a última verificação não foi EFICAZ",
