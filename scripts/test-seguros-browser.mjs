@@ -192,6 +192,72 @@ await withBrowser(async (b) => {
     return { ok: problems.length === 0, ev: problems.length ? problems.join(" | ").slice(0, 600) : "4 perfis (independente, solicitante, emissor, já conferiu); sem reprovações" };
   });
 
+  await check("B10 Fase 4/B: coerência da minuta (divergência, termos, justificativa), fundamentação da decisão do sinistro, fonte na atualização de fiança e consolidado de adiantamentos — validações na tela, contraste e alvos 44 px", async () => {
+    const problems = [];
+    const SET = (suffix, value, tag = "input") => `(()=>{const el=[...document.querySelectorAll(${JSON.stringify(tag)})].find(e=>e.offsetParent!==null&&e.id.endsWith(${JSON.stringify("-" + suffix)}));if(!el)return false;const proto=${tag === "textarea" ? "HTMLTextAreaElement" : tag === "select" ? "HTMLSelectElement" : "HTMLInputElement"}.prototype;Object.getOwnPropertyDescriptor(proto,"value").set.call(el,${JSON.stringify(value)});el.dispatchEvent(new Event(${tag === "select" ? '"change"' : '"input"'},{bubbles:true}));return true;})()`;
+    const measure = async (where) => {
+      const c = await b.eval(CONTRAST);
+      if (c.failCount) problems.push(`${where}: contraste ${c.failCount} ${JSON.stringify(c.fails.slice(0, 2))}`);
+      const small = await b.eval(SMALL_TARGETS);
+      if (small.length) problems.push(`${where}: alvos pequenos ${JSON.stringify(small.slice(0, 3))}`);
+    };
+    for (const mobile of [false, true]) {
+      await load({ mobile });
+      const tag = mobile ? "mobile" : "desktop";
+      // --- coerência da minuta ---
+      await tab("Minutas e acionamento");
+      await b.eval(CLICK("Aviso de sinistro — AP-1", "table button")); await sleep(100);
+      for (const t of ["Coerência minuta × apólice × contrato", "Divergente — aprovação bloqueada", "Fim da vigência", "SEM justificativa", "Termos: Contrato", "Termos: Apólice", "Termos: Minuta", "Justificar divergência"]) if (!(await b.eval(TEXT(t)))) problems.push(`${tag}: falta "${t}"`);
+      await b.eval(CLICK("Termos: Minuta")); await sleep(80);
+      if (!(await b.eval(TEXT("Termos do instrumento: Minuta")))) problems.push(`${tag}: formulário de termos não abriu`);
+      await b.eval(SET("insured_name", "Contratante Sintética SA"));
+      await b.eval(CLICK("Gravar termos (nova versão)")); await sleep(120);
+      if (!(await b.eval(TEXT("Informe o documento-fonte OU a referência da fonte")))) problems.push(`${tag}: termos sem fonte não foram barrados na tela`);
+      await b.eval(SET("source_ref", "minuta p.1"));
+      await b.eval(CLICK("Gravar termos (nova versão)")); await sleep(150);
+      const calls1 = await b.eval(`JSON.stringify(window.__calls||[])`);
+      if (!/"op":"terms_save"/.test(calls1) || !/"sourceKind":"MINUTA"/.test(calls1)) problems.push(`${tag}: terms_save não chamado: ${calls1.slice(0, 120)}`);
+      await b.eval(CLICK("Justificar divergência")); await sleep(80);
+      await b.eval(SET("field", "VIGENCIA_FIM", "select"));
+      await b.eval(SET("justification", "curta", "textarea"));
+      await b.eval(CLICK("Registrar justificativa")); await sleep(120);
+      if (!(await b.eval(TEXT("Mínimo de 20 caracteres")))) problems.push(`${tag}: justificativa curta não foi barrada`);
+      if (!(await b.eval(TEXT("A justificativa exige fonte")))) problems.push(`${tag}: justificativa sem fonte não foi barrada`);
+      await measure(`${tag}/coerência`);
+      await b.eval(SET("justification", "Aditivo n. 2 estendeu a vigência (carta anexa).", "textarea"));
+      await b.eval(SET("source_ref", "aditivo-2"));
+      await b.eval(CLICK("Registrar justificativa")); await sleep(150);
+      const calls2 = await b.eval(`JSON.stringify(window.__calls||[])`);
+      if (!/"op":"coherence_justify"/.test(calls2) || !/"field":"VIGENCIA_FIM"/.test(calls2)) problems.push(`${tag}: coherence_justify não chamado`);
+      if (/send/.test(calls2.replace(/draft_attempt_send/g, ""))) problems.push(`${tag}: operação de envio apareceu`);
+      // --- fundamentação do sinistro ---
+      await tab("Sinistros e eventos");
+      await b.eval(CLICK("Evento em regulação", "table button")); await sleep(100);
+      await b.eval(CLICK("Avançar para: Decisão")); await sleep(100);
+      if (!(await b.eval(TEXT("Fontes da fundamentação")))) problems.push(`${tag}: campo de fontes ausente`);
+      await b.eval(CLICK("Registrar nova etapa")); await sleep(120);
+      if (!(await b.eval(TEXT("exigem fundamentação")))) problems.push(`${tag}: decisão sem nota não foi barrada na tela`);
+      await b.eval(SET("note", "Decisão da seguradora após regulação do evento", "textarea"));
+      await b.eval(CLICK("Registrar nova etapa")); await sleep(120);
+      if (!(await b.eval(TEXT("exige ao menos uma fonte")))) problems.push(`${tag}: decisão sem fonte não foi barrada na tela`);
+      await measure(`${tag}/sinistro`);
+      // --- fiança: atualização com fonte ---
+      await tab("Fianças e garantias");
+      await b.eval(CLICK("Atualizar", "table button")); await sleep(100);
+      if (!(await b.eval(TEXT("Motivo da atualização")))) problems.push(`${tag}: formulário de atualização sem motivo`);
+      await b.eval(SET("amount", "400000"));
+      await b.eval(CLICK("Gravar alteração")); await sleep(120);
+      if (!(await b.eval(TEXT("exige a fonte da mudança")))) problems.push(`${tag}: atualização sem fonte não foi barrada`);
+      await measure(`${tag}/fiança`);
+      // --- adiantamentos consolidados ---
+      await tab("Adiantamentos");
+      for (const t of ["Consolidado de adiantamentos (sem dupla contagem)", "Soma dos adiantamentos", "Saldo não amortizado", "Duplicidades excluídas da soma"]) if (!(await b.eval(TEXT(t)))) problems.push(`${tag}: falta "${t}"`);
+      await measure(`${tag}/adiantamentos`);
+    }
+    if (b.consoleErrors.length) problems.push(`erros de console=${b.consoleErrors.length}`);
+    return { ok: problems.length === 0, ev: problems.length ? problems.join(" | ").slice(0, 900) : "desktop e celular 390 px; sem reprovações de contraste/alvos; validações na tela e chamadas sem envio" };
+  });
+
   await check("B8 axe-core (wcag2a/aa, 2.1, 2.2, boas práticas): sem violações sérias ou críticas nas abas principais", async () => {
     await load();
     const serious = [];
