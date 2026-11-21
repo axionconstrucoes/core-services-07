@@ -1,6 +1,7 @@
 import { google } from "googleapis";
-import { pilotMessageEligible, pilotSenderQuery } from "./lib/gmail-weg-pilot-sender.mjs";
+import { pilotMessageEligible, pilotScopeBypass, pilotSenderQuery, pilotSenderTerms } from "./lib/gmail-weg-pilot-sender.mjs";
 import { createClient } from "@supabase/supabase-js";
+import { participantColumns, participantsFromGmailHeaders } from "./lib/mail-universal/participants.mjs";
 import { extractGmailBody } from "./lib/gmail-message-body.mjs";
 import { createDelegatedGmailAuth } from "./lib/gmail-delegated-auth.mjs";
 import { deriveIndividualConsent, resolveDelegatedReadWindow } from "./lib/gmail-mailbox-gate.mjs";
@@ -438,10 +439,10 @@ const beforeEpoch =
     syncStartedAt.getTime() / 1000
   );
 
-const senderFilter =
-  Array.from(allowedDomains)
-    .map((domain) => `from:${domain}`)
-    .join(" ");
+const senderFilter = pilotSenderTerms(
+  PROJECT_ID,
+  Array.from(allowedDomains).map((domain) => `from:${domain}`).join(" ")
+);
 
 const query =
   `after:${afterEpoch} before:${beforeEpoch} {${senderFilter}} ${pilotSenderQuery(PROJECT_ID)}`.trim();
@@ -669,7 +670,7 @@ for (
 
     if (
       !pilotMessageEligible(PROJECT_ID, policy) ||
-      !projectMatch
+      !(projectMatch || pilotScopeBypass(PROJECT_ID))
     ) {
       rejected += 1;
       continue;
@@ -739,6 +740,9 @@ for (
 
       direction:
         policy.direction,
+
+      // Fase 5/A: cc/bcc/domínios só com a migration 20261201100000 aplicada (ACC_EMAILS_PARTICIPANT_COLUMNS=1).
+      ...participantColumns(participantsFromGmailHeaders(headers)),
     });
   }
 
