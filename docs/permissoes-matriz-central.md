@@ -93,9 +93,10 @@ banco). É **fail-closed**: sem classificação válida (ausente, lista vazia) =
 crítica que ninguém pediu). A classificação na emissão só AUMENTA a criticidade; o banco recusa rebaixar (`CLASSIFICATION_DOWNGRADE`) e impede conferência simples
 sem classificação inteiramente não crítica (CHECK). Não crítico + texto idêntico = conferência simples (1 aprovação).
 
-**Regra de independência adotada (a mais estrita compatível).** (*) Na dupla conferência, cada conferente: (1) tem MANAGE no projeto; (2) NÃO é quem solicitou o
-endosso (`REVIEWER_IS_REQUESTER`); (3) NÃO é quem registrou a emissão (`REVIEWER_IS_ISSUER`); (4) é distinto do outro conferente e não confere duas vezes na mesma
-rodada (`ALREADY_REVIEWED`, UNIQUE `(endosso, rodada, conferente)`). Garantido no banco por CHECK sobre snapshots preenchidos por trigger (o cliente não os controla),
+**Regra de independência — SUBSTITUÍDA na Fase 4/A (ver seção 8).** A regra da Fase 3 (a mais estrita: o conferente não podia ser quem solicitou nem quem emitiu, ou seja, >= 4 pessoas) foi
+redefinida pela migration `20261124102000`: na dupla conferência, cada conferente (1) tem MANAGE no projeto; (2) tem competência SEGUROS ou JURIDICO ativa no projeto
+(`COMPETENCE_REQUIRED`); (3) NÃO é quem registrou a emissão (`REVIEWER_IS_ISSUER`); (4) é distinto do outro conferente e não confere duas vezes na mesma
+rodada (`ALREADY_REVIEWED`, UNIQUE `(endosso, rodada, conferente)`). O SOLICITANTE pode conferir, se atender a (1) e (2). Registro histórico da Fase 3: o conferente também não podia ser o solicitante (`REVIEWER_IS_REQUESTER`, removido). Garantido no banco por CHECK sobre snapshots preenchidos por trigger (o cliente não os controla),
 UNIQUE e trigger de guarda — não só pela RPC nem pela tela. Na conferência simples valem MANAGE e a regra de não repetir; a independência de solicitante/emissor não é
 exigida (comportamento anterior preservado).
 
@@ -130,7 +131,9 @@ por RLS pelos wrappers centrais e ZERO escrita direta. Provas: `scripts/test-f3e
 Decisão de nível: o parecer e o checklist são REGISTRO de análise (REGISTER, como as demais evidências); o sujeito esperado é o PARÂMETRO contra o qual a auditoria de
 sujeitos confere a apólice — alterá-lo poderia mascarar um segurado incorreto, por isso MANAGE. Inativo, convite pendente, ADMIN de outro projeto, authenticated sem sub e anon: sempre recusados.
 
-## 4. Competência especializada (técnica / jurídica) — LACUNA declarada
+## 4. Competência especializada (técnica / jurídica) — LACUNA da Fase 3, RESOLVIDA na Fase 4/A (seção 8)
+
+> Texto abaixo preservado como registro histórico da Fase 3. A opção (b) foi implementada: `project_competences` + `acc_has_competence` (seção 8).
 
 A matriz-alvo pede que decisões especializadas (p.ex. confirmar a causa técnica de uma RNC, decidir cobertura de garantia, conferir um
 endosso, registrar negativa de cobertura) exijam autoridade adequada. O atributo existente que poderia expressar isso é
@@ -201,3 +204,78 @@ Inativo, convite pendente, ADMIN de outro projeto, `authenticated` sem `sub` e `
 
 CASO 1-9, 12-14, 31, 33-39 reexercitados por RPC e `CASO F3-D-01` (escrita direta negada), `-02` (COLABORADOR não reclassifica), `-03/03b` (campos e custos), `-04` (encerramento indevido da RNC por todos os caminhos), `-05` (garantia/aceite), `-06` (RESOLVIDO do alerta não encerra),
 `-07` (reabertura), `-08` (evidência travada e nunca apagada), `-10` (vínculos), `-11` (backfill), `-12` (privilégios), `-14` (NC comprovada = FATO), `-15` (CAPA), `-18` (relatório de integridade), `-19` (reversibilidade).
+
+## 8. Fase 4 / Agente A — Competências profissionais e nova regra de conferência de endossos
+
+Migrations `20261124100000_project_competences.sql`, `20261124101000_competence_enforcement.sql`, `20261124102000_endorsement_review_requester_competence.sql`
+(com rollbacks em `supabase/rollbacks/`). Provas: `scripts/test-competencias.mjs` (puro), `scripts/test-competencias-realpg.mjs` (Postgres 17 real) e as suítes
+`*realpg*` existentes, ajustadas para conceder competência nos fixtures.
+
+### 8.1 Princípio
+
+`acc_project_tier` (seção 2) continua medindo **AUTORIDADE DE GESTÃO**. **Competência** mede **HABILITAÇÃO PROFISSIONAL** declarada pelo Administrador do projeto
+(responsável técnico, jurídico, seguros). Um GESTOR, GERENTE ou ADMINISTRADOR não é, pelo papel, responsável técnico nem advogado. A competência é **adicional** ao
+nível: nunca o substitui (COLABORADOR com competência continua sem poder decidir) e o nível nunca substitui a competência.
+
+### 8.2 Modelo
+
+| Elemento | Regra |
+|---|---|
+| Tabela `project_competences` | membro, projeto, competência (`TECNICO_RESPONSAVEL`, `JURIDICO`, `SEGUROS` — lista fechada por CHECK), validade (`valid_from`, `valid_until` opcional), identificação profissional **opcional e declarada** (`registration_kind` CREA/CAU/OAB/SUSEP/OUTRO + `registration_number` texto, até 60), evidência (documento do MESMO projeto, opcional), observação, quem concedeu, quando, revogação (quem, quando, motivo) e `row_version` |
+| Escrita | **somente** as RPCs `project_competence_grant` / `project_competence_revoke` (SECURITY DEFINER, `search_path` vazio); `INSERT/UPDATE/DELETE` diretos revogados de `anon`/`authenticated`; EXECUTE só para `authenticated` |
+| Quem concede/revoga | **somente ADMINISTRADOR ativo do projeto** (`acc_project_tier = 'ADMIN'`); **ninguém concede a si mesmo** (`SELF_GRANT_FORBIDDEN`); o alvo precisa ser membro ATIVO do mesmo projeto; uma competência ativa por (projeto, pessoa, competência); revogação com motivo >= 10 caracteres e versão otimista; competência revogada não reabre (concede-se de novo) |
+| Renovação | competência ATIVA mas já vencida não bloqueia nova concessão: é encerrada pelo sistema (evento `REVOKED` com `VENCIDA_SUBSTITUIDA`) e substituída |
+| Imutabilidade | nunca é apagada; só a revogação altera o registro; trilha `project_competence_events` append-only (também para superusuário) + `audit_log_entries` na mesma transação |
+| `acc_has_competence(projeto, competência)` | `true` só se: usuário autenticado, registro ACTIVE, `valid_from <= hoje <= valid_until` (inclusivo; sem fim = vale) e o usuário é membro ACTIVE do projeto. Qualquer outra coisa (anon, sem sub, projeto/competência nulos ou desconhecidos, vencida, futura, revogada, membro inativo/pendente, outro projeto) = `false` (fail-closed) |
+| Identificação CREA/OAB | texto **declarado**; o sistema **não** valida junto ao conselho, não completa e não inventa (em branco = "Não informado") |
+
+### 8.3 Atos que exigem competência (perfil × ato)
+
+O nível exigido pela RPC (coluna "Nível") **continua valendo**; a competência é a segunda condição. Sem a competência: `COMPETENCE_REQUIRED` (transação inteira desfeita, nenhuma linha gravada).
+
+| Ato | RPC | Nível | Competência exigida | Onde é imposto |
+|---|---|---|---|---|
+| Decisão da seguradora registrada | `insurance_claim_advance` → DECISAO | MANAGE | JURIDICO | gatilho em `insurance_claim_steps` |
+| Negativa de cobertura | → NEGATIVA | MANAGE | JURIDICO | idem |
+| Contestação | → CONTESTACAO | MANAGE | JURIDICO | idem |
+| Indenização/cumprimento | → INDENIZACAO_CUMPRIMENTO | MANAGE | JURIDICO | idem |
+| Aprovar minuta para envio | `insurance_draft_approve` | ADMIN | SEGUROS **ou** JURIDICO | gatilho em `insurance_drafts` |
+| Conferir (ou recusar conferência de) endosso crítico | `insurance_endorsement_review` | MANAGE | SEGUROS **ou** JURIDICO (todo conferente) | RPC + gatilho em `insurance_endorsement_reviews` |
+| Laudo técnico da RNC: confirmar / não confirmar / encerrar | `quality_ncr_transition` → CONFIRMADA, NAO_CONFIRMADA, ENCERRADA | MANAGE | TECNICO_RESPONSAVEL | gatilho em `quality_state_events` |
+| Parecer de cobertura de garantia: coberta / não coberta | `quality_warranty_transition` → COBERTA, NAO_COBERTA | MANAGE | TECNICO_RESPONSAVEL | idem |
+
+Por que gatilhos sobre as tabelas de registro dos atos (e não redefinição das RPCs): valem para qualquer caminho que grave o ato, o ator verificado é o **autor gravado no ato**
+(`created_by`/`actor_user_id`/`approved_by`, que as RPCs preenchem com `auth.uid()`), e as RPCs mantidas por outras frentes não são sobrepostas. Ato sem autor atribuído (NULL)
+só existe em carga de manutenção por superusuário (nenhuma RPC o produz).
+
+Perfil × concessão/revogação de competência (prova em `test-competencias-realpg`): ADMINISTRADOR ✔ (nunca a si mesmo); GESTOR, GERENTE, COLABORADOR, LEITURA, inativo, convite
+pendente, ADMIN de outro projeto, authenticated sem sub, anon ✘ (e GESTOR **com** competência também ✘).
+
+Não exigem competência (decisão consciente): etapas operacionais do sinistro (AVISO, RECLAMACAO, DOC_COMPLEMENTAR, REGULACAO), **ENCERRADO** do sinistro (permanece ato de gestão
+MANAGE), cancelamento/duplicidade de RNC, triagem/investigação, verificação de eficácia, aceite do cliente, reparo. Se o dono quiser mais atos sob competência, é acrescentar a
+etapa/estado ao gatilho e à matriz TS (`lib/permissions/competences.ts`).
+
+### 8.4 Endossos críticos — regra substituta da Fase 3 (migration 20261124102000)
+
+| Pessoa | Pode conferir endosso crítico? |
+|---|---|
+| Emissor (quem registrou a emissão) | **Não** (`REVIEWER_IS_ISSUER`; CHECK no banco) |
+| Solicitante | **Sim**, se MANAGE **e** competência SEGUROS/JURIDICO; senão `COMPETENCE_REQUIRED` / `FORBIDDEN` |
+| Qualquer outro MANAGE | Sim, se tiver a competência |
+| Mesma pessoa duas vezes na rodada | Não (`ALREADY_REVIEWED`) |
+
+São necessárias **duas** conferências aprovadas de pessoas distintas, ambas diferentes do emissor. Mínimo de pessoas: solicitante + emissor + 1 segundo conferente = 3 (antes: 4).
+Auditoria: cada conferência grava `reviewer_is_requester` e `reviewer_competence` (snapshots por gatilho) além dos snapshots de solicitante e emissor; o evento de auditoria inclui
+`reviewerIsRequester`. Conferência SIMPLES (não crítico, texto idêntico) e endossos legados (conferência única histórica) **não mudam**. A cláusula "texto emitido divergente do
+solicitado = dupla conferência" foi **MANTIDA**: a nova regra não a torna desnecessária (o texto emitido pode trazer alteração crítica que ninguém pediu). Solicitado, emitido e
+conferido continuam sendo etapas registradas, cada uma com seu autor; o banco não força que solicitante e emissor sejam pessoas diferentes (nunca forçou).
+
+### 8.5 Decisões e riscos para o dono
+
+1. **Antes de aplicar as migrations 20261124\* no operacional**, o Administrador precisa conceder as competências (senão decisões técnicas/jurídicas e conferência de endosso
+   crítico ficam bloqueadas por desenho — fail-closed). A tela está na aba Auditoria de Seguros; **não há página própria** de competências (fica fora do menu até a Fase 4/D definir a navegação).
+2. **Autoconcessão proibida**: projeto com um único Administrador não consegue conceder competência a si mesmo; precisa de um segundo Administrador (ou carga de manutenção autorizada).
+   Alternativa (não adotada): permitir autoconcessão com marca visível.
+3. O sistema **não valida** CREA/OAB; a concessão é uma declaração do Administrador. Validação junto ao conselho é decisão futura.
+4. `ENCERRADO` do sinistro e o aceite do cliente não exigem competência; confirmar se devem.
+5. `acc_has_competence` consulta só o próprio usuário (sem parâmetro de pessoa), para não vazar competência alheia.
