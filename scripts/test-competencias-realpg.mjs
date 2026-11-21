@@ -531,7 +531,7 @@ try {
     // base legada: replay SEM as migrations da Fase 4/A, registra decisão de sinistro e RNC confirmada, depois aplica a Fase 4/A
     const legacy = await newDb("legacy");
     try {
-      for (const f of files.filter((x) => !F4.includes(x) && !/^20261205[0-9]{6}_/.test(x))) await legacy.su.query(read(f)); // Fase 5/E depende das competências: fora do estado legado
+      for (const f of files.filter((x) => !F4.includes(x) && !/^2026120[58][0-9]{6}_/.test(x))) await legacy.su.query(read(f)); // Fase 5/E e Fase 6/H2a dependem das competências: fora do estado legado
       const lu = (k) => `00000000-0000-4000-8000-${String(2700 + k).padStart(12, "0")}`;
       const LP = "10000000-0000-4000-8000-0000000027a0";
       for (const k of [1, 2]) {
