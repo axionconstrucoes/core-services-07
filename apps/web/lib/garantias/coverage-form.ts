@@ -32,7 +32,7 @@ export const NO_AUTO_EXCLUSION_NOTICE =
   "Garantia contratual decorrida NÃO exclui a cobertura automaticamente: garantia legal, vício oculto, solidez e segurança e prazos legais são analisados à parte. Não existe prazo único de cinco anos para todo defeito.";
 
 export const MAINTENANCE_FACT_NOTICE =
-  "A situação dos comprovantes de manutenção é só constatação de fato (quality_warranty_maintenance_status). Ela não conclui perda de garantia: a análise contratual/jurídica é separada.";
+  "A situação dos comprovantes de manutenção é só constatação de fato (consulta de situação da manutenção do caso). Ela não conclui perda de garantia: a análise contratual/jurídica é separada.";
 
 export interface CoverageItemInput {
   status: WarrantyItemStatus;

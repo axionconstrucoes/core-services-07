@@ -43,6 +43,21 @@ export function formatDateTime(v: string | null | undefined): string {
   return `${g("day")}/${g("month")}/${g("year")} ${g("hour")}:${g("minute")}`;
 }
 
+/**
+ * Data de emissão do endosso: o formulário envia só a DATA (meia-noite UTC). Mostrar essa data no fuso
+ * de São Paulo recuaria um dia (21/11 virava 20/11 21:00); então, quando o instante é exatamente
+ * meia-noite UTC, exibe-se somente a data. Com hora real (sem data informada), mantém data e hora locais.
+ */
+export function formatIssuedAt(v: string | null | undefined): string {
+  if (!v) return NO_DATA;
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return NO_DATA;
+  if (d.getUTCHours() === 0 && d.getUTCMinutes() === 0 && d.getUTCSeconds() === 0 && d.getUTCMilliseconds() === 0) {
+    return formatDate(d.toISOString());
+  }
+  return formatDateTime(v);
+}
+
 export function textOrNoData(v: string | null | undefined): string {
   const t = (v ?? "").trim();
   return t ? t : NO_DATA;

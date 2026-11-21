@@ -71,7 +71,7 @@ export function explainGovernanceError(message: string | null | undefined): { co
 /** Códigos aceitos em `?erro=` (a página só exibe mensagem conhecida; qualquer outro valor vira a genérica). */
 export function messageForErrorParam(code: string | null | undefined): string {
   if (code && Object.prototype.hasOwnProperty.call(MESSAGES, code)) return MESSAGES[code];
-  if (code === "ENTRADA") return "Dados inválidos no formulário. Confira: destinatários válidos (domínios reservados como example.com ou .test são recusados), motivo com no mínimo 10 caracteres e campos obrigatórios preenchidos. Nada foi alterado.";
+  if (code === "ENTRADA") return "Dados inválidos no formulário. Confira se todos os campos obrigatórios estão preenchidos (pessoa, documento, motivo ou justificativa com o mínimo de caracteres, prazo dentro do limite) e, em aprovações externas, se os destinatários são válidos (domínios reservados como example.com ou .test são recusados). Nada foi alterado.";
   return "Não foi possível concluir a ação. Nada foi alterado.";
 }
 

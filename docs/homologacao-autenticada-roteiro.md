@@ -223,7 +223,7 @@ Legenda: NÃO EXECUTADO (padrão) · OK · FALHOU · BLOQUEADO. Só vale OK com 
 | Seguros — Painel | S-01 | **EXECUTADO-AUTENTICADO (ADM, parcial; seção 15)** | 21/11/2026 | agente HOMOLOG-ADM (reynaldo = ADMINISTRADOR + TENANT_ADMIN, sessão Google real) | seguros-painel-aprovado.jpg |
 | Seguros — Apólices | S-01 a S-03 | **EXECUTADO-AUTENTICADO (ADM, parcial; seção 15)** | 21/11/2026 | agente HOMOLOG-ADM (reynaldo = ADMINISTRADOR + TENANT_ADMIN, sessão Google real) | seguros-apolice-sem-fonte-recusada-aprovado.jpg (S-02 como ADM: cadastro e recusa sem fonte; S-03 NÃO visto) |
 | Seguros — Fianças e garantias | S-01 | **FIXTURE** | 21/11/2026 | agente F6-H1 (automatizado, NÃO é pessoa logada) | Aba renderizada no Chrome com os componentes REAIS e dados sintéticos (test-seguros-browser: 12 OK/0 FAIL; B1 abre as 12 abas, B2 teclado, B6 celular 390 px, B7 contraste, B8 axe). Sem login, sem Supabase: NÃO é tela autenticada |
-| Seguros — Endossos (dupla conferência) | S-04 a S-09 | **EXECUTADO-AUTENTICADO (ADM, parcial; seção 15)** | 21/11/2026 | agente HOMOLOG-ADM (reynaldo = ADMINISTRADOR + TENANT_ADMIN, sessão Google real) | seguros-endosso-solicitado-sem-efeito-aprovado.jpg (S-04 visto; emissão exige documento: S-05 a S-09 NÃO vistos) |
+| Seguros — Endossos (dupla conferência) | S-04 a S-09 | **EXECUTADO-AUTENTICADO (ADM, parcial; seção 15)** | 21/11/2026 | agente HOMOLOG-ADM (reynaldo = ADMINISTRADOR + TENANT_ADMIN, sessão Google real) | seguros-endosso-solicitado-sem-efeito-aprovado.jpg (S-04 visto; seção 16: emissão com documento sintético e bloqueio do emissor como conferente VISTOS; S-06 a S-09 exigem outra pessoa: NÃO vistos) |
 | Seguros — Adiantamentos | S-10 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Dupla conferência, saldos, decisão fundamentada, minuta, canal e reabertura de sinistro: test-endossos-dupla-conferencia-realpg, test-f4b-garantias-seguros-realpg, test-destinatarios-externos-realpg, test-f5-e-governanca-realpg. Tela NÃO vista |
 | Seguros — Sinistros e eventos | S-11 a S-13 | **EXECUTADO-BANCO-REAL** | 21/11/2026 | agente F5-E (automatizado, NÃO é pessoa logada) | Dupla conferência, saldos, decisão fundamentada, minuta, canal e reabertura de sinistro: test-endossos-dupla-conferencia-realpg, test-f4b-garantias-seguros-realpg, test-destinatarios-externos-realpg, test-f5-e-governanca-realpg. Tela NÃO vista |
 | Seguros — Dossiês | S-01 | **FIXTURE** | 21/11/2026 | agente F6-H1 (automatizado, NÃO é pessoa logada) | Aba renderizada no Chrome com os componentes REAIS e dados sintéticos (test-seguros-browser: 12 OK/0 FAIL; B1 abre as 12 abas, B2 teclado, B6 celular 390 px, B7 contraste, B8 axe). Sem login, sem Supabase: NÃO é tela autenticada |
@@ -379,3 +379,70 @@ tsc `--noEmit` em apps/web: 0 erro · eslint nos 3 arquivos tocados: 0 · test-h
 ### 15.3 Efeito no quadro da seção 9
 
 12 linhas passaram a EXECUTADO-AUTENTICADO, todas PARCIAIS para o perfil ADMINISTRADOR (a coluna Evidência diz o que NÃO foi visto). As demais não mudaram.
+
+## 16. Execução com documentos sintéticos (21/11/2026)
+
+Executor: agente HOMOLOG-DOCS, sessão Google já autenticada (reynaldo@axion.com.br = ADMINISTRADOR da obra TESTE + TENANT_ADMIN), `http://localhost:3000`, Supabase acc-homolog (somente SELECT nas conferências). Nota de ambiente: o grupo de abas do navegador e o servidor da porta 3000 já não existiam no início da execução; o app foi subido de novo com `scripts/homolog/executar-app-homolog.ps1` (só variáveis do acc-homolog) e a sessão Google do perfil do Chrome continuou válida. Documentos 100% fictícios, FORA do repositório: `C:\VIBE\PROJETOS\axion-backups\homologacao\docs-sinteticos\` (nome e corpo com "TESTE - SEM VALIDADE JURIDICA" e identificador SINT-*; nenhum CNPJ/CPF/CREA/OAB, nenhum nome real). Evidências (fora do repositório): `C:\VIBE\PROJETOS\axion-backups\homologacao\evidencias\f8-docs\`. Fixture × real: tudo abaixo é tela real autenticada + SELECT no acc-homolog; nada é fixture.
+
+### 16.1 Documentos cadastrados e integridade (SHA-256 local = banco, 6 de 6)
+
+| Documento (tipo escolhido) | SHA-256 | Bytes |
+|---|---|---|
+| Contrato sintetico (Contrato base) | f53ae64b9f89866e7c8b41341d401fe6dc78217a45d97110f72d4fffab0722d8 | 729 |
+| Apolice sintetica (Especificação) | 6a19538d1c24ad67b9fa44721bba73b4ee338bd3429dfa412784f918ffaec829 | 728 |
+| Minuta de endosso sintetica (Especificação) | 69e9753acf34618ea4c044ac973ec5f7755cff9883a818a82797f83bdc43f59d | 738 |
+| Habilitacao profissional sintetica (Especificação) | 5a799ab91e5c75a6e229534f1d84ab4f1c481c1ad939e8467b52af6c85402662 | 745 |
+| Ata de designacao de validador sintetica (Especificação) | 74c08c2ae5ef48df7b7340a8da74e34f1e3b0fd0dbf19602d8f4c11198d6b669 | 751 |
+| Aceite do cliente sintetico (Resposta/Aprovação do cliente) | f394a53431df4b198d8cfcd16b265bbe84ea7e9b06644299a808b1077797f3a6 | 738 |
+
+Conferido por SELECT em `document_versions` (`sha256_hash`, `file_size_bytes`, `original_file_name`, `mime_type`, `version_index` = 1, `uploaded_by`, `uploaded_at`, `project_id`): hash, tamanho e nome idênticos aos locais. Reenvio do mesmo arquivo: recusado na tela ("Este arquivo já existe neste projeto (conteúdo idêntico...) — não foi enviado de novo"); o SELECT confirma que continuam 6 versões. Não há tabela de auditoria própria de documentos (rastreabilidade = `uploaded_by`/`uploaded_at` + versão): observação, não defeito. O tipo documental não tem opção para apólice/minuta/habilitação (usado "Especificação"): observação O4.
+
+### 16.2 Quadro de casos
+
+| Caso | Status | Evidência | Observação |
+|---|---|---|---|
+| Documentos: cadastro de 6 PDFs, hash/versão/tamanho/nome | APROVADO | seguros-painel-pos-docs-aprovado.jpg (painel após os documentos); hash por SELECT | 6 de 6 conferem |
+| Documentos: duplicata detectada | APROVADO (bloqueio verificado) | (mensagem vista na tela; print não salvo) | Sem nova linha no banco |
+| Seguros: registrar emissão do endosso com documento formal | APROVADO | seguros-endosso-emissor-nao-confere-aprovado.jpg | Estado Emitido, "0 de 2 aprovada(s)", sem efeito de cobertura; comparação solicitado × emitido listou os termos divergentes; SELECT: `issued_document_id` = documento, `coverage_effective` false; auditoria ENDORSEMENT_EMITIDO (ator, entidade, projeto, hora) |
+| Seguros: emissor NÃO confere (nem recusa a conferência) | APROVADO (bloqueio verificado) | seguros-endosso-emissor-nao-confere-aprovado.jpg | Botões desabilitados com a causa: "Você registrou a emissão deste endosso: a conferência precisa ser de outra pessoa (independência)" |
+| Seguros: 2 conferentes independentes; solicitante só confere com competência | PENDENTE (exige outra pessoa) | — | Estado final observado: aguardando 2 conferências independentes |
+| Seguros: envio real | APROVADO (bloqueio verificado) | — | "Canal oficial: SEM CANAL cadastrado"; nada é enviado; não se tentou forçar |
+| Seguros: aprovação de minuta (COMPETENCE_REQUIRED), coerência CONTRATO/APOLICE/MINUTA, fiança/caução, adiantamentos, sinistro (aviso, fundamentação, decisão), RCC | PENDENTE | — | Não exercitados nesta execução; a minuta depende de canal oficial e de competência Seguros/Jurídico (reynaldo não tem) |
+| Garantias: decisão de cobertura exige competência profissional | APROVADO (bloqueio verificado) | garantias-cobertura-exige-competencia-bloqueio-aprovado.jpg | Ciclo avançado de ABERTA a EM ANÁLISE (vistoria, análise); "Mover para Coberta" com evidência recusado: "exige uma competência profissional... registrada para você neste projeto" |
+| Garantias: aceite INFORMADO × COMPROVADO e encerramento | PENDENTE (exige competência/outra pessoa) | — | O aceite só existe em REPARADA/VERIFICADA e a cobertura exige competência que o ADM não tem; o caso parou em EM ANÁLISE. Manifestante externo (e-mail sintético) não exercitado |
+| Competências: solicitar SEGUROS para o próprio ADM com a evidência (d) | APROVADO | competencias-solicitacao-pendente-e-mensagem-D7-corrigida-aprovado.jpg | PENDING, "NÃO concede poder", evidência = documento (d), trilha "Competência solicitada por Reynaldo Duarte (ADMIN)"; SELECT: 0 competências ativas, `validator_user_id` nulo |
+| Competências: ADM validar a própria solicitação | APROVADO (bloqueio verificado, sem mensagem dedicada) | idem | Nenhum controle de validar é oferecido ao solicitante (só "Cancelar solicitação"); a regra de independência está no texto da tela. Melhoria possível: mensagem explícita (O5b) |
+| Competências: designar a si mesmo como validador | APROVADO (bloqueio verificado) | — | O seletor "Membro do projeto" não oferece o próprio ADM (lista vazia); o envio sem validador devolve erro de entrada |
+| Competências: designar Ricardo/Carlos/Jaime, validação independente, revalidação | PENDENTE POR DISPONIBILIDADE (titulares, 23/11 manhã; Ricardo sem data) | — | Só existe o perfil de reynaldo; ninguém foi simulado |
+| Aprovações externas: preparar com conteúdo e anexo sintético | APROVADO | aprovacoes-externas-aprovada-uso-unico-nada-enviado-aprovado.jpg | v2 GARANTIAS com anexo (nome do arquivo (f)); hash SHA-256 325a1322... "confere com o conteúdo", distinto do hash da v1 (fa967843...): conteúdo diferente = nova preparação com novo hash |
+| Aprovações externas: ADM decide mas nunca envia | APROVADO | idem | "Aprovada para uso único (24 horas)... NADA foi enviado"; SELECT: confirmação com `tier_at_confirmation` ADMIN, `preparation_id`, `content_hash` igual ao da preparação, 0 linhas em `external_recipient_confirmation_uses`, preparação APPROVED sem `consumed_at` |
+| Aprovações externas: consumo único só pelo aprovador | PENDENTE | — | Fora do alcance da interface (o consumo ocorre no caminho de envio, bloqueado); coberto por test-f5-e-governanca-realpg |
+| Qualidade: avançar RNC-0001, CAPA, evidência | APROVADO (parcial) | (visto na tela; print não salvo) | TRIAGEM para EM INVESTIGAÇÃO; evidência DOCUMENTO com referência ao arquivo sintético (hash na referência) e CAPA corretiva registrada (Planejada) |
+| Qualidade: encerramento indevido segue impossível | APROVADO (bloqueio verificado) | — | "Encerramento: bloqueado — Há ações ainda não executadas... Falta a verificação de eficácia"; "Confirmar NC" exige evidência NC comprovada |
+| Qualidade: laudo técnico exige TECNICO_RESPONSAVEL | PENDENTE | — | Não exercitado (aba Ensaios e laudos não visitada) |
+| Integridade/auditoria (F) | APROVADO (parcial) | — | Emissão do endosso: auditoria ENDORSEMENT_EMITIDO com ator/entidade/projeto/hora; competência solicitada na trilha de governança; documentos: `uploaded_by`/`uploaded_at`. Append-only não editável pela UI: nenhuma tela oferece editar esses registros (não testado por RPC, por regra) |
+| Permissões (G): obra TESTE-2 por URL (seguros, qualidade, competências, aprovações externas, garantias) | APROVADO (bloqueio verificado) | — | 404 nas 5 rotas, mesmo para o TENANT_ADMIN (sem vínculo, sem poder na obra). /competencias e /aprovacoes-externas da obra TESTE abrem para o ADM |
+| Permissões (G): menu por nível dos demais perfis | PENDENTE POR DISPONIBILIDADE | — | Exige Carlos/Jaime/Ricardo |
+| Responsividade 390 px (H) | PENDENTE | — | Não tentada de novo: o `resize_window` já se mostrou sem efeito (seção 15) |
+
+### 16.3 Defeitos e observações novos desta execução
+
+| Id | Classe | Severidade | Descrição | Estado |
+|---|---|---|---|---|
+| D6 | funcional/visual | baixa | Seguros, aba Endossos: data de emissão 21/11/2026 aparecia como "20/11/2026 21:00" (SELECT: `issued_at` = 2026-11-21 00:00 UTC; o formulário envia só a data e a tela a convertia para São Paulo). Reproduzido antes (seguros-endosso-data-emissao-D6-reprovado-antes.jpg) | CORRIGIDO (`formatIssuedAt`; depois: "em 21/11/2026"; validado no navegador após recarga sem cache) |
+| D7 | texto | baixa | Competências: o erro de entrada citava "destinatários válidos (domínios reservados...)", sem relação com o formulário | CORRIGIDO (mensagem genérica que cobre os dois formulários; vista na tela) |
+| D3 | texto | baixa | Integrações: "erros ?" e frase sobre falhas de fotos sem haver falhas | CORRIGIDO ("erros: não informado"; a frase só aparece com falhas; visto na tela) |
+| D4 | texto | baixa | Identificador técnico `quality_warranty_maintenance_status` no aviso da aba Cobertura | CORRIGIDO só no aviso (a referência de fonte rastreável continua citando a função, por rastreabilidade). Continuam ABERTOS: `SEGURO_GARANTIA_EXECUTANTE` no seletor de apólice do endosso e rótulos "Função deste campo: legalName..." (ajuda automática com o nome técnico do campo, em `automatic-field-help.tsx`) |
+| D5 | texto | baixa | Validação nativa do navegador em inglês (RNC) | ABERTO: a língua vem do navegador; corrigir exige validação própria nos formulários (não é mudança mínima) |
+| O1 | funcional | baixa | Lista de Garantias não atualiza após criar caso | NÃO REPRODUZIDO nesta execução (o detalhe atualizou o estado a cada transição sem recarga); a lista não foi reexercitada: ABERTO, a reconfirmar |
+| O4 | funcional | informativo | Tipos documentais sem opção para apólice/minuta/habilitação/ata | ABERTO (proposta: ampliar o tipo documental; exige migration, NÃO criada) |
+| O5 | texto | informativo | Garantias: a recusa por falta de competência diz "peça a um Administrador do projeto" mesmo a quem já é Administrador | ABERTO (proposta: texto condicional ao nível) |
+| O6 | ambiente | informativo | Capturas de tela do navegador controlado falham de forma intermitente (CDP timeout) e algumas imagens vistas não foram salvas em disco | Registrado |
+
+### 16.4 Testes reexecutados após as correções
+
+tsc `--noEmit` em apps/web: 0 erro · eslint nos 5 arquivos tocados: 0 · test-help-catalog 10/0 · test-help-coverage 4/0 · test-help-reconcile 4/0 · test-contrast-audit 12/0 · test-contrast-system 10/0 · test-user-integration-matrix 27/0 · test-garantias-ui 18/0 · test-seguros-ui 27/0 · test-f6-h2a-governanca 15/0 · test-homolog-guard 39/0.
+
+### 16.5 Estado deixado no acc-homolog (dados sintéticos)
+
+6 documentos TESTE; endosso #1 EMITIDO (sem efeito, 0 de 2 conferências); solicitação de competência SEGUROS PENDING para reynaldo; GAR-0001 em EM ANÁLISE com 1 evidência; RNC-0001 em EM INVESTIGAÇÃO com 1 evidência e 1 CAPA; 2 preparações de aprovação externa (uma APPROVED, não consumida); nada enviado. Nenhum INSERT/UPDATE por SQL.

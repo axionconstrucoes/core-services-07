@@ -6,7 +6,7 @@ import { SELECT_CLASS } from "@/components/ui/select";
 import { ActionButton, Callout, DataTable, NoData, Section, SourceLink, SpecForm, StatusBadge, buildOptionSets, useWorkspace, type Column } from "@/components/insurance/kit";
 import { bankGuaranteeExecutionStatus, reviewBlockText } from "@/lib/insurance/index";
 import { FORMS, validateEndorsementVerify, validateGuaranteeUpdate } from "@/lib/insurance-ui/forms";
-import { formatDate, formatDateTime, formatMoney, textOrNoData, NO_DATA } from "@/lib/insurance-ui/format";
+import { formatDate, formatDateTime, formatIssuedAt, formatMoney, textOrNoData, NO_DATA } from "@/lib/insurance-ui/format";
 import { CHANGE_KIND_LABEL, DUAL_REVIEW_REASON_LABEL, ENDORSEMENT_STATE_LABEL, GUARANTEE_STATUS_LABEL, OTHER_GUARANTEE_TYPE_LABEL, CAUCAO_FORM_LABEL, labelOf } from "@/lib/insurance-ui/labels";
 import { advanceView, endorsementView, prepareEndorsementDraft } from "@/lib/insurance-ui/model";
 import { hasCompetence } from "@/lib/permissions/competences";
@@ -105,7 +105,7 @@ export function EndorsementsPanel() {
     { key: "rev", label: "Conferências", helpId: "seguros.endossos.coluna-conferencias", render: (e) => reviewsCell(e, data.endorsementReviews) },
     { key: "eff", label: "Efeito de cobertura", render: (e) => (endorsementView(e).extendsCoverage ? <StatusBadge text="Efetivo (conferido)" variant="success" /> : <StatusBadge text="SEM efeito" variant="secondary" />) },
     { key: "req", label: "Solicitado em", render: (e) => formatDateTime(e.requested_at) },
-    { key: "iss", label: "Emitido", render: (e) => (e.issued_number ? `nº ${e.issued_number} em ${formatDateTime(e.issued_at)}` : <NoData text="SEM DADOS (não emitido)" />) },
+    { key: "iss", label: "Emitido", render: (e) => (e.issued_number ? `nº ${e.issued_number} em ${formatIssuedAt(e.issued_at)}` : <NoData text="SEM DADOS (não emitido)" />) },
     { key: "match", label: "Textos conferem?", render: (e) => (e.texts_match === null ? <NoData /> : e.texts_match ? "Sim" : <StatusBadge text="Divergem" variant="warning" />) },
   ];
 
