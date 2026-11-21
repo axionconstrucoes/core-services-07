@@ -1,0 +1,9 @@
+# Variáveis do SHELL do operador do kit (apply-migrations / seed / provision). Só NOMES. Definir no terminal; não gravar em arquivo do repositório.
+HOMOLOG_TARGET_REF=<ref do acc-homolog>
+HOMOLOG_I_UNDERSTAND_ISOLATED=true
+HOMOLOG_DATABASE_URL=<string de conexao do acc-homolog (painel > Connect); nunca a do operacional>
+HOMOLOG_TEST_ACCOUNTS=P-ADM=<email>@axion.com.br;P-COL=<email>@axion.com.br;P-GES=<email>@axion.com.br
+# Somente para criar projeto novo (provision-acc-homolog.mjs --execute):
+HOMOLOG_AUTHORIZED=SIM
+HOMOLOG_DB_PASSWORD=<senha forte do banco; gerada por voce; fora de arquivos>
+HOMOLOG_ENV_FILE=<caminho do .env.homolog fora do repositorio>

@@ -145,6 +145,7 @@ scripts/test-f6-h3-gmail-sonda.mjs
 scripts/test-f6-h3-outlook-config.mjs
 scripts/test-homolog-guard.mjs
 scripts/test-homolog-kit-realpg.mjs
+scripts/test-homolog-provision.mjs
 scripts/test-quality-alert-area-sla-sql.mjs
 scripts/test-f6-h2c-experts-qualidade.mjs
 scripts/test-f6-h2b-sinais-pilares.mjs
