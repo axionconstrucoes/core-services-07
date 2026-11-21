@@ -84,7 +84,7 @@ try {
   }
   // A reaplicação do S1 recoloca as definições ORIGINAIS das funções; as migrations POSTERIORES (Fase 3: permissões/B e endossos/C,
   // que redefinem insurance_claim_advance, insurance_endorsement_* e insurance_dashboard_items) voltam por cima, na ordem, como no deploy.
-  for (const f of files.filter((x) => x > MINE[MINE.length - 1] && /^20261123/.test(x))) await su.query(readFileSync(path.join(dir, f), "utf8").replace(/^﻿/, ""));
+  for (const f of files.filter((x) => x > MINE[MINE.length - 1] && /^2026112[3-5]/.test(x))) await su.query(readFileSync(path.join(dir, f), "utf8").replace(/^﻿/, ""));
   console.log(`PostgreSQL ${version}: ${files.length} migrations aplicadas (+ ${MINE.length} do S1 reaplicadas 2x) — base ${dbName}`);
 
   const uid = (n) => `00000000-0000-4000-8000-${String(2200 + n).padStart(12, "0")}`;
@@ -243,13 +243,22 @@ try {
     const rc = await rpc(a, "insurance_claim_advance", exp.id, av.rowVersion, "RECLAMACAO", JSON.stringify({ note: "Reclamação formal" }));
     const rg = await rpc(a, "insurance_claim_advance", exp.id, rc.rowVersion, "REGULACAO", JSON.stringify({ note: "Seguradora iniciou regulação" }));
     await rejects(rpc(a, "insurance_claim_advance", exp.id, rg.rowVersion, "NEGATIVA", JSON.stringify({ note: "curta" })), /NOTE_REQUIRED/, "negativa sem fundamento registrado");
-    const ng = await rpc(a, "insurance_claim_advance", exp.id, rg.rowVersion, "NEGATIVA", JSON.stringify({ note: "Seguradora negou: alega exclusão (texto da carta anexa)" }));
+    // Fase 4/B: negativa exige fundamentação (nota >= 20) + fonte
+    await rejects(rpc(a, "insurance_claim_advance", exp.id, rg.rowVersion, "NEGATIVA", JSON.stringify({ note: "Negada: ver carta" })), /GROUNDS_REQUIRED/, "negativa com nota < 20");
+    await rejects(rpc(a, "insurance_claim_advance", exp.id, rg.rowVersion, "NEGATIVA", JSON.stringify({ note: "Seguradora negou: alega exclusão (texto da carta anexa)" })), /GROUNDS_SOURCES_REQUIRED/, "negativa sem fonte");
+    const ng = await rpc(a, "insurance_claim_advance", exp.id, rg.rowVersion, "NEGATIVA", JSON.stringify({ note: "Seguradora negou: alega exclusão (texto da carta anexa)", source_refs: ["carta-seguradora-sintetica de 2026-12-01"] }));
     eq((await su.query("select decision_outcome from public.insurance_claims where id=$1", [exp.id])).rows[0].decision_outcome, "INDEFERIDO", "negativa registra INDEFERIDO");
     await rejects(rpc(a, "insurance_claim_advance", exp.id, ng.rowVersion, "INDENIZACAO_CUMPRIMENTO", JSON.stringify({})), /INVALID_TRANSITION/, "negativa não vira pagamento");
-    const ct = await rpc(a, "insurance_claim_advance", exp.id, ng.rowVersion, "CONTESTACAO", JSON.stringify({ note: "Contestação protocolada com documentos" }));
+    const ct = await rpc(a, "insurance_claim_advance", exp.id, ng.rowVersion, "CONTESTACAO", JSON.stringify({ note: "Contestação protocolada com documentos", source_refs: ["protocolo-contestacao-sint 123"] }));
     eq(ct.stage, "CONTESTACAO", "contestação");
-    const dc = await rpc(a, "insurance_claim_advance", exp.id, ct.rowVersion, "DECISAO", JSON.stringify({ decision_outcome: "PARCIAL", note: "Revisão parcial" }));
-    const pay = await rpc(a, "insurance_claim_advance", exp.id, dc.rowVersion, "INDENIZACAO_CUMPRIMENTO", JSON.stringify({ note: "Pagamento parcial confirmado" }));
+    await rejects(rpc(a, "insurance_claim_advance", exp.id, ct.rowVersion, "DECISAO", JSON.stringify({ decision_outcome: "PARCIAL" })), /GROUNDS_REQUIRED/, "decisão sem nota");
+    await rejects(rpc(a, "insurance_claim_advance", exp.id, ct.rowVersion, "DECISAO", JSON.stringify({ decision_outcome: "PARCIAL", note: "Revisão parcial" })), /GROUNDS_REQUIRED/, "decisão com nota curta");
+    await rejects(rpc(a, "insurance_claim_advance", exp.id, ct.rowVersion, "DECISAO", JSON.stringify({ decision_outcome: "PARCIAL", note: "Revisão parcial dos itens contestados pela seguradora" })), /GROUNDS_SOURCES_REQUIRED/, "decisão sem fonte");
+    const dc = await rpc(a, "insurance_claim_advance", exp.id, ct.rowVersion, "DECISAO", JSON.stringify({ decision_outcome: "PARCIAL", note: "Revisão parcial dos itens contestados pela seguradora", document_id: D1 }));
+    await rejects(rpc(a, "insurance_claim_advance", exp.id, dc.rowVersion, "INDENIZACAO_CUMPRIMENTO", JSON.stringify({ source_refs: ["comprovante-pagamento-sint"] })), /GROUNDS_REQUIRED/, "indenização sem nota");
+    await rejects(rpc(a, "insurance_claim_advance", exp.id, dc.rowVersion, "INDENIZACAO_CUMPRIMENTO", JSON.stringify({ note: "Pagamento parcial confirmado pela seguradora" })), /GROUNDS_SOURCES_REQUIRED/, "indenização sem fonte");
+    const pay = await rpc(a, "insurance_claim_advance", exp.id, dc.rowVersion, "INDENIZACAO_CUMPRIMENTO", JSON.stringify({ note: "Pagamento parcial confirmado pela seguradora", source_refs: ["comprovante-pagamento-sint"] }));
+    eq((await su.query("select source_refs from public.insurance_claim_steps where claim_id=$1 and stage='INDENIZACAO_CUMPRIMENTO'", [exp.id])).rows[0].source_refs, ["comprovante-pagamento-sint"], "fontes da fundamentação gravadas no passo");
     const fim = await rpc(a, "insurance_claim_advance", exp.id, pay.rowVersion, "ENCERRADO", JSON.stringify({ note: "Encerrado após pagamento parcial" }));
     await rejects(rpc(a, "insurance_claim_advance", exp.id, fim.rowVersion, "AVISO", JSON.stringify({})), /INVALID_TRANSITION/, "encerrado é terminal");
     const steps = (await su.query("select stage from public.insurance_claim_steps where claim_id=$1 order by occurred_at, created_at, id", [exp.id])).rows.map((r) => r.stage);
@@ -257,7 +266,7 @@ try {
     await rejects(su.query("update public.insurance_claim_steps set note='x'"), /APPEND_ONLY/, "passos imutáveis");
     const dc2 = await rpc(a, "insurance_claim_open", P, JSON.stringify({ claim_kind: "OUTRO", title: "Decisão sem desfecho", stage: "AVISO", policy_id: pol.id, source_ref: "r" }));
     const rc2 = await rpc(a, "insurance_claim_advance", dc2.id, 1, "RECLAMACAO", JSON.stringify({}));
-    await rejects(rpc(a, "insurance_claim_advance", dc2.id, rc2.rowVersion, "DECISAO", JSON.stringify({})), /DECISION_OUTCOME_REQUIRED/, "decisão exige desfecho");
+    await rejects(rpc(a, "insurance_claim_advance", dc2.id, rc2.rowVersion, "DECISAO", JSON.stringify({ note: "Decisão sem desfecho informado pela seguradora", source_refs: ["x-sint"] })), /DECISION_OUTCOME_REQUIRED/, "decisão exige desfecho");
     void v;
   });
 
@@ -347,7 +356,10 @@ try {
     const ch = await rpc(a, "insurance_channel_register", P, JSON.stringify({ bank_guarantee_id: f.id, entity_name: "Banco Sintético SA", channel_type: "PORTAL", channel_value: "portal-sintetico (cadastro manual)", source_ref: "carta-fianca-sintetica p.2" }));
     eq(ch.verified, false, "canal nasce não verificado");
     await rejects(rpc(a, "insurance_channel_register", P, JSON.stringify({ entity_name: "Sem fonte", channel_type: "EMAIL", channel_value: "x" })), /check|violates/i, "canal sem fonte");
-    const u = await rpc(a, "bank_guarantee_update", f.id, 1, JSON.stringify({ calls_on_first_demand: true, claim_procedure_note: "Conforme cláusula 5 do instrumento (sintético)" }));
+    await rejects(rpc(a, "bank_guarantee_update", f.id, 1, JSON.stringify({ calls_on_first_demand: true })), /UPDATE_SOURCE_REQUIRED/, "atualização da fiança sem fonte");
+    await rejects(rpc(a, "bank_guarantee_update", f.id, 1, JSON.stringify({ calls_on_first_demand: true, update_source_ref: "aditivo-sint" })), /UPDATE_REASON_REQUIRED/, "atualização da fiança sem motivo");
+    const u = await rpc(a, "bank_guarantee_update", f.id, 1, JSON.stringify({ calls_on_first_demand: true, claim_procedure_note: "Conforme cláusula 5 do instrumento (sintético)", update_source_ref: "carta-fianca-sintetica p.5", update_reason: "Cláusula 5 confirma pagamento à primeira demanda" }));
+    eq(Number((await su.query("select count(*)::int n from public.insurance_guarantee_updates where guarantee_id=$1 and source_ref='carta-fianca-sintetica p.5'", [f.id])).rows[0].n), 1, "histórico append-only da atualização com fonte");
     await rejects(rpc(a, "bank_guarantee_update", f.id, 1, JSON.stringify({ amount: 1 })), /VERSION_CONFLICT/, "fiança concorrência otimista");
     eq(u.rowVersion, 2, "versão da fiança");
     const caucao = await rpc(a, "other_guarantee_register", P, JSON.stringify({ guarantee_type: "CARTA_FIANCA_NAO_BANCARIA", issuer_name: "Empresa Sintética", source_ref: "carta-sint" }));
@@ -381,6 +393,11 @@ try {
     const r0 = await rpc(a, "insurance_draft_attempt_send", d.id);
     ok(r0.sent === false && r0.blocked === true, "não enviou");
     for (const reason of ["FLAG_OFF", "NOT_APPROVED", "NO_OFFICIAL_CHANNEL", "PHASE1_NO_SEND_TRANSPORT"]) ok(r0.reasons.includes(reason), `motivo ${reason}`);
+    // Fase 4/B: a aprovação exige coerência minuta x apólice x contrato (termos dos três instrumentos, sem divergência não justificada)
+    await rejects(rpc(a, "insurance_draft_approve", d.id, ed.rowVersion, "APROVO O CONTEUDO PARA ENVIO"), /COHERENCE_BLOCKED/, "sem termos de coerência");
+    for (const [kind, draftId] of [["CONTRATO", null], ["APOLICE", null], ["MINUTA", d.id]]) {
+      await rpc(a, "insurance_instrument_terms_save", pol.id, kind, draftId, JSON.stringify({ insured_name: "Construtora Alfa Ltda", insured_tax_id: "11.222.333/0001-81", object_text: "Obra sintética", coverage_start: "2026-01-01", coverage_end: "2027-01-01", insured_amount: 1000000, guaranteed_obligation: "Execução do contrato sintético", source_ref: `${kind}-sint p.1` }));
+    }
     const ap = await rpc(a, "insurance_draft_approve", d.id, ed.rowVersion, "APROVO O CONTEUDO PARA ENVIO");
     eq([ap.state, ap.sent], ["APROVADA_PARA_ENVIO", false], "aprovada mas não enviada");
     const r1 = await rpc(a, "insurance_draft_attempt_send", d.id);
