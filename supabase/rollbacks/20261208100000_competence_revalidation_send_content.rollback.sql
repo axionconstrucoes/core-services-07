@@ -1,9 +1,20 @@
 -- Rollback de 20261208100000_competence_revalidation_send_content.sql (Fase 6/H2a).
 -- Conteúdo de preparação e eventos de revalidação são EVIDÊNCIA de auditoria: o script RECUSA apagar se houver registro; exporte antes.
+-- funcao TEMPORARIA (pg_temp; some ao fim da sessao): torna a guarda idempotente (tabela ja removida => sem linhas)
+begin;
+create or replace function pg_temp.rb_has_rows(p_table text, p_where text default 'true') returns boolean
+language plpgsql as $f$
+declare r boolean;
+begin
+  if to_regclass('public.' || p_table) is null then return false; end if;
+  execute format('select exists (select 1 from public.%I where %s)', p_table, p_where) into r;
+  return r;
+exception when undefined_column then return false;
+end $f$;
 do $$
 begin
-  if exists (select 1 from public.external_send_preparation_contents)
-     or exists (select 1 from public.project_competence_governance_events where action = 'REVALIDATED') then
+  if pg_temp.rb_has_rows('external_send_preparation_contents')
+     or pg_temp.rb_has_rows('project_competence_governance_events', 'action = ''REVALIDATED''') then
     raise exception 'ROLLBACK_BLOCKED: há conteúdos de preparação ou eventos de revalidação registrados; exporte-os (evidência) e remova manualmente com autorização';
   end if;
 end $$;
@@ -20,7 +31,7 @@ security definer
 set search_path = ''
 as $$
 begin
-  if p_actor is null then return; end if;
+  if p_actor is null then return; end if; -- sem autor atribuído: só carga de manutenção (RPCs sempre gravam auth.uid())
   if not public.acc_user_has_competence(p_project_id, p_actor, p_competences) then
     raise exception 'COMPETENCE_REQUIRED: % exige competência % registrada para você neste projeto (nível de gestão não substitui)',
       p_act, array_to_string(p_competences, ' ou ');
@@ -55,3 +66,4 @@ alter table public.project_competences drop column if exists revalidation_note;
 alter table public.project_competences drop column if exists revalidated_at;
 alter table public.project_competences drop column if exists revalidated_by;
 alter table public.project_competences drop column if exists revalidation_status;
+commit;

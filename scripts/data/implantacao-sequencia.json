@@ -133,6 +133,16 @@
         "20261205101000_closed_case_material_change_guards",
         "20261205102000_external_send_single_use_confirmation"
       ]
+    },
+    {
+      "id": "L",
+      "nome": "Fase 6: revalidacao de competencias e conteudo de envio (H2a), pilares e revisao de sinais (H2b), organizacoes globais so ADMIN (H2b) e area QUALIDADE no SLA (H2c). Cauda apos K e apos o portao P0; nenhuma redefine record_risk_alert_action (P0 conferido apos cada arquivo). Ordem operacional obrigatoria de competencias: aplicar 20261208 -> designar validador -> revalidar -> so entao atos criticos (docs/implantacao/12)",
+      "migrations": [
+        "20261208100000_competence_revalidation_send_content",
+        "20261209100000_email_signal_pillars_and_review",
+        "20261209101000_external_org_global_admin_and_change_requests",
+        "20261210100000_quality_alert_area_sla"
+      ]
     }
   ],
   "adiadas": [

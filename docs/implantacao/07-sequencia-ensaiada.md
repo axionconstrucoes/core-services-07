@@ -6,6 +6,8 @@ Fontes: `scripts/data/implantacao-sequencia.json` (a sequência, lida pelo ensai
 
 > Fase 5/F (21/11/2026): contagens atualizadas em `09-fase5-reinventario-e-preparacao.md` (192 arquivos; 57 pendentes; as ondas I, P0 e J abaixo cobrem `20261124`..`20261127`; migrations das frentes A-E entram pela onda F5 automática do ensaio).
 
+> Fase 6/H5 (21/11/2026): 204 arquivos; 69 pendentes; entrou a onda **L** (4 migrations da Fase 6, ver tabela). Ensaio completo: 197 verificações, 0 falhas.
+
 ## 1. Estado de partida (remoto) e o que é "47 pendentes"
 
 Remoto: 134 migrations registradas + hotfix P0 `20261121090000` efetivo fora do histórico (corpo de `record_risk_alert_action` com md5 sem CR `930f6d75898793479b418950b0053bd9`). Localmente há 183 arquivos: 134 registradas, 1 hotfix efetivo, 47 pendentes e a nova `20261126100000` (portão P0, também pendente) = 48 a aplicar, das quais 2 ficam fora da sequência principal (`177000` por decisão e `302000` por acoplamento ao app), restando 46 na sequência principal.
@@ -25,6 +27,7 @@ Remoto: 134 migrations registradas + hotfix P0 `20261121090000` efetivo fora do 
 | P0 | 20261126100000 | Portão final: confere e reafirma a proteção; não redefine nada. |
 | J | 20261127100000 | Fase 4 D (destinatários externos). Aplicada após o portão P0; não toca `record_risk_alert_action`; o ensaio confere o P0 depois dela também. |
 | K | 20261201100000, 20261202100000, 20261203100000, 20261203110000, 20261204100000, 20261205100000, 20261205101000, 20261205102000 | Fase 5 (monitoramento universal de e-mail, classificação e sinais de risco, contatos externos, fonte de risco EMAIL, governança). Cauda após o portão P0; nenhuma redefine `record_risk_alert_action`; o ensaio confere o P0 após cada arquivo. Publicar junto com o app da Fase 5 (as RPCs de competência e de envio externo mudam de contrato). |
+| L | 20261208100000, 20261209100000, 20261209101000, 20261210100000 | Fase 6 (H2a revalidação de competências + conteúdo de envio; H2b pilares/revisão de sinais e organizações globais só ADMIN; H2c área QUALIDADE no SLA). Cauda após K e após o portão P0; nenhuma toca `record_risk_alert_action` (P0 conferido após cada arquivo). Dependências reais: 20261208 <- 20261205100000/102000 e 20261124100000; 20261209100000 <- 20261202100000 e 20261203*; 20261209101000 <- 20261203110000; 20261210100000 <- tabelas de SLA/alertas (G, 20261204100000). A 20261208 marca TODAS as competências existentes como `REQUIRED`: aplicar o banco -> app -> designar validador -> revalidar -> só então atos críticos (`12`, seção 5). A 20261210 é prospectiva (as 9 abertas mantêm valor e hash). |
 | H2 (adiada, app) | 20261123302000 | **Só junto com a versão do app que chama as RPCs de 301000.** Ver seção 6. |
 | E (adiada, decisão) | 20261121177000 | SLA MÉDIO 2 e BAIXO 5 dias úteis, prospectivo. Seção 7. |
 

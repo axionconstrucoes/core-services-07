@@ -92,7 +92,7 @@ Todas aprovadas pelo Dono; executadas por Eng. Colunas: Pré-requisitos | Verifi
 | **P0** (1: 20261126100000) | I concluída | `verificar p0 antes; aplicar_onda P0; verificar p0 depois` | falha `P0_GATE`: o corpo/ACL divergiu: PARAR, não reaplicar o hotfix às cegas (reaplicar a `20261121101000`) | no-op (`rollback` é vazio) | instantâneo |
 | **J** (1: 20261127100000) | P0 concluída | `verificar j antes; aplicar_onda J; verificar j depois` | P0 divergente (não deve tocar a função) | `supabase/rollbacks/` (trilha de confirmações append-only: preservar se houver uso) | segundos |
 | **K** (8: 20261201100000..20261205102000) | J; app da Fase 5 pronto para publicação (seção 4); workflows Gmail desabilitados | `verificar k antes; aplicar_onda K; verificar k depois` | `20261201100000`: 5 colunas com default constante em `emails`, `CHECK` novo (varre ~710 linhas) e 3 índices não concorrentes (bloqueiam ESCRITA em `emails` por dezenas de ms; 37 a 49 ms no ensaio mesmo a 10x): se `lock_timeout` estourar, repetir com o sync Gmail confirmadamente parado | `supabase/rollbacks/*` para as 8 (reversíveis antes do uso; depois, evidência de auditoria: preservar) | `emails` e `risk_alert_cases` (troca de CHECK, 43 linhas) |
-| **L** (H2a/H2b/H2c: `20261208*`, `20261209*`, `20261210*`) | K; **ainda não existem nesta base** | acrescentar ao JSON (seção 7), regenerar verificações, reensaiar | H2c: as 9 ações MÉDIO/BAIXO abertas mantêm valor e hash; H2b: redefine RPCs de C e adiciona coluna/CHECK de pilar: conferir `email_risk_signals` | `supabase/rollbacks/*` das novas (exigido pelo teste) | a medir no ensaio |
+| **L** (4: 20261208100000, 20261209100000, 20261209101000, 20261210100000) | K; app da Fase 6 pronto; validador de competências definido (seção 5) | `verificar l antes; aplicar_onda L; verificar l depois` | H2c: as 9 ações MÉDIO/BAIXO abertas mantêm valor e hash; H2b: redefine RPCs de C e adiciona coluna/CHECK de pilar: conferir `email_risk_signals` | `supabase/rollbacks/*` das 4 (exigido por `test-implantacao-rollbacks`; 20261208 e 20261209100000 preservam trilha/evidência) | 15 a 45 ms por arquivo no ensaio (banco pequeno); a 20261208 marca TODAS as competências como `REQUIRED` |
 | **H2** (adiada: 20261123302000) | app que chama as RPCs de `301000` JÁ publicado | `verificar adiada-h2-20261123302000 antes; aplicar uma: ver abaixo; ... depois` | telas de Qualidade deixam de gravar se o app for o antigo | `psql -1 -f supabase/rollbacks/20261123302000_quality_revoke_direct_writes.rollback.sql` (instantâneo) | REVOKE em 15 tabelas |
 | **E** (adiada: 20261121177000) | decisão ESCRITA do Dono (aplicar sim/não, data, sem extensão retroativa das 9 abertas, comunicação); A-bis aplicada | idem H2 | `SLA_MATRIX_DUPLICATE_ACTIVE` (falha limpa, sem efeito); as 9 abertas devem manter valor e hash | reativar as 2 regras antigas por `update` auditado (`03`) | segundos |
 
@@ -108,7 +108,7 @@ Rollback padrão de uma migration (quando o arquivo existe): `psql "$CONN" -X -v
 
 ## 4. Publicação do app (depois do banco; ordem: banco -> app -> H2 -> competências -> pipeline)
 
-1. Pré-condição: ondas A a K concluídas e verificadas, P0 `ok`, hash do histórico conferido.
+1. Pré-condição: ondas A a L concluídas e verificadas, P0 `ok`, hash do histórico conferido.
 2. Publicar o commit ensaiado pelo fluxo normal do Vercel (PR aprovado para `main`; este plano e as frentes NÃO fazem push). Conferir `get_deployment` READY e variáveis de envio inalteradas.
 3. Smoke (somente leitura, modo piloto): login (Google); abrir um projeto; Qualidade e Seguros abrem sem erro de permissão; Painel de Alertas lista; Contatos externos e Sinais de e-mail abrem; nenhuma chamada de envio.
 4. Rollback do app: promover o deployment anterior no Vercel (`vercel rollback <url-do-deployment-anterior>` ou painel). O banco permanece (colunas aditivas e RPCs novas são compatíveis com o app antigo, exceto as falhas fechadas descritas em `09`, seção 3); o app antigo fica mais restritivo, sem perda de segurança.
@@ -116,19 +116,21 @@ Rollback padrão de uma migration (quando o arquivo existe): `psql "$CONN" -X -v
 
 ## 5. Competências e revalidação (depois do app)
 
+**Ordem operacional OBRIGATÓRIA (H5):** (1) aplicar a migration `20261208100000` (todas as competências existentes viram `REQUIRED`: não valem para atos críticos); (2) o ADMINISTRADOR designa o(s) validador(es) (documento/ata, aceite do designado, prazo <= 180 dias; UI de H2a em `competencias`); (3) REVALIDAR as competências (`project_competence_revalidate`: ADMIN ou validador ativo, diferente da pessoa e de quem concedeu, com evidência conferida e nota >= 20 caracteres); (4) SÓ ENTÃO atos críticos (decisão/negativa/contestação de sinistro, aprovação de minuta, estado de Qualidade). Antes do passo 3 o gate recusa com `COMPETENCE_REVALIDATION_REQUIRED` (fail-closed, nada é concedido automaticamente). Sequência completa de publicação: banco (A..L) -> app -> competências (1 e 2) -> revalidação (3) -> validador ativo conferido -> pipeline de e-mail em simulação (seção 6).
+
 1. ADMINISTRADOR concede as competências necessárias aos atos críticos (`project_competence_grant`): sem concessão, os gatilhos da `20261124101000` recusam (falha fechada). Com a Fase 5, a concessão vira SOLICITAÇÃO com validação independente de habilitação (segundo ADMIN ou validador designado, prazo <= 180 dias; H2a entrega a UI): concessões anteriores devem ser REVALIDADAS antes de atos críticos.
 2. Conferir (somente leitura): `select status, count(*) from public.project_competence_requests group by 1` e eventos de governança; nenhum ato crítico executado sem validação.
 3. Parada: qualquer ato crítico executado sem competência validada; mensagem `COMPETENCE_REQUIRED` crua para usuário (registrar para a UI de H2a).
 
 ## 6. Pipeline de e-mail em SIMULAÇÃO (nada real)
 
-Pré-condições: ondas A a K e o app publicados; competências ok. Todas as travas de envio desligadas.
+Pré-condições: ondas A a L e o app publicados; competências revalidadas (seção 5). Todas as travas de envio desligadas.
 1. Classificação em DRY_RUN: `ACC_EMAIL_CLASSIFY_ENABLED=1 ACC_EMAIL_PIPELINE_DATABASE_URL=<local ou serviço> node scripts/email-classify-run.mjs` (padrão DRY_RUN; ver `docs/pipeline-email-classificacao.md`). `--apply` e `ACC_EMAIL_CLASSIFY_APPLY=1` só por decisão do Dono, e `ACC_EMAIL_CLASSIFY_ALLOW_REMOTE=1` para host remoto.
 2. Alertas: `gh workflow run risk-alerts-weg-dry-run.yml --ref main` e `gh workflow run ssma-notifications.yml --ref main -f dry_run=true`, com o aceite do doc do agendador (seção 11): `HTTP 200`, `readinessBlockers: []`, `planned: 0` ou itens conferidos, `novosAEnviar: 0`.
 3. Reativar o agendador depois de 1 e 2: `select cron.alter_job(jobid, active := true) from cron.job where jobid in (<lista de cron-ativos.txt>)`; `gh workflow enable ...` dos workflows desabilitados; conferir 2 ciclos sem erro e nenhum e-mail fora do piloto.
 4. Parada: qualquer envio real, qualquer alerta fora do escopo do piloto, HTTP diferente de 200 em 2 ciclos: pausar de novo (seção 1.4) e acionar o rollback.
 
-## 7. Como atualizar o plano quando entrarem as migrations de H2a/H2b/H2c
+## 7. Como atualizar o plano quando entrarem novas migrations (as de H2a/H2b/H2c já formam a onda L, feito na H5)
 
 1. Mesclar as migrations (`20261208*`, `20261209*`, `20261210*`), cada uma com `supabase/rollbacks/<nome>.rollback.sql`, linha `pendente` em `01` e linha em `03` (exigido por `test-implantacao-plano`; contagem de pendentes sobe).
 2. Rodar `node scripts/ensaio-implantacao-ondas-realpg.mjs` (descobre as novas por versão: onda automática `F5`, com verificação `antes/depois` das novas, P0 por arquivo e idempotência). Variável opcional `ACC_ENSAIO_MIGRATIONS_DIR` para outro diretório e `ACC_ENSAIO_VOLUME_SCALE=1` para o perfil de volume.
@@ -139,7 +141,7 @@ Pré-condições: ondas A a K e o app publicados; competências ok. Todas as tra
 
 ## 8. Riscos e o que NÃO está provado
 
-1. 43 das 65 pendentes não têm arquivo `supabase/rollbacks/*.rollback.sql` (as das Fases 1 a 3 e parte da 4): o rollback delas depende da captura `defs-pre-janela.sql` e das descrições em `03`. Recomendação: gerar os arquivos de rollback faltantes (frente dona do diretório) ANTES da janela, ou aceitar o risco por escrito.
+1. RESOLVIDO na H5: as 43 pendentes sem arquivo de rollback ganharam `supabase/rollbacks/<nome>.rollback.sql` (idempotente, transacional, com guarda que recusa apagar dados/evidência; funções redefinidas restauram o corpo anterior; `record_risk_alert_action` nunca é rebaixada; IRREVERSÍVEIS marcadas em `03`). `test-implantacao-rollbacks` garante cobertura e ausência de comando perigoso; o ensaio de rollback em Postgres real está em `03`.
 2. Os tempos são de banco local pequeno (`10`): ordem de grandeza. Sem cópia fiel dos dados (opções em `10`, seção 5), não há prova contra valores reais que violem um CHECK/UNIQUE novo (as contagens somente leitura de 21/11 não mostraram conflito).
 3. O comportamento do `pg_cron`, do pooler e das extensões do projeto hospedado não foi ensaiado fora do Supabase.
 4. `cron.alter_job` e as flags do `supabase db dump` precisam ser conferidos na versão instalada antes da janela.

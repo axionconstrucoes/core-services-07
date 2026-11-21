@@ -1,8 +1,19 @@
 -- Rollback de 20261205101000_closed_case_material_change_guards.sql (Fase 5/E).
 -- Complementos e eventos de reabertura são EVIDÊNCIA: o script RECUSA apagar se houver registro; exporte antes e decida.
+-- funcao TEMPORARIA (pg_temp; some ao fim da sessao): torna a guarda idempotente (tabela ja removida => sem linhas)
+begin;
+create or replace function pg_temp.rb_has_rows(p_table text, p_where text default 'true') returns boolean
+language plpgsql as $f$
+declare r boolean;
+begin
+  if to_regclass('public.' || p_table) is null then return false; end if;
+  execute format('select exists (select 1 from public.%I where %s)', p_table, p_where) into r;
+  return r;
+exception when undefined_column then return false;
+end $f$;
 do $$
 begin
-  if exists (select 1 from public.closed_case_complements) or exists (select 1 from public.insurance_claim_reopen_events) then
+  if pg_temp.rb_has_rows('closed_case_complements') or pg_temp.rb_has_rows('insurance_claim_reopen_events') then
     raise exception 'ROLLBACK_BLOCKED: há complementos/reaberturas registrados; exporte-os (evidência) e remova manualmente com autorização';
   end if;
 end $$;
@@ -24,3 +35,4 @@ drop function if exists public.insurance_claim_reopen(uuid, integer, text, text,
 drop function if exists public.acc_closed_case_complement_add(uuid, text, uuid, text, text, text, uuid);
 drop table if exists public.closed_case_complements;
 drop table if exists public.insurance_claim_reopen_events;
+commit;

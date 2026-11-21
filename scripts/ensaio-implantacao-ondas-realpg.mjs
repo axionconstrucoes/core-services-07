@@ -265,8 +265,18 @@ const snapshotData = async (su) => {
     open_med_low_n: (await su.query("select count(*)::int n from public.sla_actions where risk_level in ('LOW','MEDIUM') and status in ('PENDING','IN_PROGRESS')")).rows[0].n,
     cases: await q("select md5(string_agg(id::text||state||coalesce(current_responsible_user_id::text,''), ',' order by id)) h from public.risk_alert_cases"),
     members: await q("select md5(string_agg(project_id::text||user_id::text||permission||status, ',' order by project_id,user_id)) h from public.project_memberships"),
-    rules: await q("select md5(string_agg(id::text||risk_level||coalesce(area,'')||assume_deadline_value::text||active::text, ',' order by id)) h from public.sla_matrix_rules"),
+    rules: await q("select md5(string_agg(id::text||risk_level||coalesce(area,'')||assume_deadline_value::text||active::text, ',' order by id)) h from public.sla_matrix_rules where area is distinct from 'QUALIDADE'"),
+    // Fase 6/H5: a onda L (20261210100000) SEMEIA regras da area QUALIDADE (aditivo/prospectivo); o hash acima cobre todas as OUTRAS regras.
+    // linhas completas (id -> linha, area): base da comparacao ESTREITA de regras (rulesOk)
+    rules_rows: Object.fromEntries((await su.query("select r.id::text as id, r::text as row, r.area from public.sla_matrix_rules r")).rows.map((x) => [x.id, { row: x.row, area: x.area }])),
+    qualidade_rules: await q("select md5(string_agg(id::text||risk_level||assume_deadline_value::text||active::text, ',' order by id)) h from public.sla_matrix_rules where area = 'QUALIDADE'"),
   };
+};
+// Regra ESTREITA (H5): toda regra que existia ANTES deve permanecer IDENTICA (linha inteira, mesmo id/area); so podem ENTRAR regras NOVAS com area = 'QUALIDADE'.
+const rulesOk = (pre, post) => {
+  for (const [id, r] of Object.entries(pre.rules_rows)) { if (!post.rules_rows[id]) return `regra ${id} removida`; if (post.rules_rows[id].row !== r.row) return `regra ${id} alterada`; }
+  for (const [id, r] of Object.entries(post.rules_rows)) if (!pre.rules_rows[id] && r.area !== "QUALIDADE") return `regra nova ${id} fora da area QUALIDADE (area=${r.area})`;
+  return null;
 };
 const anonExecCount = async (su) => (await su.query(
   `select count(*)::int n from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and p.prosecdef and has_function_privilege('anon', p.oid, 'execute')`)).rows[0].n;
@@ -332,13 +342,35 @@ async function runVariant(variant) {
   }
   const after = await snapshotData(su);
   await check(`[${variant}] dados representativos preservados apos todas as ondas (acoes, prazos das 9 abertas, casos, membros, regras de SLA)`, async () => {
-    for (const k of ["actions", "open_med_low", "cases", "members", "rules"]) ok(before[k] === after[k], `${k} mudou`);
+    for (const k of ["actions", "open_med_low", "cases", "members"]) ok(before[k] === after[k], `${k} mudou`);
+    ok(!rulesOk(before, after), rulesOk(before, after) ?? "");
   });
   await check(`[${variant}] sequencia nao ampliou funcoes SECURITY DEFINER executaveis por anon alem das novas ja revisadas (informativo: antes ${anon0}, depois ${await anonExecCount(su)})`, async () => ok(true));
   await check(`[${variant}] portao P0 e idempotente (reaplicar 2x nao altera nada)`, async () => {
     await applyFile(su, "20261126100000_p0_gate_record_risk_alert_action", variant, db.notices);
     await applyFile(su, "20261126100000_p0_gate_record_risk_alert_action", variant, db.notices);
     ok((await p0Full(su, db.caseId)).good, "P0");
+  });
+  const ondaL = seq.ondas.find((w) => w.id === "L");
+  if (ondaL) {
+    await check(`[${variant}] onda L: ${ondaL.migrations.length} migration(s) idempotente(s) (aplicadas 2x sem erro, P0 intacto, dados e as 9 abertas preservados; regras QUALIDADE semeadas e estaveis)`, async () => {
+      const pre = await snapshotData(su);
+      ok(pre.qualidade_rules, "H2c nao semeou regras de QUALIDADE");
+      for (const stem of ondaL.migrations) await applyFile(su, stem, variant, db.notices);
+      const post = await snapshotData(su);
+      for (const k of ["actions", "open_med_low", "cases", "members", "rules", "qualidade_rules"]) ok(pre[k] === post[k], `${k} mudou ao reaplicar`);
+      ok(!rulesOk(pre, post), rulesOk(pre, post) ?? "");
+      ok((await p0Full(su, db.caseId)).good, "P0 apos reaplicar");
+    });
+  }
+  await check(`[${variant}] controle negativo das regras de SLA: alterar regra antiga, remover regra ou criar regra nova fora de QUALIDADE FALHA`, async () => {
+    const base = { rules_rows: { a: { row: "(a,1)", area: null }, q: { row: "(q,1)", area: "QUALIDADE" } } };
+    ok(!rulesOk(base, { rules_rows: { ...base.rules_rows, n: { row: "(n)", area: "QUALIDADE" } } }), "nova QUALIDADE deveria passar");
+    ok(rulesOk(base, { rules_rows: { ...base.rules_rows, a: { row: "(a,2)", area: null } } }), "alteracao de regra antiga deveria falhar");
+    ok(rulesOk(base, { rules_rows: { a: base.rules_rows.a } }), "remocao deveria falhar");
+    ok(rulesOk(base, { rules_rows: { ...base.rules_rows, n: { row: "(n)", area: "JURIDICO" } } }), "nova fora de QUALIDADE deveria falhar");
+    // regra antiga mudando de area para QUALIDADE tambem muda a linha => falha
+    ok(rulesOk(base, { rules_rows: { ...base.rules_rows, a: { row: "(a,1,Q)", area: "QUALIDADE" } } }), "mudar area de regra antiga deveria falhar");
   });
   if (tailStems.length) {
     await check(`[${variant}] onda F5: ${tailStems.length} migration(s) nova(s) idempotente(s) (aplicadas 2x sem erro, P0 intacto, dados preservados)`, async () => {
@@ -437,6 +469,102 @@ try {
     ok((await p0Full(dup.su, dup.caseId)).good, "101000 nao restaurou o corpo protegido");
     await applyFile(dup.su, "20261126100000_p0_gate_record_risk_alert_action", "LF", dup.notices);
   });
+  // ---------------- ROLLBACK por ondas (Fase 6/H5): aplica a onda, aplica os rollbacks em ordem INVERSA (duas vezes: idempotencia),
+  // confere que os objetos novos sairam (verificacao 'antes'), compara a "impressao digital" do esquema antes/depois e REAPLICA a onda ----------------
+  if (process.env.ACC_ENSAIO_ROLLBACKS !== "0") {
+    out("\n=== Ensaio de ROLLBACK por ondas (cada onda: aplicar -> rollback em ordem inversa (2x) -> reaplicar) ===");
+    const rb = await buildMirror("rb", "LF");
+    const rbDirPath = path.join(here, "..", "supabase", "rollbacks");
+    const rbBody = (stem) => readFileSync(path.join(rbDirPath, `${stem}.rollback.sql`), "utf8").replace(/^﻿/, "").replace(/\r\n/g, "\n");
+    const fingerprint = async (su) => {
+      const q = async (sql) => new Map((await su.query(sql)).rows.map((r) => [r.k, r.v]));
+      return {
+        tabelas: await q("select table_name as k, '1' as v from information_schema.tables where table_schema = 'public'"),
+        colunas: await q("select table_name || '.' || column_name as k, data_type || coalesce(column_default, '') || is_nullable as v from information_schema.columns where table_schema = 'public'"),
+        indices: await q("select indexname as k, indexdef as v from pg_indexes where schemaname = 'public'"),
+        gatilhos: await q("select tgrelid::regclass::text || '.' || tgname as k, pg_get_triggerdef(oid) as v from pg_trigger where not tgisinternal and tgrelid::regclass::text like 'public.%'"),
+        politicas: await q("select tablename || '.' || policyname as k, coalesce(qual, '') || '|' || coalesce(with_check, '') || '|' || cmd || '|' || roles::text as v from pg_policies where schemaname = 'public'"),
+        constraints: await q("select conrelid::regclass::text || '.' || conname as k, pg_get_constraintdef(oid) as v from pg_constraint where connamespace = 'public'::regnamespace"),
+        funcoes: await q("select p.oid::regprocedure::text as k, md5(p.prosrc) || coalesce(p.proacl::text, '') || p.prosecdef::text as v from pg_proc p where p.pronamespace = 'public'::regnamespace"),
+        views: await q("select viewname as k, definition as v from pg_views where schemaname = 'public'"),
+      };
+    };
+    const diff = (a, b) => {
+      const out_ = [];
+      for (const cat of Object.keys(a)) {
+        for (const [k, v] of a[cat]) { if (!b[cat].has(k)) out_.push(`${cat}:- ${k}`); else if (b[cat].get(k) !== v) out_.push(`${cat}:~ ${k}`); }
+        for (const k of b[cat].keys()) if (!a[cat].has(k)) out_.push(`${cat}:+ ${k}`);
+      }
+      return out_;
+    };
+    report.rollbacks = [];
+    for (const w of seq.ondas) {
+      const vArq = w.id === "F5" ? "novas" : w.id.toLowerCase();
+      const su = rb.su;
+      const fp0 = await fingerprint(su);
+      for (const stem of w.migrations) await applyFile(su, stem, "LF", rb.notices);
+      const fp1 = await fingerprint(su);
+      await check(`[rollback] onda ${w.id}: aplicada; P0 protegido`, async () => ok((await p0Full(su, rb.caseId)).good, "P0"));
+      const arquivos = w.migrations.map((s) => ({ stem: s, txt: rbBody(s) }));
+      const noop = arquivos.filter((a) => !/\bdrop |create or replace|alter table|restaura/i.test(a.txt.replace(/^--.*$/gm, ""))).map((a) => a.stem);
+      const refusa = arquivos.filter((a) => /ROLLBACK_IRREVERSIVEL/.test(a.txt)).map((a) => a.stem);
+      for (const a of [...arquivos].reverse()) {
+        if (refusa.includes(a.stem)) continue;
+        // cada arquivo roda DUAS vezes seguidas (idempotencia: a segunda execucao nao pode falhar nem mudar nada)
+        for (const passo of [1, 2]) {
+          await check(`[rollback] onda ${w.id} ${a.stem}.rollback.sql${passo === 2 ? " (2a execucao: idempotencia)" : ""}: executa, P0 intacto`, async () => {
+            try { await su.query(a.txt); } catch (e) { await su.query("rollback").catch(() => {}); throw e; }
+            ok((await p0Full(su, rb.caseId)).good, "P0 apos o rollback");
+          });
+        }
+      }
+      await check(`[rollback] onda ${w.id}: verificacao-onda-${vArq}.sql fase=antes apos o rollback (objetos novos removidos)`, async () => {
+        const r = await verificarOnda(su, vArq, "antes", w.migrations);
+        ok(r.falhas === 0, `falhas=${r.falhas}: ${r.detalhe}`);
+      });
+      const fp2 = await fingerprint(su);
+      const d = diff(fp0, fp2);
+      report.rollbacks.push({ onda: w.id, migrations: w.migrations.length, noop, refusa, diferencas: d });
+      out(`[rollback] onda ${w.id}: esquema apos o rollback x antes da onda: ${d.length === 0 ? "IDENTICO (reversao exata)" : `${d.length} diferenca(s): ${d.slice(0, 12).join("; ")}`}${noop.length ? ` | NO-OP: ${noop.map((s) => s.slice(0, 14)).join(",")}` : ""}`);
+      for (const stem of w.migrations) await applyFile(su, stem, "LF", rb.notices);
+      const fp3 = await fingerprint(su);
+      await check(`[rollback] onda ${w.id}: reaplicada apos o rollback; esquema igual ao da primeira aplicacao; P0 protegido`, async () => {
+        const d3 = diff(fp1, fp3);
+        ok(d3.length === 0, `${d3.length} diferenca(s) apos reaplicar: ${d3.slice(0, 8).join("; ")}`);
+        ok((await p0Full(su, rb.caseId)).good, "P0 apos reaplicar");
+      });
+      const r2 = await verificarOnda(su, vArq, "depois", w.migrations);
+      await check(`[rollback] onda ${w.id}: verificacao-onda-${vArq}.sql fase=depois apos reaplicar`, async () => ok(r2.falhas === 0, `falhas=${r2.falhas}: ${r2.detalhe}`));
+    }
+    await check("[rollback] 20261121177000 (SLA, adiada): o rollback RECUSA (irreversivel por script) e nada muda", async () => {
+      const su = rb.su;
+      const pre = await snapshotData(su);
+      let msg = "";
+      try { await su.query(rbBody("20261121177000_sla_medio_baixo_prazos_aprovados")); } catch (e) { msg = e.message; await su.query("rollback").catch(() => {}); }
+      ok(/ROLLBACK_IRREVERSIVEL/.test(msg), `mensagem: ${msg}`);
+      const post = await snapshotData(su);
+      ok(pre.actions === post.actions && pre.open_med_low === post.open_med_low, "dados mudaram");
+    });
+    await check("[rollback] guarda de dados: com evidencia gravada (organizacao externa) o rollback RECUSA (ROLLBACK_BLOCKED) e nada e apagado", async () => {
+      const su = rb.su;
+      const org = (await su.query("insert into public.external_organizations (legal_name, org_kind, created_by) values ('Org ensaio (SIMULADA)', 'OUTRO', $1) returning id", [U.ADMIN])).rows[0].id;
+      let msg = "";
+      try { await su.query(rbBody("20261203100000_external_parties_contract")); } catch (e) { msg = e.message; await su.query("rollback").catch(() => {}); }
+      ok(/ROLLBACK_BLOCKED/.test(msg), `esperava ROLLBACK_BLOCKED: ${msg}`);
+      ok((await su.query("select count(*)::int n from public.external_organizations where id = $1", [org])).rows[0].n === 1, "evidencia apagada");
+      await su.query("delete from public.external_organizations where id = $1", [org]);
+    });
+    await check("[rollback] guarda de dados (gerado pela H5): com consumo de IA gravado (ai_consult_usage) o rollback de 20261120120000 RECUSA e nada e apagado", async () => {
+      const su = rb.su;
+      const id = (await su.query("insert into public.ai_consult_usage (project_id, user_id, kind, subject_id, usage_day) values ($1, $2, 'ALERTA', 'ensaio', current_date) returning id", [P, U.ADMIN])).rows[0].id;
+      let msg = "";
+      try { await su.query(rbBody("20261120120000_ssma_forward_and_ai_consult_limits")); } catch (e) { msg = e.message; await su.query("rollback").catch(() => {}); }
+      ok(/ROLLBACK_BLOCKED/.test(msg), `esperava ROLLBACK_BLOCKED: ${msg}`);
+      ok((await su.query("select count(*)::int n from public.ai_consult_usage where id = $1", [id])).rows[0].n === 1, "dado apagado");
+      await su.query("delete from public.ai_consult_usage where id = $1", [id]);
+    });
+    await rb.su.end();
+  }
   await dup.su.end();
 } catch (e) {
   out(`FAIL ensaio abortado: ${String(e.message).split("\n")[0]}`);
@@ -457,6 +585,12 @@ function fmtRows(variant) {
     : `| ${r.w} | ${r.stem} | ${r.ms.toFixed(0)} | ${r.locks.length ? r.locks.join("; ") : "nenhum"} | ${r.p0 ? "protegido" : "FALHA"} | ${r.notices.length ? r.notices.map((m) => m.replace(/\|/g, "/")).join(" ").slice(0, 160) : ""} |`);
   return [head, ...body_].join("\n") + `\n\nTotal de migrations (soma): ${v.totalMs.toFixed(0)} ms.`;
 }
+function fmtRollbacks() {
+  if (!report.rollbacks) return "(nao executado: ACC_ENSAIO_ROLLBACKS=0)";
+  const head = "| Onda | Migrations | Rollbacks NO-OP | Esquema apos o rollback x antes da onda |\n|---|--:|---|---|";
+  const rows = report.rollbacks.map((r) => `| ${r.onda} | ${r.migrations} | ${r.noop.length ? r.noop.map((x) => x.slice(0, 14)).join(", ") : "-"} | ${r.diferencas.length === 0 ? "IDENTICO (reversao exata)" : `${r.diferencas.length} diferenca(s): ${r.diferencas.slice(0, 6).join("; ")}`} |`);
+  return [head, ...rows].join("\n");
+}
 out(`\n${passed} ok, ${failed} falha(s) - PostgreSQL ${version}`);
 if (reportPath) {
   const md = `# 08 - Relatorio do ensaio por ondas (PostgreSQL ${version} local, base descartavel)
@@ -470,6 +604,9 @@ ${fmtRows("LF")}
 
 ## Variante CRLF (checkout Windows)
 ${fmtRows("CRLF")}
+
+## Rollback por ondas (Fase 6/H5; aplicar -> rollback em ordem inversa, cada arquivo 2x -> reaplicar)
+${fmtRollbacks()}
 
 ## Ondas ensaiadas a parte
 - H2 (20261123302000, so com o app): ${report.h2 ? `${report.h2.ms.toFixed(0)} ms; locks: ${report.h2.locks.join("; ") || "nenhum"}` : "nao executada"}.

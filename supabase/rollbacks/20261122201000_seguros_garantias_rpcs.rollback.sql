@@ -1,0 +1,41 @@
+-- ROLLBACK (manual, NAO e migration) de 20261122201000_seguros_garantias_rpcs.sql (Fase 6/H5).
+-- Transacional e idempotente. Recusa (ROLLBACK_BLOCKED) se houver dados/evidencia que seriam apagados. NUNCA toca record_risk_alert_action.
+-- Ordem: guardas -> gatilhos/politicas -> views -> tabelas novas -> funcoes novas -> funcoes restauradas -> indices -> constraints -> colunas.
+begin;
+drop function if exists public.insurance_int_require(uuid, text);
+drop function if exists public.insurance_int_audit(uuid, text, uuid, text, jsonb);
+drop function if exists public.insurance_int_same_project(text, uuid, uuid);
+drop function if exists public.insurance_int_text(jsonb, text);
+drop function if exists public.insurance_int_uuid(jsonb, text);
+drop function if exists public.insurance_int_norm_text(text);
+drop function if exists public.insurance_int_policy_snapshot(uuid, text);
+drop function if exists public.insurance_int_lock_policy(uuid, integer);
+drop function if exists public.insurance_int_bump_policy(uuid, text);
+drop function if exists public.insurance_claim_transition_allowed(text, text);
+drop function if exists public.insurance_policy_create(uuid, jsonb);
+drop function if exists public.insurance_policy_new_version(uuid, integer, jsonb, text);
+drop function if exists public.insurance_policy_party_add(uuid, integer, jsonb);
+drop function if exists public.insurance_policy_party_set_active(uuid, integer, boolean, text);
+drop function if exists public.insurance_policy_clause_add(uuid, integer, jsonb);
+drop function if exists public.insurance_channel_register(uuid, jsonb);
+drop function if exists public.insurance_channel_verify(uuid);
+drop function if exists public.bank_guarantee_register(uuid, jsonb);
+drop function if exists public.bank_guarantee_update(uuid, integer, jsonb);
+drop function if exists public.other_guarantee_register(uuid, jsonb);
+drop function if exists public.other_guarantee_update(uuid, integer, jsonb);
+drop function if exists public.insurance_endorsement_request(uuid, jsonb);
+drop function if exists public.insurance_endorsement_advance(uuid, integer, text, jsonb);
+drop function if exists public.insurance_advance_register(uuid, jsonb);
+drop function if exists public.insurance_advance_amortize(uuid, integer, jsonb);
+drop function if exists public.insurance_advance_balance(uuid);
+drop function if exists public.insurance_claim_open(uuid, jsonb);
+drop function if exists public.insurance_claim_advance(uuid, integer, text, jsonb);
+drop function if exists public.insurance_dossier_sync(uuid, jsonb);
+drop function if exists public.insurance_dossier_item_set(uuid, integer, text, uuid, text);
+drop function if exists public.insurance_draft_create(uuid, jsonb);
+drop function if exists public.insurance_draft_update(uuid, integer, text, text);
+drop function if exists public.insurance_draft_approve(uuid, integer, text);
+drop function if exists public.insurance_draft_cancel(uuid, integer, text);
+drop function if exists public.insurance_draft_attempt_send(uuid);
+drop function if exists public.insurance_dashboard_items(uuid, date, integer);
+commit;

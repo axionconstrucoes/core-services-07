@@ -3,6 +3,7 @@
 --   pg_dump -t public.email_sync_reconciliation_runs -t public.email_ingestion_exclusions -t public.email_message_sources -t public.email_sync_cursors
 -- Reverter ANTES qualquer objeto de outra frente que dependa destas tabelas/colunas. As linhas de public.emails permanecem;
 -- só as colunas novas são removidas (perde cc/bcc/domínios/chave canônica/anexos-meta), e linhas com provider='OUTLOOK' impedem restaurar o CHECK antigo.
+begin;
 do $$
 begin
   if exists (select 1 from public.emails where provider = 'OUTLOOK') then
@@ -28,3 +29,4 @@ alter table public.emails
   drop column if exists involved_domains,
   drop column if exists canonical_message_key,
   drop column if exists attachments_meta;
+commit;

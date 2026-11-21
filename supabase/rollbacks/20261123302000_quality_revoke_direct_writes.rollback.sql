@@ -1,5 +1,6 @@
 -- ROLLBACK (manual, NÃO é migration; nunca aplicado automaticamente) de 20261123302000_quality_revoke_direct_writes.sql.
 -- Devolve a `authenticated` exatamente os GRANTs da fase 1 (20261122100000). As policies nunca foram removidas.
+begin;
 do $$
 declare t text;
 begin
@@ -20,3 +21,4 @@ grant update (contract_ref, service_system, delivered_at, discovered_at, communi
   solidity_safety, responsible_user_id, due_date, estimated_cost, actual_cost, supplier_name,
   supplier_warranty_until, builder_warranty_until, accepted_at, accepted_by_name, ncr_id)
   on table public.quality_warranty_cases to authenticated;
+commit;
