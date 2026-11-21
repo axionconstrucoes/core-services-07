@@ -469,6 +469,102 @@ try {
     ok((await p0Full(dup.su, dup.caseId)).good, "101000 nao restaurou o corpo protegido");
     await applyFile(dup.su, "20261126100000_p0_gate_record_risk_alert_action", "LF", dup.notices);
   });
+  // ---------------- ROLLBACK por ondas (Fase 6/H5): aplica a onda, aplica os rollbacks em ordem INVERSA (duas vezes: idempotencia),
+  // confere que os objetos novos sairam (verificacao 'antes'), compara a "impressao digital" do esquema antes/depois e REAPLICA a onda ----------------
+  if (process.env.ACC_ENSAIO_ROLLBACKS !== "0") {
+    out("\n=== Ensaio de ROLLBACK por ondas (cada onda: aplicar -> rollback em ordem inversa (2x) -> reaplicar) ===");
+    const rb = await buildMirror("rb", "LF");
+    const rbDirPath = path.join(here, "..", "supabase", "rollbacks");
+    const rbBody = (stem) => readFileSync(path.join(rbDirPath, `${stem}.rollback.sql`), "utf8").replace(/^﻿/, "").replace(/\r\n/g, "\n");
+    const fingerprint = async (su) => {
+      const q = async (sql) => new Map((await su.query(sql)).rows.map((r) => [r.k, r.v]));
+      return {
+        tabelas: await q("select table_name as k, '1' as v from information_schema.tables where table_schema = 'public'"),
+        colunas: await q("select table_name || '.' || column_name as k, data_type || coalesce(column_default, '') || is_nullable as v from information_schema.columns where table_schema = 'public'"),
+        indices: await q("select indexname as k, indexdef as v from pg_indexes where schemaname = 'public'"),
+        gatilhos: await q("select tgrelid::regclass::text || '.' || tgname as k, pg_get_triggerdef(oid) as v from pg_trigger where not tgisinternal and tgrelid::regclass::text like 'public.%'"),
+        politicas: await q("select tablename || '.' || policyname as k, coalesce(qual, '') || '|' || coalesce(with_check, '') || '|' || cmd || '|' || roles::text as v from pg_policies where schemaname = 'public'"),
+        constraints: await q("select conrelid::regclass::text || '.' || conname as k, pg_get_constraintdef(oid) as v from pg_constraint where connamespace = 'public'::regnamespace"),
+        funcoes: await q("select p.oid::regprocedure::text as k, md5(p.prosrc) || coalesce(p.proacl::text, '') || p.prosecdef::text as v from pg_proc p where p.pronamespace = 'public'::regnamespace"),
+        views: await q("select viewname as k, definition as v from pg_views where schemaname = 'public'"),
+      };
+    };
+    const diff = (a, b) => {
+      const out_ = [];
+      for (const cat of Object.keys(a)) {
+        for (const [k, v] of a[cat]) { if (!b[cat].has(k)) out_.push(`${cat}:- ${k}`); else if (b[cat].get(k) !== v) out_.push(`${cat}:~ ${k}`); }
+        for (const k of b[cat].keys()) if (!a[cat].has(k)) out_.push(`${cat}:+ ${k}`);
+      }
+      return out_;
+    };
+    report.rollbacks = [];
+    for (const w of seq.ondas) {
+      const vArq = w.id === "F5" ? "novas" : w.id.toLowerCase();
+      const su = rb.su;
+      const fp0 = await fingerprint(su);
+      for (const stem of w.migrations) await applyFile(su, stem, "LF", rb.notices);
+      const fp1 = await fingerprint(su);
+      await check(`[rollback] onda ${w.id}: aplicada; P0 protegido`, async () => ok((await p0Full(su, rb.caseId)).good, "P0"));
+      const arquivos = w.migrations.map((s) => ({ stem: s, txt: rbBody(s) }));
+      const noop = arquivos.filter((a) => !/\bdrop |create or replace|alter table|restaura/i.test(a.txt.replace(/^--.*$/gm, ""))).map((a) => a.stem);
+      const refusa = arquivos.filter((a) => /ROLLBACK_IRREVERSIVEL/.test(a.txt)).map((a) => a.stem);
+      for (const a of [...arquivos].reverse()) {
+        if (refusa.includes(a.stem)) continue;
+        // cada arquivo roda DUAS vezes seguidas (idempotencia: a segunda execucao nao pode falhar nem mudar nada)
+        for (const passo of [1, 2]) {
+          await check(`[rollback] onda ${w.id} ${a.stem}.rollback.sql${passo === 2 ? " (2a execucao: idempotencia)" : ""}: executa, P0 intacto`, async () => {
+            try { await su.query(a.txt); } catch (e) { await su.query("rollback").catch(() => {}); throw e; }
+            ok((await p0Full(su, rb.caseId)).good, "P0 apos o rollback");
+          });
+        }
+      }
+      await check(`[rollback] onda ${w.id}: verificacao-onda-${vArq}.sql fase=antes apos o rollback (objetos novos removidos)`, async () => {
+        const r = await verificarOnda(su, vArq, "antes", w.migrations);
+        ok(r.falhas === 0, `falhas=${r.falhas}: ${r.detalhe}`);
+      });
+      const fp2 = await fingerprint(su);
+      const d = diff(fp0, fp2);
+      report.rollbacks.push({ onda: w.id, migrations: w.migrations.length, noop, refusa, diferencas: d });
+      out(`[rollback] onda ${w.id}: esquema apos o rollback x antes da onda: ${d.length === 0 ? "IDENTICO (reversao exata)" : `${d.length} diferenca(s): ${d.slice(0, 12).join("; ")}`}${noop.length ? ` | NO-OP: ${noop.map((s) => s.slice(0, 14)).join(",")}` : ""}`);
+      for (const stem of w.migrations) await applyFile(su, stem, "LF", rb.notices);
+      const fp3 = await fingerprint(su);
+      await check(`[rollback] onda ${w.id}: reaplicada apos o rollback; esquema igual ao da primeira aplicacao; P0 protegido`, async () => {
+        const d3 = diff(fp1, fp3);
+        ok(d3.length === 0, `${d3.length} diferenca(s) apos reaplicar: ${d3.slice(0, 8).join("; ")}`);
+        ok((await p0Full(su, rb.caseId)).good, "P0 apos reaplicar");
+      });
+      const r2 = await verificarOnda(su, vArq, "depois", w.migrations);
+      await check(`[rollback] onda ${w.id}: verificacao-onda-${vArq}.sql fase=depois apos reaplicar`, async () => ok(r2.falhas === 0, `falhas=${r2.falhas}: ${r2.detalhe}`));
+    }
+    await check("[rollback] 20261121177000 (SLA, adiada): o rollback RECUSA (irreversivel por script) e nada muda", async () => {
+      const su = rb.su;
+      const pre = await snapshotData(su);
+      let msg = "";
+      try { await su.query(rbBody("20261121177000_sla_medio_baixo_prazos_aprovados")); } catch (e) { msg = e.message; await su.query("rollback").catch(() => {}); }
+      ok(/ROLLBACK_IRREVERSIVEL/.test(msg), `mensagem: ${msg}`);
+      const post = await snapshotData(su);
+      ok(pre.actions === post.actions && pre.open_med_low === post.open_med_low, "dados mudaram");
+    });
+    await check("[rollback] guarda de dados: com evidencia gravada (organizacao externa) o rollback RECUSA (ROLLBACK_BLOCKED) e nada e apagado", async () => {
+      const su = rb.su;
+      const org = (await su.query("insert into public.external_organizations (legal_name, org_kind, created_by) values ('Org ensaio (SIMULADA)', 'OUTRO', $1) returning id", [U.ADMIN])).rows[0].id;
+      let msg = "";
+      try { await su.query(rbBody("20261203100000_external_parties_contract")); } catch (e) { msg = e.message; await su.query("rollback").catch(() => {}); }
+      ok(/ROLLBACK_BLOCKED/.test(msg), `esperava ROLLBACK_BLOCKED: ${msg}`);
+      ok((await su.query("select count(*)::int n from public.external_organizations where id = $1", [org])).rows[0].n === 1, "evidencia apagada");
+      await su.query("delete from public.external_organizations where id = $1", [org]);
+    });
+    await check("[rollback] guarda de dados (gerado pela H5): com consumo de IA gravado (ai_consult_usage) o rollback de 20261120120000 RECUSA e nada e apagado", async () => {
+      const su = rb.su;
+      const id = (await su.query("insert into public.ai_consult_usage (project_id, user_id, kind, subject_id, usage_day) values ($1, $2, 'ALERTA', 'ensaio', current_date) returning id", [P, U.ADMIN])).rows[0].id;
+      let msg = "";
+      try { await su.query(rbBody("20261120120000_ssma_forward_and_ai_consult_limits")); } catch (e) { msg = e.message; await su.query("rollback").catch(() => {}); }
+      ok(/ROLLBACK_BLOCKED/.test(msg), `esperava ROLLBACK_BLOCKED: ${msg}`);
+      ok((await su.query("select count(*)::int n from public.ai_consult_usage where id = $1", [id])).rows[0].n === 1, "dado apagado");
+      await su.query("delete from public.ai_consult_usage where id = $1", [id]);
+    });
+    await rb.su.end();
+  }
   await dup.su.end();
 } catch (e) {
   out(`FAIL ensaio abortado: ${String(e.message).split("\n")[0]}`);
@@ -489,6 +585,12 @@ function fmtRows(variant) {
     : `| ${r.w} | ${r.stem} | ${r.ms.toFixed(0)} | ${r.locks.length ? r.locks.join("; ") : "nenhum"} | ${r.p0 ? "protegido" : "FALHA"} | ${r.notices.length ? r.notices.map((m) => m.replace(/\|/g, "/")).join(" ").slice(0, 160) : ""} |`);
   return [head, ...body_].join("\n") + `\n\nTotal de migrations (soma): ${v.totalMs.toFixed(0)} ms.`;
 }
+function fmtRollbacks() {
+  if (!report.rollbacks) return "(nao executado: ACC_ENSAIO_ROLLBACKS=0)";
+  const head = "| Onda | Migrations | Rollbacks NO-OP | Esquema apos o rollback x antes da onda |\n|---|--:|---|---|";
+  const rows = report.rollbacks.map((r) => `| ${r.onda} | ${r.migrations} | ${r.noop.length ? r.noop.map((x) => x.slice(0, 14)).join(", ") : "-"} | ${r.diferencas.length === 0 ? "IDENTICO (reversao exata)" : `${r.diferencas.length} diferenca(s): ${r.diferencas.slice(0, 6).join("; ")}`} |`);
+  return [head, ...rows].join("\n");
+}
 out(`\n${passed} ok, ${failed} falha(s) - PostgreSQL ${version}`);
 if (reportPath) {
   const md = `# 08 - Relatorio do ensaio por ondas (PostgreSQL ${version} local, base descartavel)
@@ -502,6 +604,9 @@ ${fmtRows("LF")}
 
 ## Variante CRLF (checkout Windows)
 ${fmtRows("CRLF")}
+
+## Rollback por ondas (Fase 6/H5; aplicar -> rollback em ordem inversa, cada arquivo 2x -> reaplicar)
+${fmtRollbacks()}
 
 ## Ondas ensaiadas a parte
 - H2 (20261123302000, so com o app): ${report.h2 ? `${report.h2.ms.toFixed(0)} ms; locks: ${report.h2.locks.join("; ") || "nenhum"}` : "nao executada"}.

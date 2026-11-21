@@ -152,3 +152,4 @@ scripts/test-f6-h2b-sinais-orgs-realpg.mjs
 scripts/test-f6-h2a-governanca-realpg.mjs
 scripts/test-f6-h2a-governanca.mjs
 scripts/test-f6-h2a-browser.mjs
+scripts/test-implantacao-rollbacks.mjs
