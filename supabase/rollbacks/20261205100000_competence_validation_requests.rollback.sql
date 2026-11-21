@@ -40,6 +40,7 @@ drop table if exists public.project_competence_validators;
 drop table if exists public.project_competence_requests;
 drop function if exists public.project_competence_requests_guard();
 drop function if exists public.project_competence_validators_guard();
+drop function if exists public.acc_am_designated_competence_validator(uuid);
 drop function if exists public.acc_is_designated_competence_validator(uuid, uuid);
 alter table public.project_competences drop constraint if exists project_competences_habilitation_status_chk;
 alter table public.project_competences drop column if exists habilitation_request_id;

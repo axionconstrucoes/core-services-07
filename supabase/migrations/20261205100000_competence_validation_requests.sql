@@ -193,6 +193,17 @@ as $$
 $$;
 revoke all on function public.acc_is_designated_competence_validator(uuid, uuid) from public, anon, authenticated;
 
+-- wrapper consultável pelas políticas RLS (só responde sobre o PRÓPRIO usuário autenticado)
+create or replace function public.acc_am_designated_competence_validator(p_project_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$ select public.acc_is_designated_competence_validator(p_project_id, auth.uid()); $$;
+revoke all on function public.acc_am_designated_competence_validator(uuid) from public, anon;
+grant execute on function public.acc_am_designated_competence_validator(uuid) to authenticated;
+
 -- ---------- RLS: leitura restrita; ZERO escrita direta ----------
 alter table public.project_competence_requests enable row level security;
 alter table public.project_competence_validators enable row level security;
@@ -201,7 +212,7 @@ drop policy if exists project_competence_requests_select on public.project_compe
 create policy project_competence_requests_select on public.project_competence_requests for select to authenticated
   using (requested_by = auth.uid() or target_user_id = auth.uid()
          or public.acc_project_tier(project_id) in ('ADMIN', 'MANAGE')
-         or public.acc_is_designated_competence_validator(project_id, auth.uid()));
+         or public.acc_am_designated_competence_validator(project_id));
 drop policy if exists project_competence_validators_select on public.project_competence_validators;
 create policy project_competence_validators_select on public.project_competence_validators for select to authenticated
   using (user_id = auth.uid() or public.acc_project_tier(project_id) in ('ADMIN', 'MANAGE'));
@@ -221,10 +232,11 @@ set search_path = ''
 as $$
 declare
   v_super boolean;
+  v_app boolean := coalesce(current_setting('role', true), '') in ('anon', 'authenticated', 'service_role');
   r public.project_competence_requests%rowtype;
 begin
   select coalesce((select rolsuper from pg_roles where rolname = session_user), false) into v_super;
-  if auth.uid() is null and v_super then
+  if auth.uid() is null and v_super and not v_app then
     -- carga de manutenção (superusuário, sem JWT): vale, mas fica identificável
     new.habilitation_status := 'MAINTENANCE';
     return new;
