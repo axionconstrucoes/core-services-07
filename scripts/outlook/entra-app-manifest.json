@@ -1,0 +1,18 @@
+{
+  "_comentario": "Manifesto de REFERENCIA para o registro do app 'ACC Outlook Reader' no Microsoft Entra ID. NAO foi aplicado em nenhum tenant. Importar manualmente (Portal Entra > App registrations > Manifest) ou usar como guia. Somente permissao de APLICATIVO Mail.Read (leitura); NAO conceder Mail.ReadWrite nem Mail.Send. Sem segredo neste arquivo: o segredo/certificado e gerado no portal e guardado so no repositorio de segredos do executor.",
+  "displayName": "ACC Outlook Reader",
+  "signInAudience": "AzureADMyOrg",
+  "isFallbackPublicClient": false,
+  "requiredResourceAccess": [
+    {
+      "resourceAppId": "00000003-0000-0000-c000-000000000000",
+      "resourceAccess": [
+        { "id": "810c84a8-4a9e-49e6-bf7d-12d183f40d01", "type": "Role", "_nome": "Mail.Read (Application)" }
+      ]
+    }
+  ],
+  "web": { "redirectUris": [], "implicitGrantSettings": { "enableAccessTokenIssuance": false, "enableIdTokenIssuance": false } },
+  "api": { "requestedAccessTokenVersion": 2 },
+  "_credencial": "Preferir CERTIFICADO ou federacao (workload identity). Se usar segredo de cliente: validade <= 6 meses, rotacao agendada, nome ACC_GRAPH_CLIENT_SECRET no executor.",
+  "_variaveis_do_acc": ["ACC_GRAPH_TENANT_ID", "ACC_GRAPH_CLIENT_ID", "ACC_GRAPH_CLIENT_SECRET", "ACC_GRAPH_MAILBOXES", "ACC_GRAPH_FOLDERS (opcional)"]
+}

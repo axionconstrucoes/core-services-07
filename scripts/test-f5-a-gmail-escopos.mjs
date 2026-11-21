@@ -89,7 +89,7 @@ check("Outlook/Graph: NÃO existe cliente, credencial, workflow nem dependência
   for (const dirName of ["scripts", "apps/web/lib", "apps/web/app", ".github"]) {
     for (const file of walk(path.join(root, dirName))) {
       const rel = path.relative(root, file).replace(/\\/g, "/");
-      if (rel.startsWith("scripts/lib/mail-universal/") || rel.startsWith("scripts/test-f5-a-")) continue;
+      if (rel.startsWith("scripts/lib/mail-universal/") || rel.startsWith("scripts/test-f5-a-") || rel.startsWith("scripts/test-f6-h3-") || rel.startsWith("scripts/outlook/")) continue; // Fase 6/H3: transporte/manifesto do Graph (donos desta frente)
       if (/graph\.microsoft\.com|login\.microsoftonline\.com|@azure\/msal|@microsoft\/microsoft-graph-client|AZURE_CLIENT_SECRET|MS_GRAPH_/.test(readFileSync(file, "utf8"))) offenders.push(rel);
     }
   }

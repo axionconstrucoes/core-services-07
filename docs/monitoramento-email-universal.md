@@ -19,7 +19,7 @@ A Frente A **não classifica risco**. Cada mensagem ingerida fica disponível à
 
 Todo e-mail acessível nas caixas **autorizadas** (gate por caixa já existente: lista da obra + autorização corporativa + permissão técnica + coleta habilitada + período) cujo participante (`From`, `To`, `Cc` ou `Bcc`) tenha o domínio **exato** `weg.net` entra na amostra: recebidos, enviados, cópias, cópias ocultas e threads.
 
-- Domínio exato: `weg.net.exemplo`, `xweg.net` e `sub.weg.net` **não** casam (subdomínio é ambíguo e fica para decisão do dono).
+- **Fase 6/H3 (decisão do responsável):** casam `weg.net` **e subdomínios legítimos** (regra de sufixo `.weg.net` com fronteira de domínio: `obras.weg.net` sim). **Não** casam `evilweg.net`, `xweg.net`, `weg.net.evil.com`, `weg.net.exemplo`, `weg.network` nem `weg.net.` (`domainMatchesOrSubdomain` em `participants.mjs`; testes em `test-gmail-weg-pilot-sender.mjs`, `test-f5-a-monitoramento.mjs` e `test-f6-h3-graph-transporte.mjs`). A variante estrita (`hasParticipantInExactDomain`) continua disponível. O prefiltro de termo do Gmail (`from:weg.net ...`) é só redução; para varrer subdomínios com certeza use o modo universo (sem prefiltro).
 - Sem filtro por palavra-chave nem por assunto aprovado (`pilotScopeBypass`).
 - A consulta do Gmail passa a ser `{from:weg.net to:weg.net cc:weg.net bcc:weg.net}`; a conferência real dos cabeçalhos é `pilotMessageEligible`.
 - As travas de **envio** (`only-recipient-guard`, `pilot-outbound-guard`) **não foram tocadas**.
@@ -65,7 +65,9 @@ Estado declarado no código: delegação **`PENDENTE_AUTORIZACAO_NO_GOOGLE_ADMIN
 
 ## 5. Outlook / Microsoft Graph — BLOQUEIO exato para uso real
 
-**Estado: não existe integração real com Outlook/Graph no repositório** (provado por teste: nenhuma URL `graph.microsoft.com`/`login.microsoftonline.com`, nenhuma dependência MSAL/Graph, nenhum workflow, nenhuma variável). O monitoramento de caixas Outlook **NÃO está comprovado**. O que existe é a **camada de leitura** (`MailReader`) exercitada com transporte falso.
+**Atualização Fase 6/H3:** o **transporte real do Graph está implementado** (`graph-transport.mjs`, client credentials, delta por pasta, paginação, `Retry-After`, somente leitura, anexos só metadados), testado **apenas contra servidor HTTP falso local**; configuração por variáveis `ACC_GRAPH_*`, manifesto do Entra e script de política de acesso estão em `scripts/outlook/` e `docs/outlook-configuracao-graph.md`. Continua **sem** registro no Entra, credencial, consentimento ou workflow, e **nenhuma chamada real foi feita**. **Achado:** `crm@axion.com.br` é caixa Google (MX do Google), não Exchange: ver `docs/outlook-achado-crm-axion-mx-google.md` (opções A/B/C). Diagnóstico de cobertura do Gmail: `docs/relatorio-cobertura-gmail.md`.
+
+**Estado anterior (Fase 5): não existia integração real com Outlook/Graph no repositório** (nenhuma URL `graph.microsoft.com`/`login.microsoftonline.com` fora do módulo do leitor, nenhuma dependência MSAL/Graph, nenhum workflow, nenhuma variável). O monitoramento de caixas Outlook **NÃO está comprovado**. O que existe é a **camada de leitura** (`MailReader`) exercitada com transporte falso.
 
 Para uso real faltam, nesta ordem (decisões e ações fora do código):
 
@@ -73,9 +75,9 @@ Para uso real faltam, nesta ordem (decisões e ações fora do código):
 2. **Permissão de aplicativo `Mail.Read`** (somente leitura; **não** `Mail.ReadWrite`, **não** `Mail.Send`) com **consentimento de administrador** do locatário.
 3. **Restrição por caixa** (Application Access Policy / RBAC for Applications do Exchange Online) limitando o aplicativo às caixas autorizadas — sem isso o consentimento daria acesso a todas as caixas.
 4. **Credencial segura no servidor**: certificado ou segredo do cliente no repositório de segredos do executor (nunca no frontend nem no Git); preferir federação de identidade (WIF/OIDC).
-5. **Transporte real** (`delta`, `getMessage`, `listAttachments`) implementando a interface somente-leitura de `scripts/lib/mail-universal/read-only.mjs`, e um workflow manual equivalente ao Gmail.
+5. ~~Transporte real~~ (feito na Fase 6/H3, só testado contra servidor falso) (`delta`, `getMessage`, `listAttachments`) implementando a interface somente-leitura de `scripts/lib/mail-universal/read-only.mjs`, e um workflow manual equivalente ao Gmail.
 6. Reaproveitar o **mesmo gate por caixa** (lista da obra + autorização corporativa + aceite individual + período) — hoje só existe para o Gmail.
-7. Quotas: Graph limita por aplicação/caixa (HTTP 429 com `Retry-After`); o motor já tenta de novo com recuo, mas o transporte real precisa respeitar `Retry-After`.
+7. Quotas: Graph limita por aplicação/caixa (HTTP 429 com `Retry-After`); o transporte da Fase 6/H3 já respeita `Retry-After` (testado contra servidor falso).
 
 SPF, DKIM e DMARC **não** afetam a leitura de caixas; só o envio.
 
