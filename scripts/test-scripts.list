@@ -124,3 +124,7 @@ scripts/test-competencias-realpg.mjs
 scripts/test-f4b-garantias-seguros.mjs
 scripts/test-f4b-garantias-seguros-realpg.mjs
 scripts/test-garantias-browser.mjs
+scripts/test-f5-a-monitoramento.mjs
+scripts/test-f5-a-store-adapter.mjs
+scripts/test-f5-a-gmail-escopos.mjs
+scripts/test-f5-a-monitoramento-realpg.mjs
