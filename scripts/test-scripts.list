@@ -130,3 +130,5 @@ scripts/test-f5-a-gmail-escopos.mjs
 scripts/test-f5-a-monitoramento-realpg.mjs
 scripts/test-f5-b-classificacao-email.mjs
 scripts/test-f5-b-classificacao-realpg.mjs
+scripts/test-f5-c-contatos.mjs
+scripts/test-f5-c-contatos-realpg.mjs

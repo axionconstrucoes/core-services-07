@@ -139,6 +139,11 @@ export default async function IntegracoesPage({
           Caixas de e-mail: diagnóstico por caixa (7 etapas), autorização, período e revogação →
         </Link>
       </p>
+      <p className="text-sm">
+        <Link href={`/${projectId}/integracoes/contatos-externos`} className="font-semibold text-brand-sidebar hover:underline">
+          Contatos externos monitorados: organizações, domínios, vínculos com a obra e contatos descobertos →
+        </Link>
+      </p>
 
       <UserIntegrationMatrix rows={userSourceRows} shared={sharedSourceRows} warnings={userIntegrationEvidence.warnings} measuredAt={userIntegrationEvidence.measuredAt} unassignedEmails={userIntegrationEvidence.unassignedEmails} systemOutputEmails={userIntegrationEvidence.systemOutputEmails} />
 
