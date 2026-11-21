@@ -123,3 +123,4 @@ scripts/test-competencias-realpg.mjs
 scripts/test-f4b-garantias-seguros.mjs
 scripts/test-f4b-garantias-seguros-realpg.mjs
 scripts/test-garantias-browser.mjs
+scripts/test-f5-b-classificacao-email.mjs
