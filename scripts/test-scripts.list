@@ -143,3 +143,5 @@ scripts/test-implantacao-publicacao.mjs
 scripts/test-f6-h3-graph-transporte.mjs
 scripts/test-f6-h3-gmail-sonda.mjs
 scripts/test-f6-h3-outlook-config.mjs
+scripts/test-homolog-guard.mjs
+scripts/test-homolog-kit-realpg.mjs
