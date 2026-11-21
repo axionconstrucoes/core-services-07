@@ -65,6 +65,8 @@ function first(v: string | string[] | undefined): string | undefined {
 }
 function fmtDate(v: string | null | undefined): string {
   if (!v) return "—";
+  // data pura (AAAA-MM-DD) não tem fuso: formatar pela string; new Date() (UTC) recuaria um dia em America/Sao_Paulo
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v.split("-").reverse().join("/");
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? v : new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: v.length > 10 ? "short" : undefined, timeZone: "America/Sao_Paulo" }).format(d);
 }
