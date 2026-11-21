@@ -3,7 +3,7 @@
 import { messageForErrorParam } from "@/lib/governance/governance-errors";
 
 export const INPUT = "min-h-11 w-full rounded-md border border-gray-400 bg-white px-2 py-1 text-sm text-gray-900";
-export const BTN = "min-h-11 rounded-md bg-brand-sidebar px-4 py-2 text-sm font-bold text-white";
+export const BTN = "min-h-11 rounded-md border-2 border-gray-500 bg-brand-sidebar px-4 py-2 text-sm font-bold text-white";
 export const BTN_ALT = "min-h-11 rounded-md border-2 border-gray-600 bg-white px-4 py-2 text-sm font-bold text-gray-900";
 export const BTN_DANGER = "min-h-11 rounded-md border-2 border-red-800 bg-white px-4 py-2 text-sm font-bold text-red-900";
 

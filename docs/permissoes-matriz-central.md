@@ -367,3 +367,20 @@ Sem allowlist: qualquer domínio externo VÁLIDO pode ser preparado/analisado e,
 - O segundo administrador pode ser uma conta cadastrada pelo próprio solicitante; a independência real depende de quem cadastra administradores. O validador designado reduz o risco, mas a designação é feita pelo administrador: recomenda-se que o dono mantenha a lista de validadores aceitos.
 - Linhas de competência já existentes ficam UNVALIDATED: se algum ambiente já usa competências, será preciso revalidar.
 - Não há tela para solicitar/validar competência nem para preparar/aprovar envio externo (apenas RPCs e módulos TS): UI pendente.
+
+## 10. Fase 6 / H2a — revalidação de competências e telas de governança
+
+Migration `20261208100000_competence_revalidation_send_content.sql` (rollback em `supabase/rollbacks/`). Provas: `scripts/test-f6-h2a-governanca.mjs` (puro) e
+`scripts/test-f6-h2a-governanca-realpg.mjs` (Postgres 17 real, claims JWT).
+
+| Regra | Como é aplicada |
+|---|---|
+| Revalidação antes de atos críticos | `project_competences.revalidation_status` (`CURRENT`/`REQUIRED`). Toda competência existente na aplicação da migration fica `REQUIRED`; as concedidas depois nascem `CURRENT`. `acc_user_has_competence` só conta `CURRENT` (mais restritiva, fail-closed). O gate dos atos críticos (`acc_int_require_competence`: etapas de sinistro, aprovação de minuta, estado da Qualidade) recusa com `COMPETENCE_REVALIDATION_REQUIRED` e mensagem clara; a conferência de endosso crítico recusa com a mensagem genérica `COMPETENCE_REQUIRED` |
+| Quem revalida | `project_competence_revalidate`: ADMINISTRADOR do projeto OU validador designado ATIVO; nunca a pessoa que recebeu a competência nem quem a concedeu; exige evidência documental no projeto, confirmação de evidência conferida e nota >= 20 caracteres; trilha `REVALIDATED` (append-only) + `audit_log_entries` |
+| Validadores | designar/revogar: só ADMINISTRADOR; prazo <= 180 dias; documento obrigatório; aceite do próprio designado (RPCs da Fase 5/E, agora com tela) |
+| Aprovação de envio externo | COLABORADOR+ prepara (`acc_external_send_prepare_with_content`, grava conteúdo append-only e confere o SHA-256); GESTOR/GERENTE/ADMINISTRADOR decidem; minuta de Seguros só ADMINISTRADOR; uso único; **a tela nunca envia nem consome a autorização** |
+| Menu e rota | `competencias` (nível mínimo READ) e `aprovacoes-externas` (REGISTER) em `TIER_GATED_SEGMENTS`; layouts dos segmentos chamam `requireSegmentAccess`; a RLS/RPC continua sendo a autoridade |
+
+Limites declarados: um validador designado que NÃO é membro do projeto não consegue abrir as telas do projeto (precisa de ao menos uma membership ativa, que não lhe dá poder
+algum de competência); o painel antigo de competências em Seguros usa a RPC `project_competence_grant`, recusada desde a Fase 5/E (`HABILITATION_VALIDATION_REQUIRED`): o fluxo
+vigente é a tela Competências.
