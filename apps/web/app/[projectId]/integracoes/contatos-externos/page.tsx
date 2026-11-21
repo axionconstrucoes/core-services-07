@@ -11,6 +11,7 @@ import { getExternalPartiesOverview } from "@/lib/external-parties/get-overview"
 import { SEM_DADOS } from "@/lib/external-parties/overview";
 import { ORG_KINDS, type ExternalOrgProjectLink } from "@/lib/external-parties/types";
 import { getProjectTier } from "@/lib/permissions/project-tier-server";
+import { getIsTenantAdmin } from "@/lib/permissions/tenant-admin-server";
 import { addDomainAction, cancelChangeRequestAction, createOrganizationAction, decideCandidateAction, decideChangeRequestAction, setContactAction, setLinkAction, updateOrganizationAction } from "./actions";
 
 export const metadata: Metadata = { title: "Contatos externos monitorados" };
@@ -25,13 +26,14 @@ const FLASH: Record<string, string> = {
   "candidato-confirmado": "Candidato confirmado como contato da organização e auditado.",
   "candidato-rejeitado": "Candidato rejeitado e auditado. O e-mail não será tratado como contato desta organização.",
   "organizacao-atualizada": "Dados da organização atualizados e auditados.",
-  "solicitacao-enviada": "Solicitação registrada. Nenhum dado global foi alterado: o ADMINISTRADOR do projeto decide e a decisão fica na auditoria.",
-  "solicitacao-aprovada": "Solicitação aprovada e aplicada pelo ADMINISTRADOR; a aplicação ficou na auditoria.",
+  "solicitacao-enviada": "Solicitação registrada. Nenhum dado global foi alterado: o administrador global (TENANT_ADMIN) decide e a decisão fica na auditoria.",
+  "solicitacao-aprovada": "Solicitação aprovada e aplicada pelo administrador global (TENANT_ADMIN); a aplicação ficou na auditoria.",
   "solicitacao-recusada": "Solicitação recusada com motivo registrado. Nada foi alterado.",
   "solicitacao-cancelada": "Solicitação cancelada. Nada foi alterado.",
 };
 const ERRORS: Record<string, string> = {
   permissao: "Somente GESTOR, GERENTE ou ADMINISTRADOR ativo do projeto gerencia contatos externos. Nada foi alterado.",
+  "permissao-global": "Decidir/aplicar dado global exige o administrador global (TENANT_ADMIN). Nada foi alterado.",
   dados: "Dados inválidos (tipo, nome, datas ou vigência). Nada foi alterado.",
   dominio: "Domínio inválido. Nada foi alterado.",
   email: "E-mail inválido. Nada foi alterado.",
@@ -103,7 +105,7 @@ export default async function ContatosExternosPage({
   const tier = await getProjectTier(projectId);
   if (tier !== "MANAGE" && tier !== "ADMIN") notFound(); // gestão (GESTOR/GERENTE/ADMINISTRADOR); demais perfis nem veem a rota
 
-  const mode = globalDataMode(tier);
+  const mode = globalDataMode(tier, await getIsTenantAdmin());
   const isAdmin = mode === "DIRECT";
   const query = await searchParams;
   const ok = first(query.ok);
@@ -129,7 +131,7 @@ export default async function ContatosExternosPage({
         <Link href={`/${projectId}/integracoes/sinais-email`} className="font-semibold text-brand-sidebar hover:underline">Sinais de risco de e-mail →</Link>
       </p>
       <p className="rounded-md border border-gray-300 bg-gray-50 px-3 py-2 text-xs text-gray-900">
-        Dados globais da organização (razão social, CNPJ, tipo, domínios e contatos) só o ADMINISTRADOR altera{isAdmin ? "." : "; você solicita a alteração e o ADMINISTRADOR decide."} Os vínculos e os contatos descobertos deste projeto continuam sob a gestão do projeto.<FeatureInfo helpId="integracoes.contatos-externos.dados-globais" />
+        Dados globais da organização (razão social, CNPJ, tipo, domínios e contatos) só o administrador global (TENANT_ADMIN) altera{isAdmin ? "." : "; você solicita a alteração e o administrador global decide. Sem administrador global registrado, nenhuma alteração global é aplicada."} Os vínculos e os contatos descobertos deste projeto continuam sob a gestão do projeto.<FeatureInfo helpId="integracoes.contatos-externos.dados-globais" />
       </p>
 
       {flash ? (

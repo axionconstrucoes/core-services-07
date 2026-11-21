@@ -30,9 +30,10 @@ export const CHANGE_KIND_LABEL: Record<ChangeKind, string> = {
 };
 export const CHANGE_STATUS_LABEL: Record<ChangeStatus, string> = { PENDING: "Pendente", APPROVED: "Aprovada", REJECTED: "Recusada", CANCELLED: "Cancelada" };
 
-/** Só o ADMINISTRADOR do projeto altera dado global diretamente; GESTOR/GERENTE solicitam; demais níveis nem veem a tela. */
-export function globalDataMode(tier: ProjectTier): "DIRECT" | "REQUEST" | "NONE" {
-  if (tier === "ADMIN") return "DIRECT";
+/** Fase 7/H6e: só o TENANT_ADMIN (gestor do projeto) altera dado global diretamente; ADMINISTRADOR/GESTOR/GERENTE do projeto solicitam; demais níveis nem veem a tela. Sem TENANT_ADMIN => sempre solicitação (fail-closed). */
+export function globalDataMode(tier: ProjectTier, isTenantAdmin = false): "DIRECT" | "REQUEST" | "NONE" {
+  if ((tier === "ADMIN" || tier === "MANAGE") && isTenantAdmin) return "DIRECT";
+  if (tier === "ADMIN") return "REQUEST";
   if (tier === "MANAGE") return "REQUEST";
   return "NONE";
 }
