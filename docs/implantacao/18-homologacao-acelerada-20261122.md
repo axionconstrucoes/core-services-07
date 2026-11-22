@@ -38,3 +38,18 @@ Evidências (logs e baseline): `C:\VIBE\PROJETOS\axion-backups\fase2\homolog-evi
 | 1 | service_role | `salvar-service-role-homolog.ps1` pronto (valida ao vivo, nao imprime); aguarda a insercao pelo responsavel. Testes de service_role no `validar-jwt-real.mjs` ja estao implementados e passam a rodar quando `service-role.dpapi` existir. |
 
 Validacao local da integracao (a3519f8 + correcoes): tsc 0, lint 0 erros, build ok, unitarios 21/21, ensaio de ondas em PG 17.12 413 ok / 0 falha, suite de scripts 170/170 (a unica falha, test-no-local-absolute-paths, foi corrigida em 80177e4).
+
+## Ciclo 3 (22/11/2026, noite): service_role real e Data API desligada/religada
+
+Projeto: acc-homolog (gtadbeaevxglrqkhcwfz), confirmado pela guarda em todas as operacoes. Backup logico novo imediatamente antes (homolog-20261122-233836; origem estavel, copia com SHA ok, restauracao local TUDO_IGUAL=True). Producao nao tocada.
+
+| Ensaio | Resultado |
+|---|---|
+| Chave service_role em DPAPI | Decifra para o usuario; JWT legacy com ref do acc-homolog e role service_role; `sk.dpapi` antigo preservado. Valor nunca exibido. |
+| service_role pela API real (antes / congelado / depois) | 24 / 25 / 24 OK, 0 FAIL: le as 3 obras ignorando o RLS; grava valor marcador (conferido no banco) e restaura; **continua gravando durante o congelamento**, enquanto o authenticated e recusado (42501) no mesmo registro. |
+| Ciclo com reversao garantida (`ciclo-congelamento-homolog.ps1`) | Completo OK; com falha injetada logo apos o congelamento a reversao ocorreu (storage, banco, jobs) e a integridade fechou sem divergencias. |
+| Data API desligada e religada (`verificar-data-api.mjs`) | 24 OK / 0 FAIL. Desligada: leitura e escrita pela API indisponiveis (503 PGRST002), anon sem acesso, Auth funcionando (login e /user 200), banco acessivel diretamente, contagens e fingerprints iguais. Religada: leitura volta (<= 37 s), escrita alcanca o banco, login ok, contagem de linhas das 218 tabelas e fingerprints iguais ao baseline. |
+| Jobs pg_cron durante e apos a janela | 11 ativos; 0 falhas; os jobs rodaram normalmente com a Data API desligada (usam o banco diretamente). |
+| Integridade final | 7 fingerprints (ACL funcoes/tabelas, politicas, gatilhos, cron, historico f873d9cd..., P0 930f6d75...) iguais ao baseline; 206 migrations; 0 residuos do congelamento. Auditoria so cresceu pelas linhas esperadas (2 por obra a cada aplicar/reverter). |
+
+Ressalvas: o upload ao Storage com caminho valido por um membro nao foi exercitado (o caminho de teste e recusado por RLS antes e depois); o tempo de recuperacao medido (37 s) e um limite superior, pois conta desde que o script passou a aguardar o religamento; os logs de evidencia tiveram prefixos de token de usuarios temporarios redigidos e a origem do vazamento foi corrigida.

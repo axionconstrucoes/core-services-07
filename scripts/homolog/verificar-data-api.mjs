@@ -36,7 +36,7 @@ function http(method, pathq, { jwt = null, body } = {}) {
   let j = null; try { j = JSON.parse(t); } catch { /* texto */ }
   return { status: Number(r.stdout.slice(k + 1)), json: j, text: t };
 }
-const resumo = (r) => `${r.status} ${r.json?.code ?? ""} ${String(r.json?.message ?? r.text).slice(0, 90)}`.trim();
+const resumo = (r) => `${r.status} ${r.json?.code ?? ""} ${String(r.json?.message ?? (r.json?.access_token ? "(login ok; token omitido)" : r.text)).replace(/eyJ[A-Za-z0-9_-]{10,}/g, "***").slice(0, 90)}`.trim();
 
 const { db } = await openGuardedTarget({ requireMarker: true });
 const q = async (sql, p) => (await db.query(sql, p)).rows;
