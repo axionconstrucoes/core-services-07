@@ -142,7 +142,8 @@ t("a base por aba é pura: só importa seus próprios arquivos (axia-entradas im
 const sha = (rel) => createHash("sha256").update(readFileSync(path.join(web, "lib", "assistant", rel), "utf8").replace(/\r\n/g, "\n")).digest("hex");
 t("guards.ts intacto (SHA-256 do estado anterior à Frente E)", sha("guards.ts") === "57a76807736810433424914e43badff70ea98772c167966298086516142046b7");
 t("scope.ts intacto", sha("scope.ts") === "310696874c140a52119e97f401d55d5d55ce0fcc9ab75dff3b139080ae5a078f");
-t("approved-batch-1.ts intacto (20 entradas aprovadas)", sha("approved-batch-1.ts") === "e2d761ac12d8e1f33ed05183053ed89704106af47ab027707750c97b4383e58e" && APPROVED_BATCH_1_IDS.length === 20);
+// Hash atualizado: qa-E1/qa-E2 (textos de SLA) alterados com autorizacao do responsavel para refletir a politica aprovada (MEDIO 2 d.u., BAIXO 5 d.u.).
+t("approved-batch-1.ts conforme texto autorizado (20 entradas aprovadas)", sha("approved-batch-1.ts") === "971463d4e935716dc50daae18aeff2c49160446f933d86cccfe10cfdd6fb45a6" && APPROVED_BATCH_1_IDS.length === 20);
 const P = "obra-teste";
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 t("guarda de prazo por grau: crítico → E2", eq(guards.gradeDeadlineEntryIds("qual o prazo do alerta critico"), ["qa-E2"]));

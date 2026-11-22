@@ -3187,7 +3187,7 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 
 **9. Limitações e o que não está homologado**
 - A configuração da matriz e feriados são assuntos em revisão da AXIA.
-- Textos antigos da AXIA ainda podem citar valores anteriores para Médio e Baixo; vale esta tabela.
+- Os prazos de Médio e Baixo seguem a política aprovada (2 e 5 dias úteis); a migration que os grava no banco de produção ainda não foi aplicada, então ações já existentes mantêm o prazo gravado na criação.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis nela; é quem gerencia usuários e configurações da obra.

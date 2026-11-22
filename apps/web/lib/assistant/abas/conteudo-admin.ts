@@ -179,7 +179,7 @@ export const ITENS_ADMIN: ItemConhecimento[] = [
     passos: ["Veja os prazos de cada ação em Ações e Escalonamentos.", "O Administrador consulta a matriz em Usuários."],
     regras: ["Só Alto e Crítico passam pelo escalonamento por prazo no ciclo automático.", "Os lembretes de repetição (Crítico 1 dia, Alto 2, Médio 4, Baixo 7, dias corridos) são outro mecanismo."], integ: ["Ações e Escalonamentos e alertas por e-mail."],
     q: [["Qual é o prazo de cada criticidade?", "Padrão aprovado para assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis. Cada obra pode ter valores próprios na matriz.", ["tabela de criticidade e prazos", "criticidades e prazos"]]],
-    lim: ["A configuração da matriz e feriados são assuntos em revisão da AXIA.", "Textos antigos da AXIA ainda podem citar valores anteriores para Médio e Baixo; vale esta tabela."], ev: "SLA aprovado (decisão da Fase 2, migration de SLA validada em homologação).", kw: ["criticidades e prazos", "tabela de criticidade"],
+    lim: ["A configuração da matriz e feriados são assuntos em revisão da AXIA.", "Os prazos de Médio e Baixo seguem a política aprovada (2 e 5 dias úteis); a migration que os grava no banco de produção ainda não foi aplicada, então ações já existentes mantêm o prazo gravado na criação."], ev: "SLA aprovado (decisão da Fase 2, migration de SLA validada em homologação).", kw: ["criticidades e prazos", "tabela de criticidade"],
     fontes: ["apps/web/lib/assistant/guards.ts", "apps/web/lib/assistant/approved-batch-1.ts (qa-E2, qa-R7)"],
   }),
   item({
