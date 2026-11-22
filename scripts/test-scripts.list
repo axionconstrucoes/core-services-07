@@ -94,6 +94,7 @@ scripts/test-help-reconcile.mjs
 scripts/test-help-experts-sync.mjs
 scripts/test-unrouted-components.mjs
 scripts/test-help-fixture-sync.mjs
+scripts/test-sidebar-sem-tooltip.mjs
 scripts/test-quality-domain.mjs
 scripts/test-insurance-domain.mjs
 scripts/test-quality-insurance-experts.mjs

@@ -29,6 +29,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { NAV_ITEMS } from "@/lib/ui/nav-items";
 import { cn } from "@/lib/utils";
 
@@ -58,16 +59,19 @@ const ICONS_BY_NAME: Record<string, LucideIcon> = {
   Wrench,
 };
 
-// Navegação lateral SEM texto flutuante: nenhum tooltip, title, popover de ajuda (ⓘ) ou rótulo que só aparece no hover.
-// Todo item mostra SEMPRE ícone + texto, e o texto visível é o nome acessível do link (sem aria-label divergente).
+// Navegação lateral SEM texto flutuante NOS ITENS: nenhum tooltip, atributo title ou rótulo que só aparece no hover sobre o item.
+// Todo item mostra SEMPRE ícone + texto, e o texto visível é o nome acessível do link (aria-label idêntico ao texto visível).
 // Dois arranjos, ambos com o texto visível (trava em scripts/test-sidebar-sem-tooltip.mjs):
 //  - expandido (desktop): ícone à esquerda e texto ao lado, em linha;
 //  - compacto (menu recolhido no desktop e SEMPRE em telas < md/celular): ícone em cima e texto curto embaixo, centralizados,
-//    numa coluna de 96 px — substitui o antigo modo "só ícones" (que dependia de dica flutuante para dizer o que era cada ícone).
-// A ajuda de cada módulo continua no catálogo (NavItem.helpId, lib/ui/help) e na página "Ajuda e tutorial"; só saiu da barra lateral.
+//    numa coluna de 128 px — substitui o antigo modo "só ícones" (que dependia de dica flutuante para dizer o que era cada ícone).
+// AJUDA (Hover Text universal): preservada por ÍCONE DEDICADO (i) ao lado do link (FeatureInfo, fora do <a>), que abre por clique/Enter/
+// toque/foco — é um controle próprio, não um tooltip do item. Catálogo: NavItem.helpId (lib/ui/help); regras em test-feature-info.
 // Foco por teclado: o contorno global (globals.css, a:focus-visible / button:focus-visible, 2 px com afastamento de 2 px) é mantido,
 // só a cor passa a branco sobre o bordô (~10:1, inclusive em volta do item ativo creme); gap-1 entre itens evita que o contorno
 // encoste no item vizinho.
+// Ícone (i) sobre o fundo bordô: claro sobre escuro; "m-0": ocupa o próprio espaço (24 px) ao lado do link, sem sobrepô-lo.
+const SIDEBAR_HINT_CLASS = "m-0 text-white/85 hover:text-white focus-visible:text-white focus-visible:ring-white";
 // shrink-0: dentro da coluna rolável do <nav>, o item nunca encolhe abaixo do próprio conteúdo (texto em 2 linhas não invade o vizinho).
 const ITEM_BASE = "flex w-full min-w-0 shrink-0 items-center rounded-[5px] font-medium transition-colors focus-visible:!outline-white";
 const ITEM_EXPANDED = "min-h-9 flex-row gap-2.5 px-3 py-1.5 text-left text-[15px] leading-tight md:pointer-coarse:min-h-11";
@@ -124,8 +128,8 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
     <aside
       className={cn(
         "acc-sidebar-grid flex shrink-0 flex-col border-r border-black/10 text-brand-sidebar-foreground transition-[width] duration-150",
-        // Compacto (recolhido e celular): 96 px — cabe o texto do item em até 2-3 linhas de 11 px sob o ícone, sem cortar palavra.
-        collapsed ? "w-24" : "w-[264px] max-md:w-24"
+        // Compacto (recolhido e celular): 128 px — texto do item em até 2-3 linhas de 11 px sob o ícone (+ 24 px do (i)), sem cortar palavra.
+        collapsed ? "w-32" : "w-[264px] max-md:w-32"
       )}
     >
       <div className="flex h-20 items-center justify-center border-b border-white/15">
@@ -140,40 +144,46 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
           const Icon = ICONS_BY_NAME[item.icon];
 
           return (
-            <Link
-              key={item.href}
-              href={href}
-              aria-current={active ? "page" : undefined}
-              // Sem prefetch automático: os ~16 itens deste menu, todos
-              // visíveis ao mesmo tempo, disparavam uma rajada de
-              // requisições RSC simultâneas a cada render (observado
-              // causando 503 intermitente em segmentos aleatórios do
-              // lote, por limite de concorrência da infraestrutura —
-              // nunca erro de aplicação). A navegação em si (clique)
-              // continua buscando os dados normalmente, só deixa de
-              // adiantar rotas que o usuário ainda não pediu.
-              prefetch={false}
-              className={cn(ITEM_BASE, collapsed ? ITEM_COMPACT : cn(ITEM_EXPANDED, ITEM_COMPACT_BELOW_MD), active ? ITEM_ACTIVE : ITEM_IDLE)}
-            >
-              {Icon ? <Icon aria-hidden="true" className="size-4 shrink-0" /> : null}
-              <span className="min-w-0 break-words">{item.label}</span>
-            </Link>
+            <div key={item.href} className="flex shrink-0 items-center">
+              <Link
+                href={href}
+                aria-label={item.label}
+                aria-current={active ? "page" : undefined}
+                // Sem prefetch automático: os ~16 itens deste menu, todos
+                // visíveis ao mesmo tempo, disparavam uma rajada de
+                // requisições RSC simultâneas a cada render (observado
+                // causando 503 intermitente em segmentos aleatórios do
+                // lote, por limite de concorrência da infraestrutura —
+                // nunca erro de aplicação). A navegação em si (clique)
+                // continua buscando os dados normalmente, só deixa de
+                // adiantar rotas que o usuário ainda não pediu.
+                prefetch={false}
+                className={cn(ITEM_BASE, "flex-1", collapsed ? ITEM_COMPACT : cn(ITEM_EXPANDED, ITEM_COMPACT_BELOW_MD), active ? ITEM_ACTIVE : ITEM_IDLE)}
+              >
+                {Icon ? <Icon aria-hidden="true" className="size-4 shrink-0" /> : null}
+                <span className="min-w-0 break-words [overflow-wrap:anywhere]">{item.label}</span>
+              </Link>
+              <FeatureInfo helpId={item.helpId} className={cn("shrink-0", collapsed ? "ml-0" : "ml-1 max-md:ml-0")} iconClassName={SIDEBAR_HINT_CLASS} hitArea="vertical" />
+            </div>
           );
         })}
       </nav>
 
-      {/* Recolher/Expandir só existe a partir de md: no celular o menu é sempre compacto (ícone + texto), então o botão seria inerte. */}
-      <div className={cn("border-t border-white/15 p-2 max-md:hidden", collapsed && "px-1.5")}>
-        <button
-          type="button"
-          onClick={() => setSidebarCollapsed(!collapsed)}
-          aria-expanded={!collapsed}
-          aria-controls="acc-sidebar-nav"
-          className={cn(ITEM_BASE, collapsed ? ITEM_COMPACT : ITEM_EXPANDED, ITEM_IDLE)}
-        >
-          {collapsed ? <PanelLeftOpen aria-hidden="true" className="size-4 shrink-0" /> : <PanelLeftClose aria-hidden="true" className="size-4 shrink-0" />}
-          <span className={collapsed ? "text-[11px]" : "text-sm"}>{collapsed ? "Expandir menu" : "Recolher menu"}</span>
-        </button>
+      <div className={cn("border-t border-white/15 p-2", collapsed && "px-1.5", "max-md:px-1.5")}>
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={() => setSidebarCollapsed(!collapsed)}
+            aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+            aria-expanded={!collapsed}
+            aria-controls="acc-sidebar-nav"
+            className={cn(ITEM_BASE, "flex-1", collapsed ? ITEM_COMPACT : cn(ITEM_EXPANDED, ITEM_COMPACT_BELOW_MD), ITEM_IDLE)}
+          >
+            {collapsed ? <PanelLeftOpen aria-hidden="true" className="size-4 shrink-0" /> : <PanelLeftClose aria-hidden="true" className="size-4 shrink-0" />}
+            <span className={collapsed ? "text-[11px]" : "text-sm"}>{collapsed ? "Expandir menu" : "Recolher menu"}</span>
+          </button>
+          <FeatureInfo helpId="shared.global.menu-recolher" className={cn("shrink-0", collapsed ? "ml-0" : "ml-1 max-md:ml-0")} iconClassName={SIDEBAR_HINT_CLASS} hitArea="vertical" />
+        </div>
       </div>
     </aside>
   );
