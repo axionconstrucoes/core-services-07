@@ -7,6 +7,7 @@
 // Uso: node scripts/test-risk-alert-action-guard-sql.mjs
 
 import { PGlite } from "@electric-sql/pglite";
+import { aplicarTravaSeSolicitado } from "./lib/com-trava.mjs";
 import { readFileSync, readdirSync } from "node:fs";
 import { register } from "node:module";
 import path from "node:path";
@@ -41,6 +42,7 @@ await db.exec(platform);
 for (const f of readdirSync(dir).filter((x) => x.endsWith(".sql")).sort()) {
   await db.exec(readFileSync(path.join(dir, f), "utf8").replace(/^﻿/, "").replace(/create extension if not exists pgcrypto[^;]*;/gi, ""));
 }
+await aplicarTravaSeSolicitado(db);
 
 const P = "00000000-0000-4000-8000-0000000000f0";
 const AREA = "PLANEJAMENTO";

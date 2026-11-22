@@ -164,3 +164,4 @@ scripts/test-piloto-weg-e2e-realpg.mjs
 scripts/test-executor-ondas.mjs
 scripts/test-executor-ondas-realpg.mjs
 scripts/test-trava-modulos-realpg.mjs
+scripts/test-email-com-trava.mjs

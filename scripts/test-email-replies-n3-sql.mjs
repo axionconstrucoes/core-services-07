@@ -9,6 +9,7 @@
 //     da gravação (falha da RPC => nenhuma confirmação) e entrega das confirmações por provedor FAKE.
 // Uso: node scripts/test-email-replies-n3-sql.mjs
 import { PGlite } from "@electric-sql/pglite";
+import { aplicarTravaSeSolicitado } from "./lib/com-trava.mjs";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { register } from "node:module";
@@ -42,6 +43,7 @@ await db.exec(platform);
 for (const f of readdirSync(dir).filter((x) => x.endsWith(".sql")).sort()) {
   await db.exec(readFileSync(path.join(dir, f), "utf8").replace(/^﻿/, "").replace(/create extension if not exists pgcrypto[^;]*;/gi, ""));
 }
+await aplicarTravaSeSolicitado(db);
 await db.exec("insert into storage.buckets (id, name) values ('project-documents', 'project-documents') on conflict do nothing");
 
 const P = "00000000-0000-4000-8000-000000000001";
