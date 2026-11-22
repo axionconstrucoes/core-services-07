@@ -30,6 +30,7 @@ scripts/test-axia-lote-1.mjs
 scripts/test-axia-selecao.mjs
 scripts/test-axia-conversa.mjs
 scripts/test-axia-acesso.mjs
+scripts/test-axia-manual-abas.mjs
 scripts/test-axia-escopo.mjs
 scripts/test-system-status.mjs
 scripts/test-email-authorization.mjs
