@@ -150,6 +150,13 @@
       "migrations": [
         "20261211100000_tenant_admin_global_external_data"
       ]
+    },
+    {
+      "id": "N",
+      "nome": "Correcao do watchdog do agendador (acc_scheduler_watchdog): resolve o projeto dos incidentes (id fixo da obra WEG se existir; senao o projeto mais antigo; sem projeto, nao registra e retorna). Cauda apos M (ultima onda, decisao conservadora); redefine apenas a funcao criada em 20261119034721; nao toca record_risk_alert_action nem SLA (P0 conferido apos o arquivo). Efeito nulo em producao (a obra fixa existe); corrige o job acc-watchdog em ambientes sem ela",
+      "migrations": [
+        "20261212100000_watchdog_project_resolution"
+      ]
     }
   ],
   "adiadas": [
