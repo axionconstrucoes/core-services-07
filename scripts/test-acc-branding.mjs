@@ -269,6 +269,23 @@ check("TopBar: exibe 'AXION Controle de Contratos' centralizado, em UMA única l
   assert(!/AXION Controle de Contratos/i.test(pageHeaderSource2), "a marca por extenso não deveria aparecer no PageHeader — só na TopBar");
 });
 
+// F3 — identificação do projeto na TopBar. O código saiu da TopBar DE PROPÓSITO (commit d6cf562, "nome e código da obra em uma
+// linha, sem ... código ao lado do seletor"): a identificação vem do SELETOR (nome do projeto ativo, title com o nome completo,
+// largura mínima legível) + contrato, e nome·código aparecem no cabeçalho do Dashboard. Não é regressão; este check trava a decisão.
+// Medição em Chrome 360/768/1280 px: scripts/test-help-browser.mjs (TB1).
+check("TopBar: identificação do projeto ativo vem do seletor (nome selecionado, title completo, min-w-24) e o código NÃO volta à TopBar (decisão d6cf562)", () => {
+  const topBar = readSource("apps/web/components/layout/top-bar.tsx");
+  const switcher = readSource("apps/web/components/layout/project-switcher.tsx");
+  assert(!topBar.includes("currentProject?.code"), "o código do projeto não deve voltar à TopBar (decisão de design d6cf562) — a identificação é o seletor + dashboard");
+  assert(/value=\{currentProjectId\}/.test(switcher), "o seletor deveria estar posicionado no projeto ativo (value=currentProjectId)");
+  assert(/\{project\.name\}/.test(switcher), "as opções do seletor deveriam mostrar o nome do projeto");
+  assert(switcher.includes("title={currentProject?.name}"), "o seletor deveria expor o nome completo no title");
+  assert(topBar.includes("min-w-24"), "o seletor deveria ter largura mínima legível (min-w-24), inclusive em celular");
+  assert(topBar.includes("bg-[var(--surface-topbar)]"), "fundo azul-marinho da TopBar (--surface-topbar) mantido");
+  const dash = readSource("apps/web/app/[projectId]/dashboard/page.tsx");
+  assert(dash.includes("projectCode") && dash.includes("projectName"), "o Dashboard deveria exibir nome e código do projeto no cabeçalho");
+});
+
 check("TopBar: título realmente centralizado via CSS Grid (1fr auto 1fr) — nunca 'no meio do espaço sobrando' de um flexbox simples, que se desloca conforme a largura do grupo da direita", () => {
   const source = readSource("apps/web/components/layout/top-bar.tsx");
   // Atual: coluna da direita minmax(max-content,1fr) — nunca menor que o conteúdo (sem sobreposição); com espaço de
