@@ -25,9 +25,11 @@ begin
     n := n + 1;
   end loop;
   if n <> esperado then raise exception 'REVERSÃO: esperadas % funções, encontradas %', esperado, n; end if;
-  insert into public.audit_log_entries (actor_type, actor_label, action, entity_type, entity_id, detail)
-  values ('SYSTEM', null, 'MODULE_LOCK_REVERTED', 'DatabaseFunction', 'trava-modulos-fase2-ampliada',
-          n || ' RPCs com EXECUTE devolvido a authenticated: ' || array_to_string(liberar, ', '));
+  -- audit_log_entries.project_id e NOT NULL: 1 linha por obra (ver 1-aplicar-trava.sql).
+  insert into public.audit_log_entries (project_id, actor_type, actor_user_id, actor_label, action, entity_type, entity_id, detail)
+  select pr.id, 'SYSTEM', null, null, 'MODULE_LOCK_REVERTED', 'DatabaseFunction', 'trava-modulos-fase2-ampliada',
+         n || ' RPCs com EXECUTE devolvido a authenticated: ' || array_to_string(liberar, ', ')
+    from public.projects pr;
 end $$;
 
 -- CONFERÊNCIA (reversão total: esperado executaveis_authenticated = 35 e anon = 0)

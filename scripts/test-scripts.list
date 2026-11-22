@@ -159,3 +159,4 @@ scripts/test-f7-experts-ia-real.mjs
 scripts/test-f7-h6e-tenant-admin-realpg.mjs
 scripts/diagnostico-gmail/test-diagnostico-gmail.mjs
 scripts/test-piloto-weg-e2e-realpg.mjs
+scripts/test-trava-modulos-realpg.mjs

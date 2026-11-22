@@ -43,9 +43,11 @@ begin
     n := n + 1;
   end loop;
   if n <> 35 then raise exception 'TRAVA: esperadas 35 funções, encontradas %', n; end if;
-  insert into public.audit_log_entries (actor_type, actor_label, action, entity_type, entity_id, detail)
-  values ('SYSTEM', null, 'MODULE_LOCK_APPLIED', 'DatabaseFunction', 'trava-modulos-fase2-ampliada',
-          '35 RPCs (23 telas bloqueadas/fixture/competências + 12 RNC/Garantias não comprovadas) com EXECUTE revogado para authenticated/anon/public.');
+  -- audit_log_entries.project_id e NOT NULL (20260819195713): a trava e global, entao grava-se 1 linha por obra (rastreavel em cada obra).
+  insert into public.audit_log_entries (project_id, actor_type, actor_user_id, actor_label, action, entity_type, entity_id, detail)
+  select pr.id, 'SYSTEM', null, null, 'MODULE_LOCK_APPLIED', 'DatabaseFunction', 'trava-modulos-fase2-ampliada',
+         '35 RPCs (23 telas bloqueadas/fixture/competencias + 12 RNC/Garantias nao comprovadas) com EXECUTE revogado para authenticated/anon/public.'
+    from public.projects pr;
 end $$;
 
 -- CONFERÊNCIA 1 (esperado: travadas_total = 35, ainda_executaveis = 0)
