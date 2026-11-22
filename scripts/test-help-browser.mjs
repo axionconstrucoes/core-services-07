@@ -627,6 +627,37 @@ try {
       return { ok: true, ev: rows.join("; ") };
     });
 
+    // ---------- (8b) F3: identificação do projeto na TopBar (360/768/1280): seletor mostra o nome, sem overflow, contraste >= 4.5:1 ----------
+    for (const w of [360, 768, 1280]) {
+      await check(`TB1 identificação do projeto na TopBar [${w}px]: nome do projeto ativo visível no seletor, sem overflow horizontal, contraste >= 4.5:1 sobre #13233b`, async () => {
+        await b.open(built.index, { hash: "#topbar", width: w, height: 800, mobile: w < 600 });
+        await b.injectHelpers(HELP);
+        const r = await b.eval(`(()=>{
+          const sel=document.querySelector('#tb select'); const opt=sel.options[sel.selectedIndex]; const tb=document.querySelector('#tb');
+          const sr=sel.getBoundingClientRect(); const hr=document.querySelector('#tb h1').getBoundingClientRect();
+          const cs=getComputedStyle(sel); const bg=__t.rgba(getComputedStyle(tb).backgroundColor);
+          const sb=__t.rgba(cs.backgroundColor); const selBg=sb.a===0?bg:sb; const c=document.querySelector('#tb-contract'); const ccs=getComputedStyle(c);
+          return { name: opt.textContent, title: sel.title, selW: sr.width, selVisible: sr.width>=90 && sr.right<=innerWidth && sr.left>=0, h1Right: hr.right, selLeft: sr.left,
+            overlap: !(hr.right<=sr.left+0.5 || hr.left>=sr.right-0.5) && !(hr.bottom<=sr.top+0.5 || hr.top>=sr.bottom-0.5),
+            sx: document.documentElement.scrollWidth<=innerWidth, bg: __t.hex(bg),
+            selRatio: __t.ratio(__t.rgba(cs.color), selBg), selFg: __t.hex(__t.rgba(cs.color)), selBg: __t.hex(selBg),
+            ctRatio: __t.ratio(__t.rgba(ccs.color), bg), tbH: tb.getBoundingClientRect().height, cRight: c.getBoundingClientRect().right };
+        })()`);
+        await b.screenshot(path.join(OUT, `f3-topbar-${w}.png`));
+        const bad = [];
+        if (!r.name?.includes("Piloto WEG")) bad.push("seletor sem o nome do projeto ativo");
+        if (r.title !== r.name) bad.push("sem title com o nome completo");
+        if (!r.selVisible) bad.push(`seletor ilegível/fora da tela (${f1(r.selW)} px)`);
+        if (!r.sx) bad.push("overflow horizontal");
+        if (r.cRight > w + 0.5) bad.push("contrato fora da tela");
+        if (r.overlap) bad.push("título sobrepõe o seletor");
+        if (r.bg !== "#13233b") bad.push(`fundo ${r.bg} != #13233b`);
+        if (r.selRatio < 4.5) bad.push(`contraste do seletor ${f2(r.selRatio)}`);
+        if (r.ctRatio < 4.5) bad.push(`contraste do contrato ${f2(r.ctRatio)}`);
+        return { ok: bad.length === 0, ev: `seletor ${f1(r.selW)} px, nome "${String(r.name).slice(0, 24)}…"; contraste seletor ${f2(r.selRatio)}:1 (${r.selFg}/${r.selBg}), contrato ${f2(r.ctRatio)}:1; topbar h=${f1(r.tbH)}${bad.length ? `; FALHAS: ${bad.join(" | ")}` : ""}` };
+      });
+    }
+
     // ---------- (9) Os 16 apontamentos do auditor de contraste, medidos no Chrome com o CSS real (B3) ----------
     // Uso das classes REAIS dos módulos em fixture isolada; sem login/Supabase. Cada linha reporta a razão medida e o limite aplicável.
     const tab = async (anchorSel, expectSel, max = 6) => {
