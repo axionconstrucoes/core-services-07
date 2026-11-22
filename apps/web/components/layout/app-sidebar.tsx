@@ -29,7 +29,6 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { FeatureInfo } from "@/components/shared/feature-info";
 import { NAV_ITEMS } from "@/lib/ui/nav-items";
 import { cn } from "@/lib/utils";
 
@@ -59,9 +58,25 @@ const ICONS_BY_NAME: Record<string, LucideIcon> = {
   Wrench,
 };
 
-// Ícone (i) sobre o fundo bordô da sidebar: claro sobre escuro (o padrão text-muted-foreground não tem contraste aqui).
-// "m-0": o (i) ocupa o próprio espaço (24 px) ao lado do link, sem a margem negativa que o sobrepunha ao link em ~4 px no menu recolhido.
-const SIDEBAR_HINT_CLASS = "m-0 text-white/85 hover:text-white focus-visible:text-white focus-visible:ring-white";
+// Navegação lateral SEM texto flutuante: nenhum tooltip, title, popover de ajuda (ⓘ) ou rótulo que só aparece no hover.
+// Todo item mostra SEMPRE ícone + texto, e o texto visível é o nome acessível do link (sem aria-label divergente).
+// Dois arranjos, ambos com o texto visível (trava em scripts/test-sidebar-sem-tooltip.mjs):
+//  - expandido (desktop): ícone à esquerda e texto ao lado, em linha;
+//  - compacto (menu recolhido no desktop e SEMPRE em telas < md/celular): ícone em cima e texto curto embaixo, centralizados,
+//    numa coluna de 96 px — substitui o antigo modo "só ícones" (que dependia de dica flutuante para dizer o que era cada ícone).
+// A ajuda de cada módulo continua no catálogo (NavItem.helpId, lib/ui/help) e na página "Ajuda e tutorial"; só saiu da barra lateral.
+// Foco por teclado: o contorno global (globals.css, a:focus-visible / button:focus-visible, 2 px com afastamento de 2 px) é mantido,
+// só a cor passa a branco sobre o bordô (~10:1, inclusive em volta do item ativo creme); gap-1 entre itens evita que o contorno
+// encoste no item vizinho.
+// shrink-0: dentro da coluna rolável do <nav>, o item nunca encolhe abaixo do próprio conteúdo (texto em 2 linhas não invade o vizinho).
+const ITEM_BASE = "flex w-full min-w-0 shrink-0 items-center rounded-[5px] font-medium transition-colors focus-visible:!outline-white";
+const ITEM_EXPANDED = "min-h-9 flex-row gap-2.5 px-3 py-1.5 text-left text-[15px] leading-tight md:pointer-coarse:min-h-11";
+const ITEM_COMPACT = "min-h-14 flex-col justify-center gap-1 px-1 py-1.5 text-center text-[11px] leading-[1.15]";
+// Mesmo arranjo compacto, aplicado só abaixo de md quando o menu está "expandido" (celular nunca usa a largura de 264 px).
+const ITEM_COMPACT_BELOW_MD =
+  "max-md:min-h-14 max-md:flex-col max-md:justify-center max-md:gap-1 max-md:px-1 max-md:py-1.5 max-md:text-center max-md:text-[11px] max-md:leading-[1.15]";
+const ITEM_IDLE = "text-white hover:bg-white/10 focus-visible:bg-white/10";
+const ITEM_ACTIVE = "bg-[#f7f3ea] font-semibold text-[#5e1414]";
 
 const SIDEBAR_COLLAPSED_STORAGE_KEY = "acc.sidebar.collapsed";
 
@@ -109,8 +124,8 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
     <aside
       className={cn(
         "acc-sidebar-grid flex shrink-0 flex-col border-r border-black/10 text-brand-sidebar-foreground transition-[width] duration-150",
-        // Recolhido: 64 px com mouse; 81 px em celular/toque (borda 1 + preenchimento 12 + link 44 + (i) 24), para os alvos de toque não se sobreporem.
-        collapsed ? "w-16 max-md:w-[81px] pointer-coarse:w-[81px]" : "w-[264px] max-md:w-[81px]"
+        // Compacto (recolhido e celular): 96 px — cabe o texto do item em até 2-3 linhas de 11 px sob o ícone, sem cortar palavra.
+        collapsed ? "w-24" : "w-[264px] max-md:w-24"
       )}
     >
       <div className="flex h-20 items-center justify-center border-b border-white/15">
@@ -118,65 +133,47 @@ export function AppSidebar({ projectId, hiddenHrefs = [] }: { projectId: string;
         <img src="/branding/acc-logo.png" alt="ACC" className="h-[55px] w-auto shrink-0" />
       </div>
 
-      <nav className={cn("flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto overflow-x-hidden p-2", collapsed && "px-1.5", "max-md:px-1.5")}>
+      <nav id="acc-sidebar-nav" aria-label="Navegação principal" className={cn("flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden p-2", collapsed && "px-1.5", "max-md:px-1.5")}>
         {visibleItems.map((item) => {
           const href = `/${projectId}/${item.href}`;
           const active = pathname?.startsWith(href);
           const Icon = ICONS_BY_NAME[item.icon];
 
           return (
-            // Ajuda universal (Hover Text): o ícone (i) fica AO LADO do link (nunca dentro do <a>), então funciona por mouse, teclado
-            // (Tab + Enter/Espaço) e toque, também com o menu recolhido (só ícones) — nunca depende de hover nem do atributo title.
-            <div key={item.href} className="flex items-center">
-              <Link
-                href={href}
-                aria-label={item.label}
-                // Sem prefetch automático: os ~16 itens deste menu, todos
-                // visíveis ao mesmo tempo, disparavam uma rajada de
-                // requisições RSC simultâneas a cada render (observado
-                // causando 503 intermitente em segmentos aleatórios do
-                // lote, por limite de concorrência da infraestrutura —
-                // nunca erro de aplicação). A navegação em si (clique)
-                // continua buscando os dados normalmente, só deixa de
-                // adiantar rotas que o usuário ainda não pediu.
-                prefetch={false}
-                className={cn(
-                  "flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-[5px] px-3 py-1.5 text-[15px] font-medium transition-colors pointer-coarse:min-h-11 max-md:min-h-11",
-                  collapsed && "justify-center px-0",
-                  "max-md:justify-center max-md:px-0",
-                  active ? "bg-[#f7f3ea] font-semibold text-[#5e1414]" : "text-white/85 hover:bg-white/10 hover:text-white"
-                )}
-              >
-                {Icon ? <Icon className="size-4 shrink-0" /> : null}
-                {!collapsed ? <span className="leading-tight break-words max-md:hidden">{item.label}</span> : null}
-              </Link>
-              <FeatureInfo helpId={item.helpId} className={cn("shrink-0", collapsed ? "ml-0" : "ml-1 max-md:ml-0")} iconClassName={SIDEBAR_HINT_CLASS} hitArea="vertical" />
-            </div>
+            <Link
+              key={item.href}
+              href={href}
+              aria-current={active ? "page" : undefined}
+              // Sem prefetch automático: os ~16 itens deste menu, todos
+              // visíveis ao mesmo tempo, disparavam uma rajada de
+              // requisições RSC simultâneas a cada render (observado
+              // causando 503 intermitente em segmentos aleatórios do
+              // lote, por limite de concorrência da infraestrutura —
+              // nunca erro de aplicação). A navegação em si (clique)
+              // continua buscando os dados normalmente, só deixa de
+              // adiantar rotas que o usuário ainda não pediu.
+              prefetch={false}
+              className={cn(ITEM_BASE, collapsed ? ITEM_COMPACT : cn(ITEM_EXPANDED, ITEM_COMPACT_BELOW_MD), active ? ITEM_ACTIVE : ITEM_IDLE)}
+            >
+              {Icon ? <Icon aria-hidden="true" className="size-4 shrink-0" /> : null}
+              <span className="min-w-0 break-words">{item.label}</span>
+            </Link>
           );
         })}
       </nav>
 
-      <div className={cn("border-t border-white/15 p-2", collapsed && "px-1.5", "max-md:px-1.5")}>
-        <div className="flex items-center">
-          <button
-            type="button"
-            onClick={() => setSidebarCollapsed(!collapsed)}
-            aria-label={collapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
-            className={cn(
-              "flex min-h-9 min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white pointer-coarse:min-h-11 max-md:min-h-11",
-              "max-md:justify-center max-md:px-0",
-              collapsed && "justify-center px-0"
-            )}
-          >
-            {collapsed ? (
-              <PanelLeftOpen className="size-4 shrink-0" />
-            ) : (
-              <PanelLeftClose className="size-4 shrink-0" />
-            )}
-            {!collapsed && <span className="max-md:hidden">Recolher</span>}
-          </button>
-          <FeatureInfo helpId="shared.global.menu-recolher" className={cn("shrink-0", collapsed ? "ml-0" : "ml-1 max-md:ml-0")} iconClassName={SIDEBAR_HINT_CLASS} hitArea="vertical" />
-        </div>
+      {/* Recolher/Expandir só existe a partir de md: no celular o menu é sempre compacto (ícone + texto), então o botão seria inerte. */}
+      <div className={cn("border-t border-white/15 p-2 max-md:hidden", collapsed && "px-1.5")}>
+        <button
+          type="button"
+          onClick={() => setSidebarCollapsed(!collapsed)}
+          aria-expanded={!collapsed}
+          aria-controls="acc-sidebar-nav"
+          className={cn(ITEM_BASE, collapsed ? ITEM_COMPACT : ITEM_EXPANDED, ITEM_IDLE)}
+        >
+          {collapsed ? <PanelLeftOpen aria-hidden="true" className="size-4 shrink-0" /> : <PanelLeftClose aria-hidden="true" className="size-4 shrink-0" />}
+          <span className={collapsed ? "text-[11px]" : "text-sm"}>{collapsed ? "Expandir menu" : "Recolher menu"}</span>
+        </button>
       </div>
     </aside>
   );
