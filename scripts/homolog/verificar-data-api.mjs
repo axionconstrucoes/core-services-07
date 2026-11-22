@@ -68,7 +68,7 @@ let membro = null;
 try {
   const alvo = (await q("select current_database() db, (select count(*) from pg_namespace where nspname='acc_homolog_marker') marcador"))[0];
   log(`alvo: db=${alvo.db} marcador=${alvo.marcador} ref=${REF}`);
-  check("pre-condicao: projeto e o acc-homolog (marcador presente, host do acc-homolog)", alvo.marcador === 1);
+  check("pre-condicao: projeto e o acc-homolog (marcador presente, host do acc-homolog)", Number(alvo.marcador) === 1 && BASE.includes(REF), `marcador=${alvo.marcador}`);
 
   membro = await usuario("membro");
   await db.query("delete from public.project_memberships where user_id=$1", [membro.id]);
@@ -98,10 +98,13 @@ try {
   log(`[ACAO NECESSARIA] Desligue a Data API do acc-homolog no painel (Project Settings > Data API). Aguardando ate ${ESPERA_MIN} min...`);
   const tEspera = Date.now();
   let desligadaEm = null;
+  let seguidas = 0;
   while (Date.now() - tEspera < ESPERA_MIN * 60_000) {
     await dorme(8000);
     const r = leituraApi(tok);
-    if (!(r.status === 200)) { desligadaEm = Date.now(); log(`detectado: leitura pela API deixou de funcionar (${resumo(r)})`); break; }
+    // conta so RESPOSTAS HTTP reais diferentes de 200 (status 0 = falha de rede/curl: nao e prova de desligamento)
+    seguidas = r.status !== 200 && r.status !== 0 ? seguidas + 1 : 0;
+    if (seguidas >= 3) { desligadaEm = Date.now(); log(`detectado: leitura pela API deixou de funcionar em 3 tentativas seguidas (${resumo(r)})`); break; }
   }
   check("Data API foi desligada no painel dentro da janela de espera", desligadaEm !== null);
   if (desligadaEm) {
