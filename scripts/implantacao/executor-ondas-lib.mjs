@@ -2,7 +2,7 @@
 // Funções puras + orquestração com transporte injetável. Nada aqui lê segredo, abre rede ou banco por conta própria:
 // o transporte (HTTP da API de gerenciamento ou adaptador local de PostgreSQL) é passado por quem chama.
 //
-// Corpo enviado por arquivo (UMA chamada = UMA transação implícita; fatos comprovados na homologação, ver docs/implantacao/16):
+// Corpo enviado por arquivo (UMA chamada = UMA transação implícita; fatos comprovados na homologação, ver docs/implantacao/17-executor-de-ondas.md):
 //   set local lock_timeout = '5s';
 //   set local statement_timeout = '120s';
 //   <conteúdo do arquivo de supabase/migrations, lido do disco, sem transcrição>
@@ -13,6 +13,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
+import { evaluateTarget, forbiddenEnvNames, redactedTarget } from "../homolog/guard.mjs";
 
 export const P0_MD5 = "930f6d75898793479b418950b0053bd9";
 export const HOTFIX_STEM = "20261121090000_hotfix_risk_alert_action_authorization";
@@ -77,6 +78,31 @@ export async function confirmarProducao(alvo, plano, confirmar) {
   return true;
 }
 
+// ------------------------------------------------------------------ guardas contra produção (conector direto por pg)
+// Reutiliza a guarda dura do kit de homologação (scripts/homolog/guard.mjs): lista branca estreita + lista negra de refs operacionais.
+// Exige HOMOLOG_DATABASE_URL (nunca a URL do app), recusa variáveis do ambiente operacional (forbiddenEnvNames) e exige o marcador
+// de banco acc_homolog_marker (criado por apply-migrations.mjs --init-marker em banco vazio de homologação).
+export function avaliarGuardasPg({ env = process.env, linkedRefText = "", exigirLocal = false } = {}) {
+  const url = env.HOMOLOG_DATABASE_URL;
+  if (!url) throw new ExecutorErro("GUARDA", "defina HOMOLOG_DATABASE_URL (string de conexão de HOMOLOGAÇÃO ou do PostgreSQL local descartável; nunca a do operacional)");
+  const ruins = forbiddenEnvNames(env);
+  if (ruins.length) throw new ExecutorErro("GUARDA", `variáveis do ambiente operacional presentes (${ruins.join(", ")}); use um shell limpo`);
+  const info = evaluateTarget(url, { env, linkedRefText });
+  if (!info.ok) throw new ExecutorErro("GUARDA", info.reason);
+  if (exigirLocal && info.kind !== "local") throw new ExecutorErro("GUARDA", "--alvo local só aceita o PostgreSQL local descartável (127.0.0.1:55434, banco acc_homolog_*)");
+  return { url, info, descricao: redactedTarget(info) };
+}
+export async function exigirMarcador(client) {
+  const r = await client.query("select 1 from pg_namespace where nspname = 'acc_homolog_marker'");
+  if (!r.rowCount) throw new ExecutorErro("GUARDA", "marcador acc_homolog_marker ausente: o alvo não foi marcado como homologação (apply-migrations.mjs --init-marker em banco vazio)");
+  return true;
+}
+// Alvos HTTP (token): também exigem shell limpo.
+export function exigirAmbienteLimpo(env = process.env) {
+  const ruins = forbiddenEnvNames(env);
+  if (ruins.length) throw new ExecutorErro("GUARDA", `variáveis do ambiente operacional presentes (${ruins.join(", ")}); use um shell limpo`);
+}
+
 // ------------------------------------------------------------------ arquivos e plano
 const STEM_RE = /^(\d{14})_([a-z0-9_]+)$/;
 export function separarStem(stem) {
@@ -92,7 +118,8 @@ const PROIBIDOS_NO_ARQUIVO = [
   [/^\s*(commit|rollback|abort)\s*(transaction|work)?\s*;/im, "COMMIT/ROLLBACK próprio"],
   [/\bconcurrently\b/i, "CONCURRENTLY (não roda em transação)"],
   [/^\s*vacuum\b/im, "VACUUM (não roda em transação)"],
-  [/^\s*(set|reset)\s+(session\s+)?(lock_timeout|statement_timeout)\b/im, "altera lock_timeout/statement_timeout"],
+  [/^\s*(set|reset)\s+(session\s+|local\s+)?(lock_timeout|statement_timeout)\b/im, "altera lock_timeout/statement_timeout"],
+  [/\bset_config\s*\(\s*'(lock_timeout|statement_timeout)'/i, "altera lock_timeout/statement_timeout (set_config)"],
   [/^\s*supabase_migrations\b|\bsupabase_migrations\.schema_migrations\b/i, "escreve no histórico por conta própria"],
 ];
 export function semComentarios(sql) {
@@ -356,7 +383,7 @@ export function criarTransporteHttp({ ref, token, fetchImpl = globalThis.fetch, 
       let msg = texto;
       try { msg = JSON.parse(texto)?.message ?? texto; } catch { /* texto cru */ }
       const err = new Error(redigir(`HTTP ${resp.status}: ${String(msg).slice(0, 600)}`, [token]));
-      err.tipo = /ERROR:\s+[0-9A-Z]{5}:/.test(String(msg)) ? "sql" : "incerto";
+      err.tipo = /ERROR:\s+(?=[0-9A-Z]*\d)[0-9A-Z]{5}:/.test(String(msg)) ? "sql" : "incerto";
       err.status = resp.status;
       throw err;
     },
@@ -376,7 +403,8 @@ export function criarTransporteLocalPg(client, descricao = "PostgreSQL local") {
         return { linhas: ultimo?.rows ?? [] };
       } catch (e) {
         const err = new Error(`ERROR: ${e.code ?? "?????"}: ${String(e.message).split("\n")[0]}`);
-        err.tipo = e.code && /^[0-9A-Z]{5}$/.test(e.code) ? "sql" : "incerto";
+        // SQLSTATE tem 5 caracteres e sempre ao menos um dígito; "EPIPE"/"ECONNRESET" (rede) não casam => incerto
+        err.tipo = e.code && /^(?=.*\d)[0-9A-Z]{5}$/.test(e.code) ? "sql" : "incerto";
         err.sqlstate = e.code;
         throw err;
       }

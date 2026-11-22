@@ -2,14 +2,15 @@
 // EXECUTOR DE ONDAS de migrations (Fase 2, frente A). Opção (b): cada arquivo de supabase/migrations + o insert no histórico,
 // numa ÚNICA chamada à API de gerenciamento do Supabase (POST /v1/projects/{ref}/database/query = transação implícita),
 // com lock_timeout 5s e statement_timeout 120s; P0 e linha no histórico conferidos depois de CADA arquivo; hash do histórico
-// depois de CADA onda; para na primeira falha. Lógica em ./executor-ondas-lib.mjs; documentação em docs/implantacao/16.
+// depois de CADA onda; para na primeira falha. Lógica em ./executor-ondas-lib.mjs; documentação em docs/implantacao/17-executor-de-ondas.md.
 //
 // Uso:
 //   node scripts/implantacao/executor-ondas.mjs --dry-run --todas                      (offline: plano + sha256; sem token)
 //   node scripts/implantacao/executor-ondas.mjs --alvo homolog --verificar --segredo <arquivo.dpapi>         (só leitura)
 //   node scripts/implantacao/executor-ondas.mjs --alvo homolog --ensaio-homolog --segredo <arquivo.dpapi>    (descartável)
 //   node scripts/implantacao/executor-ondas.mjs --alvo homolog --ondas A,B --segredo <arquivo.dpapi> [--log <fora do repo>]
-//   node scripts/implantacao/executor-ondas.mjs --alvo local --banco acc_exec_xxx --ondas A    (PostgreSQL local 127.0.0.1:55434)
+//   node scripts/implantacao/executor-ondas.mjs --alvo local --ondas A      (PostgreSQL local 127.0.0.1:55434; HOMOLOG_DATABASE_URL + marcador)
+//   node scripts/implantacao/executor-ondas.mjs --alvo pg --ondas A         (conexão direta isolada; mesmas guardas do kit scripts/homolog)
 //   Operacional: SÓ com --alvo operacional --producao e a frase de confirmação digitada no terminal (nunca automatizar).
 // O token (PAT do Supabase) é lido de um arquivo DPAPI FORA do repositório (salvar-segredo.ps1 -Nome SUPABASE_PAT); nunca impresso.
 import { spawnSync } from "node:child_process";
@@ -21,13 +22,17 @@ import { fileURLToPath } from "node:url";
 import {
   ALVOS,
   ExecutorErro,
+  avaliarGuardasPg,
   confirmarProducao,
+  exigirAmbienteLimpo,
+  exigirMarcador,
   criarTransporteHttp,
   criarTransporteLocalPg,
   executarEnsaioAtomicidade,
   executarPlano,
   frasePrConfirmacao,
   lerP0Sql,
+  montarCorpoConferencia,
   montarPlano,
   redigir,
   resolverAlvo,
@@ -52,10 +57,12 @@ export function parseArgs(argv) {
     else if (k === "--adiada") a.adiada = val();
     else if (k === "--segredo") a.segredo = val();
     else if (k === "--log") a.log = val();
-    else if (k === "--banco") a.banco = val();
     else if (["--todas", "--dry-run", "--verificar", "--ensaio-homolog", "--producao", "--retomar"].includes(k)) a.flags.add(k.slice(2));
     else throw new ExecutorErro("ARGUMENTO", `argumento desconhecido: ${k}`);
   }
+  if (a.flags.has("todas") && a.ondas.length) throw new ExecutorErro("ARGUMENTO", "use --todas OU --ondas, não os dois");
+  const modos = ["dry-run", "verificar", "ensaio-homolog"].filter((m) => a.flags.has(m));
+  if (modos.length > 1) throw new ExecutorErro("ARGUMENTO", `modos excludentes: ${modos.join(", ")}`);
   return a;
 }
 
@@ -129,22 +136,26 @@ export async function main(argv = process.argv.slice(2)) {
   let transporte;
   let fechar = async () => {};
   let alvo;
-  if (a.alvo === "local") {
-    if (a.flags.has("producao")) throw new ExecutorErro("FLAG_PRODUCAO_INDEVIDA", "--producao não se aplica ao alvo local");
-    const url = process.env.ACC_REALPG_URL;
-    if (!url) throw new ExecutorErro("LOCAL", "defina ACC_REALPG_URL (postgres17-local-setup.ps1 -Action Env)");
-    const u = new URL(url);
-    if (u.hostname !== "127.0.0.1" || u.port !== "55434") throw new ExecutorErro("ALVO_NAO_PERMITIDO", "local só em 127.0.0.1:55434");
-    if (!/^acc_exec_[a-z0-9_]+$/.test(a.banco ?? "")) throw new ExecutorErro("LOCAL", "--banco deve começar por acc_exec_");
-    u.pathname = `/${a.banco}`;
-    const pg = createRequire(path.join(process.env.ACC_REALPG_PKG_DIR ?? here, "x.js"))("pg");
-    const client = new pg.Client({ connectionString: u.toString() });
+  if (a.alvo === "local" || a.alvo === "pg") {
+    if (a.flags.has("producao")) throw new ExecutorErro("FLAG_PRODUCAO_INDEVIDA", "--producao não se aplica a conexão direta (local/pg)");
+    const linkFile = path.join(root, "supabase", ".temp", "project-ref");
+    const g = avaliarGuardasPg({ env: process.env, linkedRefText: existsSync(linkFile) ? readFileSync(linkFile, "utf8") : "", exigirLocal: a.alvo === "local" });
+    const pg = createRequire(path.join(process.env.ACC_REALPG_PKG_DIR ?? root, "x.js"))("pg");
+    const client = new pg.Client({ connectionString: g.url, ssl: g.info.kind === "remote" ? { rejectUnauthorized: false } : undefined });
     await client.connect();
-    if (url.includes("@")) segredos.push(decodeURIComponent(new URL(url).password));
-    transporte = criarTransporteLocalPg(client, `PostgreSQL local (${a.banco})`);
     fechar = () => client.end();
-    alvo = { ref: "local", nome: "PostgreSQL local", producao: false };
+    try {
+      await exigirMarcador(client);
+    } catch (e) {
+      await fechar();
+      throw e;
+    }
+    const senha = decodeURIComponent(new URL(g.url).password);
+    if (senha) segredos.push(senha);
+    transporte = criarTransporteLocalPg(client, `conexão direta ${g.descricao}`);
+    alvo = { ref: g.info.ref ?? "local", nome: g.descricao, producao: false, direto: true };
   } else {
+    exigirAmbienteLimpo(process.env);
     const ref = ALVOS[a.alvo]?.ref ?? a.alvo;
     alvo = resolverAlvo({ ref, producao: a.flags.has("producao") });
     if (a.flags.has("ensaio-homolog") && alvo.producao) throw new ExecutorErro("ALVO_NAO_PERMITIDO", "ensaio de atomicidade só na homologação");
@@ -152,18 +163,19 @@ export async function main(argv = process.argv.slice(2)) {
     segredos.push(token);
     transporte = criarTransporteHttp({ ref: alvo.ref, token });
   }
-  const log = criarLog(a.log, segredos);
-  const p0Sql = lerP0Sql(scriptsDir);
+  let log;
+  let p0Sql;
   try {
+    log = criarLog(a.log, segredos);
+    p0Sql = lerP0Sql(scriptsDir);
     log(`alvo: ${alvo.nome} (${alvo.ref}) via ${transporte.descricao}`);
     if (a.flags.has("verificar")) {
-      const { montarCorpoConferencia } = await import("./executor-ondas-lib.mjs");
       const r = (await transporte.executar(montarCorpoConferencia(p0Sql, null))).linhas[0];
       log(`VERIFICAR (só leitura): P0 ok=${r.p0_ok} corpo=${r.p0_md5}; histórico ${r.n} linhas, última ${r.ultima}, hash ${r.hash}`);
       return r.p0_ok === true || r.p0_ok === "t" ? 0 : 1;
     }
     if (a.flags.has("ensaio-homolog")) {
-      if (alvo.ref !== ALVOS.homolog.ref && alvo.ref !== "local") throw new ExecutorErro("ALVO_NAO_PERMITIDO", "ensaio só na homologação ou local");
+      if (alvo.ref !== ALVOS.homolog.ref && !alvo.direto) throw new ExecutorErro("ALVO_NAO_PERMITIDO", "ensaio só na homologação ou local");
       const r = await executarEnsaioAtomicidade({ transporte, p0Sql, log, segredos });
       log(r.ok ? "ENSAIO OK" : "ENSAIO COM FALHA");
       return r.ok ? 0 : 1;
