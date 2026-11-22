@@ -75,23 +75,34 @@ check("botão de recolher usa ícones Lucide (PanelLeftClose/PanelLeftOpen)", ()
   assert(sidebarSource.includes("PanelLeftOpen"));
 });
 
-check("todos os itens de navegação têm tooltip (title) quando recolhidos", () => {
-  assert(/title=\{collapsed \? item\.label : undefined\}/.test(sidebarSource));
+// Contrato atual: SEM tooltip/title nos itens (ícone + texto sempre visíveis, aria-label idêntico ao texto);
+// a ajuda vive no ícone (i) dedicado (FeatureInfo) ao lado de cada item. Intenção original preservada:
+// todo item continua identificável quando recolhido — agora pelo texto visível em vez de tooltip.
+check("todos os itens de navegação são identificáveis quando recolhidos: sem title/tooltip, texto visível + aria-label e ícone (i) de ajuda ao lado", () => {
+  assert(!/\btitle=/.test(sidebarSource), "itens não devem usar atributo title (sem tooltip)");
+  assert(sidebarSource.includes("aria-label={item.label}"), "aria-label idêntico ao texto visível");
+  assert(sidebarSource.includes("<span") && sidebarSource.includes("{item.label}"), "texto do item sempre renderizado (também recolhido)");
+  assert(/<FeatureInfo helpId=\{item\.helpId\}/.test(sidebarSource), "ícone (i) de ajuda por item deve ser mantido");
+  assert(sidebarSource.includes('helpId="shared.global.menu-recolher"'), "ícone (i) de ajuda do Recolher deve ser mantido");
 });
 
-check("item ativo continua destacado independentemente do estado recolhido (classe bg-accent aplicada pela mesma lógica em ambos os estados)", () => {
-  assert(sidebarSource.includes("bg-accent text-accent-foreground"));
+check("item ativo continua destacado independentemente do estado recolhido (ITEM_ACTIVE creme/bordô aplicado pela mesma lógica em ambos os estados)", () => {
+  assert(sidebarSource.includes('const ITEM_ACTIVE = "bg-[#f7f3ea] font-semibold text-[#5e1414]"'));
+  assert(sidebarSource.includes("active ? ITEM_ACTIVE : ITEM_IDLE"), "destaque independe de collapsed");
+  assert(sidebarSource.includes('aria-current={active ? "page" : undefined}'));
 });
 
-check("largura recolhida (w-14) e expandida (w-60) estão definidas — conteúdo principal ocupa a largura liberada automaticamente (aside é shrink-0 dentro de um flex, o main já é flex-1 em layout.tsx)", () => {
-  assert(sidebarSource.includes('"w-14"'));
-  assert(sidebarSource.includes('"w-60"'));
+check("largura recolhida (coluna compacta w-32) e expandida (w-[264px]) estão definidas — conteúdo principal ocupa a largura liberada automaticamente (aside é shrink-0 dentro de um flex, o main já é flex-1 em layout.tsx)", () => {
+  assert(sidebarSource.includes('collapsed ? "w-32" : "w-[264px] max-md:w-32"'));
+  assert(sidebarSource.includes("shrink-0"));
   const layoutSource = readSource("apps/web/app/[projectId]/layout.tsx");
   assert(layoutSource.includes("flex-1"), "main já é flex-1 — libera a largura automaticamente quando o aside encolhe");
 });
 
-check('"Experts IA" está entre os itens de navegação e funciona normalmente recolhido (mesma lista/lógica dos demais itens, sem caso especial)', () => {
-  assert(sidebarSource.includes('href: "experts-ia", label: "Experts IA"'));
+check('"Experts IA" está entre os itens de navegação (NAV_ITEMS) e funciona normalmente recolhido (mesma lista/lógica dos demais itens, sem caso especial)', () => {
+  assert(readSource("apps/web/lib/ui/nav-items.ts").includes('href: "experts-ia", label: "Experts IA"'));
+  assert(sidebarSource.includes("NAV_ITEMS.filter") && sidebarSource.includes("visibleItems.map"), "sidebar itera a mesma lista");
+  assert(!sidebarSource.includes("experts-ia"), "sem caso especial para Experts IA na sidebar");
 });
 
 check("opções jurídicas removidas do menu (Expert Jurídico único); rotas técnicas preservadas no repositório", () => {

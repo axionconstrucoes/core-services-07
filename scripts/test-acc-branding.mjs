@@ -243,12 +243,16 @@ check("Project.code: mapeado de verdade a partir da linha do banco (mapProjectRo
 // checks substituem os antigos (que validavam a decisão anterior) para
 // validar a decisão atual real.
 
-check("TopBar: compacta (h-14 a partir de sm), fundo branco, mostra o código do projeto discretamente (mesmo texto/contraste já existente, nunca reescrito para um header vermelho)", () => {
+// Estado atual: altura fixa sm:h-[72px], fundo via token de tema --surface-topbar (não mais bg-white; nunca o header
+// vermelho) e o código do projeto não é mais renderizado na TopBar — o contexto vem do seletor + número do
+// contrato (discreto, text-xs text-muted-foreground).
+check("TopBar: compacta (altura fixa sm:h-[72px]), fundo pelo token de tema --surface-topbar (nunca header vermelho), contrato do projeto exibido discretamente (text-xs text-muted-foreground)", () => {
   const source = readSource("apps/web/components/layout/top-bar.tsx");
-  assert(source.includes("h-14"), "TopBar deveria continuar compacta (h-14) a partir de sm");
-  assert(source.includes("bg-white"), "TopBar deveria continuar com fundo branco (decisão institucional — não vermelho)");
-  assert(source.includes("currentProject?.code"), "TopBar deveria exibir o código do projeto quando disponível");
-  assert(source.includes("text-xs text-muted-foreground"), "código do projeto deveria manter o contraste discreto já existente");
+  assert(source.includes("sm:h-[72px]"), "TopBar deveria continuar compacta (sm:h-[72px]) a partir de sm");
+  assert(source.includes("bg-[var(--surface-topbar)]"), "TopBar deveria usar o token de tema --surface-topbar como fundo");
+  assert(!source.includes("bg-brand-header"), "TopBar não deveria usar o header vermelho");
+  assert(source.includes("currentProject?.contractNumber"), "TopBar deveria exibir o número do contrato quando disponível");
+  assert(source.includes("text-xs text-muted-foreground"), "contrato deveria manter o contraste discreto");
 });
 
 check("TopBar: exibe 'AXION Controle de Contratos' centralizado, em UMA única linha (truncate, nunca quebra), sem duplicar a marca em nenhum outro lugar da tela", () => {
@@ -267,10 +271,12 @@ check("TopBar: exibe 'AXION Controle de Contratos' centralizado, em UMA única l
 
 check("TopBar: título realmente centralizado via CSS Grid (1fr auto 1fr) — nunca 'no meio do espaço sobrando' de um flexbox simples, que se desloca conforme a largura do grupo da direita", () => {
   const source = readSource("apps/web/components/layout/top-bar.tsx");
-  assert(source.includes("grid-cols-[1fr_auto_1fr]"), "TopBar deveria usar grid de 3 colunas (1fr auto 1fr) para centralizar o título de verdade em telas sm+");
+  // Atual: coluna da direita minmax(max-content,1fr) — nunca menor que o conteúdo (sem sobreposição); com espaço de
+  // sobra as colunas laterais continuam iguais (1fr) e o título fica centralizado.
+  assert(source.includes("sm:grid-cols-[minmax(0,1fr)_auto_minmax(max-content,1fr)]"), "TopBar deveria usar grid de 3 colunas (1fr auto 1fr, a da direita >= conteúdo) para centralizar o título em telas sm+");
 });
 
-check("TopBar: canto direito na ordem aprovada — seletor de projeto, código, número do contrato (quando existir), avatar, botão de sair; seletor+código+contrato formam um único agrupamento visual compacto", () => {
+check("TopBar: canto direito na ordem aprovada — seletor de projeto, número do contrato (quando existir), avatar, botão de sair; seletor+contrato formam um único agrupamento visual compacto", () => {
   const topBarSource = readSource("apps/web/components/layout/top-bar.tsx");
   assert(topBarSource.includes("<ProjectSwitcher"), "TopBar deveria continuar com o seletor de projeto");
   // Restaurado: a correção que removia este chip NÃO foi autorizada — o
@@ -281,13 +287,12 @@ check("TopBar: canto direito na ordem aprovada — seletor de projeto, código, 
   assert(topBarSource.includes("<LogoutButton"), "TopBar deveria continuar com o botão de sair");
 
   const switcherIndex = topBarSource.indexOf("<ProjectSwitcher");
-  const codeIndex = topBarSource.indexOf("currentProject?.code");
   const contractIndex = topBarSource.indexOf("currentProject?.contractNumber");
   const avatarIndex = topBarSource.indexOf("<Avatar>");
   const logoutIndex = topBarSource.indexOf("<LogoutButton");
   assert(
-    switcherIndex < codeIndex && codeIndex < contractIndex && contractIndex < avatarIndex && avatarIndex < logoutIndex,
-    "a ordem no markup deveria ser seletor, código, contrato, avatar, sair — a mesma ordem visual aprovada"
+    switcherIndex < contractIndex && contractIndex < avatarIndex && avatarIndex < logoutIndex,
+    "a ordem no markup deveria ser seletor, contrato, avatar, sair (código do projeto não é mais exibido na TopBar)"
   );
 
   // Nunca "hidden"/display:none — só truncamento/quebra controlada.
@@ -362,9 +367,9 @@ check("cabeçalho responsivo: PageHeader nunca força largura fixa/overflow hori
   assert(!/whitespace-nowrap/.test(pageHeaderSource), "título não deveria forçar nowrap (permitir quebra em telas estreitas)");
 });
 
-check("sidebar: logo/ícone tem altura fixa (h-12, ampliado em 95c96f6) e largura automática — nunca deforma ao encolher a sidebar", () => {
+check("sidebar: logo/ícone tem altura fixa (h-[55px], ampliado após 95c96f6) e largura automática — nunca deforma ao encolher a sidebar", () => {
   const source = readSource("apps/web/components/layout/app-sidebar.tsx");
-  assert(/src="\/branding\/acc-logo\.png" alt="ACC" className="h-\d+ w-auto shrink-0/.test(source), "ícone deveria ter altura fixa, largura automática (proporção preservada) e shrink-0 (nunca deformar)");
+  assert(/src="\/branding\/acc-logo\.png" alt="ACC" className="h-(?:\d+|\[\d+px\]) w-auto shrink-0/.test(source), "ícone deveria ter altura fixa, largura automática (proporção preservada) e shrink-0 (nunca deformar)");
 });
 
 console.log("");
