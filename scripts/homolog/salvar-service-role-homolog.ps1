@@ -5,7 +5,7 @@
 #   ou a chave secreta (sb_secret_...). Use SOMENTE a do acc-homolog. NUNCA a de producao (plbcvwostmdmdmrziwmd) nem de outro projeto.
 # O que o script faz: (1) pede a chave SEM ECO; (2) recusa se for JWT de outro projeto ou de outro papel; (3) valida AO VIVO contra o host do
 # acc-homolog (leitura de 1 linha de projects, que so a service_role consegue por causa do RLS) sem colocar a chave na linha de comando;
-# (4) so entao grava em C:\vibe\homolog\secret\service-role.dpapi (arquivo NOVO; o sk.dpapi antigo nao e tocado; se o novo ja existir, vira .bak-<data>).
+# (4) so entao grava em <SystemDrive>\vibe\homolog\secret\service-role.dpapi (arquivo NOVO; o sk.dpapi antigo nao e tocado; se o novo ja existir, vira .bak-<data>).
 # Nada e impresso: nem a chave, nem parte dela. A chave nunca e gravada em texto puro.
 $ErrorActionPreference = 'Stop'
 $ref = 'gtadbeaevxglrqkhcwfz'
