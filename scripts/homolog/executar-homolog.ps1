@@ -5,7 +5,7 @@
 #   powershell -NoProfile -File scripts\homolog\executar-homolog.ps1 -Etapa <etapa> [-Pooler aws-0-sa-east-1.pooler.supabase.com]
 # Etapas: ping | apply-dry | init-marker | apply | verify | seed-dry | seed-apply
 param(
-  [Parameter(Mandatory = $true)][ValidateSet('ping', 'apply-dry', 'init-marker', 'apply', 'verify', 'seed-dry', 'seed-apply', 'tenant-dry', 'tenant-apply', 'sql', 'executor', 'jwt')][string]$Etapa,
+  [Parameter(Mandatory = $true)][ValidateSet('ping', 'apply-dry', 'init-marker', 'apply', 'verify', 'seed-dry', 'seed-apply', 'tenant-dry', 'tenant-apply', 'sql', 'executor', 'jwt', 'observar', 'dataapi')][string]$Etapa,
   [string]$Pooler = '',
   [string]$Email = '',
   [string]$Arquivo = '',
@@ -32,7 +32,15 @@ $env:HOMOLOG_I_UNDERSTAND_ISOLATED = 'true'
 $env:NODE_NO_WARNINGS = '1'
 if (-not $env:ACC_REALPG_PKG_DIR) { $env:ACC_REALPG_PKG_DIR = Join-Path $env:SystemDrive 'vibe\pgtest\node' }
 $pw = $null; $enc = $null
-if ($Etapa -eq 'jwt') { $env:HOMOLOG_PUBLISHABLE_KEY = $Publicavel }  # so a chave PUBLICAVEL; a secreta nao e usada nesta etapa
+if ($Etapa -in @('jwt', 'dataapi')) {
+  $env:HOMOLOG_PUBLISHABLE_KEY = $Publicavel
+  $srFile = Join-Path $dir 'service-role.dpapi'   # criado pelo responsavel com salvar-service-role-homolog.ps1 (validado ao vivo)
+  if (Test-Path -LiteralPath $srFile) {
+    $srs = (Get-Content -LiteralPath $srFile -Raw).Trim() | ConvertTo-SecureString
+    $b3 = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($srs)
+    try { $env:HOMOLOG_SERVICE_ROLE_KEY = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($b3) } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($b3) }
+  }
+}
 
 # Contas de teste (seed): arquivo FORA do repositório, uma por linha, CODIGO=email@axion.com.br (ver env-template/contas-teste.template.txt).
 $contas = Join-Path $env:SystemDrive 'vibe\homolog\contas-teste.txt'
@@ -53,7 +61,9 @@ $map = @{
   'tenant-apply' = @('scripts/homolog/validar-tenant-admin.mjs', "--email=$Email", '--apply');
   'sql'         = @('scripts/homolog/executar-sql-guardado.mjs', $Arquivo) + @($Extra -split ' ' | Where-Object { $_ });
   'executor'    = @('scripts/implantacao/executor-ondas.mjs', '--alvo', 'pg') + @($Extra -split ' ' | Where-Object { $_ });
-  'jwt'         = @('scripts/homolog/validar-jwt-real.mjs') + @($Extra -split ' ' | Where-Object { $_ })
+  'jwt'         = @('scripts/homolog/validar-jwt-real.mjs') + @($Extra -split ' ' | Where-Object { $_ });
+  'observar'    = @('scripts/homolog/observar-jobs.mjs') + @($Extra -split ' ' | Where-Object { $_ });
+  'dataapi'     = @('scripts/homolog/verificar-data-api.mjs') + @($Extra -split ' ' | Where-Object { $_ })
 }
 $args2 = $map[$Etapa]
 node --no-warnings @args2

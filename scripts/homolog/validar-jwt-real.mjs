@@ -17,7 +17,7 @@ const PUB = process.env.HOMOLOG_PUBLISHABLE_KEY;
 if (!PUB) { console.error("RECUSADO: falta HOMOLOG_PUBLISHABLE_KEY (use executar-homolog.ps1 -Etapa jwt -Publicavel <chave>)"); process.exit(2); }
 if (process.env.HOMOLOG_TARGET_REF !== REF) { console.error("RECUSADO: HOMOLOG_TARGET_REF diferente do acc-homolog"); process.exit(2); }
 
-const redigir = (t) => String(t).split(PUB).join("***");
+const redigir = (t) => { let o = String(t).split(PUB).join("***"); const sk = process.env.HOMOLOG_SERVICE_ROLE_KEY; if (sk) o = o.split(sk).join("***"); return o; };
 let ok = 0, falha = 0;
 function check(nome, cond, detalhe = "") {
   if (cond) ok += 1; else falha += 1;
@@ -45,6 +45,22 @@ async function http(method, pathq, { jwt = null, body, headers = {}, raw = false
   const status = Number(out.slice(k + 1));
   let j = null; try { j = JSON.parse(t); } catch { /* texto */ }
   return { status, json: j, text: t };
+}
+// service_role pela API real: a chave vem de DPAPI (HOMOLOG_SERVICE_ROLE_KEY, so no processo filho) e vai por CONFIG no stdin do curl
+// (nunca na linha de comando, nunca impressa). Sem a chave, os testes de service_role sao marcados NAO EXECUTADO.
+const SVC = process.env.HOMOLOG_SERVICE_ROLE_KEY ?? "";
+const cfgEsc = (s) => String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+async function httpSvc(method, pathq, { body } = {}) {
+  const linhas = [`url = "${BASE}${pathq}"`, "silent", "max-time = 40", `request = "${method}"`, 'write-out = "\\n%{http_code}"', `header = "apikey: ${cfgEsc(SVC)}"`];
+  if (SVC.startsWith("eyJ")) linhas.push(`header = "Authorization: Bearer ${cfgEsc(SVC)}"`);
+  linhas.push('header = "Content-Type: application/json"', 'header = "Prefer: return=representation"');
+  if (body !== undefined) linhas.push(`data = "${cfgEsc(JSON.stringify(body))}"`);
+  const r = spawnSync("curl", ["-K", "-"], { input: linhas.join("\n"), encoding: "utf8" });
+  if (r.status !== 0) throw new Error(`rede: curl exit ${r.status}`);
+  const k = r.stdout.lastIndexOf("\n");
+  const t = r.stdout.slice(0, k);
+  let j = null; try { j = JSON.parse(t); } catch { /* texto */ }
+  return { status: Number(r.stdout.slice(k + 1)), json: j, text: t };
 }
 const msgErro = (r) => `${r.status} ${r.json?.code ?? ""} ${r.json?.message ?? r.json?.error ?? r.text}`.trim();
 const congelado = (r) => /ACC_JANELA_CONGELAMENTO/.test(JSON.stringify(r.json ?? r.text));
@@ -139,7 +155,14 @@ try {
   check("Storage: upload anon recusado", upAnon.status >= 400, msgErro(upAnon));
 
   // service_role pela API: NAO executado (a chave secreta guardada tem formato que o Auth recusa; nao inspecionada)
-  console.log(`NAO EXECUTADO [${fase}] service_role pela API real (chave secreta indisponivel); cobertura alternativa: test-congelamento-realpg (service_role mantem escrita) e psql como dono`);
+  if (!SVC) console.log(`NAO EXECUTADO [${fase}] service_role pela API real (service-role.dpapi ausente); cobertura alternativa: test-congelamento-realpg e psql como dono`);
+  else {
+    const sr = await httpSvc("GET", "/rest/v1/projects?select=id");
+    const srIds = (sr.json ?? []).map((x) => x.id);
+    check("service_role (API real): ignora o RLS e ve as 3 obras (TESTE, TESTE 2, sentinela)", sr.status === 200 && [OBRA_TESTE, OBRA_TESTE2, SENTINELA].every((i) => srIds.includes(i)), `obras=${srIds.length}`);
+    const sw = await httpSvc("PATCH", `/rest/v1/projects?id=eq.${SENTINELA}`, { body: { location: "N/A" } });
+    check(`service_role (API real): ${fase === "congelado" ? "continua gravando DURANTE o congelamento (worker/crons nao sao congelados)" : "grava (update neutro na sentinela)"}`, sw.status === 200 && Array.isArray(sw.json) && sw.json.length === 1, msgErro(sw));
+  }
 
   // Auth continua funcionando na janela (login novo e refresh)
   const novoLogin = await http("POST", "/auth/v1/token?grant_type=password", { body: { email: u1.email, password: u1.senha } });
