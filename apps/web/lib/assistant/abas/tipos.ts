@@ -2,7 +2,7 @@
 //
 // Um único conjunto de dados alimenta DUAS saídas, para que nunca divirjam:
 //   1. a AXIA (lib/assistant/abas/axia-entradas.ts converte cada item em entradas da base de respostas);
-//   2. o Manual do Usuário (scripts/gerar-manual-usuario.mjs gera docs/manual-usuario-acc.md a partir destes dados;
+//   2. o Manual do Usuário (scripts/gerar-manual-usuario.mjs gera docs/manual/manual-usuario-acc.md a partir destes dados;
 //      scripts/test-axia-manual-abas.mjs falha se o arquivo publicado divergir do gerado).
 //
 // Regras de conteúdo (verificadas por scripts/test-axia-manual-abas.mjs):
