@@ -160,8 +160,21 @@ try {
     const sr = await httpSvc("GET", "/rest/v1/projects?select=id");
     const srIds = (sr.json ?? []).map((x) => x.id);
     check("service_role (API real): ignora o RLS e ve as 3 obras (TESTE, TESTE 2, sentinela)", sr.status === 200 && [OBRA_TESTE, OBRA_TESTE2, SENTINELA].every((i) => srIds.includes(i)), `obras=${srIds.length}`);
-    const sw = await httpSvc("PATCH", `/rest/v1/projects?id=eq.${SENTINELA}`, { body: { location: "N/A" } });
-    check(`service_role (API real): ${fase === "congelado" ? "continua gravando DURANTE o congelamento (worker/crons nao sao congelados)" : "grava (update neutro na sentinela)"}`, sw.status === 200 && Array.isArray(sw.json) && sw.json.length === 1, msgErro(sw));
+    // gravacao controlada: valor marcador na sentinela, conferido por leitura direta no banco, e restauracao do original
+    const orig = (await db.query("select location from public.projects where id=$1", [SENTINELA])).rows[0].location;
+    const marcador = `SVC-TESTE-${Date.now()}`;
+    const sw = await httpSvc("PATCH", `/rest/v1/projects?id=eq.${SENTINELA}`, { body: { location: marcador } });
+    const lido = (await db.query("select location from public.projects where id=$1", [SENTINELA])).rows[0].location;
+    check(`service_role (API real): ${fase === "congelado" ? "continua gravando DURANTE o congelamento (worker/crons nao sao congelados)" : "grava (valor marcador na sentinela)"}`, sw.status === 200 && Array.isArray(sw.json) && sw.json.length === 1 && lido === marcador, `${msgErro(sw)} | lido=${lido === marcador ? "marcador" : lido}`);
+    const rest = await httpSvc("PATCH", `/rest/v1/projects?id=eq.${SENTINELA}`, { body: { location: orig } });
+    const lido2 = (await db.query("select location from public.projects where id=$1", [SENTINELA])).rows[0].location;
+    check("service_role (API real): restauracao do valor original conferida no banco", rest.status === 200 && lido2 === orig, `restaurado=${lido2 === orig}`);
+    // o mesmo usuario authenticated NAO escreve no mesmo registro durante o congelamento (contraste worker x usuario)
+    if (fase === "congelado") {
+      const nao = await http("PATCH", `/rest/v1/projects?id=eq.${SENTINELA}`, { jwt: u1.token, body: { location: "NAO-DEVE-GRAVAR" }, headers: { Prefer: "return=representation" } });
+      const lido3 = (await db.query("select location from public.projects where id=$1", [SENTINELA])).rows[0].location;
+      check("contraste: authenticated recusado (42501) no mesmo registro em que a service_role gravou, e nada gravado", nao.status >= 400 && lido3 === orig, `${msgErro(nao)} | valor=${lido3 === orig ? "original" : lido3}`);
+    }
   }
 
   // Auth continua funcionando na janela (login novo e refresh)
