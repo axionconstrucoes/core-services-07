@@ -1,13 +1,16 @@
-# Executor GUARDADO do kit de homologação. Lê a senha do banco do acc-homolog de um arquivo DPAPI (criado por salvar-segredos-homolog.ps1),
+﻿# Executor GUARDADO do kit de homologação. Lê a senha do banco do acc-homolog de um arquivo DPAPI (criado por salvar-segredos-homolog.ps1),
 # monta HOMOLOG_DATABASE_URL SOMENTE para o processo filho e NUNCA a imprime. O próprio kit (guard.mjs) ainda recusa qualquer alvo que não seja o
 # acc-homolog (ref gtadbeaevxglrqkhcwfz) e qualquer ref/host operacional.
 # Uso (da raiz do repositório, pelo Git Bash ou PowerShell):
 #   powershell -NoProfile -File scripts\homolog\executar-homolog.ps1 -Etapa <etapa> [-Pooler aws-0-sa-east-1.pooler.supabase.com]
 # Etapas: ping | apply-dry | init-marker | apply | verify | seed-dry | seed-apply
 param(
-  [Parameter(Mandatory = $true)][ValidateSet('ping', 'apply-dry', 'init-marker', 'apply', 'verify', 'seed-dry', 'seed-apply', 'tenant-dry', 'tenant-apply')][string]$Etapa,
+  [Parameter(Mandatory = $true)][ValidateSet('ping', 'apply-dry', 'init-marker', 'apply', 'verify', 'seed-dry', 'seed-apply', 'tenant-dry', 'tenant-apply', 'sql', 'executor', 'jwt')][string]$Etapa,
   [string]$Pooler = '',
-  [string]$Email = ''
+  [string]$Email = '',
+  [string]$Arquivo = '',
+  [string]$Extra = '',
+  [string]$Publicavel = ''
 )
 $ErrorActionPreference = 'Stop'
 $ref = 'gtadbeaevxglrqkhcwfz'
@@ -29,6 +32,7 @@ $env:HOMOLOG_I_UNDERSTAND_ISOLATED = 'true'
 $env:NODE_NO_WARNINGS = '1'
 if (-not $env:ACC_REALPG_PKG_DIR) { $env:ACC_REALPG_PKG_DIR = Join-Path $env:SystemDrive 'vibe\pgtest\node' }
 $pw = $null; $enc = $null
+if ($Etapa -eq 'jwt') { $env:HOMOLOG_PUBLISHABLE_KEY = $Publicavel }  # so a chave PUBLICAVEL; a secreta nao e usada nesta etapa
 
 # Contas de teste (seed): arquivo FORA do repositório, uma por linha, CODIGO=email@axion.com.br (ver env-template/contas-teste.template.txt).
 $contas = Join-Path $env:SystemDrive 'vibe\homolog\contas-teste.txt'
@@ -46,7 +50,10 @@ $map = @{
   'seed-dry'    = @('scripts/homolog/seed-e-perfis.mjs');
   'seed-apply'  = @('scripts/homolog/seed-e-perfis.mjs', '--apply');
   'tenant-dry'  = @('scripts/homolog/validar-tenant-admin.mjs', "--email=$Email");
-  'tenant-apply' = @('scripts/homolog/validar-tenant-admin.mjs', "--email=$Email", '--apply')
+  'tenant-apply' = @('scripts/homolog/validar-tenant-admin.mjs', "--email=$Email", '--apply');
+  'sql'         = @('scripts/homolog/executar-sql-guardado.mjs', $Arquivo) + @($Extra -split ' ' | Where-Object { $_ });
+  'executor'    = @('scripts/implantacao/executor-ondas.mjs', '--alvo', 'pg') + @($Extra -split ' ' | Where-Object { $_ });
+  'jwt'         = @('scripts/homolog/validar-jwt-real.mjs') + @($Extra -split ' ' | Where-Object { $_ })
 }
 $args2 = $map[$Etapa]
 node --no-warnings @args2
