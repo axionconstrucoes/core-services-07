@@ -183,7 +183,11 @@ check("nenhum script/workflow/package.json versionado contém comando de aplica�
 check("os documentos de implantação não contêm segredos", () => {
   const dir = path.join(root, "docs", "implantacao");
   const bad = [];
-  for (const f of readdirSync(dir)) {
+  const arquivos = (d, pref = "") =>
+    readdirSync(d, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? arquivos(path.join(d, e.name), `${pref}${e.name}/`) : [`${pref}${e.name}`]
+    );
+  for (const f of arquivos(dir)) {
     const t = readFileSync(path.join(dir, f), "utf8");
     if (/eyJ[A-Za-z0-9_-]{20,}\./.test(t)) bad.push(`${f}: JWT`);
     if (/-----BEGIN [A-Z ]*PRIVATE KEY-----/.test(t)) bad.push(`${f}: chave privada`);
