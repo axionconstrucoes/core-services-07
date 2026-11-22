@@ -105,9 +105,14 @@ check("migrations 20261205*: RLS nas tabelas novas, rollback, sem envio real, se
 });
 check("roteiro: 36 linhas com status honesto; nenhuma EXECUTADO-AUTENTICADO sem pessoa logada; sem NÃO EXECUTADO residual", () => {
   const t = read("docs/homologacao-autenticada-roteiro.md");
-  const rows = t.split("\n").filter((l) => /^\| /.test(l) && /\*\*(EXECUTADO-BANCO-REAL|BLOQUEADO|FIXTURE|EXECUTADO-AUTENTICADO)\*\*/.test(l));
+  // Desde a homologação ADM de 21/11 (seção 15) o status pode vir qualificado: "**EXECUTADO-AUTENTICADO (ADM, parcial; seção 15)**".
+  const rows = t.split("\n").filter((l) => /^\| /.test(l) && /\*\*(EXECUTADO-BANCO-REAL|BLOQUEADO|FIXTURE|EXECUTADO-AUTENTICADO)( \([^*]*\))?\*\*/.test(l));
   assert.equal(rows.length, 36);
-  assert.equal(rows.filter((l) => l.includes("**EXECUTADO-AUTENTICADO**")).length, 0);
+  // Status honesto: linha EXECUTADO-AUTENTICADO só com pessoa logada em sessão real e data registradas.
+  for (const l of rows.filter((r) => r.includes("**EXECUTADO-AUTENTICADO"))) {
+    assert.match(l, /sessão (Google )?real/, `linha autenticada sem sessão real: ${l.slice(0, 80)}`);
+    assert.match(l, /\d{2}\/\d{2}\/\d{4}/, `linha autenticada sem data: ${l.slice(0, 80)}`);
+  }
   assert.equal(t.split("\n").filter((l) => /\| NÃO EXECUTADO \| —/.test(l)).length, 0);
   assert.match(t, /pré-condição 0\.2/);
 });

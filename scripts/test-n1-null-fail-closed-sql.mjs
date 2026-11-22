@@ -155,7 +155,8 @@ let minute = 0;
 async function transitionFor(c, action, payload, actor) {
   minute += 1;
   const t = applyAlertAction({
-    now: new Date(Date.UTC(2026, 10, 21, 12, minute)).toISOString(), snapshot: await snapshotOf(c), action, actorUserId: actor, origin: "WEB", payload,
+    // Relógio REAL (antes fixo em 21/11 12:00 UTC: o prazo do encaminhamento vencia e o banco recusava com "Prazo para assumir inválido").
+    now: new Date(Date.now() + minute * 60_000).toISOString(), snapshot: await snapshotOf(c), action, actorUserId: actor, origin: "WEB", payload,
     policy: policyFor(c.riskLevel), config, recipients, eligibleForwardUserIds: [U.GESTOR, U.DIR, U.COLAB, U.RESP, U.ADMIN],
   });
   assert(t.ok, `máquina de estados recusou: ${t.code} ${t.message}`);
@@ -168,7 +169,7 @@ const body = (t, actor) => ({
 });
 const rpc = (c, expected, payload) => db.query("select public.record_risk_alert_action($1, $2, $3::jsonb) as r", [c.id, expected, JSON.stringify(payload)]);
 const caseState = async (c) => one("select state, current_responsible_user_id cur, previous_responsible_user_id prev, (select count(*)::int from public.risk_alert_action_events e where e.case_id = c.id) events, (select count(*)::int from public.risk_alert_outbox o where o.case_id = c.id) outbox from public.risk_alert_cases c where id = $1", [c.id]);
-const TAKING = { text: "Replanejamento da frente B em andamento.", forecastAt: "2026-11-25" };
+const TAKING = { text: "Replanejamento da frente B em andamento.", forecastAt: new Date(Date.now() + 4 * 86_400_000).toISOString().slice(0, 10) };
 
 await check("R1 caso SEM responsável (atual e anterior nulos): LEITURA, COLABORADOR sem papel, INATIVO, usuário de OUTRA obra, destinatário antigo/suprimido + escalonamento histórico e exceção do piloto REVOGADA — todos recusados, nada gravado", async () => {
   const c = await newCase({ responsible: null });
