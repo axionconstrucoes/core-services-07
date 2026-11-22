@@ -1,14 +1,14 @@
-# 10 - Fase 6/H4 (atualizado na H5): inventário das 70 pendentes, ensaio com perfil de volume e caminho para cópia fiel (PLANO; nada foi aplicado)
+# 10 - Fase 6/H4 (atualizado na H5): inventário das 71 pendentes, ensaio com perfil de volume e caminho para cópia fiel (PLANO; nada foi aplicado)
 
 Data da leitura: 21/11/2026. Base: `9858f7c` (integration/acc-noturna). Supabase operacional (`plbcvwostmdmdmrziwmd`): somente SELECT de contagens, tamanhos e metadados (`pg_class`, `pg_stat_user_tables`, `pg_constraint`, `cron.job`); nenhum conteúdo de linha e nenhum dado pessoal foi lido. Nada foi aplicado, registrado ou alterado; o hotfix P0 não foi reaplicado.
 
-## 1. Contagem confirmada (**70** pendentes; 65 na H4 + 4 da onda L + 1 da onda M/H6e)
+## 1. Contagem confirmada (**71** pendentes; 65 na H4 + 4 da onda L + 1 da onda M/H6e + 1 da onda N/watchdog)
 
 | Item | Valor |
 |---|---|
 | Registros remotos em `supabase_migrations.schema_migrations` | 134; última `20261119034721`; `md5(string_agg(version\|\|'_'\|\|name order by version))` = `70a176da74c9f88ac06b04d80bc55891` (igual ao hash do inventário `01`) |
 | Corpo de `record_risk_alert_action` (md5 sem CR) | `930f6d75898793479b418950b0053bd9` (protegido) |
-| Arquivos locais em `supabase/migrations` | 205 (200 na H4; +4 da Fase 6, +1 da Fase 7/H6e) |
+| Arquivos locais em `supabase/migrations` | 206 (200 na H4; +4 da Fase 6, +1 da Fase 7/H6e, +1 do watchdog) |
 | Aplicada fora do histórico (hotfix `20261121090000`) | 1 |
 | Pendentes | **69** = 64 `pendente` + 3 `pendente-fora-de-ordem` + 1 `pendente-parcial` + 1 `pendente-decisao` |
 

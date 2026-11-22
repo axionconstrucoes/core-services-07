@@ -323,7 +323,7 @@ async function runVariant(variant) {
     const h = (await su.query("select count(*)::int n, max(version) m, md5(string_agg(version||'_'||name, ',' order by version)) h from supabase_migrations.schema_migrations")).rows[0];
     ok(h.n === 134 && h.m === seq.ultimaVersaoRemota && h.h === "70a176da74c9f88ac06b04d80bc55891", JSON.stringify(h));
   });
-  await check(`[${variant}] CLI-like: o push sem a opcao include-all RECUSA (3 versoes locais < ultima remota); pendentes por versao = ${allStems.length - 134} (70 das ondas/adiadas + hotfix)`, async () => {
+  await check(`[${variant}] CLI-like: o push sem a opcao include-all RECUSA (3 versoes locais < ultima remota); pendentes por versao = ${allStems.length - 134} (71 das ondas/adiadas + hotfix)`, async () => {
     const reg = new Set((await su.query("select version from supabase_migrations.schema_migrations")).rows.map((r) => r.version));
     const pend = allStems.filter((x) => !reg.has(x.slice(0, 14)));
     const ooo = pend.filter((x) => x.slice(0, 14) < seq.ultimaVersaoRemota);
@@ -331,7 +331,7 @@ async function runVariant(variant) {
     ok(pend.some((x) => x.startsWith("20261121090000")), "hotfix deveria aparecer como pendente para a CLI (por isso o repair antes)");
     const naSeq = new Set([...seq.ondas.flatMap((o) => o.migrations), ...seq.adiadas.map((a) => a.migration), ...seq.jaEfetivaNaoReaplicar]);
     ok(pend.every((x) => naSeq.has(x) || tailStems.includes(x)), "pendente fora da sequencia");
-    ok(pend.length === 71, `esperado 71 pendentes (70 + hotfix), ha ${pend.length}`);
+    ok(pend.length === 72, `esperado 72 pendentes (71 + hotfix), ha ${pend.length}`);
   });
   const before = await snapshotData(su);
   const anon0 = await anonExecCount(su);
@@ -454,7 +454,7 @@ try {
     const nw = (await su.query("select assume_due_at d from public.sla_actions where title like 'Nova acao MEDIO%'")).rows[0].d.toISOString();
     ok(nw === m2, "nova acao nao usa 2 dias uteis");
   });
-  await check("[LF] historico espelho CLI-like: repair --status applied do hotfix (so insert), P0 inalterado, historico final = os 205 arquivos locais (hash) e reversivel por repair --status reverted", async () => {
+  await check("[LF] historico espelho CLI-like: repair --status applied do hotfix (so insert), P0 inalterado, historico final = os 206 arquivos locais (hash) e reversivel por repair --status reverted", async () => {
     const su = lf.db.su;
     const p0a = (await p0Full(su, lf.db.caseId)).md5;
     const hf = "20261121090000";

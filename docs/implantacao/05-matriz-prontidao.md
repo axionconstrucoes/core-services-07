@@ -57,7 +57,7 @@ Migrations: sequência definida e ENSAIADA em PostgreSQL 17 local com dados repr
 
 | Item | Situação (evidência) | Prontidão | Ação |
 |---|---|---|---|
-| Inventário | 134 registradas (hash conferido em 21/11), 205 locais, 70 pendentes (onda M = H6e incluída) + hotfix fora do histórico | DEPENDE | autorização do Dono por onda |
-| Compatibilidade com a CLI oficial | documentada e ensaiada (`14`); `db push` direto aplicaria 71 arquivos (inclui hotfix e adiadas): NÃO usar sem pasta cumulativa por onda | DEPENDE | decisão (a)/(b)/CLI: recomendado (b) + CLI só leitura |
+| Inventário | 134 registradas (hash conferido em 21/11), 206 locais, 71 pendentes (ondas M = H6e e N = watchdog incluídas) + hotfix fora do histórico | DEPENDE | autorização do Dono por onda |
+| Compatibilidade com a CLI oficial | documentada e ensaiada (`14`); `db push` direto aplicaria 72 arquivos (inclui hotfix e adiadas): NÃO usar sem pasta cumulativa por onda | DEPENDE | decisão (a)/(b)/CLI: recomendado (b) + CLI só leitura |
 | Permissão para escrever no histórico | só `postgres`/`supabase_admin` (catálogo); `service_role`/`authenticated` sem acesso | BLOQUEADO até a conexão de manutenção ser fornecida | confirmar o papel na janela |
 | Pausa de jobs | 11 jobs `pg_cron` e 11 workflows com `schedule` listados (`15`); a lista de `12` 1.4 estava incompleta | DEPENDE | executar o runbook na janela |

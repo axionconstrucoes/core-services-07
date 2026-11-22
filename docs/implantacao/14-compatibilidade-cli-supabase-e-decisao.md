@@ -7,8 +7,8 @@ Data da leitura: 21/11/2026. Nada foi aplicado, reparado ou registrado no operac
 | Item | Valor | Fonte |
 |---|---|---|
 | Registros em `supabase_migrations.schema_migrations` | **134**; última `20261119034721`; hash `md5(string_agg(version\|\|'_'\|\|name, ',' order by version))` = `70a176da74c9f88ac06b04d80bc55891` | SELECT via MCP **[VERIFICADO]** |
-| Arquivos locais | **205** (134 registrados + **71** não registrados) | `supabase/migrations` **[VERIFICADO]** |
-| Os 71 | 68 em 13 ondas (A, B, C, D, F, G, H1, I, P0, J, K, L, M) + 2 adiadas (`20261121177000` onda E, `20261123302000` onda H2) = **70 pendentes** + o hotfix `20261121090000` (efetivo fora do histórico) | `scripts/data/implantacao-sequencia.json`, `test-implantacao-cli` **[VERIFICADO]** |
+| Arquivos locais | **206** (134 registrados + **72** não registrados) | `supabase/migrations` **[VERIFICADO]** |
+| Os 72 | 69 em 14 ondas (A, B, C, D, F, G, H1, I, P0, J, K, L, M, N) + 2 adiadas (`20261121177000` onda E, `20261123302000` onda H2) = **71 pendentes** + o hotfix `20261121090000` (efetivo fora do histórico) | `scripts/data/implantacao-sequencia.json`, `test-implantacao-cli` **[VERIFICADO]** |
 | 134 remotas × nomes locais | versão e nome **idênticos** (hash do conjunto local equivalente = hash remoto; `test-implantacao-plano`) | **[VERIFICADO]** |
 | P0 `record_risk_alert_action` | md5 do `prosrc` = `930f6d75898793479b418950b0053bd9` (igual com e sem CR) | SELECT **[VERIFICADO]** |
 | Servidor | PostgreSQL 17.6, `pg_cron` 1.6.4 | SELECT **[VERIFICADO]** |

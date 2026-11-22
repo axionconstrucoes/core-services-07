@@ -56,13 +56,13 @@ check("dependências declaradas das adiadas são aplicadas antes na sequência (
   for (const d of seq.adiadas) for (const dep of d.depende) assert(ordered.includes(dep) || registered.has(dep), `${d.migration} depende de ${dep}`);
 });
 
-check("o portão P0 é a última migration da sequência principal (só as ondas J, K e L, sem tocar record_risk_alert_action, vem depois) e existe com rollback", () => {
+check("o portão P0 é a última migration da sequência principal (só as ondas J, K, L, M e N, sem tocar record_risk_alert_action, vem depois) e existe com rollback", () => {
   // Cauda após o portão: ondas J (Fase 4/D), K (Fase 5) e L (Fase 6), todas sem tocar record_risk_alert_action.
-  const afterJ = seq.ondas.filter((o) => o.id === "J" || o.id === "K" || o.id === "L" || o.id === "M").flatMap((o) => o.migrations);
+  const afterJ = seq.ondas.filter((o) => o.id === "J" || o.id === "K" || o.id === "L" || o.id === "M" || o.id === "N").flatMap((o) => o.migrations);
   const main = ordered.filter((s) => !afterJ.includes(s));
   const last = main[main.length - 1];
   assert(last === "20261126100000_p0_gate_record_risk_alert_action", `última: ${last}`);
-  assert(ordered.slice(main.length).join() === afterJ.join(), "as ondas J, K e L devem ser a cauda da sequência");
+  assert(ordered.slice(main.length).join() === afterJ.join(), "as ondas J, K, L, M e N devem ser a cauda da sequência");
   for (const j of afterJ) assert(!/record_risk_alert_action/.test(read(`supabase/migrations/${j}.sql`).replace(/^s*--.*$/gm, "")), `${j} toca record_risk_alert_action`);
   assert(existsSync(path.join(root, "supabase", "rollbacks", `${last}.rollback.sql`)), "rollback ausente");
 });
