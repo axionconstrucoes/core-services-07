@@ -165,3 +165,5 @@ scripts/test-executor-ondas.mjs
 scripts/test-executor-ondas-realpg.mjs
 scripts/test-trava-modulos-realpg.mjs
 scripts/test-email-com-trava.mjs
+scripts/test-sidebar-and-go-live.mjs
+scripts/test-acc-branding.mjs
