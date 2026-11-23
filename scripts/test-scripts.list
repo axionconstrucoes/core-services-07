@@ -169,3 +169,4 @@ scripts/test-sidebar-and-go-live.mjs
 scripts/test-acc-branding.mjs
 scripts/test-congelamento-realpg.mjs
 scripts/test-watchdog-project-resolution-sql.mjs
+scripts/test-aceitacao-roteiro.mjs
