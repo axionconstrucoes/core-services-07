@@ -85,6 +85,8 @@ Responsável: Eng. TI, com aprovação do Dono. Variáveis novas no código (`ap
 | `ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED` | **ligado** (só o valor exato `false` desliga) | `false` no go-live; ligar após a aceitação do bloco SSMA |
 | `ACC_EMAIL_CLASSIFY_ENABLED` / `ACC_EMAIL_CLASSIFY_APPLY` | desligado (fail-closed) | não definir (pipeline de e-mail em simulação, doc 12 seção 6) |
 | `ACC_QUALITY_TRIAGE_PROVIDER` | desligado | não definir |
+**Variável do repositório do GitHub (não da Vercel):** `ACC_DELEGATED_ATTACHMENTS_ENABLED` — o passo novo "Anexos da caixa por delegação" do workflow `gmail-delegated-sync` só roda quando ela é exatamente `true`. **Não definir no go-live** (decisão D5 aprovada em 22/11/2026); ligar só depois da aceitação funcional do bloco de e-mail (doc 20). Travado por `scripts/test-workflow-gates.mjs`.
+
 Já existentes e que **devem permanecer**: `AXIA_CHAT_PROVIDER=off`, `ACC_SSMA_NOTIFICATIONS_SCOPE=WEG_CORRECTIVE_ACTIONS`, `ACC_PILOT_SINGLE_ALERT_*=DESARMADO`, `ACC_PROJECT_PILOT_TEST_GROUP` vazio. Conferir também os workflows do GitHub e seus segredos (workers de e-mail) conforme o documento `frenteC-flags-email-homologacao-producao.md` (pasta de documentos de homologação, fora do repositório).
 
 ## 7. Backup e recuperação

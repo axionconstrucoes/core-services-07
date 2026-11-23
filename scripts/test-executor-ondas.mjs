@@ -76,9 +76,9 @@ const exec = (plano, banco, extra = {}) => executarPlano({ plano, transporte: ba
 // ================= redação
 check("redigir: token sbp_, Bearer, JWT, URL postgres e segredos explícitos", () => {
   const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghij";
-  const t = redigir(`x ${TOKEN} y Authorization: Bearer abcdefgh12345678 z ${jwt} postgres://u:senhaSecreta@h/db e SEGREDO-LOCAL`, ["SEGREDO-LOCAL"]);
+  const t = redigir(`x ${TOKEN} y Authorization: Bearer abcdefgh12345678 z ${jwt} postgres://u:senhaSecreta@h/db e SEGREDO-LOCAL`, ["SEGREDO-LOCAL"]); // fixture FAKE de teste
   assert(!/sbp_0123|abcdefgh12345678|eyJhbG|senhaSecreta|SEGREDO-LOCAL/.test(t), t);
-  assert(/\[REDIGIDO\]/.test(t) && t.includes("postgres://u:[REDIGIDO]@h/db"), t);
+  assert(/\[REDIGIDO\]/.test(t) && t.includes("postgres://u:[REDIGIDO]@h/db"), t); // fixture FAKE de teste
 });
 check("redigir: texto sem segredo permanece igual", () => assert(redigir("pré-voo: P0 ok; 205 linhas") === "pré-voo: P0 ok; 205 linhas"));
 

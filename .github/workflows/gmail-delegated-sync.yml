@@ -77,8 +77,10 @@ jobs:
           ACC_GMAIL_MAX_MESSAGES: ${{ inputs.mode == 'sample' && inputs.max_messages || '' }}
 
       # Anexos e atas da MESMA caixa, pela mesma porta por caixa (controle + período + aceite). Não roda no teste técnico.
+      # DESLIGADO POR PADRÃO (decisão do responsável, 22/11/2026): só roda quando a variável do repositório
+      # ACC_DELEGATED_ATTACHMENTS_ENABLED for exatamente 'true', depois da aceitação funcional do bloco de e-mail (doc 20).
       - name: Anexos da caixa por delegação
-        if: ${{ inputs.mode != 'technical_check' }}
+        if: ${{ inputs.mode != 'technical_check' && vars.ACC_DELEGATED_ATTACHMENTS_ENABLED == 'true' }}
         run: node scripts/gmail-ata-ingestion-worker.mjs
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
