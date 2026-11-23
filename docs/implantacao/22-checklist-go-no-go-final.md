@@ -69,6 +69,10 @@ Status em 22/11/2026: **PRONTO** = evidência existe e foi conferida; **PENDENTE
 | Banco concluído **antes** do merge | Eng. | fases 3 a 5 do doc 19 | G5 verde | PENDENTE (janela) |
 | Rollback do app disponível | Eng. | deployment anterior marcado `isRollbackCandidate` | existe | PRONTO |
 | Preview sem credenciais de produção | Eng. | variáveis do Supabase só no alvo `production` | confirmado | PRONTO |
+| Domínio `acc.axion.com.br` no projeto `axion-contract-intelligence-5d3g`, verificado, DNS e HTTPS ok | Eng. | doc 34, seção 1 (apurado em 22/11/2026: já no ar, serve o commit `27da839`) | confere de novo no D-1 | PRONTO (reconferir no D-1) |
+| Matriz de variáveis conferida (nomes, `AXION_APP_BASE_URL`, `ACC_OUTBOUND_MODE` != `production`, `ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=false` criada) | Eng. + Dono | doc 34, seção 2; captura do painel sem valores | todas as linhas conferidas | PENDENTE |
+| Supabase Auth (Site URL, Redirect URLs) e cliente OAuth do Google conferidos; login `@axion.com.br` ok e outro domínio recusado | Eng. + Dono | doc 34, seção 3; teste em janela anônima | login ponta a ponta no domínio | PENDENTE (P0 de acesso: login quebrado = NO-GO) |
+| `vars.ACC_APP_BASE_URL` (GitHub) e segredo `acc_app_base_url` (Vault) apontam para o domínio; `ACC_DELEGATED_ATTACHMENTS_ENABLED` ausente | Eng. | doc 34, seções 2.2 e 4.3 | conferido | PENDENTE |
 
 ## G8 - E-mail (P0 para envio)
 | Item | Responsável | Evidência | Critério | Status |

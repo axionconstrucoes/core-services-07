@@ -14,6 +14,8 @@ Convenções: `CONN` = conexão de manutenção do banco, **fornecida pelo respo
 | P5 | Comunicado de indisponibilidade enviado e nenhuma pessoa usando o ACC | confirmação do Dono |
 | P6 | Aceitação em homologação aprovada (doc 20) e pessoas de plantão (doc 24) | formulário |
 | P7 | Dono presente; critério de aborto (abaixo) conhecido por todos | assinatura |
+| P8 | Domínio e Auth: `acc.axion.com.br` no projeto Vercel de produção (já verificado), Site URL e Redirect URLs do Supabase conferidos, login `@axion.com.br` testado e outro domínio recusado (doc 34, seções 1 e 3) | captura do painel e teste anônimo |
+| P9 | Matriz completa de variáveis conferida, sem ler valores em chat (doc 34, seção 2): `AXION_APP_BASE_URL`, `ACC_OUTBOUND_MODE` != `production`, `ACC_WEEKLY_REPORTS_ENABLED` registrado, `vars.ACC_APP_BASE_URL` e Vault com o domínio | lista conferida, sem valores |
 
 ## Cronograma
 | Min | Passo | Comando / ação | Critério para seguir | Se falhar |
@@ -29,8 +31,8 @@ Convenções: `CONN` = conexão de manutenção do banco, **fornecida pelo respo
 | T+22 | **Trava dos módulos** (RNC, Garantias G-04 a G-10, Seguros, Competências) | `1-aplicar-trava.sql` (docs/implantacao/trava-modulos) | **35 travadas, 0 executáveis, 6 liberadas** | `2-reverter-trava.sql`; decidir |
 | T+26 | **Descongelar** | `5-storage-descongelar.sql`, `2-reverter-congelamento.sql`, depois `8-verificar-integridade.sql` | 0 resíduos; fingerprints = esperado da onda N; 11 jobs ainda **pausados** | NÃO retomar; investigar |
 | T+30 | Conferir dados | contagem de linhas das tabelas pré-existentes igual à de T-30 (exceto `sla_matrix_rules` +4 e auditoria); as 9 ações de SLA com o mesmo hash; `auth.users` igual | iguais | ABORTAR e restaurar se houver divergência de dados |
-| T+33 | **Aplicativo**: merge do PR #245 na `main` (deploy de produção automático da Vercel) | aprovação do Dono no PR; acompanhar o deployment | deployment `READY`, commit esperado | `request_rollback` para o deployment anterior (commit `27da839`) |
-| T+40 | **Retomar os jobs** | `7-pg-cron-retomar.sql`; reabilitar os workflows (`gh workflow enable ...`); manter `gmail-delegated-sync` como está (o passo de anexos fica desligado pela variável) | 11 jobs ativos; primeira execução sem falha | pausar de novo |
+| T+33 | **Aplicativo**: merge do PR #245 na `main` (deploy de produção automático da Vercel; o domínio `acc.axion.com.br` já está no ar e passa a servir o app novo). **Só com P0 final conferido em T+30, P8 e P9 prontos** | aprovação do Dono no PR; acompanhar o deployment | deployment `READY`, commit esperado | `request_rollback` para o deployment anterior (commit `27da839`) |
+| T+40 | **Retomar os jobs** | `7-pg-cron-retomar.sql`; reabilitar os workflows (`gh workflow enable ...`); manter `gmail-delegated-sync` como está (o passo de anexos fica desligado pela variável) | 11 jobs ativos; primeira execução sem falha; **nenhuma flag nova ligada** (liberação progressiva: doc 34, seção 7) | pausar de novo |
 | T+45 | **Observação inicial** (15 min) | `9-saude-jobs.sql` a cada 5 min; `acc_system_health_incidents`; erros de runtime da Vercel | 0 falhas, 0 duplicidade | pausar jobs; decidir |
 | T+55 | **Fumaça e aceitação mínima** | login, abrir a obra WEG e a TESTE, um alerta simulado, resposta por e-mail **na TESTE** (doc 20, blocos A, B, F, G) com envio só sob a trava do piloto | blocos P0 aprovados | NO-GO; rollback |
 | T+60 | **Decisão GO / NO-GO** do Dono | formulário do doc 22 | assinatura | rollback conforme gatilho |
