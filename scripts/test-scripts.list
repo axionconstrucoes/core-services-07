@@ -178,3 +178,5 @@ scripts/test-weekly-schedule-email-ingestion.mjs
 scripts/test-source-coverage.mjs
 scripts/test-schedule-revision-preservation.mjs
 scripts/test-construmanager-export-manifest.mjs
+scripts/test-compat-app-antigo.mjs
+scripts/test-homolog-executor-api-pronto.mjs
