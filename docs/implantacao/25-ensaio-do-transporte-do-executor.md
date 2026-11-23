@@ -38,3 +38,18 @@ Mede-se: latência por chamada, tamanho de corpo aceito, mensagens de erro da AP
 
 ## 6. Observação
 Nesta máquina o `fetch` do Node alcança `api.supabase.com` (testado com credencial inválida: HTTP 401), diferentemente dos hosts de projeto `*.supabase.co`, onde o `fetch` falhou e o `curl` funcionou (ver doc 18). Se o executor falhar por rede, o primeiro diagnóstico é esse.
+
+## 7. RESULTADO DO ENSAIO (23/11/2026, acc-homolog `gtadbeaevxglrqkhcwfz`, token pessoal escopado temporario guardado em DPAPI)
+Alvo confirmado em todas as chamadas: `acc-homolog` (o runner recusa os refs operacionais). Produção não foi acessada. O token nunca foi exibido; varredura dos três logs por token, `Bearer` e string de conexão: **0 achados**.
+| Etapa | Resultado |
+|---|---|
+| `--verificar` (somente leitura) | OK: P0 íntegro (`930f6d75898793479b418950b0053bd9`); histórico 206 linhas, última `20261212100000`, hash `f873d9cdde61be177af5903fa09d3130`; ~1,2 s por ida e volta |
+| `--ensaio-homolog`: falha no último comando (PK duplicada) | OK: erro HTTP 400 com a mensagem do Postgres (23505); **nada aplicado** (tabela=false, hash igual) |
+| falha em bloco `DO $$` | OK: HTTP 400 (P0001); nada aplicado |
+| estouro de `statement_timeout` (1 s) | OK: HTTP 400 (57014); nada aplicado |
+| sucesso compensado | OK: aplicou, registrou, depois compensou; hash final igual ao inicial |
+| histórico final | **igual ao inicial** (206 linhas, mesmo hash); P0 íntegro |
+| `--dry-run --ondas N` | OK (offline): 1 item, SHA-256 e tamanho do corpo conferidos; pré-requisito de 68 migrations conferido |
+Conclusões: (a) **cada chamada da Management API é uma transação**: erro em qualquer comando desfaz tudo, inclusive o `insert` do histórico, o que sustenta a opção (b) de registro atômico; (b) o erro do Postgres chega íntegro, com o código SQLSTATE; (c) a maior migration do pacote é muito menor que o limite de 1 MB do corpo.
+Não exercitado: queda de rede no meio de uma chamada (falha **incerta**); a proteção é o executor conferir o estado real antes de decidir (doc 12); e a aplicação real de uma onda pendente (o homolog já tem as 14 ondas).
+Pendente do Dono: **revogar o token temporário** (painel, Access Tokens) e apagar `supabase-pat.dpapi`; para a janela de produção, criar outro token na hora (doc 23).

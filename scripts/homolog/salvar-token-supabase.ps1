@@ -36,7 +36,17 @@ try {
   $linhas = @($saida -split "`n")
   $status = $linhas[-1].Trim()
   $corpo = ($linhas[0..($linhas.Count - 2)] -join "`n").Trim()
-  if ($status -eq '401' -or $status -eq '403') { throw "o Supabase recusou o token (HTTP $status); nada foi gravado" }
+  if ($status -eq '401' -or $status -eq '403') {
+    # DIAGNOSTICO SEGURO: nunca imprime o token; mostra so o tipo (pelo prefixo), o status e a mensagem do corpo da resposta (sem segredos).
+    $tipo = if ($t.StartsWith('sbp_fc')) { 'ESCOPADO (sbp_fc...)' } else { 'CLASSICO (sbp_...)' }
+    $msg = ($corpo -replace 'sbp_[A-Za-z0-9_]+', '[token]')
+    if ($msg.Length -gt 400) { $msg = $msg.Substring(0, 400) }
+    Write-Host "DIAGNOSTICO: GET /v1/projects/$ref -> HTTP $status | tipo do token: $tipo"
+    Write-Host "Corpo da resposta (sem token): $msg"
+    if ($status -eq '401') { Write-Host 'HTTP 401 = token invalido, expirado, revogado ou copiado incompleto.' }
+    else { Write-Host 'HTTP 403 = token reconhecido, mas sem permissao: token escopado sem Project Settings (Read) neste projeto/organizacao, ou conta sem papel no projeto.' }
+    throw "o Supabase recusou o token (HTTP $status); nada foi gravado"
+  }
   if ($status -ne '200') { throw "validacao ao vivo falhou (HTTP $status); nada foi gravado" }
   $proj = $corpo | ConvertFrom-Json
   if ($proj.id -ne $ref -and $proj.ref -ne $ref) { throw 'a resposta nao e do acc-homolog; nada foi gravado' }

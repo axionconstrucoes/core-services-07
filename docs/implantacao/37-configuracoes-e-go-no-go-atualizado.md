@@ -29,7 +29,7 @@ Observação: não decifrei as variáveis `encrypted` porque a ferramenta decifr
 | 1 | CI do commit publicado | **verde** (execução 212, `b452a25`); novos commits locais aguardam um único push |
 | 2 | Código do governador de alertas | em correção final (portão antes da outbox, crítico preservado); testes passam |
 | 3 | CAIXA-1 | **reconciliada** (doc 36): 198 candidatas, 197 no ACC, 0 rejeitadas; APPLY desnecessário |
-| 4 | Ensaio do transporte do executor (Management API, homolog) | **PENDENTE: aguarda você inserir o token** (`scripts\homolog\salvar-token-supabase.ps1`) |
+| 4 | Ensaio do transporte do executor (Management API, homolog) | **APROVADO em 23/11** (doc 25, seção 7): verificação, 4 cenários de atomicidade e dry-run OK; histórico final igual ao inicial; 0 segredos nos logs. Falta revogar o token temporário |
 | 5 | Backup do dia e restauração validada | a refazer na véspera da janela (P3) |
 | 6 | Vercel: `ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=false`, `ACC_OUTBOUND_MODE`, `AXION_APP_BASE_URL` | **pendente de ação/conferência humana** (seção 1) |
 | 7 | Auth/Redirects | **OK** (seção 2); Google Cloud pendente |
