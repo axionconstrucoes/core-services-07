@@ -172,3 +172,5 @@ scripts/test-watchdog-project-resolution-sql.mjs
 scripts/test-aceitacao-roteiro.mjs
 scripts/test-axia-sem-termos-internos.mjs
 scripts/test-workflow-gates.mjs
+scripts/test-compat-app-antigo.mjs
+scripts/test-homolog-executor-api-pronto.mjs
