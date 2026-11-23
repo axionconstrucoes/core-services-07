@@ -56,6 +56,7 @@ Equivalente local medido na integração (Windows; **a CI nunca rodou sobre esta
 | Execução | Commit | Resultado |
 |---|---|---|
 | #210 | `e701379` | **falhou** em 3m32s: `test-aceitacao-roteiro` exigia CRLF na lista de testes; os passos seguintes não chegaram a rodar |
+| #212 | `b452a25` | **sucesso** (todos os jobs e passos; checks 5m33s, SQL 1m55s, SSMA com Chrome real 23s): commit com as sete frentes do go-live acelerado integradas, 401 commits |
 | #211 | `c1b57f4` | **sucesso** em 7m43s: Guards, Typecheck/lint/testes e Build verdes; typecheck 24 s, lint 26 s, `test:scripts` 1m31s, e-mail 15 s, SQL (replay completo) 1m43s, SSMA com Chrome real 23 s, simulação WEG 3 s, alertas 10 s |
 Correções feitas entre as duas execuções, sem remover nem enfraquecer testes: (1) a lista de testes aceita LF ou CRLF e rejeita fim de linha misto; (2) `test-n1-no-regression-after-hotfix-sql` compara os hashes do corpo do P0 **sem CRs** (equivalência provada: 90bc6965.../c2f015a9... com CRLF <=> 283621c1.../930f6d75... sem CR; o 930f6d75 é o hash P0 de produção); (3) o guard de segredos deixou de ter falso positivo nas fixtures. Além disso, uma execução equivalente à CI em checkout LF local antecipou a falha de hash (2) antes de uma segunda rodada na CI real.
 

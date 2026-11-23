@@ -19,7 +19,7 @@ Status em 22/11/2026: **PRONTO** = evidência existe e foi conferida; **PENDENTE
 | Item | Responsável | Evidência | Critério de aprovação | Status |
 |---|---|---|---|---|
 | PR da integração contra a `main` com revisão | Eng. + Dono | link do PR; doc 21 (mapa de revisão) | revisão feita por área; 0 comentários bloqueantes | PENDENTE |
-| CI `ci-pr-checks` verde (guards, typecheck, lint, unitários, scripts, e-mail, SQL, SSMA com Chrome, build) | Eng. | execução #211 do GitHub Actions em `c1b57f4` (7m43s; todos os jobs e passos verdes; SSMA com Chrome real) | todos os jobs verdes; nenhum teste PULADO | PRONTO em `c1b57f4`; **repetir no commit final antes da janela** |
+| CI `ci-pr-checks` verde (guards, typecheck, lint, unitários, scripts, e-mail, SQL, SSMA com Chrome, build) | Eng. | execução #211 do GitHub Actions em `c1b57f4` (7m43s; todos os jobs e passos verdes; SSMA com Chrome real) | todos os jobs verdes; nenhum teste PULADO | PRONTO em `b452a25` (execução #212, todos os jobs verdes); **repetir no commit final antes da janela** |
 | Nenhuma migration existente alterada | Eng. | 0 blobs da `main` ausentes; 7 renomeações R100; 69 novas | confirmado no diff | PRONTO |
 | Sem segredos/`.env`/script de envio real versionado | Eng. | job `guards` da CI + testes locais | passa | PRONTO local |
 
