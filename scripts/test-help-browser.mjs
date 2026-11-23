@@ -627,34 +627,53 @@ try {
       return { ok: true, ev: rows.join("; ") };
     });
 
-    // ---------- (8b) F3: identificação do projeto na TopBar (360/768/1280): seletor mostra o nome, sem overflow, contraste >= 4.5:1 ----------
-    for (const w of [360, 768, 1280]) {
-      await check(`TB1 identificação do projeto na TopBar [${w}px]: nome do projeto ativo visível no seletor, sem overflow horizontal, contraste >= 4.5:1 sobre #13233b`, async () => {
-        await b.open(built.index, { hash: "#topbar", width: w, height: 800, mobile: w < 600 });
-        await b.injectHelpers(HELP);
-        const r = await b.eval(`(()=>{
-          const sel=document.querySelector('#tb select'); const opt=sel.options[sel.selectedIndex]; const tb=document.querySelector('#tb');
-          const sr=sel.getBoundingClientRect(); const hr=document.querySelector('#tb h1').getBoundingClientRect();
-          const cs=getComputedStyle(sel); const bg=__t.rgba(getComputedStyle(tb).backgroundColor);
-          const sb=__t.rgba(cs.backgroundColor); const selBg=sb.a===0?bg:sb; const c=document.querySelector('#tb-contract'); const ccs=getComputedStyle(c);
-          return { name: opt.textContent, title: sel.title, selW: sr.width, selVisible: sr.width>=90 && sr.right<=innerWidth && sr.left>=0, h1Right: hr.right, selLeft: sr.left,
-            overlap: !(hr.right<=sr.left+0.5 || hr.left>=sr.right-0.5) && !(hr.bottom<=sr.top+0.5 || hr.top>=sr.bottom-0.5),
-            sx: document.documentElement.scrollWidth<=innerWidth, bg: __t.hex(bg),
-            selRatio: __t.ratio(__t.rgba(cs.color), selBg), selFg: __t.hex(__t.rgba(cs.color)), selBg: __t.hex(selBg),
-            ctRatio: __t.ratio(__t.rgba(ccs.color), bg), tbH: tb.getBoundingClientRect().height, cRight: c.getBoundingClientRect().right };
-        })()`);
-        await b.screenshot(path.join(OUT, `f3-topbar-${w}.png`));
-        const bad = [];
-        if (!r.name?.includes("Piloto WEG")) bad.push("seletor sem o nome do projeto ativo");
-        if (r.title !== r.name) bad.push("sem title com o nome completo");
-        if (!r.selVisible) bad.push(`seletor ilegível/fora da tela (${f1(r.selW)} px)`);
-        if (!r.sx) bad.push("overflow horizontal");
-        if (r.cRight > w + 0.5) bad.push("contrato fora da tela");
-        if (r.overlap) bad.push("título sobrepõe o seletor");
-        if (r.bg !== "#13233b") bad.push(`fundo ${r.bg} != #13233b`);
-        if (r.selRatio < 4.5) bad.push(`contraste do seletor ${f2(r.selRatio)}`);
-        if (r.ctRatio < 4.5) bad.push(`contraste do contrato ${f2(r.ctRatio)}`);
-        return { ok: bad.length === 0, ev: `seletor ${f1(r.selW)} px, nome "${String(r.name).slice(0, 24)}…"; contraste seletor ${f2(r.selRatio)}:1 (${r.selFg}/${r.selBg}), contrato ${f2(r.ctRatio)}:1; topbar h=${f1(r.tbH)}${bad.length ? `; FALHAS: ${bad.join(" | ")}` : ""}` };
+    // ---------- (8b) F3/F4: identificação do projeto na TopBar em 360..1440 px, nomes longos/curtos e as 3 obras reais + PRE_CONTRATUAL ----------
+    // Decisão F4: o rótulo do seletor é "CÓDIGO · nome" (código primeiro): o seletor trunca o FINAL, então o código nunca é cortado.
+    // Mede: texto visível (largura do código cabe na área útil do seletor), rótulos distintos, sem overflow, contraste, alvo de toque, grade.
+    const TB_PROJ = [["fixture-proj", "0079 · Piloto WEG", "0079"], ["dev", "AXION-DEV-001 · [DEV] WEG", "AXION-DEV-001"], ["newport", "0079 · NEWPORT", "0079"], ["p0001", "0001 · Obra Centro", "0001"], ["pre", "PRE-0003 · Pré-contratual", "PRE-0003"], ["curta", "0002 · Outra obra", "0002"]];
+    for (const w of [360, 390, 640, 768, 1024, 1280, 1440]) {
+      await check(`TB1 identificação do projeto na TopBar [${w}px]: código visível no rótulo do seletor para ${TB_PROJ.length} obras (longas/curtas/PRE), sem overflow, contraste >= 4.5:1, alvo de toque, título sem sobreposição`, async () => {
+        const bad = []; const seen = []; let minW = 1e9; let minRatio = 99; let ctRatio = 99; let tbH = 0; let hMin = 1e9; let fullShown = 0; let lastEv = "";
+        for (const [id, expectPrefix, code] of TB_PROJ) {
+          await b.open(built.index, { hash: `#topbar:${id}`, width: w, height: 800, mobile: w < 600 });
+          await b.injectHelpers(HELP);
+          const r = await b.eval(`(()=>{
+            const sel=document.querySelector('#tb select'); const opt=sel.options[sel.selectedIndex]; const tb=document.querySelector('#tb');
+            const sr=sel.getBoundingClientRect(); const hr=document.querySelector('#tb h1').getBoundingClientRect();
+            const cs=getComputedStyle(sel); const bg=__t.rgba(getComputedStyle(tb).backgroundColor);
+            const sb=__t.rgba(cs.backgroundColor); const selBg=sb.a===0?bg:sb; const c=document.querySelector('#tb-contract'); const ccs=getComputedStyle(c);
+            const cv=document.createElement('canvas').getContext('2d'); cv.font=cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;
+            const avail=sr.width-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight)-24; // 24 px ~ seta do select
+            return { label: opt.textContent, title: sel.title, selW: sr.width, selH: sr.height, selVisible: sr.right<=innerWidth && sr.left>=0, h1Right: hr.right, 
+              codeW: cv.measureText(${JSON.stringify(code)}).width, fullW: cv.measureText(opt.textContent).width, avail,
+              overlap: !(hr.right<=sr.left+0.5 || hr.left>=sr.right-0.5) && !(hr.bottom<=sr.top+0.5 || hr.top>=sr.bottom-0.5),
+              sx: document.documentElement.scrollWidth<=innerWidth, bg: __t.hex(bg), coarse: matchMedia('(pointer:coarse)').matches,
+              selRatio: __t.ratio(__t.rgba(cs.color), selBg), ctRatio: __t.ratio(__t.rgba(ccs.color), bg), tbH: tb.getBoundingClientRect().height, cRight: c.getBoundingClientRect().right,
+              cols: getComputedStyle(tb).gridTemplateColumns };
+          })()`);
+          if (id === "fixture-proj") await b.screenshot(path.join(OUT, `f3-topbar-${w}.png`));
+          if (id === "dev" || id === "newport") await b.screenshot(path.join(OUT, `f4-topbar-${id}-${w}.png`));
+          seen.push(r.label); minW = Math.min(minW, r.selW); minRatio = Math.min(minRatio, r.selRatio); ctRatio = Math.min(ctRatio, r.ctRatio); tbH = r.tbH; hMin = Math.min(hMin, r.selH);
+          if (r.fullW <= r.avail) fullShown += 1;
+          lastEv = r.cols;
+          if (!r.label.startsWith(expectPrefix.split(" · ")[0] + " · ") && r.label !== code) bad.push(`${id}: rótulo "${r.label}" não começa pelo código`);
+          if (r.codeW > r.avail) bad.push(`${id}: código "${code}" (${f1(r.codeW)} px) não cabe na área útil (${f1(r.avail)} px)`);
+          if (!r.title || r.title === r.label.split(" · ").slice(1).join(" · ") && false) bad.push(`${id}: sem title`);
+          if (!r.title.length || !r.label.includes(r.title.split(" · ")[0].slice(0, 6)) && !r.title.includes(r.label.split(" · ").pop().slice(0, 6))) bad.push(`${id}: title "${r.title}" não corresponde ao rótulo`);
+          if (!r.selVisible) bad.push(`${id}: seletor fora da tela (${f1(r.selW)} px)`);
+          if (!r.sx) bad.push(`${id}: overflow horizontal`);
+          if (r.cRight > w + 0.5) bad.push(`${id}: contrato fora da tela`);
+          if (r.overlap) bad.push(`${id}: título sobrepõe o seletor`);
+          if (r.bg !== "#13233b") bad.push(`${id}: fundo ${r.bg} != #13233b`);
+          if (r.selRatio < 4.5) bad.push(`${id}: contraste seletor ${f2(r.selRatio)}`);
+          if (r.ctRatio < 4.5) bad.push(`${id}: contraste contrato ${f2(r.ctRatio)}`);
+          if (r.coarse && r.selH < 43.5) bad.push(`${id}: alvo de toque ${f1(r.selH)} px < 44`);
+        }
+        // as obras reais (AXION-DEV-001, 0001, 0079) e a PRE_CONTRATUAL têm rótulos de seletor distintos entre si (0079 do Piloto e do NEWPORT diferem pelo nome)
+        const heads = seen.map((l) => l.split(" · ").slice(0, 2).join(" · "));
+        if (new Set(seen).size !== seen.length) bad.push("rótulos repetidos entre obras");
+        if (new Set(heads).size !== heads.length) bad.push("obras sem distinção no início do rótulo");
+        return { ok: bad.length === 0, ev: `seletor min ${f1(minW)} px, altura min ${f1(hMin)}; ${fullShown}/${TB_PROJ.length} rótulos inteiros visíveis; contraste seletor min ${f2(minRatio)}:1, contrato ${f2(ctRatio)}:1; topbar h=${f1(tbH)}; colunas ${lastEv}${bad.length ? `; FALHAS: ${bad.slice(0, 4).join(" | ")}` : ""}` };
       });
     }
 

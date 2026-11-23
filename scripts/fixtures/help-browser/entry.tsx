@@ -235,10 +235,15 @@ function ContrastScene() {
 // Identificação do projeto na TopBar (F3): TopBar é componente de servidor (getProjects), então a fixture reproduz as classes do
 // cabeçalho e usa o ProjectSwitcher REAL. Decisão: o código NÃO fica na TopBar (commit d6cf562); o nome vem do seletor.
 const TOPBAR_PROJECTS = [
-  { id: "fixture-proj", name: "Piloto WEG Jaraguá do Sul - Subestação e Montagem Eletromecânica · 0079", code: "0079", contractNumber: "CT-2026/0079" },
-  { id: "outro", name: "Outra obra", code: "0001" },
+  { id: "fixture-proj", name: "Piloto WEG Jaraguá do Sul - Subestação e Montagem Eletromecânica · 0079", code: "0079", contractNumber: "CT-2026/0079", workspaceType: "OBRA" },
+  { id: "dev", name: "[DEV] WEG - Fábrica de Fios - Linhares", code: "AXION-DEV-001", contractNumber: "CT-DEV-001", workspaceType: "OBRA" },
+  { id: "newport", name: "NEWPORT - Galpão C100 — Goiânia · 0079", code: "0079", contractNumber: null, workspaceType: "OBRA" },
+  { id: "p0001", name: "Obra Centro Logístico Sul com Nome Bem Comprido para Teste", code: "0001", contractNumber: "CT-0001", workspaceType: "OBRA" },
+  { id: "pre", name: "Pré-contratual - Proposta Subestação Norte", code: "PRE-0003", contractNumber: null, workspaceType: "PRE_CONTRATUAL" },
+  { id: "curta", name: "Outra obra", code: "0002", contractNumber: null, workspaceType: "OBRA" },
 ] as never;
 function TopBarScene() {
+  const currentId = window.location.hash.split(":")[1] ?? "fixture-proj";
   return (
     <header id="tb" className="grid shrink-0 grid-cols-2 items-center gap-x-3 gap-y-2 border-b border-border bg-[var(--surface-topbar)] px-4 py-2 text-foreground sm:h-[72px] sm:grid-cols-[minmax(0,1fr)_auto_minmax(max-content,1fr)] sm:py-0">
       <div aria-hidden="true" className="hidden sm:block" />
@@ -247,7 +252,7 @@ function TopBarScene() {
       </div>
       <div className="contents sm:col-start-3 sm:row-start-1 sm:flex sm:items-center sm:justify-end sm:gap-3">
         <div className="col-span-2 row-start-2 flex flex-wrap items-center gap-x-2 gap-y-1 sm:col-span-1 sm:row-start-1 sm:flex-nowrap sm:min-w-0">
-          <ProjectSwitcher projects={TOPBAR_PROJECTS} currentProjectId="fixture-proj" className="min-w-24 flex-1 sm:max-w-[7rem] sm:flex-initial lg:max-w-[10rem] xl:max-w-[16rem]" />
+          <ProjectSwitcher projects={TOPBAR_PROJECTS} currentProjectId={currentId} className="min-w-24 flex-1 sm:max-w-[9rem] sm:flex-initial sm:px-2 sm:text-xs lg:px-3 lg:text-sm lg:max-w-[10rem] xl:max-w-[16rem]" />
           <span id="tb-contract" className="shrink-0 text-xs text-muted-foreground">Contrato CT-2026/0079</span>
         </div>
         <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-2 sm:gap-3"><span id="tb-avatar">AS</span></div>
@@ -257,7 +262,7 @@ function TopBarScene() {
 }
 
 function App() {
-  const scene = window.location.hash === "#corners" ? "corners" : window.location.hash === "#catalog" ? "catalog" : window.location.hash === "#sidebar" ? "sidebar" : window.location.hash === "#layout" ? "layout" : window.location.hash === "#contrast" ? "contrast" : window.location.hash === "#topbar" ? "topbar" : "main";
+  const scene = window.location.hash === "#corners" ? "corners" : window.location.hash === "#catalog" ? "catalog" : window.location.hash === "#sidebar" ? "sidebar" : window.location.hash === "#layout" ? "layout" : window.location.hash === "#contrast" ? "contrast" : window.location.hash.startsWith("#topbar") ? "topbar" : "main";
   useEffect(() => {
     if (scene === "corners") window.scrollTo(0, 300);
     requestAnimationFrame(() => requestAnimationFrame(() => { window.__ready = true; }));
