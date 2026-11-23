@@ -114,6 +114,8 @@ export interface MailContent {
 }
 
 export interface Mailer {
+  /** Portão de capacidade do governador (doc 35), consultado ANTES de reivindicar a entrega. Ausente => sempre permitido. */
+  canDeliver?(input: { projectId: string }): Promise<boolean>;
   deliver(input: { to: string; name: string | null; content: MailContent; projectId: string; correlationId: string }): Promise<{ providerMessageId: string | null; sentAt: string }>;
 }
 
@@ -167,6 +169,7 @@ export async function notifyEvent(
     const row = await deps.store.ensureDelivery(input.key, { email: recipient.email, name: recipient.name });
     if (row.status === "SENT") { summary.alreadySent += 1; continue; }
     if (row.status === "SUPPRESSED" || row.attemptCount >= MAX_ATTEMPTS || (row.failureClass && row.failureClass !== "RETRYABLE")) { summary.skipped += 1; continue; }
+    if (deps.mailer.canDeliver && !(await deps.mailer.canDeliver({ projectId: input.key.projectId }))) { summary.skipped += 1; continue; } // adiado por limite: continua pendente, sem tentativa gasta
     if (!(await deps.store.claim(row.id))) { summary.skipped += 1; continue; }
     let result: { providerMessageId: string | null; sentAt: string };
     try {

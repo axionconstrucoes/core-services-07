@@ -8,6 +8,7 @@
 //   tentativa (até 5). Texto curto: sem dados do alerta além do código, sem anexos.
 
 import type { EmailProvider } from "@/lib/email/email-provider";
+import { checkAlertCapacity } from "@/lib/email/governed-email-provider";
 
 import type { TokenReplyKind } from "./token-reply-decision";
 
@@ -115,6 +116,11 @@ export async function deliverEmailReplyConfirmations(input: { client: SupabaseLi
   const rows = (data ?? []) as ConfirmationRow[];
   const result: DeliverResult = { pending: rows.length, sent: 0, failed: 0, skipped: 0 };
   for (const row of rows) {
+    // Portão do governador (doc 35) ANTES da reivindicação: adiada por limite => continua PENDING, sem tentativa gasta.
+    if (!(await checkAlertCapacity(input.provider, { type: "EMAIL_REPLY_CONFIRMATION", projectId: row.project_id })).allowed) {
+      result.skipped += 1;
+      continue;
+    }
     // Reivindicação otimista: só quem incrementa a tentativa a partir do valor lido envia.
     const { data: claimed } = await input.client
       .from("email_reply_confirmations")

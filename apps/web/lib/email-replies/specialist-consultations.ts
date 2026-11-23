@@ -10,6 +10,7 @@
 
 import { isSimulatedAnswerText, SIMULATED_SUBJECT_TAG } from "@/lib/ai/routing/provider-status";
 import type { EmailProvider } from "@/lib/email/email-provider";
+import { checkAlertCapacity } from "@/lib/email/governed-email-provider";
 import { buildSpecialistAnswerText, SPECIALIST_EXPERT_LABEL, SPECIALIST_TEXT, type SpecialistExpertId, type SpecialistRecord } from "@/lib/email-replies/specialist-email";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -201,6 +202,11 @@ export async function deliverSpecialistMails(input: { client: SupabaseLike; prov
     if (error) throw new Error("Falha ao ler as consultas ao especialista.");
     for (const row of (data ?? []) as Array<SpecialistMailRow & Record<string, unknown>>) {
       const attempts = Number(row[attemptsCol] ?? 0);
+      // Portão do governador (doc 35) ANTES da reivindicação: adiada por limite => continua PENDING, sem tentativa gasta.
+      if (!(await checkAlertCapacity(input.provider, { type: "EMAIL_SPECIALIST", projectId: row.project_id })).allowed) {
+        result.skipped += 1;
+        continue;
+      }
       const { data: claimed } = await input.client
         .from("email_specialist_consultations")
         .update({ [attemptsCol]: attempts + 1 })

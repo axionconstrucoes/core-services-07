@@ -21,7 +21,8 @@ import { loadAccLogoInlineImage, loadAccLogoInvertedInlineImage } from "@/lib/em
 import { EmailSendError, type EmailProvider } from "@/lib/email/email-provider";
 import { FAILURE_CLASS_NOTES, classifySendFailure } from "@/lib/email/outbound-delivery";
 import { FakeEmailProvider } from "@/lib/email/fake-email-provider";
-import { parseGovernorConfig, riskAlertGovernanceType } from "@/lib/email/alert-send-governor";
+import { parseGovernorConfig, riskAlertGovernanceType, type AlertGovernanceContext } from "@/lib/email/alert-send-governor";
+import { checkAlertCapacity } from "@/lib/email/governed-email-provider";
 import { getEmailProvider } from "@/lib/email/get-email-provider";
 import { resolveEmailProviderName } from "@/lib/email/gmail-auth";
 import { issueEmailAlertActionButtons } from "@/lib/email-actions/issue-tokens";
@@ -472,7 +473,9 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     // ---- envio: entradas planejadas neste ciclo ----
     const ctx: SendContext = { store, provider, projectId, projectName: snapshot.projectName, baseUrl, timeZone, nowIso, inlineLogo, inlineLogoInverted, caseIds, snapshot, policyFor, deliveredKeys: new Set(), readinessBlockers: readiness.blockers, replyTokens, sendBudget };
     const sentKeys = new Set<string>();
-    for (const item of persisted) {
+    // Prioridade: alertas CRÍTICOS primeiro (ordem estável entre os demais), para que a cota do período os alcance antes.
+    const byPriority = <T,>(level: (x: T) => string | undefined) => (a: T, b: T) => Number(level(b) === "CRITICAL") - Number(level(a) === "CRITICAL");
+    for (const item of [...persisted].sort(byPriority((x) => x.entry.riskLevel))) {
       if (item.entry.recipient.status !== "PENDING") continue;
       sentKeys.add(item.entry.idempotencyKey);
       const outcome = await sendPlanned(item.id, item.caseId, item.entry, ctx);
@@ -482,7 +485,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     }
 
     // ---- envio: pendentes de outras origens (manual, ação humana, Expert, retry) ----
-    for (const row of await store.listPendingRows(projectId)) {
+    for (const row of [...(await store.listPendingRows(projectId))].sort(byPriority((x) => x.riskLevel))) {
       if (sentKeys.has(row.idempotencyKey)) continue;
       const outcome = await sendPendingRow(row, ctx);
       if (outcome === "SENT") projectResult.sent += 1;
@@ -610,6 +613,15 @@ function logosOf(ctx: SendContext): { maroon: boolean; inverted: boolean } {
 async function deliver(ctx: SendContext, outboxId: string, caseId: string | null, recipientUserId: string, recipientEmail: string, built: BuiltEmail, notificationType: string, escalationLevel: string | null, idempotencyKey: string, riskLevel?: string): Promise<"SENT" | "FAILED" | "SKIPPED"> {
   // Ciclos simultâneos (instâncias/execuções sobrepostas): só quem reivindicar a linha envia.
   // Quem perde NÃO envia nem altera a linha (o vencedor é o dono dela).
+  // PORTÃO de capacidade (governador, doc 35) ANTES da reivindicação: limite por hora/dia atingido => a linha fica ADIADA (PENDING, sem
+  // tentativa gasta, sem FAILED) e é retomada na janela seguinte. Alerta crítico nunca é descartado: só adiado, e usa a reserva de cota.
+  const governance: AlertGovernanceContext = {
+    type: riskAlertGovernanceType(notificationType, idempotencyKey.includes(":PILOT_SINGLE:")),
+    projectId: ctx.projectId,
+    dedupKey: idempotencyKey,
+    priority: riskLevel === "CRITICAL" ? "CRITICAL" : null,
+  };
+  if (!(await checkAlertCapacity(ctx.provider, governance)).allowed) return "SKIPPED";
   if (ctx.sendBudget) {
     if (ctx.sendBudget.remaining <= 0) return "SKIPPED"; // lote da execução esgotado: a linha fica PENDING (não reivindicada, sem tentativa gasta)
     ctx.sendBudget.remaining -= 1;
@@ -656,7 +668,7 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
       inReplyTo: conversation?.rootMessageIdHeader ?? undefined,
       references: conversation?.rootMessageIdHeader ? [conversation.rootMessageIdHeader] : undefined,
       correlationId: crypto.randomUUID(),
-      governance: { type: riskAlertGovernanceType(notificationType, idempotencyKey.includes(":PILOT_SINGLE:")), projectId: ctx.projectId, dedupKey: idempotencyKey },
+      governance,
       vera: { projectId: ctx.projectId, context: "alerta" },
       // Faixa/prefixo de TESTE só no envio único armado (chave PILOT_SINGLE); alertas operacionais saem sem faixa de teste.
       pilot: { projectId: ctx.projectId, participantLabel: `usuário ${recipientUserId.slice(0, 8)}`, escalationLevel: escalationLevel ?? notificationType, testMessage: idempotencyKey.includes(":PILOT_SINGLE:") },

@@ -64,6 +64,11 @@ export function createSupabaseGovernorLedger(client: GovernorDbClient): Governor
       const i = net.findIndex((r) => r.entity_id === entityId);
       return i < 0 ? Number.MAX_SAFE_INTEGER : i + 1;
     },
+    async countNetAdmissions(sinceIso) {
+      const rows = await fetchRows(sinceIso);
+      if (rows.length > GOVERNOR_COUNT_ROW_CAP) return Number.MAX_SAFE_INTEGER;
+      return netAdmissionRows(rows).length;
+    },
     async hasNetAdmissionForKey(keyHash, sinceIso) {
       return netAdmissionRows(await fetchRows(sinceIso, keyHash)).length > 0;
     },
@@ -74,7 +79,7 @@ export function createSupabaseGovernorLedger(client: GovernorDbClient): Governor
         actor_user_id: null,
         actor_label: null,
         action: entry.action,
-        entity_type: entry.action === GOVERNOR_ACTIONS.SUPPRESSED ? GOVERNOR_SUPPRESSED_ENTITY_TYPE : GOVERNOR_ENTITY_TYPE,
+        entity_type: entry.action === GOVERNOR_ACTIONS.SUPPRESSED || entry.action === GOVERNOR_ACTIONS.DEFERRED ? GOVERNOR_SUPPRESSED_ENTITY_TYPE : GOVERNOR_ENTITY_TYPE,
         entity_id: entry.entityId,
         detail: JSON.stringify(entry.detail),
       });

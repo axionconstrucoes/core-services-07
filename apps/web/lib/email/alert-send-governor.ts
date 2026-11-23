@@ -96,6 +96,8 @@ export interface AlertGovernanceContext {
   projectId: string | null;
   /** Chave estável do evento (ex.: idempotency_key da outbox). Com ela, o mesmo evento nunca é admitido duas vezes na janela. */
   dedupKey?: string | null;
+  /** CRITICAL: alerta crítico. Nunca é descartado pelo limite (fica na fila, adiado) e pode usar a reserva de cota. */
+  priority?: "CRITICAL" | null;
 }
 
 export type GovernorEnv = Readonly<Record<string, string | undefined>>;
@@ -104,6 +106,9 @@ export interface GovernorConfig {
   killSwitch: boolean;
   maxPerHour: number | null;
   maxPerDay: number | null;
+  /** Reserva de cota (por hora / por dia) que SÓ alertas críticos podem usar. Padrão 0 (sem reserva). */
+  criticalReservePerHour: number;
+  criticalReservePerDay: number;
   batchSize: number | null;
   /** null = todos os projetos. */
   enabledProjects: ReadonlySet<string> | null;
@@ -155,6 +160,8 @@ export function parseGovernorConfig(env: GovernorEnv): GovernorConfig {
 
   const maxPerHour = parseInt0(env.ACC_ALERT_MAX_PER_HOUR, "ACC_ALERT_MAX_PER_HOUR", 0, invalid);
   const maxPerDay = parseInt0(env.ACC_ALERT_MAX_PER_DAY, "ACC_ALERT_MAX_PER_DAY", 0, invalid);
+  const criticalReservePerHour = parseInt0(env.ACC_ALERT_CRITICAL_RESERVE_PER_HOUR, "ACC_ALERT_CRITICAL_RESERVE_PER_HOUR", 0, invalid) ?? 0;
+  const criticalReservePerDay = parseInt0(env.ACC_ALERT_CRITICAL_RESERVE_PER_DAY, "ACC_ALERT_CRITICAL_RESERVE_PER_DAY", 0, invalid) ?? 0;
   const batchSize = parseInt0(env.ACC_ALERT_BATCH_SIZE, "ACC_ALERT_BATCH_SIZE", 1, invalid);
 
   let enabledProjects: Set<string> | null = null;
@@ -190,7 +197,7 @@ export function parseGovernorConfig(env: GovernorEnv): GovernorConfig {
   // Mesma regra da trava do piloto: SÓ o valor exato "production" é modo de produção (qualquer outro valor = piloto).
   const outboundProduction = env.ACC_OUTBOUND_MODE === "production";
 
-  return { killSwitch, maxPerHour, maxPerDay, batchSize, enabledProjects, enabledSources, enabledTypes, outboundProduction, invalid };
+  return { killSwitch, maxPerHour, maxPerDay, criticalReservePerHour, criticalReservePerDay, batchSize, enabledProjects, enabledSources, enabledTypes, outboundProduction, invalid };
 }
 
 export type GovernorSuppressionReason =
@@ -209,6 +216,11 @@ export type GovernorSuppressionReason =
   | "DAILY_LIMIT";
 
 export type StaticDecision = { allow: true; source: AlertSource; type: AlertType } | { allow: false; reason: GovernorSuppressionReason; detail: string };
+
+/** Limite efetivo: alerta crítico usa o limite cheio; os demais deixam a reserva livre para os críticos. */
+export function effectiveLimit(limit: number, reserve: number, ctx: AlertGovernanceContext | undefined | null): number {
+  return ctx?.priority === "CRITICAL" ? limit : Math.max(0, limit - reserve);
+}
 
 /** True quando a decisão exige consultar o ledger persistente (limite/deduplicação). Sem limites, o caminho padrão não toca no banco. */
 export function ledgerRequired(config: GovernorConfig): boolean {
@@ -240,6 +252,8 @@ export const GOVERNOR_ACTIONS = {
   ADMITTED: "ALERT_GOVERNOR_ADMITTED",
   RELEASED: "ALERT_GOVERNOR_RELEASED",
   SUPPRESSED: "ALERT_GOVERNOR_SUPPRESSED",
+  /** Adiado: a mensagem NÃO foi enviada nem descartada; continua na fila (PENDING) sem gastar tentativa. */
+  DEFERRED: "ALERT_GOVERNOR_DEFERRED",
 } as const;
 export type GovernorAction = (typeof GOVERNOR_ACTIONS)[keyof typeof GOVERNOR_ACTIONS];
 
@@ -261,6 +275,8 @@ export interface GovernorLedger {
   rankOfNetAdmission(sinceIso: string, entityId: string): Promise<number>;
   /** Existe admissão líquida (não liberada) com esta chave de deduplicação desde `sinceIso`? */
   hasNetAdmissionForKey(keyHash: string, sinceIso: string): Promise<boolean>;
+  /** Admissões líquidas na janela (usado só pelo portão de capacidade, sem gravar nada). */
+  countNetAdmissions(sinceIso: string): Promise<number>;
   record(entry: GovernorLedgerEntry): Promise<void>;
 }
 
@@ -354,11 +370,11 @@ export async function admitAlertSend(input: AdmitInput): Promise<AdmissionResult
     };
     if (config.maxPerHour !== null) {
       const n = await ledger.rankOfNetAdmission(new Date(now.getTime() - HOUR_MS).toISOString(), admissionId);
-      if (n > config.maxPerHour) return await releaseAndSuppress("HOURLY_LIMIT", `limite de ${config.maxPerHour} envio(s) na última hora atingido`);
+      if (n > effectiveLimit(config.maxPerHour, config.criticalReservePerHour, ctx)) return await releaseAndSuppress("HOURLY_LIMIT", `limite de ${config.maxPerHour} envio(s) na última hora atingido`);
     }
     if (config.maxPerDay !== null) {
       const n = await ledger.rankOfNetAdmission(new Date(now.getTime() - DAY_MS).toISOString(), admissionId);
-      if (n > config.maxPerDay) return await releaseAndSuppress("DAILY_LIMIT", `limite de ${config.maxPerDay} envio(s) nas últimas 24 h atingido`);
+      if (n > effectiveLimit(config.maxPerDay, config.criticalReservePerDay, ctx)) return await releaseAndSuppress("DAILY_LIMIT", `limite de ${config.maxPerDay} envio(s) nas últimas 24 h atingido`);
     }
     return { allow: true, source: base.source, type: base.type, admissionId, projectId };
   } catch {
@@ -390,4 +406,36 @@ export function chunkIntoBatches<T>(items: readonly T[], size: number | null): T
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += n) out.push(items.slice(i, i + n));
   return out;
+}
+
+// ---------------------------------------------------------------- portão de capacidade (ANTES da reivindicação/claim)
+
+export type CapacityResult = { allowed: true } | { allowed: false; reason: GovernorSuppressionReason; detail: string };
+
+/**
+ * Consulta SEM gravar admissão: há capacidade para mais um envio deste tipo agora? Usado pelos fluxos com outbox/claim ANTES de
+ * reivindicar a linha, para que a mensagem ADIADA (limite por hora/dia, kill switch, projeto/fonte/tipo não habilitado) continue
+ * PENDING, sem tentativa gasta e sem ir a FAILED. É só um pré-filtro: a decisão final continua em admitAlertSend (no envio).
+ */
+export async function peekAlertCapacity(input: AdmitInput): Promise<CapacityResult> {
+  const { config, ctx, now } = input;
+  const base = evaluateStaticPolicy(config, ctx);
+  if (!base.allow) return { allowed: false, reason: base.reason, detail: base.detail };
+  if (!ledgerRequired(config)) return { allowed: true };
+  if (!ctx?.projectId) return { allowed: false, reason: "NO_PROJECT_CONTEXT", detail: "limite ativo, mas o envio não informa o projeto" };
+  if (!input.ledger) return { allowed: false, reason: "LEDGER_UNAVAILABLE", detail: "ledger indisponível com limite ativo" };
+  try {
+    const ledger = typeof input.ledger === "function" ? input.ledger() : input.ledger;
+    if (config.maxPerHour !== null) {
+      const n = await ledger.countNetAdmissions(new Date(now.getTime() - HOUR_MS).toISOString());
+      if (n >= effectiveLimit(config.maxPerHour, config.criticalReservePerHour, ctx)) return { allowed: false, reason: "HOURLY_LIMIT", detail: "limite por hora atingido" };
+    }
+    if (config.maxPerDay !== null) {
+      const n = await ledger.countNetAdmissions(new Date(now.getTime() - DAY_MS).toISOString());
+      if (n >= effectiveLimit(config.maxPerDay, config.criticalReservePerDay, ctx)) return { allowed: false, reason: "DAILY_LIMIT", detail: "limite diário atingido" };
+    }
+    return { allowed: true };
+  } catch {
+    return { allowed: false, reason: "LEDGER_UNAVAILABLE", detail: "falha ao consultar o ledger (fail-closed)" };
+  }
 }

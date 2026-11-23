@@ -9,7 +9,7 @@ Estado: **implementado e testado localmente com provedores FAKE** (nenhum envio,
 - **Padrão seguro e sem regressão**: com as variáveis `ACC_ALERT_*` ausentes, os fluxos que hoje enviam para a obra piloto continuam **iguais** (sem limite numérico, sem acesso ao banco). Fontes novas ou reservadas (CRONOGRAMA, DIARIO) ficam bloqueadas.
 - O limite é **persistente** (sobrevive a reinício e a várias instâncias), contado sobre a tabela já existente `audit_log_entries` (append-only). **Nenhuma migration nova**: o plano de 70 itens não muda.
 
-Arquivos: `apps/web/lib/email/alert-send-governor.ts` (puro), `alert-send-governor-ledger.ts` (ledger sobre `audit_log_entries`), `governed-email-provider.ts` (ponto de estrangulamento), `get-email-provider.ts` (ligação), `scripts/sql/monitoramento-limite-alertas.sql` (consultas G1 a G5), testes `scripts/test-alert-send-governor.mjs` e `scripts/test-alert-send-governor-sql.mjs`.
+Arquivos: `apps/web/lib/email/alert-send-governor.ts` (puro), `alert-send-governor-ledger.ts` (ledger sobre `audit_log_entries`), `governed-email-provider.ts` (ponto de estrangulamento), `get-email-provider.ts` (ligação), `scripts/sql/monitoramento-limite-alertas.sql` (consultas G1 a G6), testes `scripts/test-alert-send-governor.mjs` e `scripts/test-alert-send-governor-sql.mjs`.
 
 ## 2. Mapa dos caminhos que enviam e-mail automático
 
@@ -53,7 +53,15 @@ Mecânica do limite: grava `ALERT_GOVERNOR_ADMITTED` **primeiro** e calcula a po
 
 Lote por execução (`ACC_ALERT_BATCH_SIZE`): o ciclo de risco recebe um orçamento de envios por execução (todos os projetos). Esgotado, a linha **não é reivindicada nem tem tentativa gasta**: continua `PENDING` para a próxima execução. `capBatchSize` e `chunkIntoBatches` (puros) ficam disponíveis para os demais produtores de lote.
 
-Efeito sobre linhas bloqueadas por limite: o emissor recebe `AlertSendBlockedError` (um `EmailSendError`, classe `RETRYABLE`); a linha da outbox volta a `PENDING` com uma tentativa gasta, até `MAX_SEND_ATTEMPTS`. Por isso, dimensione `ACC_ALERT_BATCH_SIZE` abaixo do limite horário: o lote controla o ritmo sem gastar tentativas, e o limite é a rede de proteção (ver pendência P1).
+### 3.1 Portão ANTES da reivindicação: adiamento sem gastar tentativa (P1 resolvida)
+
+Os fluxos com outbox/claim consultam `checkCapacity` (sem gravar admissão) **antes** de reivindicar a linha: ciclo de risco (`deliver()`), confirmações de resposta, consulta ao especialista, resumo semanal, lotes de contrato e notificações SSMA de campo. Sem capacidade (limite por hora/dia, ou habilitação/kill switch), a mensagem é **ADIADA**: a linha continua `PENDING`, **sem tentativa gasta, sem `FAILED`**, sem reivindicação; é retomada na janela seguinte. O adiamento é auditado (`ALERT_GOVERNOR_DEFERRED`, `outcome: ADIADO`, motivo, tipo, prioridade; uma vez por motivo/tipo/prioridade por execução). O lote (`ACC_ALERT_BATCH_SIZE`) continua contado por execução e também não gasta tentativa. O envio mantém a decisão final (`admitAlertSend`, fail-closed): se, entre o portão e o envio, outra instância ocupar a última vaga, o excedente cai como falha retentável (raro; gasta uma tentativa). **Falha real de envio** (provedor recusou) continua consumindo tentativa como antes e devolve a cota do ledger. Provado em PGlite: limite 2/h com 5 linhas `PENDING`, várias execuções por janela: 2 saem por janela, 0 tentativas gastas pelas excedentes, 0 `FAILED`, nenhuma reenviada, nenhuma perdida.
+
+### 3.2 Alertas CRÍTICOS: política de preservação
+
+- Crítico **nunca é descartado** pelo limite: fica `PENDING` (adiado e auditado) e sai na primeira janela com vaga. No ciclo de risco, críticos são processados **primeiro** (ordem estável entre os demais), para a cota da janela alcançá-los antes dos comuns.
+- **Reserva de cota (opcional, padrão 0)**: `ACC_ALERT_CRITICAL_RESERVE_PER_HOUR` e `ACC_ALERT_CRITICAL_RESERVE_PER_DAY` separam parte do limite que **só** críticos usam (comuns usam `limite - reserva`; críticos usam o limite cheio). Os valores aprovados de F0 não definem reserva (padrão 0); sugestão para a Diretoria decidir: reserva 2 por hora e 5 por dia. O limite total **nunca** é excedido nem por críticos.
+- O **kill switch bloqueia tudo, inclusive crítico**; a trava de saída do piloto continua aplicada a todos (crítico não muda destinatário nem Cc).
 
 ## 4. Variáveis de ambiente (apenas nomes e valores recomendados; nenhum valor é segredo)
 
@@ -63,22 +71,21 @@ Efeito sobre linhas bloqueadas por limite: o emissor recebe `AlertSendBlockedErr
 | `ACC_ALERT_MAX_PER_HOUR` | inteiro >= 0 (janela móvel de 60 min; `0` bloqueia tudo) | sem limite (comportamento atual) | bloqueia tudo |
 | `ACC_ALERT_MAX_PER_DAY` | inteiro >= 0 (janela móvel de 24 h) | sem limite | bloqueia tudo |
 | `ACC_ALERT_BATCH_SIZE` | inteiro >= 1 (envios por execução do ciclo de risco) | sem limite | bloqueia tudo |
+| `ACC_ALERT_CRITICAL_RESERVE_PER_HOUR` / `_PER_DAY` | inteiro >= 0: cota reservada só a alertas críticos | 0 (sem reserva) | bloqueia tudo |
 | `ACC_ALERT_ENABLED_PROJECTS` | UUIDs separados por vírgula | todos os projetos (a trava do piloto continua valendo) | bloqueia tudo |
 | `ACC_ALERT_ENABLED_SOURCES` | fontes separadas por vírgula: `RISCO, RELATORIO_SEMANAL, CONTRATO, SLA, ACOES, SSMA, SISTEMA, CONSTRUMANAGER, AUTORIZACAO, EMAIL, ENTREGAVEIS, CRONOGRAMA, DIARIO` | todas **exceto** `CRONOGRAMA` e `DIARIO` | bloqueia tudo |
 | `ACC_ALERT_ENABLED_TYPES` | tipos do catálogo (ex.: `RISK_IMMEDIATE,RISK_ESCALATION`) | todos os tipos das fontes habilitadas | bloqueia tudo |
 
 Regras: variável **vazia** é inválida (diferente de ausente); a lista explícita **substitui** o padrão (não soma); UUIDs não diferenciam maiúsculas; valores inválidos nunca são copiados para a auditoria (só o nome da variável).
 
-### 4.1 Valores recomendados para a fase F0 (opt-in; criar na Vercel só com autorização)
+### 4.1 Valores de F0 APROVADOS pela Diretoria (recomendação aprovada; AINDA NÃO APLICADA: nada foi criado na Vercel)
 ```
-ACC_ALERT_KILL_SWITCH=false
-ACC_ALERT_ENABLED_PROJECTS=<UUID da obra WEG>
-ACC_ALERT_ENABLED_SOURCES=SISTEMA,SLA,ACOES,AUTORIZACAO
 ACC_ALERT_MAX_PER_HOUR=10
 ACC_ALERT_MAX_PER_DAY=30
 ACC_ALERT_BATCH_SIZE=5
+ACC_ALERT_ENABLED_PROJECTS=<UUID da obra WEG>
 ```
-Racional: em F0 só circulam avisos operacionais de baixo volume iniciados por pessoas ou pela supervisão (saúde do sistema); nenhum alerta automático de risco, resumo, lote ou SSMA (fontes fora da lista = bloqueadas e auditadas). 10 por hora e 30 por dia seguem o limiar O2 do doc 34 (10 por hora na fase 1). Para voltar ao comportamento atual basta **remover** as variáveis.
+Nomes reais das variáveis: limite por hora = `ACC_ALERT_MAX_PER_HOUR`, por dia = `ACC_ALERT_MAX_PER_DAY`, lote = `ACC_ALERT_BATCH_SIZE`, projetos = `ACC_ALERT_ENABLED_PROJECTS` (somente a WEG). 10 por hora e 30 por dia seguem o limiar O2 do doc 34. Para voltar ao comportamento atual basta **remover** as variáveis. Recomendação adicional, **sem decisão ainda**: limitar também as fontes de F0 (`ACC_ALERT_ENABLED_SOURCES=SISTEMA,SLA,ACOES,AUTORIZACAO`), de modo que nenhum alerta automático de risco, resumo, lote ou SSMA circule até a fase própria. Com os quatro valores aprovados e sem lista de fontes, valem as fontes legadas (todas, exceto CRONOGRAMA e DIARIO), sempre sob limite, lote e projeto.
 
 ## 5. O que muda em produção
 
@@ -110,6 +117,7 @@ Consultas prontas e testadas em `scripts/sql/monitoramento-limite-alertas.sql` (
 | G3 | cota devolvida por hora e motivo | mais de 20% dos admitidos devolvidos = falhas de provedor (cruzar com F1) |
 | G4 | **duplicidade**: mesma chave admitida mais de uma vez | qualquer linha = pausar o ciclo e investigar a chave |
 | G5 | uso corrente (última hora e 24 h) | acima de 80% do limite = avisar |
+| G6 | mensagens ADIADAS (fila PENDING, sem tentativa gasta) por motivo, tipo e prioridade | crítico adiado por mais de 2 janelas = avisar a Diretoria; adiados crescendo sem queda = limite baixo ou rajada |
 
 Além disso, as consultas O1 a O5 do doc 34 (seção 5.4) continuam valendo sobre `risk_alert_outbox`. Complementos somente leitura sobre as tabelas de entrega (colunas conferidas nas migrations):
 
@@ -132,14 +140,19 @@ Eventos auditados (`audit_log_entries`): `ALERT_GOVERNOR_ADMITTED`, `ALERT_GOVER
 
 ## 8. Evidências de teste (locais, provedores FAKE)
 
-`scripts/test-alert-send-governor.mjs` (puro + provedor com ledger em memória + estrutural) e `scripts/test-alert-send-governor-sql.mjs` (PGlite, tabela real `audit_log_entries`, ciclo real `runRiskAlertCycle`): abaixo do limite envia; no limite suprime e audita; lote maior que o tamanho divide em execuções sem gastar tentativa; fonte, projeto e tipo não habilitados bloqueiam; valor inválido bloqueia e audita sem vazar o valor; kill switch; reexecução do ciclo (mesmo instante e depois) e reenvio da mesma chave não reenviam; falha incerta nunca libera reenvio; concorrência entre instâncias não excede o limite; padrão com variáveis ausentes envia exatamente como o ciclo sem governador e sem tocar no ledger; o governador não afrouxa a trava do piloto; consultas G1 a G5 somente leitura.
+`scripts/test-alert-send-governor.mjs` (puro + provedor com ledger em memória + estrutural) e `scripts/test-alert-send-governor-sql.mjs` (PGlite, tabela real `audit_log_entries`, ciclo real `runRiskAlertCycle`): abaixo do limite envia; no limite suprime e audita; lote maior que o tamanho divide em execuções sem gastar tentativa; fonte, projeto e tipo não habilitados bloqueiam; valor inválido bloqueia e audita sem vazar o valor; kill switch; reexecução do ciclo (mesmo instante e depois) e reenvio da mesma chave não reenviam; falha incerta nunca libera reenvio; concorrência entre instâncias não excede o limite; padrão com variáveis ausentes envia exatamente como o ciclo sem governador e sem tocar no ledger; o governador não afrouxa a trava do piloto; consultas G1 a G6 somente leitura.
 
 ## 9. Pendências e o que depende de autorização
 
 - **Autorização da Diretoria (D8)** antes de criar qualquer `ACC_ALERT_*` na Vercel e antes de qualquer fase além de F0; este trabalho não enviou nem configurou nada.
-- **P1 (engenharia, opcional)**: portão **antes** da reivindicação da linha da outbox (hoje o limite só é avaliado no envio, então um excedente gasta uma tentativa). Mitigação atual: `ACC_ALERT_BATCH_SIZE` menor que o limite horário. Alternativa: chamar `rankOfNetAdmission` antes de `claimOutbox` no ciclo.
+- ~~P1~~ **resolvida** (seção 3.1): portão antes da reivindicação; excedentes não gastam tentativa. Resíduo: nos fluxos de e-mail do ciclo de risco, a montagem do conteúdo (inclusive emissão de tokens de resposta) ocorre antes do portão e se repete a cada adiamento; custo baixo, sem efeito sobre o destinatário.
 - **P2**: fonte por **origem do dado** (e-mail, cronograma, diário) dentro do alerta de risco não é distinguida; hoje a fonte é a família do emissor (`RISCO`). Distinguir exige o campo de origem do caso no contexto de envio.
 - **P3**: índice de apoio para a contagem global em `audit_log_entries` (só por `occurred_at`/`entity_type`). Requer migration; **não criada** para não alterar o plano de 70 itens. Com o volume do piloto a consulta é adequada (limite de 10 mil linhas na janela; acima disso o governador bloqueia por segurança). Alternativa sem migration: manter `ACC_ALERT_MAX_PER_DAY` baixo.
 - **P4**: dedup por `dedupKey` só nos emissores com chave estável (ciclo de risco, lembretes, confirmações, especialista); os demais dependem das chaves/claims das próprias tabelas (seção 2).
 - **P5**: alertas enviados antes da ativação do governador não entram no ledger; a janela começa vazia na primeira ativação.
 - Contagem de saída conta **admissões** (envios tentados e não devolvidos), não aceite de entrega: aceite do provedor continua não sendo confirmação de entrega (`outbound-delivery.ts`).
+
+
+## 10. Teste de massa e preservação (evidência local)
+
+`test-alert-send-governor-sql.mjs`: 200 alertas simulados (20 críticos) com os valores de F0 (10/h, 30/dia, lote 5, só WEG) e provedor FAKE, execuções a cada 10 minutos: pico em 1 h = 10, pico em 24 h = 30, maior lote = 5, 0 duplicidades (28 reenvios do mesmo evento barrados), 200 de 200 enviados ao final (nada perdido), críticos antes dos comuns, outro projeto bloqueado. Variáveis ausentes: piloto igual ao atual e nenhuma linha no ledger. Variáveis inválidas: bloqueia, audita `INVALID_CONFIG` e o valor lido não aparece na mensagem nem na auditoria. Consulta G6 (monitoramento) lista os adiados.

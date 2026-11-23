@@ -5,7 +5,8 @@ import { FakeEmailProvider } from "./fake-email-provider";
 import { GmailEmailProvider } from "./gmail-email-provider";
 import { resolveEmailProviderName } from "./gmail-auth";
 import type { EmailProvider } from "./email-provider";
-import { GovernedEmailProvider } from "./governed-email-provider";
+import { GovernedEmailProvider, checkAlertCapacity } from "./governed-email-provider";
+import type { AlertGovernanceContext } from "./alert-send-governor";
 import { createSupabaseGovernorLedger, type GovernorDbClient } from "./alert-send-governor-ledger";
 
 // FAIL CLOSED: se AXION_EMAIL_PROVIDER=gmail e a config estiver incompleta,
@@ -23,4 +24,20 @@ export function getEmailProvider(): EmailProvider {
     // Cliente service_role criado so no servidor e so quando ha limite ativo ou auditoria de supressao a gravar.
     ledger: () => createSupabaseGovernorLedger(createSupabaseAdminClient() as unknown as GovernorDbClient),
   });
+}
+
+/**
+ * Portão de capacidade para runners com outbox/claim (doc 35): chame ANTES de reivindicar a linha/grupo. Uma instância do provedor por
+ * execução (a auditoria de adiamento é por instância). Falha de configuração do provedor => permitido (o envio continua fail-closed).
+ */
+export function createCapacityGate(): (governance: AlertGovernanceContext) => Promise<boolean> {
+  let provider: EmailProvider | null | undefined;
+  return async (governance) => {
+    try {
+      if (provider === undefined) provider = getEmailProvider();
+      return (await checkAlertCapacity(provider, governance)).allowed;
+    } catch {
+      return true;
+    }
+  };
 }
