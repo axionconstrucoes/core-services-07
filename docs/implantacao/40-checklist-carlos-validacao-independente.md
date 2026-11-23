@@ -1,4 +1,5 @@
 # 40 - Checklist simples de validação independente (Carlos Evandro, Eng-2) - janela 28/11/2026 09h BRT
+> CORREÇÃO DA DIRETORIA (23/11/2026): Carlos Evandro NÃO é Eng-2 nem responsável técnico. Função: usabilidade e aceitação funcional, com Jaime e Reynaldo. Fica CANCELADO tudo o que exigia acessos de infraestrutura ou ensaio de recuperação por Carlos (seções A, C-D no que se refere a ele, G, H e I deste documento são histórico). Vigora a seção J.
 
 Regra: Carlos valida e pode INTERROMPER. Nada começa sem a autorização final específica da Diretoria. Marcar só com evidência (print, saída, hora).
 
@@ -72,3 +73,10 @@ Aprovação do ensaio: Carlos assina cada passo com hora e print.
 - Vercel: deployment de produção atual dpl_6ERyTgkFMK6oCjZqpQGbeCb4zx6L (main @ 27da839, READY, candidato a rollback); anterior dpl_D1mp8x51VnEER9jtX3AXbaEg4i1e (09fda9b). É o alvo do rollback.
 - Ensaio, etapas não destrutivas reunidas em acc-homolog (somente leitura): md5 do corpo de record_risk_alert_action = 930f6d75898793479b418950b0053bd9; baseline: 3 projetos, 260 políticas RLS, 38 registros de auditoria, 206 migrations. A repetição desses números após a recuperação é o critério de aprovação. Etapas com Carlos, restauração e alteração de dados: NÃO executadas.
 - Acessos de Carlos comprovados: somente ACC. Vercel, Supabase e GitHub: pendentes de ação sua/dele.
+
+## J. Função corrigida de Carlos Evandro (vigente)
+- Carlos e Jaime: testes de usabilidade e aceitação funcional em 02/12/2026 (com Reynaldo), usando o checklist do doc 38, seção 12. Acesso necessário: apenas o ACC (já comprovado: vínculos ativos na obra WEG).
+- Sem convite à Vercel; sem acesso a Supabase ou GitHub; sem ensaio de recuperação por Carlos. Nenhuma permissão corporativa foi alterada.
+- Pontos de interrupção para a aceitação funcional: erro bloqueante, dado de outra obra visível, e-mail inesperado recebido. Registrar hora e print e avisar Reynaldo.
+- Implantação técnica: Reynaldo (Eng-1) supervisiona a execução automatizada pelo Claude Code. Recuperação: procedimentos automatizados e backups validados, sob responsabilidade de Reynaldo (rollback Vercel para dpl_6ERyTgkFMK6oCjZqpQGbeCb4zx6L, main @ 27da839; restauração do backup do dia só por decisão da Diretoria).
+- RISCO RESIDUAL REGISTRADO: não há segundo operador técnico independente na janela. Mitigações: backup do dia validado e restaurado em banco descartável antes da janela, ondas uma a uma com parada no primeiro erro, validações P0 por consulta com md5 e contagens, kill switch dos alertas, rollback pronto, janela fora de quarta e comunicação à Diretoria a cada etapa.

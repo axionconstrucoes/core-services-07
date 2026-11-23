@@ -163,3 +163,9 @@ Nenhum usuário anônimo, banido ou sem confirmar. Total: 86.
 - Acessos comprovados: ACC (ADMINISTRADOR/ADMINISTRATIVO e GERENTE/SSMA-ESG). Não comprovados: Vercel (convite não enviado; papel com rollback a confirmar), Supabase, GitHub.
 - Ensaio de recuperação em acc-homolog: roteiro pronto (doc 40, seção G); NÃO realizado (depende de Carlos). P0 em homolog conferido (md5 930f6d75898793479b418950b0053bd9).
 - Janela de 28/11 09h BRT segue como proposta; NO-GO condicionado até os acessos e o ensaio serem comprovados.
+
+## 16. Correção de responsabilidades (23/11/2026) e GO/NO-GO revisado
+- Eng-1: Reynaldo, supervisionando a implantação técnica executada pelo Claude Code. NÃO há Eng-2 técnico. Carlos Evandro e Jaime: usabilidade e aceitação funcional (com Reynaldo), 02/12/2026.
+- Cancelados: convite de Carlos à Vercel, acessos a Supabase/GitHub e ensaio de recuperação por Carlos. A seção 15 fica como histórico.
+- RISCO RESIDUAL: ausência de segundo operador técnico independente (mitigações no doc 40, seção J).
+- GO/NO-GO: CI verde (run #215, d0057135) = GO técnico. Janela de 28/11 09h BRT = NO-GO até: backup do dia validado e restaurado em banco descartável; token temporário criado na hora; confirmação do risco residual pela Diretoria; autorização final específica. O ensaio técnico em acc-homolog (sem Carlos) é opcional e conduzido por Reynaldo/Claude Code.

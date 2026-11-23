@@ -41,3 +41,5 @@ Limites 10/h, 30/dia, lote 5; reserva de críticos 2/h e 5/dia (dentro dos totai
 - [ ] Revogar/apagar token temporário. [ ] Registrar evidências (docs 23/38). [ ] Comunicar Diretoria; manter cadastro público aberto até ativar os 10 convites pendentes.
 
 > Atualização 23/11/2026: equipe e acessos de Carlos -> docs 38 (seção 15) e 40. Janela de 28/11 segue proposta, NO-GO condicionado aos acessos e ao ensaio.
+
+> Correção 23/11/2026: Eng-2 técnico cancelado; Carlos/Jaime = aceitação funcional; risco residual (sem segundo operador técnico) registrado nos docs 38 (seção 16) e 40 (seção J). Execuções por Eng-1 (Reynaldo) com Claude Code.
