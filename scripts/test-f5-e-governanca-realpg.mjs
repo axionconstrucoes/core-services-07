@@ -179,6 +179,7 @@ try {
     await rejects(decide(b, R.id, 1, "APPROVE", NOTE), /INDEPENDENT_VALIDATOR_REQUIRED/, "o único administrador não valida a si mesmo");
     await rejects(decide(await as(U.GESTORB), R.id, 1, "APPROVE", NOTE), /FORBIDDEN/, "gestor da obra não valida");
     // designação: validações
+    // data em UTC; o PostgreSQL local usa o fuso do Windows (BRT): entre 00:00 e 03:00 UTC "ontem" em UTC ainda e "hoje" no banco; -2 dias e vencido nos dois fusos
     const until = (d) => new Date(Date.now() + d * 864e5).toISOString().slice(0, 10);
     const REASON = "Ata da diretoria designa validador independente de habilitação.";
     await rejects(rpc(b, "project_competence_validator_designate", PB, uid(U.ADMINB), DB2, REASON, until(30)), /SELF_DESIGNATION_FORBIDDEN/, "autodesignação");
@@ -186,7 +187,7 @@ try {
     await rejects(rpc(b, "project_competence_validator_designate", PB, uid(U.VALIDADOR), null, REASON, until(30)), /EVIDENCE_REQUIRED/, "sem documento");
     await rejects(rpc(b, "project_competence_validator_designate", PB, uid(U.VALIDADOR), DB2, "curta", until(30)), /REASON_REQUIRED/, "justificativa curta");
     await rejects(rpc(b, "project_competence_validator_designate", PB, uid(U.VALIDADOR), DB2, REASON, until(181)), /INVALID_VALIDITY/, "mais de 180 dias");
-    await rejects(rpc(b, "project_competence_validator_designate", PB, uid(U.VALIDADOR), DB2, REASON, until(-1)), /INVALID_VALIDITY/, "prazo vencido");
+    await rejects(rpc(b, "project_competence_validator_designate", PB, uid(U.VALIDADOR), DB2, REASON, until(-2)), /INVALID_VALIDITY/, "prazo vencido");
     await rejects(rpc(await as(U.GESTORB), "project_competence_validator_designate", PB, uid(U.VALIDADOR), DB2, REASON, until(30)), /FORBIDDEN/, "só administrador designa");
     const d = await rpc(b, "project_competence_validator_designate", PB, uid(U.VALIDADOR), DB2, REASON, until(90));
     eq(d.status, "PROPOSED", "proposta");
