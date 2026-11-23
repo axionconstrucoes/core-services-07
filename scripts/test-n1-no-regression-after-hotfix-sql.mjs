@@ -22,8 +22,11 @@ const dir = path.join(here, "..", "supabase", "migrations");
 const platform = /const PLATFORM = `([\s\S]*?)`;/.exec(readFileSync(path.join(here, "test-migrations-full-replay.mjs"), "utf8"))[1];
 
 const HOTFIX = "20261121090000_hotfix_risk_alert_action_authorization.sql";
-const VULNERABLE_MD5 = "90bc6965c95c62a3df46ba2149f92335"; // corpo vigente em produção (20260921090000), com CRLF
-const HARDENED = new Set(["c2f015a91b8f4e94c52a68c3536cb89d", "930f6d75898793479b418950b0053bd9"]); // hotfix (CRLF / LF)
+// Os hashes são do corpo SEM CRs (convenção do portão P0: md5(replace(prosrc, chr(13), ''))): o arquivo-fonte é CRLF num checkout
+// Windows e LF no Linux (CI), e o conteúdo é o mesmo. Equivalências comprovadas: bruto-CRLF 90bc6965c95c62a3df46ba2149f92335
+// (vulnerável) e c2f015a91b8f4e94c52a68c3536cb89d (hotfix) <=> sem CR 283621c1... e 930f6d75... .
+const VULNERABLE_MD5 = "283621c12459c1c08f38ad7443d1d841"; // corpo vigente em produção (20260921090000), sem CRs
+const HARDENED = new Set(["930f6d75898793479b418950b0053bd9"]); // hotfix, sem CRs
 const FN = "public.record_risk_alert_action(uuid,text,jsonb)";
 
 let passed = 0;
@@ -48,14 +51,14 @@ const stack = all.filter((f) => f >= "20261120" && f !== HOTFIX); // pilha pós-
 assert(base.length > 100 && stack.length >= 10, "conjunto de migrations inesperado");
 const sql = (f) => readFileSync(path.join(dir, f), "utf8").replace(/^﻿/, "").replace(/create extension if not exists pgcrypto[^;]*;/gi, "");
 const md5 = async (db) =>
-  (await db.query("select md5(prosrc) h from pg_proc where oid = to_regprocedure($1)", [FN])).rows[0]?.h ?? null;
+  (await db.query("select md5(replace(prosrc, chr(13), '')) h from pg_proc where oid = to_regprocedure($1)", [FN])).rows[0]?.h ?? null;
 const md5OfFile = (f) => {
   // corpo entre "as $$" e o "$$;" que fecha a função (bytes do arquivo, como o Postgres grava em prosrc)
   const s = readFileSync(path.join(dir, f), "utf8");
   const i = s.indexOf("create or replace function public.record_risk_alert_action(");
   const a = s.indexOf("as $$", i) + "as $$".length;
   const b = s.indexOf("$$;", a);
-  return createHash("md5").update(s.slice(a, b)).digest("hex");
+  return createHash("md5").update(s.slice(a, b).replace(/\r/g, "")).digest("hex");
 };
 async function newDb() {
   const db = new PGlite();
