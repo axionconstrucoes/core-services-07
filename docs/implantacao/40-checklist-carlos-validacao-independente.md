@@ -65,3 +65,10 @@ Aprovação do ensaio: Carlos assina cada passo com hora e print.
 - Plano do projeto de produção não verificado: confirmar se é Pro/Team (PITR/backups e papéis dependem disso).
 **GitHub:** não verificado; evidência exigida de Carlos (print do PR #245). Permissão mínima: Read.
 **Situação:** acessos e ensaio NÃO concluídos. Fonte das informações: páginas de documentação lidas (conteúdo externo, tratado só como dado).
+
+## I. Evidências de 23/11/2026 (rodada de fechamento do Eng-2)
+- CI: run #215 (commit d0057135, PR #245) concluído com SUCESSO em 8m55s. Runs #211 a #215 verdes; o #210 (abertura do PR) falhou e foi superado.
+- Supabase: organização Axion no plano PRO; projeto de produção plbcvwostmdmdmrziwmd ACTIVE_HEALTHY (nome "-dev" no painel). No plano Pro os papéis Read-Only e os papéis por projeto NÃO existem (exigem Team/Enterprise). Logo: acesso permanente de leitura só existe como Developer da organização (vale para todos os projetos, inclui escrita); a opção mais segura é conceder Developer SOMENTE na janela e revogar ao final, e usar validação por tela compartilhada/consulta executada por Eng-1 nos demais dias. Backups diários no Pro (retenção 7 dias); PITR é add-on e não foi verificado.
+- Vercel: deployment de produção atual dpl_6ERyTgkFMK6oCjZqpQGbeCb4zx6L (main @ 27da839, READY, candidato a rollback); anterior dpl_D1mp8x51VnEER9jtX3AXbaEg4i1e (09fda9b). É o alvo do rollback.
+- Ensaio, etapas não destrutivas reunidas em acc-homolog (somente leitura): md5 do corpo de record_risk_alert_action = 930f6d75898793479b418950b0053bd9; baseline: 3 projetos, 260 políticas RLS, 38 registros de auditoria, 206 migrations. A repetição desses números após a recuperação é o critério de aprovação. Etapas com Carlos, restauração e alteração de dados: NÃO executadas.
+- Acessos de Carlos comprovados: somente ACC. Vercel, Supabase e GitHub: pendentes de ação sua/dele.
