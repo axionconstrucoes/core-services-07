@@ -21,6 +21,7 @@ import { loadAccLogoInlineImage, loadAccLogoInvertedInlineImage } from "@/lib/em
 import { EmailSendError, type EmailProvider } from "@/lib/email/email-provider";
 import { FAILURE_CLASS_NOTES, classifySendFailure } from "@/lib/email/outbound-delivery";
 import { FakeEmailProvider } from "@/lib/email/fake-email-provider";
+import { parseGovernorConfig, riskAlertGovernanceType } from "@/lib/email/alert-send-governor";
 import { getEmailProvider } from "@/lib/email/get-email-provider";
 import { resolveEmailProviderName } from "@/lib/email/gmail-auth";
 import { issueEmailAlertActionButtons } from "@/lib/email-actions/issue-tokens";
@@ -189,6 +190,8 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
         : createSupabaseEmailReplyTokenStore(createSupabaseAdminClient());
   let replyVerifier: ((requests: ReplyCheckRequest[]) => Promise<Map<string, ReplyCheck>>) | undefined;
   const provider = dryRun ? new FakeEmailProvider() : (options.provider ?? getEmailProvider());
+  // Um único orçamento de envios para a execução inteira (todos os projetos), conforme ACC_ALERT_BATCH_SIZE.
+  const sendBudget = dryRun ? undefined : governorSendBudget();
   const providerConfigured = providerName === "gmail" || Boolean(options.provider);
   const baseUrl = getAppBaseUrl();
   const inlineLogo = loadAccLogoInlineImage();
@@ -467,7 +470,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     }
 
     // ---- envio: entradas planejadas neste ciclo ----
-    const ctx: SendContext = { store, provider, projectId, projectName: snapshot.projectName, baseUrl, timeZone, nowIso, inlineLogo, inlineLogoInverted, caseIds, snapshot, policyFor, deliveredKeys: new Set(), readinessBlockers: readiness.blockers, replyTokens };
+    const ctx: SendContext = { store, provider, projectId, projectName: snapshot.projectName, baseUrl, timeZone, nowIso, inlineLogo, inlineLogoInverted, caseIds, snapshot, policyFor, deliveredKeys: new Set(), readinessBlockers: readiness.blockers, replyTokens, sendBudget };
     const sentKeys = new Set<string>();
     for (const item of persisted) {
       if (item.entry.recipient.status !== "PENDING") continue;
@@ -520,6 +523,17 @@ export interface SendContext {
   testCaseBlocked?: number;
   /** Tokens por item dos atalhos "Responder por e-mail" (null/ausente => e-mail sem atalhos mailto). */
   replyTokens?: EmailReplyTokenStore | null;
+  /**
+   * Lote por execução (ACC_ALERT_BATCH_SIZE, governador de alertas): máximo de envios NESTA execução. Esgotado => a linha NÃO é reivindicada
+   * nem alterada (continua PENDING para a próxima execução, sem gastar tentativa). Ausente => sem limite (comportamento anterior).
+   */
+  sendBudget?: { remaining: number };
+}
+
+/** Orçamento de envios da execução a partir de ACC_ALERT_BATCH_SIZE (configuração inválida => sem orçamento aqui; o governador do provedor já bloqueia tudo). */
+function governorSendBudget(): { remaining: number } | undefined {
+  const batchSize = parseGovernorConfig(process.env).batchSize;
+  return batchSize === null ? undefined : { remaining: batchSize };
 }
 
 /**
@@ -596,6 +610,10 @@ function logosOf(ctx: SendContext): { maroon: boolean; inverted: boolean } {
 async function deliver(ctx: SendContext, outboxId: string, caseId: string | null, recipientUserId: string, recipientEmail: string, built: BuiltEmail, notificationType: string, escalationLevel: string | null, idempotencyKey: string, riskLevel?: string): Promise<"SENT" | "FAILED" | "SKIPPED"> {
   // Ciclos simultâneos (instâncias/execuções sobrepostas): só quem reivindicar a linha envia.
   // Quem perde NÃO envia nem altera a linha (o vencedor é o dono dela).
+  if (ctx.sendBudget) {
+    if (ctx.sendBudget.remaining <= 0) return "SKIPPED"; // lote da execução esgotado: a linha fica PENDING (não reivindicada, sem tentativa gasta)
+    ctx.sendBudget.remaining -= 1;
+  }
   if (!(await ctx.store.claimOutbox(outboxId, ctx.nowIso))) return "SKIPPED";
   // Override de ENTREGA do piloto: só o To muda (nunca CC/BCC); o destinatário
   // lógico (recipientUserId/recipientEmail) permanece na outbox e na auditoria.
@@ -638,6 +656,7 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
       inReplyTo: conversation?.rootMessageIdHeader ?? undefined,
       references: conversation?.rootMessageIdHeader ? [conversation.rootMessageIdHeader] : undefined,
       correlationId: crypto.randomUUID(),
+      governance: { type: riskAlertGovernanceType(notificationType, idempotencyKey.includes(":PILOT_SINGLE:")), projectId: ctx.projectId, dedupKey: idempotencyKey },
       vera: { projectId: ctx.projectId, context: "alerta" },
       // Faixa/prefixo de TESTE só no envio único armado (chave PILOT_SINGLE); alertas operacionais saem sem faixa de teste.
       pilot: { projectId: ctx.projectId, participantLabel: `usuário ${recipientUserId.slice(0, 8)}`, escalationLevel: escalationLevel ?? notificationType, testMessage: idempotencyKey.includes(":PILOT_SINGLE:") },

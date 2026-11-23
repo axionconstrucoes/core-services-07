@@ -180,3 +180,5 @@ scripts/test-schedule-revision-preservation.mjs
 scripts/test-construmanager-export-manifest.mjs
 scripts/test-compat-app-antigo.mjs
 scripts/test-homolog-executor-api-pronto.mjs
+scripts/test-alert-send-governor.mjs
+scripts/test-alert-send-governor-sql.mjs

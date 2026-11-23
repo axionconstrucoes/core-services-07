@@ -106,6 +106,7 @@ export class DeliveryItemReminderMailer implements ReminderMailer {
         inlineImages: logos.images.length > 0 ? logos.images : undefined,
         correlationId: message.idempotencyKey,
         vera: { projectId, context: "providencia" },
+        governance: { type: "DELIVERY_ITEM_REMINDER", projectId, dedupKey: message.idempotencyKey },
       });
     } catch {
       throw new ReminderError("ENVIO_FALHOU");

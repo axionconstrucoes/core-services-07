@@ -138,6 +138,7 @@ export async function deliverEmailReplyConfirmations(input: { client: SupabaseLi
         ...(row.in_reply_to ? { inReplyTo: row.in_reply_to, references: (row.references_header ?? "").split(/\s+/).filter(Boolean) } : {}),
         // Contexto da obra (AXIA + travas do piloto pelo projeto, aplicadas no provedor).
         vera: { projectId: row.project_id, context: "alerta" },
+        governance: { type: "EMAIL_REPLY_CONFIRMATION", projectId: row.project_id, dedupKey: row.id },
       });
       await input.client.from("email_reply_confirmations").update({ status: "SENT", sent_at: sent.sentAt, sent_provider_message_id: sent.providerMessageId ?? null, last_error: null, claimed_at: null }).eq("id", row.id);
       result.sent += 1;

@@ -33,6 +33,7 @@ export async function sendSystemHealthAlertEmail(input: {
     html: signed.html,
     inlineImages: images.length > 0 ? images : undefined,
     correlationId: crypto.randomUUID(),
+    governance: { type: "SYSTEM_HEALTH", projectId: input.projectId },
     pilot: { projectId: input.projectId, participantLabel: "administrador (supervisão operacional)", escalationLevel: null },
   });
 }

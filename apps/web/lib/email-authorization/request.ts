@@ -67,6 +67,7 @@ export async function requestEmailAuthorization(input: { projectId: string; user
       inlineImages: logo ? [logo] : undefined,
       correlationId: crypto.randomUUID(),
       vera: { projectId: input.projectId, context: "autorizacao", authorizationId: id },
+      governance: { type: "EMAIL_AUTHORIZATION", projectId: input.projectId },
     });
     return { ok: true, authorizationId: id, emailSent: true };
   } catch {

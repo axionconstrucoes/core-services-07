@@ -208,6 +208,7 @@ export async function createAndSendContractAlertBatch(
       inlineImages: logos.images.length > 0 ? logos.images : undefined,
       correlationId,
       vera: { projectId: input.projectId, context: "alerta" },
+      governance: { type: "CONTRACT_ALERT_BATCH", projectId: input.projectId },
     });
   } catch (error) {
     await admin

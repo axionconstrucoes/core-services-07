@@ -222,6 +222,7 @@ export async function deliverSpecialistMails(input: { client: SupabaseLike; prov
           correlationId: `${row.id}:${kind}`,
           ...(row.in_reply_to ? { inReplyTo: row.in_reply_to, references: (row.references_header ?? "").split(/\s+/).filter(Boolean) } : {}),
           vera: { projectId: row.project_id, context: "alerta" },
+          governance: { type: "EMAIL_SPECIALIST", projectId: row.project_id, dedupKey: `${row.id}:${kind}` },
         });
         const patch = kind === "receipt" ? { receipt_status: "SENT", receipt_sent_at: new Date().toISOString() } : { answer_mail_status: "SENT", answer_mail_sent_at: new Date().toISOString() };
         await input.client.from("email_specialist_consultations").update(patch).eq("id", row.id);

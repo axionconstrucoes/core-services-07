@@ -41,6 +41,7 @@ export async function sendVersionImpactReviewEmail(input: {
     html: body.html,
     inlineImages: images.length > 0 ? images : undefined,
     correlationId: crypto.randomUUID(),
+    governance: { type: "VERSION_IMPACT_REVIEW", projectId: input.projectId },
     pilot: { projectId: input.projectId, participantLabel: input.isDesignatedBudgetReviewer ? "orçamentista designado (revisão de versão)" : "destinatário da revisão de versão", escalationLevel: null },
   });
 }

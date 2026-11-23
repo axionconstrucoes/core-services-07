@@ -188,6 +188,7 @@ export async function sendContractAlertEmail(
       inlineImages: logos.images.length > 0 ? logos.images : undefined,
       correlationId,
       vera: { projectId: input.projectId, context: "alerta" },
+      governance: { type: "CONTRACT_ALERT", projectId: input.projectId },
     });
   } catch (error) {
     if (tracking) await failManualAlertBatch(adminForTracking, tracking.batchId);

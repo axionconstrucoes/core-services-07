@@ -54,6 +54,7 @@ export async function sendSsmaAccidentAlertEmail(input: SsmaAccidentAlertInput) 
       inlineImages: images.length > 0 ? images : undefined,
       correlationId: crypto.randomUUID(),
       vera: { projectId: input.projectId, context: "ssma" },
+      governance: { type: "SSMA_ACCIDENT", projectId: input.projectId },
     });
   } catch (error) {
     if (error instanceof EmailSendError) throw error;

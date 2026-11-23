@@ -15,6 +15,8 @@ export interface InlineImageAttachment {
   contentBase64: string;
 }
 
+import type { AlertGovernanceContext } from "./alert-send-governor";
+
 // Contrato mínimo de envio de email. "from" NÃO é escolhido pelo caller —
 // cada provider resolve internamente sua própria mailbox de envio e a
 // devolve em SendEmailResult, nunca a recebe como input arbitrário.
@@ -51,6 +53,8 @@ export interface SendEmailInput {
   // identificação da mensagem. Só rótulos curtos e ids — nunca o endereço do destinatário lógico. Sem ele, o projeto vem de `vera.projectId`.
   pilot?: PilotMessageContext;
   correlationId: string;
+  /** Classificação para o governador de alertas (alert-send-governor.ts). Ausente => o envio governado é bloqueado (fail-closed). */
+  governance?: AlertGovernanceContext;
 }
 
 export interface PilotMessageContext {

@@ -124,6 +124,7 @@ export function createProviderMailer(admin: Admin, provider: EmailProvider = get
           ...(content.operational
             ? { pilot: { projectId, participantLabel: content.participantLabel ?? null, escalationLevel: "Responsável" } }
             : { vera: { projectId, context: "ssma" as const } }),
+          governance: { type: "SSMA_FIELD_NOTIFICATION" as const, projectId },
           ...(replyTo && content.reply ? { replyTo, replyToContext: { kind: "SSMA_CORRECTIVE_ACTION" as const, actionId: content.reply.actionId, recordId: content.reply.recordId } } : {}),
           ...(content.thread?.inReplyTo ? { inReplyTo: content.thread.inReplyTo, references: content.thread.references } : {}),
         });

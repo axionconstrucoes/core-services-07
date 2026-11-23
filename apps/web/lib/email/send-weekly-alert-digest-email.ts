@@ -71,6 +71,7 @@ export async function sendWeeklyAlertDigestEmail(input: {
       inlineImages: images.length > 0 ? images : undefined,
       correlationId,
       vera: { projectId: input.projectId, context: "alerta" },
+      governance: { type: "WEEKLY_DIGEST", projectId: input.projectId },
     });
   } catch (error) {
     await admin
