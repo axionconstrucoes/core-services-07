@@ -91,7 +91,8 @@ Status em 22/11/2026: **PRONTO** = evidência existe e foi conferida; **PENDENTE
 ## G11 - Módulos bloqueados (P0)
 | Item | Responsável | Evidência | Critério | Status |
 |---|---|---|---|---|
-| RNC e Garantias G-04 a G-10 indisponíveis ao usuário | Qualidade + Eng. | trava aplicada; AXIA e manual dizem "bloqueada" | 35 RPCs com 42501; sem erro cru na tela | PRONTO (mecanismo); PENDENTE na janela |
+| RNC e Garantias G-04 a G-10 indisponíveis ao usuário | Qualidade + Eng. | trava aplicada; AXIA e manual dizem "bloqueada" | 35 RPCs com 42501; sem stack trace nem tela quebrada | PRONTO (mecanismo); PENDENTE na janela |
+| Mensagem ao usuário quando a trava recusa | Eng. | o roteiro de aceitação (doc 20) constatou que a tela mostra o erro técnico `42501`, sem texto amigável | texto "módulo ainda não liberado" no lugar do código | PENDENTE (melhoria P2 recomendada antes da janela; não é falha de segurança) |
 
 ## G12 - Observação e rollback
 Gatilhos de rollback (qualquer um): P0 divergente; falha de job repetida em 2 execuções; erro 5xx contínuo na Vercel; usuário vendo dado de outra obra; e-mail real enviado fora da trava; divergência de contagem de linhas. Decisor: Dono. Procedimento: doc 19, seção 8. Janela de observação: T+2 h a T+24 h.

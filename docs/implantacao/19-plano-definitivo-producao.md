@@ -109,3 +109,4 @@ A migration de SLA adiada e a onda H2 **não** têm rollback por script e não f
 3. Latência e locks no remoto real (o ensaio foi local e no homolog pequeno; produção tem ~30 mil linhas em `public`).
 4. `service_role` real em produção; o teste de upload ao Storage por membro com caminho válido.
 5. Tudo que exige usuários reais (doc 20).
+6. A mensagem que o usuário vê quando a trava recusa uma escrita é o erro técnico `42501` (constatado no roteiro de aceitação); a recusa é correta e segura, mas o texto não é amigável.
