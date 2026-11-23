@@ -10,7 +10,7 @@ Fonte: cópia local do backup lógico de produção de 22/11/2026 (04:46 UTC), s
 | 11/11 11:10 e 11:16 | APPLY | 01/12/2025 a 11/11/2026 | 599 candidatas; 10 inseridas e depois 0 (idempotência confirmada); 370 rejeitadas |
 | 11/11 11:24 | APPLY | 11/05/2025 a 11/11/2026 | 890 candidatas; **19 inseridas**; 229 existentes; 642 rejeitadas |
 | 21/11 (janelas de teste de 1 a 18 h) | DRY-RUN e APPLY | 08/06 e 18/11 | 4 e 1 candidatas; 2 e 1 inseridas; 0 rejeitadas |
-| 23/11 (execução 13) | DRY-RUN | 22/05/2025 a 22/11/2026 | **concluída com sucesso; contagens por mês ainda não lidas** (o log não abre no navegador) |
+| 23/11 (execução 13) | DRY-RUN | 22/05/2025 a 22/11/2026 (20:00 BRT) | **198 candidatas no Gmail, 198 analisadas, 197 já existentes, 0 rejeitadas, 0 inseridas** (registro `a585739f…`, lido com SELECT autorizado limitado a esse registro) |
 Não há "checkpoint por mês": o backfill é por janela fixa, idempotente por (projeto, provedor, caixa, id); o "fim congelado" impede reexecutar o mesmo início com outro fim.
 
 ## 2. Conciliação dos números de 11/11
@@ -35,9 +35,16 @@ Não há "checkpoint por mês": o backfill é por janela fixa, idempotente por (
 
 Mensagens por mês (CAIXA-1): 09/2025: 2; 10: 11; 11: 6; 12: 10; 01/2026: 54; 02: 67; 03: 71; 04: 60; 05: 57; 06: 74; 07: 58; 08: 78; 09: 91; 10: 39; 11: 3.
 
-## 5. Conclusões e pendências
-1. Os APPLY anteriores produziram registros **válidos e sem duplicidade**; reexecutar é seguro (idempotente), mas **não foi feito**.
-2. Antes de qualquer novo APPLY: ler os números por mês da execução 13 (regra vigente) e comparar com as 681 armazenadas. Pendência: obter o log (download do arquivo de log ou leitura somente leitura da linha de auditoria; **aguarda decisão**).
-3. 05 a 08/2025 vazios nas duas fontes (banco e dry-run de 11/11 desde 11/05): provável ausência real na caixa; a confirmação depende da execução 13.
-4. 48 mensagens IN_SCOPE sem motivo gravado: investigar a origem.
-5. Os 6 colaboradores sem caixa e o Outlook seguem NÃO CONECTADOS.
+## 5. Resultado da execução 13 (regra vigente) e conciliação
+- No Gmail, sob a regra vigente (domínio `weg.net` em qualquer participante, com subdomínios), há **198 mensagens candidatas em 18 meses**; **197 já estão no ACC**; **0 são rejeitadas**; 198 - 197 = **1 nova** que um APPLY inseriria (o dry-run não conta as que inseriria, e é por isso que, em 11/11, 890 = 219 + 642 + 29).
+- No ACC (backup de 22/11), a CAIXA-1 tem 202 mensagens com participante `weg.net` em From/To (Cc/Bcc não são guardados em colunas), contra 197 encontradas no Gmail: **5 a conferir** (podem ter sido apagadas ou movidas no Gmail depois da importação).
+- **As 642 rejeições de 11/11 não existem mais** sob a regra vigente: eram artefato da regra superada. Nada a recuperar.
+- O requisito dos 18 meses **na CAIXA-1** está, portanto, praticamente cumprido para o perímetro `weg.net`: o Gmail só tem 198 mensagens com esse domínio entre 22/05/2025 e 22/11/2026. **Isso não cobre os outros 6 colaboradores nem o Outlook.**
+- 05 a 08/2025: o ACC não tem nada e o Gmail, sob a regra vigente, só tem as 198 acima (menor mensagem armazenada: 09/2025). Sem prova em contrário, a ausência é real, não falha de ingestão.
+- **Novo APPLY não é necessário nesta etapa** (1 mensagem nova), e **não foi autorizado**.
+
+## 6. Investigações
+- **48 mensagens dentro do escopo sem motivo:** todas foram importadas pelo coletor do piloto, que usa o perímetro por participante e **não grava motivo** (29 de 11/11, 3 de 21/11, as demais incrementais de out/nov). **Legítimas**; falta apenas gravar um motivo padrão (correção de dados, não feita: sem escrita em produção).
+- **90 mensagens dentro do escopo sem participante `weg.net`** (75 com motivo "vínculo confirmado por evidência", 15 sem): importadas por regras anteriores; **decisão do Dono** se permanecem (preservadas, nada foi alterado).
+- **32 mensagens sem caixa de origem:** são registros **internos** (From `axion.com.br` e `axion.local`, sem provedor, sem identificador de mensagem, sem corpo e sem anexos; 28 sem classificação, 4 ESG_SSMA; criados de 28/08 a 19/11). Não são importações do Gmail. Origem provável: registros gerados pelo próprio ACC (alertas ou simulações); **confirmar no código antes de contá-los como cobertura de e-mail**.
+- **Anexos:** os 573 estão no Storage, **0 com erro**. Os 420 "pendentes" são apenas **não processados** (152 PNG, 149 JPEG, 63 MS Project, 56 planilhas); o Drive está 100% pendente. Concentração: abr/2026 (136), ago e set/2026 (72 e 70). O worker novo continua desligado até a aceitação.
