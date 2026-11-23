@@ -120,7 +120,7 @@ export function ProjectParticipantsPanel({
 
         {!candidatesAvailable ? (
           <p className="text-xs text-muted-foreground" role="status">
-            A lista de usuários ainda fora do projeto não está disponível neste ambiente (pendência de banco). É possível ativar/desativar quem já
+            A lista de usuários ainda fora do projeto não está disponível neste ambiente. É possível ativar/desativar quem já
             participa; para incluir novos usuários use &ldquo;Adicionar usuário&rdquo;.
           </p>
         ) : null}

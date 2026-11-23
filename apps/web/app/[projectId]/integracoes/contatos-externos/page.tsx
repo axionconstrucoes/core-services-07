@@ -141,7 +141,7 @@ export default async function ContatosExternosPage({
       ) : null}
       {ov.contractMissing ? (
         <p role="alert" className="rounded-md border border-amber-700 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          As tabelas de contatos externos não estão disponíveis neste ambiente (migration da Fase 5/C ainda não aplicada) ou o acesso foi negado. {SEM_DADOS}.
+          Este recurso ainda não está disponível neste ambiente (contatos externos) ou o acesso foi negado. {SEM_DADOS}.
         </p>
       ) : null}
 

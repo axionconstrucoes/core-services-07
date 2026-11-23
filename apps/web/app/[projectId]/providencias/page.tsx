@@ -55,7 +55,7 @@ export default async function ProvidenciasPage({ params }: { params: Promise<{ p
       />
 
       {!overview.available ? (
-        <EmptyState message="Este módulo ainda não foi habilitado neste ambiente (a migration das providências não foi aplicada)." />
+        <EmptyState message="Este recurso (providências) ainda não está disponível neste ambiente." />
       ) : (
         <>
           {overview.canEdit ? <DeliveryAdminControls projectId={projectId} hasItems={overview.items.length > 0} /> : null}

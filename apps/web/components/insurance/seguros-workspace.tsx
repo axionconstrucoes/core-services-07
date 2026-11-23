@@ -37,7 +37,7 @@ export function SegurosWorkspace({ projectId, load, caps, today, nowIso, current
     <WorkspaceProvider value={ctx}>
       <div className="flex flex-col gap-4">
         {load.moduleUnavailable ? (
-          <Callout tone="warn" role="alert">O módulo de Seguros ainda não está habilitado neste ambiente (as migrações de seguros não foram aplicadas ao banco consultado). Nada foi carregado; isto NÃO significa que não há seguros cadastrados.</Callout>
+          <Callout tone="warn" role="alert">Este recurso (Seguros) ainda não está disponível neste ambiente. Nada foi carregado; isto NÃO significa que não há seguros cadastrados.</Callout>
         ) : failed.length ? (
           <Callout tone="danger" role="alert">Não foi possível carregar: {failed.map((k) => SECTION_NAMES[k] ?? k).join(", ")}. As telas dessas seções podem estar incompletas: não interprete a ausência de linhas como ausência de dados.</Callout>
         ) : null}

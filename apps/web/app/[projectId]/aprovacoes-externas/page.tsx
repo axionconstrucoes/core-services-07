@@ -53,7 +53,7 @@ export default async function AprovacoesExternasPage({
       <Flash ok={first(query.ok)} erro={first(query.erro)} okMessages={OK} />
       {ov.unavailable ? (
         <p role="alert" className="rounded-md border border-amber-700 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          As tabelas de preparação de envio não estão disponíveis neste ambiente (migrations das Fases 5/E e 6/H2a ainda não aplicadas) ou o acesso foi negado. SEM DADOS.
+          Este recurso ainda não está disponível neste ambiente (preparação de envio) ou o acesso foi negado. SEM DADOS.
         </p>
       ) : null}
 

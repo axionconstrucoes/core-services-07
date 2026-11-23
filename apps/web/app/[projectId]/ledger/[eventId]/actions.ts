@@ -122,7 +122,7 @@ export async function amendConfrontationReviewNoteAction(
     if (error.code === "PGRST202" || error.code === "42883") {
       return {
         error:
-          "Complementar justificativas ainda não está disponível neste ambiente — a migration correspondente não foi aplicada.",
+          "Complementar justificativas ainda não está disponível neste ambiente.",
       };
     }
     return { error: error.message };

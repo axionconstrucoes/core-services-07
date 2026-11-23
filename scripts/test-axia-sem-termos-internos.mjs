@@ -92,5 +92,35 @@ for (const { onde, texto } of [...usuarioBase, ...entradas, ...manual]) {
 }
 t("base/AXIA/manual: sem Fase N, frente X, homologacao, roteiro, sessao autenticada", achadosExtra.length === 0, achadosExtra.slice(0, 8).join(" | "));
 t("detector de ajuda: pega 'Fase 6' e 'migration 20261121177000'", /fase [0-9]/.test(norm("antes da Fase 6")) && /2026\d{10}/.test("migration 20261121177000"));
+
+// ───────── Telas: avisos visiveis ao usuario (apps/web/app e apps/web/components) ─────────
+// Varre .tsx/.ts ignorando comentarios (linha e bloco) e falha se uma LINHA de texto visivel (JSX/strings) citar migration/migrac,
+// "onda", "pendencia de banco" ou "Fase N". Comentarios e nomes de funcoes/tabelas no codigo nao entram (linhas de comentario sao descartadas).
+function arquivosTela(dir, acc = []) {
+  for (const nome of readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, nome.name);
+    if (nome.isDirectory()) arquivosTela(p, acc);
+    else if (/\.(tsx|ts)$/.test(nome.name)) acc.push(p);
+  }
+  return acc;
+}
+function semComentarios(src) {
+  return src.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " ")).split(/\r?\n/).map((l) => l.replace(/(^|[^:"'`\\])\/\/.*$/, "$1"));
+}
+const TELA_PROIBIDOS = [[/migration|migrac|migrad/, "migration"], [/\bonda /, "onda"], [/ainda nao foi aplicada|nao foi aplicada|ainda nao aplicada/, "nao foi aplicada"], [/pendencia de banco/, "pendencia de banco"], [/\bfases? [0-9]/, "Fase N"]];
+const achadosTela = [];
+for (const base of ["app", "components"]) {
+  for (const f of arquivosTela(path.join(root, "apps", "web", base))) {
+    const rel = path.relative(root, f);
+    semComentarios(readFileSync(f, "utf8")).forEach((l, i) => {
+      // so linhas que parecem texto/string visivel: contem letras acentuadas/espacos em literal ou JSX; descarta linhas de codigo puro com identificadores
+      if (!/["'`>]/.test(l) && !/^\s+[A-Za-zÀ-ú]/.test(l)) return;
+      const n = norm(l);
+      for (const [re, nome] of TELA_PROIBIDOS) if (re.test(n)) achadosTela.push(`${rel}:L${i + 1}: "${nome}"`);
+    });
+  }
+}
+t("telas: nenhum texto visivel cita migration/onda/'nao foi aplicada'/pendencia de banco/Fase N", achadosTela.length === 0, achadosTela.slice(0, 8).join(" | "));
+t("detector de telas: pega aviso com migration", TELA_PROIBIDOS.some(([re]) => re.test(norm("<p>Recurso indisponivel (migration pendente).</p>"))));
 console.log(`\n${ok} OK, ${bad} FAIL`);
 process.exit(bad ? 1 : 0);

@@ -101,7 +101,7 @@ export default async function SsmaFieldRecordsPage({
       </div>
 
       {!available ? (
-        <Card><CardContent className="p-4 text-sm text-muted-foreground">Os registros de campo ainda não estão disponíveis neste ambiente (migration pendente).</CardContent></Card>
+        <Card><CardContent className="p-4 text-sm text-muted-foreground">Este recurso (registros de campo) ainda não está disponível neste ambiente.</CardContent></Card>
       ) : (
         <>
           <p className="-mb-3 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">

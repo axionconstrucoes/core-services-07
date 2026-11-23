@@ -94,7 +94,7 @@ export function GarantiasHome({
       </TabsList>
 
       <TabsContent value="casos" className="space-y-4">
-        {!available ? <Notice tone="warning">O módulo de garantias ainda não está disponível neste ambiente (migrations de Qualidade/Garantias pendentes). SEM DADOS.</Notice> : null}
+        {!available ? <Notice tone="warning">Este recurso (garantias) ainda não está disponível neste ambiente. SEM DADOS.</Notice> : null}
         {error ? <Notice tone="error" role="alert">{error}</Notice> : null}
 
         <section aria-label="Indicadores" className="grid grid-cols-2 gap-3 md:grid-cols-5">
