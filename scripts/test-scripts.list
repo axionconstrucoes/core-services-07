@@ -175,3 +175,4 @@ scripts/test-axia-sem-termos-internos.mjs
 scripts/test-workflow-gates.mjs
 scripts/test-weekly-schedule-email-ingestion.mjs
 scripts/test-source-coverage.mjs
+scripts/test-schedule-revision-preservation.mjs
