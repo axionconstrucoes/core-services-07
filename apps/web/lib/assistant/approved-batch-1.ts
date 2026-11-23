@@ -141,7 +141,7 @@ export const APPROVED_BATCH_1_ENTRIES: AssistantEntry[] = [
       "diferenca entre escalonamento e lembrete", "mecanismo a e b", "o que e escalonamento",
     ],
     summary:
-      "Mecanismo A — alertas de risco e ações SLA: o alerta sobe por hierarquia (Nível 1, depois Nível 2 da gerência, depois Nível 3 da Diretoria, depois o limite), conforme os prazos da Matriz de SLA. Mecanismo B — acompanhamento recorrente: manda lembretes ao responsável atual a cada 1, 2, 4 ou 7 dias, sem hierarquia. Os prazos para assumir da política aprovada (Crítico 1 hora corrida; Alto 4 horas úteis; Médio 2 dias úteis; Baixo 5 dias úteis) são do mecanismo A, e cada obra pode ter valores próprios na matriz; os intervalos de 1/2/4/7 dias são do B.",
+      "Mecanismo A — alertas de risco e ações SLA: o alerta sobe por hierarquia (Nível 1, depois Nível 2 da gerência, depois Nível 3 da Diretoria, depois o limite), conforme os prazos da Matriz de SLA. Mecanismo B — acompanhamento recorrente: manda lembretes ao responsável atual a cada 1, 2, 4 ou 7 dias, sem hierarquia. Os prazos para assumir de Crítico (1 hora corrida) e Alto (4 horas úteis) são do mecanismo A; para Médio e Baixo, o prazo para assumir vem da Matriz de SLA configurada para a obra (quem tem permissão consulta na tela Usuários); os intervalos de 1/2/4/7 dias são do B.",
     steps: [],
     links: AJUDA,
     tutorialSlide: null,
@@ -162,7 +162,7 @@ export const APPROVED_BATCH_1_ENTRIES: AssistantEntry[] = [
       "Diretoria (Nível 3): em +2 h — o primeiro intervalo (1 h) conta do marco anterior.",
       "Limite de escalonamento atingido: em +4 h — o segundo intervalo (2 h) conta do marco da Diretoria.",
       "Exemplo com T0 às 14:20: Nível 2 às 15:20, Diretoria às 16:20, limite às 18:20.",
-      "Na política aprovada, o prazo para assumir é Crítico 1 hora corrida, Alto 4 horas úteis, Médio 2 dias úteis e Baixo 5 dias úteis; somados aos intervalos de escalonamento (Alto +4 h e +4 h; Médio +1 dia e +1 dia; Baixo +3 dias e +2 dias), o total até o limite é de 12 h úteis em Alto, 4 dias úteis em Médio e 10 dias úteis em Baixo. No ciclo automático, só Alto e Crítico sobem por prazo; cada obra pode ter valores próprios.",
+      "O prazo para assumir é Crítico 1 hora corrida e Alto 4 horas úteis; somados aos intervalos de escalonamento do Alto (+4 h e +4 h), o total até o limite em Alto é de 12 h úteis. Para Médio e Baixo, o prazo para assumir e os intervalos vêm da Matriz de SLA configurada para a obra (consulte na tela Usuários, se tiver permissão). No ciclo automático, só Alto e Crítico sobem por prazo.",
     ],
     links: AJUDA,
     tutorialSlide: null,

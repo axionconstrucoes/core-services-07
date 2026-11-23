@@ -8,7 +8,7 @@
 - Este manual explica como USAR cada aba do ACC. Ele não faz análise contratual ou técnica: isso é dos Especialistas de IA (Experts IA), sempre com revisão humana.
 - A AXIA é a assistente de uso do ACC e responde com esta mesma base. Ela não lê dados da obra, não altera nada e não analisa contratos.
 - Cada aba traz: finalidade, funcionalidades, informações exibidas, passo a passo, regras e status, permissões, integrações, perguntas e respostas, limitações e diferenças entre perfis.
-- Prazos padrão (SLA) aprovados: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis.
+- Prazos de SLA para assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO e BAIXO conforme a Matriz de SLA configurada para a obra.
 - A barra lateral mostra ícone e texto sempre visíveis, sem texto ao passar o mouse.
 
 ### Situação de cada aba
@@ -3157,20 +3157,20 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 ### 9.8 Criticidades e prazos (SLA)
 
 - **Tipo:** tema
-- **Situação:** Operacional (sem homologação em tela autenticada) — SLA aprovado (decisão da Fase 2, migration de SLA validada em homologação).
+- **Situação:** Operacional (sem homologação em tela autenticada) — Prazos de Crítico e Alto conforme a política de SLA; Médio e Baixo conforme a matriz configurada para a obra.
 - **Quem vê:** Todos os membros ativos da obra
 
-**1. Nome e finalidade.** Criticidades e prazos (SLA): Os alertas têm quatro graus (Crítico, Alto, Médio, Baixo), cada um com um prazo padrão para o responsável assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis.
+**1. Nome e finalidade.** Criticidades e prazos (SLA): Os alertas têm quatro graus (Crítico, Alto, Médio, Baixo), cada um com um prazo para o responsável assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis. Para MÉDIO e BAIXO, o prazo para assumir vem da Matriz de SLA configurada para a obra.
 
 **2. Funcionalidades**
 - Nível 1 Responsável, Nível 2 Gerência, Nível 3 Diretoria.
 
 **3. Informações e indicadores exibidos**
-- Prazos padrão aprovados; cada obra pode ter valores próprios na matriz.
+- Prazos de Crítico e Alto conforme a política; prazos de Médio e Baixo conforme a matriz da obra.
 
 **4. Passo a passo**
 1. Veja os prazos de cada ação em Ações e Escalonamentos.
-2. O Administrador consulta a matriz em Usuários.
+2. O Administrador consulta e ajusta a Matriz de SLA da obra na tela Usuários (bloco Prazos por grau de risco), se tiver permissão.
 
 **5. Regras e significados de status**
 - Só Alto e Crítico passam pelo escalonamento por prazo no ciclo automático.
@@ -3183,11 +3183,11 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Qual é o prazo de cada criticidade?
-  **R:** Padrão aprovado para assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis. Cada obra pode ter valores próprios na matriz.
+  **R:** Prazo para assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis. Para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra; quem tem permissão consulta e ajusta essa matriz na tela Usuários.
 
 **9. Limitações e o que não está homologado**
 - A configuração da matriz e feriados são assuntos em revisão da AXIA.
-- Os prazos de Médio e Baixo seguem a política aprovada (2 e 5 dias úteis); a migration que os grava no banco de produção ainda não foi aplicada, então ações já existentes mantêm o prazo gravado na criação.
+- Alterações na matriz valem para novos alertas; alertas já abertos mantêm o prazo de quando foram criados.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis nela; é quem gerencia usuários e configurações da obra.

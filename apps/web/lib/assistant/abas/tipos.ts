@@ -10,7 +10,7 @@
 //  - `nome` é o rótulo exato da tela (o mesmo de NAV_ITEMS, SEGUROS_TABS, QUALITY_TABS e das abas declaradas nas páginas);
 //  - funcionalidade bloqueada nesta versão (decisão da Fase 2) tem situacao "BLOQUEADA": a AXIA diz que NÃO está disponível;
 //  - a AXIA é o assistente de USO do ACC; questões técnicas da obra são dos ESPECIALISTAS de IA (Experts IA). Nunca confundir;
-//  - SLA aprovado: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis;
+//  - SLA: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO e BAIXO conforme a Matriz de SLA configurada para a obra (não afirmar números únicos);
 //  - a barra lateral mostra ícone + texto SEMPRE visíveis, sem texto ao passar o mouse.
 //
 // Puro, sem I/O e sem importações de código (só tipos): importável pelo Next.js e por scripts Node.

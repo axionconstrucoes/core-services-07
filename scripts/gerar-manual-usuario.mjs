@@ -30,7 +30,7 @@ export function gerarManual() {
   out.push("- Este manual explica como USAR cada aba do ACC. Ele não faz análise contratual ou técnica: isso é dos Especialistas de IA (Experts IA), sempre com revisão humana.");
   out.push("- A AXIA é a assistente de uso do ACC e responde com esta mesma base. Ela não lê dados da obra, não altera nada e não analisa contratos.");
   out.push("- Cada aba traz: finalidade, funcionalidades, informações exibidas, passo a passo, regras e status, permissões, integrações, perguntas e respostas, limitações e diferenças entre perfis.");
-  out.push("- Prazos padrão (SLA) aprovados: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis.");
+  out.push("- Prazos de SLA para assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO e BAIXO conforme a Matriz de SLA configurada para a obra.");
   out.push("- A barra lateral mostra ícone e texto sempre visíveis, sem texto ao passar o mouse.");
   out.push("");
   out.push("### Situação de cada aba");

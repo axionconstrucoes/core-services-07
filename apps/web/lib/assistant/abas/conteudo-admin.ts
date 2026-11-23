@@ -174,12 +174,12 @@ export const ITENS_ADMIN: ItemConhecimento[] = [
   }),
   item({
     id: "tema.criticidade-sla", nome: "Criticidades e prazos (SLA)", tipo: "tema", cap: "alertas-sla", acesso: "TODOS",
-    fin: "Os alertas têm quatro graus (Crítico, Alto, Médio, Baixo), cada um com um prazo padrão para o responsável assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis.",
-    fun: ["Nível 1 Responsável, Nível 2 Gerência, Nível 3 Diretoria."], ind: ["Prazos padrão aprovados; cada obra pode ter valores próprios na matriz."],
-    passos: ["Veja os prazos de cada ação em Ações e Escalonamentos.", "O Administrador consulta a matriz em Usuários."],
+    fin: "Os alertas têm quatro graus (Crítico, Alto, Médio, Baixo), cada um com um prazo para o responsável assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis. Para MÉDIO e BAIXO, o prazo para assumir vem da Matriz de SLA configurada para a obra.",
+    fun: ["Nível 1 Responsável, Nível 2 Gerência, Nível 3 Diretoria."], ind: ["Prazos de Crítico e Alto conforme a política; prazos de Médio e Baixo conforme a matriz da obra."],
+    passos: ["Veja os prazos de cada ação em Ações e Escalonamentos.", "O Administrador consulta e ajusta a Matriz de SLA da obra na tela Usuários (bloco Prazos por grau de risco), se tiver permissão."],
     regras: ["Só Alto e Crítico passam pelo escalonamento por prazo no ciclo automático.", "Os lembretes de repetição (Crítico 1 dia, Alto 2, Médio 4, Baixo 7, dias corridos) são outro mecanismo."], integ: ["Ações e Escalonamentos e alertas por e-mail."],
-    q: [["Qual é o prazo de cada criticidade?", "Padrão aprovado para assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis. Cada obra pode ter valores próprios na matriz.", ["tabela de criticidade e prazos", "criticidades e prazos"]]],
-    lim: ["A configuração da matriz e feriados são assuntos em revisão da AXIA.", "Os prazos de Médio e Baixo seguem a política aprovada (2 e 5 dias úteis); a migration que os grava no banco de produção ainda não foi aplicada, então ações já existentes mantêm o prazo gravado na criação."], ev: "SLA aprovado (decisão da Fase 2, migration de SLA validada em homologação).", kw: ["criticidades e prazos", "tabela de criticidade"],
+    q: [["Qual é o prazo de cada criticidade?", "Prazo para assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis. Para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra; quem tem permissão consulta e ajusta essa matriz na tela Usuários.", ["tabela de criticidade e prazos", "criticidades e prazos"]]],
+    lim: ["A configuração da matriz e feriados são assuntos em revisão da AXIA.", "Alterações na matriz valem para novos alertas; alertas já abertos mantêm o prazo de quando foram criados."], ev: "Prazos de Crítico e Alto conforme a política de SLA; Médio e Baixo conforme a matriz configurada para a obra.", kw: ["criticidades e prazos", "tabela de criticidade"],
     fontes: ["apps/web/lib/assistant/guards.ts", "apps/web/lib/assistant/approved-batch-1.ts (qa-E2, qa-R7)"],
   }),
   item({
