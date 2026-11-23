@@ -35,3 +35,24 @@ Freios: `ACC_ALERT_KILL_SWITCH`; remover cron; rollback Vercel.
 
 ## E. Aceitação 02/12/2026 (Reynaldo, Carlos, Jaime)
 Seguir o checklist do doc 38, seção 12. Não programar a janela de publicação para quarta-feira.
+
+## F. Evidências reais (23/11/2026, atualizado após a decisão da Diretoria)
+| Item | Resultado | Evidência |
+|---|---|---|
+| Push de cef65355 e d0057135 | FEITO só em integration/acc-noturna (HEAD d0057135; main segue 27da839); varredura de segredos sem achados | `git ls-remote` |
+| CI do PR #245 no d0057135 | EM ANDAMENTO (Guards e Typecheck rodando; Build ainda não iniciado) na última leitura | página de checks |
+| E-mail corporativo de Carlos | carlos.evandro@axion.com.br (perfil ACC; confirmar com ele antes de convidar) | perfil no ACC |
+| Vercel: equipe | 1 membro (Reynaldo, OWNER). Convite NÃO enviado: o papel que permite rollback não foi confirmado (a documentação consultada não traz a matriz de permissões; o painel exigiu login e eu não autentico) | list_team_members; login Vercel pendente |
+| Vercel: papel mínimo proposto | Developer (ou o menor papel que o painel mostrar com "Rollback"); NÃO Owner. Confirmar no painel de convite antes de enviar | a confirmar por Reynaldo |
+| Supabase | Papel mínimo proposto: acesso somente leitura ao projeto de produção (Read-only/Developer conforme o plano); sem Owner/Admin. Não aplicado | a confirmar por Reynaldo |
+| GitHub | NÃO verificado: o painel de colaboradores exige permissão de admin do repositório; Carlos precisa abrir o PR #245 e enviar print. Permissão mínima: Read | pendente |
+| P0 em acc-homolog | função record_risk_alert_action com md5 do corpo 930f6d75898793479b418950b0053bd9 (igual ao esperado em produção) | SELECT somente leitura |
+
+## G. Ensaio de recuperação em acc-homolog (roteiro; NÃO executado - exige Carlos presente)
+Somente homologação (gtadbeaevxglrqkhcwfz). Qualquer operação que altere dados exige autorização específica de Reynaldo antes de rodar. Produção intocada.
+1. Identificação de falha: simular (sem alterar dados) um sinal de falha, por exemplo checagem P0 divergente ou 5xx no preview; Carlos registra hora e evidência.
+2. Interrupção segura: Carlos pronuncia "PARE"; Eng-1 congela escritas e aciona o kill switch (em homolog), sem mexer em produção.
+3. Verificação de backup: hash/tamanho do backup do dia e restauração em banco local descartável; Carlos confere contagens-chave.
+4. Recuperação: rollback do preview/homolog para o deployment anterior (Carlos executa, com o acesso Vercel dele) e, se autorizado, restauração dos dados de teste a partir do backup.
+5. Verificação P0 pós-recuperação: md5 do corpo da função = 930f6d75898793479b418950b0053bd9, RLS ativa, auditoria preservada.
+Aprovação do ensaio: Carlos assina cada passo com hora e print.

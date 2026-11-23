@@ -54,3 +54,5 @@ Eng-2 anota hora UTC, comando, saída resumida, quem decidiu. Tudo fora do repos
 - Área de aceitação: Reynaldo, Carlos Evandro e Jaime (aceitação em 02/12/2026).
 - Janela proposta: 28/11/2026 às 09h BRT. Não inicia sem autorização final específica.
 - ATENÇÃO: acessos de Carlos à Vercel, Supabase e GitHub e a capacidade de recuperação NÃO estão comprovados (doc 40, seção A). Em 23/11 a equipe Vercel tem só 1 membro (Reynaldo).
+
+> Atualização 23/11/2026: acessos de Carlos (Vercel/Supabase/GitHub) e ensaio de recuperação ainda NÃO comprovados; ver docs 38 (seção 15) e 40.

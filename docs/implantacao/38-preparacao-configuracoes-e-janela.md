@@ -157,3 +157,9 @@ Nenhum usuário anônimo, banido ou sem confirmar. Total: 86.
 - `EMAIL` incluída em `ACC_ALERT_ENABLED_SOURCES` (Production, sem redeploy): SISTEMA,SLA,ACOES,AUTORIZACAO,SSMA,EMAIL.
 - Acessos de Carlos: ACC comprovado (ADMINISTRADOR/ADMINISTRATIVO e GERENTE/SSMA-ESG, ACTIVE); Vercel NÃO atendido (equipe com 1 membro); Supabase, GitHub e recuperação NÃO comprovados. Ver doc 40.
 - GO/NO-GO: CI verde (run #214, 5b6ebb4a) = GO técnico. Janela = NO-GO condicionado a: (1) acessos e ensaio de recuperação do Carlos comprovados; (2) backup do dia e restauração validados; (3) token temporário na hora; (4) autorização final específica.
+
+## 15. Acessos de Carlos, push e ensaio (23/11/2026)
+- Push de cef65355 e d0057135 feito em integration/acc-noturna (varredura de segredos sem achados); main inalterada em 27da839. CI do PR #245 em andamento no HEAD d0057135.
+- Acessos comprovados: ACC (ADMINISTRADOR/ADMINISTRATIVO e GERENTE/SSMA-ESG). Não comprovados: Vercel (convite não enviado; papel com rollback a confirmar), Supabase, GitHub.
+- Ensaio de recuperação em acc-homolog: roteiro pronto (doc 40, seção G); NÃO realizado (depende de Carlos). P0 em homolog conferido (md5 930f6d75898793479b418950b0053bd9).
+- Janela de 28/11 09h BRT segue como proposta; NO-GO condicionado até os acessos e o ensaio serem comprovados.
