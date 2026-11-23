@@ -83,9 +83,13 @@ Regras: variável **vazia** é inválida (diferente de ausente); a lista explíc
 ACC_ALERT_MAX_PER_HOUR=10
 ACC_ALERT_MAX_PER_DAY=30
 ACC_ALERT_BATCH_SIZE=5
+ACC_ALERT_CRITICAL_RESERVE_PER_HOUR=2
+ACC_ALERT_CRITICAL_RESERVE_PER_DAY=5
 ACC_ALERT_ENABLED_PROJECTS=<UUID da obra WEG>
 ```
-Nomes reais das variáveis: limite por hora = `ACC_ALERT_MAX_PER_HOUR`, por dia = `ACC_ALERT_MAX_PER_DAY`, lote = `ACC_ALERT_BATCH_SIZE`, projetos = `ACC_ALERT_ENABLED_PROJECTS` (somente a WEG). 10 por hora e 30 por dia seguem o limiar O2 do doc 34. Para voltar ao comportamento atual basta **remover** as variáveis. Recomendação adicional, **sem decisão ainda**: limitar também as fontes de F0 (`ACC_ALERT_ENABLED_SOURCES=SISTEMA,SLA,ACOES,AUTORIZACAO`), de modo que nenhum alerta automático de risco, resumo, lote ou SSMA circule até a fase própria. Com os quatro valores aprovados e sem lista de fontes, valem as fontes legadas (todas, exceto CRONOGRAMA e DIARIO), sempre sob limite, lote e projeto.
+A reserva de CRÍTICOS (2 por hora e 5 por dia, definida pela Diretoria em 23/11) está **dentro** do limite global: comuns usam 8 por hora e 25 por dia; críticos usam o limite cheio (10 e 30), que nunca é excedido. 10 por hora e 30 por dia seguem o limiar O2 do doc 34. Para voltar ao comportamento atual basta **remover** as variáveis.
+
+**Fontes validadas (decisão pendente, com um alerta):** a lista restrita antes sugerida (`SISTEMA,SLA,ACOES,AUTORIZACAO`) **não inclui `SSMA`**. Em produção já está ligado o aviso de ação corretiva SSMA em atraso da WEG (`ACC_SSMA_NOTIFICATIONS_ENABLED=true`, escopo `WEG_CORRECTIVE_ACTIONS`, autorizado em 18/11). Se a lista for aplicada sem `SSMA`, esse aviso **para silenciosamente**. Para **preservar o que já funciona**, a recomendação passa a ser `ACC_ALERT_ENABLED_SOURCES=SISTEMA,SLA,ACOES,AUTORIZACAO,SSMA`, deixando `RISCO`, `RELATORIO_SEMANAL`, `CONTRATO`, `EMAIL`, `CONSTRUMANAGER` e `ENTREGAVEIS` fora de F0. Sem a variável de fontes, valem as legadas (todas, exceto CRONOGRAMA e DIARIO), sempre sob limite, lote e projeto.
 
 ## 5. O que muda em produção
 
