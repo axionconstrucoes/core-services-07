@@ -75,7 +75,7 @@ export function CoverageHistory({
         <Notice tone="warning">{OPINION_NOT_LEGAL_NOTICE}</Notice>
         {!available ? (
           <Notice tone="warning" role="alert">
-            A gravação do parecer ainda não está habilitada neste ambiente (migrations pendentes). A consulta continua funcionando, sem gravação.
+            A gravação do parecer ainda não está disponível neste ambiente. A consulta continua funcionando, sem gravação.
           </Notice>
         ) : null}
         {loadError ? (

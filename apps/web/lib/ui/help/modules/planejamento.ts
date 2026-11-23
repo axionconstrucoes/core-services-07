@@ -14,10 +14,7 @@ function def(d: Omit<FeatureHelpDefinition, "version" | "module">): FeatureHelpD
 
 // Vigência dos prazos de SLA: aprovados x configuração operacional publicada (nunca apresentar a regra não publicada como ativa).
 const SLA_VALIDITY =
-  "Prazos APROVADOS (prazo para assumir): CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis. " +
-  "A configuração operacional publicada hoje ainda mantém MÉDIO 1 dia útil e BAIXO 3 dias úteis nas regras gravadas por obra e na função de banco que calcula o padrão; " +
-  "a migration 20261121177000 (que corrige MÉDIO e BAIXO) NÃO foi aplicada em produção. Até ser aplicada, o que vale para uma obra é o valor gravado na Matriz dela. " +
-  "A correção vale só para ações NOVAS: ações já criadas nunca são recalculadas.";
+  "Prazo para assumir: CRÍTICO 1 hora corrida e ALTO 4 horas úteis; para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra (tela Usuários, bloco Prazos por grau de risco). Alterações na matriz valem para novos alertas; alertas já abertos mantêm o prazo de quando foram criados.";
 
 const IMMEDIATE_NOTE =
   "ALTO e CRÍTICO são tratados como alertas imediatos com escalonamento por prazo; MÉDIO e BAIXO entram no resumo semanal consolidado.";
@@ -88,7 +85,7 @@ export const PLANEJAMENTO_HELP: FeatureHelpDefinition[] = [
       "Selo com o nível de risco da ação. É ele que escolhe a regra de prazos da Matriz de SLA do projeto: quanto mais crítico, mais curto o prazo para assumir.",
     purpose: "Mostrar a prioridade de tratamento e qual regra de prazo se aplica.",
     criteria: [
-      "Prazo para assumir aprovado: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis.",
+      "Prazo para assumir aprovado: CRÍTICO 1 hora corrida e ALTO 4 horas úteis; para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra (tela Usuários, bloco Prazos por grau de risco).",
       IMMEDIATE_NOTE,
       "Os valores efetivos de cada obra são os gravados na Matriz do projeto (tela de configuração).",
     ],
@@ -284,7 +281,7 @@ export const PLANEJAMENTO_HELP: FeatureHelpDefinition[] = [
     shortDescription: "Baixo, Médio, Alto ou Crítico: define os prazos de SLA da ação.",
     description:
       "Escolhe o nível de risco, que seleciona a regra de prazos da Matriz de SLA do projeto. O padrão é Médio.",
-    criteria: ["Prazos aprovados para assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis."],
+    criteria: ["Prazos aprovados para assumir: CRÍTICO 1 hora corrida e ALTO 4 horas úteis; para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra (tela Usuários, bloco Prazos por grau de risco)."],
     consequences: ["Define o prazo para assumir e os intervalos de escalonamento da ação criada."],
     validity: SLA_VALIDITY,
   }),
@@ -530,7 +527,7 @@ export const PLANEJAMENTO_HELP: FeatureHelpDefinition[] = [
     title: "Como os prazos e o escalonamento funcionam",
     shortDescription: "Prazos aprovados por risco e a cadeia Nível 1, 2 e 3 do escalonamento.",
     description:
-      "Resumo da regra: o prazo para assumir depende do risco (CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis). Se não for assumida, a ação sobe ao Nível 2 (Gerência); depois do prazo do Nível 2 sobe ao Nível 3 (Diretoria); depois do prazo da Diretoria é registrado o limite de escalonamento atingido.",
+      "Resumo da regra: o prazo para assumir depende do risco (CRÍTICO 1 hora corrida e ALTO 4 horas úteis; para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra (tela Usuários, bloco Prazos por grau de risco)). Se não for assumida, a ação sobe ao Nível 2 (Gerência); depois do prazo do Nível 2 sobe ao Nível 3 (Diretoria); depois do prazo da Diretoria é registrado o limite de escalonamento atingido.",
     purpose: "Explicar em um lugar o efeito de cada coluna da tabela de prazos.",
     howItWorks:
       "As colunas Nível 2 e Nível 3 são intervalos contados na mesma unidade de tempo da linha: o prazo do Nível 2 conta a partir do vencimento do prazo vigente e o prazo do Nível 3 conta a partir da subida à Diretoria. Valores fracionados de 0,5 são aceitos.",
@@ -562,7 +559,7 @@ export const PLANEJAMENTO_HELP: FeatureHelpDefinition[] = [
     shortDescription: "Prazo, na unidade da linha, para o responsável assumir a ação.",
     description:
       "Quantidade de tempo, a partir da criação da ação, que o responsável do Nível 1 tem para assumi-la. Vencido sem assumir, a ação sobe para o Nível 2.",
-    criteria: ["Mínimo 0,5. Aprovados: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis."],
+    criteria: ["Mínimo 0,5. Aprovados: CRÍTICO 1 hora corrida e ALTO 4 horas úteis; para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra (tela Usuários, bloco Prazos por grau de risco)."],
     validity: SLA_VALIDITY,
   }),
   def({
@@ -647,7 +644,7 @@ export const PLANEJAMENTO_HELP: FeatureHelpDefinition[] = [
     source: "project_weekly_schedule_ingestion_configs, risk_alert_cases, risk_alert_outbox e a Matriz de SLA do projeto.",
     refresh: "A cada abertura da página.",
     permissions: "Visível ao ADMINISTRADOR na tela de configuração.",
-    limitations: ["Allowlist e liga/desliga do piloto são configurados por script do administrador, não por esta tela."],
+    limitations: ["Allowlist e liga/desliga do piloto são configurados pelo administrador do ambiente, não por esta tela."],
   }),
   def({
     id: "planejamento.acoes-config.piloto-status",
@@ -900,7 +897,7 @@ export const PLANEJAMENTO_HELP: FeatureHelpDefinition[] = [
     shortDescription: "Prazos de assumir, responder e concluir da regra aplicável, na unidade da Matriz.",
     description:
       "Mostra os prazos da regra da Matriz aplicada ao risco e à área do alerta (assumir, e responder e concluir quando existirem), na unidade da regra. A indicação default ou simulação sinaliza que não há regra gravada para o projeto e vale o padrão do código.",
-    criteria: ["Aprovados para assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis."],
+    criteria: ["Aprovados para assumir: CRÍTICO 1 hora corrida e ALTO 4 horas úteis; para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra (tela Usuários, bloco Prazos por grau de risco)."],
     source: "Regra resolvida de sla_matrix_rules (lib/sla/resolve-matrix-policy.ts).",
     validity: SLA_VALIDITY,
   }),
@@ -1425,7 +1422,7 @@ export const PLANEJAMENTO_HELP: FeatureHelpDefinition[] = [
     title: "Coluna Lacuna (quem não foi informado)",
     shortDescription: "Destinatários exigidos pela etapa do caso que ainda não receberam o alerta.",
     description:
-      "Papéis exigidos pela etapa alcançada pelo caso e ainda sem aceite do provedor no próprio endereço: Responsável, Nível 2 Gestor e Diretoria. É uma aproximação em SQL; o ciclo reavalia no envio.",
+      "Papéis exigidos pela etapa alcançada pelo caso e ainda sem aceite do provedor no próprio endereço: Responsável, Nível 2 Gestor e Diretoria. É uma aproximação; o ciclo reavalia no envio.",
     howItWorks: "Destinatários exigidos: responsável da ação SLA ou responsável direto da área, Nível 2 se a etapa alcançou o Nível 2, e Diretoria se alcançou o Nível 3. Considera informado quem tem entrega aceita (SENT) no outbox para o e-mail do perfil.",
     missingData: "Traço quando não há lacuna.",
     limitations: ["Aproximação: a decisão final de reemitir é do ciclo."],
@@ -1491,7 +1488,7 @@ export const PLANEJAMENTO_HELP: FeatureHelpDefinition[] = [
       "Os destaques são calculados por providência. Alertas de ENTREGA começam 60 dias corridos antes do término previsto da obra ou no prazo individual, o que vier antes; a providência permanece vencida até conclusão ou dispensa justificada.",
     source: "project_delivery_items do projeto e data final da obra.",
     permissions: "Membros veem; editar exige GESTOR, GERENTE ou ADMINISTRADOR.",
-    limitations: ["Sem a migration do módulo a tela informa que o módulo não foi habilitado no ambiente."],
+    limitations: ["Se o módulo não estiver disponível neste ambiente, a tela informa que ele não foi habilitado."],
     humanReview: "A aplicabilidade, o risco e a conclusão de cada item são decididos por pessoas.",
   }),
   def({

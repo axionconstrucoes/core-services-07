@@ -14,7 +14,7 @@ const entry = (kind: FeatureHelpDefinition["kind"], b: Body): FeatureHelpDefinit
 const REFRESH = "Recalculado a cada abertura/recarga da página, direto do banco do ACC (sem cache próprio); reflete só o que já foi registrado.";
 const PERMISSIONS = "Membros ativos do projeto; o que cada um enxerga é definido pela RLS por projeto do banco (a tela só lê e nunca grava).";
 const SLA_VALIDITY =
-  "Prazos de SLA aprovados dos alertas: CRÍTICO 1 hora corrida, ALTO 4 horas úteis, MÉDIO 2 dias úteis, BAIXO 5 dias úteis. A configuração operacional publicada hoje ainda usa MÉDIO 1 dia útil e BAIXO 3 dias úteis (a migration 20261121177000, que corrige, não foi aplicada em produção). Esta entrada não recalcula nem altera nenhum SLA.";
+  "Prazo para assumir: CRÍTICO 1 hora corrida e ALTO 4 horas úteis; para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra (tela Usuários, bloco Prazos por grau de risco). Alterações na matriz valem para novos alertas; alertas já abertos mantêm o prazo de quando foram criados. Esta entrada não recalcula nem altera nenhum SLA.";
 
 /** Indicador padrão do dashboard. `formula`, `source`, `unit` e `missingData` são obrigatórios (test-help-catalog). */
 const kpi = (b: Body & Required<Pick<Body, "formula" | "source" | "unit" | "missingData">>): FeatureHelpDefinition =>

@@ -170,3 +170,4 @@ scripts/test-acc-branding.mjs
 scripts/test-congelamento-realpg.mjs
 scripts/test-watchdog-project-resolution-sql.mjs
 scripts/test-aceitacao-roteiro.mjs
+scripts/test-axia-sem-termos-internos.mjs

@@ -178,7 +178,8 @@ check("CASO 35: ESPECIALISTA continua roteando ao Jurídico, Qualidade e Engenha
   assert.match(spec, /expertId: "legal-consultant"/);
   assert.match(spec, /expertId: "engineering-director"/);
   const help = read("apps/web/lib/ui/help/modules/pilares.ts");
-  assert.match(help, /CRÍTICO 1 hora corrida, ALTO 4 horas úteis, MÉDIO 2 dias úteis, BAIXO 5 dias úteis/);
+  assert.match(help, /CRÍTICO 1 hora corrida e ALTO 4 horas úteis; para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra/);
+  assert.doesNotMatch(help, /MÉDIO 2 dias|BAIXO 5 dias|migration/);
   // a migration do hotfix e os SLAs não foram tocados por este agente
   assert.doesNotMatch(read("apps/web/lib/pilares/data.ts") + read("apps/web/lib/pilares/alert-links-data.ts"), /sla_matrix|rpc\("record_risk_alert_action/);
 });

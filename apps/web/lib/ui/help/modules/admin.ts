@@ -826,9 +826,9 @@ export const ADMIN_HELP: FeatureHelpDefinition[] = [
     description:
       "Seção do administrador com Responsáveis por área, Prazos por grau de risco e Fuso horário e horário útil. O Nível 1 trata a ação, o Nível 2 recebe o primeiro escalonamento e o Nível 3 corresponde à Diretoria. Riscos médios e baixos são reunidos em um único e-mail às quartas-feiras, às 7h; riscos altos e críticos mantêm o alerta e o escalonamento imediato definidos na matriz. Só participantes ativos e convidados pendentes deste projeto são elegíveis.",
     howItWorks:
-      "Cada bloco tem ajuda própria (Responsáveis por área, Prazos por grau de risco e Fuso horário). Os prazos APROVADOS são: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis.",
+      "Cada bloco tem ajuda própria (Responsáveis por área, Prazos por grau de risco e Fuso horário). Prazo para assumir: CRÍTICO 1 hora corrida e ALTO 4 horas úteis; para MÉDIO e BAIXO, vale o que estiver na Matriz de SLA da obra, que o Administrador ajusta neste bloco.",
     validity:
-      "A configuração operacional publicada hoje ainda tem MÉDIO 1 dia útil e BAIXO 3 dias úteis; a migration 20261121177000 que ajusta para os prazos aprovados não foi aplicada em produção. Até lá vale o que está gravado na matriz do projeto.",
+      "Alterações na matriz valem para novos alertas; alertas já abertos mantêm o prazo de quando foram criados.",
     permissions: ADMIN_ONLY,
     consequences: ["A matriz define quem recebe e quem escala cada alerta do projeto."],
   },

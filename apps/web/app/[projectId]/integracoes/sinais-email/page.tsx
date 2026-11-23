@@ -109,7 +109,7 @@ export default async function SinaisEmailPage({
       ) : null}
       {ov.unavailable ? (
         <p role="alert" className="rounded-md border border-amber-700 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          As tabelas de sinais/revisão não estão disponíveis neste ambiente (migration da Fase 6/H2b ainda não aplicada) ou o acesso foi negado. SEM DADOS.
+          Este recurso ainda não está disponível neste ambiente (sinais e revisão) ou o acesso foi negado. SEM DADOS.
         </p>
       ) : null}
 

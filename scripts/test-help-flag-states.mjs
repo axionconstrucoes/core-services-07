@@ -127,7 +127,7 @@ check("Coleta de caixa — a ajuda descreve os pré-requisitos, o período e a s
   ok(/Fora do período/i.test(hab), "habilitar-coleta deve citar o bloqueio fora do período");
   const susp = text("integracoes.caixas.suspensao-erros");
   ok(/\b5\b/.test(susp) && /nova habilita|habilitar a coleta novamente|habilitar de novo/i.test(susp + " " + (ACC_FEATURE_HELP["integracoes.caixas.suspensao-erros"].howItWorks ?? "")), "suspensão deve citar 5 erros e a nova habilitação");
-  ok(/migration 20261107090000/.test(text("integracoes.caixas.aviso-controles")) && /falha fechada/i.test(text("integracoes.caixas.aviso-controles")), "aviso de controles indisponíveis deve citar a migration e a falha fechada");
+  ok(/n[ãa]o est[ãa]o dispon[íi]veis/i.test(text("integracoes.caixas.aviso-controles")) && /falha fechada/i.test(text("integracoes.caixas.aviso-controles")) && !/migration/i.test(text("integracoes.caixas.aviso-controles")), "aviso de controles indisponíveis deve dizer que não estão disponíveis, citar a falha fechada e não expor detalhe interno");
 });
 check("Caixas — a evidência das etapas não usa mais o atributo title (dica nativa); fica no detalhe da caixa", () => {
   const page = read("apps/web/app/[projectId]/integracoes/caixas/page.tsx");

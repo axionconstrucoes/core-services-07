@@ -11,7 +11,7 @@ export const PILARES_VINCULOS_HELP: FeatureHelpDefinition[] = [
     title: "Origem do vínculo do alerta",
     shortDescription: "Mostra se a RNC/garantia/sinistro foi vinculado de forma registrada ou só pelo texto da origem (dado antigo).",
     description:
-      "Indica como o alerta se liga ao item. 'Vínculo registrado' vem da tabela estruturada acc_alert_links (criada por uma pessoa pela RPC acc_alert_link_create, ou migrada de forma conservadora do texto 'ALERTA:<id>'). 'Vínculo pelo texto da origem (dado antigo)' é o recurso de reserva: a referência de origem do item cita o id ou o código visível do alerta, mas ainda não há registro estruturado.",
+      "Indica como o alerta se liga ao item. 'Vínculo registrado' vem da tabela estruturada acc_alert_links (criada por uma pessoa pela RPC acc_alert_link_create, ou convertida de forma conservadora do texto 'ALERTA:<id>'). 'Vínculo pelo texto da origem (dado antigo)' é o recurso de reserva: a referência de origem do item cita o id ou o código visível do alerta, mas ainda não há registro estruturado.",
     purpose: "Dar transparência sobre a força do vínculo e permitir que a gestão confirme ou desfaça ligações antigas baseadas só em texto.",
     howItWorks:
       "Leitura somente. O vínculo registrado ativo sempre aparece; um vínculo registrado e depois DESFEITO por uma pessoa (com motivo) impede que o texto antigo o traga de volta. Sem registro estruturado, vale a referência de texto. Vincular ou desvincular nunca altera o estado da RNC, da garantia ou do sinistro, e RESOLVIDO do alerta continua sem encerrá-los.",

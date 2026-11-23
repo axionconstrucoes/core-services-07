@@ -5,8 +5,7 @@
 //  - o texto descreve o que o código REALMENTE faz; nunca inventar fórmula, fonte, frequência, prazo, permissão ou currículo;
 //  - quando uma informação não existe ou não se aplica, o campo é OMITIDO (nunca preenchido com texto genérico);
 //  - dado ausente é tratado como "sem fonte"/"não informado", nunca como zero;
-//  - SLAs aprovados: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis. Se a regra OPERACIONAL ainda
-//    divergir (migration não publicada), a entrada declara a diferença em `validity`, sem apresentar como ativa a regra não publicada;
+//  - SLA: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO e BAIXO conforme a Matriz de SLA configurada para a obra (nunca afirmar números únicos);
 //  - AXIA é exclusivamente o assistente de dúvidas sobre o uso do ACC e nunca é descrita como especialista.
 
 /** Tipo do elemento documentado (usado no inventário e na matriz de cobertura). */

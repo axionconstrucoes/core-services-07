@@ -82,7 +82,7 @@ export function PersistedSubjectsPanel({ persisted }: { persisted: PersistedSupp
   return (
     <div className="flex flex-col gap-4">
       {persisted.unavailable ? (
-        <Callout tone="warn" role="alert">A persistência de sujeitos esperados e do checklist RCC ainda não está habilitada neste ambiente (migrations pendentes). Nada foi carregado; isto NÃO significa que não há registros.</Callout>
+        <Callout tone="warn" role="alert">A gravação de sujeitos esperados e do checklist RCC ainda não está disponível neste ambiente. Nada foi carregado; isto NÃO significa que não há registros.</Callout>
       ) : Object.keys(persisted.errors).length ? (
         <Callout tone="danger" role="alert">Não foi possível carregar: {Object.keys(persisted.errors).map((k) => (k === "expectedSubjects" ? "sujeitos esperados" : "checklists RCC")).join(", ")}. A ausência de linhas abaixo NÃO significa ausência de dados.</Callout>
       ) : null}

@@ -29,7 +29,7 @@ export const SINAIS_EMAIL_HELP: FeatureHelpDefinition[] = [
       "Leitura pelo cliente de sessão (RLS por membership). Confirmar/descartar chama a RPC email_risk_signal_review, que confere papel ou delegação vigente, recusa decisão repetida, bloqueia a confirmação enquanto o vínculo da mensagem/organização não está validado e grava a linha append-only de auditoria. Descartado deixa de gerar casos de risco no coletor de alertas.",
     data: ["email_risk_signals e email_message_classifications (leitura)", "emails (assunto, remetente, data — leitura)", "external_org_project_links (para saber se o vínculo da organização está validado)", "email_signal_review_delegations e email_signal_review_audit"],
     permissions: P_VIEW,
-    missingData: "Dado ausente aparece como 'SEM DADOS'; nunca como zero ou valor presumido. Se a migration 20261209100000 não estiver aplicada, a tela avisa e não lista sinais.",
+    missingData: "Dado ausente aparece como 'SEM DADOS'; nunca como zero ou valor presumido. Se os sinais não estiverem disponíveis neste ambiente, a tela avisa e não lista sinais.",
     limitations: ["O conteúdo do e-mail é dado de terceiros: é exibido como texto, nunca interpretado como instrução.", "A lista carrega os 300 sinais mais recentes da obra.", "A tela não envia e-mail e não altera a mensagem original."],
     humanReview: HUMAN,
   },
@@ -73,8 +73,8 @@ export const SINAIS_EMAIL_HELP: FeatureHelpDefinition[] = [
     shortDescription: "Pilares: Prazo, Custo, Segurança, Qualidade. Jurídico e Comercial são áreas funcionais.",
     description:
       "O pilar indica o impacto do risco e só pode ser Prazo, Custo, Segurança ou Qualidade. Jurídico e Comercial são áreas funcionais que respondem pelo sinal e não são pilares. Um sinal jurídico pode não ter pilar, ou ter o pilar de impacto quando o tipo tem impacto claro (pleito => Custo). Sinais de Custo têm a área Comercial.",
-    source: "Colunas pillar e functional_area de email_risk_signals; mapeamento por tipo de sinal em lib/email-classification/pillars.ts e na função SQL email_signal_functional_area_for.",
-    limitations: ["Sinais gravados antes da Fase 6 foram reclassificados pela migração; o pilar original ficou preservado em legacy_pillar."],
+    source: "Colunas pillar e functional_area de email_risk_signals; mapeamento por tipo de sinal em lib/email-classification/pillars.ts e na função email_signal_functional_area_for.",
+    limitations: ["Sinais antigos foram reclassificados; o pilar original ficou preservado em legacy_pillar."],
     permissions: P_VIEW,
   },
   {
@@ -150,7 +150,7 @@ export const SINAIS_EMAIL_HELP: FeatureHelpDefinition[] = [
     title: "Dados globais da organização",
     shortDescription: "Razão social, CNPJ, tipo, domínios e contatos só o administrador global (TENANT_ADMIN) altera; Administrador, Gestor e Gerente da obra solicitam.",
     description:
-      "A organização externa é um cadastro global, compartilhado entre obras. Por isso a alteração de razão social, CNPJ/identificação fiscal, tipo, domínios e contatos é do administrador global (TENANT_ADMIN, Fase 7). Administrador, Gestor e Gerente da obra solicitam a alteração (o pedido não muda nada) e continuam gerindo os vínculos e os contatos descobertos da PRÓPRIA obra. Antes da Fase 7, 'Administrador' significava Administrador ativo da obra de onde a ação parte; não existe ainda um administrador de todo o ambiente.",
+      "A organização externa é um cadastro global, compartilhado entre obras. Por isso a alteração de razão social, CNPJ/identificação fiscal, tipo, domínios e contatos é do administrador global (TENANT_ADMIN). Administrador, Gestor e Gerente da obra solicitam a alteração (o pedido não muda nada) e continuam gerindo os vínculos e os contatos descobertos da PRÓPRIA obra.",
     permissions: P_MANAGE,
     humanReview: "A decisão sobre dado global é do administrador global (TENANT_ADMIN), com nota registrada na auditoria.",
   },

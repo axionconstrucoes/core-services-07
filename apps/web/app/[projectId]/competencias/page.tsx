@@ -71,7 +71,7 @@ export default async function CompetenciasPage({
       <Flash ok={first(query.ok)} erro={first(query.erro)} okMessages={OK} />
       {ov.unavailable ? (
         <p role="alert" className="rounded-md border border-amber-700 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-          As tabelas de competências não estão disponíveis neste ambiente (migrations das Fases 5/E e 6/H2a ainda não aplicadas) ou o acesso foi negado. SEM DADOS.
+          Este recurso ainda não está disponível neste ambiente (competências) ou o acesso foi negado. SEM DADOS.
         </p>
       ) : null}
 

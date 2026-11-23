@@ -8,105 +8,104 @@
 - Este manual explica como USAR cada aba do ACC. Ele não faz análise contratual ou técnica: isso é dos Especialistas de IA (Experts IA), sempre com revisão humana.
 - A AXIA é a assistente de uso do ACC e responde com esta mesma base. Ela não lê dados da obra, não altera nada e não analisa contratos.
 - Cada aba traz: finalidade, funcionalidades, informações exibidas, passo a passo, regras e status, permissões, integrações, perguntas e respostas, limitações e diferenças entre perfis.
-- Prazos padrão (SLA) aprovados: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis.
+- Prazos de SLA para assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO e BAIXO conforme a Matriz de SLA configurada para a obra.
 - A barra lateral mostra ícone e texto sempre visíveis, sem texto ao passar o mouse.
 
 ### Situação de cada aba
 
-- **Operacional (sem homologação em tela autenticada)** (OPERACIONAL)
-- **Homologada** (HOMOLOGADA)
-- **Parcialmente homologada** (PARCIALMENTE_HOMOLOGADA)
-- **Bloqueada nesta versão** (BLOQUEADA)
+- **Disponível**
+- **Disponível (partes ainda em validação final de uso)**
+- **Ainda não liberada**
 
-Nenhuma aba está HOMOLOGADA para todos os perfis em 22/11/2026. As situações vêm de `docs/homologacao-autenticada-roteiro.md` e da decisão da Fase 2 sobre as abas bloqueadas.
+Algumas abas ainda estão em validação final de uso e outras ainda não foram liberadas; a situação de cada aba está indicada acima e na seção própria dela.
 
 ### Índice de abas e rotas
 
 | Aba | Rota | Situação |
 |---|---|---|
-| Entrar no ACC (Login) | `/login` | Operacional (sem homologação em tela autenticada) |
-| Selecione um projeto | `/projetos` | Operacional (sem homologação em tela autenticada) |
-| Criar e editar obras | `/projetos/novo` | Operacional (sem homologação em tela autenticada) |
-| Dashboard | `/[projectId]/dashboard` | Operacional (sem homologação em tela autenticada) |
-| Quatro Pilares | `/[projectId]/pilares` | Parcialmente homologada |
-| Timeline | `/[projectId]/timeline` | Operacional (sem homologação em tela autenticada) |
-| Auditoria | `/[projectId]/auditoria` | Operacional (sem homologação em tela autenticada) |
-| Providências | `/[projectId]/providencias` | Operacional (sem homologação em tela autenticada) |
-| Financeiro | `/[projectId]/financeiro` | Operacional (sem homologação em tela autenticada) |
-| Jurídico | `/[projectId]/juridico` | Operacional (sem homologação em tela autenticada) |
-| Jurídico IA (antes da contratação) | `/juridico` | Operacional (sem homologação em tela autenticada) |
-| Revisão Contratual | `/[projectId]/revisao-contratual` | Operacional (sem homologação em tela autenticada) |
-| Revisão de Cláusulas | `/[projectId]/revisao-clausulas` | Operacional (sem homologação em tela autenticada) |
-| Documentos | `/[projectId]/documentos` | Operacional (sem homologação em tela autenticada) |
-| Versão do documento | `/[projectId]/documentos/versoes/[documentVersionId]` | Operacional (sem homologação em tela autenticada) |
-| E-mail arquivado e anexos | `/[projectId]/documentos/emails/[emailId]` | Operacional (sem homologação em tela autenticada) |
-| Adicionais (redirecionamento) | `/[projectId]/adicionais` | Operacional (sem homologação em tela autenticada) |
-| Eventos | `/[projectId]/ledger` | Operacional (sem homologação em tela autenticada) |
-| Detalhe do evento | `/[projectId]/ledger/[eventId]` | Operacional (sem homologação em tela autenticada) |
-| Responder alertas de contrato (lote) | `/[projectId]/ledger/lote-alertas/[batchId]` | Operacional (sem homologação em tela autenticada) |
-| Solicitações | `/[projectId]/action-requests` | Parcialmente homologada |
-| Ações e Escalonamentos | `/[projectId]/acoes` | Operacional (sem homologação em tela autenticada) |
-| Matriz de SLA e Escalonamento | `/[projectId]/acoes/configuracao` | Operacional (sem homologação em tela autenticada) |
-| Resumo semanal de alertas | `/[projectId]/acoes/resumo-semanal/[digestId]` | Operacional (sem homologação em tela autenticada) |
-| Alerta de risco | `/[projectId]/alertas/[caseId]` | Operacional (sem homologação em tela autenticada) |
-| Reemissão de alertas | `/[projectId]/reemissao-alertas` | Operacional (sem homologação em tela autenticada) |
-| Resposta rápida de alerta (e-mail) | `/alertas/acao/[projectId]/[batchId]/[eventId]` | Operacional (sem homologação em tela autenticada) |
-| Resposta rápida de vários alertas (e-mail) | `/alertas/lote/[projectId]/[batchId]` | Operacional (sem homologação em tela autenticada) |
-| Resposta rápida de alerta de providência (e-mail) | `/alertas/providencia/[projectId]/[itemId]` | Operacional (sem homologação em tela autenticada) |
-| Consultar IA sobre o alerta | `/alertas/consulta-ia/[projectId]/[subject]/[id]` | Operacional (sem homologação em tela autenticada) |
-| Ação de e-mail (botões do e-mail) | `/email-actions/[token]` | Operacional (sem homologação em tela autenticada) |
-| ESG/SSMA | `/[projectId]/esg` | Parcialmente homologada |
-| Registros de campo SSMA | `/[projectId]/ssma-registros` | Operacional (sem homologação em tela autenticada) |
-| Avaliação do técnico SSMA | `/[projectId]/ssma-avaliacao` | Operacional (sem homologação em tela autenticada) |
-| App de campo SSMA | `/ssma` | Operacional (sem homologação em tela autenticada) |
-| Modo offline do app SSMA | `/ssma/offline` | Operacional (sem homologação em tela autenticada) |
-| Qualidade | `/[projectId]/qualidade` | Parcialmente homologada |
-| Dashboard | — | Parcialmente homologada |
-| RNC | — | Parcialmente homologada |
-| Evidências | — | Operacional (sem homologação em tela autenticada) |
-| Inspeções | — | Bloqueada nesta versão |
-| Reclamações | — | Bloqueada nesta versão |
-| Ensaios e laudos | — | Bloqueada nesta versão |
-| Requisitos | — | Bloqueada nesta versão |
-| Ações (CAPA) | — | Operacional (sem homologação em tela autenticada) |
-| Eficácia | — | Operacional (sem homologação em tela autenticada) |
-| Recorrências | — | Bloqueada nesta versão |
-| Custos de não qualidade | — | Bloqueada nesta versão |
-| Auditoria | — | Operacional (sem homologação em tela autenticada) |
-| Garantias | `/[projectId]/garantias` | Parcialmente homologada |
-| Seguros | `/[projectId]/seguros` | Parcialmente homologada |
-| Painel | — | Parcialmente homologada |
-| Apólices | — | Parcialmente homologada |
-| Fianças e garantias | — | Bloqueada nesta versão |
-| Endossos | — | Parcialmente homologada |
-| Adiantamentos | — | Operacional (sem homologação em tela autenticada) |
-| Sinistros e eventos | — | Operacional (sem homologação em tela autenticada) |
-| Dossiês | — | Bloqueada nesta versão |
-| Minutas e acionamento | — | Parcialmente homologada |
-| Canais oficiais | — | Parcialmente homologada |
-| Sujeitos e RCC | — | Bloqueada nesta versão |
-| Referências | — | Operacional (sem homologação em tela autenticada) |
-| Auditoria | — | Operacional (sem homologação em tela autenticada) |
-| Integrações | `/[projectId]/integracoes` | Operacional (sem homologação em tela autenticada) |
-| Caixas de e-mail da obra | `/[projectId]/integracoes/caixas` | Operacional (sem homologação em tela autenticada) |
-| Contatos externos monitorados | `/[projectId]/integracoes/contatos-externos` | Operacional (sem homologação em tela autenticada) |
-| Sinais de risco de e-mail | `/[projectId]/integracoes/sinais-email` | Operacional (sem homologação em tela autenticada) |
-| Experts IA | `/[projectId]/experts-ia` | Operacional (sem homologação em tela autenticada) |
-| Descrição dos Especialistas | `/[projectId]/experts-ia/descricao` | Operacional (sem homologação em tela autenticada) |
-| Diretor de Engenharia e Construção IA | `/[projectId]/experts-ia/diretor-engenharia` | Operacional (sem homologação em tela autenticada) |
-| Diretor de Planejamento IA | `/[projectId]/experts-ia/diretor-planejamento` | Operacional (sem homologação em tela autenticada) |
-| Usuários | `/[projectId]/usuarios` | Operacional (sem homologação em tela autenticada) |
-| Competências | `/[projectId]/competencias` | Bloqueada nesta versão |
-| Aprovações externas | `/[projectId]/aprovacoes-externas` | Operacional (sem homologação em tela autenticada) |
-| Autorizações | `/[projectId]/autorizacoes` | Operacional (sem homologação em tela autenticada) |
-| Autorização de acesso aos e-mails da obra | `/autorizacao-email/[authorizationId]` | Operacional (sem homologação em tela autenticada) |
-| Start-up ACC | `/[projectId]/startup` | Operacional (sem homologação em tela autenticada) |
-| Ajuda e tutorial | `/[projectId]/ajuda` | Operacional (sem homologação em tela autenticada) |
-| Fale com a AXIA (rota /vera) | `/vera` | Operacional (sem homologação em tela autenticada) |
-| AXIA e Especialistas: quem responde o quê | — | Operacional (sem homologação em tela autenticada) |
-| Perfis e permissões | — | Operacional (sem homologação em tela autenticada) |
-| Criticidades e prazos (SLA) | — | Operacional (sem homologação em tela autenticada) |
-| Barra lateral de navegação | — | Operacional (sem homologação em tela autenticada) |
+| Entrar no ACC (Login) | `/login` | Disponível |
+| Selecione um projeto | `/projetos` | Disponível |
+| Criar e editar obras | `/projetos/novo` | Disponível |
+| Dashboard | `/[projectId]/dashboard` | Disponível |
+| Quatro Pilares | `/[projectId]/pilares` | Disponível (partes ainda em validação final de uso) |
+| Timeline | `/[projectId]/timeline` | Disponível |
+| Auditoria | `/[projectId]/auditoria` | Disponível |
+| Providências | `/[projectId]/providencias` | Disponível |
+| Financeiro | `/[projectId]/financeiro` | Disponível |
+| Jurídico | `/[projectId]/juridico` | Disponível |
+| Jurídico IA (antes da contratação) | `/juridico` | Disponível |
+| Revisão Contratual | `/[projectId]/revisao-contratual` | Disponível |
+| Revisão de Cláusulas | `/[projectId]/revisao-clausulas` | Disponível |
+| Documentos | `/[projectId]/documentos` | Disponível |
+| Versão do documento | `/[projectId]/documentos/versoes/[documentVersionId]` | Disponível |
+| E-mail arquivado e anexos | `/[projectId]/documentos/emails/[emailId]` | Disponível |
+| Adicionais (redirecionamento) | `/[projectId]/adicionais` | Disponível |
+| Eventos | `/[projectId]/ledger` | Disponível |
+| Detalhe do evento | `/[projectId]/ledger/[eventId]` | Disponível |
+| Responder alertas de contrato (lote) | `/[projectId]/ledger/lote-alertas/[batchId]` | Disponível |
+| Solicitações | `/[projectId]/action-requests` | Disponível (partes ainda em validação final de uso) |
+| Ações e Escalonamentos | `/[projectId]/acoes` | Disponível |
+| Matriz de SLA e Escalonamento | `/[projectId]/acoes/configuracao` | Disponível |
+| Resumo semanal de alertas | `/[projectId]/acoes/resumo-semanal/[digestId]` | Disponível |
+| Alerta de risco | `/[projectId]/alertas/[caseId]` | Disponível |
+| Reemissão de alertas | `/[projectId]/reemissao-alertas` | Disponível |
+| Resposta rápida de alerta (e-mail) | `/alertas/acao/[projectId]/[batchId]/[eventId]` | Disponível |
+| Resposta rápida de vários alertas (e-mail) | `/alertas/lote/[projectId]/[batchId]` | Disponível |
+| Resposta rápida de alerta de providência (e-mail) | `/alertas/providencia/[projectId]/[itemId]` | Disponível |
+| Consultar IA sobre o alerta | `/alertas/consulta-ia/[projectId]/[subject]/[id]` | Disponível |
+| Ação de e-mail (botões do e-mail) | `/email-actions/[token]` | Disponível |
+| ESG/SSMA | `/[projectId]/esg` | Disponível (partes ainda em validação final de uso) |
+| Registros de campo SSMA | `/[projectId]/ssma-registros` | Disponível |
+| Avaliação do técnico SSMA | `/[projectId]/ssma-avaliacao` | Disponível |
+| App de campo SSMA | `/ssma` | Disponível |
+| Modo offline do app SSMA | `/ssma/offline` | Disponível |
+| Qualidade | `/[projectId]/qualidade` | Disponível (partes ainda em validação final de uso) |
+| Dashboard | — | Disponível (partes ainda em validação final de uso) |
+| RNC | — | Disponível (partes ainda em validação final de uso) |
+| Evidências | — | Disponível |
+| Inspeções | — | Ainda não liberada |
+| Reclamações | — | Ainda não liberada |
+| Ensaios e laudos | — | Ainda não liberada |
+| Requisitos | — | Ainda não liberada |
+| Ações (CAPA) | — | Disponível |
+| Eficácia | — | Disponível |
+| Recorrências | — | Ainda não liberada |
+| Custos de não qualidade | — | Ainda não liberada |
+| Auditoria | — | Disponível |
+| Garantias | `/[projectId]/garantias` | Disponível (partes ainda em validação final de uso) |
+| Seguros | `/[projectId]/seguros` | Disponível (partes ainda em validação final de uso) |
+| Painel | — | Disponível (partes ainda em validação final de uso) |
+| Apólices | — | Disponível (partes ainda em validação final de uso) |
+| Fianças e garantias | — | Ainda não liberada |
+| Endossos | — | Disponível (partes ainda em validação final de uso) |
+| Adiantamentos | — | Disponível |
+| Sinistros e eventos | — | Disponível |
+| Dossiês | — | Ainda não liberada |
+| Minutas e acionamento | — | Disponível (partes ainda em validação final de uso) |
+| Canais oficiais | — | Disponível (partes ainda em validação final de uso) |
+| Sujeitos e RCC | — | Ainda não liberada |
+| Referências | — | Disponível |
+| Auditoria | — | Disponível |
+| Integrações | `/[projectId]/integracoes` | Disponível |
+| Caixas de e-mail da obra | `/[projectId]/integracoes/caixas` | Disponível |
+| Contatos externos monitorados | `/[projectId]/integracoes/contatos-externos` | Disponível |
+| Sinais de risco de e-mail | `/[projectId]/integracoes/sinais-email` | Disponível |
+| Experts IA | `/[projectId]/experts-ia` | Disponível |
+| Descrição dos Especialistas | `/[projectId]/experts-ia/descricao` | Disponível |
+| Diretor de Engenharia e Construção IA | `/[projectId]/experts-ia/diretor-engenharia` | Disponível |
+| Diretor de Planejamento IA | `/[projectId]/experts-ia/diretor-planejamento` | Disponível |
+| Usuários | `/[projectId]/usuarios` | Disponível |
+| Competências | `/[projectId]/competencias` | Ainda não liberada |
+| Aprovações externas | `/[projectId]/aprovacoes-externas` | Disponível |
+| Autorizações | `/[projectId]/autorizacoes` | Disponível |
+| Autorização de acesso aos e-mails da obra | `/autorizacao-email/[authorizationId]` | Disponível |
+| Start-up ACC | `/[projectId]/startup` | Disponível |
+| Ajuda e tutorial | `/[projectId]/ajuda` | Disponível |
+| Fale com a AXIA (rota /vera) | `/vera` | Disponível |
+| AXIA e Especialistas: quem responde o quê | — | Disponível |
+| Perfis e permissões | — | Disponível |
+| Criticidades e prazos (SLA) | — | Disponível |
+| Barra lateral de navegação | — | Disponível |
 
 ## 1. Acesso, navegação e perfis
 
@@ -116,7 +115,7 @@ Como entrar no ACC, escolher a obra, navegar pela barra lateral e entender o que
 
 - **Tipo:** pagina
 - **Rota:** `/login` · relacionadas: `/`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro de homologação autenticada; comportamento conforme app/login e proxy.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Entrar no ACC (Login): Porta de entrada do ACC. O login usa somente a conta Google corporativa do domínio axion.com.br; não existe senha própria do ACC.
@@ -153,8 +152,8 @@ Mensagens que aparecem na tela:
 - **P:** Não consigo entrar no ACC, o que faço?
   **R:** Use o botão Entrar com Google com a conta corporativa do domínio axion.com.br; contas de outro domínio são recusadas. Se você entra mas não vê a obra, a sua conta ainda não foi liberada nela: peça ao Administrador na tela Usuários.
 
-**9. Limitações e o que não está homologado**
-- O login em si ainda não foi homologado em tela autenticada pelo roteiro; vale o que o código faz.
+**9. Limitações e o que ainda não está liberado**
+- A tela de login ainda está em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Abre pelo link ou botão e executa as ações disponíveis.
@@ -162,7 +161,7 @@ Mensagens que aparecem na tela:
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Entrar no ACC (Login)" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Entrar no ACC (Login)" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/login/page.tsx`, `apps/web/app/page.tsx`, `docs/manual-referencia-acc.md (4.1)`
 
@@ -170,7 +169,7 @@ Mensagens que aparecem na tela:
 
 - **Tipo:** pagina
 - **Rota:** `/projetos`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; conforme app/projetos.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Selecione um projeto: Lista as obras às quais você tem acesso e leva ao Dashboard da obra escolhida. Também tem o cartão do Jurídico IA (análise de minuta antes da contratação).
@@ -205,7 +204,7 @@ Mensagens que aparecem na tela:
 - **P:** Por que não vejo uma obra na lista?
   **R:** A lista mostra só as obras de que você participa. Se uma obra não aparece, a sua conta ainda não foi liberada nela: peça ao Administrador da obra, na tela Usuários.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - A AXIA não lê quais obras você tem; ela só explica o fluxo.
 
 **10. Diferenças entre perfis**
@@ -214,14 +213,14 @@ Mensagens que aparecem na tela:
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Selecione um projeto" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Selecione um projeto" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/projetos/page.tsx`, `docs/manual-referencia-acc.md (4.1)`
 
 ### 1.3 Perfis e permissões
 
 - **Tipo:** tema
-- **Situação:** Operacional (sem homologação em tela autenticada) — Conforme nav-items e nav-access.
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** Perfis e permissões: Cada pessoa tem um perfil por obra, definido pelo Administrador na tela Usuários: Administrador, Gerente, Colaborador ou Leitura. O perfil decide o que aparece no menu e o que se pode gravar.
@@ -249,7 +248,7 @@ Mensagens que aparecem na tela:
 - **P:** Por que não vejo uma aba?
   **R:** O seu perfil não tem acesso a ela nesta obra: menu e rota seguem a mesma regra. Peça ao Administrador, na tela Usuários.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - As diferenças detalhadas entre perfis seguem em revisão no Q&A da AXIA.
 
 **10. Diferenças entre perfis**
@@ -258,14 +257,14 @@ Mensagens que aparecem na tela:
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Perfis e permissões" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Perfis e permissões" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/permissions/nav-access.ts`, `apps/web/lib/ui/nav-items.ts`
 
 ### 1.4 Barra lateral de navegação
 
 - **Tipo:** tema
-- **Situação:** Operacional (sem homologação em tela autenticada) — Conforme nav-items e decisão da Fase 2.
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** Barra lateral de navegação: A barra lateral lista as abas da obra, cada uma com ícone e texto sempre visíveis; não há texto que só aparece ao passar o mouse.
@@ -293,8 +292,8 @@ Mensagens que aparecem na tela:
 - **P:** Onde ficam as abas do ACC?
   **R:** Na barra lateral da obra: cada aba mostra ícone e texto sempre visíveis. Abas restritas só aparecem a quem tem acesso.
 
-**9. Limitações e o que não está homologado**
-- A revisão visual da barra lateral (frente D) ainda não foi integrada a esta base.
+**9. Limitações e o que ainda não está liberado**
+- Os itens da barra lateral dependem do seu acesso à obra.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis nela; é quem gerencia usuários e configurações da obra.
@@ -302,7 +301,7 @@ Mensagens que aparecem na tela:
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Barra lateral de navegação" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Barra lateral de navegação" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/ui/nav-items.ts`, `apps/web/components/layout/app-sidebar.tsx`
 
@@ -314,7 +313,7 @@ Visões executivas da obra: Dashboard, Quatro Pilares, Timeline e Auditoria.
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/dashboard` · relacionadas: `/[projectId]/dashboard/visual`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; conforme app/[projectId]/dashboard e docs/manual-referencia-acc.md 4.2.
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** Dashboard: Visão executiva da obra: consolida alertas, eventos, risco atual, integrações, aditivos e avanço, para identificar rapidamente o que precisa de atenção.
@@ -347,9 +346,9 @@ Visões executivas da obra: Dashboard, Quatro Pilares, Timeline e Auditoria.
 - **P:** O que mostra o Dashboard?
   **R:** O Dashboard é a visão executiva da obra: alertas de risco, eventos, risco atual, integrações, aditivos e avanço. O selo do cabeçalho resume o estado das integrações; passe o mouse ou leia o texto abaixo dele para ver qual está pendente.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - Os valores exibidos dependem das fontes configuradas; sem fonte, o campo aparece vazio.
-- Sem linha própria no roteiro de homologação autenticada.
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis nela; é quem gerencia usuários e configurações da obra.
@@ -357,7 +356,7 @@ Visões executivas da obra: Dashboard, Quatro Pilares, Timeline e Auditoria.
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Dashboard" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Dashboard" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/dashboard/page.tsx`, `apps/web/lib/ui/nav-items.ts`, `docs/manual-referencia-acc.md (4.2)`
 
@@ -365,7 +364,7 @@ Visões executivas da obra: Dashboard, Quatro Pilares, Timeline e Auditoria.
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/pilares`
-- **Situação:** Parcialmente homologada — Roteiro, quadro da seção 9: Quatro Pilares, EXECUTADO-AUTENTICADO parcial (PIL-01; PIL-02 e PIL-03 não vistos).
+- **Situação:** Disponível (partes ainda em validação final de uso)
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Quatro Pilares: Leitura consolidada, só de consulta, dos fatos já registrados no ACC por pilar: Prazo, Custo, Segurança e Qualidade, mais o painel Jurídico/Seguros, cada indicador com a sua fonte.
@@ -400,8 +399,8 @@ Visões executivas da obra: Dashboard, Quatro Pilares, Timeline e Auditoria.
 - **P:** Para que serve a aba Quatro Pilares?
   **R:** Ela mostra, só para consulta, PRAZO, CUSTO, SEGURANÇA e QUALIDADE da obra, mais o painel Jurídico/Seguros, a partir dos fatos já registrados no ACC. Sem registro, o selo mostra SEM DADOS.
 
-**9. Limitações e o que não está homologado**
-- Tela somente de leitura; só o primeiro painel foi visto em sessão autenticada (roteiro PIL-01).
+**9. Limitações e o que ainda não está liberado**
+- Tela somente de leitura; parte dos painéis ainda está em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -409,7 +408,7 @@ Visões executivas da obra: Dashboard, Quatro Pilares, Timeline e Auditoria.
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Quatro Pilares" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Quatro Pilares" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/pilares/page.tsx`, `apps/web/lib/permissions/nav-access.ts`, `docs/homologacao-autenticada-roteiro.md`
 
@@ -417,7 +416,7 @@ Visões executivas da obra: Dashboard, Quatro Pilares, Timeline e Auditoria.
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/timeline`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; conforme app/[projectId]/timeline e docs/timeline-export.md.
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** Timeline: Histórico cronológico da obra, com documentos, e-mails, eventos, aprovações e evidências, mais busca no acervo e exportação do que está filtrado.
@@ -453,8 +452,8 @@ Visões executivas da obra: Dashboard, Quatro Pilares, Timeline e Auditoria.
 - **P:** Como exporto a Timeline?
   **R:** Clique em Exportar Timeline Filtrado, confira o resumo de quantos eventos serão exportados, escolha os formatos (PDF dossiê, índice XLSX ou CSV, originais, ZIP) e confirme. Sem marcar eventos, exporta tudo o que está filtrado.
 
-**9. Limitações e o que não está homologado**
-- Sem linha própria no roteiro de homologação autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis nela; é quem gerencia usuários e configurações da obra.
@@ -462,7 +461,7 @@ Visões executivas da obra: Dashboard, Quatro Pilares, Timeline e Auditoria.
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Timeline" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Timeline" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/timeline/page.tsx`, `docs/manual-referencia-acc.md (4.3)`
 
@@ -470,7 +469,7 @@ Visões executivas da obra: Dashboard, Quatro Pilares, Timeline e Auditoria.
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/auditoria`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; conforme app/[projectId]/auditoria.
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** Auditoria: Histórico rastreável das ações relevantes realizadas no ACC: quem fez, quando e o que foi afetado.
@@ -500,8 +499,8 @@ Visões executivas da obra: Dashboard, Quatro Pilares, Timeline e Auditoria.
 - **P:** Onde vejo quem fez uma ação no ACC?
   **R:** Na aba Auditoria: a tabela mostra data e hora, ator, ação, entidade e detalhe. Use Filtrar logs para focar em e-mails, SLA, SSMA/ESG ou falhas.
 
-**9. Limitações e o que não está homologado**
-- Sem linha própria no roteiro de homologação autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis nela; é quem gerencia usuários e configurações da obra.
@@ -509,7 +508,7 @@ Visões executivas da obra: Dashboard, Quatro Pilares, Timeline e Auditoria.
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Auditoria" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Auditoria" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/auditoria/page.tsx`, `docs/manual-referencia-acc.md (4.32)`
 
@@ -521,7 +520,7 @@ Providências de entrega da obra, cronograma e o painel Financeiro (restrito).
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/providencias`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; conforme app/[projectId]/providencias e lib/delivery.
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** Providências: Tabela das providências de início e de entrega da obra (por exemplo CNO, as-built, databook, AVCB, concessionárias), com responsável, prazo, situação e evidência. Os alertas recorrentes usam estes mesmos registros.
@@ -555,9 +554,9 @@ Providências de entrega da obra, cronograma e o painel Financeiro (restrito).
 - **P:** Como cadastro uma providência?
   **R:** Em Providências, use Nova providência (ela nasce com grau Médio provisório) e depois Editar para informar responsável, prazo e evidência. Se a tabela estiver vazia, o Administrador pode usar Cadastrar checklist inicial.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - A tela mostra formulários que o banco pode recusar ao salvar, conforme o perfil; nesse caso peça ao Administrador.
-- Sem linha própria no roteiro de homologação autenticada.
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis nela; é quem gerencia usuários e configurações da obra.
@@ -565,7 +564,7 @@ Providências de entrega da obra, cronograma e o painel Financeiro (restrito).
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Providências" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Providências" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/providencias/page.tsx`, `docs/manual-referencia-acc.md (4.17)`, `docs/alertas-recorrentes-e-providencias.md`
 
@@ -573,7 +572,7 @@ Providências de entrega da obra, cronograma e o painel Financeiro (restrito).
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/financeiro`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; conforme lib/financial/access e nav-items.
+- **Situação:** Disponível
 - **Quem vê:** Somente quem tem acesso financeiro à obra
 
 **1. Nome e finalidade.** Financeiro: Painel financeiro alimentado só pela aba Financeiro da planilha do relatório semanal: previsto, realizado, acumulados, medido, faturado, recebido, custo e receita.
@@ -604,8 +603,8 @@ Providências de entrega da obra, cronograma e o painel Financeiro (restrito).
 - **P:** Por que não vejo a aba Financeiro?
   **R:** Financeiro é restrita: aparece só para quem tem acesso financeiro à obra (Administrador ou Gerente, ou áreas Diretoria e Financeiro) e depende de o relatório semanal estar habilitado. Se você precisa dela, peça ao Administrador.
 
-**9. Limitações e o que não está homologado**
-- Depende da chave do relatório semanal estar ligada; sem homologação própria no roteiro.
+**9. Limitações e o que ainda não está liberado**
+- Depende de o relatório semanal estar habilitado; tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela quando tem acesso financeiro à obra.
@@ -613,7 +612,7 @@ Providências de entrega da obra, cronograma e o painel Financeiro (restrito).
 - Colaborador: Vê a tela só se for da área Diretoria ou Financeiro.
 - Leitura: Vê a tela só se for da área Diretoria ou Financeiro.
 
-**Capturas de tela:** Tela "Financeiro" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Financeiro" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/financeiro/page.tsx`, `apps/web/lib/ui/nav-items.ts`, `docs/manual-referencia-acc.md (4.24)`
 
@@ -625,7 +624,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/juridico` · relacionadas: `/[projectId]/juridico/consulta/[consultationId]`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; conforme app/[projectId]/juridico.
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** Jurídico: Espaço jurídico da obra: reúne contrato-base, anexos e aditivos e leva à consulta ao Expert Jurídico. Antes da contratação, o mesmo espaço permite carregar a minuta e consultar os especialistas.
@@ -657,9 +656,9 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - **P:** Como uso a aba Jurídico?
   **R:** Em Jurídico você envia os documentos contratuais e abre a consulta ao Expert Jurídico. A AXIA só explica o uso da tela: ela não lê nem interpreta contratos; a análise vem do especialista e exige revisão humana.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - A AXIA não interpreta contratos, cláusulas ou documentos; use o especialista.
-- Sem linha própria no roteiro de homologação autenticada.
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis nela; é quem gerencia usuários e configurações da obra.
@@ -667,7 +666,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Jurídico" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Jurídico" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/juridico/page.tsx`, `docs/manual-referencia-acc.md (4.20)`, `apps/web/lib/assistant/guards.ts (encaminhamento ao especialista)`
 
@@ -675,7 +674,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 
 - **Tipo:** pagina
 - **Rota:** `/juridico`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; conforme app/juridico.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Jurídico IA (antes da contratação): Entrada global para criar uma análise de minuta antes da contratação, fora de uma obra específica, e carregar os documentos dela.
@@ -705,7 +704,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - **P:** Como analiso uma minuta antes de contratar?
   **R:** Pelo cartão Jurídico IA em Selecione um projeto: crie a análise com o nome da oportunidade e o cliente, envie a minuta e abra a análise. A AXIA só orienta o caminho; a análise é do especialista.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - A AXIA não analisa a minuta.
 
 **10. Diferenças entre perfis**
@@ -714,7 +713,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Jurídico IA (antes da contratação)" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Jurídico IA (antes da contratação)" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/juridico/page.tsx`, `docs/manual-referencia-acc.md (4.20)`
 
@@ -722,7 +721,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 
 - **Tipo:** pagina
 - **Rota:** `/[projectId]/revisao-contratual`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; item removido do menu em nav-items.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Revisão Contratual: Tela de revisão contratual que saiu da barra lateral: o Expert Jurídico da página inicial é o ponto único de análise. A rota e o histórico continuam existindo.
@@ -749,7 +748,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - **P:** Onde fica a Análise Contratual?
   **R:** Ela saiu do menu lateral: a análise de contratos é feita pelo Expert Jurídico. A tela Revisão Contratual continua existindo e abre por link, mas a AXIA não analisa contratos.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - Fora do menu; a AXIA não interpreta o conteúdo.
 
 **10. Diferenças entre perfis**
@@ -758,7 +757,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Revisão Contratual" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Revisão Contratual" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/revisao-contratual/page.tsx`, `apps/web/lib/ui/nav-items.ts`
 
@@ -766,7 +765,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 
 - **Tipo:** pagina
 - **Rota:** `/[projectId]/revisao-clausulas`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; conforme app/[projectId]/revisao-clausulas.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Revisão de Cláusulas: Fila de candidatos a cláusula detectados nos documentos, para revisão humana: a cláusula definitiva só existe depois da aprovação humana, conferida com a página original.
@@ -796,7 +795,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - **P:** Como aprovo uma cláusula detectada?
   **R:** Abra a Revisão de Cláusulas, escolha o candidato, confira o texto com a página original e use Aprovar cláusula; para recusar, Rejeitar candidato exige justificativa. A detecção só sugere e a decisão é sua.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - Fora do menu; a tela pode mostrar formulários que o banco recusa conforme o perfil.
 
 **10. Diferenças entre perfis**
@@ -805,7 +804,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Revisão de Cláusulas" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Revisão de Cláusulas" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/revisao-clausulas/page.tsx`, `docs/manual-referencia-acc.md (4.22)`
 
@@ -813,7 +812,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/documentos`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; conforme app/[projectId]/documentos e lib/assistant/knowledge (documentos).
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** Documentos: Repositório de documentos e evidências da obra (contratos, aditivos, propostas, cronogramas, projetos, notificações), preservando origem, versão, processamento e rastreabilidade.
@@ -848,9 +847,9 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - **P:** Como envio documentos?
   **R:** Em Documentos use Selecionar arquivos (vários de uma vez, até 50 MB cada), defina o tipo de cada um e clique em Iniciar envio. Cada documento mostra a situação: Processado, Aguardando processamento ou Revisão humana necessária.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - O envio de documentos é feito por quem tem permissão; sem ela, o botão não aparece.
-- Sem linha própria no roteiro de homologação autenticada.
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis nela; é quem gerencia usuários e configurações da obra.
@@ -858,7 +857,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Documentos" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Documentos" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/documentos/page.tsx`, `docs/manual-referencia-acc.md (4.23)`
 
@@ -866,7 +865,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 
 - **Tipo:** pagina (dentro de Documentos)
 - **Rota:** `/[projectId]/documentos/versoes/[documentVersionId]`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Versão do documento: Detalhe de uma versão de documento: abre-se a partir do cartão do documento em Documentos.
@@ -893,8 +892,8 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - **P:** Onde vejo as versões de um documento?
   **R:** Em Documentos, no cartão do documento: cada versão tem a sua tela de detalhe, e a nova versão não apaga a anterior.
 
-**9. Limitações e o que não está homologado**
-- Sem homologação em tela autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Abre pelo link ou botão e executa as ações disponíveis.
@@ -902,7 +901,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Versão do documento" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Versão do documento" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/documentos/versoes/[documentVersionId]/page.tsx`
 
@@ -910,7 +909,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 
 - **Tipo:** pagina (dentro de Documentos)
 - **Rota:** `/[projectId]/documentos/emails/[emailId]` · relacionadas: `/[projectId]/documentos/emails/[emailId]/anexos/[attachmentId]`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** E-mail arquivado e anexos: Detalhe de um e-mail arquivado na obra e de cada anexo dele; abre-se por link a partir de Documentos, Timeline ou Financeiro (relatório de origem).
@@ -938,8 +937,8 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - **P:** Onde vejo o e-mail de origem de um documento?
   **R:** Pelo link de origem em Documentos, Timeline ou Financeiro: a tela do e-mail mostra a mensagem e os anexos. É só consulta; o original não é alterado.
 
-**9. Limitações e o que não está homologado**
-- Sem homologação em tela autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Abre pelo link ou botão e executa as ações disponíveis.
@@ -947,7 +946,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "E-mail arquivado e anexos" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "E-mail arquivado e anexos" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/documentos/emails/[emailId]/page.tsx`
 
@@ -955,7 +954,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 
 - **Tipo:** pagina
 - **Rota:** `/[projectId]/adicionais` · relacionadas: `/[projectId]/adicionais/[proposalId]`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Conforme redirect em app/[projectId]/adicionais.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Adicionais (redirecionamento): Não há tela própria de adicionais: as duas rotas apenas levam para Documentos, onde os serviços adicionais aprovados entram por upload manual do Administrador.
@@ -981,7 +980,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - **P:** Onde cadastro serviços adicionais?
   **R:** Não há tela própria: serviços adicionais aprovados entram por upload manual do Administrador em Documentos.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - Sem tela própria.
 
 **10. Diferenças entre perfis**
@@ -990,7 +989,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Adicionais (redirecionamento)" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Adicionais (redirecionamento)" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/adicionais/page.tsx`, `apps/web/lib/ui/help/legacy.ts (integracoes)`
 
@@ -998,7 +997,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/ledger`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; item restrito ao Administrador em nav-items.
+- **Situação:** Disponível
 - **Quem vê:** Somente Administrador da obra
 
 **1. Nome e finalidade.** Eventos: Lista dos eventos relevantes registrados na obra, do mais recente ao mais antigo, com origem, evidência, impacto e classificação.
@@ -1026,8 +1025,8 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - **P:** O que é um evento?
   **R:** É o registro de algo da obra com possível implicação contratual, com origem, evidência e classificação. A coluna Achado IA é uma sugestão da IA sujeita a revisão humana.
 
-**9. Limitações e o que não está homologado**
-- Sem linha própria no roteiro de homologação autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 - O título da aba na guia do navegador pode aparecer como Event Ledger.
 
 **10. Diferenças entre perfis**
@@ -1036,7 +1035,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - Colaborador: Não vê o item no menu e não abre a tela.
 - Leitura: Não vê o item no menu e não abre a tela.
 
-**Capturas de tela:** Tela "Eventos" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Eventos" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/ledger/page.tsx`, `docs/manual-referencia-acc.md (4.4)`
 
@@ -1044,7 +1043,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 
 - **Tipo:** pagina (dentro de Eventos)
 - **Rota:** `/[projectId]/ledger/[eventId]`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Detalhe do evento: Página de um evento: resumo, Achado da IA, evidência original, confronto com cláusulas, anotações e envio de alerta por e-mail (ações do Administrador).
@@ -1077,7 +1076,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - **P:** Quem pode enviar o alerta de um evento?
   **R:** O envio é manual e feito pelo Administrador, na página do evento, escolhendo o destinatário e usando Enviar Alerta. Nada é enviado automaticamente por abrir a página.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - A análise de IA é sugestão; a decisão é humana. A AXIA não analisa o evento.
 
 **10. Diferenças entre perfis**
@@ -1086,7 +1085,7 @@ Documentos do contrato, cláusulas, eventos com implicação contratual e o Expe
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Detalhe do evento" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Detalhe do evento" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/ledger/[eventId]/page.tsx`, `docs/manual-referencia-acc.md (4.5)`
 
@@ -1098,7 +1097,7 @@ ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona s
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/esg`
-- **Situação:** Parcialmente homologada — Roteiro, seção 9: ESG, EXECUTADO-AUTENTICADO parcial (tela abre; indicadores não vistos).
+- **Situação:** Disponível (partes ainda em validação final de uso)
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** ESG/SSMA: Acompanha as obrigações ESG e SSMA da obra (ambiental, social, segurança e saúde) e dá acesso ao app de campo e aos registros de campo.
@@ -1132,8 +1131,8 @@ ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona s
 - **P:** Como uso a aba ESG/SSMA?
   **R:** Em ESG/SSMA você vê Minhas pendências, a Visão gerencial das obrigações e os botões para os Registros de campo e para o aplicativo de campo. Perguntas técnicas de SSMA são do especialista de ESG, não da AXIA.
 
-**9. Limitações e o que não está homologado**
-- A tela abre, mas os indicadores não foram vistos em sessão autenticada.
+**9. Limitações e o que ainda não está liberado**
+- A tela abre, mas os indicadores ainda estão em validação final de uso.
 - A AXIA não analisa ocorrências nem normas.
 
 **10. Diferenças entre perfis**
@@ -1142,7 +1141,7 @@ ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona s
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "ESG/SSMA" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "ESG/SSMA" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/esg/page.tsx`, `docs/manual-referencia-acc.md (4.27)`, `docs/homologacao-autenticada-roteiro.md`
 
@@ -1150,7 +1149,7 @@ ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona s
 
 - **Tipo:** pagina (dentro de ESG/SSMA)
 - **Rota:** `/[projectId]/ssma-registros`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro, seção 9: SSMA, registros e avaliação, EXECUTADO-BANCO-REAL; tela não vista.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Registros de campo SSMA: Lista, para consulta no ACC, os registros feitos no app de campo (ocorrências e inspeções), com ação corretiva, responsável, prazo e fotos.
@@ -1181,8 +1180,8 @@ ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona s
 - **P:** Onde vejo os registros feitos no campo?
   **R:** Em ESG/SSMA, no botão Registros de campo: a tela mostra os totais e a tabela com ação corretiva, responsável, prazo e fotos. Para registrar algo novo, use o app de campo.
 
-**9. Limitações e o que não está homologado**
-- Roteiro: concorrência e registro validados em banco real; a tela em si não foi vista.
+**9. Limitações e o que ainda não está liberado**
+- Registro e concorrência validados; a tela em si ainda está em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Abre pelo link ou botão e executa as ações disponíveis.
@@ -1190,7 +1189,7 @@ ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona s
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Registros de campo SSMA" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Registros de campo SSMA" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/ssma-registros/page.tsx`, `docs/manual-referencia-acc.md (4.28)`
 
@@ -1198,7 +1197,7 @@ ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona s
 
 - **Tipo:** pagina (dentro de ESG/SSMA)
 - **Rota:** `/[projectId]/ssma-avaliacao`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro, seção 9: SSMA, registros e avaliação, EXECUTADO-BANCO-REAL; tela não vista.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Avaliação do técnico SSMA: Ficha mensal e acumulada de avaliação do técnico SSMA. A própria tela se identifica como PRÉVIA, com critérios em revisão.
@@ -1225,7 +1224,7 @@ ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona s
 - **P:** A avaliação do técnico SSMA já vale?
   **R:** Ainda não como definitiva: a própria tela se identifica como PRÉVIA, com critérios em revisão.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - PRÉVIA, critérios em revisão.
 
 **10. Diferenças entre perfis**
@@ -1234,7 +1233,7 @@ ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona s
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Avaliação do técnico SSMA" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Avaliação do técnico SSMA" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/ssma-avaliacao/page.tsx`
 
@@ -1242,7 +1241,7 @@ ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona s
 
 - **Tipo:** pagina
 - **Rota:** `/ssma` · relacionadas: `/ssma/[projectId]`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro, seção 9: SSMA, fluxo offline, FIXTURE (Chrome real com servidor falso); não prova iPhone/Safari.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** App de campo SSMA: Aplicativo de campo que se instala direto do navegador (sem loja): registra ocorrências e inspeções com fotos, responsável e prazo, mesmo sem sinal.
@@ -1277,7 +1276,7 @@ ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona s
 - **P:** Como registro uma ocorrência no campo?
   **R:** No app de campo, toque em Registrar ocorrência / inspeção, preencha categoria, descrição, local, data e hora e risco, anexe fotos e salve. Sem sinal, o registro fica salvo no aparelho e é enviado quando a internet voltar.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - A instalação ainda não foi validada em iPhone e Android reais.
 
 **10. Diferenças entre perfis**
@@ -1286,7 +1285,7 @@ ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona s
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "App de campo SSMA" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "App de campo SSMA" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/ssma/page.tsx`, `apps/web/app/ssma/[projectId]/page.tsx`, `docs/manual-referencia-acc.md (4.29)`
 
@@ -1294,7 +1293,7 @@ ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona s
 
 - **Tipo:** pagina (dentro de App de campo SSMA)
 - **Rota:** `/ssma/offline`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro: fluxo offline FIXTURE (Chrome real, servidor falso).
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Modo offline do app SSMA: Página que o app mostra quando não há conexão: o que funciona sem internet e o que precisa dela.
@@ -1321,7 +1320,7 @@ ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona s
 - **P:** O que funciona sem internet no app?
   **R:** Registrar ocorrências e inspeções (com fotos) funciona sem sinal e fica salvo no aparelho. Entrar, ver a lista da obra, registrar andamento, concluir ações e consultar a IA precisam de internet. O envio é automático quando o sinal volta.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - O iOS pode apagar dados de apps pouco usados: não deixe registros pendentes por muito tempo.
 
 **10. Diferenças entre perfis**
@@ -1330,19 +1329,19 @@ ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona s
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Modo offline do app SSMA" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Modo offline do app SSMA" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/ssma/offline/page.tsx`
 
 ## 6. Qualidade e RNC
 
-Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloqueadas nesta versão.
+Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas ainda não liberadas.
 
 ### 6.1 Qualidade
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/qualidade` · relacionadas: `/[projectId]/qualidade/rnc/[ncrId]`
-- **Situação:** Parcialmente homologada — Roteiro, seção 9: Qualidade, abas com situações distintas (autenticado parcial, banco real, bloqueado).
+- **Situação:** Disponível (partes ainda em validação final de uso)
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Qualidade: Módulo de Qualidade da obra, organizado em abas: Dashboard, RNC, Evidências, Inspeções, Reclamações, Ensaios e laudos, Requisitos, Ações (CAPA), Eficácia, Recorrências, Custos de não qualidade e Auditoria.
@@ -1360,7 +1359,7 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 3. Em RNC, clique no código para abrir o detalhe.
 
 **5. Regras e significados de status**
-- Situação por aba: veja cada aba. Seis abas estão bloqueadas nesta versão (Inspeções, Reclamações, Ensaios e laudos, Requisitos, Recorrências e Custos de não qualidade).
+- Situação por aba: veja cada aba. Seis abas ainda não estão liberadas (Inspeções, Reclamações, Ensaios e laudos, Requisitos, Recorrências e Custos de não qualidade).
 - Evidência, fato, inferência e recomendação são mantidos separados.
 
 **6. Permissões.** Membros ATIVOS com nível Leitura ou superior veem a tela. Quem não é membro ativo da obra não a vê (o menu esconde, mas a rota e o banco também bloqueiam).
@@ -1370,10 +1369,10 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Quais abas da Qualidade estão disponíveis?
-  **R:** Estão operacionais o Dashboard, a RNC, as Evidências, as Ações (CAPA), a Eficácia e a Auditoria (algumas ainda sem homologação completa em tela). Inspeções, Reclamações, Ensaios e laudos, Requisitos, Recorrências e Custos de não qualidade estão bloqueadas nesta versão.
+  **R:** Estão operacionais o Dashboard, a RNC, as Evidências, as Ações (CAPA), a Eficácia e a Auditoria (algumas ainda em validação final de uso). Inspeções, Reclamações, Ensaios e laudos, Requisitos, Recorrências e Custos de não qualidade ainda não estão liberadas.
 
-**9. Limitações e o que não está homologado**
-- Só parte do módulo foi vista em sessão autenticada; seis abas estão bloqueadas nesta versão.
+**9. Limitações e o que ainda não está liberado**
+- Só parte do módulo está validada em uso; seis abas ainda não estão liberadas.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -1381,14 +1380,14 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Qualidade" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Qualidade" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/qualidade/page.tsx`, `apps/web/lib/quality/ui-model.ts`, `apps/web/lib/ui/help/manifests/qualidade.ts`
 
 ### 6.2 Dashboard
 
 - **Tipo:** aba (dentro de Qualidade)
-- **Situação:** Parcialmente homologada — Roteiro: Qualidade, Dashboard, EXECUTADO-AUTENTICADO (Administrador, parcial).
+- **Situação:** Disponível (partes ainda em validação final de uso)
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Dashboard: Indicadores reais da Qualidade: RNC abertas e críticas, reaberturas, tempo até o encerramento, ações vencidas, eficácia e RNC por estado.
@@ -1414,8 +1413,8 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - **P:** O que mostra o Dashboard da Qualidade?
   **R:** Indicadores da Qualidade: RNC abertas e críticas, reaberturas, tempo até o encerramento, ações vencidas, eficácia e RNC por estado. Sem dado, mostra SEM DADOS.
 
-**9. Limitações e o que não está homologado**
-- Visto em sessão autenticada só como Administrador.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -1423,14 +1422,14 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Dashboard" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Dashboard" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/quality/ui-model.ts`, `apps/web/lib/ui/help/modules/qualidade.ts`
 
 ### 6.3 RNC
 
 - **Tipo:** aba (dentro de Qualidade)
-- **Situação:** Parcialmente homologada — Roteiro: Qualidade, RNC, EXECUTADO-AUTENTICADO (Administrador, parcial; Q-04, Q-06 e seguintes não vistos).
+- **Situação:** Disponível (partes ainda em validação final de uso)
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** RNC: Lista dos relatórios de não conformidade com filtros (busca, estado, criticidade, origem) e formulário de nova RNC; o detalhe abre pelo código.
@@ -1461,8 +1460,8 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - **P:** Como abro uma RNC?
   **R:** Na aba RNC use o formulário de nova RNC e, depois, clique no código para abrir o detalhe. As transições de estado ficam registradas na auditoria; algumas operações da RNC ainda não foram comprovadas em tela e dependem de decisão pendente.
 
-**9. Limitações e o que não está homologado**
-- Visto em sessão autenticada: criar e ler; reclassificar, causa e prazo, execução de CAPA, eficácia e consequências não foram vistos e dependem de decisão pendente.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -1470,14 +1469,14 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "RNC" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "RNC" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/qualidade/rnc/[ncrId]/page.tsx`, `apps/web/lib/quality/ui-model.ts`
 
 ### 6.4 Evidências
 
 - **Tipo:** aba (dentro de Qualidade)
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro: Qualidade, Evidências, EXECUTADO-BANCO-REAL; tela não vista.
+- **Situação:** Disponível
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Evidências: Todas as evidências do projeto, com a fonte original, a classificação (SUSPEITA, INDÍCIO, NC COMPROVADA, RISCO POTENCIAL) e o tipo (fato, inferência ou recomendação).
@@ -1504,8 +1503,8 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - **P:** O que são as Evidências da Qualidade?
   **R:** São os registros de prova do módulo, cada um com a fonte original, a classificação (SUSPEITA, INDÍCIO, NC COMPROVADA ou RISCO POTENCIAL) e o tipo: fato, inferência ou recomendação.
 
-**9. Limitações e o que não está homologado**
-- Validada em banco real; a tela não foi vista.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -1513,17 +1512,17 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Evidências" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Evidências" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/ui/help/modules/qualidade.ts`
 
 ### 6.5 Inspeções
 
 - **Tipo:** aba (dentro de Qualidade)
-- **Situação:** Bloqueada nesta versão — Bloqueada nesta versão pela decisão da Fase 2 (trava de módulos): as operações de escrita desta aba não estão liberadas ao usuário. Roteiro, quadro da seção 9: BLOQUEADO.
+- **Situação:** Ainda não liberada
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
-**1. Nome e finalidade.** Inspeções: Registro de inspeções de qualidade com resultado, local, datas e RNC vinculada. Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+**1. Nome e finalidade.** Inspeções: Registro de inspeções de qualidade com resultado, local, datas e RNC vinculada. Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
 **2. Funcionalidades**
 - Nenhuma operação de registro está liberada nesta versão.
@@ -1532,10 +1531,10 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - A aba pode abrir sem registros: sem dado, aparece SEM DADOS ou lista vazia.
 
 **4. Passo a passo**
-1. Não há passo a passo: a aba está bloqueada nesta versão.
+1. Não há passo a passo: a aba ainda não está liberada.
 
 **5. Regras e significados de status**
-- Situação: Bloqueada nesta versão.
+- Situação: ainda não liberada.
 - Nenhum valor é estimado quando não há registro.
 
 **6. Permissões.** Membros ATIVOS com nível Leitura ou superior veem a tela. Quem não é membro ativo da obra não a vê (o menu esconde, mas a rota e o banco também bloqueiam).
@@ -1545,11 +1544,11 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Posso usar a aba Inspeções?
-  **R:** Não nesta versão: a aba Inspeções está bloqueada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+  **R:** Não por enquanto: a aba Inspeções ainda não está liberada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
-**9. Limitações e o que não está homologado**
-- Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
-- A aba não foi vista em sessão autenticada (roteiro: BLOQUEADO).
+**9. Limitações e o que ainda não está liberado**
+- Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+- A aba ainda não passou pela validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -1557,17 +1556,17 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Inspeções" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Inspeções" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/quality/ui-model.ts`, `docs/homologacao-autenticada-roteiro.md`
 
 ### 6.6 Reclamações
 
 - **Tipo:** aba (dentro de Qualidade)
-- **Situação:** Bloqueada nesta versão — Bloqueada nesta versão pela decisão da Fase 2 (trava de módulos): as operações de escrita desta aba não estão liberadas ao usuário. Roteiro, quadro da seção 9: BLOQUEADO.
+- **Situação:** Ainda não liberada
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
-**1. Nome e finalidade.** Reclamações: Registro de reclamações de clientes com canal, data e fonte original. Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+**1. Nome e finalidade.** Reclamações: Registro de reclamações de clientes com canal, data e fonte original. Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
 **2. Funcionalidades**
 - Nenhuma operação de registro está liberada nesta versão.
@@ -1576,10 +1575,10 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - A aba pode abrir sem registros: sem dado, aparece SEM DADOS ou lista vazia.
 
 **4. Passo a passo**
-1. Não há passo a passo: a aba está bloqueada nesta versão.
+1. Não há passo a passo: a aba ainda não está liberada.
 
 **5. Regras e significados de status**
-- Situação: Bloqueada nesta versão.
+- Situação: ainda não liberada.
 - Nenhum valor é estimado quando não há registro.
 
 **6. Permissões.** Membros ATIVOS com nível Leitura ou superior veem a tela. Quem não é membro ativo da obra não a vê (o menu esconde, mas a rota e o banco também bloqueiam).
@@ -1589,11 +1588,11 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Posso usar a aba Reclamações?
-  **R:** Não nesta versão: a aba Reclamações está bloqueada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+  **R:** Não por enquanto: a aba Reclamações ainda não está liberada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
-**9. Limitações e o que não está homologado**
-- Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
-- A aba não foi vista em sessão autenticada (roteiro: BLOQUEADO).
+**9. Limitações e o que ainda não está liberado**
+- Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+- A aba ainda não passou pela validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -1601,17 +1600,17 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Reclamações" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Reclamações" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/quality/ui-model.ts`, `docs/homologacao-autenticada-roteiro.md`
 
 ### 6.7 Ensaios e laudos
 
 - **Tipo:** aba (dentro de Qualidade)
-- **Situação:** Bloqueada nesta versão — Bloqueada nesta versão pela decisão da Fase 2 (trava de módulos): as operações de escrita desta aba não estão liberadas ao usuário. Roteiro, quadro da seção 9: BLOQUEADO.
+- **Situação:** Ainda não liberada
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
-**1. Nome e finalidade.** Ensaios e laudos: Registro de ensaios e laudos técnicos. Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+**1. Nome e finalidade.** Ensaios e laudos: Registro de ensaios e laudos técnicos. Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
 **2. Funcionalidades**
 - Nenhuma operação de registro está liberada nesta versão.
@@ -1620,10 +1619,10 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - A aba pode abrir sem registros: sem dado, aparece SEM DADOS ou lista vazia.
 
 **4. Passo a passo**
-1. Não há passo a passo: a aba está bloqueada nesta versão.
+1. Não há passo a passo: a aba ainda não está liberada.
 
 **5. Regras e significados de status**
-- Situação: Bloqueada nesta versão.
+- Situação: ainda não liberada.
 - Nenhum valor é estimado quando não há registro.
 
 **6. Permissões.** Membros ATIVOS com nível Leitura ou superior veem a tela. Quem não é membro ativo da obra não a vê (o menu esconde, mas a rota e o banco também bloqueiam).
@@ -1633,11 +1632,11 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Posso usar a aba Ensaios e laudos?
-  **R:** Não nesta versão: a aba Ensaios e laudos está bloqueada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+  **R:** Não por enquanto: a aba Ensaios e laudos ainda não está liberada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
-**9. Limitações e o que não está homologado**
-- Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
-- A aba não foi vista em sessão autenticada (roteiro: BLOQUEADO).
+**9. Limitações e o que ainda não está liberado**
+- Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+- A aba ainda não passou pela validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -1645,17 +1644,17 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Ensaios e laudos" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Ensaios e laudos" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/quality/ui-model.ts`, `docs/homologacao-autenticada-roteiro.md`
 
 ### 6.8 Requisitos
 
 - **Tipo:** aba (dentro de Qualidade)
-- **Situação:** Bloqueada nesta versão — Bloqueada nesta versão pela decisão da Fase 2 (trava de módulos): as operações de escrita desta aba não estão liberadas ao usuário. Roteiro, quadro da seção 9: BLOQUEADO.
+- **Situação:** Ainda não liberada
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
-**1. Nome e finalidade.** Requisitos: Cadastro de requisitos técnicos do projeto, cada um com fonte. Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+**1. Nome e finalidade.** Requisitos: Cadastro de requisitos técnicos do projeto, cada um com fonte. Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
 **2. Funcionalidades**
 - Nenhuma operação de registro está liberada nesta versão.
@@ -1664,10 +1663,10 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - A aba pode abrir sem registros: sem dado, aparece SEM DADOS ou lista vazia.
 
 **4. Passo a passo**
-1. Não há passo a passo: a aba está bloqueada nesta versão.
+1. Não há passo a passo: a aba ainda não está liberada.
 
 **5. Regras e significados de status**
-- Situação: Bloqueada nesta versão.
+- Situação: ainda não liberada.
 - Nenhum valor é estimado quando não há registro.
 
 **6. Permissões.** Membros ATIVOS com nível Leitura ou superior veem a tela. Quem não é membro ativo da obra não a vê (o menu esconde, mas a rota e o banco também bloqueiam).
@@ -1677,11 +1676,11 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Posso usar a aba Requisitos?
-  **R:** Não nesta versão: a aba Requisitos está bloqueada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+  **R:** Não por enquanto: a aba Requisitos ainda não está liberada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
-**9. Limitações e o que não está homologado**
-- Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
-- A aba não foi vista em sessão autenticada (roteiro: BLOQUEADO).
+**9. Limitações e o que ainda não está liberado**
+- Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+- A aba ainda não passou pela validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -1689,14 +1688,14 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Requisitos" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Requisitos" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/quality/ui-model.ts`, `docs/homologacao-autenticada-roteiro.md`
 
 ### 6.9 Ações (CAPA)
 
 - **Tipo:** aba (dentro de Qualidade)
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro: Qualidade, Ações (CAPA), EXECUTADO-BANCO-REAL; tela não vista.
+- **Situação:** Disponível
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Ações (CAPA): Visão de todas as ações corretivas, preventivas e de contenção do projeto, com prazo e status. As ações são criadas e atualizadas dentro de cada RNC.
@@ -1723,8 +1722,8 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - **P:** Onde crio uma ação corretiva (CAPA)?
   **R:** A aba Ações (CAPA) só lista as ações; elas são criadas e atualizadas dentro de cada RNC. Abra a RNC pelo código e registre a ação por lá.
 
-**9. Limitações e o que não está homologado**
-- Validada em banco real; a tela não foi vista. A atualização de status da CAPA depende de decisão pendente.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso. A atualização de status da CAPA depende de decisão pendente.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -1732,14 +1731,14 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Ações (CAPA)" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Ações (CAPA)" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/ui/help/modules/qualidade.ts`
 
 ### 6.10 Eficácia
 
 - **Tipo:** aba (dentro de Qualidade)
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro: Qualidade, Eficácia, EXECUTADO-BANCO-REAL; tela não vista.
+- **Situação:** Disponível
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Eficácia: Verificações de eficácia registradas (eficaz, ineficaz ou parcial). O encerramento de uma RNC exige a última verificação EFICAZ, com evidência, posterior ao último ciclo de correção.
@@ -1766,8 +1765,8 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - **P:** O que é a Eficácia?
   **R:** É o registro da verificação de que a ação resolveu o problema (eficaz, ineficaz ou parcial). Uma RNC só encerra com a última verificação EFICAZ, com evidência.
 
-**9. Limitações e o que não está homologado**
-- Validada em banco real; a tela não foi vista.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -1775,17 +1774,17 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Eficácia" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Eficácia" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/ui/help/modules/qualidade.ts`
 
 ### 6.11 Recorrências
 
 - **Tipo:** aba (dentro de Qualidade)
-- **Situação:** Bloqueada nesta versão — Bloqueada nesta versão pela decisão da Fase 2 (trava de módulos): as operações de escrita desta aba não estão liberadas ao usuário. Roteiro, quadro da seção 9: BLOQUEADO.
+- **Situação:** Ainda não liberada
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
-**1. Nome e finalidade.** Recorrências: Relações de recorrência entre RNC, cada uma com fundamento escrito. Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+**1. Nome e finalidade.** Recorrências: Relações de recorrência entre RNC, cada uma com fundamento escrito. Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
 **2. Funcionalidades**
 - Nenhuma operação de registro está liberada nesta versão.
@@ -1794,10 +1793,10 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - A aba pode abrir sem registros: sem dado, aparece SEM DADOS ou lista vazia.
 
 **4. Passo a passo**
-1. Não há passo a passo: a aba está bloqueada nesta versão.
+1. Não há passo a passo: a aba ainda não está liberada.
 
 **5. Regras e significados de status**
-- Situação: Bloqueada nesta versão.
+- Situação: ainda não liberada.
 - Nenhum valor é estimado quando não há registro.
 
 **6. Permissões.** Membros ATIVOS com nível Leitura ou superior veem a tela. Quem não é membro ativo da obra não a vê (o menu esconde, mas a rota e o banco também bloqueiam).
@@ -1807,11 +1806,11 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Posso usar a aba Recorrências?
-  **R:** Não nesta versão: a aba Recorrências está bloqueada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+  **R:** Não por enquanto: a aba Recorrências ainda não está liberada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
-**9. Limitações e o que não está homologado**
-- Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
-- A aba não foi vista em sessão autenticada (roteiro: BLOQUEADO).
+**9. Limitações e o que ainda não está liberado**
+- Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+- A aba ainda não passou pela validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -1819,17 +1818,17 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Recorrências" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Recorrências" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/quality/ui-model.ts`, `docs/homologacao-autenticada-roteiro.md`
 
 ### 6.12 Custos de não qualidade
 
 - **Tipo:** aba (dentro de Qualidade)
-- **Situação:** Bloqueada nesta versão — Bloqueada nesta versão pela decisão da Fase 2 (trava de módulos): as operações de escrita desta aba não estão liberadas ao usuário. Roteiro, quadro da seção 9: BLOQUEADO.
+- **Situação:** Ainda não liberada
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
-**1. Nome e finalidade.** Custos de não qualidade: Custos ligados às RNC (retrabalho, material, mão de obra, garantia, perda de prazo). Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+**1. Nome e finalidade.** Custos de não qualidade: Custos ligados às RNC (retrabalho, material, mão de obra, garantia, perda de prazo). Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
 **2. Funcionalidades**
 - Nenhuma operação de registro está liberada nesta versão.
@@ -1838,10 +1837,10 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - A aba pode abrir sem registros: sem dado, aparece SEM DADOS ou lista vazia.
 
 **4. Passo a passo**
-1. Não há passo a passo: a aba está bloqueada nesta versão.
+1. Não há passo a passo: a aba ainda não está liberada.
 
 **5. Regras e significados de status**
-- Situação: Bloqueada nesta versão.
+- Situação: ainda não liberada.
 - Nenhum valor é estimado quando não há registro.
 
 **6. Permissões.** Membros ATIVOS com nível Leitura ou superior veem a tela. Quem não é membro ativo da obra não a vê (o menu esconde, mas a rota e o banco também bloqueiam).
@@ -1851,11 +1850,11 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Posso usar a aba Custos de não qualidade?
-  **R:** Não nesta versão: a aba Custos de não qualidade está bloqueada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+  **R:** Não por enquanto: a aba Custos de não qualidade ainda não está liberada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
-**9. Limitações e o que não está homologado**
-- Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
-- A aba não foi vista em sessão autenticada (roteiro: BLOQUEADO).
+**9. Limitações e o que ainda não está liberado**
+- Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+- A aba ainda não passou pela validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -1863,14 +1862,14 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Custos de não qualidade" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Custos de não qualidade" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/quality/ui-model.ts`, `docs/homologacao-autenticada-roteiro.md`
 
 ### 6.13 Auditoria
 
 - **Tipo:** aba (dentro de Qualidade)
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro: Qualidade, Auditoria, EXECUTADO-BANCO-REAL; tela não vista.
+- **Situação:** Disponível
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Auditoria: Linha do tempo cronológica dos eventos de estado das RNC e dos registros de auditoria do módulo. Somente leitura.
@@ -1896,8 +1895,8 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - **P:** Onde vejo o histórico das RNC?
   **R:** Na aba Auditoria da Qualidade: a linha do tempo dos eventos de estado das RNC e dos registros de auditoria do módulo, só para leitura.
 
-**9. Limitações e o que não está homologado**
-- Validada em banco real; a tela não foi vista.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -1905,7 +1904,7 @@ Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloq
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Auditoria" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Auditoria" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/ui/help/modules/qualidade.ts`
 
@@ -1917,7 +1916,7 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/garantias` · relacionadas: `/[projectId]/garantias/[caseId]`
-- **Situação:** Parcialmente homologada — Roteiro, seção 9: Garantias, lista e detalhe, EXECUTADO-AUTENTICADO parcial.
+- **Situação:** Disponível (partes ainda em validação final de uso)
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Garantias: Garantias e Assistência Técnica pós-entrega: casos de garantia, ciclo de estados, comprovantes de manutenção e consulta de cobertura.
@@ -1945,10 +1944,10 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Para que serve a aba Garantias?
-  **R:** Para acompanhar casos de garantia e assistência técnica pós-entrega: a lista, o ciclo de estados do caso, comprovantes de manutenção e a consulta de cobertura. Parte do detalhe ainda não foi homologada em tela.
+  **R:** Para acompanhar casos de garantia e assistência técnica pós-entrega: a lista, o ciclo de estados do caso, comprovantes de manutenção e a consulta de cobertura. Parte do detalhe ainda está em validação final de uso.
 
-**9. Limitações e o que não está homologado**
-- Visto em sessão autenticada como Administrador (lista e criação); passos G-04 a G-10 pendentes.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -1956,7 +1955,7 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Garantias" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Garantias" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/garantias/page.tsx`, `apps/web/app/[projectId]/garantias/[caseId]/page.tsx`, `apps/web/lib/ui/help/manifests/garantias.ts`
 
@@ -1964,7 +1963,7 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/seguros`
-- **Situação:** Parcialmente homologada — Roteiro, seção 9: Seguros, 12 abas com situações distintas.
+- **Situação:** Disponível (partes ainda em validação final de uso)
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Seguros: Módulo de apólices, fianças, endossos, adiantamentos, sinistros, dossiês e minutas da obra, organizado em 12 abas.
@@ -1982,7 +1981,7 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 
 **5. Regras e significados de status**
 - Pedido de endosso não é endosso emitido: só o endosso CONFERIDO com documento emitido tem efeito.
-- Três abas estão bloqueadas nesta versão: Fianças e garantias, Dossiês e Sujeitos e RCC.
+- Três abas ainda não estão liberadas: Fianças e garantias, Dossiês e Sujeitos e RCC.
 - O envio real de minutas não existe: o envio é sempre bloqueado.
 
 **6. Permissões.** Membros ATIVOS com nível Leitura ou superior veem a tela. Quem não é membro ativo da obra não a vê (o menu esconde, mas a rota e o banco também bloqueiam).
@@ -1992,10 +1991,10 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Quais abas de Seguros estão disponíveis?
-  **R:** Painel, Apólices, Endossos, Adiantamentos, Sinistros e eventos, Minutas e acionamento, Canais oficiais, Referências e Auditoria estão disponíveis (algumas ainda sem homologação completa em tela). Fianças e garantias, Dossiês e Sujeitos e RCC estão bloqueadas nesta versão.
+  **R:** Painel, Apólices, Endossos, Adiantamentos, Sinistros e eventos, Minutas e acionamento, Canais oficiais, Referências e Auditoria estão disponíveis (algumas ainda em validação final de uso). Fianças e garantias, Dossiês e Sujeitos e RCC ainda não estão liberadas.
 
-**9. Limitações e o que não está homologado**
-- Parte das abas foi vista em sessão autenticada; outras só com dados sintéticos; três estão bloqueadas.
+**9. Limitações e o que ainda não está liberado**
+- Parte das abas ainda está em validação final de uso; três ainda não estão liberadas.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -2003,14 +2002,14 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Seguros" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Seguros" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/seguros/page.tsx`, `apps/web/lib/insurance-ui/tabs.ts`, `apps/web/lib/ui/help/manifests/seguros.ts`
 
 ### 7.3 Painel
 
 - **Tipo:** aba (dentro de Seguros)
-- **Situação:** Parcialmente homologada — Roteiro: Seguros, Painel, EXECUTADO-AUTENTICADO (parcial).
+- **Situação:** Disponível (partes ainda em validação final de uso)
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Painel: Indicadores e itens de atenção do módulo: vencimentos, endossos pendentes, sinistros em andamento e garantias insuficientes (horizonte de 30 dias).
@@ -2036,8 +2035,8 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - **P:** O que mostra o Painel de Seguros?
   **R:** Os indicadores do módulo e a lista de itens de atenção: vencimentos, endossos pendentes, sinistros em andamento e garantias insuficientes, olhando 30 dias à frente.
 
-**9. Limitações e o que não está homologado**
-- Visto em sessão autenticada como Administrador.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -2045,14 +2044,14 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Painel" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Painel" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/insurance-ui/tabs.ts`, `apps/web/lib/ui/help/modules/seguros.ts`
 
 ### 7.4 Apólices
 
 - **Tipo:** aba (dentro de Seguros)
-- **Situação:** Parcialmente homologada — Roteiro: Seguros, Apólices, EXECUTADO-AUTENTICADO (parcial).
+- **Situação:** Disponível (partes ainda em validação final de uso)
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Apólices: Apólices das nove modalidades, com partes, cláusulas, versões e vigência.
@@ -2080,8 +2079,8 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - **P:** Como vejo as versões de uma apólice?
   **R:** Na aba Apólices, selecione a apólice: a tela mostra as partes, as cláusulas e o histórico de versões; cada alteração relevante cria uma nova versão.
 
-**9. Limitações e o que não está homologado**
-- Visto em sessão autenticada como Administrador (parcial).
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -2089,17 +2088,17 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Apólices" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Apólices" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/insurance-ui/tabs.ts`, `apps/web/lib/ui/help/modules/seguros.ts`
 
 ### 7.5 Fianças e garantias
 
 - **Tipo:** aba (dentro de Seguros)
-- **Situação:** Bloqueada nesta versão — Bloqueada nesta versão pela decisão da Fase 2 (trava de módulos): as operações de escrita desta aba não estão liberadas ao usuário. Roteiro, quadro da seção 9: FIXTURE.
+- **Situação:** Ainda não liberada
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
-**1. Nome e finalidade.** Fianças e garantias: Fianças bancárias, cauções e outras garantias, separadas de seguro. Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+**1. Nome e finalidade.** Fianças e garantias: Fianças bancárias, cauções e outras garantias, separadas de seguro. Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
 **2. Funcionalidades**
 - Nenhuma operação de registro está liberada nesta versão.
@@ -2108,10 +2107,10 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - A aba pode abrir sem registros: sem dado, aparece SEM DADOS ou lista vazia.
 
 **4. Passo a passo**
-1. Não há passo a passo: a aba está bloqueada nesta versão.
+1. Não há passo a passo: a aba ainda não está liberada.
 
 **5. Regras e significados de status**
-- Situação: Bloqueada nesta versão.
+- Situação: ainda não liberada.
 - Nenhum valor é estimado quando não há registro.
 
 **6. Permissões.** Membros ATIVOS com nível Leitura ou superior veem a tela. Quem não é membro ativo da obra não a vê (o menu esconde, mas a rota e o banco também bloqueiam).
@@ -2121,11 +2120,11 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Posso usar a aba Fianças e garantias?
-  **R:** Não nesta versão: a aba Fianças e garantias está bloqueada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+  **R:** Não por enquanto: a aba Fianças e garantias ainda não está liberada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
-**9. Limitações e o que não está homologado**
-- Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
-- A aba só foi renderizada com dados sintéticos (roteiro: FIXTURE), nunca em sessão autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+- A aba ainda não passou pela validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -2133,14 +2132,14 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Fianças e garantias" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Fianças e garantias" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/insurance-ui/tabs.ts`, `docs/homologacao-autenticada-roteiro.md`
 
 ### 7.6 Endossos
 
 - **Tipo:** aba (dentro de Seguros)
-- **Situação:** Parcialmente homologada — Roteiro: Seguros, Endossos, EXECUTADO-AUTENTICADO (parcial).
+- **Situação:** Disponível (partes ainda em validação final de uso)
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Endossos: Pedidos e emissões de endosso: solicitado, em análise, emitido e conferido, com comparação de textos e dupla conferência.
@@ -2167,8 +2166,8 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - **P:** Um pedido de endosso já vale?
   **R:** Não. Pedido de endosso não é endosso emitido: só o endosso CONFERIDO, com documento emitido, tem efeito de cobertura.
 
-**9. Limitações e o que não está homologado**
-- Visto em sessão autenticada como Administrador (parcial).
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -2176,14 +2175,14 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Endossos" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Endossos" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/insurance-ui/tabs.ts`, `apps/web/lib/ui/help/modules/seguros-endossos-dupla.ts`
 
 ### 7.7 Adiantamentos
 
 - **Tipo:** aba (dentro de Seguros)
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro: Seguros, Adiantamentos, EXECUTADO-BANCO-REAL; tela não vista.
+- **Situação:** Disponível
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Adiantamentos: Registro de adiantamentos e das amortizações, comparando o saldo não amortizado com o limite garantido e com o valor máximo da apólice vinculada. Não calcula indenização.
@@ -2209,8 +2208,8 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - **P:** A aba Adiantamentos calcula indenização?
   **R:** Não: ela registra adiantamentos e amortizações e compara o saldo não amortizado com o limite garantido e com o valor máximo da apólice vinculada; não calcula indenização.
 
-**9. Limitações e o que não está homologado**
-- Validada em banco real; a tela não foi vista.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -2218,14 +2217,14 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Adiantamentos" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Adiantamentos" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/insurance-ui/tabs.ts`
 
 ### 7.8 Sinistros e eventos
 
 - **Tipo:** aba (dentro de Seguros)
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro: Seguros, Sinistros e eventos, EXECUTADO-BANCO-REAL; tela não vista.
+- **Situação:** Disponível
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Sinistros e eventos: Estágios do evento de sinistro: expectativa, aviso, reclamação, regulação, decisão, negativa, contestação e encerramento, com trilha imutável de etapas.
@@ -2251,8 +2250,8 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - **P:** O que é a avaliação de cobertura do sinistro?
   **R:** É uma inferência derivada do estágio do evento, mostrada como apoio: ela exige revisão humana e não é decisão da seguradora.
 
-**9. Limitações e o que não está homologado**
-- Validada em banco real; a tela não foi vista.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -2260,17 +2259,17 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Sinistros e eventos" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Sinistros e eventos" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/insurance-ui/tabs.ts`
 
 ### 7.9 Dossiês
 
 - **Tipo:** aba (dentro de Seguros)
-- **Situação:** Bloqueada nesta versão — Bloqueada nesta versão pela decisão da Fase 2 (trava de módulos): as operações de escrita desta aba não estão liberadas ao usuário. Roteiro, quadro da seção 9: FIXTURE.
+- **Situação:** Ainda não liberada
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
-**1. Nome e finalidade.** Dossiês: Checklist de documentos por apólice, conforme a modalidade. Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+**1. Nome e finalidade.** Dossiês: Checklist de documentos por apólice, conforme a modalidade. Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
 **2. Funcionalidades**
 - Nenhuma operação de registro está liberada nesta versão.
@@ -2279,10 +2278,10 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - A aba pode abrir sem registros: sem dado, aparece SEM DADOS ou lista vazia.
 
 **4. Passo a passo**
-1. Não há passo a passo: a aba está bloqueada nesta versão.
+1. Não há passo a passo: a aba ainda não está liberada.
 
 **5. Regras e significados de status**
-- Situação: Bloqueada nesta versão.
+- Situação: ainda não liberada.
 - Nenhum valor é estimado quando não há registro.
 
 **6. Permissões.** Membros ATIVOS com nível Leitura ou superior veem a tela. Quem não é membro ativo da obra não a vê (o menu esconde, mas a rota e o banco também bloqueiam).
@@ -2292,11 +2291,11 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Posso usar a aba Dossiês?
-  **R:** Não nesta versão: a aba Dossiês está bloqueada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+  **R:** Não por enquanto: a aba Dossiês ainda não está liberada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
-**9. Limitações e o que não está homologado**
-- Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
-- A aba só foi renderizada com dados sintéticos (roteiro: FIXTURE), nunca em sessão autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+- A aba ainda não passou pela validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -2304,14 +2303,14 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Dossiês" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Dossiês" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/insurance-ui/tabs.ts`, `docs/homologacao-autenticada-roteiro.md`
 
 ### 7.10 Minutas e acionamento
 
 - **Tipo:** aba (dentro de Seguros)
-- **Situação:** Parcialmente homologada — Roteiro: Seguros, Minutas e acionamento, EXECUTADO-AUTENTICADO (parcial; Enviar desabilitado).
+- **Situação:** Disponível (partes ainda em validação final de uso)
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Minutas e acionamento: Prepara minutas em rascunho de avisos, reclamações, endossos e cobranças. O envio real não existe: a tentativa de envio é sempre bloqueada.
@@ -2340,8 +2339,8 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - **P:** A aba Minutas envia o e-mail para a seguradora?
   **R:** Não. Ela só prepara minutas em rascunho: o envio real não existe e o botão Enviar fica desabilitado.
 
-**9. Limitações e o que não está homologado**
-- Visto em sessão autenticada como Administrador (parcial).
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -2349,14 +2348,14 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Minutas e acionamento" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Minutas e acionamento" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/insurance-ui/tabs.ts`
 
 ### 7.11 Canais oficiais
 
 - **Tipo:** aba (dentro de Seguros)
-- **Situação:** Parcialmente homologada — Roteiro: Seguros, Canais oficiais, EXECUTADO-AUTENTICADO (aba vista vazia).
+- **Situação:** Disponível (partes ainda em validação final de uso)
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Canais oficiais: Canais oficiais de seguradoras e bancos (e-mail, portal, endereço postal, telefone), sempre cadastrados com fonte e nunca inventados.
@@ -2382,8 +2381,8 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - **P:** Onde ficam os canais oficiais da seguradora?
   **R:** Na aba Canais oficiais: e-mail, portal, endereço postal ou telefone, cada um com fonte e a marca de verificação por um gestor.
 
-**9. Limitações e o que não está homologado**
-- Visto em sessão autenticada vazio; os passos D-07 a D-09 não foram vistos.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -2391,17 +2390,17 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Canais oficiais" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Canais oficiais" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/insurance-ui/tabs.ts`
 
 ### 7.12 Sujeitos e RCC
 
 - **Tipo:** aba (dentro de Seguros)
-- **Situação:** Bloqueada nesta versão — Bloqueada nesta versão pela decisão da Fase 2 (trava de módulos): as operações de escrita desta aba não estão liberadas ao usuário. Roteiro, quadro da seção 9: FIXTURE.
+- **Situação:** Ainda não liberada
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
-**1. Nome e finalidade.** Sujeitos e RCC: Auditoria dos sujeitos da apólice e checklist de responsabilidade civil cruzada. Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+**1. Nome e finalidade.** Sujeitos e RCC: Auditoria dos sujeitos da apólice e checklist de responsabilidade civil cruzada. Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
 **2. Funcionalidades**
 - Nenhuma operação de registro está liberada nesta versão.
@@ -2410,10 +2409,10 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - A aba pode abrir sem registros: sem dado, aparece SEM DADOS ou lista vazia.
 
 **4. Passo a passo**
-1. Não há passo a passo: a aba está bloqueada nesta versão.
+1. Não há passo a passo: a aba ainda não está liberada.
 
 **5. Regras e significados de status**
-- Situação: Bloqueada nesta versão.
+- Situação: ainda não liberada.
 - Nenhum valor é estimado quando não há registro.
 
 **6. Permissões.** Membros ATIVOS com nível Leitura ou superior veem a tela. Quem não é membro ativo da obra não a vê (o menu esconde, mas a rota e o banco também bloqueiam).
@@ -2423,11 +2422,11 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Posso usar a aba Sujeitos e RCC?
-  **R:** Não nesta versão: a aba Sujeitos e RCC está bloqueada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+  **R:** Não por enquanto: a aba Sujeitos e RCC ainda não está liberada e o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
-**9. Limitações e o que não está homologado**
-- Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
-- A aba só foi renderizada com dados sintéticos (roteiro: FIXTURE), nunca em sessão autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+- A aba ainda não passou pela validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -2435,14 +2434,14 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Sujeitos e RCC" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Sujeitos e RCC" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/insurance-ui/tabs.ts`, `docs/homologacao-autenticada-roteiro.md`
 
 ### 7.13 Referências
 
 - **Tipo:** aba (dentro de Seguros)
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro: Seguros, Referências, FIXTURE.
+- **Situação:** Disponível
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Referências: Referências de apoio, com status de verificação e limitações. São referências, não consultoria.
@@ -2468,8 +2467,8 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - **P:** As Referências de Seguros são consultoria?
   **R:** Não: são referências de apoio, com o status de verificação e as limitações de cada uma.
 
-**9. Limitações e o que não está homologado**
-- Aba só renderizada com dados sintéticos (FIXTURE).
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -2477,14 +2476,14 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Referências" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Referências" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/insurance-ui/tabs.ts`
 
 ### 7.14 Auditoria
 
 - **Tipo:** aba (dentro de Seguros)
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro: Seguros, Auditoria, EXECUTADO-BANCO-REAL; tela não vista.
+- **Situação:** Disponível
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
 **1. Nome e finalidade.** Auditoria: Trilha de acréscimo apenas das ações do módulo, com quem, quando e o quê; mostra os 300 eventos mais recentes, com filtros.
@@ -2510,8 +2509,8 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - **P:** Onde vejo o histórico de Seguros?
   **R:** Na aba Auditoria de Seguros: os 300 eventos mais recentes, com quem, quando e o quê, com filtros por objeto e por texto.
 
-**9. Limitações e o que não está homologado**
-- Validada em banco real; a tela não foi vista.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -2519,7 +2518,7 @@ Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos 
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Auditoria" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Auditoria" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/insurance-ui/tabs.ts`
 
@@ -2531,7 +2530,7 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/integracoes`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; item restrito ao Administrador.
+- **Situação:** Disponível
 - **Quem vê:** Somente Administrador da obra
 
 **1. Nome e finalidade.** Integrações: Mostra e gerencia as fontes externas usadas pela obra: Gmail, Google Drive (somente ESG/SSMA) e demais conectores existentes, com a origem de cada fonte.
@@ -2554,7 +2553,7 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 
 **5. Regras e significados de status**
 - Contratos, aditivos, edital e serviços adicionais entram por upload manual do Administrador em Documentos.
-- Drive de Orçamentos e Drive de Planejamento não estão integrados.
+- Drive de Orçamentos e Drive de Planejamento ainda não têm ligação com o ACC.
 - Segredos de integração ficam no servidor e nunca aparecem nesta tela.
 
 **6. Permissões.** Só o Administrador da obra vê o item no menu e abre a tela; os demais perfis não a veem (a rota também é protegida, não só o menu).
@@ -2566,8 +2565,8 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 - **P:** O que a aba Integrações mostra?
   **R:** As fontes externas da obra (Gmail, Google Drive para ESG/SSMA e outras), cada uma com o status e a origem. Só o Administrador a vê. Contratos e aditivos não entram por aqui: entram por upload manual em Documentos.
 
-**9. Limitações e o que não está homologado**
-- Sem linha própria no roteiro de homologação autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê o item no menu, abre a tela e executa as ações.
@@ -2575,7 +2574,7 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 - Colaborador: Não vê o item no menu e não abre a tela.
 - Leitura: Não vê o item no menu e não abre a tela.
 
-**Capturas de tela:** Tela "Integrações" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Integrações" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/integracoes/page.tsx`, `apps/web/lib/ui/nav-items.ts`, `docs/manual-referencia-acc.md (4.26)`
 
@@ -2583,7 +2582,7 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 
 - **Tipo:** subaba (dentro de Integrações)
 - **Rota:** `/[projectId]/integracoes/caixas`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Somente Administrador da obra
 
 **1. Nome e finalidade.** Caixas de e-mail da obra: Diagnóstico por caixa de e-mail em sete etapas independentes, com as ações de autorização, habilitação e revogação.
@@ -2612,8 +2611,8 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 - **P:** O que significa Indício nas caixas de e-mail?
   **R:** Indício é evidência indireta e nunca vale como prova: só o estado Comprovado tem evidência própria.
 
-**9. Limitações e o que não está homologado**
-- Sem homologação em tela autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê o item no menu, abre a tela e executa as ações.
@@ -2621,7 +2620,7 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 - Colaborador: Não vê o item no menu e não abre a tela.
 - Leitura: Não vê o item no menu e não abre a tela.
 
-**Capturas de tela:** Tela "Caixas de e-mail da obra" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Caixas de e-mail da obra" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/integracoes/caixas/page.tsx`, `apps/web/lib/ui/help/manifests/integracoes.ts`
 
@@ -2629,7 +2628,7 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 
 - **Tipo:** subaba (dentro de Integrações)
 - **Rota:** `/[projectId]/integracoes/contatos-externos`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Somente Administrador da obra
 
 **1. Nome e finalidade.** Contatos externos monitorados: Cadastro das organizações e pessoas de fora da AXION que trocam e-mails com a obra, com domínios, contatos e o vínculo de cada uma com a obra.
@@ -2655,8 +2654,8 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 - **P:** Para que servem os Contatos externos?
   **R:** Para cadastrar, de forma auditável, as organizações e pessoas de fora da AXION que trocam e-mails com a obra e o vínculo de cada uma com ela.
 
-**9. Limitações e o que não está homologado**
-- Sem homologação em tela autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê o item no menu, abre a tela e executa as ações.
@@ -2664,7 +2663,7 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 - Colaborador: Não vê o item no menu e não abre a tela.
 - Leitura: Não vê o item no menu e não abre a tela.
 
-**Capturas de tela:** Tela "Contatos externos monitorados" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Contatos externos monitorados" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/integracoes/contatos-externos/page.tsx`
 
@@ -2672,7 +2671,7 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 
 - **Tipo:** subaba (dentro de Integrações)
 - **Rota:** `/[projectId]/integracoes/sinais-email`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Somente Administrador da obra
 
 **1. Nome e finalidade.** Sinais de risco de e-mail: Lista indícios de risco extraídos de e-mails da obra, cada um para revisão humana: confirmar ou descartar.
@@ -2702,8 +2701,8 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 - **P:** O que é um sinal de e-mail?
   **R:** É um indício de risco extraído de um e-mail da obra. Ele exige revisão humana: confirme ou descarte, informando o motivo.
 
-**9. Limitações e o que não está homologado**
-- Sem homologação em tela autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê o item no menu, abre a tela e executa as ações.
@@ -2711,7 +2710,7 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 - Colaborador: Não vê o item no menu e não abre a tela.
 - Leitura: Não vê o item no menu e não abre a tela.
 
-**Capturas de tela:** Tela "Sinais de risco de e-mail" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Sinais de risco de e-mail" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/integracoes/sinais-email/page.tsx`, `docs/experts-qualidade-sinais-provedor.md`
 
@@ -2719,7 +2718,7 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/autorizacoes`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria para a tela; item restrito ao Administrador.
+- **Situação:** Disponível
 - **Quem vê:** Somente Administrador da obra
 
 **1. Nome e finalidade.** Autorizações: Mostra, por colaborador, conta e obra, se o acesso aos e-mails foi autorizado, recusado ou revogado, quando, e a situação da conexão da conta.
@@ -2751,8 +2750,8 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 - **P:** O que é a aba Autorizações?
   **R:** É onde o Administrador acompanha o consentimento de cada colaborador para o ACC usar a caixa de e-mail em uma obra: autorizado, recusado ou revogado, e a situação da conexão da conta.
 
-**9. Limitações e o que não está homologado**
-- Sem homologação em tela autenticada (NAO-CONSTA).
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê o item no menu, abre a tela e executa as ações.
@@ -2760,7 +2759,7 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 - Colaborador: Não vê o item no menu e não abre a tela.
 - Leitura: Não vê o item no menu e não abre a tela.
 
-**Capturas de tela:** Tela "Autorizações" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Autorizações" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/autorizacoes/page.tsx`, `docs/manual-referencia-acc.md (4.31)`
 
@@ -2768,7 +2767,7 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 
 - **Tipo:** pagina (dentro de Autorizações)
 - **Rota:** `/autorizacao-email/[authorizationId]`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Autorização de acesso aos e-mails da obra: Página do colaborador para autorizar, recusar ou revogar o acesso do ACC à caixa de e-mail corporativa em uma obra específica.
@@ -2799,8 +2798,8 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 - **P:** Autorizar o acesso ao e-mail é obrigatório?
   **R:** A autorização é o seu consentimento, feito dentro do ACC com login. Sua recusa fica registrada e não altera nada na sua conta Google. Veja as respostas sobre autorização para os detalhes.
 
-**9. Limitações e o que não está homologado**
-- Sem homologação em tela autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Abre pelo link ou botão e executa as ações disponíveis.
@@ -2808,7 +2807,7 @@ Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, c
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Autorização de acesso aos e-mails da obra" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Autorização de acesso aos e-mails da obra" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/autorizacao-email/[authorizationId]/page.tsx`, `apps/web/lib/assistant/knowledge.ts (autorizacao-*)`
 
@@ -2820,7 +2819,7 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 
 - **Tipo:** pagina (dentro de Eventos)
 - **Rota:** `/[projectId]/ledger/lote-alertas/[batchId]`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro AL-01 a AL-03 BLOQUEADO (sem harness de tela do alerta).
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Responder alertas de contrato (lote): Página completa para responder, em um só lugar, todos os alertas de um e-mail em lote.
@@ -2852,8 +2851,8 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 - **P:** Como respondo a um lote de alertas?
   **R:** Abra o link do e-mail, defina uma ação para cada alerta (Resolvido, Em andamento ou Enviado para outro colaborador), salve aos poucos e só então clique em RESPONDER AO ACC; o botão só libera quando todos têm ação.
 
-**9. Limitações e o que não está homologado**
-- Sem tela vista em sessão autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Abre pelo link ou botão e executa as ações disponíveis.
@@ -2861,7 +2860,7 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Responder alertas de contrato (lote)" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Responder alertas de contrato (lote)" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/ledger/lote-alertas/[batchId]/page.tsx`, `docs/manual-referencia-acc.md (4.6, 4.13)`
 
@@ -2869,7 +2868,7 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/action-requests` · relacionadas: `/[projectId]/action-requests/[actionRequestId]`
-- **Situação:** Parcialmente homologada — Roteiro, seção 9: Solicitações, EXECUTADO-AUTENTICADO parcial (lista vazia).
+- **Situação:** Disponível (partes ainda em validação final de uso)
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** Solicitações: Pedidos de informação, documentação ou providência direcionados às áreas e responsáveis da AXION, com acompanhamento de envio, respostas e responsáveis.
@@ -2901,8 +2900,8 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 - **P:** Como envio uma solicitação por e-mail?
   **R:** Abra a solicitação, preencha Destinatário, confira Assunto e Mensagem e clique em Enviar solicitação por e-mail. Depois a página mostra Enviada, Envio em andamento ou Falha no envio.
 
-**9. Limitações e o que não está homologado**
-- Visto em sessão autenticada só com lista vazia (roteiro AL-04); detalhes D-01 a D-06 parciais.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis nela; é quem gerencia usuários e configurações da obra.
@@ -2910,7 +2909,7 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Solicitações" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Solicitações" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/action-requests/page.tsx`, `docs/manual-referencia-acc.md (4.7)`
 
@@ -2918,7 +2917,7 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/acoes`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; conforme app/[projectId]/acoes.
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** Ações e Escalonamentos: Acompanha ações com prazo de SLA e o nível de escalonamento atual (Nível 1 Responsável, Nível 2 Gerência, Nível 3 Diretoria).
@@ -2955,9 +2954,9 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 - **P:** Como assumo e concluo uma ação?
   **R:** Em Ações e Escalonamentos, localize o cartão em Ações abertas, clique em Assumir Ação e, ao terminar, escreva a observação de conclusão e clique em Concluir Ação. Assumir interrompe só o prazo de assumir. Se a ação for recusada, o seu perfil não tem essa permissão.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - As ações de assumir e concluir seguem a permissão do banco; sem ela a ação é recusada.
-- Sem linha própria no roteiro de homologação autenticada.
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis nela; é quem gerencia usuários e configurações da obra.
@@ -2965,7 +2964,7 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Ações e Escalonamentos" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Ações e Escalonamentos" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/acoes/page.tsx`, `docs/manual-referencia-acc.md (4.8, 4.9)`
 
@@ -2973,7 +2972,7 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 
 - **Tipo:** pagina (dentro de Ações e Escalonamentos)
 - **Rota:** `/[projectId]/acoes/configuracao`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Matriz de SLA e Escalonamento: Configuração, por obra, de fuso e expediente, prazos por nível de risco e responsáveis por área (Nível 1, 2 e 3). Também aparece como seção em Usuários.
@@ -3000,7 +2999,7 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 - **P:** Onde fica a matriz de responsáveis?
   **R:** Na tela Usuários, na seção da matriz de responsabilidades e prazos, que o Administrador consulta. A AXIA não altera prazos nem responsáveis.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - Fora do menu; a configuração da matriz é um assunto em revisão da AXIA.
 
 **10. Diferenças entre perfis**
@@ -3009,7 +3008,7 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Matriz de SLA e Escalonamento" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Matriz de SLA e Escalonamento" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/acoes/configuracao/page.tsx`, `docs/manual-referencia-acc.md (4.10)`
 
@@ -3017,7 +3016,7 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 
 - **Tipo:** pagina (dentro de Ações e Escalonamentos)
 - **Rota:** `/[projectId]/acoes/resumo-semanal/[digestId]`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Resumo semanal de alertas: Página aberta pelo e-mail semanal que reúne os riscos Médio e Baixo para o destinatário tratar cada item.
@@ -3048,8 +3047,8 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 - **P:** Como respondo o resumo semanal de alertas?
   **R:** Abra o link do e-mail, escolha para cada alerta Ciente, Estudando solução, Resolvido ou Direcionar para, e clique em Enviar todas as respostas, que só libera com todos respondidos.
 
-**9. Limitações e o que não está homologado**
-- Sem tela vista em sessão autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Abre pelo link ou botão e executa as ações disponíveis.
@@ -3057,7 +3056,7 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Resumo semanal de alertas" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Resumo semanal de alertas" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/acoes/resumo-semanal/[digestId]/page.tsx`, `docs/manual-referencia-acc.md (4.11)`
 
@@ -3065,7 +3064,7 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 
 - **Tipo:** pagina
 - **Rota:** `/[projectId]/alertas/[caseId]`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro, seção 9: Alertas, detalhe do alerta, BLOQUEADO (sem harness de tela).
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Alerta de risco: Página de um alerta de risco: situação, prazos, ações (Resolvido, Tomando providências, Enviar para, Especialista, Outro), linha do tempo e mensagens.
@@ -3095,9 +3094,9 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 - **P:** O que muda se eu responder o alerta?
   **R:** A ação escolhida fica registrada com data e autor. Em alertas Alto e Crítico, certas ações provocam escalonamento imediato ao próximo nível. Abrir o link, por si só, não registra nada.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - Depende da chave do relatório semanal estar habilitada.
-- Tela não vista em sessão autenticada (roteiro AL-01 a AL-03 BLOQUEADO).
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Abre pelo link ou botão e executa as ações disponíveis.
@@ -3105,7 +3104,7 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Alerta de risco" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Alerta de risco" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/alertas/[caseId]/page.tsx`, `docs/manual-referencia-acc.md (4.12)`
 
@@ -3113,7 +3112,7 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/reemissao-alertas`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro, seção 9: Reemissão de alertas / Autorizações, EXECUTADO-BANCO-REAL; tela não vista.
+- **Situação:** Disponível
 - **Quem vê:** Somente Administrador da obra
 
 **1. Nome e finalidade.** Reemissão de alertas: Lista casos Crítico e Alto abertos cuja comunicação não chegou a todos os destinatários e permite ao Administrador registrar, com justificativa, a decisão de reemitir. A página nunca envia e-mail.
@@ -3141,8 +3140,8 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 - **P:** O que faz a Reemissão de alertas?
   **R:** Ela lista casos Crítico e Alto cuja comunicação não chegou a todos e deixa o Administrador registrar a decisão de reemitir, com justificativa. A página não envia e-mail; o envio depende do ciclo e das travas do piloto.
 
-**9. Limitações e o que não está homologado**
-- Tela não vista em sessão autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê o item no menu, abre a tela e executa as ações.
@@ -3150,27 +3149,27 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 - Colaborador: Não vê o item no menu e não abre a tela.
 - Leitura: Não vê o item no menu e não abre a tela.
 
-**Capturas de tela:** Tela "Reemissão de alertas" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Reemissão de alertas" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/reemissao-alertas/page.tsx`, `apps/web/lib/ui/help/legacy.ts`
 
 ### 9.8 Criticidades e prazos (SLA)
 
 - **Tipo:** tema
-- **Situação:** Operacional (sem homologação em tela autenticada) — SLA aprovado (decisão da Fase 2, migration de SLA validada em homologação).
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
-**1. Nome e finalidade.** Criticidades e prazos (SLA): Os alertas têm quatro graus (Crítico, Alto, Médio, Baixo), cada um com um prazo padrão para o responsável assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis.
+**1. Nome e finalidade.** Criticidades e prazos (SLA): Os alertas têm quatro graus (Crítico, Alto, Médio, Baixo), cada um com um prazo para o responsável assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis. Para MÉDIO e BAIXO, o prazo para assumir vem da Matriz de SLA configurada para a obra.
 
 **2. Funcionalidades**
 - Nível 1 Responsável, Nível 2 Gerência, Nível 3 Diretoria.
 
 **3. Informações e indicadores exibidos**
-- Prazos padrão aprovados; cada obra pode ter valores próprios na matriz.
+- Prazos de Crítico e Alto conforme a política; prazos de Médio e Baixo conforme a matriz da obra.
 
 **4. Passo a passo**
 1. Veja os prazos de cada ação em Ações e Escalonamentos.
-2. O Administrador consulta a matriz em Usuários.
+2. O Administrador consulta e ajusta a Matriz de SLA da obra na tela Usuários (bloco Prazos por grau de risco), se tiver permissão.
 
 **5. Regras e significados de status**
 - Só Alto e Crítico passam pelo escalonamento por prazo no ciclo automático.
@@ -3183,11 +3182,11 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Qual é o prazo de cada criticidade?
-  **R:** Padrão aprovado para assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis. Cada obra pode ter valores próprios na matriz.
+  **R:** Prazo para assumir: CRÍTICO 1 hora corrida; ALTO 4 horas úteis. Para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra; quem tem permissão consulta e ajusta essa matriz na tela Usuários.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - A configuração da matriz e feriados são assuntos em revisão da AXIA.
-- Os prazos de Médio e Baixo seguem a política aprovada (2 e 5 dias úteis); a migration que os grava no banco de produção ainda não foi aplicada, então ações já existentes mantêm o prazo gravado na criação.
+- Alterações na matriz valem para novos alertas; alertas já abertos mantêm o prazo de quando foram criados.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis nela; é quem gerencia usuários e configurações da obra.
@@ -3195,19 +3194,19 @@ Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a ree
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Criticidades e prazos (SLA)" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Criticidades e prazos (SLA)" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/assistant/guards.ts`, `apps/web/lib/assistant/approved-batch-1.ts (qa-E2, qa-R7)`
 
 ## 10. Respostas e resolução pelo e-mail
 
-O que já funciona pelo e-mail e o que continua bloqueado nesta versão.
+O que já funciona pelo e-mail e o que ainda não está liberado.
 
 ### 10.1 Resposta rápida de alerta (e-mail)
 
 - **Tipo:** pagina
 - **Rota:** `/alertas/acao/[projectId]/[batchId]/[eventId]`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro AL-01 a AL-03 BLOQUEADO.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Resposta rápida de alerta (e-mail): Tela aberta pelo botão do e-mail para responder um alerta de contrato: Resolvido, Em andamento ou Enviado para outra pessoa.
@@ -3236,8 +3235,8 @@ O que já funciona pelo e-mail e o que continua bloqueado nesta versão.
 - **P:** Como respondo pelo botão do e-mail?
   **R:** Clique no botão do e-mail (Resolvido, Em andamento ou Enviado para), confira o aviso e confirme em CONFIRMAR. Se o e-mail traz vários alertas, a tela leva à resposta completa no ACC.
 
-**9. Limitações e o que não está homologado**
-- Tela não vista em sessão autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Abre pelo link ou botão e executa as ações disponíveis.
@@ -3245,7 +3244,7 @@ O que já funciona pelo e-mail e o que continua bloqueado nesta versão.
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Resposta rápida de alerta (e-mail)" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Resposta rápida de alerta (e-mail)" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/alertas/acao/[projectId]/[batchId]/[eventId]/page.tsx`, `docs/manual-referencia-acc.md (4.13)`
 
@@ -3253,7 +3252,7 @@ O que já funciona pelo e-mail e o que continua bloqueado nesta versão.
 
 - **Tipo:** pagina
 - **Rota:** `/alertas/lote/[projectId]/[batchId]`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro AL-01 a AL-03 BLOQUEADO.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Resposta rápida de vários alertas (e-mail): Versão compacta para responder os alertas de um e-mail em lote; só libera o envio final quando todos têm ação.
@@ -3282,8 +3281,8 @@ O que já funciona pelo e-mail e o que continua bloqueado nesta versão.
 - **P:** Posso responder alguns alertas do lote e outros depois?
   **R:** Sim: use Salvar esta ação em cada alerta; o envio final (CONFIRMAR TUDO) só libera quando todos tiverem ação.
 
-**9. Limitações e o que não está homologado**
-- Tela não vista em sessão autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Abre pelo link ou botão e executa as ações disponíveis.
@@ -3291,7 +3290,7 @@ O que já funciona pelo e-mail e o que continua bloqueado nesta versão.
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Resposta rápida de vários alertas (e-mail)" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Resposta rápida de vários alertas (e-mail)" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/alertas/lote/[projectId]/[batchId]/page.tsx`, `docs/manual-referencia-acc.md (4.13)`
 
@@ -3299,7 +3298,7 @@ O que já funciona pelo e-mail e o que continua bloqueado nesta versão.
 
 - **Tipo:** pagina
 - **Rota:** `/alertas/providencia/[projectId]/[itemId]`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro AL-01 a AL-03 BLOQUEADO.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Resposta rápida de alerta de providência (e-mail): Tela aberta pelo botão do e-mail para responder o alerta de uma providência: Resolvido, Em andamento ou Enviado para.
@@ -3329,8 +3328,8 @@ O que já funciona pelo e-mail e o que continua bloqueado nesta versão.
 - **P:** Como resolvo uma providência pelo e-mail?
   **R:** Clique no botão Resolvido do e-mail, informe a evidência, o protocolo ou uma justificativa e confirme. A conclusão exige perfil com permissão; se for recusada, peça ao Administrador.
 
-**9. Limitações e o que não está homologado**
-- Tela não vista em sessão autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Abre pelo link ou botão e executa as ações disponíveis.
@@ -3338,7 +3337,7 @@ O que já funciona pelo e-mail e o que continua bloqueado nesta versão.
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Resposta rápida de alerta de providência (e-mail)" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Resposta rápida de alerta de providência (e-mail)" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/alertas/providencia/[projectId]/[itemId]/page.tsx`, `docs/manual-referencia-acc.md (4.14)`
 
@@ -3346,7 +3345,7 @@ O que já funciona pelo e-mail e o que continua bloqueado nesta versão.
 
 - **Tipo:** pagina
 - **Rota:** `/email-actions/[token]`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Ação de e-mail (botões do e-mail): Tela de confirmação dos botões dos e-mails acionáveis (por exemplo dar ciência ou assumir). Abrir o link não registra nada: a ação só vale depois da confirmação.
@@ -3374,8 +3373,8 @@ O que já funciona pelo e-mail e o que continua bloqueado nesta versão.
 - **P:** Por que o botão do e-mail pede login?
   **R:** Porque a ação é registrada em nome de quem confirma: o ACC pede o login, leva à tela certa e só registra a ação depois da sua confirmação.
 
-**9. Limitações e o que não está homologado**
-- Sem homologação em tela autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Abre pelo link ou botão e executa as ações disponíveis.
@@ -3383,7 +3382,7 @@ O que já funciona pelo e-mail e o que continua bloqueado nesta versão.
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Ação de e-mail (botões do e-mail)" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Ação de e-mail (botões do e-mail)" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/email-actions/[token]/page.tsx`, `docs/manual-referencia-acc.md (4.16)`
 
@@ -3395,7 +3394,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 
 - **Tipo:** pagina
 - **Rota:** `/alertas/consulta-ia/[projectId]/[subject]/[id]`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Roteiro AL-01 a AL-03 BLOQUEADO.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Consultar IA sobre o alerta: Tela aberta pelo botão CONSULTAR IA do e-mail: pede a opinião de um especialista de IA sobre o alerta. É só consulta, não altera o alerta nem registra providência.
@@ -3425,7 +3424,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 - **P:** Como consulto a IA sobre um alerta?
   **R:** Pelo botão CONSULTAR IA do e-mail: confira o especialista sugerido, edite a pergunta se quiser e toque em Consultar. A consulta só lê: não altera o alerta. A resposta é do especialista e exige revisão humana.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - Depende de o provedor de IA estar habilitado; não é a AXIA.
 
 **10. Diferenças entre perfis**
@@ -3434,7 +3433,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Consultar IA sobre o alerta" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Consultar IA sobre o alerta" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/alertas/consulta-ia/[projectId]/[subject]/[id]/page.tsx`, `docs/manual-referencia-acc.md (4.15)`
 
@@ -3442,7 +3441,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/experts-ia`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** Experts IA: Reúne os especialistas de IA do ACC (jurídico, engenharia, planejamento, SSMA, qualidade e outros). São eles que analisam informações e produzem recomendações técnicas; a AXIA não faz isso.
@@ -3473,9 +3472,9 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 - **P:** Quando uso a AXIA e quando um especialista?
   **R:** Use a AXIA para saber como usar uma tela do ACC. Para analisar um contrato, um documento, um alerta ou uma questão técnica da obra, use um especialista em Experts IA; a resposta dele exige revisão humana.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - Depende de o provedor de IA estar habilitado.
-- Sem linha própria no roteiro de homologação autenticada.
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis nela; é quem gerencia usuários e configurações da obra.
@@ -3483,7 +3482,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Experts IA" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Experts IA" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/experts-ia/page.tsx`, `docs/manual-referencia-acc.md (cap. 8)`, `scripts/test-especialista-never-axia.mjs`
 
@@ -3491,7 +3490,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 
 - **Tipo:** subaba (dentro de Experts IA)
 - **Rota:** `/[projectId]/experts-ia/descricao`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** Descrição dos Especialistas: Página de referência dos especialistas oficiais: competências, fontes, limitações e o perfil simulado de cada um.
@@ -3517,8 +3516,8 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 - **P:** Onde vejo o que cada especialista faz?
   **R:** Em Experts IA, na Descrição dos Especialistas: competências, fontes, limitações e o perfil de cada um. Fonte autorizada não significa fonte já disponível.
 
-**9. Limitações e o que não está homologado**
-- Sem homologação em tela autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis nela; é quem gerencia usuários e configurações da obra.
@@ -3526,7 +3525,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Descrição dos Especialistas" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Descrição dos Especialistas" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/experts-ia/descricao/page.tsx`
 
@@ -3534,7 +3533,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 
 - **Tipo:** subaba (dentro de Experts IA)
 - **Rota:** `/[projectId]/experts-ia/diretor-engenharia`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** Diretor de Engenharia e Construção IA: Painel para perguntar ao especialista de engenharia e construção. A AXIA apenas explica como abrir e usar o painel.
@@ -3561,7 +3560,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 - **P:** Como pergunto ao Diretor de Engenharia IA?
   **R:** Abra Experts IA, escolha o Diretor de Engenharia e Construção IA, escreva a pergunta e consulte. A resposta é do especialista e exige revisão humana; a AXIA só explica o caminho.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - Depende do provedor de IA habilitado.
 
 **10. Diferenças entre perfis**
@@ -3570,7 +3569,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Diretor de Engenharia e Construção IA" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Diretor de Engenharia e Construção IA" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/experts-ia/diretor-engenharia/page.tsx`
 
@@ -3578,7 +3577,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 
 - **Tipo:** subaba (dentro de Experts IA)
 - **Rota:** `/[projectId]/experts-ia/diretor-planejamento`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** Diretor de Planejamento IA: Painel para perguntar ao especialista de planejamento. A AXIA apenas explica como abrir e usar o painel.
@@ -3605,7 +3604,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 - **P:** Como pergunto ao Diretor de Planejamento IA?
   **R:** Abra Experts IA, escolha o Diretor de Planejamento IA, escreva a pergunta e consulte. A resposta é do especialista e exige revisão humana; a AXIA só explica o caminho.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - Depende do provedor de IA habilitado.
 
 **10. Diferenças entre perfis**
@@ -3614,7 +3613,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Diretor de Planejamento IA" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Diretor de Planejamento IA" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/experts-ia/diretor-planejamento/page.tsx`
 
@@ -3622,7 +3621,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 
 - **Tipo:** pagina
 - **Rota:** `/vera`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Fale com a AXIA (rota /vera): Atalho antigo que abre Ajuda e tutorial já com a conversa da AXIA. A AXIA é a assistente de uso do ACC: explica como usar as telas.
@@ -3648,7 +3647,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 - **P:** O que a AXIA faz?
   **R:** A AXIA ensina a usar o ACC: explica abas, botões e fluxos. Ela não altera nada, não lê dados da obra e não analisa contratos ou questões técnicas; para isso use os especialistas em Experts IA.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - A AXIA responde só com a base de uso aprovada.
 
 **10. Diferenças entre perfis**
@@ -3657,14 +3656,14 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Fale com a AXIA (rota /vera)" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Fale com a AXIA (rota /vera)" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/vera/page.tsx`, `apps/web/lib/assistant/knowledge.ts`
 
 ### 11.7 AXIA e Especialistas: quem responde o quê
 
 - **Tipo:** tema
-- **Situação:** Operacional (sem homologação em tela autenticada) — Decisão do produto e guardas determinísticas da AXIA.
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** AXIA e Especialistas: quem responde o quê: A AXIA e os Especialistas de IA são coisas separadas. A AXIA responde dúvidas de USO do ACC. Os Especialistas (Experts IA) tratam de questões técnicas e contratuais da obra.
@@ -3693,7 +3692,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 - **P:** A AXIA analisa meu contrato?
   **R:** Não. A AXIA só ensina a usar o ACC. Para analisar um contrato ou documento use os especialistas em Experts IA; a resposta deles exige revisão humana.
 
-**9. Limitações e o que não está homologado**
+**9. Limitações e o que ainda não está liberado**
 - Perguntas sobre um caso concreto recebem o aviso de que a AXIA explica só a regra geral.
 
 **10. Diferenças entre perfis**
@@ -3702,7 +3701,7 @@ A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "AXIA e Especialistas: quem responde o quê" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "AXIA e Especialistas: quem responde o quê" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/lib/assistant/guards.ts`, `apps/web/lib/assistant/scope.ts`, `scripts/test-especialista-never-axia.mjs`
 
@@ -3714,7 +3713,7 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 
 - **Tipo:** pagina
 - **Rota:** `/projetos/novo` · relacionadas: `/projetos/[projectId]/editar`, `/projetos/[projectId]/copiar-estrutura`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; conforme app/projetos/novo e editar.
+- **Situação:** Disponível
 - **Quem vê:** Sem item no menu: aberta por link, botão, e-mail ou outra tela
 
 **1. Nome e finalidade.** Criar e editar obras: Telas do Administrador para criar uma obra nova, editar os dados de uma obra e copiar a estrutura de uma obra existente.
@@ -3744,8 +3743,8 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 - **P:** Quem cria uma obra nova?
   **R:** Somente o Administrador: o botão NOVO PROJETO aparece em Selecione um projeto. Quem não é Administrador é redirecionado.
 
-**9. Limitações e o que não está homologado**
-- Sem homologação em tela autenticada nas telas de criação e edição.
+**9. Limitações e o que ainda não está liberado**
+- Telas de criação e edição ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Abre pelo link ou botão e executa as ações disponíveis.
@@ -3753,7 +3752,7 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 - Colaborador: Abre pelo link ou botão; as ações seguem o nível Colaborador.
 - Leitura: Abre pelo link ou botão apenas para consultar, quando o servidor liberar.
 
-**Capturas de tela:** Tela "Criar e editar obras" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Criar e editar obras" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/projetos/novo/page.tsx`, `apps/web/app/projetos/[projectId]/editar/page.tsx`, `apps/web/app/projetos/[projectId]/copiar-estrutura/page.tsx`
 
@@ -3761,7 +3760,7 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/usuarios`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; item restrito ao Administrador.
+- **Situação:** Disponível
 - **Quem vê:** Somente Administrador da obra
 
 **1. Nome e finalidade.** Usuários: Controle de acesso da obra: usuários, cargos, áreas, permissões, WhatsApp de alerta crítico e a matriz de responsabilidades e prazos.
@@ -3794,8 +3793,8 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 - **P:** Como libero a obra para uma pessoa?
   **R:** Na tela Usuários (só o Administrador a vê): + Adicionar usuário, busque o e-mail do domínio axion.com.br, escolha a Permissão e a Área e confirme. Se a pessoa nunca entrou, use Pré-cadastrar.
 
-**9. Limitações e o que não está homologado**
-- Sem linha própria no roteiro de homologação autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê o item no menu, abre a tela e executa as ações.
@@ -3803,7 +3802,7 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 - Colaborador: Não vê o item no menu e não abre a tela.
 - Leitura: Não vê o item no menu e não abre a tela.
 
-**Capturas de tela:** Tela "Usuários" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Usuários" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/usuarios/page.tsx`, `docs/manual-referencia-acc.md (4.30)`
 
@@ -3811,10 +3810,10 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/competencias`
-- **Situação:** Bloqueada nesta versão — Decisão da Fase 2: as nove operações de escrita de competências estão na trava de módulos.
+- **Situação:** Ainda não liberada
 - **Quem vê:** Membros ativos com nível Leitura ou superior
 
-**1. Nome e finalidade.** Competências: Governança das competências profissionais: solicitações, validação por pessoa independente, revalidação e validadores designados. Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+**1. Nome e finalidade.** Competências: Governança das competências profissionais: solicitações, validação por pessoa independente, revalidação e validadores designados. Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
 
 **2. Funcionalidades**
 - Nenhuma operação de escrita está liberada nesta versão.
@@ -3823,10 +3822,10 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 - A tela pode abrir para consulta.
 
 **4. Passo a passo**
-1. Não há passo a passo: as operações desta aba estão bloqueadas nesta versão.
+1. Não há passo a passo: as operações desta aba ainda não estão liberadas.
 
 **5. Regras e significados de status**
-- Situação: Bloqueada nesta versão.
+- Situação: ainda não liberada.
 - Atos que exigem habilitação continuam seguindo a regra vigente, sem passar por esta tela.
 
 **6. Permissões.** Membros ATIVOS com nível Leitura ou superior veem a tela. Quem não é membro ativo da obra não a vê (o menu esconde, mas a rota e o banco também bloqueiam).
@@ -3836,11 +3835,11 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Posso solicitar uma competência pela aba Competências?
-  **R:** Não nesta versão: as operações da aba Competências (solicitar, validar, revalidar, designar validador) estão bloqueadas. Não há instrução de uso a seguir; quando forem liberadas, o manual e a AXIA serão atualizados.
+  **R:** Não nesta versão: as operações da aba Competências (solicitar, validar, revalidar, designar validador) ainda não estão liberadas. Não há instrução de uso a seguir; quando forem liberadas, o manual e a AXIA serão atualizados.
 
-**9. Limitações e o que não está homologado**
-- Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
-- Sem homologação em tela autenticada (NAO-CONSTA no roteiro).
+**9. Limitações e o que ainda não está liberado**
+- Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -3848,7 +3847,7 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 - Colaborador: Vê a tela; registra o que o nível Colaborador permite.
 - Leitura: Vê a tela e consulta; não grava.
 
-**Capturas de tela:** Tela "Competências" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Competências" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/competencias/page.tsx`, `apps/web/lib/permissions/nav-access.ts`, `apps/web/lib/ui/help/manifests/governanca.ts`
 
@@ -3856,7 +3855,7 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/aprovacoes-externas`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; nível mínimo Colaborador em nav-access.
+- **Situação:** Disponível
 - **Quem vê:** Membros ativos com nível Colaborador ou superior (Leitura não vê)
 
 **1. Nome e finalidade.** Aprovações externas: Preparação e decisão de comunicações a destinatários externos. A aprovação vale uma vez e fica presa ao conteúdo. Esta tela nunca envia e-mail.
@@ -3885,8 +3884,8 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 - **P:** A aba Aprovações externas envia e-mail?
   **R:** Não: ela só prepara e registra a decisão sobre comunicações a destinatários externos. A aprovação vale uma vez e fica presa ao conteúdo.
 
-**9. Limitações e o que não está homologado**
-- Sem linha própria no roteiro de homologação autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis.
@@ -3894,7 +3893,7 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 - Colaborador: Vê a tela e faz o que o nível Colaborador permite.
 - Leitura: Não vê o item no menu e não abre a tela.
 
-**Capturas de tela:** Tela "Aprovações externas" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Aprovações externas" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/aprovacoes-externas/page.tsx`, `apps/web/lib/permissions/nav-access.ts`
 
@@ -3902,7 +3901,7 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/startup`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro; item restrito ao Administrador.
+- **Situação:** Disponível
 - **Quem vê:** Somente Administrador da obra
 
 **1. Nome e finalidade.** Start-up ACC: Validação dos riscos históricos Alto e Crítico anteriores ao início operacional do ACC, com uma decisão humana por achado.
@@ -3933,8 +3932,8 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 - **P:** Para que serve o Start-up ACC?
   **R:** Para validar, com decisão humana, os riscos Alto e Crítico do histórico anterior ao início operacional do ACC. Concluir grava o marco sem reescrever nenhum achado.
 
-**9. Limitações e o que não está homologado**
-- Sem linha própria no roteiro de homologação autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê o item no menu, abre a tela e executa as ações.
@@ -3942,7 +3941,7 @@ Gestão de pessoas e perfis, competências, aprovações externas, criação de 
 - Colaborador: Não vê o item no menu e não abre a tela.
 - Leitura: Não vê o item no menu e não abre a tela.
 
-**Capturas de tela:** Tela "Start-up ACC" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Start-up ACC" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/startup/page.tsx`, `docs/manual-referencia-acc.md (4.35)`
 
@@ -3954,7 +3953,7 @@ Ajuda e tutorial e as telas fora do menu que continuam acessíveis.
 
 - **Tipo:** menu
 - **Rota:** `/[projectId]/ajuda`
-- **Situação:** Operacional (sem homologação em tela autenticada) — Sem linha própria no roteiro.
+- **Situação:** Disponível
 - **Quem vê:** Todos os membros ativos da obra
 
 **1. Nome e finalidade.** Ajuda e tutorial: Reúne o tutorial do ACC: PDF para consulta e PowerPoint editável, com imagens das telas e dos e-mails de alerta (dados fictícios).
@@ -3983,8 +3982,8 @@ Ajuda e tutorial e as telas fora do menu que continuam acessíveis.
 - **P:** Onde fica o tutorial?
   **R:** Em Ajuda e tutorial, no menu da obra: PDF para consulta e PowerPoint para edição.
 
-**9. Limitações e o que não está homologado**
-- Sem linha própria no roteiro de homologação autenticada.
+**9. Limitações e o que ainda não está liberado**
+- Tela ainda em validação final de uso.
 
 **10. Diferenças entre perfis**
 - Administrador: Vê a tela e executa as ações disponíveis nela; é quem gerencia usuários e configurações da obra.
@@ -3992,6 +3991,6 @@ Ajuda e tutorial e as telas fora do menu que continuam acessíveis.
 - Colaborador: Vê a tela e faz os registros que o nível Colaborador permite.
 - Leitura: Só consulta; não grava.
 
-**Capturas de tela:** Tela "Ajuda e tutorial" (captura pendente de sessão autenticada)
+**Capturas de tela:** Tela "Ajuda e tutorial" (captura de tela ainda não disponível)
 
 **Fontes:** `apps/web/app/[projectId]/ajuda/page.tsx`, `docs/manual-referencia-acc.md (4.33)`

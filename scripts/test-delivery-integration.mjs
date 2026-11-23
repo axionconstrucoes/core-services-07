@@ -133,7 +133,8 @@ check("página de providências: leitura apenas (GET não altera nada); edição
   const page = src("apps/web/app/[projectId]/providencias/page.tsx");
   assert.ok(!/\.rpc\(|\.insert\(|\.update\(|\.delete\(/.test(page));
   assert.ok(page.includes("overview.canEdit ?"));
-  assert.ok(page.includes("migration das providências não foi aplicada"));
+  assert.ok(page.includes("Este recurso (providências) ainda não está disponível neste ambiente"));
+  assert.ok(!/migration/i.test(page.match(/<EmptyState message="[^"]*"/)?.[0] ?? ""), "aviso ao usuário não deve citar migration");
   const data = src("apps/web/lib/delivery/delivery-data.ts");
   assert.ok(data.includes("42P01"));
   assert.ok(data.includes('permission === "ADMINISTRADOR" || permission === "GESTOR" || permission === "GERENTE"'));

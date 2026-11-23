@@ -142,8 +142,8 @@ t("a base por aba é pura: só importa seus próprios arquivos (axia-entradas im
 const sha = (rel) => createHash("sha256").update(readFileSync(path.join(web, "lib", "assistant", rel), "utf8").replace(/\r\n/g, "\n")).digest("hex");
 t("guards.ts intacto (SHA-256 do estado anterior à Frente E)", sha("guards.ts") === "57a76807736810433424914e43badff70ea98772c167966298086516142046b7");
 t("scope.ts intacto", sha("scope.ts") === "310696874c140a52119e97f401d55d5d55ce0fcc9ab75dff3b139080ae5a078f");
-// Hash atualizado: qa-E1/qa-E2 (textos de SLA) alterados com autorizacao do responsavel para refletir a politica aprovada (MEDIO 2 d.u., BAIXO 5 d.u.).
-t("approved-batch-1.ts conforme texto autorizado (20 entradas aprovadas)", sha("approved-batch-1.ts") === "971463d4e935716dc50daae18aeff2c49160446f933d86cccfe10cfdd6fb45a6" && APPROVED_BATCH_1_IDS.length === 20);
+// Hash atualizado: a mudanca de texto de qa-E1/qa-E2 (SLA de Medio/Baixo vem da matriz da obra; sem detalhes internos) foi AUTORIZADA pelo responsavel. Anterior: 971463d4e935716dc50daae18aeff2c49160446f933d86cccfe10cfdd6fb45a6
+t("approved-batch-1.ts conforme texto autorizado (20 entradas aprovadas)", sha("approved-batch-1.ts") === "f590420fc9da07c5c4bd4d897a367c55f128dfdbc1a348a45862550e5553e9f7" && APPROVED_BATCH_1_IDS.length === 20);
 const P = "obra-teste";
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 t("guarda de prazo por grau: crítico → E2", eq(guards.gradeDeadlineEntryIds("qual o prazo do alerta critico"), ["qa-E2"]));
@@ -205,7 +205,7 @@ t(`há abas bloqueadas na base (${bloqueadas.length})`, bloqueadas.length > 0);
 for (const b of bloqueadas) {
   const q = b.perguntas[0];
   const r = answerQuestion(q.palavrasChave[0], P);
-  t(`AXIA diz que "${b.nome}" (${b.id}) NÃO está disponível`, r.entryId.startsWith(`aba-${b.id}`) && /bloquead/i.test(`${r.summary} ${r.steps.join(" ")}`) && /n[aã]o/i.test(r.summary) && b.passoAPasso.every((p) => /bloquead|n[aã]o h[aá]/i.test(p)));
+  t(`AXIA diz que "${b.nome}" (${b.id}) NÃO está disponível`, r.entryId.startsWith(`aba-${b.id}`) && /n[aã]o est(á|a|ão|ao) liberad/i.test(`${r.summary} ${r.steps.join(" ")}`) && /n[aã]o/i.test(r.summary) && b.passoAPasso.every((p) => /n[aã]o est(á|a|ão|ao) liberad|n[aã]o h[aá]/i.test(p)));
 }
 t("itens bloqueados têm evidência da decisão e roteiro", bloqueadas.every((b) => /trava|bloquead|Fase 2/i.test(b.evidenciaSituacao)));
 t("nenhuma aba marcada HOMOLOGADA (nenhuma tela está assim em 22/11/2026)", ITENS.every((i) => i.situacao !== "HOMOLOGADA"));
