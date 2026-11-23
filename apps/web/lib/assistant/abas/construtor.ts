@@ -124,7 +124,7 @@ export function item(e: EntradaItem): ItemConhecimento {
     statusRoteiro: e.rot ?? "NAO-CONSTA",
     evidenciaSituacao: e.ev,
     mensagens: e.msg,
-    capturas: [{ descricao: `Tela "${e.nome}" (captura pendente de sessão autenticada)` }],
+    capturas: [{ descricao: `Tela "${e.nome}" (captura de tela ainda não disponível)` }],
     palavrasChave: e.kw,
     fontes: e.fontes,
   };
@@ -132,4 +132,4 @@ export function item(e: EntradaItem): ItemConhecimento {
 
 /** Texto padrão de uma aba BLOQUEADA nesta versão (a AXIA diz que NÃO está disponível). */
 export const TEXTO_BLOQUEADA =
-  "Esta aba está bloqueada nesta versão do ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.";
+  "Esta aba ainda não está liberada no ACC: o registro por ela não está liberado ao usuário. Não há instrução de uso a seguir; quando for liberada, o manual e a AXIA serão atualizados.";

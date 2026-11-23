@@ -143,21 +143,21 @@ export const CAPITULOS: Capitulo[] = [
   { id: "planejamento-custos", numero: 3, titulo: "Planejamento e Custos", introducao: "Providências de entrega da obra, cronograma e o painel Financeiro (restrito)." },
   { id: "juridico-contratos", numero: 4, titulo: "Jurídico e contratos", introducao: "Documentos do contrato, cláusulas, eventos com implicação contratual e o Expert Jurídico." },
   { id: "ssma", numero: 5, titulo: "SSMA, ocorrências, ações e uso offline", introducao: "ESG/SSMA no ACC, registros de campo, avaliação e o app de campo que funciona sem internet." },
-  { id: "qualidade", numero: 6, titulo: "Qualidade e RNC", introducao: "Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas bloqueadas nesta versão." },
+  { id: "qualidade", numero: 6, titulo: "Qualidade e RNC", introducao: "Módulo de Qualidade: RNC, evidências, ações (CAPA), eficácia e as abas ainda não liberadas." },
   { id: "seguros-garantias", numero: 7, titulo: "Seguros e Garantias", introducao: "Apólices, endossos, adiantamentos, sinistros, minutas e canais oficiais; casos de garantia técnica." },
   { id: "integracoes", numero: 8, titulo: "Integrações", introducao: "Gmail, Outlook, Google Drive e demais conectores existentes, caixas de e-mail, contatos externos, sinais de e-mail e autorizações." },
   { id: "alertas-sla", numero: 9, titulo: "Alertas por e-mail, criticidades, SLA e escalonamentos", introducao: "Como os alertas nascem, os prazos por criticidade (SLA), o escalonamento e a reemissão." },
-  { id: "respostas-email", numero: 10, titulo: "Respostas e resolução pelo e-mail", introducao: "O que já funciona pelo e-mail e o que continua bloqueado nesta versão." },
+  { id: "respostas-email", numero: 10, titulo: "Respostas e resolução pelo e-mail", introducao: "O que já funciona pelo e-mail e o que ainda não está liberado." },
   { id: "axia-especialistas", numero: 11, titulo: "AXIA e Especialistas", introducao: "A AXIA esclarece dúvidas de USO do ACC; os Especialistas de IA tratam questões técnicas da obra." },
   { id: "administracao", numero: 12, titulo: "Administração, usuários, competências e permissões", introducao: "Gestão de pessoas e perfis, competências, aprovações externas, criação de obras e Start-up ACC." },
   { id: "demais", numero: 13, titulo: "Demais abas", introducao: "Ajuda e tutorial e as telas fora do menu que continuam acessíveis." },
 ];
 
 export const SITUACAO_ROTULO: Record<Situacao, string> = {
-  OPERACIONAL: "Operacional (sem homologação em tela autenticada)",
-  HOMOLOGADA: "Homologada",
-  PARCIALMENTE_HOMOLOGADA: "Parcialmente homologada",
-  BLOQUEADA: "Bloqueada nesta versão",
+  OPERACIONAL: "Disponível",
+  HOMOLOGADA: "Disponível",
+  PARCIALMENTE_HOMOLOGADA: "Disponível (partes ainda em validação final de uso)",
+  BLOQUEADA: "Ainda não liberada",
 };
 
 export const ACESSO_ROTULO: Record<AcessoMenu, string> = {

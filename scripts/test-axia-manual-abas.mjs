@@ -205,7 +205,7 @@ t(`há abas bloqueadas na base (${bloqueadas.length})`, bloqueadas.length > 0);
 for (const b of bloqueadas) {
   const q = b.perguntas[0];
   const r = answerQuestion(q.palavrasChave[0], P);
-  t(`AXIA diz que "${b.nome}" (${b.id}) NÃO está disponível`, r.entryId.startsWith(`aba-${b.id}`) && /bloquead/i.test(`${r.summary} ${r.steps.join(" ")}`) && /n[aã]o/i.test(r.summary) && b.passoAPasso.every((p) => /bloquead|n[aã]o h[aá]/i.test(p)));
+  t(`AXIA diz que "${b.nome}" (${b.id}) NÃO está disponível`, r.entryId.startsWith(`aba-${b.id}`) && /n[aã]o est(á|a|ão|ao) liberad/i.test(`${r.summary} ${r.steps.join(" ")}`) && /n[aã]o/i.test(r.summary) && b.passoAPasso.every((p) => /n[aã]o est(á|a|ão|ao) liberad|n[aã]o h[aá]/i.test(p)));
 }
 t("itens bloqueados têm evidência da decisão e roteiro", bloqueadas.every((b) => /trava|bloquead|Fase 2/i.test(b.evidenciaSituacao)));
 t("nenhuma aba marcada HOMOLOGADA (nenhuma tela está assim em 22/11/2026)", ITENS.every((i) => i.situacao !== "HOMOLOGADA"));

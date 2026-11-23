@@ -87,7 +87,7 @@ export const JURIDICO_HELP: FeatureHelpDefinition[] = [
       "A resposta se limita ao texto dos documentos carregados; base legal oficial não está disponível (nenhum corpus normativo versionado).",
     ],
     humanReview: "Resposta de IA com revisão humana obrigatória; nada é enviado ou aceito automaticamente.",
-    validity: "Limites 20 por usuário/dia e 100 por obra/dia conforme migration 20261120120000 e lib/ai/governance/budget-options.ts.",
+    validity: "Limites 20 por usuário/dia e 100 por obra/dia conforme as opções de governança de IA (lib/ai/governance/budget-options.ts).",
   },
   {
     id: "juridico.projeto.minhas-consultas",
@@ -381,7 +381,7 @@ export const JURIDICO_HELP: FeatureHelpDefinition[] = [
     purpose: "Decidir quais conversas viram evento contratual rastreável.",
     howToUse: ["Abra Ver evidências e leia os e-mails da conversa.", "Aprove como evento (título e conclusão do revisor) ou rejeite com justificativa."],
     howItWorks:
-      "O triador (scripts/email-thread-contract-triage.mjs) soma pesos de termos contratuais fortes e de apoio no texto da conversa e grava candidatos PENDING_REVIEW (email_thread_event_candidates). A decisão chama a RPC review_email_thread_event_candidate, que autoriza no banco e, ao aprovar, cria o evento no Event Ledger.",
+      "O triador de conversas de e-mail soma pesos de termos contratuais fortes e de apoio no texto da conversa e grava candidatos PENDING_REVIEW (email_thread_event_candidates). A decisão chama a RPC review_email_thread_event_candidate, que autoriza no banco e, ao aprovar, cria o evento no Event Ledger.",
     permissions: "A interface oferece os formulários somente ao ADMINISTRADOR; as demais permissões veem a lista em modo leitura. A RPC no banco valida a permissão de novo.",
     limitations: ["O texto de apoio da tela citava EDITOR ou ADMIN (perfis legados); agora diz ADMINISTRADOR, que é a permissão efetiva (EDITOR equivale a ADMINISTRADOR na regra atual)."],
     humanReview: "Aprovação ou rejeição humana obrigatória; sem ela nada entra no Event Ledger.",
@@ -417,7 +417,7 @@ export const JURIDICO_HELP: FeatureHelpDefinition[] = [
       "Exige revisão quando há algum termo forte, ou score a partir de 10 com ao menos 2 categorias.",
       "Prioridade: Crítico com score a partir de 22; Alto a partir de 14; Médio nos demais casos que exigem revisão.",
     ],
-    source: "Triador scripts/email-thread-contract-triage.mjs; e-mails em emails e email_thread_event_candidate_emails.",
+    source: "Triador de conversas de e-mail; e-mails em emails e email_thread_event_candidate_emails.",
     limitations: ["O score mede presença de termos, não gravidade jurídica; a prioridade é um filtro de atenção, não um parecer."],
     humanReview: "O revisor deve ler as evidências antes de aprovar ou rejeitar.",
   },
@@ -899,7 +899,7 @@ export const JURIDICO_HELP: FeatureHelpDefinition[] = [
     ],
     howItWorks:
       "É um formulário GET: os filtros ficam na URL (classificacao, q, de, ate, remetente, destinatario, semana, direcao, status, risco, pagina), então o link pode ser copiado e funciona sem JavaScript. A busca e a paginação (25 por página) rodam no banco pela função search_email_document_registry, sob as regras de acesso (RLS) do usuário; nada é carregado inteiro no navegador. A semana aceita 1 a 3 dígitos; valores inválidos são ignorados.",
-    source: "Função SQL search_email_document_registry (migration 20260920120000) sobre os e-mails, anexos e abas de relatório semanal do projeto.",
+    source: "Função de busca search_email_document_registry sobre os e-mails, anexos e abas de relatório semanal do projeto.",
     missingData: "Sem resultados, a tela informa que nenhum envio corresponde aos filtros; filtro vazio não restringe.",
     permissions: "Membros do projeto; o que cada usuário enxerga segue as regras de acesso do banco.",
     validity: "A aba só existe com a funcionalidade de relatórios semanais ligada no ambiente (ACC_WEEKLY_REPORTS_ENABLED igual a true).",
@@ -982,7 +982,7 @@ export const JURIDICO_HELP: FeatureHelpDefinition[] = [
     description:
       "Cada linha é um ENVIO por e-mail. Título / assunto abre o detalhe do e-mail; Direção mostra INBOUND (recebido) ou OUTBOUND (enviado); Remetente → destinatários aparecem truncados (o endereço completo está no detalhe do e-mail); Data / hora usa o fuso America/Sao_Paulo; Semana é o W da obra lido do assunto (traço quando não identificada); Anexos é a quantidade de anexos armazenados. A paginação (Anterior e Próxima) navega de 25 em 25 preservando os filtros.",
     purpose: "Navegar pela evidência documental de e-mails com rastreabilidade até o original.",
-    source: "Função SQL search_email_document_registry (somente leitura).",
+    source: "Função de busca search_email_document_registry (somente leitura).",
     missingData: "Campo sem valor aparece como traço, nunca como zero.",
     limitations: ["O rodapé da paginação mostra a data de hoje do servidor, não a data do último sincronismo de e-mails."],
   },

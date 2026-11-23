@@ -27,7 +27,7 @@ export const COMERCIAL_HELP: FeatureHelpDefinition[] = [
     shortDescription: "O dashboard Financeiro depende de uma trava de ambiente dos relatórios semanais que está desligada.",
     description:
       "Aviso exibido no lugar do dashboard quando a funcionalidade de relatórios semanais não está habilitada na instalação (variável de ambiente ACC_WEEKLY_REPORTS_ENABLED diferente de 'true'). Nada é consultado enquanto a trava está desligada.",
-    purpose: "Evitar consultas a tabelas que dependem de uma migration ainda não aplicada e deixar claro que a tela não está com erro.",
+    purpose: "Evitar consultas a dados ainda não disponíveis neste ambiente e deixar claro que a tela não está com erro.",
     howItWorks: "A página verifica isWeeklyReportsEnabled() antes de qualquer leitura. A regra é fail-closed: só o valor exato 'true' liga.",
     refresh: "Muda apenas com alteração da configuração do ambiente e novo deploy.",
     missingData: "Não se aplica: a mensagem substitui o conteúdo.",

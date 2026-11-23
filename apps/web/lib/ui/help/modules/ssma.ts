@@ -8,7 +8,7 @@ const D = { module: "ssma", version: "2026-11-20" } as const;
 
 /** Vigência do prazo de ASSUMIR das ações corretivas (regra aprovada x configuração publicada). */
 const SLA_VALIDITY =
-  "Prazos aprovados: CRÍTICO 1 hora corrida, ALTO 4 horas úteis, MÉDIO 2 dias úteis, BAIXO 5 dias úteis. A configuração operacional publicada hoje ainda tem MÉDIO 1 dia útil e BAIXO 3 dias úteis (a migration 20261121177000, que corrige isso, ainda não foi aplicada em produção): enquanto não for aplicada, as ações novas nascem com os prazos publicados. Os valores aprovados só passam a valer depois da migration.";
+  "Prazo para assumir: CRÍTICO 1 hora corrida e ALTO 4 horas úteis; para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra (tela Usuários, bloco Prazos por grau de risco). Alterações na matriz valem para novos alertas; alertas já abertos mantêm o prazo de quando foram criados.";
 
 /** Base dos campos dos formulários 1 a 12 do app de campo (lib/ssma/checklist-definitions.ts). */
 const CAMPO = {
@@ -411,7 +411,7 @@ export const SSMA_HELP: FeatureHelpDefinition[] = [
       "Painel de leitura dos registros criados no aplicativo de campo: resumo, possíveis duplicidades de acidente, Near Misses, tabela de registros com ação corretiva e galeria dos checklists enviados com fotos.",
     purpose: "Acompanhar, no escritório, o que o campo registrou e o andamento das ações corretivas.",
     howItWorks:
-      "Os registros vêm de ssma_field_records (com a ação corretiva e as fotos embutidas) e os checklists de ssma_form_submissions. Registros criados sem sinal aparecem aqui depois de sincronizados. Se a tabela ainda não existir no ambiente, a tela informa 'migration pendente'.",
+      "Os registros vêm de ssma_field_records (com a ação corretiva e as fotos embutidas) e os checklists de ssma_form_submissions. Registros criados sem sinal aparecem aqui depois de sincronizados. Se a tabela ainda não existir no ambiente, a tela informa que os registros ainda não estão disponíveis neste ambiente.",
     permissions: "Membros da obra (a RLS decide o que cada um lê). O painel de duplicidades só é carregado para o Administrador.",
     limitations: ["A tela é somente leitura: tratar ações corretivas e criar registros é feito no aplicativo de campo."],
   },
@@ -537,7 +537,7 @@ export const SSMA_HELP: FeatureHelpDefinition[] = [
     howItWorks: "Lê formulários enviados e registros de campo da obra e roda computeTechnicianEvaluation (lib/ssma/technician-evaluation.ts). Nada é gravado e ninguém é penalizado.",
     permissions: "Administrador e Gerente escolhem qualquer técnico da obra; os demais perfis veem somente a própria ficha.",
     validity: "Regras PROPOSTAS (previa-1), ainda não aprovadas: redistribuição de pesos quando falta dado, cobertura mínima de 60% e desconto por reincidência dependem de aprovação.",
-    limitations: ["Não é avaliação oficial; a persistência da manifestação e validação depende de migration separada ainda não aplicada."],
+    limitations: ["Não é avaliação oficial; a gravação da manifestação e da validação ainda não está disponível."],
     humanReview: "Qualquer uso futuro exige manifestação do técnico e validação do gerente.",
   },
   {
@@ -604,7 +604,7 @@ export const SSMA_HELP: FeatureHelpDefinition[] = [
       "Três botões (Enviar ao técnico, Registrar manifestação, Validar) e dois campos de texto que mostram como seria o fluxo. O estado volta a 'Rascunho' ao recarregar a página.",
     purpose: "Validar o desenho do fluxo antes da persistência.",
     howItWorks: "Máquina de estados em memória (nextEvaluationStatus): só o gerente envia; só o técnico se manifesta (mínimo de 3 caracteres); o gerente valida e não pode validar a própria ficha.",
-    limitations: ["Nada é persistido; depende de migration separada ainda não aplicada."],
+    limitations: ["Nada é gravado; a gravação ainda não está disponível."],
   },
 
   // =====================================================================================================================
@@ -839,7 +839,7 @@ export const SSMA_HELP: FeatureHelpDefinition[] = [
       "Risco declarado no campo (padrão Baixo). Cores: Baixo verde, Médio azul, Alto amarelo, Crítico vermelho. Registro Crítico é destacado nos painéis e pode disparar aviso por e-mail quando as notificações estão ligadas.",
     purpose: "Priorizar o tratamento.",
     howItWorks: "Quando há ação corretiva, o risco do registro vira o risco da ação no módulo Ações (Crítico, Alto, Médio, Baixo) e determina o prazo para assumir.",
-    consequences: ["Prazo de assumir da ação (regra aprovada): CRÍTICO 1 hora corrida, ALTO 4 horas úteis, MÉDIO 2 dias úteis, BAIXO 5 dias úteis."],
+    consequences: ["Prazo de assumir da ação (regra aprovada): CRÍTICO 1 hora corrida e ALTO 4 horas úteis; para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra (tela Usuários, bloco Prazos por grau de risco)."],
     validity: SLA_VALIDITY,
   },
   {
@@ -853,7 +853,7 @@ export const SSMA_HELP: FeatureHelpDefinition[] = [
     purpose: "Criar uma ação corretiva rastreável junto com o registro.",
     howItWorks:
       "O servidor cria a ação corretiva (ssma_corrective_actions) e, na mesma transação, a ação vinculada no módulo Ações e Escalonamentos (sla_actions, área ESG_SSMA, origem Ação corretiva SSMA). O prazo informado é o prazo para CONCLUIR; o prazo para ASSUMIR segue a regra oficial de SLA da obra (matriz da área ESG/SSMA para o nível de risco), limitado ao prazo de conclusão.",
-    criteria: ["Mapeamento de risco: Crítico = CRÍTICO, Alto = ALTO, Médio = MÉDIO, Baixo = BAIXO.", "Prazos de assumir aprovados: CRÍTICO 1 hora corrida, ALTO 4 horas úteis, MÉDIO 2 dias úteis, BAIXO 5 dias úteis."],
+    criteria: ["Mapeamento de risco: Crítico = CRÍTICO, Alto = ALTO, Médio = MÉDIO, Baixo = BAIXO.", "Prazos de assumir aprovados: CRÍTICO 1 hora corrida e ALTO 4 horas úteis; para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra (tela Usuários, bloco Prazos por grau de risco)."],
     validity: SLA_VALIDITY,
     consequences: ["Responsável, prazo e acompanhamento (assumir, iniciar, escalonar, reatribuir) passam a ser geridos no módulo Ações; o app de campo registra andamento, conclusão e encaminhamento."],
   },
@@ -1409,7 +1409,7 @@ export const SSMA_HELP: FeatureHelpDefinition[] = [
     description: "Campo de data opcional dos formulários 8 e 12 (Near Miss) com a data prevista para correção ou tratamento.",
     howItWorks: "Gravado como 'prazo' (texto da data digitada). Não é um prazo de SLA: não gera vencimento, atraso nem escalonamento. Os prazos de SLA valem apenas para ações corretivas de registros de campo.",
     missingData: "Opcional: em branco é gravado como texto vazio.",
-    validity: "Prazos aprovados das ações corretivas dos registros de campo (não deste campo): CRÍTICO 1 hora corrida, ALTO 4 horas úteis, MÉDIO 2 dias úteis, BAIXO 5 dias úteis. A configuração publicada hoje ainda tem MÉDIO 1 dia útil e BAIXO 3 dias úteis (a migration 20261121177000 ainda não foi aplicada em produção).",
+    validity: "Prazos das ações corretivas dos registros de campo (não deste campo): CRÍTICO 1 hora corrida e ALTO 4 horas úteis; para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra.",
   },
   {
     ...D, ...CAMPO,

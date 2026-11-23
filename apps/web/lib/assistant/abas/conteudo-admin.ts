@@ -13,10 +13,10 @@ export const ITENS_ADMIN: ItemConhecimento[] = [
     fun: ["Cartões por fonte com status e origem.", "Editar origem.", "Contas de e-mail AXION e configuração de ingestão.", "Prévia antes de importar e Confirmar sincronização.", "Verificação somente leitura da pasta SSMA/ESG."],
     ind: ["Status de cada fonte: ativo, atenção, erro ou pendente."],
     passos: ["Abra Integrações (Administrador).", "Confira os cartões de fonte.", "Para e-mail, registre a conta do domínio axion.com.br e salve a configuração de ingestão.", "Confira a prévia e confirme a sincronização."],
-    regras: ["Contratos, aditivos, edital e serviços adicionais entram por upload manual do Administrador em Documentos.", "Drive de Orçamentos e Drive de Planejamento não estão integrados.", "Segredos de integração ficam no servidor e nunca aparecem nesta tela."],
+    regras: ["Contratos, aditivos, edital e serviços adicionais entram por upload manual do Administrador em Documentos.", "Drive de Orçamentos e Drive de Planejamento ainda não têm ligação com o ACC.", "Segredos de integração ficam no servidor e nunca aparecem nesta tela."],
     integ: ["Documentos, Timeline, Dashboard e ESG/SSMA."],
     q: [["O que a aba Integrações mostra?", "As fontes externas da obra (Gmail, Google Drive para ESG/SSMA e outras), cada uma com o status e a origem. Só o Administrador a vê. Contratos e aditivos não entram por aqui: entram por upload manual em Documentos.", ["aba integracoes", "tela integracoes", "fontes externas", "integracao gmail"]]],
-    lim: ["Sem linha própria no roteiro de homologação autenticada."], ev: "Sem linha própria no roteiro; item restrito ao Administrador.", kw: ["aba integracoes", "tela integracoes", "fontes externas"],
+    lim: ["Tela ainda em validação final de uso."], ev: "Sem linha própria no roteiro; item restrito ao Administrador.", kw: ["aba integracoes", "tela integracoes", "fontes externas"],
     fontes: ["apps/web/app/[projectId]/integracoes/page.tsx", "apps/web/lib/ui/nav-items.ts", "docs/manual-referencia-acc.md (4.26)"],
   }),
   item({
@@ -26,7 +26,7 @@ export const ITENS_ADMIN: ItemConhecimento[] = [
     passos: ["Abra Integrações e entre em Caixas de e-mail da obra.", "Leia o estado de cada etapa.", "Escolha uma caixa para ver os detalhes."],
     regras: ["Comprovado só com evidência própria; Indício nunca vale como prova."], integ: ["Autorizações e Integrações."],
     q: [["O que significa Indício nas caixas de e-mail?", "Indício é evidência indireta e nunca vale como prova: só o estado Comprovado tem evidência própria.", ["caixas de email da obra", "estado da etapa indicio", "caixas de email"]]],
-    lim: ["Sem homologação em tela autenticada."], ev: "Sem linha própria no roteiro.", kw: ["caixas de email da obra", "diagnostico da caixa"], fontes: ["apps/web/app/[projectId]/integracoes/caixas/page.tsx", "apps/web/lib/ui/help/manifests/integracoes.ts"],
+    lim: ["Tela ainda em validação final de uso."], ev: "Sem linha própria no roteiro.", kw: ["caixas de email da obra", "diagnostico da caixa"], fontes: ["apps/web/app/[projectId]/integracoes/caixas/page.tsx", "apps/web/lib/ui/help/manifests/integracoes.ts"],
   }),
   item({
     id: "integracoes.contatos", nome: "Contatos externos monitorados", tipo: "subaba", pai: "integracoes", rota: "/[projectId]/integracoes/contatos-externos", cap: "integracoes", acesso: "ADMINISTRADOR",
@@ -34,7 +34,7 @@ export const ITENS_ADMIN: ItemConhecimento[] = [
     fun: ["Cadastrar e consultar organizações, domínios e contatos."], ind: ["Papel e vínculo de cada organização na obra."], passos: ["Abra Contatos externos monitorados e consulte ou cadastre a organização."],
     regras: ["O cadastro é auditável."], integ: ["Sinais de e-mail e Caixas."],
     q: [["Para que servem os Contatos externos?", "Para cadastrar, de forma auditável, as organizações e pessoas de fora da AXION que trocam e-mails com a obra e o vínculo de cada uma com ela.", ["contatos externos monitorados", "contatos externos", "organizacoes externas"]]],
-    lim: ["Sem homologação em tela autenticada."], ev: "Sem linha própria no roteiro.", kw: ["contatos externos", "organizacoes externas"], fontes: ["apps/web/app/[projectId]/integracoes/contatos-externos/page.tsx"],
+    lim: ["Tela ainda em validação final de uso."], ev: "Sem linha própria no roteiro.", kw: ["contatos externos", "organizacoes externas"], fontes: ["apps/web/app/[projectId]/integracoes/contatos-externos/page.tsx"],
   }),
   item({
     id: "integracoes.sinais", nome: "Sinais de risco de e-mail", tipo: "subaba", pai: "integracoes", rota: "/[projectId]/integracoes/sinais-email", cap: "integracoes", acesso: "ADMINISTRADOR",
@@ -42,7 +42,7 @@ export const ITENS_ADMIN: ItemConhecimento[] = [
     fun: ["Confirmar ou descartar um sinal.", "Ver o pilar e a área do sinal."], ind: ["Pilar (Prazo, Custo, Segurança, Qualidade) e área de cada sinal."], passos: ["Abra Sinais de risco de e-mail.", "Leia o sinal e a origem.", "Confirme ou descarte, informando o motivo."],
     regras: ["O sinal é um indício, não um fato: exige revisão humana.", "Descartar ou revogar pede motivo."], integ: ["Eventos e alertas."],
     q: [["O que é um sinal de e-mail?", "É um indício de risco extraído de um e-mail da obra. Ele exige revisão humana: confirme ou descarte, informando o motivo.", ["sinais de risco de email", "sinais de email", "confirmar sinal"]]],
-    lim: ["Sem homologação em tela autenticada."], ev: "Sem linha própria no roteiro.", kw: ["sinais de email", "sinais de risco"], fontes: ["apps/web/app/[projectId]/integracoes/sinais-email/page.tsx", "docs/experts-qualidade-sinais-provedor.md"],
+    lim: ["Tela ainda em validação final de uso."], ev: "Sem linha própria no roteiro.", kw: ["sinais de email", "sinais de risco"], fontes: ["apps/web/app/[projectId]/integracoes/sinais-email/page.tsx", "docs/experts-qualidade-sinais-provedor.md"],
   }),
 
   // ───────── Experts IA (somente o uso das telas) ─────────
@@ -53,7 +53,7 @@ export const ITENS_ADMIN: ItemConhecimento[] = [
     passos: ["Abra Experts IA.", "Escolha o especialista da sua pergunta.", "Escreva a pergunta e consulte.", "Revise a resposta: ela é apoio à decisão."],
     regras: ["A IA analisa e recomenda; decisões vinculantes permanecem humanas.", "A AXIA e os especialistas são separados: a AXIA ensina a usar o ACC; análise técnica ou contratual é do especialista."], integ: ["Alertas (ação ESPECIALISTA), Eventos e Jurídico."],
     q: [["Quando uso a AXIA e quando um especialista?", "Use a AXIA para saber como usar uma tela do ACC. Para analisar um contrato, um documento, um alerta ou uma questão técnica da obra, use um especialista em Experts IA; a resposta dele exige revisão humana.", ["aba experts ia", "tela experts ia", "abrir um especialista", "usar o especialista"]]],
-    lim: ["Depende de o provedor de IA estar habilitado.", "Sem linha própria no roteiro de homologação autenticada."], ev: "Sem linha própria no roteiro.", kw: ["aba experts ia", "tela experts ia", "especialistas de ia"],
+    lim: ["Depende de o provedor de IA estar habilitado.", "Tela ainda em validação final de uso."], ev: "Sem linha própria no roteiro.", kw: ["aba experts ia", "tela experts ia", "especialistas de ia"],
     fontes: ["apps/web/app/[projectId]/experts-ia/page.tsx", "docs/manual-referencia-acc.md (cap. 8)", "scripts/test-especialista-never-axia.mjs"],
   }),
   item({
@@ -62,7 +62,7 @@ export const ITENS_ADMIN: ItemConhecimento[] = [
     fun: ["Ler o que cada especialista faz e o que não faz."], ind: ["Competências, fontes (disponíveis ou futuras) e limitações."], passos: ["Abra Descrição dos Especialistas dentro de Experts IA."],
     regras: ["Fonte autorizada não significa fonte disponível: a tela mostra Disponível ou Fonte futura."], integ: ["Experts IA."],
     q: [["Onde vejo o que cada especialista faz?", "Em Experts IA, na Descrição dos Especialistas: competências, fontes, limitações e o perfil de cada um. Fonte autorizada não significa fonte já disponível.", ["descricao dos especialistas", "o que cada especialista faz", "quais especialistas existem"]]],
-    lim: ["Sem homologação em tela autenticada."], ev: "Sem linha própria no roteiro.", kw: ["descricao dos especialistas", "perfil dos especialistas"], fontes: ["apps/web/app/[projectId]/experts-ia/descricao/page.tsx"],
+    lim: ["Tela ainda em validação final de uso."], ev: "Sem linha própria no roteiro.", kw: ["descricao dos especialistas", "perfil dos especialistas"], fontes: ["apps/web/app/[projectId]/experts-ia/descricao/page.tsx"],
   }),
   item({
     id: "experts.engenharia", nome: "Diretor de Engenharia e Construção IA", tipo: "subaba", pai: "experts-ia", rota: "/[projectId]/experts-ia/diretor-engenharia", cap: "axia-especialistas", acesso: "TODOS",
@@ -89,16 +89,16 @@ export const ITENS_ADMIN: ItemConhecimento[] = [
     passos: ["Abra Usuários (Administrador).", "Use + Adicionar usuário, busque o e-mail do domínio axion.com.br, escolha Permissão e Área e confirme.", "Se a pessoa nunca entrou, use Pré-cadastrar.", "Para tirar o acesso, use Desativar: o histórico é mantido."],
     regras: ["Participar de um e-mail ou comunicação não concede acesso ao ACC.", "Desativar mantém o histórico."], integ: ["Todas as abas dependem das permissões definidas aqui."],
     q: [["Como libero a obra para uma pessoa?", "Na tela Usuários (só o Administrador a vê): + Adicionar usuário, busque o e-mail do domínio axion.com.br, escolha a Permissão e a Área e confirme. Se a pessoa nunca entrou, use Pré-cadastrar.", ["adicionar usuario", "liberar acesso a obra", "aba usuarios", "dar acesso a uma pessoa"]]],
-    lim: ["Sem linha própria no roteiro de homologação autenticada."], ev: "Sem linha própria no roteiro; item restrito ao Administrador.", kw: ["aba usuarios", "tela usuarios", "adicionar usuario"],
+    lim: ["Tela ainda em validação final de uso."], ev: "Sem linha própria no roteiro; item restrito ao Administrador.", kw: ["aba usuarios", "tela usuarios", "adicionar usuario"],
     fontes: ["apps/web/app/[projectId]/usuarios/page.tsx", "docs/manual-referencia-acc.md (4.30)"],
   }),
   item({
     id: "competencias", nome: "Competências", tipo: "menu", rota: "/[projectId]/competencias", cap: "administracao", acesso: "NIVEL_LEITURA",
     fin: `Governança das competências profissionais: solicitações, validação por pessoa independente, revalidação e validadores designados. ${TEXTO_BLOQUEADA}`,
-    fun: ["Nenhuma operação de escrita está liberada nesta versão."], ind: ["A tela pode abrir para consulta."], passos: ["Não há passo a passo: as operações desta aba estão bloqueadas nesta versão."],
-    regras: ["Situação: Bloqueada nesta versão.", "Atos que exigem habilitação continuam seguindo a regra vigente, sem passar por esta tela."], integ: ["Qualidade, Garantias e Seguros."],
-    q: [["Posso solicitar uma competência pela aba Competências?", "Não nesta versão: as operações da aba Competências (solicitar, validar, revalidar, designar validador) estão bloqueadas. Não há instrução de uso a seguir; quando forem liberadas, o manual e a AXIA serão atualizados.", ["aba competencias", "solicitar competencia", "validador de competencia", "competencias bloqueada"]]],
-    lim: [TEXTO_BLOQUEADA, "Sem homologação em tela autenticada (NAO-CONSTA no roteiro)."], sit: "BLOQUEADA", ev: "Decisão da Fase 2: as nove operações de escrita de competências estão na trava de módulos.", kw: ["aba competencias", "competencias profissionais"],
+    fun: ["Nenhuma operação de escrita está liberada nesta versão."], ind: ["A tela pode abrir para consulta."], passos: ["Não há passo a passo: as operações desta aba ainda não estão liberadas."],
+    regras: ["Situação: ainda não liberada.", "Atos que exigem habilitação continuam seguindo a regra vigente, sem passar por esta tela."], integ: ["Qualidade, Garantias e Seguros."],
+    q: [["Posso solicitar uma competência pela aba Competências?", "Não nesta versão: as operações da aba Competências (solicitar, validar, revalidar, designar validador) ainda não estão liberadas. Não há instrução de uso a seguir; quando forem liberadas, o manual e a AXIA serão atualizados.", ["aba competencias", "solicitar competencia", "validador de competencia", "competencias bloqueada"]]],
+    lim: [TEXTO_BLOQUEADA, "Tela ainda em validação final de uso."], sit: "BLOQUEADA", ev: "Decisão da Fase 2: as nove operações de escrita de competências estão na trava de módulos.", kw: ["aba competencias", "competencias profissionais"],
     fontes: ["apps/web/app/[projectId]/competencias/page.tsx", "apps/web/lib/permissions/nav-access.ts", "apps/web/lib/ui/help/manifests/governanca.ts"],
   }),
   item({
@@ -107,7 +107,7 @@ export const ITENS_ADMIN: ItemConhecimento[] = [
     fun: ["Preparar um envio informando destinatários, ação e conteúdo.", "Decidir (quem tem permissão)."], ind: ["Estado de cada preparação."], passos: ["Abra Aprovações externas (Colaborador ou superior).", "Prepare o envio.", "Quem decide aprova ou recusa."],
     regras: ["A aprovação é de uso único e fica ligada ao conteúdo (hash)."], integ: ["Seguros (minutas) e Solicitações."],
     q: [["A aba Aprovações externas envia e-mail?", "Não: ela só prepara e registra a decisão sobre comunicações a destinatários externos. A aprovação vale uma vez e fica presa ao conteúdo.", ["aprovacoes externas", "aba aprovacoes externas", "aprovar comunicacao externa"]]],
-    lim: ["Sem linha própria no roteiro de homologação autenticada."], ev: "Sem linha própria no roteiro; nível mínimo Colaborador em nav-access.", kw: ["aprovacoes externas", "comunicacao externa"],
+    lim: ["Tela ainda em validação final de uso."], ev: "Sem linha própria no roteiro; nível mínimo Colaborador em nav-access.", kw: ["aprovacoes externas", "comunicacao externa"],
     perf: { leitura: "Não vê o item no menu e não abre a tela." }, fontes: ["apps/web/app/[projectId]/aprovacoes-externas/page.tsx", "apps/web/lib/permissions/nav-access.ts"],
   }),
   item({
@@ -116,7 +116,7 @@ export const ITENS_ADMIN: ItemConhecimento[] = [
     fun: ["Solicitar autorização por e-mail.", "Cancelar solicitação.", "Revogar autorização com motivo.", "Ver texto e histórico."], ind: ["Decisão, data e conexão da conta."], passos: ["Abra Autorizações (Administrador).", "Escolha o colaborador e use Solicitar e enviar e-mail.", "Acompanhe a tabela."],
     regras: ["O aceite é registrado no ACC; a conexão da conta Google é separada e feita pelo administrador.", "A permissão do Google é somente leitura e não é limitada a uma obra; quem limita são os filtros do ACC."], integ: ["Integrações e Caixas de e-mail."],
     q: [["O que é a aba Autorizações?", "É onde o Administrador acompanha o consentimento de cada colaborador para o ACC usar a caixa de e-mail em uma obra: autorizado, recusado ou revogado, e a situação da conexão da conta.", ["aba autorizacoes", "tela autorizacoes", "autorizacoes de acesso aos emails"]]],
-    lim: ["Sem homologação em tela autenticada (NAO-CONSTA)."], ev: "Sem linha própria para a tela; item restrito ao Administrador.", kw: ["aba autorizacoes", "autorizacoes de acesso aos emails"],
+    lim: ["Tela ainda em validação final de uso."], ev: "Sem linha própria para a tela; item restrito ao Administrador.", kw: ["aba autorizacoes", "autorizacoes de acesso aos emails"],
     fontes: ["apps/web/app/[projectId]/autorizacoes/page.tsx", "docs/manual-referencia-acc.md (4.31)"],
   }),
   item({
@@ -125,7 +125,7 @@ export const ITENS_ADMIN: ItemConhecimento[] = [
     fun: ["Ler as seis seções do texto.", "Autorizar ou recusar em duas etapas.", "Revogar depois de autorizar."], ind: ["Texto do consentimento e histórico."], passos: ["Abra o link do e-mail.", "Leia as informações.", "Marque a caixa de confirmação e confirme."],
     regras: ["Abrir o link não registra nada; só a confirmação registra.", "Revogar no ACC não remove a permissão dada ao Google."], integ: ["Autorizações."],
     q: [["Autorizar o acesso ao e-mail é obrigatório?", "A autorização é o seu consentimento, feito dentro do ACC com login. Sua recusa fica registrada e não altera nada na sua conta Google. Veja as respostas sobre autorização para os detalhes.", ["pagina de autorizacao", "autorizar acesso ao email da obra"]]],
-    lim: ["Sem homologação em tela autenticada."], ev: "Sem linha própria no roteiro.", kw: ["pagina de autorizacao de email", "link de autorizacao"], fontes: ["apps/web/app/autorizacao-email/[authorizationId]/page.tsx", "apps/web/lib/assistant/knowledge.ts (autorizacao-*)"],
+    lim: ["Tela ainda em validação final de uso."], ev: "Sem linha própria no roteiro.", kw: ["pagina de autorizacao de email", "link de autorizacao"], fontes: ["apps/web/app/autorizacao-email/[authorizationId]/page.tsx", "apps/web/lib/assistant/knowledge.ts (autorizacao-*)"],
   }),
   item({
     id: "startup", nome: "Start-up ACC", tipo: "menu", rota: "/[projectId]/startup", cap: "administracao", acesso: "ADMINISTRADOR",
@@ -133,7 +133,7 @@ export const ITENS_ADMIN: ItemConhecimento[] = [
     fun: ["Configurar as datas da obra.", "Decidir cada achado histórico.", "Concluir o Start-up do projeto."], ind: ["Estado do Start-up e legenda de risco."], passos: ["Abra Start-up ACC (Administrador).", "Salve as datas.", "Decida cada achado.", "Clique em Concluir Start-up do projeto."],
     regras: ["Concluir grava o marco sem reescrever nenhum achado."], integ: ["Eventos e Dashboard."],
     q: [["Para que serve o Start-up ACC?", "Para validar, com decisão humana, os riscos Alto e Crítico do histórico anterior ao início operacional do ACC. Concluir grava o marco sem reescrever nenhum achado.", ["start up acc", "start-up acc", "aba startup", "riscos historicos", "concluir start up"]]],
-    lim: ["Sem linha própria no roteiro de homologação autenticada."], ev: "Sem linha própria no roteiro; item restrito ao Administrador.", kw: ["start up acc", "start-up acc", "aba startup"], fontes: ["apps/web/app/[projectId]/startup/page.tsx", "docs/manual-referencia-acc.md (4.35)"],
+    lim: ["Tela ainda em validação final de uso."], ev: "Sem linha própria no roteiro; item restrito ao Administrador.", kw: ["start up acc", "start-up acc", "aba startup"], fontes: ["apps/web/app/[projectId]/startup/page.tsx", "docs/manual-referencia-acc.md (4.35)"],
   }),
 
   // ───────── Ajuda ─────────
@@ -142,7 +142,7 @@ export const ITENS_ADMIN: ItemConhecimento[] = [
     fin: "Reúne o tutorial do ACC: PDF para consulta e PowerPoint editável, com imagens das telas e dos e-mails de alerta (dados fictícios).",
     fun: ["Abrir o PDF.", "Baixar o PowerPoint.", "Abrir a conversa com a AXIA."], ind: ["Links do tutorial."], passos: ["Abra Ajuda e tutorial no menu da obra.", "Escolha PDF ou PowerPoint."], regras: ["Os ícones de ajuda nas telas explicam cada módulo."], integ: ["AXIA."],
     q: [["Onde fica o tutorial?", "Em Ajuda e tutorial, no menu da obra: PDF para consulta e PowerPoint para edição.", ["aba ajuda e tutorial", "tela de ajuda", "tela ajuda e tutorial"]]],
-    lim: ["Sem linha própria no roteiro de homologação autenticada."], ev: "Sem linha própria no roteiro.", kw: ["aba ajuda e tutorial", "tela de ajuda"], fontes: ["apps/web/app/[projectId]/ajuda/page.tsx", "docs/manual-referencia-acc.md (4.33)"],
+    lim: ["Tela ainda em validação final de uso."], ev: "Sem linha própria no roteiro.", kw: ["aba ajuda e tutorial", "tela de ajuda"], fontes: ["apps/web/app/[projectId]/ajuda/page.tsx", "docs/manual-referencia-acc.md (4.33)"],
   }),
   item({
     id: "vera", nome: "Fale com a AXIA (rota /vera)", tipo: "pagina", rota: "/vera", cap: "axia-especialistas", acesso: "SEM_MENU",
@@ -188,6 +188,6 @@ export const ITENS_ADMIN: ItemConhecimento[] = [
     fun: ["Navegar entre as abas.", "Itens restritos só aparecem a quem tem acesso."], ind: ["Ícone e rótulo de cada aba."], passos: ["Clique no nome da aba na barra lateral."],
     regras: ["A ordem e os rótulos seguem o menu real do ACC.", "Revisão Contratual e Revisão de Cláusulas saíram do menu e abrem por link."], integ: ["Todas as abas."],
     q: [["Onde ficam as abas do ACC?", "Na barra lateral da obra: cada aba mostra ícone e texto sempre visíveis. Abas restritas só aparecem a quem tem acesso.", ["barra lateral", "menu lateral", "onde ficam as abas"]]],
-    lim: ["A revisão visual da barra lateral (frente D) ainda não foi integrada a esta base."], ev: "Conforme nav-items e decisão da Fase 2.", kw: ["barra lateral", "menu lateral"], fontes: ["apps/web/lib/ui/nav-items.ts", "apps/web/components/layout/app-sidebar.tsx"],
+    lim: ["Os itens da barra lateral dependem do seu acesso à obra."], ev: "Conforme nav-items e decisão da Fase 2.", kw: ["barra lateral", "menu lateral"], fontes: ["apps/web/lib/ui/nav-items.ts", "apps/web/components/layout/app-sidebar.tsx"],
   }),
 ];

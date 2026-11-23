@@ -9,13 +9,13 @@ const M = "shared";
 
 // Divergência SLA aprovado x configuração operacional publicada (declarada em `validity`, nunca apresentada como regra ativa).
 const SLA_VALIDITY =
-  "Prazos aprovados (regra de referência do código, lib/sla/default-matrix.ts): CRÍTICO 1 hora corrida; ALTO 4 horas úteis; MÉDIO 2 dias úteis; BAIXO 5 dias úteis. A configuração operacional publicada hoje no banco ainda tem MÉDIO 1 dia útil e BAIXO 3 dias úteis: a migration 20261121177000 (sla_medio_baixo_prazos_aprovados) que corrige NÃO foi aplicada em produção. Até a aplicação, os prazos de MÉDIO e BAIXO efetivamente praticados são os da configuração publicada.";
+  "Prazo para assumir: CRÍTICO 1 hora corrida e ALTO 4 horas úteis; para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra (tela Usuários, bloco Prazos por grau de risco). Alterações na matriz valem para novos alertas; alertas já abertos mantêm o prazo de quando foram criados. Selo e prazo seguem a Matriz de SLA da obra.";
 
 export const SHARED_HELP: FeatureHelpDefinition[] = [
   {
     id: "shared.global.criticidade-baixo",
     title: "Criticidade Baixo",
-    shortDescription: "Impacto limitado; acompanhamento de rotina. Selo verde-escuro. Prazo para assumir: 5 dias úteis.",
+    shortDescription: "Impacto limitado; acompanhamento de rotina. Selo verde-escuro. Prazo para assumir: conforme a Matriz de SLA da obra.",
     kind: "status",
     module: M,
     version: V,
@@ -24,16 +24,16 @@ export const SHARED_HELP: FeatureHelpDefinition[] = [
     purpose: "Padronizar em todo o ACC como um risco ou achado é classificado e com que urgência deve ser tratado.",
     criteria: [
       "A mesma paleta vale em todas as telas (fonte única: severityClasses em components/shared/badges.tsx); cor nunca é a única informação, o rótulo Baixo sempre acompanha o selo.",
-      "Prazo aprovado para assumir a ação: 5 dias úteis.",
+      "Prazo para assumir a ação: conforme a Matriz de SLA configurada para a obra.",
     ],
-    source: "Classificação de risco do ACC (AlertSeverity BAIXA) e matriz de SLA (lib/sla/default-matrix.ts).",
+    source: "Classificação de risco do ACC (AlertSeverity BAIXA) e matriz de SLA da obra.",
     validity: SLA_VALIDITY,
     humanReview: "A criticidade é uma classificação de apoio; quem trata a ação decide a conduta.",
   },
   {
     id: "shared.global.criticidade-medio",
     title: "Criticidade Médio",
-    shortDescription: "Exige atenção e acompanhamento. Selo azul. Prazo para assumir: 2 dias úteis.",
+    shortDescription: "Exige atenção e acompanhamento. Selo azul. Prazo para assumir: conforme a Matriz de SLA da obra.",
     kind: "status",
     module: M,
     version: V,
@@ -42,9 +42,9 @@ export const SHARED_HELP: FeatureHelpDefinition[] = [
     purpose: "Padronizar em todo o ACC como um risco ou achado é classificado e com que urgência deve ser tratado.",
     criteria: [
       "A mesma paleta vale em todas as telas (severityClasses em components/shared/badges.tsx); o rótulo Médio sempre acompanha o selo.",
-      "Prazo aprovado para assumir a ação: 2 dias úteis.",
+      "Prazo para assumir a ação: conforme a Matriz de SLA configurada para a obra.",
     ],
-    source: "Classificação de risco do ACC (AlertSeverity MEDIA) e matriz de SLA (lib/sla/default-matrix.ts).",
+    source: "Classificação de risco do ACC (AlertSeverity MEDIA) e matriz de SLA da obra.",
     validity: SLA_VALIDITY,
     humanReview: "A criticidade é uma classificação de apoio; quem trata a ação decide a conduta.",
   },
@@ -63,7 +63,7 @@ export const SHARED_HELP: FeatureHelpDefinition[] = [
       "Prazo aprovado para assumir a ação: 4 horas úteis.",
       "Ação de nível Alto exige confirmação de ciência (matriz de SLA padrão).",
     ],
-    source: "Classificação de risco do ACC (AlertSeverity ALTA) e matriz de SLA (lib/sla/default-matrix.ts).",
+    source: "Classificação de risco do ACC (AlertSeverity ALTA) e matriz de SLA da obra.",
     validity: SLA_VALIDITY,
     humanReview: "A criticidade é uma classificação de apoio; quem trata a ação decide a conduta.",
   },
@@ -82,7 +82,7 @@ export const SHARED_HELP: FeatureHelpDefinition[] = [
       "Prazo aprovado para assumir a ação: 1 hora corrida (não depende de expediente).",
       "Ação de nível Crítico exige confirmação de ciência (matriz de SLA padrão).",
     ],
-    source: "Classificação de risco do ACC (AlertSeverity CRITICA) e matriz de SLA (lib/sla/default-matrix.ts).",
+    source: "Classificação de risco do ACC (AlertSeverity CRITICA) e matriz de SLA da obra.",
     validity: SLA_VALIDITY,
     humanReview: "A criticidade é uma classificação de apoio; quem trata a ação decide a conduta.",
   },

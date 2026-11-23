@@ -11,7 +11,7 @@ const status = (b: Body): FeatureHelpDefinition => ({ ...b, module: "dashboard",
 const other = (kind: FeatureHelpDefinition["kind"], b: Body): FeatureHelpDefinition => ({ ...b, module: "dashboard", kind, version: VERSION });
 
 const SLA_VALIDITY =
-  "Prazos de SLA aprovados: CRÍTICO 1 hora corrida, ALTO 4 horas úteis, MÉDIO 2 dias úteis, BAIXO 5 dias úteis. A configuração operacional publicada hoje ainda usa MÉDIO 1 dia útil e BAIXO 3 dias úteis (a migration 20261121177000, que corrige, não foi aplicada em produção); este indicador apenas conta ações com o prazo gravado em cada ação, sem recalcular prazo.";
+  "Prazo para assumir: CRÍTICO 1 hora corrida e ALTO 4 horas úteis; para MÉDIO e BAIXO, o prazo vem da Matriz de SLA configurada para a obra (tela Usuários, bloco Prazos por grau de risco). Alterações na matriz valem para novos alertas; alertas já abertos mantêm o prazo de quando foram criados. Este indicador apenas conta ações com o prazo gravado em cada ação, sem recalcular prazo.";
 
 const SOURCE_WEEKLY =
   "Relatório semanal mais recente: anexo de e-mail classificado como RELATORIO_SEMANAL_PLANEJAMENTO (classificação confirmada ou sugerida) entre os 100 e-mails mais recentes da obra, seu weekly_report_workbooks mais recente (extracted_at) e a aba correspondente em weekly_report_sheets.";
@@ -275,7 +275,7 @@ export const DASHBOARD_HELP: FeatureHelpDefinition[] = [
     source: "public.risk_sla_consistency_issues (view com security_invoker) lida com a sessão do usuário.",
     unit: "Quantidade de divergências; posição atual.",
     refresh: "A cada carga da página.",
-    missingData: "View indisponível (migration não aplicada ou sem permissão): 'Indisponível' em cinza; nunca 0.",
+    missingData: "View indisponível (dados ainda não disponíveis ou sem permissão): 'Indisponível' em cinza; nunca 0.",
     consequences: ["Somente informativo: o painel não corrige as divergências."],
     humanReview: "Cada divergência deve ser conferida e corrigida por um responsável.",
   }),

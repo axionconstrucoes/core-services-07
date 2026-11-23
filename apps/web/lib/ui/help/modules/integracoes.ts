@@ -301,7 +301,7 @@ export const INTEGRACOES_HELP: FeatureHelpDefinition[] = [
     description:
       "Painel de confirmação com conta, projeto, período, domínio cliente, participantes considerados, se há anexos e a contagem preliminar de mensagens já conhecidas, e o botão Confirmar sincronização.",
     purpose: "Garantir que a importação só aconteça por decisão humana, com o perímetro à vista.",
-    howItWorks: "Confirmar apenas enfileira a execução em project_email_ingestion_sync_runs; nenhuma chamada real ao Gmail acontece neste clique. O processamento é feito pela infraestrutura de sincronização já existente (scripts gmail-inbound-*). A contagem preliminar é uma estimativa das mensagens elegíveis já conhecidas.",
+    howItWorks: "Confirmar apenas enfileira a execução em project_email_ingestion_sync_runs; nenhuma chamada real ao Gmail acontece neste clique. O processamento é feito pela rotina de sincronização já existente. A contagem preliminar é uma estimativa das mensagens elegíveis já conhecidas.",
     permissions: "Somente Administrador ativo da obra; o painel só aparece com conta, configuração e e-mail da conta definidos.",
     humanReview: "A importação nunca começa sem a confirmação de uma pessoa.",
   },
@@ -336,7 +336,7 @@ export const INTEGRACOES_HELP: FeatureHelpDefinition[] = [
     purpose: "Controlar, caixa a caixa, se a coleta de e-mail está autorizada, tecnicamente possível, habilitada, executada e com conteúdo disponível.",
     howToUse: ["Clique no endereço da caixa na tabela para ver evidências e ações.", "Registre a autorização corporativa, habilite a coleta com período ou desligue/revogue.", "Use o link Aceites individuais (Autorizações) para o aceite do titular."],
     howItWorks:
-      "Nenhuma etapa é deduzida da anterior. Todas as ações são validadas no servidor, relidas contra o estado atual da caixa e repetidas pelo banco (RPCs); o sucesso só é informado depois de reler o controle e confirmar a gravação. Sem a tabela de controles (migration 20261107090000), todas as ações ficam desligadas (falha fechada).",
+      "Nenhuma etapa é deduzida da anterior. Todas as ações são validadas no servidor, relidas contra o estado atual da caixa e repetidas pelo banco (RPCs); o sucesso só é informado depois de reler o controle e confirmar a gravação. Se os controles da caixa não estiverem disponíveis, todas as ações ficam desligadas (falha fechada).",
     permissions: "Somente Administrador ativo da obra (outros perfis recebem 404).",
     limitations: ["O teste técnico (delegação) roda apenas no executor remoto, pelo workflow manual 'Gmail Delegated Sync' em modo technical_check; ele não lê mensagens."],
     humanReview: "Autorizar, habilitar e revogar são decisões humanas com registro; nada é habilitado automaticamente.",
@@ -436,7 +436,7 @@ export const INTEGRACOES_HELP: FeatureHelpDefinition[] = [
     title: "Suspensão da coleta por erros",
     shortDescription: "Após 5 erros de sincronização seguidos a coleta da caixa é suspensa e exige nova habilitação.",
     description:
-      "Quando uma caixa acumula 5 erros de sincronização consecutivos (MAX_CONSECUTIVE_SYNC_ERRORS, o mesmo teto do coletor e da migration 20261121110000), a etapa Habilitada passa a Bloqueado com 'Suspensa por erros' e a coleta fica suspensa automaticamente.",
+      "Quando uma caixa acumula 5 erros de sincronização consecutivos (o mesmo teto da coleta), a etapa Habilitada passa a Bloqueado com 'Suspensa por erros' e a coleta fica suspensa automaticamente.",
     purpose: "Evitar tentativas infinitas contra uma caixa com problema.",
     howItWorks: "Cada execução com resultado ERRO soma 1; SUCESSO zera; outros resultados mantêm a contagem. Habilitar a coleta novamente zera o contador.",
     consequences: ["A caixa deixa de ser considerada habilitada até alguém corrigir a causa e habilitar de novo."],
@@ -631,7 +631,7 @@ export const INTEGRACOES_HELP: FeatureHelpDefinition[] = [
       "Somente no Construmanager: o vínculo tem download_status REFERENCIA_EXTERNA.",
       "Sem vínculo de conteúdo: vale o estado registrado no momento da detecção; qualquer outro caso aparece como Pendente.",
     ],
-    howItWorks: "Calculado pela visão de transições de versão do banco (migration 20260905180000) e normalizado em get-version-transitions.ts; valor desconhecido cai em Pendente (nunca some). 'Somente no Construmanager' não é erro nem pendência: não há nada a fazer com o item.",
+    howItWorks: "Calculado pelas transições de versão registradas e normalizado em get-version-transitions.ts; valor desconhecido cai em Pendente (nunca some). 'Somente no Construmanager' não é erro nem pendência: não há nada a fazer com o item.",
     limitations: ["Sem o conteúdo no ACC não é possível afirmar se o arquivo em si mudou; o selo descreve apenas a revisão informada pelos metadados."],
     humanReview: "A análise de impacto da nova versão continua sendo humana.",
   },
@@ -689,7 +689,7 @@ export const INTEGRACOES_HELP: FeatureHelpDefinition[] = [
     kind: "message",
     title: "Avisos de controles indisponíveis e mensagens sem caixa",
     shortDescription: "Informa quando os controles por caixa não podem ser lidos (ações ficam desligadas) e quantas mensagens estão sem caixa.",
-    description: "Faixa de alerta quando a tabela de controles por caixa não existe no banco (migration 20261107090000 não aplicada) ou não pôde ser lida: todas as ações ficam desligadas (falha fechada). Outra nota informa quantas mensagens do Gmail da obra estão sem caixa de origem registrada e não são atribuídas a nenhuma caixa.",
+    description: "Faixa de alerta quando os controles por caixa não estão disponíveis ou não puderam ser lidos: todas as ações ficam desligadas (falha fechada). Outra nota informa quantas mensagens do Gmail da obra estão sem caixa de origem registrada e não são atribuídas a nenhuma caixa.",
     howItWorks: "Com controles indisponíveis, cada ação mostra o motivo 'Desligado'. O contador de mensagens sem caixa vem da contagem de e-mails sem mailbox_address.",
     missingData: "Indisponível é tratado como bloqueio, nunca como permissão.",
   },
@@ -919,7 +919,7 @@ export const INTEGRACOES_HELP: FeatureHelpDefinition[] = [
     howToUse: ["Escolha a voz (a escolha fica salva neste navegador).", "Clique em Ouvir resposta; Parar interrompe o áudio."],
     howItWorks: "A leitura só começa por clique; o seletor fica desabilitado enquanto toca e Parar só vale durante a reprodução.",
     missingData: "Voz desligada ou sem vozes: o bloco inteiro não é renderizado.",
-    validity: "A voz está desligada por padrão (Fase 3 do piloto); este bloco só existe quando a configuração do servidor a habilitar.",
+    validity: "A voz está desligada por padrão (no piloto); este bloco só existe quando a configuração do servidor a habilitar.",
     limitations: ["O áudio é gerado por serviço externo configurado no servidor; nenhuma chave passa pelo navegador."],
   },
 ];

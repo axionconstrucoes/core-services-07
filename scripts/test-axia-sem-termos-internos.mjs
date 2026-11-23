@@ -22,7 +22,7 @@ const { APPROVED_BATCH_1_ENTRIES } = await import("../apps/web/lib/assistant/app
 const norm = (s) => String(s).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const PROIBIDOS = [
   [/migration/, "migration"], [/migrat/, "migrat"], [/\bonda /, "onda "], [/ainda nao foi aplicada/, "ainda nao foi aplicada"],
-  [/20261121/, "20261121"], [/banco de producao/, "banco de producao"], [/implantacao/, "implantacao"], [/\bsql\b/, "SQL"], [/script/, "script"],
+  [/20261121/, "20261121"], [/banco de producao/, "banco de producao"], [/implantacao/, "implantacao"], [/\bsql\b/, "SQL"], [/\bscripts?\b/, "script"],
 ];
 const achados = (textos) => {
   const r = [];
@@ -59,5 +59,38 @@ const e2 = APPROVED_BATCH_1_ENTRIES.find((e) => e.id === "qa-E2"), e1 = APPROVED
 t("SLA: qa-E1/qa-E2 mantem Critico 1 hora corrida e Alto 4 horas uteis", [e1, e2].every((e) => /Crítico[^;.]{0,6}1 hora corrida/.test(`${e.summary} ${e.steps.join(" ")}`) && /Alto[^;.]{0,6}4 horas úteis/.test(`${e.summary} ${e.steps.join(" ")}`)));
 t("SLA: qa-E1/qa-E2 remetem Medio/Baixo a Matriz de SLA da obra", [e1, e2].every((e) => /Matriz de SLA configurada para a obra/.test(`${e.summary} ${e.steps.join(" ")}`)));
 
+
+// ───────── Ampliação: textos de ajuda das telas (lib/ui/help) e termos de processo interno ─────────
+// Varre o código-fonte dos textos de ajuda (legacy, manifests, modules), ignorando linhas de comentário.
+// "implantação" só é permitida nos usos de produto: selo "Em implantação" do hub de especialistas e a disciplina de obra
+// "implantação e terraplenagem". Termos de processo interno (Fase N, frente X, homologação, roteiro, sessão autenticada) também falham.
+import { readdirSync } from "node:fs";
+const helpRoot = path.join(root, "apps", "web", "lib", "ui", "help");
+const arquivosHelp = [path.join(helpRoot, "legacy.ts"), ...["manifests", "modules"].flatMap((d) => readdirSync(path.join(helpRoot, d)).filter((f) => f.endsWith(".ts")).map((f) => path.join(helpRoot, d, f)))];
+const helpTextos = arquivosHelp.flatMap((f) => readFileSync(f, "utf8").split(/\r?\n/).map((l, i) => ({ onde: `help:${path.relative(helpRoot, f)}:L${i + 1}`, texto: l }))
+  .filter(({ texto }) => !/^\s*(\/\/|\*|\/\*)/.test(texto)));
+// "implantacao" em ajuda e produto (checklist de implantacao da obra, selo "Em implantacao"); so falha plano/onda de implantacao.
+const PROIBIDOS_HELP = PROIBIDOS.filter(([, n]) => n !== "implantacao").concat([[/plano de implantacao|onda de implantacao|implantacao d[ao]s? migra/, "plano de implantacao"]]);
+const INTERNOS_EXTRA = [[/\bfase [0-9]/, "Fase N"], [/\bfrente [a-e]\s*[\).,;:]/, "frente X"], [/homolog/, "homolog"], [/roteiro (pil|al|d|g|q)-\d/, "roteiro (homologacao)"], [/migra[cç]/, "migra"], [/\bonda\b/, "onda"], [/publicada hoje|em producao/, "configuracao publicada em producao"], [/2026\d{10}/, "id de migration"]];
+const SESSAO_AUT = [/sessao autenticada/, "sessao autenticada"];
+const achadosHelp = [];
+for (const { onde, texto } of helpTextos) {
+  const n = norm(texto);
+  for (const [re, nome] of [...PROIBIDOS_HELP, ...INTERNOS_EXTRA]) if (re.test(n)) achadosHelp.push(`${onde}: "${nome}"`);
+  if (/(medio|baixo)\s+(2|5|1|3)\s+dias?|(2|5) dias uteis/.test(n) && /sla|prazo|assum|matriz/.test(n)) achadosHelp.push(`${onde}: numero de Medio/Baixo`);
+}
+t("ajuda das telas: sem termos internos nem prazos de Medio/Baixo afirmados", achadosHelp.length === 0, achadosHelp.slice(0, 8).join(" | "));
+t("ajuda das telas: varredura cobre os modulos", helpTextos.length > 8000, String(helpTextos.length));
+
+// Base por aba e manual: mesmos termos de processo interno (ev/statusRoteiro/situacao/fontes sao metadados internos nao exibidos)
+const usuarioBase = ITENS.flatMap((i) => coletar({ ...i, evidenciaSituacao: undefined, statusRoteiro: undefined, situacao: undefined }, `base:${i.id}`));
+const achadosExtra = [];
+for (const { onde, texto } of [...usuarioBase, ...entradas, ...manual]) {
+  const n = norm(texto);
+  for (const [re, nome] of [...INTERNOS_EXTRA, SESSAO_AUT]) if (re.test(n) && nome !== "migra" && nome !== "onda") achadosExtra.push(`${onde}: "${nome}"`);
+  if (/\bintegrad[oa]s? a esta base|ainda nao foi integrad/.test(n)) achadosExtra.push(`${onde}: "ainda nao foi integrada"`);
+}
+t("base/AXIA/manual: sem Fase N, frente X, homologacao, roteiro, sessao autenticada", achadosExtra.length === 0, achadosExtra.slice(0, 8).join(" | "));
+t("detector de ajuda: pega 'Fase 6' e 'migration 20261121177000'", /fase [0-9]/.test(norm("antes da Fase 6")) && /2026\d{10}/.test("migration 20261121177000"));
 console.log(`\n${ok} OK, ${bad} FAIL`);
 process.exit(bad ? 1 : 0);

@@ -35,9 +35,9 @@ export function gerarManual() {
   out.push("");
   out.push("### Situação de cada aba");
   out.push("");
-  out.push(lista(Object.entries(SITUACAO_ROTULO).map(([k, v]) => `**${v}** (${k})`)));
+  out.push(lista([...new Set(Object.values(SITUACAO_ROTULO))].map((v) => `**${v}**`)));
   out.push("");
-  out.push("Nenhuma aba está HOMOLOGADA para todos os perfis em 22/11/2026. As situações vêm de `docs/homologacao-autenticada-roteiro.md` e da decisão da Fase 2 sobre as abas bloqueadas.");
+  out.push("Algumas abas ainda estão em validação final de uso e outras ainda não foram liberadas; a situação de cada aba está indicada acima e na seção própria dela.");
   out.push("");
   out.push("### Índice de abas e rotas");
   out.push("");
@@ -58,7 +58,7 @@ export function gerarManual() {
       out.push("");
       out.push(`- **Tipo:** ${it.tipo}${pai ? ` (dentro de ${pai.nome})` : ""}`);
       if (it.rota) out.push(`- **Rota:** \`${it.rota}\`${it.rotasRelacionadas?.length ? ` · relacionadas: ${it.rotasRelacionadas.map((r) => "`" + r + "`").join(", ")}` : ""}`);
-      out.push(`- **Situação:** ${SITUACAO_ROTULO[it.situacao]} — ${it.evidenciaSituacao}`);
+      out.push(`- **Situação:** ${SITUACAO_ROTULO[it.situacao]}`);
       out.push(`- **Quem vê:** ${ACESSO_ROTULO[it.acessoMenu]}`);
       out.push("");
       out.push(`**1. Nome e finalidade.** ${it.nome}: ${it.finalidade}`);
@@ -84,7 +84,7 @@ export function gerarManual() {
       out.push("**8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**");
       for (const p of it.perguntas) out.push(`- **P:** ${p.pergunta}\n  **R:** ${p.resposta}`);
       out.push("");
-      out.push("**9. Limitações e o que não está homologado**");
+      out.push("**9. Limitações e o que ainda não está liberado**");
       out.push(lista(it.limitacoes));
       out.push("");
       out.push("**10. Diferenças entre perfis**");
