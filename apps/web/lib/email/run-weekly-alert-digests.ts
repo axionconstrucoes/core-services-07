@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@axion/db/admin";
 
 import { getAppBaseUrl } from "../app-base-url";
+import { createCapacityGate } from "./get-email-provider";
 import { sendWeeklyAlertDigestEmail } from "./send-weekly-alert-digest-email";
 import type { WeeklyAlertDigestItem } from "./templates/weekly-alert-digest-template";
 
@@ -53,6 +54,7 @@ export interface WeeklyDigestRunResult {
 }
 
 export async function runWeeklyAlertDigests(now: Date = new Date()): Promise<WeeklyDigestRunResult> {
+  const capacityGate = createCapacityGate();
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("sla_actions")
@@ -176,6 +178,12 @@ export async function runWeeklyAlertDigests(now: Date = new Date()): Promise<Wee
       riskLevel: item.risk_level,
       dueAt: formatDueAt(item.due_at_snapshot),
     }));
+
+    // Portão do governador (doc 35) ANTES do envio: adiado por limite => o resumo continua PENDING (não vira FAILED).
+    if (!(await capacityGate({ type: "WEEKLY_DIGEST", projectId: first.project_id }))) {
+      result.skipped += 1;
+      continue;
+    }
 
     try {
       await sendWeeklyAlertDigestEmail({

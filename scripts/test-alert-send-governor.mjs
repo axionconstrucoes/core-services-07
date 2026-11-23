@@ -51,6 +51,9 @@ function memoryLedger() {
       const i = ids.indexOf(entityId);
       return i < 0 ? Number.MAX_SAFE_INTEGER : i + 1;
     },
+    async countNetAdmissions(sinceIso) {
+      return this.netCount(sinceIso);
+    },
     async netCount(sinceIso) {
       const since = Date.parse(sinceIso);
       return net(rows.filter((r) => r.t >= since)).size;
@@ -285,6 +288,35 @@ await check("o governador nunca afrouxa a trava do piloto: mesmo habilitado, o d
     assert(guarded[0].to === "crm@axion.com.br", `trava afrouxada: ${guarded[0].to}`);
   }));
 
+await check("CRÍTICO: reserva de cota só para críticos; crítico nunca descartado (adiado, não suprimido); kill switch bloqueia inclusive crítico; piloto intacto", async () => {
+  const env = { ACC_ALERT_MAX_PER_HOUR: "3", ACC_ALERT_CRITICAL_RESERVE_PER_HOUR: "2" };
+  const { provider, inner, ledger } = govern(env, memoryLedger());
+  const common = (k) => msg({ governance: { type: "RISK_IMMEDIATE", projectId: P1, dedupKey: k } });
+  const crit = (k) => msg({ governance: { type: "RISK_IMMEDIATE", projectId: P1, dedupKey: k, priority: "CRITICAL" } });
+  await provider.send(common("c1")); // comum: usa só 1 (3 - reserva 2)
+  const e = await provider.send(common("c2")).catch((x) => x);
+  assert(e.reason === "HOURLY_LIMIT", "comum deveria ficar de fora da reserva");
+  assert(!(await provider.checkCapacity(common("c3").governance)).allowed, "portão deveria adiar o comum");
+  assert((await provider.checkCapacity(crit("k1").governance)).allowed, "portão deveria admitir o crítico (reserva)");
+  await provider.send(crit("k1"));
+  await provider.send(crit("k2"));
+  assert(inner.sent.length === 3, `enviados ${inner.sent.length}`);
+  assert(!(await provider.checkCapacity(crit("k3").governance)).allowed, "limite cheio: crítico também só é ADIADO (portão), nunca descartado");
+  const deferred = ledger.rows.filter((r) => r.action === G.GOVERNOR_ACTIONS.DEFERRED);
+  assert(deferred.length >= 1 && deferred.some((r) => r.detail.priority === "CRITICAL") && deferred.every((r) => r.detail.outcome === "ADIADO"), "adiamento não auditado como ADIADO");
+  // kill switch: bloqueia tudo, inclusive crítico (portão e envio)
+  const ks = govern({ ACC_ALERT_KILL_SWITCH: "true" }, memoryLedger());
+  assert(!(await ks.provider.checkCapacity(crit("z").governance)).allowed);
+  assert((await ks.provider.send(crit("z")).catch((x) => x)).reason === "KILL_SWITCH" && ks.inner.sent.length === 0);
+  // sem variáveis: portão sempre permite e não grava nada (padrão do piloto)
+  const d = govern({}, memoryLedger());
+  assert((await d.provider.checkCapacity(common("d").governance)).allowed && d.ledger.rows.length === 0);
+});
+await check("portão duck-typed: provedor sem checkCapacity (FAKE/Gmail direto) sempre permite (comportamento anterior)", async () => {
+  const { checkAlertCapacity } = await import("../apps/web/lib/email/governed-email-provider");
+  assert((await checkAlertCapacity(new FakeEmailProvider(), { type: "RISK_IMMEDIATE", projectId: P1 })).allowed);
+});
+
 // ------------------------------------------------------------------ estrutural
 function walk(dir, out = []) {
   for (const n of readdirSync(dir)) {
@@ -315,7 +347,7 @@ await check("estrutural: todo envio de e-mail em apps/web carrega `governance:` 
       const block = src.slice(m.index, m.index + 1800);
       const end = block.search(/\n\s*\}\);/);
       const body = end > 0 ? block.slice(0, end) : block;
-      if (!/governance:/.test(body)) missing.push(`${rel(f)}@${src.slice(0, m.index).split("\n").length}`);
+      if (!/governance[:,]/.test(body)) missing.push(`${rel(f)}@${src.slice(0, m.index).split("\n").length}`);
     }
   }
   assert(found >= 12, `esperava >= 12 pontos de envio, achei ${found}`);

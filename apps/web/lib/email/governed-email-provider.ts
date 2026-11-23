@@ -7,7 +7,7 @@
 
 import { EmailSendError, type EmailProvider, type SendEmailInput, type SendEmailResult } from "./email-provider";
 import { classifySendFailure } from "./outbound-delivery";
-import { admitAlertSend, parseGovernorConfig, releaseAdmission, type GovernorEnv, type GovernorLedger, type GovernorSuppressionReason } from "./alert-send-governor";
+import { GOVERNOR_ACTIONS, ALERT_TYPE_CATALOG, admitAlertSend, parseGovernorConfig, peekAlertCapacity, releaseAdmission, type AlertGovernanceContext, type CapacityResult, type GovernorEnv, type GovernorLedger, type GovernorSuppressionReason } from "./alert-send-governor";
 
 export class AlertSendBlockedError extends EmailSendError {
   readonly reason: GovernorSuppressionReason;
@@ -38,6 +38,48 @@ export class GovernedEmailProvider implements EmailProvider {
   /** Provedor interno (que aplica a trava do piloto). Exposto só para verificação em testes. */
   get inner(): EmailProvider {
     return this.options.inner;
+  }
+
+  private readonly deferredAudited = new Set<string>();
+
+  /**
+   * Portão ANTES da reivindicação (claim) da linha: há capacidade agora? Negado => o chamador NÃO reivindica nem conta tentativa; a
+   * mensagem fica ADIADA na fila e é retomada na janela seguinte. Audita ALERT_GOVERNOR_DEFERRED (uma vez por motivo/tipo por instância).
+   * Nunca lança: falha inesperada => permitido (o envio em si continua fail-closed em admitAlertSend).
+   */
+  async checkCapacity(governance: AlertGovernanceContext): Promise<CapacityResult> {
+    try {
+      const now = (this.options.now ?? (() => new Date()))();
+      const config = parseGovernorConfig((this.options.env ?? (() => process.env))());
+      const lazy = this.options.ledger;
+      let instance: GovernorLedger | null | undefined;
+      const ledger = (): GovernorLedger => {
+        if (instance === undefined) instance = lazy ? lazy() : null;
+        if (!instance) throw new Error("ledger indisponível");
+        return instance;
+      };
+      const newId = this.options.newId ?? (() => globalThis.crypto.randomUUID());
+      const result = await peekAlertCapacity({ config, ctx: governance, ledger: lazy ? ledger : null, now, newId });
+      if (!result.allowed && governance.projectId) {
+        const key = `${result.reason}:${governance.type}:${governance.projectId}:${governance.priority ?? ""}`;
+        if (!this.deferredAudited.has(key)) {
+          this.deferredAudited.add(key);
+          try {
+            await ledger().record({
+              action: GOVERNOR_ACTIONS.DEFERRED,
+              projectId: governance.projectId,
+              entityId: newId(),
+              detail: { outcome: "ADIADO", reason: result.reason, type: governance.type, source: governance.type ? ALERT_TYPE_CATALOG[governance.type] : null, priority: governance.priority ?? null, at: now.toISOString() },
+            });
+          } catch {
+            // auditoria best-effort: o adiamento continua valendo
+          }
+        }
+      }
+      return result;
+    } catch {
+      return { allowed: true };
+    }
   }
 
   async send(input: SendEmailInput): Promise<SendEmailResult> {
@@ -76,4 +118,11 @@ function safeLedger(get: () => GovernorLedger): GovernorLedger | null {
   } catch {
     return null;
   }
+}
+
+/** Portão por duck-typing: provedores sem checkCapacity (FAKE/Gmail diretos, testes) sempre permitem — comportamento anterior. */
+export async function checkAlertCapacity(provider: unknown, governance: AlertGovernanceContext): Promise<CapacityResult> {
+  const p = provider as { checkCapacity?: (g: AlertGovernanceContext) => Promise<CapacityResult> } | null;
+  if (!p || typeof p.checkCapacity !== "function") return { allowed: true };
+  return p.checkCapacity(governance);
 }

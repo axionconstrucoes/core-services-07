@@ -9,6 +9,7 @@ import { appendAccEmailSignature } from "@/lib/email/branding/acc-email-signatur
 import { loadAccAlertLogos } from "@/lib/email/branding/load-acc-logo-inline-image";
 import { EmailSendError, type EmailProvider } from "@/lib/email/email-provider";
 import { getEmailProvider } from "@/lib/email/get-email-provider";
+import { checkAlertCapacity } from "@/lib/email/governed-email-provider";
 import type { PersistedFailureClass } from "@/lib/email/outbound-delivery";
 import {
   NO_RECIPIENT_PLACEHOLDER,
@@ -91,6 +92,9 @@ export function createSupabaseDeliveryStore(admin: Admin): DeliveryStore {
 /** Envio pelo provedor do ACC. As travas do piloto (modo piloto, destinatário único, perfil do projeto) rodam no provedor. */
 export function createProviderMailer(admin: Admin, provider: EmailProvider = getEmailProvider()): Mailer {
   return {
+    async canDeliver({ projectId }) {
+      return (await checkAlertCapacity(provider, { type: "SSMA_FIELD_NOTIFICATION", projectId })).allowed;
+    },
     async deliver({ to, content, projectId, correlationId }) {
       const inlineImages = loadAccAlertLogos(content.logoNeeds ?? { maroon: true, inverted: false }).images;
       const signed = appendAccEmailSignature({ text: content.text, html: content.html }, inlineImages.length > 0, !content.logoNeeds);

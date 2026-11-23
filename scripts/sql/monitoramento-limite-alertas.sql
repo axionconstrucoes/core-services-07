@@ -67,3 +67,16 @@ select count(*) filter (where a.occurred_at > now() - interval '60 minutes') as 
    and not exists (
      select 1 from public.audit_log_entries r
       where r.action = 'ALERT_GOVERNOR_RELEASED' and r.entity_type = 'ALERT_SEND' and r.entity_id = a.entity_id);
+
+-- @query G6 mensagens ADIADAS (continuam na fila PENDING, sem tentativa gasta) por motivo, tipo e prioridade (24 h)
+select d.detail::jsonb ->> 'reason' as motivo,
+       d.detail::jsonb ->> 'type' as tipo,
+       d.detail::jsonb ->> 'priority' as prioridade,
+       count(*) as adiados,
+       max(d.occurred_at) as ultimo
+  from public.audit_log_entries d
+ where d.action = 'ALERT_GOVERNOR_DEFERRED'
+   and d.entity_type = 'ALERT_SEND_SUPPRESSED'
+   and d.occurred_at > now() - interval '24 hours'
+ group by 1, 2, 3
+ order by adiados desc;

@@ -119,7 +119,7 @@ const rule = (projectId, riskLevel, timeUnit, assume, esc2, board, ack) => ({
 });
 let worldSeq = 0;
 // Cada mundo usa casos DIFERENTES (chaves de idempotência novas): o governador, corretamente, barra o mesmo evento por 24 h.
-function makeWorld(projectId = PROJECT_ID, { governed = true } = {}) {
+function makeWorld(projectId = PROJECT_ID, { governed = true, caseCount = 3, shouldFail = undefined } = {}) {
   const tag = (worldSeq += 1);
   const recipients = new Map(Object.values(U).map((id) => [id, { userId: id, name: `Pessoa ${id.slice(-2)}`, email: EMAIL[id], membershipStatus: "ACTIVE" }]));
   const world = {
@@ -145,7 +145,7 @@ function makeWorld(projectId = PROJECT_ID, { governed = true } = {}) {
     recipients,
     senderMailbox: CRM,
     replyMailbox: CRM,
-    sourceCases: [1, 2, 3].map((n) => ({
+    sourceCases: Array.from({ length: caseCount }, (_, i) => i + 1).map((n) => ({
       sourceType: "SCHEDULE_COMPARISON", sourceId: `ens-critical-${tag}-${n}`, area: AREA, riskLevel: "CRITICAL", title: `[ENSAIO] Risco crítico fictício ${n}`,
       summary: "Desvio fictício.", impact: "Impacto fictício.", recommendation: "Ação fictícia.", fingerprint: `fp-critical-${tag}-${n}-v1`,
       originPath: "documentos?tab=registro-email", closed: false, reference: `ENS-CRITICAL-${tag}-${n}`,
@@ -154,7 +154,7 @@ function makeWorld(projectId = PROJECT_ID, { governed = true } = {}) {
   };
   const store = createInMemoryRiskAlertStore(world);
   const rec = { guarded: [] };
-  const inner = new FakeEmailProvider({ onGuardedInput: (g) => rec.guarded.push(g) });
+  const inner = new FakeEmailProvider({ onGuardedInput: (g) => rec.guarded.push(g), shouldFail });
   const provider = governed ? new GovernedEmailProvider({ inner, ledger, now: () => clock }) : inner;
   const expert = { answer: async () => ({ answerText: "Resposta simulada.", confidence: 0.5, requiresHumanReview: true }) };
   const run = async (nowIso) => {
@@ -214,7 +214,7 @@ await check("NO limite (2/h): suprime o excedente, audita com motivo, cota devol
     await w.run(T0);
     assert(w.rec.guarded.length === 2, `enviou ${w.rec.guarded.length}, esperado 2`);
     assert(sentRows(w).length === 2);
-    const sup = await count("action = 'ALERT_GOVERNOR_SUPPRESSED' and detail like '%HOURLY_LIMIT%' and occurred_at = $1", [clock.toISOString()]);
+    const sup = await count("action in ('ALERT_GOVERNOR_SUPPRESSED', 'ALERT_GOVERNOR_DEFERRED') and detail like '%HOURLY_LIMIT%' and occurred_at = $1", [clock.toISOString()]);
     assert(sup >= 1, "supressão por limite não auditada");
     const net = await db.query(`select count(*)::int n from public.audit_log_entries a where action='ALERT_GOVERNOR_ADMITTED' and occurred_at >= $1 and not exists (select 1 from public.audit_log_entries r where r.action='ALERT_GOVERNOR_RELEASED' and r.entity_id=a.entity_id)`, [new Date(clock.getTime() - 3600e3).toISOString()]);
     assert(net.rows[0].n === 2, `admissões líquidas ${net.rows[0].n}`);
@@ -265,7 +265,7 @@ await check("PROJETO não habilitado bloqueia (e audita no projeto); projeto hab
     const w = makeWorld();
     await w.run(T0);
     assert(w.rec.guarded.length === 0 && sentRows(w).length === 0, "enviou para projeto não habilitado");
-    assert((await count("action = 'ALERT_GOVERNOR_SUPPRESSED' and detail like '%PROJECT_NOT_ENABLED%' and project_id = $1", [PROJECT_ID])) >= 1, "supressão não auditada");
+    assert((await count("action in ('ALERT_GOVERNOR_SUPPRESSED', 'ALERT_GOVERNOR_DEFERRED') and detail like '%PROJECT_NOT_ENABLED%' and project_id = $1", [PROJECT_ID])) >= 1, "supressão não auditada");
   }));
 await check("FONTE não habilitada bloqueia (RISCO fora da lista); fonte reservada (CRONOGRAMA) bloqueada por padrão", () =>
   withEnv({ ACC_ALERT_ENABLED_SOURCES: "SSMA" }, async () => {
@@ -285,7 +285,7 @@ await check("TIPO não habilitado bloqueia só o tipo (IMMEDIATE habilitado, ESC
     assert(afterFirst === baselineSends, `IMMEDIATE habilitado enviou ${afterFirst}`);
     await w.run(plusMin(T0, 61)); // escalonamento ao Gestor = RISK_ESCALATION (não habilitado)
     assert(w.rec.guarded.length === afterFirst, "tipo não habilitado enviou");
-    assert((await count("action = 'ALERT_GOVERNOR_SUPPRESSED' and detail like '%TYPE_NOT_ENABLED%'")) >= 1, "supressão de tipo não auditada");
+    assert((await count("action in ('ALERT_GOVERNOR_SUPPRESSED', 'ALERT_GOVERNOR_DEFERRED') and detail like '%TYPE_NOT_ENABLED%'")) >= 1, "supressão de tipo não auditada");
   }));
 await check("CONFIGURAÇÃO inválida bloqueia tudo e audita INVALID_CONFIG; valor corrigido libera", () =>
   withEnv({ ACC_ALERT_MAX_PER_HOUR: "muitos" }, async () => {
@@ -293,7 +293,7 @@ await check("CONFIGURAÇÃO inválida bloqueia tudo e audita INVALID_CONFIG; val
     const w = makeWorld();
     await w.run(T0);
     assert(w.rec.guarded.length === 0, "enviou com configuração inválida");
-    assert((await count("action = 'ALERT_GOVERNOR_SUPPRESSED' and detail like '%INVALID_CONFIG%'")) >= 1, "INVALID_CONFIG não auditada");
+    assert((await count("action in ('ALERT_GOVERNOR_SUPPRESSED', 'ALERT_GOVERNOR_DEFERRED') and detail like '%INVALID_CONFIG%'")) >= 1, "INVALID_CONFIG não auditada");
     // o texto auditado não vaza o valor lido
     const { rows } = await db.query("select detail from public.audit_log_entries where detail like '%INVALID_CONFIG%' limit 1");
     assert(!rows[0].detail.includes("muitos"), "valor da variável vazou na auditoria");
@@ -304,14 +304,138 @@ await check("KILL SWITCH: nenhum envio, mesmo com tudo habilitado; auditado", ()
     const w = makeWorld();
     await w.run(T0);
     assert(w.rec.guarded.length === 0 && sentRows(w).length === 0);
-    assert((await count("action = 'ALERT_GOVERNOR_SUPPRESSED' and detail like '%KILL_SWITCH%'")) >= 1);
+    assert((await count("action in ('ALERT_GOVERNOR_SUPPRESSED', 'ALERT_GOVERNOR_DEFERRED') and detail like '%KILL_SWITCH%'")) >= 1);
   }));
+
+// ------------------------------------------------------------------ P1: adiamento ANTES da reivindicação (sem consumir tentativa)
+await check("P1 ADIAMENTO: limite 2/h e 5 linhas PENDING — excedentes não consomem tentativa nem vão a FAILED; 2 saem por janela; nada reenviado nem perdido", () =>
+  withEnv({ ACC_ALERT_MAX_PER_HOUR: "2" }, async () => {
+    const h = 3600e3;
+    setClock(50 * h);
+    const w = makeWorld(PROJECT_ID, { caseCount: 5 });
+    await w.run(T0);
+    assert(w.rec.guarded.length === 2, `1ª execução enviou ${w.rec.guarded.length}`);
+    // várias execuções na MESMA janela: nada novo sai e nenhuma tentativa é gasta
+    for (let i = 0; i < 4; i += 1) {
+      setClock(50 * h + (i + 1) * 5 * 60e3);
+      await w.run(T0);
+    }
+    assert(w.rec.guarded.length === 2, `execuções repetidas na janela enviaram ${w.rec.guarded.length}`);
+    const rows = w.store.state.outbox;
+    const pending = rows.filter((o) => o.status === "PENDING");
+    assert(sentRows(w).length === 2 && pending.length === 3 && rows.every((o) => o.status !== "FAILED"), `SENT=${sentRows(w).length} PENDING=${pending.length} FAILED=${rows.filter((o) => o.status === "FAILED").length}`);
+    assert(pending.every((o) => (o.attemptCount ?? 0) === 0), `tentativas gastas pelas excedentes: ${pending.map((o) => o.attemptCount).join(",")}`);
+    assert((await count("action = 'ALERT_GOVERNOR_DEFERRED' and detail like '%ADIADO%' and detail like '%HOURLY_LIMIT%'")) >= 1, "adiamento não auditado");
+    // janela seguinte: mais 2; depois o último — nenhum reenviado, nenhum perdido
+    setClock(52 * h);
+    await w.run(T0);
+    assert(w.rec.guarded.length === 4, `2ª janela acumulou ${w.rec.guarded.length}`);
+    setClock(54 * h);
+    await w.run(T0);
+    assert(w.rec.guarded.length === 5 && sentRows(w).length === 5, `3ª janela acumulou ${w.rec.guarded.length}`);
+    assert(new Set(w.rec.guarded.map((g) => g.subject)).size === 5, "reenvio detectado");
+    setClock(56 * h);
+    await w.run(T0);
+    assert(w.rec.guarded.length === 5, "execução extra enviou de novo");
+  }));
+
+await check("P1 FALHA REAL de envio (não de limite) continua consumindo tentativa como antes", () =>
+  withEnv({ ACC_ALERT_MAX_PER_HOUR: "10" }, async () => {
+    setClock(80 * 3600e3);
+    const w = makeWorld(PROJECT_ID, { caseCount: 2, shouldFail: () => true });
+    await w.run(T0);
+    const rows = w.store.state.outbox;
+    assert(rows.length >= 2 && rows.every((o) => o.status !== "SENT"), "algo foi enviado com falha simulada");
+    assert(rows.every((o) => (o.attemptCount ?? 0) >= 1), `tentativas: ${rows.map((o) => o.attemptCount).join(",")}`);
+    // a falha certa devolveu a cota do ledger (nada consumido)
+    const net = await db.query(`select count(*)::int n from public.audit_log_entries a where action='ALERT_GOVERNOR_ADMITTED' and occurred_at >= $1 and not exists (select 1 from public.audit_log_entries r where r.action='ALERT_GOVERNOR_RELEASED' and r.entity_id=a.entity_id)`, [new Date(clock.getTime() - 3600e3).toISOString()]);
+    assert(net.rows[0].n === 0, `cota consumida por falha real: ${net.rows[0].n}`);
+  }));
+
+// ------------------------------------------------------------------ MASSA: 200 alertas, valores F0 aprovados (10/h, 30/dia, lote 5, só a WEG)
+await check("MASSA 200 alertas (F0 aprovado: 10/h, 30/dia, lote 5, só WEG): nunca >10 em 1 h, >30 em 24 h, lote >5 nem duplicidade; nada perdido; outro projeto bloqueado", () =>
+  withEnv({ ACC_ALERT_MAX_PER_HOUR: "10", ACC_ALERT_MAX_PER_DAY: "30", ACC_ALERT_BATCH_SIZE: "5", ACC_ALERT_ENABLED_PROJECTS: PROJECT_ID }, async () => {
+    const h = 3600e3;
+    const start = 120 * h;
+    const inner = new FakeEmailProvider();
+    const provider = new GovernedEmailProvider({ inner, ledger, now: () => clock });
+    const queue = Array.from({ length: 200 }, (_, i) => ({ key: `massa-${i}`, critical: i % 10 === 0 }));
+    const sentAt = [];
+    const sentKeys = [];
+    let dupBlocked = 0;
+    let maxBatch = 0;
+    const batchSize = 5;
+    for (let run = 0; run < 8 * 24 * 6 && queue.length > 0; run += 1) {
+      setClock(start + run * 10 * 60e3);
+      let used = 0;
+      for (const item of [...queue].sort((a, b) => Number(b.critical) - Number(a.critical))) {
+        if (used >= batchSize) break;
+        const governance = { type: "RISK_IMMEDIATE", projectId: PROJECT_ID, dedupKey: item.key, priority: item.critical ? "CRITICAL" : null };
+        if (!(await provider.checkCapacity(governance)).allowed) break; // adiado: fica na fila, sem tentativa
+        used += 1;
+        await provider.send({ to: "colab@axion.com.br", subject: item.key, text: "t", correlationId: item.key, governance });
+        sentAt.push(clock.getTime());
+        sentKeys.push(item.key);
+        queue.splice(queue.indexOf(item), 1);
+        // reexecução do mesmo lote: o mesmo evento nunca é admitido de novo
+        if (sentKeys.length % 7 === 0) {
+          const dup = await provider.send({ to: "colab@axion.com.br", subject: item.key, text: "t", correlationId: item.key, governance }).catch((e) => e);
+          assert(dup instanceof AlertSendBlockedError && dup.reason === "DUPLICATE", `reenvio não barrado: ${dup?.reason ?? "enviou"}`);
+          dupBlocked += 1;
+        }
+      }
+      maxBatch = Math.max(maxBatch, used);
+    }
+    assert(queue.length === 0 && sentKeys.length === 200, `enviados ${sentKeys.length}/200, restaram ${queue.length} (nada pode ser perdido)`);
+    assert(new Set(sentKeys).size === 200, "duplicidade entre os enviados");
+    assert(dupBlocked >= 20, `poucos reenvios testados: ${dupBlocked}`);
+    assert(maxBatch <= batchSize, `lote ${maxBatch} > ${batchSize}`);
+    let maxHour = 0;
+    let maxDay = 0;
+    for (const t of sentAt) {
+      maxHour = Math.max(maxHour, sentAt.filter((x) => x > t - h && x <= t).length);
+      maxDay = Math.max(maxDay, sentAt.filter((x) => x > t - 24 * h && x <= t).length);
+    }
+    assert(maxHour <= 10, `máximo em 1 h = ${maxHour}`);
+    assert(maxDay <= 30, `máximo em 24 h = ${maxDay}`);
+    console.log(`     (massa: pico 1 h = ${maxHour}, pico 24 h = ${maxDay}, maior lote = ${maxBatch}, reenvios barrados = ${dupBlocked})`);
+    // críticos saem antes dos comuns: o último crítico sai antes do último comum
+    const lastCritical = Math.max(...sentKeys.map((k, i) => (Number(k.split("-")[1]) % 10 === 0 ? i : -1)));
+    assert(lastCritical < sentKeys.length - 1, "críticos não tiveram prioridade");
+    // outro projeto (não habilitado): bloqueado e nada na fila perdida
+    const other = await provider.send({ to: "colab@axion.com.br", subject: "x", text: "t", correlationId: "x", governance: { type: "RISK_IMMEDIATE", projectId: OTHER_PROJECT_ID } }).catch((e) => e);
+    assert(other instanceof AlertSendBlockedError && other.reason === "PROJECT_NOT_ENABLED");
+  }));
+
+await check("PADRÃO e INVÁLIDO nas variáveis de F0: ausentes => piloto igual ao atual; inválidas => bloqueia e audita sem vazar o valor", async () => {
+  const bad = "valor-secreto-xyz";
+  for (const vars of [{ ACC_ALERT_MAX_PER_DAY: bad }, { ACC_ALERT_ENABLED_PROJECTS: bad }, { ACC_ALERT_BATCH_SIZE: bad }, { ACC_ALERT_CRITICAL_RESERVE_PER_HOUR: bad }]) {
+    await withEnv(vars, async () => {
+      setClock(300 * 3600e3);
+      const provider = new GovernedEmailProvider({ inner: new FakeEmailProvider(), ledger, now: () => clock });
+      const e = await provider.send({ to: "colab@axion.com.br", subject: "x", text: "t", correlationId: "c", governance: { type: "RISK_IMMEDIATE", projectId: PROJECT_ID } }).catch((x) => x);
+      assert(e instanceof AlertSendBlockedError && e.reason === "INVALID_CONFIG", `${Object.keys(vars)[0]}: ${e?.reason ?? "enviou"}`);
+      assert(!String(e.message).includes(bad), "valor vazou na mensagem de erro");
+    });
+  }
+  const { rows } = await db.query("select detail from public.audit_log_entries where detail like '%INVALID_CONFIG%'");
+  assert(rows.length >= 4 && rows.every((r) => !r.detail.includes(bad)), "valor vazou na auditoria");
+  await withEnv({}, async () => {
+    const guarded = [];
+    const provider = new GovernedEmailProvider({ inner: new FakeEmailProvider({ onGuardedInput: (g) => guarded.push(g) }), ledger, now: () => clock });
+    const before = await count("true");
+    assert((await provider.checkCapacity({ type: "RISK_IMMEDIATE", projectId: PROJECT_ID })).allowed);
+    await provider.send({ to: "colab.real@axion.com.br", subject: "x", text: "t", correlationId: "c", governance: { type: "RISK_IMMEDIATE", projectId: PROJECT_ID } });
+    assert(guarded.length === 1 && guarded[0].to === CRM, "padrão não preservou o piloto");
+    assert((await count("true")) === before, "padrão escreveu no ledger");
+  });
+});
 
 // ------------------------------------------------------------------ monitoramento (somente leitura)
 await check("MONITORAMENTO: G1-G5 executam, são somente leitura e batem com o ledger; G4 (duplicidade) vazio", async () => {
   const sql = readFileSync(path.join(here, "sql", "monitoramento-limite-alertas.sql"), "utf8");
   const parts = sql.split(/^-- @query /m).slice(1);
-  assert(parts.length === 5, `esperava 5 consultas, achei ${parts.length}`);
+  assert(parts.length === 6, `esperava 6 consultas, achei ${parts.length}`);
   const before = await count("true");
   setClock(24 * 3600e3 + 1000); // relógio do banco (now()) é o real; as linhas do teste estão até +24 h no futuro: ficam dentro das janelas
   const out = {};
@@ -324,8 +448,10 @@ await check("MONITORAMENTO: G1-G5 executam, são somente leitura e batem com o l
   }
   assert((await count("true")) === before, "as consultas alteraram dados");
   assert(out.G1.length > 0 && out.G1.every((r) => r.fonte === "RISCO" && String(r.tipo).startsWith("RISK_")), "G1 sem fonte/tipo");
-  assert(out.G2.some((r) => r.motivo === "KILL_SWITCH") && out.G2.some((r) => r.motivo === "HOURLY_LIMIT"), "G2 sem motivos esperados");
+  const blocked = [...out.G2, ...out.G6].map((r) => r.motivo);
+  assert(blocked.includes("KILL_SWITCH") && blocked.includes("HOURLY_LIMIT"), "G2/G6 sem motivos esperados");
   assert(out.G3.length > 0, "G3 (cota devolvida) vazio");
+  assert(out.G6.some((r) => r.motivo === "HOURLY_LIMIT" && Number(r.adiados) >= 1), "G6 sem adiamentos por limite");
   assert(out.G4.length === 0, `G4 acusou duplicidade: ${JSON.stringify(out.G4)}`);
   assert(Number(out.G5[0].ultimas_24h) >= 1, "G5 vazio");
 });
