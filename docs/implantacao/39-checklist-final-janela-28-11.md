@@ -1,4 +1,4 @@
-# 39 — Checklist final da janela de 28/11/2026 (09h BRT)
+# 39 — Checklist final da janela de 24/11/2026 (08h BRT) [antes: 28/11 09h]
 
 Status: PREPARADO. A janela NÃO começa sem autorização final específica da Diretoria. Condicionada à confirmação de Eng-1 e Eng-2.
 Referência: PR #245 (draft, sem merge), integration/acc-noturna @ 5b6ebb4a (ou HEAD posterior com CI verde), main @ 27da839.
@@ -43,3 +43,5 @@ Limites 10/h, 30/dia, lote 5; reserva de críticos 2/h e 5/dia (dentro dos totai
 > Atualização 23/11/2026: equipe e acessos de Carlos -> docs 38 (seção 15) e 40. Janela de 28/11 segue proposta, NO-GO condicionado aos acessos e ao ensaio.
 
 > Correção 23/11/2026: Eng-2 técnico cancelado; Carlos/Jaime = aceitação funcional; risco residual (sem segundo operador técnico) registrado nos docs 38 (seção 16) e 40 (seção J). Execuções por Eng-1 (Reynaldo) com Claude Code.
+
+> MUDANÇA DE DATA (23/11/2026, Diretoria): a janela técnica passa a terça-feira 24/11/2026 às 08h BRT (antes: sábado 28/11 09h). Aceitação funcional mantida em 02/12/2026. Procedimentos: doc 41-procedimentos-da-janela-terca-24-11.md. Menções a 28/11 acima são histórico.

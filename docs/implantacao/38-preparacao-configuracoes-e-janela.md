@@ -169,3 +169,5 @@ Nenhum usuário anônimo, banido ou sem confirmar. Total: 86.
 - Cancelados: convite de Carlos à Vercel, acessos a Supabase/GitHub e ensaio de recuperação por Carlos. A seção 15 fica como histórico.
 - RISCO RESIDUAL: ausência de segundo operador técnico independente (mitigações no doc 40, seção J).
 - GO/NO-GO: CI verde (run #215, d0057135) = GO técnico. Janela de 28/11 09h BRT = NO-GO até: backup do dia validado e restaurado em banco descartável; token temporário criado na hora; confirmação do risco residual pela Diretoria; autorização final específica. O ensaio técnico em acc-homolog (sem Carlos) é opcional e conduzido por Reynaldo/Claude Code.
+
+> MUDANÇA DE DATA (23/11/2026, Diretoria): a janela técnica passa a terça-feira 24/11/2026 às 08h BRT (antes: sábado 28/11 09h). Aceitação funcional mantida em 02/12/2026. Procedimentos: doc 41-procedimentos-da-janela-terca-24-11.md. Menções a 28/11 acima são histórico.

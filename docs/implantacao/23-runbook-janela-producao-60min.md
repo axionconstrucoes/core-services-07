@@ -52,9 +52,11 @@ Eng-2 anota hora UTC, comando, saída resumida, quem decidiu. Tudo fora do repos
 - Eng-1: Reynaldo, com execução automatizada pelo Claude Code (ondas, validações, merge e deploy só com autorização específica).
 - Eng-2: Carlos Evandro, validação independente, acompanhamento da implantação e apoio à recuperação. Checklist: doc 40.
 - Área de aceitação: Reynaldo, Carlos Evandro e Jaime (aceitação em 02/12/2026).
-- Janela proposta: 28/11/2026 às 09h BRT. Não inicia sem autorização final específica.
+- Janela técnica: terça 24/11/2026 às 08h BRT (decisão da Diretoria em 23/11; antes: sábado 28/11 09h). Não inicia sem autorização final específica.
 - ATENÇÃO: acessos de Carlos à Vercel, Supabase e GitHub e a capacidade de recuperação NÃO estão comprovados (doc 40, seção A). Em 23/11 a equipe Vercel tem só 1 membro (Reynaldo).
 
 > Atualização 23/11/2026: acessos de Carlos (Vercel/Supabase/GitHub) e ensaio de recuperação ainda NÃO comprovados; ver docs 38 (seção 15) e 40.
 
 > Correção 23/11/2026: Eng-2 técnico cancelado; Carlos/Jaime = aceitação funcional; risco residual (sem segundo operador técnico) registrado nos docs 38 (seção 16) e 40 (seção J). Execuções por Eng-1 (Reynaldo) com Claude Code.
+
+> MUDANÇA DE DATA (23/11/2026, Diretoria): a janela técnica passa a terça-feira 24/11/2026 às 08h BRT (antes: sábado 28/11 09h). Aceitação funcional mantida em 02/12/2026. Procedimentos: doc 41-procedimentos-da-janela-terca-24-11.md. Menções a 28/11 acima são histórico.
