@@ -47,3 +47,10 @@ Jobs: `7-pg-cron-retomar.sql`. Congelamento: `5-storage-descongelar.sql` + `2-re
 
 ## Registro durante a janela
 Eng-2 anota hora UTC, comando, saída resumida, quem decidiu. Tudo fora do repositório. Nenhum segredo em anotação.
+
+## Equipe definida pela Diretoria (23/11/2026)
+- Eng-1: Reynaldo, com execução automatizada pelo Claude Code (ondas, validações, merge e deploy só com autorização específica).
+- Eng-2: Carlos Evandro, validação independente, acompanhamento da implantação e apoio à recuperação. Checklist: doc 40.
+- Área de aceitação: Reynaldo, Carlos Evandro e Jaime (aceitação em 02/12/2026).
+- Janela proposta: 28/11/2026 às 09h BRT. Não inicia sem autorização final específica.
+- ATENÇÃO: acessos de Carlos à Vercel, Supabase e GitHub e a capacidade de recuperação NÃO estão comprovados (doc 40, seção A). Em 23/11 a equipe Vercel tem só 1 membro (Reynaldo).
