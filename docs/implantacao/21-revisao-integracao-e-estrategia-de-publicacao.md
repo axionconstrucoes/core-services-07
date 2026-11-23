@@ -52,7 +52,14 @@ Equivalente local medido na integração (Windows; **a CI nunca rodou sobre esta
 | `test:alerts` | 519 OK, 0 falhas (depois de registrar a exceção auditada do watchdog; antes, 1 falha na invariante 59, **que a CI teria acusado**) |
 | `test:email` | **753 OK, 0 falhas** quando o `bash` é o do Git (como em Linux). Pelo PowerShell, `test-pilot-single-alert` ("propagação REAL workflow -> rota -> motor") falha com saída vazia; a causa dessa diferença **não foi provada**, e a CI roda em Linux |
 | Ensaio de ondas em PostgreSQL 17 local (P0 em cada migration) | 413 OK, 0 falhas |
-**Risco restante da CI:** somados, os tempos locais (cerca de 9 + 3 + 1 + testes unitários e build) ficam dentro dos 30 minutos, mas a CI nunca foi exercida em Linux sobre 1.203 arquivos. O primeiro PR é o teste. Plano: abrir o PR **sem pedir merge**, corrigir o que a CI acusar na própria branch, e só então marcar como pronto.
+**Resultado da CI real (GitHub Actions, Linux), PR #245:**
+| Execução | Commit | Resultado |
+|---|---|---|
+| #210 | `e701379` | **falhou** em 3m32s: `test-aceitacao-roteiro` exigia CRLF na lista de testes; os passos seguintes não chegaram a rodar |
+| #211 | `c1b57f4` | **sucesso** em 7m43s: Guards, Typecheck/lint/testes e Build verdes; typecheck 24 s, lint 26 s, `test:scripts` 1m31s, e-mail 15 s, SQL (replay completo) 1m43s, SSMA com Chrome real 23 s, simulação WEG 3 s, alertas 10 s |
+Correções feitas entre as duas execuções, sem remover nem enfraquecer testes: (1) a lista de testes aceita LF ou CRLF e rejeita fim de linha misto; (2) `test-n1-no-regression-after-hotfix-sql` compara os hashes do corpo do P0 **sem CRs** (equivalência provada: 90bc6965.../c2f015a9... com CRLF <=> 283621c1.../930f6d75... sem CR; o 930f6d75 é o hash P0 de produção); (3) o guard de segredos deixou de ter falso positivo nas fixtures. Além disso, uma execução equivalente à CI em checkout LF local antecipou a falha de hash (2) antes de uma segunda rodada na CI real.
+
+**Risco restante da CI (anterior à execução #211, mantido por histórico):** somados, os tempos locais (cerca de 9 + 3 + 1 + testes unitários e build) ficam dentro dos 30 minutos, mas a CI nunca foi exercida em Linux sobre 1.203 arquivos. O primeiro PR é o teste. Plano: abrir o PR **sem pedir merge**, corrigir o que a CI acusar na própria branch, e só então marcar como pronto.
 
 ## 5. Estratégia de push, PR e deploy (proposta)
 1. **Push da branch de integração** (autorização D6): gera um **preview** na Vercel. Os previews **não têm credenciais do Supabase** (as variáveis estão só no alvo `production`), então não alcançam a produção; o preview servirá de teste de build.
