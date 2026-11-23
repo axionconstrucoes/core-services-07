@@ -60,3 +60,5 @@ Eng-2 anota hora UTC, comando, saída resumida, quem decidiu. Tudo fora do repos
 > Correção 23/11/2026: Eng-2 técnico cancelado; Carlos/Jaime = aceitação funcional; risco residual (sem segundo operador técnico) registrado nos docs 38 (seção 16) e 40 (seção J). Execuções por Eng-1 (Reynaldo) com Claude Code.
 
 > MUDANÇA DE DATA (23/11/2026, Diretoria): a janela técnica passa a terça-feira 24/11/2026 às 08h BRT (antes: sábado 28/11 09h). Aceitação funcional mantida em 02/12/2026. Procedimentos: doc 41-procedimentos-da-janela-terca-24-11.md. Menções a 28/11 acima são histórico.
+
+> MUDANÇA DE DATA (23/11/2026, noite): a janela técnica passa a QUARTA 25/11/2026 às 08h BRT. Backup, sequência e dependências humanas: doc 42-backup-integral-janela-25-11.md. Atenção: quarta tem o cron weekly-alert-digest (07:00 BRT) antes da janela.

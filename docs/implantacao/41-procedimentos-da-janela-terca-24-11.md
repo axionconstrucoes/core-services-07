@@ -136,3 +136,5 @@ Total: 0 OPERACIONAL; demais PARCIAL ou NÃO CONECTADA. Nada declarado verde.
 **B. Riscos aceitos ou parciais (não bloqueiam a implantação; não podem ser apresentados como verdes):** compatibilidade do app antigo parcial; ausência de segundo operador técnico; rollback da Vercel não ensaiado.
 
 **C. Bloqueios de INTEGRAÇÃO FUNCIONAL (não impedem a janela; impedem apresentar histórico integrado de 18 meses em 02/12):** 0 fontes operacionais; 6 caixas e Outlook não conectados; RDO e ConstruManager anteriores às datas acima; relatórios mensais e Qualidade sem fonte; 50 planilhas semanais em revisão; 0 mensagens WEG novas desde 14/10. A aceitação de 02/12 deve validar o produto sobre cobertura parcial, sem prometer 18 meses.
+
+> MUDANÇA DE DATA (23/11/2026, noite): a janela técnica passa a QUARTA 25/11/2026 às 08h BRT. Backup, sequência e dependências humanas: doc 42-backup-integral-janela-25-11.md. Atenção: quarta tem o cron weekly-alert-digest (07:00 BRT) antes da janela.
