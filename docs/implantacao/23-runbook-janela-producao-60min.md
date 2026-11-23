@@ -10,12 +10,12 @@ Convenções: `CONN` = conexão de manutenção do banco, **fornecida pelo respo
 | P1 | PR #245 com CI verde, revisado | link e execução do Actions |
 | P2 | Ensaio do transporte do executor aprovado no homolog (doc 25) | log fora do repositório |
 | P3 | Backup lógico e de Storage de produção feitos na véspera e **restauração local validada** (13 de 13) | `SHA256SUMS` e saída do `restaurar-validar` |
-| P4 | Variáveis da Vercel conferidas (doc 19, seção 6): `ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=false`; `ACC_DELEGATED_ATTACHMENTS_ENABLED` **não definida** no GitHub | captura da tela |
+| P4 | Variáveis da Vercel conferidas (doc 19, seção 6): `ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=false` (**criada em 23/11**) e as 7 `ACC_ALERT_*` (**criadas em 23/11**, doc 38, seção 11; sem redeploy); `ACC_DELEGATED_ATTACHMENTS_ENABLED` **não definida** no GitHub | captura da tela |
 | P5 | Comunicado de indisponibilidade enviado e nenhuma pessoa usando o ACC | confirmação do Dono |
 | P6 | Aceitação em homologação aprovada (doc 20) e pessoas de plantão (doc 24) | formulário |
 | P7 | Dono presente; critério de aborto (abaixo) conhecido por todos | assinatura |
 | P8 | Domínio e Auth: `acc.axion.com.br` no projeto Vercel de produção (já verificado), Site URL e Redirect URLs do Supabase conferidos, login `@axion.com.br` testado e outro domínio recusado (doc 34, seções 1 e 3) | captura do painel e teste anônimo |
-| P9 | Matriz completa de variáveis conferida, sem ler valores em chat (doc 34, seção 2): `AXION_APP_BASE_URL`, `ACC_OUTBOUND_MODE` != `production`, `ACC_WEEKLY_REPORTS_ENABLED` registrado, `vars.ACC_APP_BASE_URL` e Vault com o domínio | lista conferida, sem valores |
+| P9 | Matriz completa de variáveis conferida, sem ler valores em chat (doc 34, seção 2): `AXION_APP_BASE_URL`, `ACC_OUTBOUND_MODE` != `production` (**conferido em 23/11: `pilot`**), `AXION_APP_BASE_URL` (**conferido: `https://acc.axion.com.br`**), `ACC_WEEKLY_REPORTS_ENABLED` registrado, `vars.ACC_APP_BASE_URL` e Vault com o domínio | lista conferida, sem valores |
 
 ## Cronograma
 | Min | Passo | Comando / ação | Critério para seguir | Se falhar |

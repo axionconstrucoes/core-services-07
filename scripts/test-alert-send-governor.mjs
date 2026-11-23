@@ -344,6 +344,14 @@ await check("CRÍTICO (decisão de 23/11): escalonamento de SLA e acidente SSMA 
   assert(G.effectiveLimit(10, 2, comum) === 8, "comum deveria usar limite menos reserva");
   assert(G.effectiveLimit(30, 5, crit) === 30 && G.effectiveLimit(30, 5, comum) === 25, "limite diário/reserva incorretos");
 });
+await check("CRÍTICO: a confirmação de resposta por e-mail (portão e envio) usa a reserva; adiada por limite continua PENDING sem gastar tentativa", () => {
+  const src = readFileSync(path.join(repoRoot, "apps/web/lib/email-replies/token-reply-confirmations.ts"), "utf8");
+  assert(/checkAlertCapacity\(input\.provider, \{ type: "EMAIL_REPLY_CONFIRMATION", projectId: row\.project_id, priority: "CRITICAL" \}\)/.test(src), "o portão da confirmação não informa priority CRITICAL");
+  assert(/governance: \{ type: "EMAIL_REPLY_CONFIRMATION", projectId: row\.project_id, dedupKey: row\.id, priority: "CRITICAL" \}/.test(src), "o envio da confirmação não informa priority CRITICAL");
+  // o portão vem ANTES da reivindicação (attempt_count + 1): adiar não consome tentativa
+  assert(src.indexOf("checkAlertCapacity(") < src.indexOf("attempt_count: row.attempt_count + 1"), "o portão deve vir antes da reivindicação");
+  assert(G.effectiveLimit(10, 2, { type: "EMAIL_REPLY_CONFIRMATION", projectId: "p", priority: "CRITICAL" }) === 10, "confirmação deveria usar o limite cheio");
+});
 await check("estrutural: getEmailProvider() sempre devolve o GovernedEmailProvider (ponto único); ninguém instancia GmailEmailProvider fora dele", () => {
   const src = readFileSync(path.join(repoRoot, "apps/web/lib/email/get-email-provider.ts"), "utf8");
   assert(/new GovernedEmailProvider\(/.test(src) && !/return new GmailEmailProvider/.test(src), "get-email-provider.ts não envolve o provedor");
