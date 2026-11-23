@@ -82,3 +82,25 @@ Todas têm a contraparte `axion.com.br` (67 recebidas, 23 enviadas): são e-mail
 | 7 | Grupo C das 90 mensagens (seção 6) | Dono, Planejamento |
 | 8 | Data, responsáveis e pessoas da aceitação (seção 7) | Dono |
 | 9 | Backup do dia e CI verde no commit final (na véspera) | Eng-1 |
+
+## 9. Execução na Vercel (23/11/2026, autorizada pela Diretoria)
+- **Projeto confirmado:** `axion-contract-intelligence-5d3g` (`prj_n9RSTJFgakynjoBOUMCfi19uV24N`), equipe `team_lln56Ux7qWfeXcISoYExQn2k`, com `acc.axion.com.br` entre os domínios.
+- **Criada:** `ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=false`, tipo `plain`, **somente Production** (id `nQp8Q6SmiWxf4FP4`). **Sem redeploy**: o deploy mais recente (`7a967b0`, preview da branch) é anterior à criação e nenhum deploy novo apareceu. A `main` atual não lê a variável; ela só vale depois do merge. Reverter: remover a variável.
+- **Conferidas, sem alterar:** `AXION_APP_BASE_URL` = `https://acc.axion.com.br` (correto); `ACC_OUTBOUND_MODE` = `pilot` (diferente de `production`, correto).
+- **Governador F0: preparado, NÃO criado.** Nomes exatos no código (`alert-send-governor.ts`): `ACC_ALERT_MAX_PER_HOUR=10`, `ACC_ALERT_MAX_PER_DAY=30`, `ACC_ALERT_BATCH_SIZE=5`, `ACC_ALERT_CRITICAL_RESERVE_PER_HOUR=2`, `ACC_ALERT_CRITICAL_RESERVE_PER_DAY=5`, `ACC_ALERT_ENABLED_PROJECTS=00000000-0000-4000-8000-000000000001` (obra WEG), `ACC_ALERT_ENABLED_SOURCES=SISTEMA,SLA,ACOES,AUTORIZACAO,SSMA`. Sem efeito antes do merge (a `main` atual não as lê).
+
+### 9.1 Impacto das fontes de F0 (verificado no código)
+| Fonte | Tipos | Em F0 |
+|---|---|---|
+| `SISTEMA` | `SYSTEM_HEALTH` | **liberada** |
+| `SLA` | `SLA_ESCALATION` | **liberada** |
+| `ACOES` | `ACTION_REQUEST` | **liberada** |
+| `AUTORIZACAO` | `EMAIL_AUTHORIZATION` | **liberada** |
+| `SSMA` | `SSMA_ACCIDENT`, `SSMA_FIELD_NOTIFICATION` | **liberada** (preserva o aviso de ação corretiva já ativo) |
+| `RISCO` | 8 tipos (imediato, escalonamento, resumo, encaminhamento, devolução, resposta do especialista, **confirmação de ação**, piloto único) | **adiada** (fica PENDING, sem gastar tentativa) |
+| `EMAIL` | `EMAIL_REPLY_CONFIRMATION`, `EMAIL_SPECIALIST` | **adiada**: **a confirmação de resposta por e-mail não sai em F0** |
+| `RELATORIO_SEMANAL`, `CONTRATO`, `CONSTRUMANAGER`, `ENTREGAVEIS` | resumo semanal, lotes de contrato etc. | **adiadas**: o resumo semanal das quartas **não sai em F0** |
+Adiar não perde nada: a linha fica na fila e sai quando a fonte for habilitada (F3/F4, doc 35, seção 6).
+
+### 9.2 Achado sobre a reserva para críticos
+O governador só trata como **crítico** o envio cujo contexto traz `priority: "CRITICAL"`, e **apenas o ciclo de risco** (fonte `RISCO`) preenche isso. **Escalonamento de SLA com severidade crítica** e **alerta de acidente do SSMA com severidade crítica** **não** informam a prioridade: usam o limite sem reserva (8 por hora e 25 por dia). Como `RISCO` está adiada em F0, **a reserva de 2/h e 5/dia não protege nada em F0**. **Correção proposta** (pequena, com teste; não aplicada): marcar como `CRITICAL` o `SLA_ESCALATION` com severidade crítica e o `SSMA_ACCIDENT` com severidade crítica. Depende de autorização, porque altera código que irá a produção.
