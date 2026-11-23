@@ -221,11 +221,14 @@ check("higiene: sem caminho absoluto local, sem e-mail real além do institucion
     assert(!re.test(doc), `padrão de segredo: ${re}`);
 });
 
-check("registrado em scripts/test-scripts.list uma única vez, com CRLF", () => {
+check("registrado em scripts/test-scripts.list uma única vez, sem fim de linha misto", () => {
   const raw = readFileSync(path.join(root, "scripts", "test-scripts.list"), "utf8");
   const hits = raw.split(/\r?\n/).filter((l) => l.trim() === "scripts/test-aceitacao-roteiro.mjs");
   assert(hits.length === 1, `ocorrências: ${hits.length}`);
-  assert(!/[^\r]\n/.test(raw), "arquivo com LF solto (esperado CRLF)");
+  // O Git guarda LF e o checkout do Windows converte para CRLF: o que importa é NÃO misturar (a CI em Linux lê LF).
+  const comCrlf = (raw.match(/\r\n/g) ?? []).length;
+  const soLf = (raw.match(/(?<!\r)\n/g) ?? []).length;
+  assert(comCrlf === 0 || soLf === 0, `fim de linha misto na lista (CRLF: ${comCrlf}, LF solto: ${soLf})`);
 });
 
 console.log(`\n${passed} OK, ${failed} FAIL`);
