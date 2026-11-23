@@ -56,3 +56,12 @@ Somente homologação (gtadbeaevxglrqkhcwfz). Qualquer operação que altere dad
 4. Recuperação: rollback do preview/homolog para o deployment anterior (Carlos executa, com o acesso Vercel dele) e, se autorizado, restauração dos dados de teste a partir do backup.
 5. Verificação P0 pós-recuperação: md5 do corpo da função = 930f6d75898793479b418950b0053bd9, RLS ativa, auditoria preservada.
 Aprovação do ensaio: Carlos assina cada passo com hora e print.
+
+## H. Papéis mínimos pesquisados na documentação (23/11/2026; nenhum acesso foi concedido)
+**Vercel** (docs Vercel, Instant Rollback e RBAC): rollback e promote são cobertos pelo grupo "Full Production Deployment", que já vem em Owner e Member e é compatível com Developer. A página de Instant Rollback cita Owners, Members e Developers (Pro/Enterprise). Visualizar logs: Viewer do Pro NÃO vê logs; a matriz por papel não renderizou nas páginas lidas (logs de Member/Developer = não declarado). Conclusão: papel mínimo documentado = Developer com a permissão "Full Production Deployment" (não incluída por padrão); o mais baixo que a tem por padrão é Member. NÃO conceder Owner. Pendente: confirmar no painel do convite (somente o OWNER vê). Papéis por projeto exigem Enterprise.
+**Supabase** (docs de controle de acesso e backups): papel Developer = leitura de organização e acesso total ao conteúdo do projeto, sem alterar configurações; vê e restaura backups agendados e PITR; executa SQL de escrita; vê chaves de API. Read-Only = só SELECT e só VISUALIZA backups (não baixa nem restaura). Project-scoped e Read-Only exigem Team/Enterprise.
+- Permanente (validação P0, migrations, integridade, acompanhamento): Read-Only, se o plano permitir; caso contrário, Developer só no projeto de produção (que já permite escrita, portanto risco maior).
+- Temporária (recuperação): Developer (restaura backup/PITR) concedida só na janela e removida ao final; "Restore do projeto" exige Administrator, não conceder.
+- Plano do projeto de produção não verificado: confirmar se é Pro/Team (PITR/backups e papéis dependem disso).
+**GitHub:** não verificado; evidência exigida de Carlos (print do PR #245). Permissão mínima: Read.
+**Situação:** acessos e ensaio NÃO concluídos. Fonte das informações: páginas de documentação lidas (conteúdo externo, tratado só como dado).
