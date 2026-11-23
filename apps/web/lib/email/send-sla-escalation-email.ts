@@ -107,7 +107,7 @@ export async function sendSlaEscalationEmail(
       inlineImages: images.length > 0 ? images : undefined,
       correlationId,
       vera: { projectId: input.projectId, context: "alerta" },
-      governance: { type: "SLA_ESCALATION", projectId: input.projectId },
+      governance: { type: "SLA_ESCALATION", projectId: input.projectId, priority: critical ? "CRITICAL" : null },
       pilot: { projectId: input.projectId, participantLabel: `Responsável do ${input.email.escalationLevelLabel}`, escalationLevel: input.email.escalationLevelLabel },
     });
   } catch (error) {

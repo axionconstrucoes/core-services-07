@@ -328,6 +328,22 @@ function walk(dir, out = []) {
   return out;
 }
 const rel = (f) => path.relative(repoRoot, f).replace(/\\/g, "/");
+await check("CRÍTICO (decisão de 23/11): escalonamento de SLA e acidente SSMA com severidade crítica informam priority CRITICAL e usam a reserva", () => {
+  for (const [file, type] of [
+    ["apps/web/lib/email/send-sla-escalation-email.ts", "SLA_ESCALATION"],
+    ["apps/web/lib/email/send-ssma-accident-alert-email.ts", "SSMA_ACCIDENT"],
+  ]) {
+    const src = readFileSync(path.join(repoRoot, file), "utf8");
+    const re = new RegExp(`governance: \\{ type: "${type}", projectId: input\\.projectId, priority: critical \\? "CRITICAL" : null \\}`);
+    assert(re.test(src), `${file}: ${type} não informa priority CRITICAL para severidade crítica`);
+    assert(/const critical = input\.(email\.)?severity === "CRITICA"/.test(src), `${file}: critical deixou de derivar de severity === "CRITICA"`);
+  }
+  const crit = { type: "SLA_ESCALATION", projectId: "p", priority: "CRITICAL" };
+  const comum = { type: "SLA_ESCALATION", projectId: "p", priority: null };
+  assert(G.effectiveLimit(10, 2, crit) === 10, "crítico deveria usar o limite cheio");
+  assert(G.effectiveLimit(10, 2, comum) === 8, "comum deveria usar limite menos reserva");
+  assert(G.effectiveLimit(30, 5, crit) === 30 && G.effectiveLimit(30, 5, comum) === 25, "limite diário/reserva incorretos");
+});
 await check("estrutural: getEmailProvider() sempre devolve o GovernedEmailProvider (ponto único); ninguém instancia GmailEmailProvider fora dele", () => {
   const src = readFileSync(path.join(repoRoot, "apps/web/lib/email/get-email-provider.ts"), "utf8");
   assert(/new GovernedEmailProvider\(/.test(src) && !/return new GmailEmailProvider/.test(src), "get-email-provider.ts não envolve o provedor");
