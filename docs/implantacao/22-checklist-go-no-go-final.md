@@ -7,13 +7,13 @@ Status em 22/11/2026: **PRONTO** = evidência existe e foi conferida; **PENDENTE
 ## G0 - Decisões do Dono (indispensáveis)
 | # | Decisão | Recomendação | Status |
 |---|---|---|---|
-| D1 | Registro do histórico: (b) pela versão do arquivo, atômico, via executor | (b) (doc 19, seção 2) | DECISÃO |
-| D2 | Migration de SLA `20261121177000`: manter adiada no go-live | manter adiada (doc 19, seção 3) | DECISÃO |
-| D3 | Data e hora da janela (60 min de manutenção, ACC sem uso) e se o congelamento de escrita é aplicado | aplicar | DECISÃO |
-| D4 | Criar o token pessoal do Supabase e autorizar o ensaio do transporte do executor no homolog | autorizar (ou escolher a alternativa `psql`) | DECISÃO |
-| D5 | Flags de produção: `ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=false` no go-live; pipeline de e-mail em simulação | conforme doc 19, seção 6 | DECISÃO |
-| D6 | Autorizar push da branch de integração e abertura do PR (CI) | autorizar; **merge só na janela** | DECISÃO |
-| D7 | Designar as pessoas e a data da aceitação com usuários reais | doc 20 | DECISÃO |
+| D1 | Registro do histórico: (b) pela versão do arquivo, atômico, via executor | (b) (doc 19, seção 2) | APROVADO em 22/11/2026, condicionado à validação final do executor (transporte, G3) |
+| D2 | Migration de SLA `20261121177000`: manter adiada no go-live | manter adiada (doc 19, seção 3) | APROVADO em 22/11/2026 |
+| D3 | Janela de 60 min de manutenção (ACC sem uso) com congelamento de escrita | aplicar | PREPARAR aprovado (runbook no doc 23); **data e hora ainda a definir** |
+| D4 | Criar o token pessoal do Supabase e ensaiar o transporte do executor no homolog | autorizar | AUTORIZADO o ensaio só no acc-homolog; **aguarda o responsável criar e guardar o token (doc 25)** |
+| D5 | `ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=false` no go-live; pipeline de e-mail em simulação; passo novo de anexos por delegação desligado | doc 19, seção 6 | APROVADO em 22/11/2026 (gate `ACC_DELEGATED_ATTACHMENTS_ENABLED` implementado e testado) |
+| D6 | Push da branch de integração e abertura do PR (CI) | autorizar; **merge só na janela** | AUTORIZADO em 22/11/2026 (só `integration/acc-noturna`; sem merge, sem deploy) |
+| D7 | Aceitação com usuários reais | doc 20 | PREPARAR aprovado (roteiro doc 20, acessos doc 24); **pessoas e data ainda a definir** |
 
 ## G1 - Código e CI (P0 para o merge)
 | Item | Responsável | Evidência | Critério de aprovação | Status |
