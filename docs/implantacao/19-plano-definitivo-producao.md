@@ -41,6 +41,8 @@ Análise detalhada no doc 11; o que mudou desde então é que **(b) foi exercita
 ## 3. A migration de SLA irreversível (`20261121177000`) é necessária?
 **Não. Manter adiada.**
 
+> Verificação detalhada, com linha do tempo e efeito operacional: `26-sla-vigente-x-aprovado-weg.md`.
+
 ### 3.1 O que ela faz
 Altera só o prazo para **assumir** de MÉDIO (1 para 2 dias úteis) e BAIXO (3 para 5 dias úteis) nas regras já existentes (desativa a regra antiga e cria nova; atualiza o padrão de `sla_ssma_assume_due_at`). Não recalcula nenhuma ação existente.
 

@@ -5,7 +5,7 @@
 #   powershell -NoProfile -File scripts\homolog\executar-homolog.ps1 -Etapa <etapa> [-Pooler aws-0-sa-east-1.pooler.supabase.com]
 # Etapas: ping | apply-dry | init-marker | apply | verify | seed-dry | seed-apply
 param(
-  [Parameter(Mandatory = $true)][ValidateSet('ping', 'apply-dry', 'init-marker', 'apply', 'verify', 'seed-dry', 'seed-apply', 'tenant-dry', 'tenant-apply', 'sql', 'executor', 'jwt', 'observar', 'dataapi')][string]$Etapa,
+  [Parameter(Mandatory = $true)][ValidateSet('ping', 'apply-dry', 'init-marker', 'apply', 'verify', 'seed-dry', 'seed-apply', 'tenant-dry', 'tenant-apply', 'sql', 'executor', 'jwt', 'observar', 'dataapi', 'executor-api')][string]$Etapa,
   [string]$Pooler = '',
   [string]$Email = '',
   [string]$Arquivo = '',
@@ -64,7 +64,8 @@ $map = @{
   'executor'    = @('scripts/implantacao/executor-ondas.mjs', '--alvo', 'pg') + @($Extra -split ' ' | Where-Object { $_ });
   'jwt'         = @('scripts/homolog/validar-jwt-real.mjs') + @($Extra -split ' ' | Where-Object { $_ });
   'observar'    = @('scripts/homolog/observar-jobs.mjs') + @($Extra -split ' ' | Where-Object { $_ });
-  'dataapi'     = @('scripts/homolog/verificar-data-api.mjs') + @($Extra -split ' ' | Where-Object { $_ })
+  'dataapi'     = @('scripts/homolog/verificar-data-api.mjs') + @($Extra -split ' ' | Where-Object { $_ });
+  'executor-api' = @('scripts/implantacao/executor-ondas.mjs', '--alvo', 'homolog', '--segredo', (Join-Path $dir 'supabase-pat.dpapi')) + @($Extra -split ' ' | Where-Object { $_ })
 }
 $args2 = $map[$Etapa]
 node --no-warnings @args2

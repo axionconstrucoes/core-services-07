@@ -59,7 +59,7 @@ Status em 22/11/2026: **PRONTO** = evidência existe e foi conferida; **PENDENTE
 | Item | Responsável | Evidência | Critério | Status |
 |---|---|---|---|---|
 | Regras da WEG intactas após as ondas | Eng. | cópia de produção: 6 regras existentes iguais | iguais | PRONTO |
-| Prazos CRÍTICO 1 h / ALTO 4 h úteis / MÉDIO 1 d.u. / BAIXO 3 d.u. na WEG | Dono + Área | doc 19, seção 3.2 | confirmados pelo Dono | DECISÃO (D2) |
+| Prazos CRÍTICO 1 h / ALTO 4 h úteis / MÉDIO 1 d.u. / BAIXO 3 d.u. na WEG (diferem do aprovado 2 e 5 em MÉDIO e BAIXO) | Dono + Área | doc 26 (verificação e efeito operacional) | efeito aceito pelo Dono | APROVADO (D2: migration adiada); aceitação mede 1 e 3 |
 | AXIA, ajuda das telas e manual não afirmam 2/5 nem citam migration | Eng. | `test-axia-sem-termos-internos` (14 verificações) | passa | PRONTO |
 
 ## G7 - Aplicativo e Vercel
