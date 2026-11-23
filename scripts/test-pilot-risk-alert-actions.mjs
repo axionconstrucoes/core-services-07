@@ -631,6 +631,8 @@ const SLA_RULE_MIGRATION_EXCEPTIONS = {
     "Decisão do responsável (21/11/2026): Qualidade com área própria de alertas e SLA por criticidade. Só AMPLIA o CHECK de área e SEMEIA regras QUALIDADE (CRÍTICO 1h corrida, ALTO 4h úteis, MÉDIO 2 e BAIXO 5 dias úteis, nunca mais frouxas que a regra geral da obra) onde já há regra geral ativa; não altera regras existentes nem sla_actions (provado em test-quality-alert-area-sla-sql e no ensaio por ondas).",
   "20261121177000_sla_medio_baixo_prazos_aprovados.sql":
     "Prazos definitivos aprovados pelo responsável em 20/11/2026: MÉDIO 2 dias úteis e BAIXO 5 dias úteis, somente para NOVAS ações; não altera sla_actions existentes (provado em test-sla-medio-baixo-aprovados-sql).",
+  "20261212100000_watchdog_project_resolution.sql":
+    "Autorizado pelo responsável (22/11/2026, item 4 da autorização de homologação): corrige o project_id FIXO do acc_scheduler_watchdog (a FK quebrava onde a obra fixa não existe, ex. acc-homolog). Preserva o comportamento de produção (usa o id fixo se existir), NÃO altera prazos, escalonamento, destinatários, pg_cron nem record_risk_alert_action; validada no acc-homolog (onda N), em ensaio local e em test-watchdog-project-resolution-sql.",
 };
 // Alterações APROVADAS e estreitas (cada uma é verificada pelo CONTEÚDO, nunca só pelo nome):
 //  - default-matrix.ts: só vale se os prazos de assumir forem exatamente os aprovados (CRÍTICO 1, ALTO 4, MÉDIO 2, BAIXO 5);

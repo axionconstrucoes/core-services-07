@@ -1,0 +1,66 @@
+# 21 - Revisão final da integração e estratégia de push, PR, CI e deploy
+
+Status: proposta para aprovação do Dono. **Nada foi enviado ao GitHub**: nenhum push, PR, merge ou deploy foi executado. Base: `main` = `27da839` (igual a `origin/main`); integração: `integration/acc-noturna`.
+
+## 1. O que a integração contém (diff contra a `main`)
+| Medida | Valor |
+|---|---|
+| `main` é ancestral da integração (merge *fast-forward* possível) | sim |
+| Commits à frente | 364 (84 merges, 280 sem merge) |
+| Arquivos alterados | 1.203 (+142.187 / -4.008 linhas) |
+| `apps/web` | 592 arquivos |
+| `scripts` (testes e ferramentas) | 325 |
+| `docs` | 133 |
+| `supabase/migrations` | 76 (**69 novas**, 7 renomeações) |
+| `supabase/rollbacks` | 71 |
+| `.github/workflows` | 3 (ver seção 3) |
+| `packages` | 0 |
+| Binários novos (imagens de evidência) | 34 |
+
+### 1.1 Migrations: o ponto mais sensível
+- **Nenhum conteúdo de migration da `main` foi alterado**: 0 blobs da `main` ausentes na integração; só 69 arquivos novos.
+- As 7 mudanças em arquivos existentes são **renomeações puras (R100)**, para alinhar a versão do arquivo com o histórico real do banco (`axia_chat_budget`, `sla_configuration_audit_system_actor`, três de SSMA/ESG, `copy_project_team`, `scheduler_pg_cron_dispatch`). O teste de invariantes (59 de `test-pilot-risk-alert-actions`) exige conteúdo idêntico e as aprova uma a uma.
+- A migration nova `20261212100000_watchdog_project_resolution.sql` foi registrada no teste de invariantes como **exceção auditada** (autorizada em 22/11/2026), porque altera uma função protegida do agendador.
+
+## 2. Mapa de revisão por área (para o PR)
+O histórico está organizado em merges por frente, o que permite revisar por assunto. Ordem sugerida de revisão, do risco maior para o menor:
+1. **`supabase/migrations` (69 novas) e `supabase/rollbacks`**: revisão por onda (A a N) usando `scripts/data/implantacao-sequencia.json` e `docs/implantacao/01` e `07`. Cada onda tem verificação (`scripts/sql/verificacao-onda-*.sql`) e rollback.
+2. **Funções protegidas**: `record_risk_alert_action` (P0, corpo `930f6d75...`), permissões (`acc_project_tier`), agendador. Conferir que nenhuma onda redefine o P0 (o portão P0 da sequência o confere).
+3. **`apps/web`**: Server Actions e RPCs de escrita (Qualidade, Seguros/Garantias, Competências: bloqueados pela trava), autorização, e-mail (guarda de saída do piloto), AXIA, sidebar, TopBar.
+4. **Workflows** (seção 3).
+5. **`scripts`/`docs`**: testes e documentação; revisar por amostragem, a CI cobre a execução.
+
+## 3. Workflows do GitHub: efeito após o merge
+Os três workflows alterados rodam na `main`; dois são agendados e usam segredos de produção:
+- `ci-pr-checks.yml`: torna **obrigatórios** `test:alert-sim` e `test:alerts` (antes eram opcionais enquanto não existissem).
+- `gmail-delegated-sync.yml`: **novo passo** "Anexos da caixa por delegação" (`scripts/gmail-ata-ingestion-worker.mjs`) com `NEXT_PUBLIC_SUPABASE_URL` e `SUPABASE_SECRET_KEY`, e repasse das variáveis `ACC_EMAIL_*` das respostas por e-mail.
+- `weekly-schedule-email-ingestion.yml`: repasse das mesmas variáveis `ACC_EMAIL_*`.
+**Consequência:** ao reabilitar os workflows na fase 7 do doc 19, a sincronização agendada passa a executar o worker de anexos/atas e a fase de respostas por e-mail em produção. **Decisão do Dono:** manter `gmail-delegated-sync` desabilitado até a aceitação do bloco de e-mail (doc 20) ou reabilitá-lo com as variáveis do repositório (`vars.ACC_EMAIL_*`) definidas **idênticas** às da Vercel; sem definir, os padrões são seguros (desligado).
+
+## 4. CI: o que a CI verifica e o que já foi medido localmente
+A CI (`ci-pr-checks.yml`, em `pull_request` para a `main`, Ubuntu, sem segredos) roda: guardas (segredos, `.env`, migrations duplicadas), typecheck, lint, unitários, `test:scripts`, `test:email`, `test:sql`, `test:ssma` (Chrome real; qualquer PULADO reprova), `test:alert-sim`, `test:alerts` e o build. Timeouts: 30 min (checks) e 20 min (build).
+Equivalente local medido na integração (Windows; **a CI nunca rodou sobre esta integração**):
+| Etapa | Resultado local |
+|---|---|
+| typecheck / lint / build / unitários | 0 erros / 0 erros (14 avisos antigos) / ok / 21 de 21 |
+| `test:scripts` | 170 de 170 (cerca de 9 min) |
+| `test:sql` (replay completo das migrations) | 712 OK, 0 falhas, 178 s |
+| `test:ssma` (Chrome) | 186 OK, 0 falhas, 0 PULADO |
+| `test:alert-sim` | 62 OK, 0 falhas |
+| `test:alerts` | passou depois de registrar a exceção auditada do watchdog (antes: 1 falha na invariante 59, **que a CI teria acusado**) |
+| `test:email` | 370 OK e **1 falha**, em `test-pilot-single-alert` ("propagação REAL workflow -> rota -> motor"): o mesmo teste passa por inteiro (23 OK, 0 falhas) quando rodado no Git Bash. Ele usa `bash`; a causa da falha pelo PowerShell **não foi provada** (hipótese: ambiente Windows), e a CI roda em Linux |
+**Risco restante da CI:** somados, os tempos locais (cerca de 9 + 3 + 1 + testes unitários e build) ficam dentro dos 30 minutos, mas a CI nunca foi exercida em Linux sobre 1.203 arquivos. O primeiro PR é o teste. Plano: abrir o PR **sem pedir merge**, corrigir o que a CI acusar na própria branch, e só então marcar como pronto.
+
+## 5. Estratégia de push, PR e deploy (proposta)
+1. **Push da branch de integração** (autorização D6): gera um **preview** na Vercel. Os previews **não têm credenciais do Supabase** (as variáveis estão só no alvo `production`), então não alcançam a produção; o preview servirá de teste de build.
+2. **PR para a `main`, com `merge commit` ou *fast-forward*** (não *squash*: 364 commits em merges por frente preservam a rastreabilidade, e o revert por frente continua possível). Revisão por área (seção 2). Proteção de branch: **não foi possível verificar** (sem acesso à API do GitHub nesta sessão); o Dono deve confirmar se há revisão obrigatória.
+3. **CI verde no PR e aceitação em homologação aprovada (doc 20)** antes da janela.
+4. **O merge só acontece dentro da janela, depois do banco** (doc 19, seção 5): o merge na `main` dispara deploy de produção automático.
+5. **Rollback do app**: `request_rollback` para o deployment anterior (commit `27da839`).
+6. **Sem push forçado, sem reescrever histórico.** Backups da branch antes do merge: tag/branch de segurança local (`backup/noturna-pre-fase2-integracao`) e o bundle de 22/11.
+
+## 6. Pendências de higiene antes do PR
+- Resolver o `test-pilot-single-alert` na CI Linux (confirmar que passa).
+- Reconferir `git status` limpo e que `.claude/settings.json` (não versionado, na `main`) não entra no PR.
+- Os agentes de AXIA, TopBar e aceitação ainda entregam commits em branches próprias (`feat/f4-*`); integrar após revisão.
+- Rótulos `[DEV]` do projeto WEG em produção (nome "[DEV] WEG - Fábrica de Fios - Linhares", cliente "Cliente Fictício DEV"): correção de dado é decisão do Dono, não é migration.
