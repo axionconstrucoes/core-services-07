@@ -104,3 +104,14 @@ Adiar não perde nada: a linha fica na fila e sai quando a fonte for habilitada 
 
 ### 9.2 Achado sobre a reserva para críticos
 O governador só trata como **crítico** o envio cujo contexto traz `priority: "CRITICAL"`, e **apenas o ciclo de risco** (fonte `RISCO`) preenche isso. **Escalonamento de SLA com severidade crítica** e **alerta de acidente do SSMA com severidade crítica** **não** informam a prioridade: usam o limite sem reserva (8 por hora e 25 por dia). Como `RISCO` está adiada em F0, **a reserva de 2/h e 5/dia não protege nada em F0**. **Correção proposta** (pequena, com teste; não aplicada): marcar como `CRITICAL` o `SLA_ESCALATION` com severidade crítica e o `SSMA_ACCIDENT` com severidade crítica. Depende de autorização, porque altera código que irá a produção.
+
+## 10. Inventário do Supabase Auth e projeto OAuth do Google (23/11/2026, somente leitura)
+**Usuários em produção (consulta agregada ao vivo, sem alterar nada):**
+| Provedor | Domínio | Usuários | Já entraram | Último login | Observação |
+|---|---|---|---|---|---|
+| google | `axion.com.br` | 7 | 7 | 23/11/2026 | os únicos usuários reais; todos confirmados |
+| email | `example.com` | 78 | 78 | 26/08/2026 | contas de teste (criadas 23/08) |
+| email | `axion-test.local` | 1 | 1 | 19/08/2026 | conta de teste |
+Nenhum usuário anônimo, banido ou sem confirmar. Total: 86.
+
+**Projeto OAuth do Google:** o Client ID configurado no Supabase (valor público, não secreto) começa com **`1033164664091`**, que é o **número do projeto** no Google Cloud. Ao abrir `console.cloud.google.com/apis/credentials?project=1033164664091`, a conta logada neste navegador recebeu "você precisa de acesso adicional" (permissão ausente: `resourcemanager.projects.get`). Ou seja, **a conta usada aqui não é a dona do projeto**. Para conferir tipo de usuário (Interno), URIs de redirecionamento e domínio autorizado, alguém com acesso ao projeto `1033164664091` precisa abri-lo; **não foi alterado nem acessado por outra credencial**.
