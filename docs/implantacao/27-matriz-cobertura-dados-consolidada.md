@@ -25,6 +25,8 @@ As matrizes completas, com as 19 colunas exigidas, estão nos documentos de cada
 
 Contagem: **0 OPERACIONAL, 9 PARCIAL, 4 NÃO CONECTADA** (linhas 1 a 13).
 
+> **Atualização (23/11, doc 36):** a CAIXA-1 foi reconciliada (890 = 229 + 19 + 642; diferença de 29 = 10 + 19 inseridas em 11/11; 0 duplicidades). O dry-run de 23/11 (22/05/2025 a 22/11/2026) concluiu, mas as contagens por mês ainda não foram lidas. Os 642 rejeitados de 11/11 usaram regra de perímetro já superada. Contagem inalterada: 0 OPERACIONAL, 9 PARCIAL, 4 NÃO CONECTADA.
+
 ## 2. Pendências explícitas de GO-LIVE (fontes críticas ausentes ou incompletas)
 1. **E-mail de 22/05 a 29/09/2025**: não se sabe se esse período existe na caixa. Próximo passo de menor custo: **dry-run** do backfill em blocos mensais (que não grava nada) sobre a CAIXA-1; depende de autorização.
 2. **E-mail dos 6 colaboradores sem caixa conectada** e do Outlook: dependem de delegação de domínio por caixa, consentimento do Microsoft Graph (somente `Mail.Read` de aplicativo), lista de autorizados e aceite individual.
