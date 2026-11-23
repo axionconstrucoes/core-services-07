@@ -278,7 +278,10 @@ check("TopBar: identificação do projeto ativo vem do seletor (nome selecionado
   const switcher = readSource("apps/web/components/layout/project-switcher.tsx");
   assert(!topBar.includes("currentProject?.code"), "o código do projeto não deve voltar à TopBar (decisão de design d6cf562) — a identificação é o seletor + dashboard");
   assert(/value=\{currentProjectId\}/.test(switcher), "o seletor deveria estar posicionado no projeto ativo (value=currentProjectId)");
-  assert(/\{project\.name\}/.test(switcher), "as opções do seletor deveriam mostrar o nome do projeto");
+  assert(/\{projectOptionLabel\(project\)\}/.test(switcher), "as opções do seletor deveriam usar o rótulo estável 'CÓDIGO · nome' (código primeiro, F4)");
+  assert(switcher.includes("`${code} · ${base}`"), "o rótulo deveria começar pelo código da obra (o seletor trunca o final)");
+  assert(topBar.includes("sm:max-w-[9rem]") && topBar.includes("sm:text-xs"), "entre sm e lg o seletor deveria ter largura/fonte que comportem códigos longos (AXION-DEV-001) sem cortá-los");
+  assert(switcher.includes("[@media(pointer:coarse)]:h-11"), "alvo de toque >= 44 px em telas de toque");
   assert(switcher.includes("title={currentProject?.name}"), "o seletor deveria expor o nome completo no title");
   assert(topBar.includes("min-w-24"), "o seletor deveria ter largura mínima legível (min-w-24), inclusive em celular");
   assert(topBar.includes("bg-[var(--surface-topbar)]"), "fundo azul-marinho da TopBar (--surface-topbar) mantido");

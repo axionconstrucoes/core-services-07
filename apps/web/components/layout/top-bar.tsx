@@ -68,7 +68,7 @@ export async function TopBar({
           <ProjectSwitcher
             projects={projects}
             currentProjectId={projectId}
-            className="min-w-24 flex-1 sm:max-w-[7rem] sm:flex-initial lg:max-w-[10rem] xl:max-w-[16rem]"
+            className="min-w-24 flex-1 sm:max-w-[9rem] sm:flex-initial sm:px-2 sm:text-xs lg:px-3 lg:text-sm lg:max-w-[10rem] xl:max-w-[16rem]"
           />
           {currentProject?.contractNumber && (
             <span className="shrink-0 text-xs text-muted-foreground">Contrato {currentProject.contractNumber}</span>
