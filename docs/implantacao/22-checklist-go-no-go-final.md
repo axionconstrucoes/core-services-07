@@ -60,7 +60,7 @@ Status em 22/11/2026: **PRONTO** = evidência existe e foi conferida; **PENDENTE
 |---|---|---|---|---|
 | Regras da WEG intactas após as ondas | Eng. | cópia de produção: 6 regras existentes iguais | iguais | PRONTO |
 | Prazos CRÍTICO 1 h / ALTO 4 h úteis / MÉDIO 1 d.u. / BAIXO 3 d.u. na WEG | Dono + Área | doc 19, seção 3.2 | confirmados pelo Dono | DECISÃO (D2) |
-| AXIA não afirma 2/5 | Eng. | testes da AXIA | passa | PENDENTE (agente em andamento; doc 21) |
+| AXIA, ajuda das telas e manual não afirmam 2/5 nem citam migration | Eng. | `test-axia-sem-termos-internos` (14 verificações) | passa | PRONTO |
 
 ## G7 - Aplicativo e Vercel
 | Item | Responsável | Evidência | Critério | Status |
@@ -85,8 +85,8 @@ Status em 22/11/2026: **PRONTO** = evidência existe e foi conferida; **PENDENTE
 ## G10 - Interface
 | Item | Responsável | Evidência | Critério | Status |
 |---|---|---|---|---|
-| AXIA sem detalhes internos e sem prazos de Médio/Baixo afirmados | Eng. | teste de varredura | passa | PENDENTE (em andamento) |
-| TopBar azul-marinho e identificação do projeto | Eng. | medição em 360 a 1440 px | sem overflow, contraste >= 4,5:1 | PENDENTE (em andamento) |
+| AXIA, ajuda e avisos de tela sem detalhes internos (migration, fase, banco) e sem prazos de Médio/Baixo afirmados | Eng. | varredura em `lib/assistant`, `lib/ui/help`, `app` e `components` | passa | PRONTO |
+| TopBar azul-marinho `#13233b`; seletor mostra "CÓDIGO · nome" | Eng. | TB1 no Chrome real em 360, 390, 640, 768, 1024, 1280 e 1440 px com 6 obras; contraste 15,77:1 | sem overflow, contraste >= 4,5:1 | PRONTO (a TopBar real, com Editar, AXIA e Sair, entre 640 e 1279 px, vai à aceitação K.04) |
 
 ## G11 - Módulos bloqueados (P0)
 | Item | Responsável | Evidência | Critério | Status |

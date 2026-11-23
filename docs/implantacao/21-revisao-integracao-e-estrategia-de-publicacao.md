@@ -43,12 +43,13 @@ Equivalente local medido na integração (Windows; **a CI nunca rodou sobre esta
 | Etapa | Resultado local |
 |---|---|
 | typecheck / lint / build / unitários | 0 erros / 0 erros (14 avisos antigos) / ok / 21 de 21 |
-| `test:scripts` | 170 de 170 (cerca de 9 min) |
-| `test:sql` (replay completo das migrations) | 712 OK, 0 falhas, 178 s |
+| `test:scripts` | 172 de 172 (cerca de 9 min). Uma falha de **relógio** foi corrigida no teste `test-f5-e-governanca-realpg` (usava "ontem" em UTC; o PostgreSQL local usa BRT e, entre 00:00 e 03:00 UTC, "ontem" ainda era "hoje" no banco). O banco do Supabase usa UTC, então produção não era afetada |
+| `test:sql` (replay completo das migrations) | 712 OK, 0 falhas, cerca de 170 s |
 | `test:ssma` (Chrome) | 186 OK, 0 falhas, 0 PULADO |
 | `test:alert-sim` | 62 OK, 0 falhas |
-| `test:alerts` | passou depois de registrar a exceção auditada do watchdog (antes: 1 falha na invariante 59, **que a CI teria acusado**) |
-| `test:email` | 370 OK e **1 falha**, em `test-pilot-single-alert` ("propagação REAL workflow -> rota -> motor"): o mesmo teste passa por inteiro (23 OK, 0 falhas) quando rodado no Git Bash. Ele usa `bash`; a causa da falha pelo PowerShell **não foi provada** (hipótese: ambiente Windows), e a CI roda em Linux |
+| `test:alerts` | 519 OK, 0 falhas (depois de registrar a exceção auditada do watchdog; antes, 1 falha na invariante 59, **que a CI teria acusado**) |
+| `test:email` | **753 OK, 0 falhas** quando o `bash` é o do Git (como em Linux). Pelo PowerShell, `test-pilot-single-alert` ("propagação REAL workflow -> rota -> motor") falha com saída vazia; a causa dessa diferença **não foi provada**, e a CI roda em Linux |
+| Ensaio de ondas em PostgreSQL 17 local (P0 em cada migration) | 413 OK, 0 falhas |
 **Risco restante da CI:** somados, os tempos locais (cerca de 9 + 3 + 1 + testes unitários e build) ficam dentro dos 30 minutos, mas a CI nunca foi exercida em Linux sobre 1.203 arquivos. O primeiro PR é o teste. Plano: abrir o PR **sem pedir merge**, corrigir o que a CI acusar na própria branch, e só então marcar como pronto.
 
 ## 5. Estratégia de push, PR e deploy (proposta)
