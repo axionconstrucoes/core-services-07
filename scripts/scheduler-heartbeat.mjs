@@ -9,8 +9,30 @@
 // Env: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, GITHUB_RUN_ID, GITHUB_RUN_ATTEMPT (definidos pelo runner).
 // Nunca falha o workflow: sem credencial, sem a RPC (migration não aplicada) ou com erro de rede, só avisa e sai com 0.
 // Nunca imprime URL nem chave.
+//
+// Confiabilidade (incidente 25/11/2026, run 45660161019): o heartbeat de início falhava com "falha de rede" num único
+// 522 do Cloudflare e abortava em 15 s — antes de o Cloudflare devolver o 522 (~19 s). Agora usa o retry centralizado
+// (scripts/lib/resilient-fetch.mjs) com timeout por tentativa de 25 s. A RPC é IDEMPOTENTE (UPDATE da linha de estado
+// do job em acc_scheduler_heartbeats, mesmo run_id), então repetir é seguro em qualquer falha transitória.
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createResilientFetch } from "./lib/resilient-fetch.mjs";
+
+export const HEARTBEAT_RETRY = Object.freeze({ maxAttempts: 4, baseDelayMs: 1000, maxDelayMs: 10000, attemptTimeoutMs: 25000 });
+
+export function createHeartbeatFetch(options = {}) {
+  // Se o processo já tiver o fetch resiliente global (via NODE_OPTIONS), usa o fetch ORIGINAL por baixo para não
+  // empilhar duas camadas de retry.
+  const base = globalThis.fetch?.originalFetch ?? globalThis.fetch;
+  return createResilientFetch({
+    fetchImpl: base,
+    service: "heartbeat",
+    treatAllAsIdempotent: true,
+    hosts: null,
+    ...HEARTBEAT_RETRY,
+    ...options,
+  });
+}
 
 const JOBS = new Set(["weekly-all", "mpp-worker", "document-worker", "gmail-sync", "ssma-drive", "construmanager", "diario"]);
 const CONCLUSIONS = new Set(["success", "failure", "cancelled"]);
@@ -41,19 +63,19 @@ async function main() {
     return;
   }
   try {
-    const response = await fetch(`${url.replace(/\/$/, "")}/rest/v1/rpc/acc_scheduler_record_heartbeat`, {
+    const response = await createHeartbeatFetch()(`${url.replace(/\/$/, "")}/rest/v1/rpc/acc_scheduler_record_heartbeat`, {
       method: "POST",
       headers: { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(15000),
     });
     if (response.status === 404) {
       console.log("Heartbeat: agendador ainda não instalado no banco (sem efeito).");
       return;
     }
     console.log(response.ok ? `Heartbeat registrado: ${job} ${event}${payload.p_conclusion ? ` ${payload.p_conclusion}` : ""}.` : `::warning::Heartbeat não registrado (HTTP ${response.status}).`);
-  } catch {
-    console.log("::warning::Heartbeat não registrado (falha de rede).");
+  } catch (error) {
+    const code = error?.cause?.code ?? error?.code ?? error?.name ?? "erro";
+    console.log(`::warning::Heartbeat não registrado (falha de rede: ${code}; até ${HEARTBEAT_RETRY.maxAttempts} tentativas).`);
   }
 }
 

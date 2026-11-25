@@ -45,6 +45,16 @@ await aplicarTravaSeSolicitado(db);
 
 const P = "00000000-0000-4000-8000-0000000000f0";
 const AREA = "PLANEJAMENTO";
+// Previsão SEMPRE futura em relação ao relógio real usado por este teste (now = Date.now()).
+// Antes era fixa em "2026-11-25T15:00": a regra correta do ACC (previsão já passada => FORECAST_INVALID)
+// passou a recusá-la a partir de 25/11/2026 15:00 BRT e o teste quebrou sem defeito no produto.
+// Formato da tela: data e hora locais de São Paulo (YYYY-MM-DDTHH:mm), 3 dias à frente.
+function futureForecastAt(days = 3) {
+  return new Date(Date.now() + days * 86_400_000)
+    .toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" })
+    .slice(0, 16)
+    .replace(" ", "T");
+}
 const U = {
   ADMIN: "00000000-0000-4000-8000-0000000000f1",
   RESP: "00000000-0000-4000-8000-0000000000f2",
@@ -140,7 +150,7 @@ async function expectRefused(promise, fragment) {
 // ---------- Transições legítimas (máquina de estados real) continuam passando ----------
 await check("G1 legítimo: TOMANDO PROVIDÊNCIAS (ALTO) pela tela grava IN_PROGRESS no caso e na ação SLA", async () => {
   const c = await newCase("HIGH");
-  const t = await transitionFor(c, "TAKING_ACTION", { text: "Equipe mobilizada.", forecastAt: "2026-11-25T15:00" });
+  const t = await transitionFor(c, "TAKING_ACTION", { text: "Equipe mobilizada.", forecastAt: futureForecastAt() });
   await asUser(U.RESP);
   await rpc(c, t.expectedState, body(t, U.RESP));
   assert((await caseRow(c)).state === "IN_PROGRESS" && (await slaRow(c)).status === "IN_PROGRESS");

@@ -88,6 +88,11 @@ permissions:
 
 jobs:
   sync:
+    # Agendador unico (incidente 25/11/2026): com ACC_SCHEDULER_PG_CRON_ENABLED=true quem agenda e o pg_cron
+    # (workflow_dispatch). O `schedule` do GitHub fica como reserva e so roda se o pg_cron estiver desligado;
+    # sem isto os dois disparavam o mesmo job (ex.: run 45662575871, event=schedule, alem do disparo do pg_cron).
+    # O job pulado conclui `skipped`, que os watchdogs ignoram.
+    if: ${{ github.event_name != 'schedule' || vars.ACC_SCHEDULER_PG_CRON_ENABLED != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -110,7 +115,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       # Agendador (docs/operacao-agendador-sla.md): INÍCIO real do job com run_id. Nunca falha o workflow.
       - name: Heartbeat do agendador (início)
         continue-on-error: true
@@ -120,7 +125,7 @@ jobs:
         run: node scripts/scheduler-heartbeat.mjs diario started
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: "24"
           cache: npm
@@ -156,6 +161,7 @@ jobs:
           "$MODO"
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NODE_OPTIONS: --import=./scripts/lib/install-resilient-fetch.mjs
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           DIARIO_DE_OBRA_API_TOKEN: ${{ secrets.DIARIO_DE_OBRA_API_TOKEN }}
           # "false" hoje. Diferente de "true" significa DESLIGADO.

@@ -55,7 +55,9 @@ jobs:
   alertar:
     runs-on: ubuntu-latest
     # Sucesso nao gera trabalho nenhum: o job inteiro nem comeca.
-    if: github.event.workflow_run.conclusion != 'success'
+    # `skipped` tambem nao: e o disparo `schedule` pulado de proposito pela
+    # guarda de agendador unico (pg_cron ligado) — nada rodou, nada falhou.
+    if: github.event.workflow_run.conclusion != 'success' && github.event.workflow_run.conclusion != 'skipped'
 
     steps:
       - name: Abrir ou atualizar a issue de falha

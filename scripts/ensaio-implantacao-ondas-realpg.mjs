@@ -104,6 +104,16 @@ const P = "10000000-0000-4000-8000-0000000f4c01";
 const P2 = "10000000-0000-4000-8000-0000000f4c02";
 const uid = (n) => `00000000-0000-4000-8000-${String(f4c(n)).padStart(12, "0")}`;
 function f4c(n) { return 4300 + n; }
+// Previsão SEMPRE futura em relação ao relógio real usado por este teste (now = Date.now()).
+// Antes era fixa em "2026-11-25T15:00": a regra correta do ACC (previsão já passada => FORECAST_INVALID)
+// passou a recusá-la a partir de 25/11/2026 15:00 BRT e o teste quebrou sem defeito no produto.
+// Formato da tela: data e hora locais de São Paulo (YYYY-MM-DDTHH:mm), 3 dias à frente.
+function futureForecastAt(days = 3) {
+  return new Date(Date.now() + days * 86_400_000)
+    .toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" })
+    .slice(0, 16)
+    .replace(" ", "T");
+}
 const U = { ADMIN: uid(1), RESP: uid(2), GESTOR: uid(3), DIR: uid(4), OTHER: uid(5), LEITURA: uid(6), INATIVO: uid(7), ADMIN2: uid(8) };
 const AREA = "PLANEJAMENTO";
 
@@ -184,7 +194,7 @@ async function p0Probe(su, caseId) {
     slaActionId: c.sla_action_id, title: c.title, reference: c.reference, activeForward: null, escalatedLevels: [] };
   const policy = resolveMatrixPolicy({ rules, responsibles, settings: null, area: AREA, riskLevel: "HIGH" });
   const t = applyAlertAction({ now: new Date().toISOString(), snapshot: snap, action: "TAKING_ACTION", actorUserId: U.LEITURA, origin: "WEB",
-    payload: { text: "Tentativa sem permissao.", forecastAt: "2026-11-25T15:00" }, policy, config, recipients, eligibleForwardUserIds: Object.values(U) });
+    payload: { text: "Tentativa sem permissao.", forecastAt: futureForecastAt() }, policy, config, recipients, eligibleForwardUserIds: Object.values(U) });
   if (!t.ok) throw new Error(`maquina de estados recusou a sonda: ${t.code}`);
   const payload = { actionType: t.action, actorUserId: U.LEITURA, actionLinkTokenHash: null, summary: t.summary,
     events: t.events.map((e) => ({ ...e, actorUserId: e.actorUserId ?? U.LEITURA })), caseUpdate: t.caseUpdate, forward: t.forward,

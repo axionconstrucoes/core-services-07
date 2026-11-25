@@ -56,7 +56,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       # Agendador (docs/operacao-agendador-sla.md): INÍCIO real do job com run_id. Nunca falha o workflow.
       - name: Heartbeat do agendador (início)
         continue-on-error: true
@@ -66,7 +66,7 @@ jobs:
         run: node scripts/scheduler-heartbeat.mjs weekly-all started
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: "24"
           cache: npm
@@ -98,7 +98,7 @@ jobs:
         env:
           # O runner hospedado tem memória suficiente para elevar o heap
           # acima do default (~4 GB). Necessário sobretudo para XLSX grandes.
-          NODE_OPTIONS: --max-old-space-size=6144
+          NODE_OPTIONS: --max-old-space-size=6144 --import=./scripts/lib/install-resilient-fetch.mjs
           ACC_WEEKLY_REPORTS_ENABLED: ${{ vars.ACC_WEEKLY_REPORTS_ENABLED }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
