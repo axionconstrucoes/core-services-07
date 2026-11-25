@@ -85,10 +85,14 @@ e um 522 com corpo vazio produz mensagem vazia. A correção cobre os dois casos
    - Status transitórios 408, 429, 502, 503, 504 e 520–524.
    - Backoff exponencial com jitter e teto de 30 s; 5 tentativas.
    - **Retry-After** respeitado, em segundos ou como data HTTP.
-   - Escrita não idempotente (POST/PATCH) só é repetida quando a requisição comprovadamente **não chegou** à origem
-     (408/429/503/521/522/523 ou erro de conexão). 502, 504, 520, 524 e ECONNRESET são ambíguos e não são repetidos, o
-     que evita duplicidade.
-   - Upsert (`Prefer: resolution=…`) e métodos idempotentes repetem em qualquer status transitório.
+   - Leituras e métodos idempotentes (GET, HEAD, OPTIONS, PUT, DELETE) repetem em qualquer status transitório.
+   - **POST e PATCH só repetem com idempotência explícita** (`treatAllAsIdempotent`, hoje só o heartbeat: UPDATE de
+     uma linha de estado com valores absolutos). Um 522, um erro de conexão ou um cabeçalho `Prefer` de upsert não
+     comprovam que a origem deixou de aplicar a escrita nem que os efeitos podem ser repetidos (o Cloudflare pode
+     desistir depois de o Postgres gravar). Insert, upsert, PATCH e demais RPCs devolvem o erro na 1ª falha; a
+     execução seguinte retoma do checkpoint e a unicidade do banco (23505) impede duplicidade.
+   - Testes com escrita aplicada e resposta perdida (522 ou conexão derrubada após gravar): POST/PATCH/RPC genéricos
+     não são reenviados e geram um único efeito; um controle prova que o reenvio duplicaria.
    - Não empilha com o retry próprio do postgrest-js (GET 503/520).
    - Corpo HTML ou vazio de erro transitório vira JSON curto (`HTTP 522 (Cloudflare: Connection timed out) … após N
      tentativa(s)`, `code=HTTP_522`, `details=cf-ray=…`).

@@ -4,6 +4,7 @@
 // Falhas são injetadas por regras: { match(req) → bool, times, action } com action:
 //   "522" | "502" | "503" | "504" | "520" | "524"  → página HTML do Cloudflare, sem tocar no estado;
 //   "504-after-commit" / "522-after-commit"       → APLICA a escrita e retorna o erro (caso ambíguo real);
+//   "reset-after-commit"                          → APLICA a escrita e derruba a conexão (resposta perdida);
 //   "429:<seg>" | "429-date:<seg>"                → 429 com Retry-After em segundos ou data HTTP;
 //   "522-empty"                                   → 522 com corpo vazio;
 //   "reset"                                       → derruba a conexão (ECONNRESET no cliente).
@@ -117,7 +118,9 @@ export function startFakePostgrest({ tables = {}, uniqueKeys = {} } = {}) {
         res.end(body == null ? "" : isText ? body : JSON.stringify(body));
       };
 
-      let statusAfterCommit = null;
+      let statusAfterCommit = null; // número do status ou "reset" (resposta perdida após aplicar a escrita)
+      const loseResponse = () =>
+        statusAfterCommit === "reset" ? req.socket.destroy() : send(statusAfterCommit, cloudflareHtml(statusAfterCommit));
       if (rule) {
         rule.times -= 1;
         rule.fired = (rule.fired ?? 0) + 1;
@@ -131,6 +134,7 @@ export function startFakePostgrest({ tables = {}, uniqueKeys = {} } = {}) {
         }
         if (action.startsWith("429:")) return send(429, { message: "rate limited" }, { "retry-after": action.split(":")[1] });
         if (/^(504|522)-after-commit$/.test(action)) statusAfterCommit = Number(action.slice(0, 3));
+        if (action === "reset-after-commit") statusAfterCommit = "reset";
       }
 
       const rpc = /^\/rest\/v1\/rpc\/([a-z_]+)$/.exec(url.pathname);
@@ -142,7 +146,7 @@ export function startFakePostgrest({ tables = {}, uniqueKeys = {} } = {}) {
           row.updates += 1;
           if (p.p_event === "started") row.last_started_run_id = p.p_run_id;
           else row.last_conclusion = p.p_conclusion;
-          return statusAfterCommit ? send(statusAfterCommit, cloudflareHtml(statusAfterCommit)) : send(204, null);
+          return statusAfterCommit ? loseResponse() : send(204, null);
         }
         return send(404, { code: "PGRST202", message: "função inexistente" });
       }
@@ -159,7 +163,7 @@ export function startFakePostgrest({ tables = {}, uniqueKeys = {} } = {}) {
         return send(200, rows);
       }
       const result = applyWrite(req.method, table, url, req.headers, raw ? JSON.parse(raw) : null);
-      if (statusAfterCommit) return send(statusAfterCommit, cloudflareHtml(statusAfterCommit));
+      if (statusAfterCommit) return loseResponse();
       return send(result.status, result.body);
     });
   });

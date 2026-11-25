@@ -4,7 +4,8 @@
 //   1. política (quais status/métodos repetem; Retry-After; backoff com jitter e teto);
 //   2. indisponibilidade temporária do Supabase e recuperação após 522;
 //   3. falhas consecutivas além do limite (erro curto, sem HTML);
-//   4. escrita: 522 e 504 após gravar não repetem POST genérico;
+//   4. escrita: 522/504/conexão derrubada APÓS gravar não repetem POST/PATCH/RPC genéricos (um único efeito; o
+//      controle prova que o reenvio duplicaria); operação com idempotência declarada (heartbeat) repete sem duplicar;
 //   5. sincronização interrompida: checkpoint preservado na falha, retomada sem duplicidade;
 //   6. concorrência entre agendadores (duas execuções simultâneas com falhas injetadas);
 //   7. reconciliação de anexo após escrita com resposta perdida;
@@ -214,6 +215,84 @@ await test("escrita: POST aplicado antes de um 522 gera um único efeito sem ree
   }
 });
 
+await test("escrita: POST aplicado e conexão derrubada antes da resposta → sem reenvio, um único efeito", async () => {
+  const server = await startFakePostgrest({ tables: { events: [] } });
+  try {
+    server.inject(isTable("events", "POST"), 1, "reset-after-commit");
+    const { client, logs } = makeClient(server);
+    const result = await client.from("events").insert({ kind: "test" });
+    assert.notEqual(result.error, null, "o erro chega ao chamador");
+    assert.equal(server.hits.filter(isTable("events", "POST")).length, 1, "nenhum reenvio");
+    assert.equal(server.state.events.length, 1);
+    assert.match(logs.join("\n"), /sem-retry\(.*escrita ambígua: não repetida\)/);
+  } finally {
+    await server.close();
+  }
+});
+
+await test("controle: se o mesmo POST aplicado antes do 522 FOSSE reenviado, gravaria duas vezes (o teste detecta o defeito)", async () => {
+  const server = await startFakePostgrest({ tables: { events: [] } });
+  try {
+    server.inject(isTable("events", "POST"), 1, "522-after-commit");
+    // Força o reenvio (comportamento da política anterior) só para provar que o cenário detecta a duplicidade.
+    const naive = createResilientFetch({ fetchImpl: globalThis.fetch, hosts: [server.host], treatAllAsIdempotent: true, log: () => {}, sleep: async () => {} });
+    const client = createClient(server.url, KEY, { auth: { persistSession: false, autoRefreshToken: false }, global: { fetch: naive } });
+    const { error } = await client.from("events").insert({ kind: "test" });
+    assert.equal(error, null);
+    assert.equal(server.hits.filter(isTable("events", "POST")).length, 2);
+    assert.equal(server.state.events.length, 2, "duplicidade: é exatamente o que a política corrigida impede");
+  } finally {
+    await server.close();
+  }
+});
+
+await test("escrita: PATCH aplicado antes do 522 e RPC genérica com 522 não são reenviados", async () => {
+  const server = await startFakePostgrest({ tables: { project_email_ingestion_configs: [{ id: "cfg-1", last_sync_at: "2026-11-25T14:00:00Z" }] } });
+  try {
+    server.inject(isTable("project_email_ingestion_configs", "PATCH"), 1, "522-after-commit");
+    server.inject((h) => h.path === "/rest/v1/rpc/registrar_evento", 1, "522");
+    const { client } = makeClient(server);
+    const patch = await client.from("project_email_ingestion_configs").update({ last_sync_at: "2026-11-25T15:00:00Z" }).eq("id", "cfg-1");
+    assert.equal(patch.status, 522);
+    assert.equal(server.hits.filter(isTable("project_email_ingestion_configs", "PATCH")).length, 1);
+    const rpc = await client.rpc("registrar_evento", { p_caso: "c1" });
+    assert.equal(rpc.status, 522);
+    assert.equal(server.hits.filter((h) => h.path === "/rest/v1/rpc/registrar_evento").length, 1);
+  } finally {
+    await server.close();
+  }
+});
+
+for (const lost of ["522-after-commit", "reset-after-commit"]) {
+  await test(`operação com idempotência comprovada (RPC de heartbeat) aplicada com resposta perdida (${lost}) → repetida, um único efeito`, async () => {
+    const server = await startFakePostgrest();
+    try {
+      server.inject((h) => h.path.endsWith("/acc_scheduler_record_heartbeat"), 1, lost);
+      const logs = [];
+      const hb = createResilientFetch({
+        fetchImpl: globalThis.fetch,
+        hosts: [server.host],
+        service: "heartbeat",
+        treatAllAsIdempotent: true, // declaração explícita: UPDATE de uma linha de estado com valores absolutos
+        log: (line) => logs.push(line),
+        sleep: async () => {},
+      });
+      const response = await hb(`${server.url}/rest/v1/rpc/acc_scheduler_record_heartbeat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ p_job: "gmail-sync", p_event: "started", p_run_id: 45660161019 }),
+      });
+      assert.equal(response.status, 204);
+      assert.equal(server.hits.length, 2, "1ª tentativa aplicada + 1 repetição");
+      assert.equal(server.heartbeats.length, 1, "uma única linha de estado");
+      assert.equal(server.heartbeats[0].last_started_run_id, 45660161019);
+      assert.match(logs.at(-1), /action=recuperado/);
+    } finally {
+      await server.close();
+    }
+  });
+}
+
 await test("escrita: 504 APÓS gravar (ambíguo) não é repetido; nova tentativa da rodada seguinte dá 23505 e não duplica", async () => {
   const server = await startFakePostgrest({ tables: { emails: [] }, uniqueKeys: { emails: ["project_id", "provider_message_id"] } });
   try {
@@ -296,6 +375,19 @@ await test("recuperação dentro da própria execução: 522 transitório em lei
     const result = await miniSync(makeClient(server).client, ["a", "b"], "2026-11-25T17:02:00Z");
     assert.deepEqual(result, { inserted: 2, duplicates: 0 });
     assert.equal(server.state.project_email_ingestion_configs[0].last_sync_at, "2026-11-25T17:02:00Z");
+  } finally {
+    await server.close();
+  }
+});
+
+await test("lote APLICADO com resposta perdida (522): sem reenvio; o fallback linha a linha encontra 23505 e não duplica", async () => {
+  const server = await syncServer();
+  try {
+    server.inject(isTable("emails", "POST"), 1, "522-after-commit");
+    const result = await miniSync(makeClient(server).client, ["a", "b"], "2026-11-25T17:03:00Z");
+    assert.deepEqual(result, { inserted: 0, duplicates: 2 });
+    assert.equal(server.state.emails.length, 2, "um único efeito por mensagem");
+    assert.equal(server.state.project_email_ingestion_configs[0].last_sync_at, "2026-11-25T17:03:00Z");
   } finally {
     await server.close();
   }
