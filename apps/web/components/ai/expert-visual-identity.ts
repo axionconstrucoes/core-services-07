@@ -1,4 +1,4 @@
-import { CalendarClock, Crown, Leaf, Scale, TrendingUp, type LucideIcon } from "lucide-react";
+import { CalendarClock, ClipboardCheck, Crown, HardHat, Leaf, Scale, TrendingUp, type LucideIcon } from "lucide-react";
 import type { ExpertVisualIdentity } from "../../lib/ai/expert-definitions";
 import { cn } from "../../lib/utils";
 
@@ -12,7 +12,9 @@ const ICONS_BY_NAME: Record<string, LucideIcon> = {
   TrendingUp,
   Scale,
   CalendarClock,
+  HardHat,
   Leaf,
+  ClipboardCheck,
 };
 
 export function resolveExpertIcon(identity: ExpertVisualIdentity): LucideIcon {
@@ -25,6 +27,8 @@ const TEXT_CLASSES: Record<ExpertVisualIdentity["colorToken"], string> = {
   indigo: "text-indigo-600 dark:text-indigo-400",
   cyan: "text-cyan-600 dark:text-cyan-400",
   green: "text-green-600 dark:text-green-400",
+  amber: "text-amber-600 dark:text-amber-400",
+  rose: "text-rose-600 dark:text-rose-400",
 };
 
 const BORDER_CLASSES: Record<ExpertVisualIdentity["colorToken"], string> = {
@@ -33,6 +37,8 @@ const BORDER_CLASSES: Record<ExpertVisualIdentity["colorToken"], string> = {
   indigo: "border-l-indigo-500",
   cyan: "border-l-cyan-500",
   green: "border-l-green-500",
+  amber: "border-l-amber-500",
+  rose: "border-l-rose-500",
 };
 
 export function expertIconClassName(identity: ExpertVisualIdentity, extra?: string): string {

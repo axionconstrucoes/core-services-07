@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Lock } from "lucide-react";
 import { DeleteLegalConsultationButton } from "@/components/legal/delete-legal-consultation-button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatDateTime } from "@/lib/labels";
 import { LEGAL_CONSULTATION_DELETE_SCOPE_NOTICE, listOwnLegalConsultations } from "@/lib/legal/consultations";
@@ -15,6 +16,7 @@ export async function LegalConsultationHistory({ projectId, flash }: { projectId
         <CardTitle className="flex items-center gap-2 text-base">
           <Lock className="size-4" aria-hidden="true" />
           Minhas consultas jurídicas
+          <FeatureInfo helpId="juridico.projeto.minhas-consultas" />
         </CardTitle>
         <p className="text-sm text-muted-foreground">
           Privadas: só você as vê, abre e exclui. Nenhum outro membro do projeto, inclusive administradores, tem acesso.
@@ -44,7 +46,10 @@ export async function LegalConsultationHistory({ projectId, flash }: { projectId
             </div>
           ))
         )}
-        <p className="pt-1 text-xs text-muted-foreground">{LEGAL_CONSULTATION_DELETE_SCOPE_NOTICE}</p>
+        <p className="flex items-start gap-1 pt-1 text-xs text-muted-foreground">
+          <span>{LEGAL_CONSULTATION_DELETE_SCOPE_NOTICE}</span>
+          <FeatureInfo helpId="juridico.projeto.excluir-consulta" />
+        </p>
       </CardContent>
     </Card>
   );

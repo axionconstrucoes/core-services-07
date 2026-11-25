@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@axion/db/browser";
 
@@ -30,8 +31,11 @@ export function GoogleSignInButton({ next }: { next?: string } = {}) {
   }
 
   return (
-    <Button type="button" className="w-full" onClick={handleClick} disabled={loading}>
-      {loading ? "Redirecionando para o Google..." : "Entrar com Google"}
-    </Button>
+    <div className="flex items-center gap-1.5">
+      <Button type="button" className="w-full" onClick={handleClick} disabled={loading}>
+        {loading ? "Redirecionando para o Google..." : "Entrar com Google"}
+      </Button>
+      <FeatureInfo helpId="admin.login.entrar-google" />
+    </div>
   );
 }

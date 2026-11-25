@@ -15,20 +15,32 @@ import {
   extractServerErrorCode,
   messageForServerError,
 } from "@/lib/ssma/field-records/types";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { EsgEvidenceLink } from "@/components/ssma/field-records/esg-evidence-link";
 import { RecordConsult } from "@/components/ssma/field-records/record-consult";
 import { cn } from "@/lib/utils";
 
 interface ActionEvent {
   id: string;
-  kind: "CRIADA" | "ANDAMENTO" | "CONCLUIDA";
+  kind: "CRIADA" | "ANDAMENTO" | "CONCLUIDA" | "REATRIBUIDA" | "PRAZO_ALTERADO";
   note: string | null;
   actor_user_id: string;
   created_at: string;
   evidence_photo_id: string | null;
 }
 
-const EVENT_LABELS = { CRIADA: "Ação aberta", ANDAMENTO: "Andamento", CONCLUIDA: "Concluída" } as const;
+const EVENT_LABELS = { CRIADA: "Ação aberta", ANDAMENTO: "Andamento", CONCLUIDA: "Concluída", REATRIBUIDA: "Encaminhada", PRAZO_ALTERADO: "Prazo alterado" } as const;
+
+const FORWARD_ERRORS: Array<[RegExp, string]> = [
+  [/ACTION_ACCESS_DENIED/, "Somente o responsável atual ou um ADMINISTRADOR da obra pode encaminhar esta ação."],
+  [/PROJECT_ACCESS_DENIED/, "Você não é membro ativo desta obra."],
+  [/FORWARD_REASON_REQUIRED/, "Informe o motivo do encaminhamento (mínimo de 5 caracteres)."],
+  [/NEW_RESPONSIBLE_NOT_ELIGIBLE/, "O novo responsável precisa ser membro ativo desta obra e não pode ter perfil somente leitura."],
+  [/SAME_RESPONSIBLE/, "Essa pessoa já é a responsável pela ação."],
+  [/ACTION_ALREADY_CONCLUDED/, "A ação já foi concluída."],
+  [/AUTH_REQUIRED/, "Sessão expirada. Faça login novamente."],
+];
+const forwardErrorMessage = (message: string) => FORWARD_ERRORS.find(([pattern]) => pattern.test(message))?.[1] ?? "Não foi possível encaminhar. Tente novamente.";
 const dateTime = (iso: string) => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 const dateOnly = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR");
 
@@ -43,6 +55,9 @@ export function RecordDetail({
   online,
   names,
   onChanged,
+  initialEvent = null,
+  initialFocus = null,
+  members = [],
 }: {
   record: FieldRecordView;
   notice?: NotificationLine[];
@@ -54,9 +69,15 @@ export function RecordDetail({
   online: boolean;
   names: ReadonlyMap<string, string>;
   onChanged: () => void;
+  /** Formulário pré-selecionado pelo link do e-mail (nada é gravado até o envio confirmado pelo usuário). */
+  initialEvent?: "ANDAMENTO" | "CONCLUIDA" | null;
+  /** Seção destacada pelo link do e-mail (encaminhar ou consultar o especialista); nada é gravado ao abrir. */
+  initialFocus?: "ENCAMINHAR" | "ESPECIALISTA" | null;
+  /** Membros ativos da obra que podem receber a ação (perfil diferente de LEITURA); o banco revalida. */
+  members?: ReadonlyArray<{ userId: string; name: string }>;
 }) {
   const [events, setEvents] = useState<ActionEvent[]>([]);
-  const [event, setEvent] = useState<"ANDAMENTO" | "CONCLUIDA">("ANDAMENTO");
+  const [event, setEvent] = useState<"ANDAMENTO" | "CONCLUIDA">(initialEvent ?? "ANDAMENTO");
   const [note, setNote] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
@@ -66,6 +87,48 @@ export function RecordDetail({
   const today = new Date().toISOString().slice(0, 10);
   const isResponsible = record.responsibleId === userId;
   const canUpdate = action !== null && action.status !== "CONCLUIDA" && (isResponsible || canManage);
+  const [forwardTo, setForwardTo] = useState("");
+  const [forwardReason, setForwardReason] = useState("");
+  const [forwardBusy, setForwardBusy] = useState(false);
+  const [forwardError, setForwardError] = useState<string | null>(null);
+  const forwardTargets = members.filter((member) => member.userId !== record.responsibleId);
+
+  useEffect(() => {
+    if (!initialFocus) return;
+    document.getElementById(initialFocus === "ENCAMINHAR" ? "ssma-encaminhar" : "ssma-especialista")?.scrollIntoView({ block: "start" });
+  }, [initialFocus]);
+
+  // ENCAMINHAR: RPC ssma_corrective_action_forward (responsável atual ou ADMINISTRADOR; destino ativo e não somente leitura).
+  // Sucesso só com a linha gravada de volta com o novo responsável. Prazo, status e evidências não mudam.
+  async function forward(submitEvent: React.FormEvent) {
+    submitEvent.preventDefault();
+    if (!action || forwardBusy) return;
+    if (!online) {
+      setForwardError("Encaminhar exige conexão. Tente novamente quando a internet voltar.");
+      return;
+    }
+    setForwardBusy(true);
+    setForwardError(null);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error: rpcError } = await supabase.rpc("ssma_corrective_action_forward", {
+        p_action_id: action.id,
+        p_new_responsible_user_id: forwardTo,
+        p_reason: forwardReason || null,
+      });
+      if (rpcError) throw new Error(forwardErrorMessage(rpcError.message));
+      const saved = (Array.isArray(data) ? data[0] : data) as { responsible_user_id?: string } | null;
+      if (saved?.responsible_user_id !== forwardTo) throw new Error("O encaminhamento não foi confirmado pelo banco de dados. Nada foi alterado; tente novamente.");
+      setForwardReason("");
+      setForwardTo("");
+      setDone(`Ação encaminhada para ${names.get(forwardTo) ?? "o novo responsável"}.`);
+      onChanged();
+    } catch (failure) {
+      setForwardError(failure instanceof Error && failure.message ? failure.message : "Não foi possível encaminhar. Tente novamente.");
+    } finally {
+      setForwardBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (!action || !online) return;
@@ -139,18 +202,24 @@ export function RecordDetail({
           <dt className="font-bold text-slate-600">Fotos</dt><dd>{record.photoCount}</dd>
         </dl>
         {notice && notice.length > 0 ? (
-          <ul className="mt-2 space-y-1" aria-label="Avisos por e-mail" data-testid="notification-notice">
+          <div className="mt-2 flex items-start gap-1.5">
+          <FeatureInfo helpId="ssma.registro.aviso-email" className="mt-0.5" />
+          <ul className="space-y-1" aria-label="Avisos por e-mail" data-testid="notification-notice">
             {notice.map((line) => (
               <li key={line.text} role={line.tone === "ok" ? undefined : "alert"} className={line.tone === "error" ? "text-xs font-bold text-red-700" : line.tone === "warn" ? "text-xs font-bold text-amber-700" : "text-xs font-bold text-green-700"}>{line.text}</li>
             ))}
           </ul>
+          </div>
         ) : null}
       </section>
 
       {action ? (
         <section className="space-y-3 rounded-xl bg-white p-4 shadow-sm" aria-label="Ação corretiva">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-bold uppercase text-slate-900">Ação corretiva</h2>
+            <h2 className="flex items-center gap-1.5 font-bold uppercase text-slate-900">
+              Ação corretiva
+              <FeatureInfo helpId="ssma.registro.acao-corretiva" />
+            </h2>
             <span
               className={cn(
                 "rounded px-2 py-1 text-xs font-bold",
@@ -184,6 +253,11 @@ export function RecordDetail({
 
           {canUpdate ? (
             <form onSubmit={submit} className="space-y-3 border-t border-slate-200 pt-3">
+              {initialEvent ? <p role="status" className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">Aberto pelo link do e-mail: o formulário já vem selecionado, mas nada foi registrado. Confira e confirme abaixo.</p> : null}
+              <p className="flex items-center gap-1.5 text-xs font-bold uppercase text-slate-600">
+                Andamento e conclusão
+                <FeatureInfo helpId="ssma.registro.andamento-conclusao" />
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 {(["ANDAMENTO", "CONCLUIDA"] as const).map((value) => (
                   <button
@@ -199,11 +273,13 @@ export function RecordDetail({
               </div>
               <label className="block text-sm font-bold text-slate-900">
                 {event === "ANDAMENTO" ? "O que foi feito *" : canManage && !isResponsible ? "Justificativa (se não houver foto)" : "Observação"}
+                {/* help-exempt: campo de observação do andamento ou da conclusão; descrito em ssma.registro.andamento-conclusao */}
                 <textarea value={note} onChange={(item) => setNote(item.target.value)} rows={3} className="mt-1 block w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-2 text-base outline-none focus:border-[#7f1d1d]" />
               </label>
               {event === "CONCLUIDA" ? (
                 <label className="flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-[#7f1d1d] bg-white px-3 text-sm font-bold uppercase text-red-700">
                   <Camera className="size-5" /> {file ? file.name : "Foto de evidência"}
+                  {/* help-exempt: foto de evidência da conclusão; descrita em ssma.registro.andamento-conclusao */}
                   <input type="file" accept="image/jpeg,image/png" capture="environment" className="sr-only" onChange={(item) => setFile(item.target.files?.[0] ?? null)} />
                 </label>
               ) : null}
@@ -216,13 +292,42 @@ export function RecordDetail({
               {done ? (
                 <p className="flex items-center gap-1 text-sm font-bold text-green-700"><CheckCircle2 className="size-4" /> {done}</p>
               ) : null}
-              <button type="submit" disabled={busy || !online} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#7f1d1d] px-4 font-bold uppercase text-white disabled:opacity-50">
+              {/* help-exempt: botão Registrar andamento ou Concluir; descrito em ssma.registro.andamento-conclusao */}
+              <button type="submit" disabled={busy || !online} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#7f1d1d] px-4 font-bold uppercase text-white disabled:opacity-60">
                 {busy ? <Loader2 className="size-5 animate-spin" /> : <Clock className="size-5" />} {event === "ANDAMENTO" ? "Registrar andamento" : "Concluir"}
               </button>
               {!online ? <p className="text-center text-xs font-semibold text-amber-700">Sem conexão: andamento e conclusão só podem ser registrados online.</p> : null}
             </form>
           ) : action.status !== "CONCLUIDA" ? (
-            <p className="text-xs font-medium text-slate-500">Somente o responsável ou um gestor da obra atualiza esta ação.</p>
+            <p className="text-xs font-medium text-slate-500">Somente o responsável ou um administrador da obra atualiza esta ação.</p>
+          ) : null}
+
+          {canUpdate ? (
+            <form id="ssma-encaminhar" onSubmit={forward} className="space-y-3 border-t border-slate-200 pt-3" aria-label="Encaminhar ação corretiva">
+              <h3 className="flex items-center gap-1.5 text-sm font-bold uppercase text-slate-900">
+                Encaminhar para outro responsável
+                <FeatureInfo helpId="ssma.registro.encaminhar" />
+              </h3>
+              {initialFocus === "ENCAMINHAR" ? <p role="status" className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">Aberto pelo link do e-mail: nada foi registrado. Escolha a pessoa, informe o motivo e confirme.</p> : null}
+              <label className="block text-sm font-bold text-slate-900">
+                Novo responsável *
+                <select value={forwardTo} onChange={(item) => setForwardTo(item.target.value)} required className="mt-1 block min-h-11 w-full rounded-lg border-2 border-slate-300 bg-white px-3 text-base">
+                  <option value="" disabled>Selecione</option>
+                  {forwardTargets.map((member) => <option key={member.userId} value={member.userId}>{member.name}</option>)}
+                </select>
+              </label>
+              <label className="block text-sm font-bold text-slate-900">
+                Motivo {canManage ? "(opcional para administrador)" : "*"}
+                {/* help-exempt: campo Motivo do encaminhamento; descrito em ssma.registro.encaminhar */}
+                <textarea value={forwardReason} onChange={(item) => setForwardReason(item.target.value)} rows={2} required={!canManage} minLength={canManage ? undefined : 5} className="mt-1 block w-full rounded-lg border-2 border-slate-300 bg-white px-3 py-2 text-base outline-none focus:border-[#7f1d1d]" />
+              </label>
+              <p className="text-xs font-medium text-slate-600">O prazo original, o status e as evidências não mudam; o histórico registra quem encaminhou e o motivo.</p>
+              {forwardError ? <p role="alert" className="text-sm font-bold text-red-700">{forwardError}</p> : null}
+              {/* help-exempt: botão Encaminhar; descrito em ssma.registro.encaminhar */}
+              <button type="submit" disabled={forwardBusy || !online || !forwardTo} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border-2 border-[#7f1d1d] bg-white px-4 font-bold uppercase text-red-700 disabled:opacity-60">
+                {forwardBusy ? <Loader2 className="size-5 animate-spin" /> : null} Encaminhar
+              </button>
+            </form>
           ) : null}
         </section>
       ) : (
@@ -231,7 +336,9 @@ export function RecordDetail({
 
       <EsgEvidenceLink projectId={projectId} recordId={record.id} userId={userId} isAdmin={isAdmin} canLink={canRegisterEsg} online={online} />
 
-      <RecordConsult projectId={projectId} recordId={record.id} online={online} />
+      <div id="ssma-especialista">
+        <RecordConsult projectId={projectId} recordId={record.id} online={online} />
+      </div>
     </article>
   );
 }

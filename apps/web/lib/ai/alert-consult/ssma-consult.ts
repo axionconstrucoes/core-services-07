@@ -31,7 +31,7 @@ export async function consultSsmaSpecialistForRecord(
   input: SsmaRecordConsultInput
 ): Promise<SsmaRecordConsultOutcome> {
   const specialty = getAlertConsultSpecialty("ssma");
-  if (!specialty) return { ok: false, error: "Especialista de SSMA indisponível." };
+  if (!specialty || specialty.expertId === "AUTO") return { ok: false, error: "Especialista de SSMA indisponível." };
 
   const question = (input.question ?? "").trim() || DEFAULT_ALERT_CONSULT_QUESTION;
   if (question.length > MAX_ALERT_CONSULT_QUESTION_LENGTH) {

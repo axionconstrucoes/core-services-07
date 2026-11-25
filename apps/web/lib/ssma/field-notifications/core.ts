@@ -8,7 +8,11 @@
 //    nas próximas execuções até MAX_ATTEMPTS; ausência de destinatário vira uma linha SUPPRESSED (NO_RECIPIENT)
 //    + auditoria — nunca silêncio;
 //  - concorrência: a entrega é "reivindicada" (lease) antes do envio; duas execuções simultâneas não enviam duas vezes;
-//  - as travas do piloto (modo piloto, destinatário único, perfil de projeto) são aplicadas DENTRO do provedor de e-mail.
+//  - as travas do piloto (modo piloto, destinatário único, perfil de projeto) são aplicadas DENTRO do provedor de e-mail;
+//  - SENT = ACEITO PELO PROVEDOR (não é entrega comprovada). Falha ao GRAVAR depois do aceite nunca devolve a linha à
+//    fila; falha PERMANENTE/INCERTA do provedor encerra a linha sem nova tentativa automática (frente N4).
+
+import { classifySendFailure, failureOutcome, type PersistedFailureClass } from "../../email/outbound-delivery";
 
 export type FieldNotificationEvent = "CRITICAL_RECORD" | "ACTION_OVERDUE";
 
@@ -69,6 +73,8 @@ export interface DeliveryRow {
   id: string;
   status: "PENDING" | "SENT" | "FAILED" | "SUPPRESSED";
   attemptCount: number;
+  /** PERMANENT/UNCERTAIN/EXHAUSTED => terminal (sem nova tentativa automática). Ausente/RETRYABLE => pode tentar. */
+  failureClass?: PersistedFailureClass | null;
 }
 
 export interface DeliveryKey {
@@ -88,7 +94,8 @@ export interface DeliveryStore {
   /** Reivindica a entrega para envio (PENDING/FAILED sem lease vigente). Só uma execução ganha. */
   claim(id: string): Promise<boolean>;
   markSent(id: string, result: { providerMessageId: string | null; sentAt: string }): Promise<void>;
-  markFailed(id: string, error: string): Promise<void>;
+  /** failureClass: classe final da falha (RETRYABLE quando ainda há tentativas). */
+  markFailed(id: string, error: string, failureClass?: PersistedFailureClass): Promise<void>;
 }
 
 export interface MailContent {
@@ -99,7 +106,7 @@ export interface MailContent {
   /** Mensagem operacional (sem faixa de teste do piloto). */
   operational?: boolean;
   /** Resposta no corpo do e-mail: token opaco do Reply-To (só o hash é persistido) e a ação a que se refere. */
-  reply?: { token: string; actionId: string; recordId: string };
+  reply?: { token: string; actionId: string; recordId: string; recipientUserId?: string | null };
   /** Continuidade de thread (confirmação de resposta). */
   thread?: { inReplyTo: string | null; references: string[] };
   /** Rótulo curto do destinatário lógico no piloto (sem endereço). */
@@ -107,6 +114,8 @@ export interface MailContent {
 }
 
 export interface Mailer {
+  /** Portão de capacidade do governador (doc 35), consultado ANTES de reivindicar a entrega. Ausente => sempre permitido. */
+  canDeliver?(input: { projectId: string }): Promise<boolean>;
   deliver(input: { to: string; name: string | null; content: MailContent; projectId: string; correlationId: string }): Promise<{ providerMessageId: string | null; sentAt: string }>;
 }
 
@@ -159,16 +168,28 @@ export async function notifyEvent(
   for (const recipient of input.recipients) {
     const row = await deps.store.ensureDelivery(input.key, { email: recipient.email, name: recipient.name });
     if (row.status === "SENT") { summary.alreadySent += 1; continue; }
-    if (row.status === "SUPPRESSED" || row.attemptCount >= MAX_ATTEMPTS) { summary.skipped += 1; continue; }
+    if (row.status === "SUPPRESSED" || row.attemptCount >= MAX_ATTEMPTS || (row.failureClass && row.failureClass !== "RETRYABLE")) { summary.skipped += 1; continue; }
+    if (deps.mailer.canDeliver && !(await deps.mailer.canDeliver({ projectId: input.key.projectId }))) { summary.skipped += 1; continue; } // adiado por limite: continua pendente, sem tentativa gasta
     if (!(await deps.store.claim(row.id))) { summary.skipped += 1; continue; }
+    let result: { providerMessageId: string | null; sentAt: string };
     try {
-      const result = await deps.mailer.deliver({ to: recipient.email, name: recipient.name, content: input.content(recipient), projectId: input.key.projectId, correlationId: newId() });
-      await deps.store.markSent(row.id, result);
-      summary.sent += 1;
+      result = await deps.mailer.deliver({ to: recipient.email, name: recipient.name, content: input.content(recipient), projectId: input.key.projectId, correlationId: newId() });
     } catch (error) {
-      await deps.store.markFailed(row.id, safeErrorMessage(error));
+      const outcome = failureOutcome(classifySendFailure(error), row.attemptCount + 1, MAX_ATTEMPTS);
+      await deps.store.markFailed(row.id, safeErrorMessage(error), outcome.failureClass);
       summary.failed += 1;
+      continue;
     }
+    // O provedor JÁ aceitou: uma falha ao gravar NÃO pode virar FAILED retentável (reenvio duplicaria).
+    try {
+      await deps.store.markSent(row.id, result);
+    } catch {
+      try { await deps.store.markSent(row.id, result); } catch {
+        await deps.store.markFailed(row.id, "Aceito pelo provedor, mas a gravação do aceite falhou — verificar Enviados antes de reenviar.", "UNCERTAIN").catch(() => undefined);
+        await auditSafe("SSMA_FIELD_NOTIFICATION_ACCEPTED_UNRECORDED", `Aviso de ${input.entityLabel} (${input.key.event}) aceito pelo provedor (${result.providerMessageId ?? "sem id"}), mas o aceite não foi gravado; sem reenvio automático.`);
+      }
+    }
+    summary.sent += 1;
   }
 
   if (summary.failed > 0) {

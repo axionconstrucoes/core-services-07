@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { SeverityBadge } from "@/components/shared/badges";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,6 +38,8 @@ export function SlaActionItem({
   escalations,
   isResponsible,
   canReassign,
+  requiresForwardReason = true,
+  riskCaseId = null,
   members,
 }: {
   projectId: string;
@@ -44,8 +47,14 @@ export function SlaActionItem({
   escalations: SlaActionEscalation[];
   isResponsible: boolean;
   canReassign: boolean;
+  /** Responsável (não administrador) informa o motivo do encaminhamento (exigido pelo banco). */
+  requiresForwardReason?: boolean;
+  /** Ação de um alerta de risco: o tratamento é feito na página do alerta (o banco recusa aqui). */
+  riskCaseId?: string | null;
   members: Array<{ userId: string; name: string }>;
 }) {
+  // Ação de alerta de risco: nada é oferecido aqui; o caso e a ação SLA só mudam juntos, pela página do alerta.
+  const operable = !riskCaseId;
   const [assumeState, assumeAction, assumePending] = useActionState(
     assumeSlaActionAction,
     initialAssumeSlaActionState
@@ -72,8 +81,11 @@ export function SlaActionItem({
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <SeverityBadge severity={confrontationSeverityToAlertSeverity[action.riskLevel]} />
+            <FeatureInfo helpId="planejamento.acoes.risco-badge" />
             <Badge variant="outline">{slaActionStatusLabels[action.status]}</Badge>
+            <FeatureInfo helpId="planejamento.acoes.status-badge" />
             <Badge variant="outline">{slaEscalationLevelLabels[action.currentEscalationLevel]}</Badge>
+            <FeatureInfo helpId="planejamento.acoes.nivel-badge" />
           </div>
         </div>
 
@@ -84,6 +96,7 @@ export function SlaActionItem({
           {action.contractualDeadline ? (
             <span>Prazo contratual: {formatDateTime(action.contractualDeadline)}</span>
           ) : null}
+          <FeatureInfo helpId="planejamento.acoes.prazos" />
         </div>
       </CardHeader>
 
@@ -102,26 +115,43 @@ export function SlaActionItem({
         ) : null}
 
         {escalations.length > 0 ? (
-          <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {escalations.map((esc) => (
-              <li key={esc.id}>
-                {formatDateTime(esc.escalatedAt)}: pendência não resolvida por {slaEscalationLevelLabels[esc.fromLevel]};
-                escalonada para {slaEscalationLevelLabels[esc.toLevel]}
-                {esc.notifiedUserName ? ` (${esc.notifiedUserName})` : ""}. Motivo: {slaEscalationReasonLabels[esc.reason]}.
-              </li>
-            ))}
-          </ul>
+          <div className="flex items-start gap-1">
+            <ul className="flex flex-col gap-1 text-xs text-muted-foreground">
+              {escalations.map((esc) => (
+                <li key={esc.id}>
+                  {formatDateTime(esc.escalatedAt)}: pendência não resolvida por {slaEscalationLevelLabels[esc.fromLevel]};
+                  escalonada para {slaEscalationLevelLabels[esc.toLevel]}
+                  {esc.notifiedUserName ? ` (${esc.notifiedUserName})` : ""}. Motivo: {slaEscalationReasonLabels[esc.reason]}.
+                </li>
+              ))}
+            </ul>
+            <FeatureInfo helpId="planejamento.acoes.escalonamentos-historico" />
+          </div>
         ) : null}
 
-        {action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
+        {riskCaseId && action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
+          <p className="text-xs text-muted-foreground">
+            Esta ação pertence a um alerta de risco.{" "}
+            <a className="font-medium underline" href={`/${projectId}/alertas/${riskCaseId}`}>
+              Registre o tratamento pela página do alerta
+            </a>
+            , que exige as evidências e mantém o caso e a ação sincronizados.
+            <FeatureInfo helpId="planejamento.acoes.aviso-alerta-risco" className="ml-1 align-middle" />
+          </p>
+        ) : null}
+
+        {operable && action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
           <div className="flex flex-wrap gap-2">
             {isResponsible && !action.acknowledgedAt ? (
               <form action={assumeAction}>
                 <input type="hidden" name="projectId" value={projectId} />
                 <input type="hidden" name="actionId" value={action.id} />
-                <Button type="submit" size="sm" disabled={assumePending}>
-                  {assumePending ? "Assumindo…" : "Assumir Ação"}
-                </Button>
+                <span className="inline-flex items-center gap-1">
+                  <Button type="submit" size="sm" disabled={assumePending}>
+                    {assumePending ? "Assumindo…" : "Assumir Ação"}
+                  </Button>
+                  <FeatureInfo helpId="planejamento.acoes.assumir" />
+                </span>
               </form>
             ) : null}
 
@@ -129,9 +159,12 @@ export function SlaActionItem({
               <form action={startAction}>
                 <input type="hidden" name="projectId" value={projectId} />
                 <input type="hidden" name="actionId" value={action.id} />
-                <Button type="submit" size="sm" variant="outline" disabled={startPending}>
-                  {startPending ? "Registrando…" : "Estudando solução"}
-                </Button>
+                <span className="inline-flex items-center gap-1">
+                  <Button type="submit" size="sm" variant="outline" disabled={startPending}>
+                    {startPending ? "Registrando…" : "Estudando solução"}
+                  </Button>
+                  <FeatureInfo helpId="planejamento.acoes.estudando-solucao" />
+                </span>
               </form>
             ) : null}
           </div>
@@ -140,28 +173,39 @@ export function SlaActionItem({
         {assumeState.error ? <p className="text-xs text-destructive">{assumeState.error}</p> : null}
         {startState.error ? <p className="text-xs text-destructive">{startState.error}</p> : null}
 
-        {isResponsible && action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
+        {operable && isResponsible && action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
           <form action={completeFormAction} className="flex flex-col gap-2 rounded-md border border-dashed p-3">
             <input type="hidden" name="projectId" value={projectId} />
             <input type="hidden" name="actionId" value={action.id} />
-            <label className="flex flex-col gap-1.5 text-xs font-medium">
-              Observação de conclusão {action.riskLevel === "HIGH" || action.riskLevel === "CRITICAL" ? "(recomendado detalhar evidência para risco alto/crítico)" : ""}
-              <Textarea name="completionNote" rows={2} required placeholder="O que foi feito para concluir esta ação?" />
-            </label>
-            <Button type="submit" size="sm" disabled={completePending} className="self-start">
-              {completePending ? "Concluindo…" : "Concluir Ação"}
-            </Button>
+            <div className="flex flex-col gap-1.5">
+              <span className="inline-flex items-center gap-1 text-xs font-medium">
+                <label htmlFor={`conclusao-${action.id}`}>
+                  Observação de conclusão {action.riskLevel === "HIGH" || action.riskLevel === "CRITICAL" ? "(recomendado detalhar evidência para risco alto/crítico)" : ""}
+                </label>
+                <FeatureInfo helpId="planejamento.acoes.observacao-conclusao" />
+              </span>
+              <Textarea id={`conclusao-${action.id}`} name="completionNote" rows={2} required placeholder="O que foi feito para concluir esta ação?" />
+            </div>
+            <span className="inline-flex items-center gap-1 self-start">
+              <Button type="submit" size="sm" disabled={completePending}>
+                {completePending ? "Concluindo…" : "Concluir Ação"}
+              </Button>
+              <FeatureInfo helpId="planejamento.acoes.concluir" />
+            </span>
             {completeState.error ? <p className="text-xs text-destructive">{completeState.error}</p> : null}
           </form>
         ) : null}
 
-        {canReassign ? (
+        {operable && canReassign && action.status !== "COMPLETED" && action.status !== "CANCELLED" ? (
           <form action={reassignFormAction} className="flex flex-wrap items-end gap-2">
             <input type="hidden" name="projectId" value={projectId} />
             <input type="hidden" name="actionId" value={action.id} />
-            <label className="flex flex-col gap-1.5 text-xs font-medium">
-              Reatribuir para
-              <Select name="newResponsibleUserId" defaultValue="" className="max-w-[220px]">
+            <div className="flex flex-col gap-1.5">
+              <span className="inline-flex items-center gap-1 text-xs font-medium">
+                <label htmlFor={`encaminhar-${action.id}`}>Encaminhar para</label>
+                <FeatureInfo helpId="planejamento.acoes.encaminhar-para" />
+              </span>
+              <Select id={`encaminhar-${action.id}`} name="newResponsibleUserId" defaultValue="" required className="max-w-[220px]">
                 <option value="" disabled>
                   Selecione um responsável
                 </option>
@@ -171,10 +215,20 @@ export function SlaActionItem({
                   </option>
                 ))}
               </Select>
-            </label>
-            <Button type="submit" size="sm" variant="outline" disabled={reassignPending}>
-              {reassignPending ? "Direcionando…" : "Direcionar"}
-            </Button>
+            </div>
+            <div className="flex min-w-[220px] flex-1 flex-col gap-1.5">
+              <span className="inline-flex items-center gap-1 text-xs font-medium">
+                <label htmlFor={`motivo-${action.id}`}>Motivo{requiresForwardReason ? "" : " (opcional para administrador)"}</label>
+                <FeatureInfo helpId="planejamento.acoes.encaminhar-motivo" />
+              </span>
+              <Textarea id={`motivo-${action.id}`} name="reason" rows={1} required={requiresForwardReason} minLength={requiresForwardReason ? 5 : undefined} placeholder="Por que esta pessoa deve tratar a ação?" />
+            </div>
+            <span className="inline-flex items-center gap-1">
+              <Button type="submit" size="sm" variant="outline" disabled={reassignPending}>
+                {reassignPending ? "Encaminhando…" : "Encaminhar"}
+              </Button>
+              <FeatureInfo helpId="planejamento.acoes.encaminhar" />
+            </span>
             <p className="basis-full text-xs text-muted-foreground">
               O direcionamento mantém os prazos e o escalonamento originais.
             </p>

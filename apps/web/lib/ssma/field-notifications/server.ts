@@ -9,6 +9,8 @@ import { appendAccEmailSignature } from "@/lib/email/branding/acc-email-signatur
 import { loadAccAlertLogos } from "@/lib/email/branding/load-acc-logo-inline-image";
 import { EmailSendError, type EmailProvider } from "@/lib/email/email-provider";
 import { getEmailProvider } from "@/lib/email/get-email-provider";
+import { checkAlertCapacity } from "@/lib/email/governed-email-provider";
+import type { PersistedFailureClass } from "@/lib/email/outbound-delivery";
 import {
   NO_RECIPIENT_PLACEHOLDER,
   notifyEvent,
@@ -21,7 +23,7 @@ import {
   type NotifyDeps,
   type NotifySummary,
 } from "./core";
-import { buildCriticalRecordEmail, buildOperationalOverdueActionEmail, buildOverdueActionEmail, buildSsmaReplyConfirmationEmail } from "./content";
+import { buildCriticalRecordEmail, buildOperationalOverdueActionEmail, buildOverdueActionEmail, buildSsmaReplyConfirmationEmail, ssmaReplyMailto } from "./content";
 import { resolveSsmaNotificationScope, scopeAllowsProject, type SsmaNotificationScope } from "./enabled";
 import {
   SSMA_REPLY_CONFIRMATION_CLAIMED,
@@ -34,13 +36,14 @@ import {
 import { followUpSsmaCorrectiveActions, type SsmaFollowUpResult } from "./follow-up";
 import { ALERT_REPLY_MAILBOX_ENV, buildAlertReplyAddress } from "@/lib/email/alert-reply-address";
 import { generateReplyToken, hashReplyToken } from "@/lib/risk-alerts/replies/reply-pipeline";
+import { createSupabaseEmailReplyTokenStore, issueEmailReplyToken } from "@/lib/email-replies/reply-tokens";
 
 type Admin = ReturnType<typeof createSupabaseAdminClient>;
 const LEASE_MS = 10 * 60 * 1000;
 
 export function createSupabaseDeliveryStore(admin: Admin): DeliveryStore {
   const keyFilter = (key: DeliveryKey, email: string) =>
-    admin.from("ssma_field_notification_deliveries").select("id,status,attempt_count")
+    admin.from("ssma_field_notification_deliveries").select("id,status,attempt_count,failure_class")
       .eq("record_id", key.recordId).eq("event", key.event).eq("event_date", key.eventDate).eq("recipient_email", email);
   return {
     async ensureDelivery(key, recipient) {
@@ -51,7 +54,7 @@ export function createSupabaseDeliveryStore(admin: Admin): DeliveryStore {
       );
       const { data, error } = await keyFilter(key, email).single();
       if (error || !data) throw new Error("Não foi possível registrar a entrega da notificação.");
-      return { id: data.id as string, status: data.status as "PENDING" | "SENT" | "FAILED" | "SUPPRESSED", attemptCount: Number(data.attempt_count) };
+      return { id: data.id as string, status: data.status as "PENDING" | "SENT" | "FAILED" | "SUPPRESSED", attemptCount: Number(data.attempt_count), failureClass: (data.failure_class as PersistedFailureClass | null) ?? null };
     },
     async ensureSuppressed(key, reason) {
       await admin.from("ssma_field_notification_deliveries").upsert(
@@ -60,8 +63,10 @@ export function createSupabaseDeliveryStore(admin: Admin): DeliveryStore {
       );
     },
     async claim(id) {
-      const { data: row } = await admin.from("ssma_field_notification_deliveries").select("attempt_count,status,claimed_at").eq("id", id).single();
+      const { data: row } = await admin.from("ssma_field_notification_deliveries").select("attempt_count,status,claimed_at,failure_class").eq("id", id).single();
       if (!row || (row.status !== "PENDING" && row.status !== "FAILED")) return false;
+      // Falha PERMANENTE/INCERTA/limite atingido: sem nova tentativa automática.
+      if (row.failure_class && row.failure_class !== "RETRYABLE") return false;
       const stale = new Date(Date.now() - LEASE_MS).toISOString();
       const { data } = await admin.from("ssma_field_notification_deliveries")
         .update({ claimed_at: new Date().toISOString(), attempt_count: Number(row.attempt_count) + 1 })
@@ -71,11 +76,15 @@ export function createSupabaseDeliveryStore(admin: Admin): DeliveryStore {
       return (data?.length ?? 0) === 1;
     },
     async markSent(id, result) {
-      await admin.from("ssma_field_notification_deliveries")
-        .update({ status: "SENT", sent_at: result.sentAt, provider_message_id: result.providerMessageId, last_error: null, claimed_at: null }).eq("id", id);
+      // SENT = aceito pelo provedor (delivery_state ACCEPTED_BY_PROVIDER), nunca entrega comprovada. Erro de gravação lança:
+      // o núcleo trata (sem devolver a linha à fila).
+      const { error } = await admin.from("ssma_field_notification_deliveries")
+        .update({ status: "SENT", sent_at: result.sentAt, provider_message_id: result.providerMessageId, delivery_state: "ACCEPTED_BY_PROVIDER", failure_class: null, last_error: null, claimed_at: null }).eq("id", id);
+      if (error) throw new Error("Falha ao gravar o aceite do provedor.");
     },
-    async markFailed(id, error) {
-      await admin.from("ssma_field_notification_deliveries").update({ status: "FAILED", last_error: error.slice(0, 2000), claimed_at: null }).eq("id", id);
+    async markFailed(id, error, failureClass = "RETRYABLE") {
+      await admin.from("ssma_field_notification_deliveries")
+        .update({ status: "FAILED", last_error: error.slice(0, 2000), failure_class: failureClass, claimed_at: null }).eq("id", id).neq("status", "SENT"); // nunca regride uma linha aceita
     },
   };
 }
@@ -83,6 +92,9 @@ export function createSupabaseDeliveryStore(admin: Admin): DeliveryStore {
 /** Envio pelo provedor do ACC. As travas do piloto (modo piloto, destinatário único, perfil do projeto) rodam no provedor. */
 export function createProviderMailer(admin: Admin, provider: EmailProvider = getEmailProvider()): Mailer {
   return {
+    async canDeliver({ projectId }) {
+      return (await checkAlertCapacity(provider, { type: "SSMA_FIELD_NOTIFICATION", projectId })).allowed;
+    },
     async deliver({ to, content, projectId, correlationId }) {
       const inlineImages = loadAccAlertLogos(content.logoNeeds ?? { maroon: true, inverted: false }).images;
       const signed = appendAccEmailSignature({ text: content.text, html: content.html }, inlineImages.length > 0, !content.logoNeeds);
@@ -97,6 +109,15 @@ export function createProviderMailer(admin: Admin, provider: EmailProvider = get
           detail: JSON.stringify({ tokenSha256: hashReplyToken(content.reply.token), recordId: content.reply.recordId, correlationId }),
         });
         if (tokenError) throw new EmailSendError("Não foi possível registrar o token de resposta — aviso não enviado.");
+        // Token POR ITEM (email_reply_tokens, SSMA_ACTION): o MESMO token do Reply-To e dos atalhos mailto. Sem gravação, nada sai.
+        try {
+          await issueEmailReplyToken(createSupabaseEmailReplyTokenStore(admin), {
+            projectId, subjectKind: "SSMA_ACTION", subjectId: content.reply.actionId, recipientUserId: content.reply.recipientUserId ?? null,
+            nowIso: new Date().toISOString(), token: content.reply.token,
+          });
+        } catch {
+          throw new EmailSendError("Não foi possível registrar o token de resposta — aviso não enviado.");
+        }
       }
       let result;
       try {
@@ -107,6 +128,7 @@ export function createProviderMailer(admin: Admin, provider: EmailProvider = get
           ...(content.operational
             ? { pilot: { projectId, participantLabel: content.participantLabel ?? null, escalationLevel: "Responsável" } }
             : { vera: { projectId, context: "ssma" as const } }),
+          governance: { type: "SSMA_FIELD_NOTIFICATION" as const, projectId },
           ...(replyTo && content.reply ? { replyTo, replyToContext: { kind: "SSMA_CORRECTIVE_ACTION" as const, actionId: content.reply.actionId, recordId: content.reply.recordId } } : {}),
           ...(content.thread?.inReplyTo ? { inReplyTo: content.thread.inReplyTo, references: content.thread.references } : {}),
         });
@@ -187,6 +209,7 @@ export async function notifyCriticalRecord(admin: Admin, recordId: string, deps:
       projectName, visibleCode: recordId.slice(0, 8).toUpperCase(), recipientName: recipient.name, category: String(record.category), location: String(record.location), description: String(record.description),
       occurredAt: fmtDateTime(record.occurred_at as string), reportedByName: nameOf(record.reported_by_user_id as string) ?? "Usuário",
       responsibleName: nameOf(record.responsible_user_id as string | null), accUrl: `${getAppBaseUrl()}/${projectId}/ssma-registros`,
+      recordLink: { baseUrl: getAppBaseUrl(), projectId, recordId },
     }),
   });
 }
@@ -308,19 +331,24 @@ export async function sweepFieldNotifications(
         projectName, visibleCode: action.id.slice(0, 8).toUpperCase(), category: String(record.category), location: String(record.location), description: String(record.description),
         occurredAt: fmtDateTime(record.occurred_at as string), reportedByName: nameOf(record.reported_by_user_id as string) ?? "Usuário",
         accUrl: `${getAppBaseUrl()}/${action.project_id}/ssma-registros`, dueDate: fmtDate(dueDate), daysOverdue: days, responsibleName,
+        recordLink: { baseUrl: getAppBaseUrl(), projectId: action.project_id, recordId: record.id as string },
       };
       add(result.overdueActions, await notifyEvent(deps, {
         key: { projectId: action.project_id, recordId: record.id as string, actionId: action.id, event: "ACTION_OVERDUE", eventDate: dueDate },
         recipients, withoutEmail, entityLabel: `ação corretiva do registro ${record.id}`,
         content: (recipient) => {
           if (!scope.operational) return buildOverdueActionEmail({ ...baseCtx, recipientName: recipient.name });
+          const severity = ssmaSeverityOf(record.risk_level as string);
+          const token = scope.replyEnabled ? generateReplyToken() : null;
           const mail = buildOperationalOverdueActionEmail({
-            ...baseCtx, recipientName: recipient.name, severity: ssmaSeverityOf(record.risk_level as string), takeover,
+            ...baseCtx, recipientName: recipient.name, severity, takeover,
+            // Atalhos mailto só ao RESPONSÁVEL (único que opera por e-mail, além do Administrador).
+            replyByEmail: token && recipient.userId === action.responsible_user_id ? ssmaReplyMailto(token, baseCtx.visibleCode, process.env[ALERT_REPLY_MAILBOX_ENV], severity) : null,
           });
           return {
             ...mail,
             participantLabel: recipient.name,
-            ...(scope.replyEnabled ? { reply: { token: generateReplyToken(), actionId: action.id, recordId: record.id as string } } : {}),
+            ...(token ? { reply: { token, actionId: action.id, recordId: record.id as string, recipientUserId: recipient.userId } } : {}),
           };
         },
       }));
@@ -347,6 +375,8 @@ interface PendingConfirmation {
   forecastLine: string | null;
   pendingLine: string | null;
   outOfOrder: boolean;
+  /** Recusa/pendência (nada gravado na ação). */
+  rejected?: boolean;
 }
 
 /**
@@ -357,14 +387,22 @@ interface PendingConfirmation {
 export async function sendPendingSsmaReplyConfirmations(admin: Admin, mailer: Mailer, scope: SsmaNotificationScope) {
   const summary = { pending: 0, sent: 0, failed: 0, uncertain: 0 };
   if (!scope.replyEnabled || scope.projectIds === null) return summary;
-  const { data: rows } = await admin
-    .from("audit_log_entries")
-    .select("project_id,action,detail,occurred_at")
-    .in("project_id", scope.projectIds)
-    .eq("entity_type", SSMA_REPLY_ENTITY_TYPE)
-    .in("action", [SSMA_REPLY_CONFIRMATION_PENDING, SSMA_REPLY_CONFIRMATION_CLAIMED, SSMA_REPLY_CONFIRMATION_SENT])
-    .order("occurred_at", { ascending: true })
-    .limit(500);
+  // Leitura PAGINADA (mesmo defeito do antigo teto de 2000 da fase replies: com limit fixo em ordem crescente, confirmações
+  // novas deixavam de ser lidas depois de 500 linhas).
+  const rows: Array<{ project_id: unknown; action: unknown; detail: unknown; occurred_at: unknown }> = [];
+  for (let from = 0; from < 200_000; from += 1000) {
+    const { data: page } = await admin
+      .from("audit_log_entries")
+      .select("id,project_id,action,detail,occurred_at")
+      .in("project_id", scope.projectIds)
+      .eq("entity_type", SSMA_REPLY_ENTITY_TYPE)
+      .in("action", [SSMA_REPLY_CONFIRMATION_PENDING, SSMA_REPLY_CONFIRMATION_CLAIMED, SSMA_REPLY_CONFIRMATION_SENT])
+      .order("occurred_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + 999);
+    rows.push(...(page ?? []));
+    if ((page ?? []).length < 1000) break;
+  }
   const parse = (detail: unknown): Record<string, unknown> | null => {
     try { return JSON.parse(String(detail ?? "")) as Record<string, unknown>; } catch { return null; }
   };
@@ -392,19 +430,26 @@ export async function sendPendingSsmaReplyConfirmations(admin: Admin, mailer: Ma
     const { error: claimError } = await audit(SSMA_REPLY_CONFIRMATION_CLAIMED, {});
     if (claimError) { summary.failed += 1; continue; }
     const loaded = await loadRecord(admin, item.recordId);
+    const confirmationToken = generateReplyToken();
+    const confirmationSeverity = typeof loaded?.record.risk_level === "string" ? ssmaSeverityOf(loaded.record.risk_level) : null;
+    const { data: openAction } = await admin.from("ssma_corrective_actions").select("status").eq("id", item.actionId).maybeSingle();
     const content = buildSsmaReplyConfirmationEmail({
+      rejected: item.rejected === true,
+      // Atalhos para o próximo comando enquanto a ação estiver aberta (mesmo token do Reply-To desta confirmação).
+      replyByEmail: openAction && openAction.status !== "CONCLUIDA" ? ssmaReplyMailto(confirmationToken, item.actionId.slice(0, 8).toUpperCase(), process.env[ALERT_REPLY_MAILBOX_ENV], confirmationSeverity ?? "MEDIA") : null,
       projectName: loaded?.projectName ?? "Obra", recipientName: item.recipientName, category: String(loaded?.record.category ?? "SSMA"),
       location: String(loaded?.record.location ?? "—"), visibleCode: item.actionId.slice(0, 8).toUpperCase(), originalSubject: item.originalSubject,
       severity: typeof loaded?.record.risk_level === "string" ? ssmaSeverityOf(loaded.record.risk_level) : null,
       statusLabel: item.statusLabel, forecastLine: item.forecastLine, pendingLine: item.pendingLine, outOfOrder: item.outOfOrder,
       accUrl: `${getAppBaseUrl()}/${item.projectId}/ssma-registros`,
+      recordLink: item.recordId ? { baseUrl: getAppBaseUrl(), projectId: item.projectId, recordId: item.recordId } : null,
     });
     try {
       const result = await mailer.deliver({
         to: item.to, name: item.recipientName, projectId: item.projectId, correlationId: crypto.randomUUID(),
         content: {
           ...content, participantLabel: item.recipientName,
-          reply: { token: generateReplyToken(), actionId: item.actionId, recordId: item.recordId },
+          reply: { token: confirmationToken, actionId: item.actionId, recordId: item.recordId },
           thread: { inReplyTo: item.inReplyTo, references: item.references },
         },
       });

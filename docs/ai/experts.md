@@ -20,10 +20,11 @@ não as repete, apenas descreve como elas são aplicadas em código.
 | 1 | CEO IA | `ceo` | **Implementado** — consolidação executiva (`experts/ceo/consolidate.ts`) e consulta conversacional (`experts/ceo/query.ts`) |
 | 2 | **Diretor Comercial IA** | `commercial-director` | **Implementado (v2)** |
 | 3 | Consultor Jurídico IA | `legal-consultant` | **Implementado** — `answerLegalConsultantQuery` (`experts/legal-consultant/query.ts`) |
-| 4 | Diretor de Engenharia IA | `planning-director` (ID técnico preservado) | **Implementado** — consulta dedicada e `answerPlanningDirectorQuery` (`experts/planning-director/query.ts`) |
+| 4 | Diretor de Planejamento IA | `planning-director` | **Implementado (v6)** — painel `experts-ia/diretor-planejamento` e `answerPlanningDirectorQuery` (`experts/planning-director/query.ts`) |
+| 4-A | Diretor de Engenharia e Construção IA | `engineering-director` | **Implementado (v1)** — painel `experts-ia/diretor-engenharia` e `answerEngineeringDirectorQuery` (`experts/engineering-director/query.ts`) |
 | 5 | **Diretor de ESG IA** | `esg-director` | **Implementado (v1)** — ver `docs/esg-obligations.md` |
 
-Os cinco Experts oficiais estão todos em `ExpertId`
+Os cinco Experts oficiais (seis com o CEO; ver "Lote 4" no fim deste documento) estão todos em `ExpertId`
 (`apps/web/lib/ai/types.ts`, a união operacional) e têm
 `identity.ts`/`query.ts`/`index.ts` reais — nenhum é mais "sugerido"
 apenas no catálogo formal (introduzidos no commit "feat: add Claude
@@ -37,6 +38,41 @@ alcançam de fato.
 > (`contract-lawyer`) chegou a ser implementado e foi **removido por
 > decisão de produto** antes de qualquer publicação — não faz parte da
 > lista oficial acima e não deve ser recriado sob esse nome.
+
+> **Frente P3 (2026-11-20).** Até a v5, `planning-director` se apresentava como "Diretor de
+> Engenharia IA" e acumulava engenharia. Agora há seis Experts oficiais: Planejamento
+> (`planning-director`: cronograma, CPM, folgas, curva S, atrasos, recuperação, 4D) e Engenharia e
+> Construção (`engineering-director`: fundações, estruturas, pisos, coberturas, métodos construtivos,
+> construtibilidade, engenharia de valor, compatibilização, análise técnico-econômica) são
+> independentes; nenhum responde pelo outro. Provider próprio: `AXION_AI_PROVIDER_ENGINEERING_DIRECTOR`.
+>
+> - **Framework comum no runtime:** o conteúdo essencial de `specialist-framework.md` está em
+>   `apps/web/lib/ai/specialist-framework.ts` e entra no prompt de todos os Experts técnicos (nos
+>   `identity.ts`; para prompts mantidos por outra frente, o `anthropic-provider` garante a inclusão
+>   única pelo marcador). A AXIA não recebe este framework.
+> - **Conhecimento técnico das skills:** `apps/web/lib/ai/expert-knowledge/planning.ts` e
+>   `engineering.ts` são RESUMOS PRÓPRIOS (paráfrase), versionados, com procedência (nome da skill,
+>   sha256 do SKILL.md lido, data). O texto original das skills não está no repositório; a skill
+>   original só existe no ambiente Claude Code local. Estado em `requested-skills.ts`:
+>   `RUNTIME_SUMMARY_INTEGRATED` (nunca "instalada no ACC").
+> - **Roteamento área/assunto** (fonte única `apps/web/lib/ai/routing/expert-topics.ts`):
+>   Planejamento→`planning-director`; Engenharia→`engineering-director`; Jurídico→`legal-consultant`;
+>   Comercial/Financeiro/Orçamento→`commercial-director`; SSMA/ESG→`esg-director`; multidisciplinar→
+>   curadoria multi-Expert (um parecer por Expert + consolidação CEO IA com autoria, divergências e
+>   incertezas). Vale para CONSULTAR IA (especialidade "Geral (pelo assunto)"), ESPECIALISTA do caso de
+>   risco (inclusive no ciclo do worker) e curadoria. A AXIA nunca participa; o ESPECIALISTA não altera
+>   estado, responsável, SLA nem escalonamento.
+> - **Limite de IA em todos os caminhos** (migration `20261120170000`): painéis (`EXPERT_PANEL`),
+>   curadoria (`CURATION`, 1 unidade por Expert chamado — cada especialista e a consolidação CEO) e
+>   ESPECIALISTA do ciclo (`RISK_CYCLE`, variante `ai_consult_reserve_for_actor` só para service_role,
+>   com o usuário que perguntou). Mesma contagem por usuário (todas as obras) e por obra; reserva sempre
+>   ANTES do provedor; sem reserva, nenhuma chamada. `ai_consult_usage.expert_id` registra o Expert.
+> - **Governança N6** (migration `20261121150000`, ver `docs/ai/governanca-consumo-ia.md`): a unidade passou a
+>   ser reservada na **fronteira do provedor** (`lib/ai/governance/quota-gated-provider.ts`), depois dos guards
+>   determinísticos — recusa antes do provedor (MPP ausente, contrato ilegível, validação) não consome, sem
+>   estorno. Curadoria de adicional (`CURATION`) e curadoria automática (`AUTOMATIC_CURATION`, service_role com
+>   solicitante explícito) passaram a reservar. Orçamento monetário preparado e **desligado**
+>   (`docs/ai/orcamento-monetario-ia.md`).
 
 ## 2. Por que esta arquitetura existe
 
@@ -667,3 +703,72 @@ partir dele.
   `EMAIL`/`PROJECT`, mas só EVENT tem um botão de disparo hoje.
 - Conexão a qualquer execução automática de recomendação — o resultado
   nunca cria `sla_actions`/eventos/e-mails sozinho.
+
+## Lote 4 — Especialistas de IA e governança (homologação local, 21/11/2026)
+
+Estado: **TESTADO LOCALMENTE** (PostgreSQL 17 real em 127.0.0.1:55434 + testes de código). Nada foi aplicado ao
+Supabase operacional; as tabelas de uso/orçamento/auditoria de IA **não existem** no banco operacional — tudo abaixo vale
+só localmente até a publicação das migrations. Relatório com a matriz Expert × critério:
+`axion-backups/homologacao/lote4-relatorio.md`.
+
+### Os seis Experts (independentes)
+
+| Expert | ID | Áreas (expertForArea) | Assuntos (expert-topics.ts) |
+|---|---|---|---|
+| Diretor de Planejamento IA | `planning-director` | PLANEJAMENTO | prazo, MPP, cronograma, caminho crítico, folga, curva S, atraso, recuperação, 4D |
+| Diretor de Engenharia e Construção IA | `engineering-director` | ENGENHARIA | fundações, estruturas, pisos, coberturas, métodos construtivos, construtibilidade, compatibilização |
+| Consultor Jurídico IA | `legal-consultant` | JURIDICO | contrato, cláusula, obrigação, multa, notificação, aditivo, pleito |
+| Diretor Comercial IA | `commercial-director` | COMERCIAL, FINANCEIRO, ORCAMENTO | custo, preço, medição, pagamento, orçamento, BDI |
+| Diretor de ESG IA (SSMA/ESG) | `esg-director` | ESG_SSMA | segurança, meio ambiente, acidente, EPI, licença ambiental |
+| CEO IA (Gestão Executiva) | `ceo` | — (só por tema múltiplo ou escolha explícita) | síntese multi-Expert |
+
+Cada um tem identidade/instruções próprias, provedor próprio (`AXION_AI_PROVIDER_<EXPERT>`), fontes autorizadas,
+limitações e regras de escalonamento (`expert-definitions/`), o Framework Comum (fato × inferência × informação ausente
+× recomendação; proibido inventar fonte) e `requiresHumanReview: true` literal na resposta validada. Roteamento:
+Administrativo/Diretoria/Compras não pré-selecionam ninguém; sem tema e sem área → revisão humana
+(`EXPERT_SELECTION_REVIEW_REQUIRED`), nunca "default Planejamento"; a AXIA nunca é destino.
+
+### Correções do Lote 4
+
+- **Grounding no Diretor de ESG IA.** O rascunho de comunicação de um provedor real passava sem o guardrail de grounding
+  (os outros quatro Experts de consulta já o aplicavam). `experts/esg-director/query.ts` agora aplica o mesmo guardrail
+  (`validateDraftGrounding` / correção segura / supressão) e expõe `audit.grounding`, `audit.usage` e `audit.stopReason`.
+- **Trilha de auditoria de cada consulta** (migration `20261121174000_ai_consult_audit`, `lib/ai/governance/consult-audit.ts`):
+  `ai_consult_usage` só dizia quem/obra/tipo/assunto/Expert/dia; faltavam pergunta, fontes, resultado e tokens.
+  Nova tabela `ai_consult_audit` (somente acréscimo; sem INSERT/UPDATE/DELETE para `authenticated`; RLS: o autor vê a
+  própria, ADMINISTRADOR da obra vê as da obra; `anon` sem acesso) gravada por `ai_consult_audit_record` (sessão) e
+  `ai_consult_audit_record_for_actor` (service_role; só `RISK_CYCLE`/`AUTOMATIC_CURATION`), ambas `SECURITY DEFINER`,
+  `search_path = ''`, vínculo ATIVO exigido. Registra: usuário, obra, Expert, tipo, pergunta (até 4.000 car.), fontes
+  (**identificadores**, nunca o texto do documento), severidade, confiança, resumo do resultado (contagens), provedor,
+  modelo, tokens (nulos quando o provedor não informa — nunca inventados) e custo estimado (nulo enquanto
+  `estimated_cost_per_call_usd` não estiver configurado). Gravação **depois** da chamada ao provedor (resposta ou erro
+  `PROVIDER_ERROR`); falha da auditoria nunca descarta a resposta já gerada. O sink é anexado à função de reserva
+  (`withAuditSink`) em cada caminho: painéis (Comercial, Engenharia, ESG, Planejamento, Jurídico, Comercial estratégico),
+  CONSULTAR IA de alerta/risco, curadorias (Event Ledger, Adicionais, pré-contratual) e ciclo de risco.
+  Pendente: consulta SSMA do registro de campo (`ssma-consult.ts`) mantém só a trilha de uso (kind `SSMA`).
+- **Curadoria automática de fonte do cliente** (`runAutomaticCurationForClientSource`): **não há chamador em produção**
+  hoje; a função recusa chamar a IA sem solicitante e sem reserva (falha fechada).
+
+### Gestão Executiva (CEO) e curadoria
+
+A curadoria roda cada Expert uma vez (reserva própria), guarda **um parecer por Expert** (autoria, severidade,
+incertezas) e a consolidação do CEO IA (divergências, recomendação, decisões humanas necessárias). Nada é executado:
+os módulos `experts/ceo`, `curation`, `alert-consult`, `governance`, `routing` não têm escrita em tabela de
+evidência/documento/e-mail (teste estático em `scripts/test-lote4-experts.mjs`); a única escrita é a linha de
+`audit_log_entries` da curadoria (cliente admin explícito).
+
+### Comercial × Orçamentos — pendências (nada foi inventado nem preenchido com zero)
+
+| # | Pendência | Evidência | Efeito hoje |
+|---|---|---|---|
+| P-COM-01 | **Fonte de Orçamentos ausente** (custos diretos/indiretos, BDI, margem, contingências, premissas, produtividade, alternativas de engenharia: `presence: "NAO"`; orçamento-base e preço de venda: `PARCIAL` — só metadados do arquivo) | `lib/commercial/inventory.ts` | O Diretor Comercial IA devolve recomendação **condicionada**, com pedidos a Orçamentos; nenhuma concessão é declarada economicamente aceitável (`test-commercial-director-strategy`) |
+| P-COM-02 | **Valor do contrato fixo R$ 33.450.000** (cláusula 5.1 do contrato WEG) no dashboard, usado para calcular "Aditivos" de **qualquer** obra | `app/[projectId]/dashboard/page.tsx` (`dashboardBaseContractValue`) | Painel Aditivos pode ficar incorreto fora da WEG. **Não** chega a nenhum Expert (teste: o literal só existe nesse arquivo). Correção exige campo estruturado de valor do contrato por obra |
+| P-COM-03 | **Contexto comercial**: não há valor global estruturado do contrato (`CONTRATO_BASE`: "Não há valor global do contrato em campo estruturado") | `lib/commercial/inventory.ts` | O Expert declara a informação ausente; o loader não preenche valor |
+| P-COM-04 | Integração com o Sistema de Orçamentos (arquitetura futura) | CLAUDE.md | Quando existir, ligar como fonte `AVAILABLE` em `ORCAMENTO_BASE_E_REVISOES`/`CUSTOS_*` |
+
+### Orçamento monetário de IA
+
+**Desligado** (`ai_consult_budget_settings.enabled = false`, sem tetos, sem estimativa, sem `decision_reference`; o banco
+recusa ligar sem decisão registrada). Nenhum código de produção lê ou liga essa tabela. Limites vigentes: 20/usuário/dia
+(somando obras) e 100/obra/dia — **operacionais, não política aprovada**. Provado em PostgreSQL real
+(`scripts/test-lote4-isolation-realpg.mjs`, cenários E1–E3, A1–A5) e por código (`scripts/test-lote4-experts.mjs`, 3.5–3.6).

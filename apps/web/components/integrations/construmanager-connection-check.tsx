@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import {
   initialValidateConstrumanagerConnectionState,
@@ -44,6 +45,7 @@ export function ConstrumanagerConnectionCheck({
       <form action={formAction}>
         <input type="hidden" name="projectId" value={projectId} />
 
+        {/* help-exempt: botão que dispara a verificação; descrito em integracoes.integracoes.construmanager-validar (ícone logo abaixo) */}
         <Button
           type="submit"
           size="sm"
@@ -54,7 +56,8 @@ export function ConstrumanagerConnectionCheck({
         </Button>
       </form>
 
-      <p className="text-xs">
+      <p className="flex items-center gap-1.5 text-xs">
+        <FeatureInfo helpId="integracoes.integracoes.construmanager-validar" />
         {displayedCheckAt
           ? `Última validação: ${formatDateTime(displayedCheckAt)}`
           : "Conexão ainda não validada."}

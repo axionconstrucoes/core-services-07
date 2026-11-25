@@ -4,6 +4,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { buttonVariants } from "@/components/ui/button";
 import { LogoutButton } from "@/components/auth/logout-button";
 import { VeraTrigger } from "@/components/assistant/vera-trigger";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { getProjects } from "@/lib/data";
 import { ProjectSwitcher } from "./project-switcher";
 
@@ -37,9 +38,13 @@ export async function TopBar({
           sidebar mantém só o símbolo (ver app-sidebar.tsx). Uma única
           linha (truncate) em vez de permitir quebra, para nunca colidir
           verticalmente com o grupo da direita. */}
-      <h1 className="col-start-1 row-start-1 min-w-0 truncate text-center text-base font-semibold tracking-tight text-foreground sm:text-xl sm:col-start-2">
-        AXION Controle de Contratos
-      </h1>
+      <div className="col-start-1 row-start-1 flex min-w-0 items-center justify-center gap-1 sm:col-start-2">
+        <h1 className="min-w-0 truncate text-center text-base font-semibold tracking-tight text-foreground sm:text-xl">
+          AXION Controle de Contratos
+        </h1>
+        {/* Ajuda do cabeçalho (Hover Text universal): ao lado do título, fora de qualquer botão/link. */}
+        <FeatureInfo helpId="shared.global.cabecalho" className="shrink-0" />
+      </div>
 
       {/* Em telas < sm, este wrapper é "contents": some do layout e seus
           2 filhos abaixo viram itens diretos da grade do header (grupo
@@ -63,7 +68,7 @@ export async function TopBar({
           <ProjectSwitcher
             projects={projects}
             currentProjectId={projectId}
-            className="min-w-24 flex-1 sm:max-w-[7rem] sm:flex-initial lg:max-w-[10rem] xl:max-w-[16rem]"
+            className="min-w-24 flex-1 sm:max-w-[9rem] sm:flex-initial sm:px-2 sm:text-xs lg:px-3 lg:text-sm lg:max-w-[10rem] xl:max-w-[16rem]"
           />
           {currentProject?.contractNumber && (
             <span className="shrink-0 text-xs text-muted-foreground">Contrato {currentProject.contractNumber}</span>
@@ -71,7 +76,6 @@ export async function TopBar({
           {canEditProject && (
             <Link
               href={`/projetos/${projectId}/editar?origem=projeto`}
-              title="Editar projeto"
               aria-label="Editar projeto"
               className={buttonVariants({ variant: "outline", size: "sm", className: "shrink-0 gap-1.5" })}
             >

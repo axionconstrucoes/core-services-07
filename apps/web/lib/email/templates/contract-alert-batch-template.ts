@@ -36,6 +36,8 @@ import {
   type ThreeActions,
 } from "@/lib/email/templates/alert-box-style";
 import { buildUniversalActionsPanelHtml } from "@/lib/email/templates/universal-alert-actions";
+import { buildReplyByEmailPanelHtml, replyByEmailTextLines } from "@/lib/email/templates/reply-by-email-panel";
+import type { ReplyMailtoLinks } from "@/lib/email-replies/reply-mailto";
 import {
   alertClauseHtml,
   alertClauseText,
@@ -66,6 +68,8 @@ export interface ContractAlertBatchEmailItem {
   quickActionUrl?: string;
   // Link "CONSULTAR IA" (página do ACC; ver lib/alerts/ai-consult-link.ts).
   aiConsultUrl?: string;
+  // Atalhos "Responder por e-mail" DESTE alerta (token por item, CONTRACT_ALERT_ITEM). Ausente => só os botões do ACC.
+  replyByEmail?: ReplyMailtoLinks | null;
 }
 
 export interface ContractAlertBatchEmailInput {
@@ -154,6 +158,7 @@ function buildItemHtml(
           ${alertClauseHtml({ label: item.clauseLabel, text: item.clauseText }, item.severity)}
           ${alertEvidenceHtml(item.evidence, item.severity)}
           ${alertRepeatHtml(item.severity)}
+          ${buildReplyByEmailPanelHtml(item.replyByEmail)}
         </td>
         <td class="acc-batch-actions-col" valign="top" width="${BUTTON_COLUMN_WIDTH_PX}" style="width:${BUTTON_COLUMN_WIDTH_PX}px;padding:0 0 0 16px;">
           ${buildUniversalActionsPanelHtml({ links: { RESOLVIDO: buildRespondActionUrl(item, "RESOLVIDO"), EM_ANDAMENTO: buildRespondActionUrl(item, "EM_ANDAMENTO"), ENVIAR_PARA: buildRespondActionUrl(item, "ENVIADO_PARA"), ESPECIALISTA: item.aiConsultUrl }, unavailableReasons: { ESPECIALISTA: "Consulta indisponível para este alerta." } })}
@@ -180,6 +185,7 @@ function buildItemText(item: ContractAlertBatchEmailItem, fallbackProject: strin
     `EM ANDAMENTO: ${buildRespondActionUrl(item, "EM_ANDAMENTO")}`,
     `ENVIAR PARA: ${buildRespondActionUrl(item, "ENVIADO_PARA")}`,
     `ESPECIALISTA: ${item.aiConsultUrl ?? "indisponível (consulta indisponível para este alerta)"}`,
+    ...replyByEmailTextLines(item.replyByEmail),
   ].join("\n");
 }
 

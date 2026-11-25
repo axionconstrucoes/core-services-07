@@ -62,7 +62,10 @@ export default async function SlaConfigurationPage({ params }: { params: Promise
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-lg font-semibold">Matriz de SLA e Escalonamento</h1>
+        <h1 className="flex items-center gap-1.5 text-lg font-semibold">
+          Matriz de SLA e Escalonamento
+          <FeatureInfo helpId="planejamento.acoes-config.pagina" />
+        </h1>
         <p className="text-sm text-muted-foreground">
           Configuração específica deste projeto — sobrescreve os defaults (BAIXO/MÉDIO/ALTO/CRÍTICO) descritos em
           docs/sla-escalation.md.
@@ -73,6 +76,7 @@ export default async function SlaConfigurationPage({ params }: { params: Promise
         <summary className="flex cursor-pointer items-center gap-1.5 px-3 py-2 text-sm font-medium">
           Timezone e horário útil
           <FeatureInfo helpId="sla-config-timezone" />
+          <FeatureInfo helpId="planejamento.acoes-config.fuso-expediente" />
         </summary>
         <div className="border-t px-3 py-3">
           <SlaProjectSettingsForm
@@ -90,9 +94,11 @@ export default async function SlaConfigurationPage({ params }: { params: Promise
           <CardTitle className="flex items-center gap-1.5">
             Prazos por nível de risco
             <FeatureInfo helpId="sla-config-matriz-prazos" />
+            <FeatureInfo helpId="planejamento.acoes-config.regras-prazo" />
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {/* help-exempt: comentário de código que cita tags HTML, não é elemento de interface */}
           {/* Tabela SEMÂNTICA real (<table>/<thead>/<tbody>/<th scope>),
               não um CSS Grid disfarçado — cada uma das 4 linhas
               (Baixo/Médio/Alto/Crítico) salva/audita independentemente
@@ -104,15 +110,15 @@ export default async function SlaConfigurationPage({ params }: { params: Promise
             <table className="w-full min-w-[720px] text-xs">
               <thead>
                 <tr className="border-b text-left">
-                  <th scope="col" className="px-2 py-1.5 font-semibold text-muted-foreground">Risco</th>
-                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Unidade</th>
-                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Nível 1: assumir</th>
-                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Responder</th>
-                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Concluir</th>
-                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Nível 2</th>
-                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Nível 3</th>
-                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Opções</th>
-                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Ações</th>
+                  <th scope="col" className="px-2 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Risco<FeatureInfo helpId="planejamento.acoes-config.col-risco" /></span></th>
+                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Unidade<FeatureInfo helpId="planejamento.acoes-config.col-unidade" /></span></th>
+                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Nível 1: assumir<FeatureInfo helpId="planejamento.acoes-config.col-assumir" /></span></th>
+                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Responder<FeatureInfo helpId="planejamento.acoes-config.col-responder" /></span></th>
+                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Concluir<FeatureInfo helpId="planejamento.acoes-config.col-concluir" /></span></th>
+                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Nível 2<FeatureInfo helpId="planejamento.acoes-config.col-nivel2" /></span></th>
+                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Nível 3<FeatureInfo helpId="planejamento.acoes-config.col-nivel3" /></span></th>
+                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Opções<FeatureInfo helpId="planejamento.acoes-config.col-opcoes" /></span></th>
+                  <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Ações<FeatureInfo helpId="planejamento.acoes-config.col-acoes" /></span></th>
                 </tr>
               </thead>
               <tbody>
@@ -135,6 +141,7 @@ export default async function SlaConfigurationPage({ params }: { params: Promise
           <CardTitle className="flex items-center gap-1.5">
             Responsáveis por área e nível
             <FeatureInfo helpId="sla-config-responsaveis" />
+            <FeatureInfo helpId="planejamento.acoes-config.cadeia-responsaveis" />
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">

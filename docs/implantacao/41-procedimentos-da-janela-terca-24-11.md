@@ -1,0 +1,140 @@
+# 41 - Procedimentos exatos da janela de terça-feira 24/11/2026, 08h BRT (PREPARADO; NÃO EXECUTADO) [antes: sábado 28/11, 09h; arquivo renomeado em 23/11]
+
+Status em 23/11/2026. A janela NÃO inicia sozinha: exige autorização final específica da Diretoria. Aceite do risco residual (sem segundo operador técnico independente) registrado em 23/11. Complementa os docs 23 (runbook com tempos), 28 (compatibilidade), 38 e 39.
+Papéis reais: Dono/Eng-1 = Reynaldo (decide GO/abort e supervisiona); execução técnica = Claude Code; registro = log automático fora do repositório. Carlos e Jaime: só aceitação funcional em 02/12 (não participam da janela técnica).
+
+## A. Hoje à noite (23/11) e terça antes das 07h30 (antes: véspera de sábado)
+1. CI verde no HEAD final do PR #245 (sem re-run desnecessário); `main` ainda em 27da839; árvore limpa; `git ls-remote` confere o commit.
+2. Backup do dia: `backup-banco.ps1 -Alvo producao` e conferência do Storage (`backup-storage.ps1`; reconciliar a versão do script, doc 28 seção 7). Credencial de backup: papel temporário `acc_backup_<UTC>` criado pelo Dono (SQL do pacote fase2), senha só em DPAPI.
+3. Restauração em banco descartável: `restaurar-validar.ps1 -Pasta <backup>` (PG17 local 127.0.0.1:55434) -> esperado `TUDO_IGUAL`, SHA-256 íntegro, contagens iguais. Sem isso, NO-GO.
+4. Re-medir tamanhos e locks: `node scripts/implantacao/locks-ondas.mjs` com tamanhos novos (doc 28 seção 3); se `emails` > 10 MB ou > 10 mil linhas, risco passa a MÉDIO: reavaliar com o Dono.
+5. Token temporário (PAT) do Supabase criado pelo Dono na hora, guardado em DPAPI (`salvar-token-supabase`), validade mínima, revogado e apagado no fim. Nunca em chat.
+6. Conferir variáveis Vercel (doc 38): `ACC_ALERT_*` com EMAIL, `ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=false`, `ACC_OUTBOUND_MODE=pilot`, kill switch pronto. Cadastro público continua ABERTO.
+7. Comunicado de indisponibilidade enviado; ninguém usando o ACC.
+
+## B. Pré-voo somente leitura (T-30)
+- Histórico: 134 linhas / máx 20261119034721 / md5 70a176da74c9f88ac06b04d80bc55891.
+- P0: `scripts/sql/p0-verificar-record-risk-alert-action.sql` -> `ok = t`, corpo 930f6d75898793479b418950b0053bd9.
+- `risk_alert_outbox` sem PENDING; 11 jobs pg_cron ativos; nenhuma sessão `idle in transaction` nas tabelas quentes (`sla_actions`, `risk_alert_outbox`, `emails`, `risk_alert_action_events`).
+- Qualquer divergência = NO-GO e nada é aplicado.
+
+## C. Execução (T a T+60; comandos exatos no doc 23)
+Ordem obrigatória: CI verde -> backup validado -> congelamento -> migrations (14 ondas, 70 itens) -> validações P0 -> descongelar -> merge na main -> deploy Vercel -> testes operacionais -> liberação controlada.
+Cada fase só avança com o critério do doc 23 e a confirmação do Dono. Merge e deploy exigem autorização específica no momento.
+
+## D. Compatibilidade do app antigo com o banco (entre as ondas e o merge)
+- Comprovado (análise estática, doc 28): 0 BLOQUEANTE, 40 ATENÇÃO, 6 INFO; nenhuma função removida ou com assinatura alterada, nenhuma coluna removida, nenhum NOT NULL novo sem default, RLS equivalente em 1080 combinações; ondas A-N sem operação irreversível; rollback 413/0.
+- NÃO comprovado (lacuna): o teste de RUNTIME do app da `main` contra a homologação pós-ondas (doc 28, seção 9, item 2) não foi feito. Antes da janela, executar (com autorização) o app antigo contra acc-homolog pós-ondas nos fluxos de e-mail/SSMA/revisão de versão e na tela de SLA. Se não for feito, tratar como risco aceito pelo Dono.
+- Exposição real: o app antigo coexiste com o schema novo só entre o fim das ondas e o merge (~25 min), com o banco descongelado e jobs ainda PAUSADOS.
+
+## E. Pontos de interrupção seguros (parar e decidir)
+| Ponto | Estado do sistema | Ação de retorno |
+|---|---|---|
+| Antes do congelamento (T-30 a T+4) | nada alterado | encerrar; sem ação |
+| Congelado, antes das ondas | só gatilhos de congelamento | `2-reverter-congelamento` + `5-storage-descongelar`, retomar jobs |
+| Dentro das ondas | executor para na 1ª falha; cada arquivo é transação própria (falha reverte o arquivo) | rollback das ondas aplicadas em ordem inversa (`supabase/rollbacks/`, com guardas) |
+| Ondas prontas, antes do merge | schema novo + app antigo (compatível, doc 28) | manter e investigar, ou rollback das ondas |
+| Após merge/deploy | app novo no ar | `request_rollback` Vercel para dpl_6ERyTgkFMK6oCjZqpQGbeCb4zx6L (main @ 27da839); estrutura por rollback SQL; dados só por restauração do backup do dia, decisão do Dono |
+Abortar imediatamente: P0 divergente, falha de SQL, contagem divergente, dado de outra obra visível, e-mail real fora da trava, deploy com erro, falha de job repetida 2x.
+
+## F. Controles de recuperação: comprovado x não comprovado (23/11/2026)
+| Controle | Situação |
+|---|---|
+| Backup de produção de 22/11 íntegro (SHA-256, duas mídias) e restaurado em PG local (13 de 13) | COMPROVADO (22-23/11) |
+| Backup do DIA e restauração do dia | NÃO feito (acontece na véspera/manhã) |
+| Rollback SQL das ondas (413/0 em PG local) | COMPROVADO |
+| Executor via Management API (homolog; token revogado) | COMPROVADO |
+| P0 em homologação (md5 930f6d75…) | COMPROVADO |
+| Rollback Vercel: alvo identificado (dpl_6ERyTgkFMK6oCjZqpQGbeCb4zx6L, isRollbackCandidate=true) | alvo comprovado; execução NÃO ensaiada |
+| Teste de runtime do app antigo contra o schema novo | NÃO feito |
+| Segundo operador técnico | AUSENTE (risco residual aceito) |
+| PITR no Supabase | NÃO verificado (plano Pro: backups diários, 7 dias) |
+
+> Atenção da nova data: o cron system-health (07:30 BRT) roda ANTES da janela; o resumo semanal da quarta 25/11 (07:00 BRT) rodará já no app novo e fica adiado em F0 pelo governador (conferir no pós-deploy). Terça não é quarta, mas a observação de 24h cobre a quarta.
+
+## G. Recálculo de locks, tempo e jobs (23/11/2026, leituras agregadas em produção, sem alteração)
+- Tamanhos atuais (22/11 -> 23/11): banco 54 MB -> 68 MB (pg_database_size); `emails` 713 -> 714 linhas, 5,2 -> 5,8 MB (limiar de risco MÉDIO: 10 MB / 10 mil linhas -> segue BAIXO); `document_text_segments` 19168 linhas / 8,8 MB; `audit_log_entries` 4639; `sla_actions` 25; `risk_alert_outbox` 36; `risk_alert_action_events` 2. Nenhuma tabela tocada cruzou limiar. Tempo estimado das 14 ondas com lock: ~7 s no total (doc 28, seção 3); no remoto a latência domina (runbook: T+8 a T+18).
+- Histórico de migrations em produção: 134 / 20261119034721 / md5 70a176da74c9f88ac06b04d80bc55891 (igual ao esperado). Sem sessões `idle in transaction`. 11 jobs pg_cron ativos.
+- ATENÇÃO (divergência do pré-voo): `risk_alert_outbox` tem 1 linha PENDING (criada em 12/11, 2 tentativas). O pré-voo do doc 23 exige "sem PENDING". Decisão do Dono: aceitar (jobs pausados impedem o envio durante a janela; verificar o que é antes de retomar os jobs) ou tratar antes. Nada foi alterado.
+- Controle de jobs: pausar com `congelamento/6-pg-cron-pausar.sql` (T), retomar com `7-pg-cron-retomar.sql` (T+40); workflows do GitHub que escrevem desabilitados na lista do doc 12 (seção 1.4). Crons da Vercel: `system-health` 07:30 BRT (antes da janela); `weekly-alert-digest` quarta 07:00 BRT (já no app novo; adiado em F0).
+- Pontos seguros de interrupção: ver seção E.
+
+## H. Recuperação e compatibilidade com o deployment anterior da Vercel
+- Deployment anterior (produção atual): dpl_6ERyTgkFMK6oCjZqpQGbeCb4zx6L, main @ 27da839, isRollbackCandidate=true. Rollback: `request_rollback` (MCP/CLI `vercel rollback <id>`) ou painel; efeito em segundos, no roteamento, sem rebuild. Plano Pro: pode voltar a qualquer deployment de produção anterior.
+- Compatibilidade do app anterior com o banco novo (rollback da aplicação sem rollback do banco): é o mesmo caso da seção D (app da `main` x schema pós-ondas): análise estática sem bloqueante (doc 28) e teste de runtime desta data (seção I). Por isso a ordem recomendada em caso de falha PÓS-deploy é: 1) rollback da aplicação (rápido, seguro); 2) manter o schema novo (aditivo); 3) rollback de estrutura só se a causa estiver no banco; 4) restauração de dados do backup do dia só por decisão do Dono.
+- Dados gravados pelo app novo (e-mails Outlook, provider OUTLOOK, source_type EMAIL) não são desfeitos pelo rollback de estrutura (guardas ROLLBACK_BLOCKED).
+
+## I. Evidências desta rodada (23/11/2026, noite; nada alterado em produção)
+**CI #216 (commit 6e187955):** NÃO concluída na última leitura; Guards verde, Typecheck/lint/testes na etapa dos testes SSMA em Chrome real, Build ainda não iniciado. Não declarada verde. Runs #211 a #215 verdes. O commit 56b2bc0c e as edições desta rodada (docs 23, 38, 39, 40, 41) estão SÓ locais; push após a CI #216 fechar (cada push reinicia a CI do PR; o workflow `ci-pr-checks.yml` só roda em pull_request e não dispara nada operacional).
+**Ensaio de restauração (banco descartável local PG17, backup de produção de 22/11 04:46 UTC):** SHA-256 íntegro e restauração em 5 s. 12 de 13 categorias IGUAIS (usuários 86, funções 234, gatilhos 70, histórico 134, índices 468, linhas 30383, P0, permissões 133, políticas RLS 157, restrições 1123, RLS 130, colunas 1852). `storage_objetos`: contagem igual (1345), hash DIFERENTE (origem 07c27609..., restaurado b2ae9c5b...). `TUDO_IGUAL=False`. Causa provável: ordenação (collation) da impressão digital deste backup, como já ocorreu em 22/11 (o SQL corrigido usa collate "C"), mas NÃO foi provada nesta rodada. Os erros do pg_restore são só COMMENT de extensões do Supabase (pg_cron, pg_net, vault), esperados. Conclusão: o backup é restaurável; a igualdade de Storage fica a reprovar com o backup do dia (gerado com o SQL corrigido).
+**Backup do dia (incl. Storage):** NÃO realizado. Exige a credencial de backup de PRODUÇÃO (papel temporário `acc_backup_<UTC>` criado pelo Dono + segredo em DPAPI); os segredos locais existentes (db/service-role/sk) são de HOMOLOGAÇÃO. Último backup válido: 22/11 04:46 UTC (banco, 8,3 MB) e Storage de 22/11 05:08 (1345 arquivos, 1,08 GB). Defasagem em 24/11 08h: ~27 h; dados gravados depois dele (e-mails, auditoria) só existiriam em backup novo.
+**Runtime do app antigo (main @ 27da839, worktree isolado sem .env.local) contra acc-homolog (schema pós-ondas; envio real bloqueado, modo piloto):** o app sobe (Next 16, ready em ~1 s), `/login` responde 200, rotas protegidas redirecionam (307), `/api/cron/system-health` sem segredo responde 401 (fail-closed), sem erros de schema no log do servidor. LIMITE: sem sessão autenticada (não há credencial de teste para login), os fluxos autenticados (e-mail/SSMA/revisão de versão, tela de SLA) NÃO foram exercitados em runtime. Nenhuma incompatibilidade encontrada; cobertura parcial. Servidor encerrado e porta liberada. Obs.: Turbopack recusa `node_modules` como junção; foi usada cópia real.
+**P0 em homologação:** md5 930f6d75898793479b418950b0053bd9 (23/11).
+
+## J. GO/NO-GO definitivo para terça 24/11/2026, 08h BRT (Reynaldo decide; Claude Code executa)
+| # | Condição | Situação | Bloqueia? |
+|---|---|---|---|
+| 1 | CI do PR #245 verde no HEAD (6e187955 ou posterior) | #216 EM ANDAMENTO | **Sim** |
+| 2 | Backup do dia (banco + Storage) e restauração do dia em banco descartável | NÃO feito; exige credencial de backup de produção criada por Reynaldo | **Sim** |
+| 3 | Igualdade do Storage no backup do dia (`TUDO_IGUAL=True`) | hash divergiu no ensaio de 22/11; a reprovar | **Sim** (parte do 2) |
+| 4 | Token temporário do Supabase para o executor | criar na hora (Reynaldo) | **Sim** |
+| 5 | Pré-voo de produção: histórico 134/…/md5 70a176da…, P0, sem sessões ociosas, 11 jobs | histórico OK, sem `idle in transaction`, 11 jobs ativos; P0 a reconferir no T-30 | **Sim** (no T-30) |
+| 6 | `risk_alert_outbox` sem PENDING | 1 linha PENDING de 12/11 (2 tentativas) | Decisão de Reynaldo (aceitar com jobs pausados ou tratar antes) |
+| 7 | Compatibilidade do app antigo com o schema novo | estática OK; runtime parcial (sem login) | Risco aceito por Reynaldo ou testar autenticado antes |
+| 8 | Recuperação: rollback Vercel (alvo dpl_6ERyTgkFMK6oCjZqpQGbeCb4zx6L) e rollback SQL | alvo e scripts comprovados; execução Vercel não ensaiada | Não |
+| 9 | Segundo operador técnico | AUSENTE; risco residual aceito em 23/11 | Aceito |
+| 10 | Autorização final específica para modificar produção | PENDENTE | **Sim** |
+Resumo: NO-GO até os itens 1, 2, 3, 4, 5 e 10 fecharem. A janela de 08h só é viável se a credencial de backup de produção for criada e o backup/restauração do dia concluídos antes de 07h; caso contrário, adiar. Nenhum passo de produção é executado sem autorização específica.
+
+## K. Fechamento (23/11/2026, noite): CI, crons, credencial de backup e token
+**CI:** #216 (6e187955) CONCLUÍDA COM SUCESSO (8m13s). Havia 2 commits posteriores só de documentação (56b2bc0c, 2b31b5db); foram enviados a integration/acc-noturna após a varredura de segredos (sem achados) e disparam a CI #217 (a conferir). O merge da janela deve usar o HEAD com a CI verde; novas edições de documentação feitas depois ficam locais e NÃO devem entrar no PR antes do merge (cada push reinicia a CI).
+**Controle efetivo dos crons (verificado em produção, somente leitura + arquivos):**
+- pg_cron: 11 jobs ativos (acc-risk-alerts, acc-ssma-notifications, acc-weekly-all, acc-document-worker, acc-mpp-worker, acc-gmail-sync, acc-ssma-drive, acc-construmanager, acc-diario, acc-watchdog, acc-cron-history-cleanup); `congelamento/6-pg-cron-pausar.sql` pausa todos e guarda o estado (comprovado em homologação); `7-pg-cron-retomar.sql` restaura.
+- Crons da Vercel (`apps/web/vercel.json`): `system-health` 10:30 UTC (07:30 BRT) e `weekly-alert-digest` quarta 10:00 UTC. Nenhum dispara entre 08h e 09h30 BRT de terça. Controle: não precisa pausar na janela; o resumo da quarta 25/11 corre no app novo e fica adiado em F0.
+- Workflows agendados do GitHub (11): alert-reminders (Disabled), contract-alert-batches (Disabled), construmanager-content-ingestion, diario-de-obra-sync, document-processing-worker, gmail-inbound-sync, gmail-owner-mailbox-sync, mpp-document-worker, ssma-drive-photo-sync, ssma-notifications, weekly-schedule-email-ingestion. LACUNA: o runbook usa `gh workflow disable`, mas a CLI `gh` NÃO está instalada nesta máquina. Alternativas: desabilitar pela interface do GitHub (Actions > workflow > ... > Disable) por Reynaldo, ou instalar/autenticar a `gh`. Sem isso os workflows continuam agendando durante a janela (os jobs pg_cron pausados cobrem só o lado do banco; os workflows chamam a aplicação/banco e podem escrever com o banco congelado e falhar).
+**Credencial de backup de produção (preparação; NADA criado hoje):** `gerar-credencial-producao.ps1` gera localmente o papel `acc_backup_<UTC>` (senha só em DPAPI; o SQL leva apenas o verificador SCRAM) com validade de 6 h; por isso deve ser gerado na manhã da janela, não hoje. Sequência: (1) Reynaldo roda o script (não toca no banco); (2) cola `1-criar-papel.sql` no SQL Editor de produção; (3) `backup-banco.ps1 -Alvo producao -Usuario acc_backup_<UTC> -Segredo <dpapi> [-Pooler ...]` e `backup-storage.ps1`; (4) `restaurar-validar.ps1 -Pasta <backup>` (esperado `TUDO_IGUAL=True`); (5) `2-remover-papel.sql` logo após o backup. CORREÇÃO (23/11 noite): o script concede `pg_read_all_data` DE PROPÓSITO. O comentário comprovado na seção `criar` de `papel-backup.ps1` explica que, sem ele, o backup perde `auth.users` (o postgres do Supabase não tem grant option em `auth`); o efeito colateral (USAGE em `cron`) é aceito e mitigado por nome único, 1 conexão, validade de 6 h, somente leitura, remoção logo após o dump e auditoria de jobs (`2-remover-papel.sql` recusa remover se houver job do pg_cron em nome do papel). O cabeçalho do mesmo arquivo e a seção 7 do doc 28 dizem o contrário; vale o comentário comprovado. O aviso anterior desta seção fica retirado.
+**Token do Supabase para o executor:** criar SOMENTE na hora da execução das ondas (Reynaldo, painel Supabase > Account > Access Tokens, validade curta), guardar com `scripts/homolog/salvar-token-supabase.ps1` (DPAPI, nunca em chat), usar em `executor-ondas.mjs --segredo <arquivo>` e revogar/apagar ao final. Nada foi criado.
+
+## L. Fechamento dos bloqueios (23/11/2026, noite)
+**1. CI:** #216 (6e187955) CONCLUÍDA COM SUCESSO (8m13s). #217 (2b31b5db, só documentação) em andamento na última leitura.
+
+**2. Divergência do hash do Storage (1345 objetos): DIAGNOSTICADA; não há divergência de conteúdo.**
+- Hash por bucket idêntico na cópia restaurada local e em produção hoje: construmanager-content 178 objetos (`a690990e...`, 456.460.540 bytes) e project-documents 1167 objetos (`3b72e62f...`, 628.094.014 bytes); nenhum objeto sem tamanho.
+- Com ordenação determinística (bucket e nome em `collate "C"`): produção hoje = restaurado = **b2ae9c5b0938f3a0a72416c5353a1bb8** = manifesto do backup do Storage de 22/11 recalculado de `MANIFESTO.tsv` (1345 linhas, 1345 `OK`, 0 divergência de tamanho, ordenado por bucket e nome em "C").
+- Com a ordenação padrão do banco de produção (en_US): produção hoje = **07c27609bbdfec9e5a87f9f0ff5573c4**, exatamente o valor gravado em `impressao-digital-origem.txt`. Causa: o arquivo de origem do backup de 22/11 foi gerado às 01:46 (hora local) e a correção `collate "C"` em `impressao-digital.sql` só entrou às 01:57; a comparação cruzou duas ordenações. É artefato do método, não de dados. O `TUDO_IGUAL=False` do ensaio fica explicado e a equivalência provada. A evidência original do backup não foi alterada.
+- Consequência: nomes e tamanhos dos 1345 objetos de produção hoje são iguais aos do backup do Storage de 22/11 05:08; o conteúdo dos arquivos só é reverificado no backup do dia.
+
+**3. Forma mais segura de backup atualizado de produção (nada criado):** (a) banco: papel temporário somente leitura de `gerar-credencial-producao.ps1` (senha só em DPAPI, SQL só com verificador, 1 conexão, validade de 6 h, `default_transaction_read_only`), `pg_dump` local read-only e remoção imediata; complemento: backup diário da plataforma Supabase (plano Pro, retenção de 7 dias), cuja data e hora Reynaldo confere em Database > Backups; (b) Storage: reexecutar `backup-storage.ps1` (somente leitura) e comparar o manifesto novo com o de 22/11 pelo mesmo hash (b2ae9c5b...). Nenhum papel ou credencial de produção foi criado.
+
+**4. Restauração integral:** 12 de 13 categorias iguais no banco restaurado em 5 s; a 13ª explicada tecnicamente (item 2). `TUDO_IGUAL=True` NÃO demonstrado ainda: depende do backup do dia, gerado com o SQL corrigido. Não declarado verde.
+
+**5. Compatibilidade do app antigo:** PARCIAL (análise estática sem bloqueante; runtime sem login, fluxos autenticados não exercitados).
+
+**6-7. Matriz de integrações WEG** (evidência de 22-23/11 dos docs 27, 29-33 e 36; o estado vivo das origens não foi reconsultado nesta rodada):
+| Fonte | Conexão | Conteúdo importado | Analisável | Sincronização | Cobertura de 18 meses (22/05/2025 a 22/11/2026) | Status |
+|---|---|---|---|---|---|---|
+| Gmail CAIXA-1 | Conectada (backfill; dry-run #13) | 681 msgs (513 recebidas, 168 enviadas), 466 threads; 73 recebidas de @weg.net (30/09/2025 a 14/10/2026) | Corpo ok; 573 anexos (420 pendentes; Drive 100% pendente) | `last_sync_at` nulo nas 8 contas; última ingestão em 11/11; 0 novas desde 14/10 | 05 a 09/2025 = 0; set a dez/2025 só 29; Gmail 198 candidatas, 197 já no ACC, 0 rejeitadas | PARCIAL |
+| Gmail dos 6 colaboradores | Não conectada | 0 | n/a | n/a | 0% | NÃO CONECTADA |
+| Outlook/Microsoft 365 | Não conectada | 0 | n/a | n/a | 0% | NÃO CONECTADA |
+| Diário de Obra | API conectada | 201 RDOs (16/03 a 11/11/2026), 1.484 fotos contadas, nenhuma baixada | RDOs em "Preenchendo Relatório" | 21/11 21:43 | ~8 de 18 meses; 05/2025 a 02/2026 sem RDO | PARCIAL |
+| ConstruManager | API conectada | 192 documentos, 11 revisões, 197 conteúdos; 2 promoções com falha | PDF etc.; DWG/IFC/RVT/NWD sem extrator | 21/11 21:18 | 19/03 a 15/09/2026 (~6 de 18 meses); demais módulos não conectados | PARCIAL |
+| Cronogramas | e-mail (MPP/XLSX) e upload | 10 revisões, 550 atividades, 1 de 10 projetos | Defeito conhecido: extrator grava baseline = planejado | 22/11 (batimento dos jobs) | 03/09 a 22/10/2026; 15 de 18 meses sem revisão | PARCIAL |
+| Relatório semanal | Gmail (XLSX) | 56 planilhas | 4 extraídas, 2 parciais, 50 aguardando revisão humana | 22/10 | semanas 12 a 43; várias ausentes | PARCIAL |
+| Contratos e aditivos | upload manual | 9 contratos, 3 aditivos, 1 proposta, 12 cláusulas | 0 de 3 aditivos vinculados ao contrato base | n/a | 20/03 a 15/10/2026; nada antes de 22/05/2025 | PARCIAL |
+| Relatórios mensais/gerenciais e Qualidade | sem fonte | 0 | n/a | n/a | 0% | NÃO CONECTADA |
+Total: 0 OPERACIONAL; demais PARCIAL ou NÃO CONECTADA. Nada declarado verde.
+
+## M. GO/NO-GO de 24/11 às 08h BRT, separado por natureza
+**A. Bloqueios de SEGURANÇA DA IMPLANTAÇÃO (impedem a janela):**
+1. CI #217 verde no HEAD enviado (a #216 verde cobre o código; a #217 é só documentação, mas é o HEAD do PR).
+2. Backup do dia (banco e Storage) e restauração com `TUDO_IGUAL=True`: não feitos; exigem a credencial de backup (Reynaldo a cria na manhã da janela, nunca antes: validade de 6 h).
+3. Token Supabase do executor criado na hora (Reynaldo).
+4. Os 9 workflows do GitHub ativos desabilitados pela interface (a `gh` não está instalada).
+5. Pré-voo no T-30: P0 em produção, histórico 134 e md5, sem sessões ociosas, jobs; decisão sobre a 1 linha PENDING do outbox.
+6. Autorização final específica de Reynaldo.
+
+**B. Riscos aceitos ou parciais (não bloqueiam a implantação; não podem ser apresentados como verdes):** compatibilidade do app antigo parcial; ausência de segundo operador técnico; rollback da Vercel não ensaiado.
+
+**C. Bloqueios de INTEGRAÇÃO FUNCIONAL (não impedem a janela; impedem apresentar histórico integrado de 18 meses em 02/12):** 0 fontes operacionais; 6 caixas e Outlook não conectados; RDO e ConstruManager anteriores às datas acima; relatórios mensais e Qualidade sem fonte; 50 planilhas semanais em revisão; 0 mensagens WEG novas desde 14/10. A aceitação de 02/12 deve validar o produto sobre cobertura parcial, sem prometer 18 meses.
+
+> MUDANÇA DE DATA (23/11/2026, noite): a janela técnica passa a QUARTA 25/11/2026 às 08h BRT. Backup, sequência e dependências humanas: doc 42-backup-integral-janela-25-11.md. Atenção: quarta tem o cron weekly-alert-digest (07:00 BRT) antes da janela.

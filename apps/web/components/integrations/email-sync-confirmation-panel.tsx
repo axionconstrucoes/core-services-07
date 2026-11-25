@@ -50,7 +50,10 @@ export function EmailSyncConfirmationPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Prévia antes de importar</CardTitle>
+        <CardTitle className="flex items-center gap-1.5">
+          Prévia antes de importar
+          <FeatureInfo helpId="integracoes.integracoes.email-previa" />
+        </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3 text-sm">
         <dl className="grid gap-2 sm:grid-cols-2">
@@ -78,6 +81,7 @@ export function EmailSyncConfirmationPanel({
           <form action={formAction}>
             <input type="hidden" name="projectId" value={projectId} />
             <input type="hidden" name="configId" value={configId} />
+            {/* help-exempt: botão Confirmar sincronização; fluxo descrito em integracoes.integracoes.email-previa */}
             <Button type="submit" disabled={pending}>
               {pending ? "Confirmando…" : "Confirmar sincronização"}
             </Button>

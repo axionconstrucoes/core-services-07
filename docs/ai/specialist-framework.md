@@ -17,6 +17,11 @@ provider abstraction e limites de autoridade — as regras comuns deste
 documento (decisão humana, anti-alucinação, farol, etc.) valem
 integralmente para os AI Experts também.
 
+**Runtime:** o modelo não lê este arquivo. O conteúdo essencial (seções 3.1–3.10) está em
+`apps/web/lib/ai/specialist-framework.ts` e é incluído no prompt de todos os Experts técnicos
+(verificado por `scripts/test-experts-engineering-routing.mjs`). Ao alterar regras aqui, atualize
+também aquele módulo e suba `SPECIALIST_FRAMEWORK_VERSION`.
+
 ## 3.1 Decisão final é humana
 
 Nenhuma skill possui autoridade executiva.

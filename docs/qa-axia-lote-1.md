@@ -316,7 +316,7 @@ O texto completo de cada entrada está nos quatro blocos abaixo. **Diagnóstico 
 - **Diretoria (Nível 3): em +2 h** — o primeiro intervalo (1 h) conta do marco anterior;
 - **Limite de escalonamento atingido: em +4 h** — o segundo intervalo (2 h) conta do marco da Diretoria (2 h + 2 h).
 
-**Exemplo** com T0 às 14:20: Nível 2 às **15:20**, Diretoria às **16:20**, limite às **18:20**. No padrão, o total até o limite é de **12 h úteis** em Alto, **3 dias úteis** em Médio e **8 dias úteis** em Baixo. No ciclo automático, **só Alto e Crítico** sobem por prazo; cada obra pode ter valores próprios.
+**Exemplo** com T0 às 14:20: Nível 2 às **15:20**, Diretoria às **16:20**, limite às **18:20**. No padrão, o total até o limite é de **12 h úteis** em Alto, **4 dias úteis** em Médio e **10 dias úteis** em Baixo. No ciclo automático, **só Alto e Crítico** sobem por prazo; cada obra pode ter valores próprios.
 **Seção do manual:** 7.2 (itens 1 a 4 e 9); 6.7.1 (Tabela 1); Anexo F; diagnóstico D3.1-b.
 **Cobertura:** completa.
 **Status:** PRONTA.

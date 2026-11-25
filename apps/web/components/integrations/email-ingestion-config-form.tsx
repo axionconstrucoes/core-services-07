@@ -188,6 +188,7 @@ export function EmailIngestionConfigForm({
         <div className="grid gap-3 md:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm font-medium">
             Data inicial
+            {/* help-exempt: campo de data inicial da ingestão; descrito em gmail-ingestion-period */}
             <Input
               type="date"
               name="customStartAt"
@@ -200,6 +201,7 @@ export function EmailIngestionConfigForm({
           </label>
           <label className="flex flex-col gap-1 text-sm font-medium">
             Data final (opcional — nunca ultrapassa hoje)
+            {/* help-exempt: campo de data final da ingestão; descrito em gmail-ingestion-period */}
             <Input
               type="date"
               name="customEndAt"
@@ -227,6 +229,7 @@ export function EmailIngestionConfigForm({
             row.domain !== "" && savedSnapshot.domains.some((s) => s.domain === row.domain && s.domainRole === row.domainRole && s.enabled === row.enabled)
           }
           renderRow={(row, update, prefilled) => (
+            // help-exempt: campo de domínio do cliente; descrito em gmail-client-domain
             <Input
               placeholder="cliente.com.br"
               value={row.domain}
@@ -247,6 +250,20 @@ export function EmailIngestionConfigForm({
           Endereços específicos considerados na ingestão — não precisam de profile, membership nem login no ACC, e nunca ganham acesso ao
           sistema.
         </p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            E-mail
+            <FeatureInfo helpId="integracoes.integracoes.participante-email" />
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            Tipo
+            <FeatureInfo helpId="integracoes.integracoes.participante-tipo" />
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            Observação
+            <FeatureInfo helpId="integracoes.integracoes.participante-observacao" />
+          </span>
+        </div>
         <ListEditor
           rows={participants}
           onChange={setParticipants}
@@ -264,6 +281,7 @@ export function EmailIngestionConfigForm({
           }
           renderRow={(row, update, prefilled) => (
             <>
+              {/* help-exempt: campo de e-mail do participante; descrito em integracoes.integracoes.participante-email */}
               <Input
                 placeholder="contato@cliente.com.br"
                 value={row.emailAddress}
@@ -275,11 +293,12 @@ export function EmailIngestionConfigForm({
                 className={`flex-1 ${resolvePrefilledFieldProps(prefilled).className}`}
                 title={resolvePrefilledFieldProps(prefilled).title}
               />
+              {/* help-exempt: seletor do tipo do participante; descrito em integracoes.integracoes.participante-tipo */}
               <Select
                 value={row.participantType}
                 onChange={(event) => update({ ...row, participantType: event.target.value as ParticipantType })}
                 className={`w-32 shrink-0 ${resolvePrefilledFieldProps(prefilled).className}`}
-                title="Classificação sugerida automaticamente pelo domínio — corrigível."
+                aria-label="Tipo do participante"
               >
                 {(Object.keys(PARTICIPANT_TYPE_LABELS) as ParticipantType[]).map((type) => (
                   <option key={type} value={type}>
@@ -287,6 +306,7 @@ export function EmailIngestionConfigForm({
                   </option>
                 ))}
               </Select>
+              {/* help-exempt: campo de observação do participante; descrito em integracoes.integracoes.participante-observacao */}
               <Input
                 placeholder="observação (opcional)"
                 value={row.roleNote}
@@ -348,12 +368,14 @@ function ListEditor<T extends { enabled: boolean }>({
       {rows.map((row, index) => (
         <div key={index} className="flex items-center gap-2">
           {renderRow(row, (updated) => onChange(rows.map((r, i) => (i === index ? updated : r))), isRowPrefilled(row))}
+          {/* help-exempt: remove a linha da lista no rascunho do formulário; listas descritas em gmail-client-domain e gmail-participant-monitored */}
           <Button type="button" size="sm" variant="ghost" onClick={() => onChange(rows.filter((_, i) => i !== index))}>
             Remover
           </Button>
         </div>
       ))}
       <div>
+        {/* help-exempt: adiciona uma linha à lista no rascunho do formulário; listas descritas em gmail-client-domain e gmail-participant-monitored */}
         <Button type="button" size="sm" variant="outline" className={ADD_BUTTON_CLASSNAME} onClick={() => onChange([...rows, newRow])}>
           {addLabel}
         </Button>

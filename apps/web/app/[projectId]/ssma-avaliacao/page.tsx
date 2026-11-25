@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { EvaluationWorkflowDemo } from "@/components/ssma/evaluation-workflow-demo";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
@@ -27,12 +28,14 @@ function SheetView({ title, sheet }: { title: string; sheet: EvaluationSheet }) 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">
+        <CardTitle className="flex items-center gap-1.5 text-base">
           {title}: {sheet.period.from} a {sheet.period.to}
+          <FeatureInfo helpId="ssma.avaliacao.dimensoes" />
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-2xl font-bold" data-testid="eval-total">
+        <p className="flex flex-wrap items-center gap-1.5 text-2xl font-bold" data-testid="eval-total">
+          <FeatureInfo helpId="ssma.avaliacao.nota" />
           {sheet.total === null ? "Sem dados" : `${sheet.total} / 100`}
           {sheet.indicative && sheet.total !== null ? <span className="ml-2 text-sm font-semibold text-amber-700">(indicativa: cobertura {Math.round(sheet.coverage * 100)}%)</span> : null}
         </p>
@@ -127,12 +130,18 @@ export default async function TechnicianEvaluationPreviewPage({
 
   return (
     <div className="space-y-6">
+      <div className="flex items-start gap-2">
+      <div className="min-w-0 flex-1">
       <PageHeader
         title="Avaliação do técnico SSMA — PRÉVIA, critérios em revisão"
         description={`PRÉVIA das regras ${EVALUATION_RULES_VERSION}: cálculo de leitura, sem nota gravada e sem efeito sobre ninguém, até as regras detalhadas serem aprovadas.`}
         actions={<Link href={`/${projectId}/ssma-registros`} className="inline-flex min-h-11 items-center justify-center rounded-md bg-[#7f1d1d] px-4 text-sm font-bold text-white hover:bg-[#6b1717] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">Registros de campo</Link>}
       />
-      <p role="note" className="rounded-lg border-2 border-amber-600 p-3 text-sm font-semibold" data-testid="preview-notice">
+      </div>
+      <FeatureInfo helpId="ssma.avaliacao.pagina" className="mt-1.5" />
+      </div>
+      <p role="note" className="flex items-start gap-1.5 rounded-lg border-2 border-amber-600 p-3 text-sm font-semibold" data-testid="preview-notice">
+        <FeatureInfo helpId="ssma.avaliacao.aviso-previa" className="mt-0.5" />
         PRÉVIA — critérios em revisão. Não é avaliação oficial. Ainda NÃO estão aprovados: a redistribuição de pesos quando falta dado, a cobertura mínima de 60% e o desconto por reincidência. Sem dados não é nota zero. A quantidade de Near Misses ou de acidentes não reduz a nota; avaliam-se comunicação, tratamento e reincidência.
       </p>
 
@@ -147,6 +156,7 @@ export default async function TechnicianEvaluationPreviewPage({
         ) : null}
         <label className="flex flex-col gap-1">Mês<input type="month" name="mes" defaultValue={month} className="min-h-10 rounded border bg-white px-2 text-black" /></label>
         <button type="submit" className="min-h-10 rounded bg-[#7f1d1d] px-3 font-semibold text-white">Calcular</button>
+        <FeatureInfo helpId="ssma.avaliacao.filtros" className="mb-2" />
       </form>
 
       {unavailable ? (

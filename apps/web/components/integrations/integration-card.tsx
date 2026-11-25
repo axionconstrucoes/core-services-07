@@ -80,15 +80,21 @@ export function IntegrationCard({
         {/* Badge de alto contraste só no Construmanager. As demais
             fontes seguem com IntegrationStatusBadge — repintá-las seria
             mexer em área que ninguém pediu. */}
-        {source.type === "CONSTRUMANAGER" ? (
-          <ConstrumanagerIntegrationStatusBadge status={status} />
-        ) : (
-          <IntegrationStatusBadge status={status} />
-        )}
+        <span className="inline-flex items-center gap-1.5">
+          {source.type === "CONSTRUMANAGER" ? (
+            <ConstrumanagerIntegrationStatusBadge status={status} />
+          ) : (
+            <IntegrationStatusBadge status={status} />
+          )}
+          <FeatureInfo helpId="integracoes.integracoes.status-fonte" />
+        </span>
       </CardHeader>
 
       <CardContent className="flex flex-col gap-2 pt-0 text-sm text-muted-foreground">
-        <p>{source.description}</p>
+        <p className="flex items-start gap-1.5">
+          <span>{source.description}</span>
+          <FeatureInfo helpId="integracoes.integracoes.cartao-fonte" />
+        </p>
 
         {config ? (
           <p className="text-xs">
@@ -174,9 +180,12 @@ export function IntegrationCard({
             <IntegrationOriginForm projectId={projectId} sourceType={source.type} config={config} onCancel={() => setEditing(false)} />
           ) : (
             <div>
-              <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
-                Editar origem
-              </Button>
+              <span className="inline-flex items-center gap-1.5">
+                <Button type="button" size="sm" variant="outline" onClick={() => setEditing(true)}>
+                  Editar origem
+                </Button>
+                <FeatureInfo helpId="integracoes.integracoes.editar-origem" />
+              </span>
             </div>
           )
         ) : null}

@@ -133,7 +133,8 @@ check("página de providências: leitura apenas (GET não altera nada); edição
   const page = src("apps/web/app/[projectId]/providencias/page.tsx");
   assert.ok(!/\.rpc\(|\.insert\(|\.update\(|\.delete\(/.test(page));
   assert.ok(page.includes("overview.canEdit ?"));
-  assert.ok(page.includes("migration das providências não foi aplicada"));
+  assert.ok(page.includes("Este recurso (providências) ainda não está disponível neste ambiente"));
+  assert.ok(!/migration/i.test(page.match(/<EmptyState message="[^"]*"/)?.[0] ?? ""), "aviso ao usuário não deve citar migration");
   const data = src("apps/web/lib/delivery/delivery-data.ts");
   assert.ok(data.includes("42P01"));
   assert.ok(data.includes('permission === "ADMINISTRADOR" || permission === "GESTOR" || permission === "GERENTE"'));
@@ -179,7 +180,7 @@ check("CNO: fonte oficial registrada e divergência de início bloqueia o prazo 
 
 check("navegação: item Providências na sidebar com ajuda registrada", () => {
   assert.ok(src("apps/web/lib/ui/nav-items.ts").includes('href: "providencias"'));
-  assert.ok(src("apps/web/lib/ui/feature-help.ts").includes('id: "providencias"'));
+  assert.ok(src("apps/web/lib/ui/help/legacy.ts").includes('id: "providencias"'));
 });
 
 check("editor: registrar evidência avisa que não conclui; concluir exige perfil autorizado (texto) e o banco confere", () => {

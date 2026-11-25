@@ -1,4 +1,4 @@
-// Perfis do ESG (puro). Espelho TS das policies do banco (migration 20261106100000): a RLS continua sendo a autoridade;
+// Perfis do ESG (puro). Espelho TS das policies do banco (migration 20261111042824): a RLS continua sendo a autoridade;
 // estas funções só decidem o que a interface oferece e o que as ações do servidor aceitam ANTES de chegar ao banco.
 //   - registrar comprovação / anexar evidência: Administrador, Gerente, Gestor e Colaborador ATIVOS (Gestor = Gerente);
 //   - revisar e configurar obrigações: somente Administrador ativo;

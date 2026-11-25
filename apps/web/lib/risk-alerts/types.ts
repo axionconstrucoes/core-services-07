@@ -13,7 +13,7 @@ import type { CaseCommunicationLedger } from "./communication-ledger";
 import type { SlaArea, SlaEscalationLevel, SlaRiskLevel } from "@/lib/sla/types";
 import type { MatrixPolicy } from "@/lib/sla/resolve-matrix-policy";
 
-export type RiskCaseSourceType = "SCHEDULE_COMPARISON" | "WEEKLY_REPORT_SHEET" | "INGESTION_ALERT";
+export type RiskCaseSourceType = "SCHEDULE_COMPARISON" | "WEEKLY_REPORT_SHEET" | "INGESTION_ALERT" | "EMAIL";
 export type RiskCaseLevel = SlaRiskLevel | "REVIEW_REQUIRED";
 export type RiskNotificationType = "IMMEDIATE" | "ESCALATION" | "DIGEST" | "FORWARD" | "RETURNED" | "EXPERT_ANSWER" | "ACTION_CONFIRMATION";
 export type RiskOutboxOrigin = "AUTOMATIC" | "MANUAL" | "EMAIL_REPLY" | "WEB_ACTION";
@@ -351,7 +351,7 @@ export const ALERT_STATE_LABELS: Record<AlertState, string> = {
   TOP_LEVEL_REACHED: "Limite de escalonamento atingido",
 };
 
-export type ExpertId = "planning-director" | "commercial-director" | "esg-director" | "legal-consultant" | "ceo";
+export type ExpertId = "planning-director" | "engineering-director" | "quality-analyst" | "commercial-director" | "esg-director" | "legal-consultant" | "ceo";
 
 export type ReplyClassification =
   | "ACKNOWLEDGEMENT"

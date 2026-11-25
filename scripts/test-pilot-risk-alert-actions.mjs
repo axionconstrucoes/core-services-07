@@ -165,23 +165,24 @@ await check("11. Loop impedido: mensagens do próprio ACC (mailbox e plus-addres
   assert(extracted.isSentByMailbox === true);
 });
 await check("12. Remetente autorizado: profile + membership ACTIVE + e-mail corporativo + destinatário do alerta + allowlist (Authentication-Results pass)", () => {
-  const auth = pipeline.authorizeReply({ senderEmail: "Piloto.A@axion.com.br", profile: { userId: U_L2, email: "piloto.a@axion.com.br", active: true }, membershipStatus: "ACTIVE", alertRecipientUserIds: [U_L2], allowlistUserIds: [U_L2], activeForwardToUserId: null, corporateDomain: "axion.com.br", authenticationResults: "mx.google.com; spf=pass; dkim=pass; dmarc=pass" });
+  const auth = pipeline.authorizeReply({ senderEmail: "Piloto.A@axion.com.br", profile: { userId: U_L2, email: "piloto.a@axion.com.br", active: true }, membershipStatus: "ACTIVE", alertRecipientUserIds: [U_L2], allowlistUserIds: [U_L2], activeForwardToUserId: null, corporateDomain: "axion.com.br", authenticationResults: "mx.google.com; dkim=pass header.i=@axion.com.br header.s=google; spf=pass smtp.mailfrom=axion.com.br; dmarc=pass (p=QUARANTINE) header.from=axion.com.br" });
   assert(auth.authorized === true && auth.userId === U_L2 && auth.note === null);
+  // P2 (mudança intencional): sem Authentication-Results a resposta é RECUSADA (antes: aceita com nota).
   const noAuthHeader = pipeline.authorizeReply({ senderEmail: "piloto.a@axion.com.br", profile: { userId: U_L2, email: "piloto.a@axion.com.br", active: true }, membershipStatus: "ACTIVE", alertRecipientUserIds: [U_L2], allowlistUserIds: [U_L2], activeForwardToUserId: null, corporateDomain: "axion.com.br", authenticationResults: null });
-  assert(noAuthHeader.authorized === true && noAuthHeader.note !== null, "sem header => autorizado com nota");
+  assert(noAuthHeader.authorized === false && noAuthHeader.reason === "AUTH_MISSING", "sem header => recusado (AUTH_MISSING)");
 });
 await check("13. Não autorizado rejeitado (desconhecido, inativo, domínio externo, SPF/DKIM fail, não destinatário) — não altera alerta", () => {
-  const base = { profile: { userId: U_L2, email: "piloto.a@axion.com.br", active: true }, membershipStatus: "ACTIVE", alertRecipientUserIds: [U_L2], allowlistUserIds: [U_L2], activeForwardToUserId: null, corporateDomain: "axion.com.br", authenticationResults: null };
+  const base = { profile: { userId: U_L2, email: "piloto.a@axion.com.br", active: true }, membershipStatus: "ACTIVE", alertRecipientUserIds: [U_L2], allowlistUserIds: [U_L2], activeForwardToUserId: null, corporateDomain: "axion.com.br", authenticationResults: "mx.google.com; dkim=pass header.i=@axion.com.br header.s=google; spf=pass smtp.mailfrom=axion.com.br; dmarc=pass (p=QUARANTINE) header.from=axion.com.br" };
   assert(pipeline.authorizeReply({ ...base, senderEmail: "outro@axion.com.br" }).reason === "UNKNOWN_SENDER");
   assert(pipeline.authorizeReply({ ...base, senderEmail: "piloto.a@axion.com.br", membershipStatus: "INACTIVE" }).reason === "MEMBERSHIP_INACTIVE");
   assert(pipeline.authorizeReply({ ...base, senderEmail: "piloto.a@gmail.com" }).reason === "NOT_CORPORATE");
-  assert(pipeline.authorizeReply({ ...base, senderEmail: "piloto.a@axion.com.br", authenticationResults: "spf=fail" }).reason === "AUTH_FAILED");
+  assert(pipeline.authorizeReply({ ...base, senderEmail: "piloto.a@axion.com.br", authenticationResults: "mx.google.com; spf=fail; dkim=fail header.d=axion.com.br; dmarc=fail header.from=axion.com.br" }).reason === "AUTH_FAILED");
   assert(pipeline.authorizeReply({ ...base, senderEmail: "piloto.a@axion.com.br", alertRecipientUserIds: [U_L3] }).reason === "NOT_RECIPIENT");
   const proc = readSource("apps/web/lib/risk-alerts/replies/process-alert-replies.ts");
   assert(proc.includes('status: "UNAUTHORIZED_REPLY"') && proc.includes("RISK_ALERT_UNAUTHORIZED_REPLY") && !/store\.applyTransition[\s\S]{0,300}authorization\.authorized === false/.test(proc));
 });
 await check("14. Allowlist aplicada à resposta: destinatário original fora da allowlist só é aceito via encaminhamento manual ativo", () => {
-  const base = { senderEmail: "terceiro@axion.com.br", profile: { userId: U_THIRD, email: "terceiro@axion.com.br", active: true }, membershipStatus: "ACTIVE", alertRecipientUserIds: [U_THIRD], allowlistUserIds: [U_L2, U_L3], corporateDomain: "axion.com.br", authenticationResults: null };
+  const base = { senderEmail: "terceiro@axion.com.br", profile: { userId: U_THIRD, email: "terceiro@axion.com.br", active: true }, membershipStatus: "ACTIVE", alertRecipientUserIds: [U_THIRD], allowlistUserIds: [U_L2, U_L3], corporateDomain: "axion.com.br", authenticationResults: "mx.google.com; dkim=pass header.i=@axion.com.br header.s=google; spf=pass smtp.mailfrom=axion.com.br; dmarc=pass (p=QUARANTINE) header.from=axion.com.br" };
   assert(pipeline.authorizeReply({ ...base, activeForwardToUserId: null }).reason === "NOT_ALLOWLISTED");
   assert(pipeline.authorizeReply({ ...base, activeForwardToUserId: U_THIRD }).authorized === true);
 });
@@ -277,7 +278,7 @@ await check("23. ESPECIALISTA exige pergunta em texto e Expert cadastrado; rotea
   assert(routeExpert({ question: "acidente ssma" }).expertId === "esg-director");
   assert(routeExpert({ question: "prazo e cláusula contratual" }).expertId === "ceo", "multidisciplinar => multi-Expert");
   assert(routeExpert({ question: "pode me ajudar?" }).reviewRequired === true, "sem tema => revisão humana, nunca Planejamento");
-  assert(isKnownExpert("planning-director") && !isKnownExpert("expert-inventado") && ALERT_EXPERT_OPTIONS.length === 5);
+  assert(isKnownExpert("planning-director") && !isKnownExpert("expert-inventado") && ALERT_EXPERT_OPTIONS.length === 7 /* 7: inclui quality-analyst (Analista IA de Qualidade) */ && isKnownExpert("quality-analyst") && isKnownExpert("engineering-director"));
 });
 await check("24. OUTRO exige texto; registra usuário/data/contexto; não resolve", () => {
   assert(act("OTHER", {}).code === "TEXT_REQUIRED");
@@ -601,11 +602,181 @@ await check("58. ESPECIALISTA não gera escalonamento por consulta: a web recusa
   assert(legacy.ok === true, "registros/fluxo legado continuam aceitando a ação antiga");
   assert(legacy.escalation === null && !escalationOf(legacy), "consulta legada não deve escalar imediatamente");
 });
-await check("59. Regras de SLA, cron, migrations, workflows e destinatários permanecem inalterados nesta branch (diff contra origin/main)", () => {
-  const names = gitDiffNames();
-  if (names === null) return;
-  const forbidden = names.filter((n) => /^(apps\/web\/lib\/sla\/|supabase\/migrations\/|\.github\/workflows\/|apps\/web\/vercel\.json$|vercel\.json$)/.test(n) || n === "apps/web/lib/risk-alerts/plan-risk-alerts.ts" || n === "apps/web/lib/risk-alerts/recipients.ts");
-  assert(forbidden.length === 0, `arquivos que não deveriam mudar: ${forbidden.join(", ")}`);
+// ---- Trava #59 (revisada na frente N1, 21/11/2026) ----
+// Finalidade preservada: detectar mudança ACIDENTAL de regras de SLA (prazos da Matriz, escalonamento), cron e
+// destinatários. Antes a trava proibia qualquer arquivo em supabase/migrations e .github/workflows, o que reprovava
+// toda branch com correção legítima (ex.: segurança). Agora verifica INVARIANTES concretas contra a base comum com
+// origin/main (merge-base):
+//   a) regras TypeScript de SLA/destinatários (apps/web/lib/sla/**, plan-risk-alerts.ts, recipients.ts): intocadas;
+//   b) cron: os agendamentos (".github/workflows/*.yml" e "vercel.json") são idênticos — outras edições de workflow
+//      são permitidas;
+//   c) migrations já existentes nunca são alteradas, renomeadas ou removidas (só migrations NOVAS);
+//   d) migration nova não pode (re)definir funções de prazo/escalonamento/agendamento, gravar ou alterar as tabelas da
+//      Matriz/responsáveis/escalonamentos, nem mexer em pg_cron — salvo se listada em SLA_RULE_MIGRATION_EXCEPTIONS
+//      com justificativa auditável (revisão humana obrigatória);
+//   e) autoteste dos detectores com amostras sintéticas, para a trava não ficar vazia por erro de expressão regular.
+const SLA_RULE_TS = (n) => /^apps\/web\/lib\/sla\//.test(n) || n === "apps/web/lib/risk-alerts/plan-risk-alerts.ts" || n === "apps/web/lib/risk-alerts/recipients.ts";
+const SLA_PROTECTED_SQL_FUNCTIONS = [
+  "sla_add_time_units", "add_business_days", "apply_sla_action_escalation_internal", "escalate_sla_action", "escalate_sla_action_system",
+  "protect_sla_action_escalation_level", "enforce_sla_action_escalation_link", "enforce_high_risk_rejection_escalation",
+  "assert_high_risk_rejection_has_escalation", "sla_ssma_assume_due_at", "ssma_due_date_to_timestamptz", "ssma_risk_to_sla_risk",
+  "ssma_link_sla_action", "resolve_sla_matrix_invitation_on_activation", "validate_sla_area_responsible_invitations",
+  "enqueue_manual_escalation_email", "alert_followup_claim_due", "acc_scheduler_[a-z_]+",
+];
+const SLA_PROTECTED_SQL_TABLES = ["sla_matrix_rules", "sla_area_responsibles", "sla_project_settings", "sla_action_escalations"];
+// "arquivo.sql": "justificativa (quem revisou, o que muda na regra e por quê)". Vazio = nenhuma migration desta base
+// altera regra de SLA/cron/destinatários.
+const SLA_RULE_MIGRATION_EXCEPTIONS = {
+  "20261210100000_quality_alert_area_sla.sql":
+    "Decisão do responsável (21/11/2026): Qualidade com área própria de alertas e SLA por criticidade. Só AMPLIA o CHECK de área e SEMEIA regras QUALIDADE (CRÍTICO 1h corrida, ALTO 4h úteis, MÉDIO 2 e BAIXO 5 dias úteis, nunca mais frouxas que a regra geral da obra) onde já há regra geral ativa; não altera regras existentes nem sla_actions (provado em test-quality-alert-area-sla-sql e no ensaio por ondas).",
+  "20261121177000_sla_medio_baixo_prazos_aprovados.sql":
+    "Prazos definitivos aprovados pelo responsável em 20/11/2026: MÉDIO 2 dias úteis e BAIXO 5 dias úteis, somente para NOVAS ações; não altera sla_actions existentes (provado em test-sla-medio-baixo-aprovados-sql).",
+  "20261212100000_watchdog_project_resolution.sql":
+    "Autorizado pelo responsável (22/11/2026, item 4 da autorização de homologação): corrige o project_id FIXO do acc_scheduler_watchdog (a FK quebrava onde a obra fixa não existe, ex. acc-homolog). Preserva o comportamento de produção (usa o id fixo se existir), NÃO altera prazos, escalonamento, destinatários, pg_cron nem record_risk_alert_action; validada no acc-homolog (onda N), em ensaio local e em test-watchdog-project-resolution-sql.",
+};
+// Alterações APROVADAS e estreitas (cada uma é verificada pelo CONTEÚDO, nunca só pelo nome):
+//  - default-matrix.ts: só vale se os prazos de assumir forem exatamente os aprovados (CRÍTICO 1, ALTO 4, MÉDIO 2, BAIXO 5);
+//  - 7 renomeios de migrations (reconciliação com o histórico do banco operacional): o arquivo novo precisa ter o MESMO conteúdo do antigo.
+const APPROVED_SLA_DEFAULTS = { CRITICAL: 1, HIGH: 4, MEDIUM: 2, LOW: 5 };
+const APPROVED_MIGRATION_RENAMES = {
+  "20261105150000_axia_chat_budget.sql": "20261105173838_axia_chat_budget.sql",
+  "20261106090000_sla_configuration_audit_system_actor.sql": "20261106195625_sla_configuration_audit_system_actor.sql",
+  "20261106100000_ssma_esg_acoes_perfis_notificacoes.sql": "20261111042824_ssma_esg_acoes_perfis_notificacoes.sql",
+  "20261106110000_ssma_esg_evidence_reference.sql": "20261111043023_ssma_esg_evidence_reference.sql",
+  "20261106115000_esg_ssma_reference_consistency_guard.sql": "20261111043226_esg_ssma_reference_consistency_guard.sql",
+  "20261111120000_copy_project_team.sql": "20261111121457_copy_project_team.sql",
+  "20261118093000_scheduler_pg_cron_dispatch.sql": "20261119034721_scheduler_pg_cron_dispatch.sql",
+};
+const APPROVED_RENAME_TARGETS = new Set(Object.values(APPROVED_MIGRATION_RENAMES));
+const defaultMatrixIsApproved = (src) =>
+  Object.entries(APPROVED_SLA_DEFAULTS).every(([risk, days]) => {
+    // bloco do risco: "<RISK>: {" até o primeiro assumeDeadlineValue
+    const start = src.indexOf(`  ${risk}: {`);
+    if (start < 0) return false;
+    const m = /assumeDeadlineValue:\s*(\d+)/.exec(src.slice(start));
+    return m !== null && Number(m[1]) === days;
+  });
+const stripSqlComments = (sql) => sql.replace(/\/\*[\s\S]*?\*\//g, " ").replace(/--[^\n]*/g, " ");
+function migrationSlaRuleViolations(sql) {
+  const s = stripSqlComments(sql.replace(/\r\n?/g, "\n")).toLowerCase();
+  const out = [];
+  for (const fn of SLA_PROTECTED_SQL_FUNCTIONS) {
+    const re = new RegExp(`(create\\s+(or\\s+replace\\s+)?function|drop\\s+function(\\s+if\\s+exists)?|alter\\s+function)\\s+(public\\.)?"?(${fn})"?\\s*[(;\\s]`, "g");
+    for (const m of s.matchAll(re)) out.push(`função ${m[5]}`);
+  }
+  for (const t of SLA_PROTECTED_SQL_TABLES) {
+    const re = new RegExp(`(insert\\s+into|update|delete\\s+from|truncate(\\s+table)?|alter\\s+table(\\s+if\\s+exists)?|drop\\s+table(\\s+if\\s+exists)?)\\s+(only\\s+)?(public\\.)?"?${t}"?\\b`);
+    if (re.test(s)) out.push(`tabela ${t}`);
+  }
+  if (/\bcron\s*\.\s*(schedule|unschedule|alter_job|schedule_in_database)\b/.test(s)) out.push("pg_cron");
+  return [...new Set(out)];
+}
+function cronSchedulesOf(files) {
+  const out = [];
+  for (const [file, content] of files) {
+    if (/vercel\.json$/.test(file)) {
+      try {
+        for (const c of JSON.parse(content).crons ?? []) out.push(`${file}: ${c.path} @ ${c.schedule}`);
+      } catch {
+        out.push(`${file}: JSON inválido`);
+      }
+      continue;
+    }
+    for (const m of content.replace(/\r\n?/g, "\n").matchAll(/^\s*-\s*cron:\s*["']?([^"'\n#]+?)["']?\s*(#.*)?$/gm)) out.push(`${file}: ${m[1].trim()}`);
+  }
+  return out.sort();
+}
+const git = (args) => {
+  try {
+    return execSync(`git ${args}`, { cwd: repoRoot, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024 });
+  } catch {
+    return null;
+  }
+};
+const scheduleFilesAt = (rev) =>
+  (git(`ls-tree -r --name-only ${rev} -- .github/workflows apps/web/vercel.json vercel.json`) ?? "")
+    .split("\n").filter((f) => /\.ya?ml$|vercel\.json$/.test(f))
+    .map((f) => [f, git(`show ${rev}:${f}`) ?? ""]);
+await check("59. Regras de SLA, cron e destinatários permanecem inalteradas nesta branch: invariantes contra a base comum com origin/main (regras TS de SLA/destinatários intocadas, agendamentos idênticos, migrations antigas imutáveis, migrations novas sem regra de prazo/escalonamento/cron fora da lista auditada)", () => {
+  // autoteste da exceção aprovada da matriz padrão: só os prazos aprovados passam; os valores antigos (MÉDIO 1, BAIXO 3) continuam barrados
+  const matrix = (c, h, m, l) => `  CRITICAL: {
+    assumeDeadlineValue: ${c},
+  },
+  HIGH: {
+    assumeDeadlineValue: ${h},
+  },
+  MEDIUM: {
+    assumeDeadlineValue: ${m},
+  },
+  LOW: {
+    assumeDeadlineValue: ${l},
+  },`;
+  assert(defaultMatrixIsApproved(matrix(1, 4, 2, 5)), "detector: matriz aprovada deveria passar");
+  assert(!defaultMatrixIsApproved(matrix(1, 4, 1, 5)), "detector: MÉDIO 1 (antigo) deveria ser barrado");
+  assert(!defaultMatrixIsApproved(matrix(1, 4, 2, 3)), "detector: BAIXO 3 (antigo) deveria ser barrado");
+  assert(!defaultMatrixIsApproved(matrix(2, 4, 2, 5)) && !defaultMatrixIsApproved(matrix(1, 6, 2, 5)), "detector: CRÍTICO/ALTO fora do aprovado deveriam ser barrados");
+  // e) autoteste dos detectores (sempre roda, mesmo sem histórico git)
+  assert(migrationSlaRuleViolations("update public.sla_matrix_rules set assume_deadline_value = 4;").includes("tabela sla_matrix_rules"), "detector: UPDATE na Matriz");
+  assert(migrationSlaRuleViolations("insert into sla_area_responsibles (project_id) values (null);").includes("tabela sla_area_responsibles"), "detector: destinatários");
+  assert(migrationSlaRuleViolations("create or replace function public.sla_add_time_units(p int) returns int as $$ select 1 $$;").includes("função sla_add_time_units"), "detector: função de prazo");
+  assert(migrationSlaRuleViolations("CREATE FUNCTION public.acc_scheduler_reconcile() returns void").includes("função acc_scheduler_reconcile"), "detector: agendador");
+  assert(migrationSlaRuleViolations("select cron.schedule('x', '*/5 * * * *', 'select 1');").includes("pg_cron"), "detector: pg_cron");
+  assert(migrationSlaRuleViolations("-- update public.sla_matrix_rules (só comentário)\nselect 1 from public.sla_area_responsibles r where r.area = 'X';\nupdate public.sla_actions set status = 'COMPLETED';\ncreate or replace function public.sla_action_assume(p uuid)").length === 0, "detector: falso positivo em leitura/comentário/operação");
+  // amostras reais: a migration do agendador e a fundação de SLA SERIAM barradas se chegassem como novas
+  const scheduler = migrationSlaRuleViolations(readSource("supabase/migrations/20261119034721_scheduler_pg_cron_dispatch.sql"));
+  assert(scheduler.includes("pg_cron") && scheduler.some((x) => x.startsWith("função acc_scheduler_")), `detector: agendador real ${scheduler}`);
+  assert(migrationSlaRuleViolations(readSource("supabase/migrations/20260822054900_sla_escalation_foundation.sql")).includes("função escalate_sla_action"), "detector: fundação de SLA real");
+  const yml = (expr) => [[".github/workflows/x.yml", `on:\n  schedule:\n    - cron: "${expr}"\n`]];
+  assert(JSON.stringify(cronSchedulesOf(yml("*/30 * * * *"))) !== JSON.stringify(cronSchedulesOf(yml("*/15 * * * *"))), "detector: cron alterado");
+  assert(cronSchedulesOf([["apps/web/vercel.json", '{"crons":[{"path":"/api/cron/x","schedule":"0 * * * *"}]}']]).length === 1, "detector: vercel.json");
+
+  const base = (git("merge-base origin/main HEAD") ?? "").trim();
+  if (!base) return; // sem histórico (clone raso): as invariantes por diff são puladas; o autoteste acima continua
+  const status = (git(`diff --no-renames --name-status ${base} HEAD`) ?? "").split("\n").filter(Boolean).map((l) => l.split("\t"));
+  const problems = [];
+  // a) regras TS
+  for (const [, file] of status) {
+    if (!SLA_RULE_TS(file)) continue;
+    if (file === "apps/web/lib/sla/default-matrix.ts" && defaultMatrixIsApproved(git(`show HEAD:${file}`) ?? "")) continue; // prazos aprovados (1h, 4h úteis, 2 e 5 dias úteis)
+    // Qualidade como área própria (decisão do responsável): só vale se TODAS as linhas alteradas de types.ts mencionarem QUALIDADE.
+    if (file === "apps/web/lib/sla/types.ts") {
+      const changed = (git(`diff --no-renames -U0 ${base} HEAD -- ${file}`) ?? "").split("\n").filter((l) => (l.startsWith("+") || l.startsWith("-")) && !l.startsWith("+++") && !l.startsWith("---"));
+      if (changed.some((l) => l.includes("QUALIDADE")) && changed.every((l) => l.includes("QUALIDADE") || l.includes("\"ESG_SSMA\""))) continue; // só acrescenta o membro da união (a linha anterior perde o ponto e vírgula)
+    }
+    problems.push(`regra de SLA/destinatários alterada: ${file}`);
+  }
+  // c) + d) migrations
+  for (const [st, file] of status) {
+    if (!/^supabase\/migrations\/.+\.sql$/.test(file)) continue;
+    const name = file.split("/").pop();
+    const renamedTo = APPROVED_MIGRATION_RENAMES[name];
+    if (st === "D" && renamedTo) {
+      // renomeio aprovado: o destino precisa existir com conteúdo idêntico ao original
+      const before = git(`show ${base}:${file}`);
+      const after = git(`show HEAD:supabase/migrations/${renamedTo}`);
+      if (before === null || after === null || before !== after) problems.push(`renomeio aprovado com conteúdo divergente: ${name} -> ${renamedTo}`);
+      continue;
+    }
+    if (st !== "A") {
+      problems.push(`migration existente ${st === "D" ? "removida/renomeada" : "alterada"}: ${name}`);
+      continue;
+    }
+    if (APPROVED_RENAME_TARGETS.has(name)) continue; // destino de renomeio aprovado (conteúdo já conferido acima)
+    const v = migrationSlaRuleViolations(git(`show HEAD:${file}`) ?? "");
+    if (v.length === 0) continue;
+    const why = SLA_RULE_MIGRATION_EXCEPTIONS[name];
+    if (!why || String(why).trim().length < 20) problems.push(`${name} altera regra protegida (${v.join(", ")}) sem exceção auditada`);
+  }
+  // b) cron
+  const before = cronSchedulesOf(scheduleFilesAt(base));
+  const after = cronSchedulesOf(scheduleFilesAt("HEAD"));
+  if (JSON.stringify(before) !== JSON.stringify(after)) {
+    const removed = before.filter((x) => !after.includes(x));
+    const added = after.filter((x) => !before.includes(x));
+    problems.push(`agendamentos alterados — removidos: [${removed.join("; ")}] adicionados: [${added.join("; ")}]`);
+  }
+  assert(before.length > 0, "nenhum agendamento encontrado na base (detector de cron quebrado?)");
+  assert(problems.length === 0, problems.join(" | "));
 });
 await check("60. RESOLVIDO exige confirmação explícita e, em ALTO/CRÍTICO, evidência; nada é concluído sem isso", () => {
   assert(act("RESOLVED", { text: "ok" }).code === "CONFIRMATION_REQUIRED");

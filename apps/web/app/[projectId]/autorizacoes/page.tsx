@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { FieldLabel } from "@/components/admin/field-label";
 import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getProjectMembers } from "@/lib/data";
@@ -65,13 +66,16 @@ export default async function AuthorizationsPage({
 
       {flash ? (
         <p role="status" className={`rounded-md px-3 py-2 text-sm ${flash.tone === "ok" ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900"}`}>
-          {flash.text}
+          {flash.text} <FeatureInfo helpId="admin.autorizacoes.mensagem-resultado" />
         </p>
       ) : null}
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Solicitar autorização</CardTitle>
+          <CardTitle className="flex items-center gap-1.5 text-base">
+            Solicitar autorização
+            <FeatureInfo helpId="admin.autorizacoes.solicitar" />
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
           <p className="text-gray-700">
@@ -80,9 +84,9 @@ export default async function AuthorizationsPage({
           </p>
           <form action={requestAuthorizationAction} className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
             <input type="hidden" name="projectId" value={projectId} />
-            <label className="block">
-              <span className="mb-1 block text-xs text-gray-600">Colaborador</span>
-              <select name="userId" required className="min-h-11 w-full rounded-md border border-gray-300 bg-white px-3 py-2">
+            <div className="block">
+              <FieldLabel htmlFor="aut-colaborador" helpId="admin.autorizacoes.colaborador" className="mb-1 text-xs font-normal text-gray-600">Colaborador</FieldLabel>
+              <select id="aut-colaborador" name="userId" required className="min-h-11 w-full rounded-md border border-gray-300 bg-white px-3 py-2">
                 <option value="">Escolha…</option>
                 {activeMembers.map((member) => (
                   <option key={member.userId} value={member.userId}>
@@ -90,14 +94,17 @@ export default async function AuthorizationsPage({
                   </option>
                 ))}
               </select>
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs text-gray-600">Conta (em branco = e-mail do colaborador)</span>
-              <input name="accountEmail" type="email" placeholder="nome@axion.com.br" className="min-h-11 w-full rounded-md border border-gray-300 px-3 py-2" />
-            </label>
-            <button type="submit" className="min-h-11 rounded-md bg-brand-sidebar px-4 py-2 text-sm font-bold text-white hover:opacity-90">
-              Solicitar e enviar e-mail
-            </button>
+            </div>
+            <div className="block">
+              <FieldLabel htmlFor="aut-conta" helpId="admin.autorizacoes.conta" className="mb-1 text-xs font-normal text-gray-600">Conta (em branco = e-mail do colaborador)</FieldLabel>
+              <input id="aut-conta" name="accountEmail" type="email" placeholder="nome@axion.com.br" className="min-h-11 w-full rounded-md border border-gray-300 px-3 py-2" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button type="submit" className="min-h-11 rounded-md bg-brand-sidebar px-4 py-2 text-sm font-bold text-white hover:opacity-90">
+                Solicitar e enviar e-mail
+              </button>
+              <FeatureInfo helpId="admin.autorizacoes.botao-solicitar" />
+            </div>
           </form>
         </CardContent>
       </Card>
@@ -113,12 +120,42 @@ export default async function AuthorizationsPage({
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="text-xs uppercase text-gray-500">
                 <tr>
-                  <th className="py-2 pr-3">Colaborador</th>
-                  <th className="py-2 pr-3">Conta</th>
-                  <th className="py-2 pr-3">Decisão</th>
-                  <th className="py-2 pr-3">Data</th>
-                  <th className="py-2 pr-3">Conexão da conta</th>
-                  <th className="py-2">Ações</th>
+                  <th className="py-2 pr-3">
+                    <span className="inline-flex items-center gap-1">
+                      Colaborador
+                      <FeatureInfo helpId="admin.autorizacoes.col-colaborador" />
+                    </span>
+                  </th>
+                  <th className="py-2 pr-3">
+                    <span className="inline-flex items-center gap-1">
+                      Conta
+                      <FeatureInfo helpId="admin.autorizacoes.col-conta" />
+                    </span>
+                  </th>
+                  <th className="py-2 pr-3">
+                    <span className="inline-flex items-center gap-1">
+                      Decisão
+                      <FeatureInfo helpId="admin.autorizacoes.col-decisao" />
+                    </span>
+                  </th>
+                  <th className="py-2 pr-3">
+                    <span className="inline-flex items-center gap-1">
+                      Data
+                      <FeatureInfo helpId="admin.autorizacoes.col-data" />
+                    </span>
+                  </th>
+                  <th className="py-2 pr-3">
+                    <span className="inline-flex items-center gap-1">
+                      Conexão da conta
+                      <FeatureInfo helpId="admin.autorizacoes.col-conexao" />
+                    </span>
+                  </th>
+                  <th className="py-2">
+                    <span className="inline-flex items-center gap-1">
+                      Ações
+                      <FeatureInfo helpId="admin.autorizacoes.col-acoes" />
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -136,6 +173,7 @@ export default async function AuthorizationsPage({
                         Ver texto e histórico
                       </Link>
                       {item.status === "AUTORIZADO" || item.status === "PENDENTE" ? (
+                        <div className="flex items-start gap-1">
                         <details>
                           <summary className="cursor-pointer text-xs font-semibold text-red-800">{item.status === "PENDENTE" ? "Cancelar solicitação" : "Revogar"}</summary>
                           <form action={adminRevokeAuthorizationAction} className="mt-2 space-y-2 rounded-md border border-gray-300 p-2">
@@ -151,6 +189,8 @@ export default async function AuthorizationsPage({
                             </button>
                           </form>
                         </details>
+                        <FeatureInfo helpId="admin.autorizacoes.revogar" />
+                        </div>
                       ) : null}
                     </td>
                   </tr>

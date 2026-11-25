@@ -1,9 +1,10 @@
 import { ALL_OFFICIAL_EXPERT_DEFINITIONS } from "@/lib/ai/expert-definitions";
-import { requestedSkillsForExpert, ENGINEERING_SKILL_REQUEST, SKILL_DISCOVERY_TOOL } from "@/lib/ai/expert-definitions/requested-skills";
+import { requestedSkillsForExpert, SKILL_DISCOVERY_TOOL, SKILL_STATE_LABEL } from "@/lib/ai/expert-definitions/requested-skills";
 import { resolveAiProviderNameForExpert } from "@/lib/ai/providers/resolve-provider-for-expert";
 import { buildAiProviderUiMetadata } from "@/lib/ai/provider-ui-metadata";
 import { requireProjectAdminPage } from "@/lib/email-authorization/guard";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { createSupabaseServerClient } from "@axion/db/server";
 import { EmailAccountsPanel } from "@/components/integrations/email-accounts-panel";
 import { EmailIngestionConfigForm } from "@/components/integrations/email-ingestion-config-form";
@@ -14,6 +15,7 @@ import { EmailSyncPanel } from "@/components/integrations/email-sync-panel";
 import { IntegrationCard } from "@/components/integrations/integration-card";
 import { UserIntegrationMatrix } from "@/components/integrations/user-integration-matrix";
 import { PageHeader } from "@/components/layout/page-header";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { getIntegrationConfigs, getProject, getProjectMembers, getSourceDefinitions } from "@/lib/data";
@@ -76,11 +78,19 @@ export default async function IntegracoesPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader title="Administração de Integrações" description="Status operacional das fontes configuradas para este projeto." />
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <PageHeader title="Administração de Integrações" description="Status operacional das fontes configuradas para este projeto." />
+        </div>
+        <FeatureInfo helpId="integracoes.integracoes.pagina" className="mt-1.5" />
+      </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>IA e skills dos especialistas</CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
+            IA e skills dos especialistas
+            <FeatureInfo helpId="integracoes.integracoes.ia-skills" />
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
             Fonte configurada de IA e skills selecionadas para cada especialista.
             Passe o mouse sobre o nome da skill (ou use o foco pelo teclado) para ler a descrição.
@@ -109,22 +119,13 @@ export default async function IntegracoesPage({
                       >
                         {skill.id}
                       </span>
-                      <span className="text-[10px] text-muted-foreground">Pendente de integração ao ACC</span>
+                      <span className="text-[10px] text-muted-foreground">{SKILL_STATE_LABEL[skill.state]}</span>
                     </span>
                   ))}
                 </div>
               </div>
             );
           })}
-          <div className="rounded-md border p-3">
-            <p className="font-semibold">Engenharia Industrial e Logística — especialidade proposta</p>
-            <p className="text-xs text-muted-foreground">Fonte de IA: não configurada; especialista ainda não cadastrado no ACC.</p>
-            <span tabIndex={0} title={ENGINEERING_SKILL_REQUEST.purpose} aria-label={ENGINEERING_SKILL_REQUEST.purpose}
-              className="mt-2 inline-block cursor-help rounded-md border px-2 py-1 text-xs font-semibold outline-offset-2 focus-visible:outline">
-              {ENGINEERING_SKILL_REQUEST.id}
-            </span>
-            <p className="text-[10px] text-muted-foreground">Pendente de integração ao ACC</p>
-          </div>
           <p className="text-xs text-muted-foreground">
             {SKILL_DISCOVERY_TOOL.label}: ferramenta de descoberta e administração de skills no Claude Code.
             A instalação no Claude Code não ativa automaticamente uma skill no runtime do ACC.
@@ -132,6 +133,17 @@ export default async function IntegracoesPage({
           </p>
         </CardContent>
       </Card>
+
+      <p className="text-sm">
+        <Link href={`/${projectId}/integracoes/caixas`} className="font-semibold text-brand-sidebar hover:underline">
+          Caixas de e-mail: diagnóstico por caixa (7 etapas), autorização, período e revogação →
+        </Link>
+      </p>
+      <p className="text-sm">
+        <Link href={`/${projectId}/integracoes/contatos-externos`} className="font-semibold text-brand-sidebar hover:underline">
+          Contatos externos monitorados: organizações, domínios, vínculos com a obra e contatos descobertos →
+        </Link>
+      </p>
 
       <UserIntegrationMatrix rows={userSourceRows} shared={sharedSourceRows} warnings={userIntegrationEvidence.warnings} measuredAt={userIntegrationEvidence.measuredAt} unassignedEmails={userIntegrationEvidence.unassignedEmails} systemOutputEmails={userIntegrationEvidence.systemOutputEmails} />
 
@@ -172,7 +184,10 @@ export default async function IntegracoesPage({
       {canManage ? (
         <Card>
           <CardHeader>
-            <CardTitle>Configuração de ingestão deste projeto</CardTitle>
+            <CardTitle className="flex items-center gap-1.5">
+              Configuração de ingestão deste projeto
+              <FeatureInfo helpId="integracoes.integracoes.email-config" />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {accounts.length === 0 ? (
@@ -187,7 +202,10 @@ export default async function IntegracoesPage({
       {canManage && ingestionConfig ? (
         <Card>
           <CardHeader>
-            <CardTitle>Escopo automático dos e-mails</CardTitle>
+            <CardTitle className="flex items-center gap-1.5">
+              Escopo automático dos e-mails
+              <FeatureInfo helpId="integracoes.integracoes.email-escopo" />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <EmailProjectScopeForm

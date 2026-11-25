@@ -3,6 +3,7 @@ import "server-only";
 import { createSupabaseAdminClient } from "@axion/db/admin";
 
 import { getAppBaseUrl } from "../app-base-url";
+import { createCapacityGate } from "./get-email-provider";
 import { sendWeeklyAlertDigestEmail } from "./send-weekly-alert-digest-email";
 import type { WeeklyAlertDigestItem } from "./templates/weekly-alert-digest-template";
 
@@ -53,6 +54,7 @@ export interface WeeklyDigestRunResult {
 }
 
 export async function runWeeklyAlertDigests(now: Date = new Date()): Promise<WeeklyDigestRunResult> {
+  const capacityGate = createCapacityGate();
   const admin = createSupabaseAdminClient();
   const { data, error } = await admin
     .from("sla_actions")
@@ -67,7 +69,15 @@ export async function runWeeklyAlertDigests(now: Date = new Date()): Promise<Wee
     .order("title", { ascending: true });
 
   if (error) throw new Error(`Falha ao carregar alertas do resumo semanal: ${error.message}`);
-  const actions = data as unknown as ActionRow[];
+  // Ações de um alerta de risco são tratadas só pela página do alerta (caso e ação mudam juntos). Hoje elas nascem
+  // ALTO/CRÍTICO e não chegam aqui; o filtro torna a garantia explícita (Resolvido no resumo não sincronizaria o caso).
+  const candidates = data as unknown as ActionRow[];
+  const { data: linkedCases, error: linkedError } = candidates.length
+    ? await admin.from("risk_alert_cases").select("sla_action_id").in("sla_action_id", candidates.map((action) => action.id))
+    : { data: [], error: null };
+  if (linkedError) throw new Error(`Falha ao verificar alertas de risco vinculados: ${linkedError.message}`);
+  const riskLinked = new Set((linkedCases ?? []).map((row) => row.sla_action_id as string));
+  const actions = candidates.filter((action) => !riskLinked.has(action.id));
   const groups = new Map<string, ActionRow[]>();
 
   for (const action of actions) {
@@ -168,6 +178,12 @@ export async function runWeeklyAlertDigests(now: Date = new Date()): Promise<Wee
       riskLevel: item.risk_level,
       dueAt: formatDueAt(item.due_at_snapshot),
     }));
+
+    // Portão do governador (doc 35) ANTES do envio: adiado por limite => o resumo continua PENDING (não vira FAILED).
+    if (!(await capacityGate({ type: "WEEKLY_DIGEST", projectId: first.project_id }))) {
+      result.skipped += 1;
+      continue;
+    }
 
     try {
       await sendWeeklyAlertDigestEmail({

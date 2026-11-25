@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import type { SelectableProject } from "@/lib/ssma/project-selection";
 
 /**
@@ -19,10 +21,15 @@ export function ProjectSelect({
   disabled?: boolean;
   hint?: string | null;
 }) {
+  const selectId = useId();
   return (
-    <label className="block text-sm font-bold text-slate-900">
-      Obra / Local de trabalho *
+    <div className="block text-sm font-bold text-slate-900">
+      <span className="inline-flex items-center gap-1.5">
+        <label htmlFor={selectId}>Obra / Local de trabalho *</label>
+        <FeatureInfo helpId="ssma.form.contexto" />
+      </span>
       <select
+        id={selectId}
         name="projectId"
         value={value ?? ""}
         onChange={(event) => onChange(event.target.value)}
@@ -37,6 +44,6 @@ export function ProjectSelect({
         ))}
       </select>
       {hint ? <span role="status" className="mt-1 block text-xs font-semibold text-amber-800">{hint}</span> : null}
-    </label>
+    </div>
   );
 }

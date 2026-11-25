@@ -2,15 +2,49 @@ import "server-only";
 
 import { createSupabaseAdminClient } from "@axion/db/admin";
 
+import { issueItemReplyMailto } from "@/lib/email-replies/issue-item-reply-mailto";
+import { createSupabaseEmailReplyTokenStore } from "@/lib/email-replies/reply-tokens";
+
 import { appendAccEmailSignature } from "./branding/acc-email-signature";
 import { loadAccAlertLogos } from "./branding/load-acc-logo-inline-image";
+import { ALERT_REPLY_MAILBOX_ENV } from "./alert-reply-address";
 import { EmailSendError } from "./email-provider";
 import { getEmailProvider } from "./get-email-provider";
 import { resolveEffectiveRecipient } from "./pilot-outbound-guard";
+import { buildWeeklyDigestFailureReason } from "./weekly-digest-failure-reason";
 import {
   buildWeeklyAlertDigestEmail,
   type WeeklyAlertDigestEmailInput,
 } from "./templates/weekly-alert-digest-template";
+
+/**
+ * Atalhos "Responder por e-mail" POR ITEM do resumo (WEEKLY_DIGEST_ITEM = weekly_alert_digest_items.id). O token é do
+ * destinatário do resumo; o hash é gravado ANTES do envio. Qualquer falha => o item sai sem atalhos (formulário do ACC).
+ */
+async function withItemReplyMailto(digestId: string, projectId: string, email: WeeklyAlertDigestEmailInput): Promise<WeeklyAlertDigestEmailInput> {
+  try {
+    const admin = createSupabaseAdminClient();
+    const mailbox = process.env[ALERT_REPLY_MAILBOX_ENV] ?? null;
+    if (!mailbox) return email;
+    const { data: digest } = await admin.from("weekly_alert_digests").select("id,project_id,recipient_user_id").eq("id", digestId).maybeSingle();
+    if (!digest || digest.project_id !== projectId) return email;
+    const { data: rows } = await admin.from("weekly_alert_digest_items").select("id,action_id,risk_level").eq("digest_id", digestId);
+    const byAction = new Map(((rows ?? []) as Array<{ id: string; action_id: string; risk_level: string }>).map((r) => [r.action_id, r]));
+    const store = createSupabaseEmailReplyTokenStore(admin);
+    const nowIso = new Date().toISOString();
+    const items = [];
+    for (const item of email.items) {
+      const row = byAction.get(item.actionId);
+      const replyByEmail = row
+        ? await issueItemReplyMailto({ store, mailbox, projectId, kind: "WEEKLY_DIGEST_ITEM", subjectId: row.id, recipientUserId: digest.recipient_user_id as string, severity: row.risk_level === "MEDIUM" ? "MEDIUM" : "LOW", nowIso })
+        : null;
+      items.push({ ...item, replyByEmail });
+    }
+    return { ...email, items };
+  } catch {
+    return email;
+  }
+}
 
 export async function sendWeeklyAlertDigestEmail(input: {
   digestId: string;
@@ -19,7 +53,8 @@ export async function sendWeeklyAlertDigestEmail(input: {
   email: WeeklyAlertDigestEmailInput;
 }) {
   const { images, availability } = loadAccAlertLogos({ maroon: input.email.items.length > 0, inverted: false });
-  const built = buildWeeklyAlertDigestEmail({ ...input.email, logos: availability });
+  const emailInput = input.email.items.some((item) => item.replyByEmail) ? input.email : await withItemReplyMailto(input.digestId, input.projectId, input.email);
+  const built = buildWeeklyAlertDigestEmail({ ...emailInput, logos: availability });
   const signed = appendAccEmailSignature(built, images.length > 0, false);
   const resolvedRecipient = resolveEffectiveRecipient(input.recipientEmail);
   const correlationId = crypto.randomUUID();
@@ -36,11 +71,12 @@ export async function sendWeeklyAlertDigestEmail(input: {
       inlineImages: images.length > 0 ? images : undefined,
       correlationId,
       vera: { projectId: input.projectId, context: "alerta" },
+      governance: { type: "WEEKLY_DIGEST", projectId: input.projectId },
     });
   } catch (error) {
     await admin
       .from("weekly_alert_digests")
-      .update({ status: "FAILED", failure_reason: "Falha no envio do resumo semanal." })
+      .update({ status: "FAILED", failure_reason: buildWeeklyDigestFailureReason(error) })
       .eq("id", input.digestId)
       .neq("status", "RESPONDED");
 

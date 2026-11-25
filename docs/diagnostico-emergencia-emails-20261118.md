@@ -47,7 +47,7 @@ Branch `fix/agendador-pgcron-rebase`: o PR #203 (agendador `pg_cron` + `pg_net`:
 O PR #203 original não foi alterado.
 
 ## 7. O que precisa de autorização humana para o retorno operacional
-1. **Agendador:** autorizar a instalação do `pg_cron`/`pg_net` no Supabase, gravar no Vault o segredo de disparo e a variável `ACC_SCHEDULER_PG_CRON_ENABLED=true`; depois aplicar a migration `20261118093000_scheduler_pg_cron_dispatch.sql` (revisada). **Não** exige deploy na Vercel (as rotas já existem). Alternativa sem instalar nada: disparos manuais periódicos de `Weekly Schedule Email Ingestion`, o que **envia e-mails reais** e exige autorização.
+1. **Agendador:** autorizar a instalação do `pg_cron`/`pg_net` no Supabase, gravar no Vault o segredo de disparo e a variável `ACC_SCHEDULER_PG_CRON_ENABLED=true`; depois aplicar a migration `20261119034721_scheduler_pg_cron_dispatch.sql` (revisada). **Não** exige deploy na Vercel (as rotas já existem). Alternativa sem instalar nada: disparos manuais periódicos de `Weekly Schedule Email Ingestion`, o que **envia e-mails reais** e exige autorização.
 2. **Decisões de reemissão:** decidir caso a caso os 6 casos retidos (e os CRÍTICO suprimidos). Sem decisão auditada o sistema, de propósito, não envia.
 3. **Layout novo:** o template universal (PR #231) só vale em Production após merge e deploy; os e-mails de hoje ainda saem no layout antigo.
 

@@ -1,4 +1,4 @@
-// Migration 20261106090000: primeiro login com convite ligado à Matriz de SLA (SQL 23514 em
+// Migration 20261106195625: primeiro login com convite ligado à Matriz de SLA (SQL 23514 em
 // audit_log_entries_check). Replay das migrations em PGlite (PostgreSQL 17 em memória, descartável,
 // sem rede) com o stub mínimo da plataforma Supabase (auth.users/auth.uid()).
 //
@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const dir = path.join(here, "..", "supabase", "migrations");
 const platform = /const PLATFORM = `([\s\S]*?)`;/.exec(readFileSync(path.join(here, "test-migrations-full-replay.mjs"), "utf8"))[1];
-const FIX = "20261106090000_sla_configuration_audit_system_actor.sql";
+const FIX = "20261106195625_sla_configuration_audit_system_actor.sql";
 
 let passed = 0;
 let failed = 0;

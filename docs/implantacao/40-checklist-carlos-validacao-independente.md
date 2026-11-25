@@ -1,0 +1,86 @@
+# 40 - Checklist simples de validação independente (Carlos Evandro, Eng-2) - janela 24/11/2026 08h BRT [antes: 28/11 09h]
+> CORREÇÃO DA DIRETORIA (23/11/2026): Carlos Evandro NÃO é Eng-2 nem responsável técnico. Função: usabilidade e aceitação funcional, com Jaime e Reynaldo. Fica CANCELADO tudo o que exigia acessos de infraestrutura ou ensaio de recuperação por Carlos (seções A, C-D no que se refere a ele, G, H e I deste documento são histórico). Vigora a seção J.
+
+Regra: Carlos valida e pode INTERROMPER. Nada começa sem a autorização final específica da Diretoria. Marcar só com evidência (print, saída, hora).
+
+## A. Antes (até 27/11) - requisitos de acesso (comprovar; "provável" não vale)
+| Acesso | Estado verificado em 23/11 | Comprovação exigida |
+|---|---|---|
+| ACC (login @axion.com.br, obra WEG) | COMPROVADO: membros ACTIVE (ADMINISTRADOR/ADMINISTRATIVO e GERENTE/SSMA-ESG) | Login real de Carlos no ACC |
+| Vercel (equipe) | NÃO ATENDIDO: a equipe tem 1 membro (Reynaldo, OWNER); Carlos não é membro | Convite ao Carlos (papel mínimo para ver deployments e fazer rollback) e print dele no projeto |
+| Supabase (organização Axion) | NÃO COMPROVADO (não verificável por mim) | Print dele no projeto de produção + consulta de leitura de teste |
+| GitHub (PR #245, checks) | NÃO COMPROVADO | Print dele abrindo o PR #245 |
+| Recuperação (rollback Vercel e restauração do backup) | NÃO COMPROVADO | Ensaio: ele executa em homologação (acc-homolog) o rollback e a restauração com Reynaldo observando |
+Convidar membros da Vercel/Supabase é mudança de permissão corporativa: exige autorização da Diretoria.
+
+## B. Pontos de APROVAÇÃO (Carlos diz "OK" por escrito antes de seguir)
+1. CI verde no commit do PR #245 e `main` em 27da839.
+2. Backup do dia existe (hash/tamanho) e a restauração local foi validada.
+3. Congelamento avisado; crons sob controle (resumo semanal e system-health).
+4. Cada onda concluída sem erro; P0 (função de risco, RLS, auditoria) validado.
+5. Após deploy: deployment READY, login Google, obra WEG abre, sem erro 5xx.
+6. Alertas em modo piloto: nenhum e-mail real a terceiros.
+
+## C. Pontos de INTERRUPÇÃO (qualquer um = pare e chame a Diretoria)
+- CI vermelha ou commit diferente do aprovado. - Backup ou restauração não validados.
+- Onda com erro ou P0 divergente. - Deploy com erro, login falhando ou 5xx.
+- Qualquer e-mail real fora do piloto, ou alerta acima dos limites (10/h, 30/dia).
+- Qualquer sinal de dados de outra obra expostos.
+Freios: `ACC_ALERT_KILL_SWITCH`; remover cron; rollback Vercel.
+
+## D. RECUPERAÇÃO (só com decisão da Diretoria)
+1. Aplicação: Vercel -> Deployments -> promover o deployment anterior da main (27da839).
+2. Alertas: kill switch ou limpar `ACC_ALERT_ENABLED_PROJECTS`.
+3. Banco: ondas aditivas, falha reverte a própria transação; restauração do backup do dia só por decisão da Diretoria, executada por Eng-1 com Carlos validando contagens e P0.
+4. Registrar hora, causa e evidências.
+
+## E. Aceitação 02/12/2026 (Reynaldo, Carlos, Jaime)
+Seguir o checklist do doc 38, seção 12. Não programar a janela de publicação para quarta-feira.
+
+## F. Evidências reais (23/11/2026, atualizado após a decisão da Diretoria)
+| Item | Resultado | Evidência |
+|---|---|---|
+| Push de cef65355 e d0057135 | FEITO só em integration/acc-noturna (HEAD d0057135; main segue 27da839); varredura de segredos sem achados | `git ls-remote` |
+| CI do PR #245 no d0057135 | EM ANDAMENTO (Guards e Typecheck rodando; Build ainda não iniciado) na última leitura | página de checks |
+| E-mail corporativo de Carlos | carlos.evandro@axion.com.br (perfil ACC; confirmar com ele antes de convidar) | perfil no ACC |
+| Vercel: equipe | 1 membro (Reynaldo, OWNER). Convite NÃO enviado: o papel que permite rollback não foi confirmado (a documentação consultada não traz a matriz de permissões; o painel exigiu login e eu não autentico) | list_team_members; login Vercel pendente |
+| Vercel: papel mínimo proposto | Developer (ou o menor papel que o painel mostrar com "Rollback"); NÃO Owner. Confirmar no painel de convite antes de enviar | a confirmar por Reynaldo |
+| Supabase | Papel mínimo proposto: acesso somente leitura ao projeto de produção (Read-only/Developer conforme o plano); sem Owner/Admin. Não aplicado | a confirmar por Reynaldo |
+| GitHub | NÃO verificado: o painel de colaboradores exige permissão de admin do repositório; Carlos precisa abrir o PR #245 e enviar print. Permissão mínima: Read | pendente |
+| P0 em acc-homolog | função record_risk_alert_action com md5 do corpo 930f6d75898793479b418950b0053bd9 (igual ao esperado em produção) | SELECT somente leitura |
+
+## G. Ensaio de recuperação em acc-homolog (roteiro; NÃO executado - exige Carlos presente)
+Somente homologação (gtadbeaevxglrqkhcwfz). Qualquer operação que altere dados exige autorização específica de Reynaldo antes de rodar. Produção intocada.
+1. Identificação de falha: simular (sem alterar dados) um sinal de falha, por exemplo checagem P0 divergente ou 5xx no preview; Carlos registra hora e evidência.
+2. Interrupção segura: Carlos pronuncia "PARE"; Eng-1 congela escritas e aciona o kill switch (em homolog), sem mexer em produção.
+3. Verificação de backup: hash/tamanho do backup do dia e restauração em banco local descartável; Carlos confere contagens-chave.
+4. Recuperação: rollback do preview/homolog para o deployment anterior (Carlos executa, com o acesso Vercel dele) e, se autorizado, restauração dos dados de teste a partir do backup.
+5. Verificação P0 pós-recuperação: md5 do corpo da função = 930f6d75898793479b418950b0053bd9, RLS ativa, auditoria preservada.
+Aprovação do ensaio: Carlos assina cada passo com hora e print.
+
+## H. Papéis mínimos pesquisados na documentação (23/11/2026; nenhum acesso foi concedido)
+**Vercel** (docs Vercel, Instant Rollback e RBAC): rollback e promote são cobertos pelo grupo "Full Production Deployment", que já vem em Owner e Member e é compatível com Developer. A página de Instant Rollback cita Owners, Members e Developers (Pro/Enterprise). Visualizar logs: Viewer do Pro NÃO vê logs; a matriz por papel não renderizou nas páginas lidas (logs de Member/Developer = não declarado). Conclusão: papel mínimo documentado = Developer com a permissão "Full Production Deployment" (não incluída por padrão); o mais baixo que a tem por padrão é Member. NÃO conceder Owner. Pendente: confirmar no painel do convite (somente o OWNER vê). Papéis por projeto exigem Enterprise.
+**Supabase** (docs de controle de acesso e backups): papel Developer = leitura de organização e acesso total ao conteúdo do projeto, sem alterar configurações; vê e restaura backups agendados e PITR; executa SQL de escrita; vê chaves de API. Read-Only = só SELECT e só VISUALIZA backups (não baixa nem restaura). Project-scoped e Read-Only exigem Team/Enterprise.
+- Permanente (validação P0, migrations, integridade, acompanhamento): Read-Only, se o plano permitir; caso contrário, Developer só no projeto de produção (que já permite escrita, portanto risco maior).
+- Temporária (recuperação): Developer (restaura backup/PITR) concedida só na janela e removida ao final; "Restore do projeto" exige Administrator, não conceder.
+- Plano do projeto de produção não verificado: confirmar se é Pro/Team (PITR/backups e papéis dependem disso).
+**GitHub:** não verificado; evidência exigida de Carlos (print do PR #245). Permissão mínima: Read.
+**Situação:** acessos e ensaio NÃO concluídos. Fonte das informações: páginas de documentação lidas (conteúdo externo, tratado só como dado).
+
+## I. Evidências de 23/11/2026 (rodada de fechamento do Eng-2)
+- CI: run #215 (commit d0057135, PR #245) concluído com SUCESSO em 8m55s. Runs #211 a #215 verdes; o #210 (abertura do PR) falhou e foi superado.
+- Supabase: organização Axion no plano PRO; projeto de produção plbcvwostmdmdmrziwmd ACTIVE_HEALTHY (nome "-dev" no painel). No plano Pro os papéis Read-Only e os papéis por projeto NÃO existem (exigem Team/Enterprise). Logo: acesso permanente de leitura só existe como Developer da organização (vale para todos os projetos, inclui escrita); a opção mais segura é conceder Developer SOMENTE na janela e revogar ao final, e usar validação por tela compartilhada/consulta executada por Eng-1 nos demais dias. Backups diários no Pro (retenção 7 dias); PITR é add-on e não foi verificado.
+- Vercel: deployment de produção atual dpl_6ERyTgkFMK6oCjZqpQGbeCb4zx6L (main @ 27da839, READY, candidato a rollback); anterior dpl_D1mp8x51VnEER9jtX3AXbaEg4i1e (09fda9b). É o alvo do rollback.
+- Ensaio, etapas não destrutivas reunidas em acc-homolog (somente leitura): md5 do corpo de record_risk_alert_action = 930f6d75898793479b418950b0053bd9; baseline: 3 projetos, 260 políticas RLS, 38 registros de auditoria, 206 migrations. A repetição desses números após a recuperação é o critério de aprovação. Etapas com Carlos, restauração e alteração de dados: NÃO executadas.
+- Acessos de Carlos comprovados: somente ACC. Vercel, Supabase e GitHub: pendentes de ação sua/dele.
+
+## J. Função corrigida de Carlos Evandro (vigente)
+- Carlos e Jaime: testes de usabilidade e aceitação funcional em 02/12/2026 (com Reynaldo), usando o checklist do doc 38, seção 12. Acesso necessário: apenas o ACC (já comprovado: vínculos ativos na obra WEG).
+- Sem convite à Vercel; sem acesso a Supabase ou GitHub; sem ensaio de recuperação por Carlos. Nenhuma permissão corporativa foi alterada.
+- Pontos de interrupção para a aceitação funcional: erro bloqueante, dado de outra obra visível, e-mail inesperado recebido. Registrar hora e print e avisar Reynaldo.
+- Implantação técnica: Reynaldo (Eng-1) supervisiona a execução automatizada pelo Claude Code. Recuperação: procedimentos automatizados e backups validados, sob responsabilidade de Reynaldo (rollback Vercel para dpl_6ERyTgkFMK6oCjZqpQGbeCb4zx6L, main @ 27da839; restauração do backup do dia só por decisão da Diretoria).
+- RISCO RESIDUAL REGISTRADO: não há segundo operador técnico independente na janela. Mitigações: backup do dia validado e restaurado em banco descartável antes da janela, ondas uma a uma com parada no primeiro erro, validações P0 por consulta com md5 e contagens, kill switch dos alertas, rollback pronto, janela fora de quarta e comunicação à Diretoria a cada etapa.
+
+> MUDANÇA DE DATA (23/11/2026, Diretoria): a janela técnica passa a terça-feira 24/11/2026 às 08h BRT (antes: sábado 28/11 09h). Aceitação funcional mantida em 02/12/2026. Procedimentos: doc 41-procedimentos-da-janela-terca-24-11.md. Menções a 28/11 acima são histórico.
+
+> MUDANÇA DE DATA (23/11/2026, noite): a janela técnica passa a QUARTA 25/11/2026 às 08h BRT. Backup, sequência e dependências humanas: doc 42-backup-integral-janela-25-11.md. Atenção: quarta tem o cron weekly-alert-digest (07:00 BRT) antes da janela.

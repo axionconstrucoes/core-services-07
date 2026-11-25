@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { BrainCircuit, Loader2 } from "lucide-react";
 import { AiPendingIndicator } from "@/components/ai/ai-pending-indicator";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,7 +30,7 @@ export function PrecontractCurationPanel({ projectId }: { projectId: string }) {
   return (
     <Card className="border-primary/30">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2"><BrainCircuit className="size-5" />Análise integrada para negociação</CardTitle>
+        <CardTitle className="flex items-center gap-2"><BrainCircuit className="size-5" />Análise integrada para negociação<FeatureInfo helpId="juridico.precontratual.analise-integrada" /></CardTitle>
         <p className="text-sm text-muted-foreground">
           Consulta Jurídico, Comercial, Engenharia/Planejamento e ESG/SSMA; o CEO IA consolida as posições. Revisão humana obrigatória.
         </p>
@@ -38,7 +39,10 @@ export function PrecontractCurationPanel({ projectId }: { projectId: string }) {
         <form action={action} className="space-y-3">
           <input type="hidden" name="projectId" value={projectId} />
           <label className="block text-sm font-medium">
-            Cláusula, dúvida ou ponto de negociação
+            <span className="flex items-center gap-1">
+              Cláusula, dúvida ou ponto de negociação
+              <FeatureInfo helpId="juridico.precontratual.analise-integrada" />
+            </span>
             <Textarea
               name="question"
               required
@@ -48,6 +52,8 @@ export function PrecontractCurationPanel({ projectId }: { projectId: string }) {
             />
           </label>
           {!pending && state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
+          <span className="inline-flex items-center gap-1">
+          <FeatureInfo helpId="juridico.precontratual.analise-integrada" />
           <Button type="submit" disabled={pending}>
             {pending ? (
               <>
@@ -58,6 +64,7 @@ export function PrecontractCurationPanel({ projectId }: { projectId: string }) {
               "Consultar todos os especialistas"
             )}
           </Button>
+          </span>
           {pending ? (
             <AiPendingIndicator message="Consultando Jurídico, Comercial, Engenharia/Planejamento e ESG/SSMA e consolidando via CEO IA. Isso pode levar algum tempo — aguarde nesta tela." />
           ) : null}

@@ -64,18 +64,18 @@ console.log("");
 
 // ---------- defaults (seção 2) ----------
 
-check("default BAIXO: 3 dias úteis para assumir, +3 dias úteis até 2º escalão, +2 até Diretoria", () => {
+check("default BAIXO: 5 dias úteis para assumir (aprovado), +3 dias úteis até 2º escalão, +2 até Diretoria", () => {
   const d = DEFAULT_SLA_MATRIX.LOW;
   assert(d.timeUnit === "BUSINESS_DAYS");
-  assert(d.assumeDeadlineValue === 3);
+  assert(d.assumeDeadlineValue === 5);
   assert(d.escalation2AfterValue === 3);
   assert(d.boardAfterValue === 2);
 });
 
-check("default MÉDIO: 1 dia útil para assumir, +1 dia útil até 2º escalão, +1 até Diretoria", () => {
+check("default MÉDIO: 2 dias úteis para assumir (aprovado), +1 dia útil até 2º escalão, +1 até Diretoria", () => {
   const d = DEFAULT_SLA_MATRIX.MEDIUM;
   assert(d.timeUnit === "BUSINESS_DAYS");
-  assert(d.assumeDeadlineValue === 1);
+  assert(d.assumeDeadlineValue === 2);
   assert(d.escalation2AfterValue === 1);
   assert(d.boardAfterValue === 1);
 });

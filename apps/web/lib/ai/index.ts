@@ -124,6 +124,26 @@ export {
 export type { PlanningDirectorQueryResult } from "./experts/planning-director";
 
 export {
+  ENGINEERING_DIRECTOR_EXPERT_ID,
+  ENGINEERING_DIRECTOR_INSTRUCTIONS,
+  ENGINEERING_DIRECTOR_NAME,
+  ENGINEERING_DIRECTOR_VERSION,
+  answerEngineeringDirectorQuery,
+} from "./experts/engineering-director";
+export type { EngineeringDirectorQueryResult } from "./experts/engineering-director";
+
+export {
+  QUALITY_ANALYST_EXPERT_ID,
+  QUALITY_ANALYST_INSTRUCTIONS,
+  QUALITY_ANALYST_NAME,
+  QUALITY_ANALYST_VERSION,
+  answerQualityAnalystQuery,
+} from "./experts/quality-analyst";
+export type { QualityAnalystQueryResult } from "./experts/quality-analyst";
+
+export { SPECIALIST_FRAMEWORK_INSTRUCTIONS, SPECIALIST_FRAMEWORK_VERSION } from "./specialist-framework";
+
+export {
   CEO_EXPERT_ID,
   CEO_INSTRUCTIONS,
   CEO_NAME,
@@ -182,6 +202,7 @@ export {
   CEO_DEFINITION,
   COMMERCIAL_DIRECTOR_DEFINITION,
   CORE_ESCALATION_RULES,
+  ENGINEERING_DIRECTOR_DEFINITION,
   ESG_DIRECTOR_DEFINITION,
   EXPERT_COLLABORATION_MATRIX,
   getCollaborationRulesForExpert,

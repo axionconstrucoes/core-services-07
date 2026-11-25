@@ -63,7 +63,7 @@ export function renderEmailActionButtonsHtml(
       const marginTop = index === 0 ? "0" : "12px";
       const buttonHtml = `<a href="${escapeHtml(button.url)}" title="${escapeHtml(hoverDescription)}" aria-label="${escapeHtml(
         `${label} — ${hoverDescription}`
-      )}" class="${ACC_ACTION_BUTTON_CLASS}" style="display:block;width:100%;box-sizing:border-box;margin:${marginTop} 0 0 0;padding:10px 14px;background-color:#ffffff;color:${ACC_COLOR_BODY};font-family:${ACC_FONT_FAMILY};font-size:${ACC_FONT_SIZE_BODY};font-weight:bold;text-decoration:none;border-radius:6px;border:1px solid ${ACC_COLOR_HEADING};text-align:center;">${escapeHtml(
+      )}" class="${ACC_ACTION_BUTTON_CLASS}" style="display:block;width:100%;box-sizing:border-box;margin:${marginTop} 0 0 0;padding:10px 14px;background-color:#ffffff;color:${ACC_COLOR_BODY};font-family:${ACC_FONT_FAMILY};font-size:16px;font-weight:bold;text-decoration:none;border-radius:6px;border:1px solid ${ACC_COLOR_HEADING};text-align:center;">${escapeHtml(
         label
       )}</a>`;
       const captionHtml = `<p style="margin:4px 0 0 0;font-family:${ACC_FONT_FAMILY};font-size:${captionFontSize};color:${captionColor};text-align:center;">${escapeHtml(

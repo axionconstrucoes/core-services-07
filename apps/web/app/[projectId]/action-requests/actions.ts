@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { EmailSendError } from "@/lib/email/email-provider";
+import { prepareRecipient } from "@/lib/email/external-recipient";
 import {
   DuplicateNotificationError,
   sendActionRequestNotification,
@@ -14,6 +15,8 @@ import {
   renderEmailActionButtonsHtml,
   renderEmailActionButtonsText,
 } from "@/lib/email-actions/render-buttons";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function getRequiredString(formData: FormData, key: string) {
   const value = String(formData.get(key) ?? "").trim();
@@ -33,9 +36,25 @@ function getRequiredString(formData: FormData, key: string) {
 export async function sendActionRequestEmailAction(formData: FormData) {
   const projectId = getRequiredString(formData, "projectId");
   const actionRequestId = getRequiredString(formData, "actionRequestId");
-  const recipientEmail = getRequiredString(formData, "recipientEmail");
+  const rawRecipientEmail = String(formData.get("recipientEmail") ?? "");
   const subject = getRequiredString(formData, "subject");
   const body = getRequiredString(formData, "body");
+
+  // Destinatário: validação e normalização NO SERVIDOR; domínio externo (fora da lista da Axion) exige confirmação explícita + motivo,
+  // gravados na trilha append-only ANTES de qualquer solicitação. Falhou => nada é emitido nem enviado (fail-closed).
+  const prepared = await prepareRecipient({
+    projectId,
+    context: "SOLICITACAO_ACAO",
+    entityType: "ACTION_REQUEST",
+    entityId: UUID_RE.test(actionRequestId) ? actionRequestId : null,
+    email: rawRecipientEmail,
+    confirmed: formData.get("externalConfirm") === "on",
+    reason: String(formData.get("externalReason") ?? ""),
+  });
+  if (!prepared.ok) {
+    redirect(`/${projectId}/action-requests/${actionRequestId}?destinatario=${encodeURIComponent(prepared.code)}`);
+  }
+  const recipientEmail = prepared.email;
 
   // Botões de ação (DAR CIÊNCIA/ASSUMIR RESPONSABILIDADE/DEFINIR PRAZO/
   // RESPONDER AO ACC) são só um acréscimo ao corpo — mesma infraestrutura

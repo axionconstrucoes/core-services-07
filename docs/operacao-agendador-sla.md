@@ -2,7 +2,7 @@
 
 > **Status: CÓDIGO PREPARADO no PR draft #203. NADA INSTALADO.**
 >
-> - A migration `20261118093000_scheduler_pg_cron_dispatch.sql` **não** foi aplicada; o pg_cron **não** está autorizado.
+> - A migration `20261119034721_scheduler_pg_cron_dispatch.sql` **não** foi aplicada; o pg_cron **não** está autorizado.
 > - Nenhum token foi criado e nenhum segredo foi gravado no Vault.
 > - A variável `ACC_SCHEDULER_PG_CRON_ENABLED` não existe no GitHub.
 > - Nenhum plano foi contratado.
@@ -359,7 +359,7 @@ Só avançar com **todos** os itens limpos (repetir a cada minuto, no máximo ~1
 
 ### Passo 6 — Aplicar a migration (o pg_cron começa)
 **Antes de aplicar, repetir o dry-run de risco e de SSMA do §11.2** (o resultado do Passo 3 é uma fotografia e vale no máximo 10 min). Divergência ⇒ não aplicar.
-Aplicar `20261118093000_scheduler_pg_cron_dispatch.sql`. O primeiro tick de `acc-risk-alerts` ocorre em até 2 min; o de `acc-ssma-notifications` em até 5 min.
+Aplicar `20261119034721_scheduler_pg_cron_dispatch.sql`. O primeiro tick de `acc-risk-alerts` ocorre em até 2 min; o de `acc-ssma-notifications` em até 5 min.
 Anotar `t0 = now()` no instante da aplicação (usado nas consultas abaixo).
 
 ### Passo 7 — Comprovar os dois primeiros ciclos, sem duplicidade

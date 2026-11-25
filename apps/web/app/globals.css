@@ -20,10 +20,10 @@
   --muted-foreground: #b8c7dc;
   --accent: #1b3050;
   --accent-foreground: #ffffff;
-  --destructive: #ff6b57;
+  --destructive: #ff806e; /* era #ff6b57: texto text-destructive sobre bg-destructive/10 + hover (accent) ficava em 4,2:1; agora >= 4,6:1 (e 7,4:1 com texto escuro do botão) */
   --destructive-foreground: #0b1629;
   --border: #263b5c;
-  --input: #35507a;
+  --input: #5a82c0; /* era #35507a (2,2:1) e #4d74b1 (2,8:1 sobre accent): borda de controle >= 3:1 sobre fundo, cartão e accent (WCAG 1.4.11) */
   --ring: #b8c7dc;
   --radius: 7px;
   --surface-topbar: #13233b;
@@ -79,9 +79,9 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
+  --destructive-foreground: oklch(0.145 0 0);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  --input: oklch(1 0 0 / 45%);
   --ring: oklch(0.556 0 0);
 }
 
@@ -273,6 +273,67 @@
   --color-neutral-950: #ffffff;
 }
 
+/* Paletas que NÃO eram remapeadas (purple, indigo, cyan, teal e rose — rose entrou com o Analista IA de Qualidade): usavam o Tailwind padrão CLARO (text-purple-600 = 2,4:1 e bg-teal-50 = fundo
+   quase branco sob texto claro) sobre o tema escuro. Mesmo esquema das demais: 50/100 = fundo escuro tingido; 200/300 = mistura; 400-600 =
+   tom claro de TEXTO (>= 5,9:1 sobre fundo e cartão); 700-900 = tom mais claro; 950 = mistura escura. Só luminosidade; o matiz é o original. */
+:root {
+  --color-purple-50: #4a2a6b;
+  --color-purple-100: #4a2a6b;
+  --color-purple-200: color-mix(in srgb, #c79bf2 35%, #182941);
+  --color-purple-300: color-mix(in srgb, #c79bf2 55%, #182941);
+  --color-purple-400: #c79bf2;
+  --color-purple-500: #c79bf2;
+  --color-purple-600: #c79bf2;
+  --color-purple-700: #e3ccf8;
+  --color-purple-800: #e3ccf8;
+  --color-purple-900: #e3ccf8;
+  --color-purple-950: color-mix(in srgb, #4a2a6b 70%, #0b1629);
+  --color-rose-50: #5a2236;
+  --color-rose-100: #5a2236;
+  --color-rose-200: color-mix(in srgb, #f4a3b8 35%, #182941);
+  --color-rose-300: color-mix(in srgb, #f4a3b8 55%, #182941);
+  --color-rose-400: #f4a3b8;
+  --color-rose-500: #f4a3b8;
+  --color-rose-600: #f4a3b8;
+  --color-rose-700: #f9cdd8;
+  --color-rose-800: #f9cdd8;
+  --color-rose-900: #f9cdd8;
+  --color-rose-950: color-mix(in srgb, #5a2236 70%, #0b1629);
+  --color-indigo-50: #2f3470;
+  --color-indigo-100: #2f3470;
+  --color-indigo-200: color-mix(in srgb, #a5abf7 35%, #182941);
+  --color-indigo-300: color-mix(in srgb, #a5abf7 55%, #182941);
+  --color-indigo-400: #a5abf7;
+  --color-indigo-500: #a5abf7;
+  --color-indigo-600: #a5abf7;
+  --color-indigo-700: #cdd0fa;
+  --color-indigo-800: #cdd0fa;
+  --color-indigo-900: #cdd0fa;
+  --color-indigo-950: color-mix(in srgb, #2f3470 70%, #0b1629);
+  --color-cyan-50: #124a5c;
+  --color-cyan-100: #124a5c;
+  --color-cyan-200: color-mix(in srgb, #5fd0ea 35%, #182941);
+  --color-cyan-300: color-mix(in srgb, #5fd0ea 55%, #182941);
+  --color-cyan-400: #5fd0ea;
+  --color-cyan-500: #5fd0ea;
+  --color-cyan-600: #5fd0ea;
+  --color-cyan-700: #a8e6f4;
+  --color-cyan-800: #a8e6f4;
+  --color-cyan-900: #a8e6f4;
+  --color-cyan-950: color-mix(in srgb, #124a5c 70%, #0b1629);
+  --color-teal-50: #12514d;
+  --color-teal-100: #12514d;
+  --color-teal-200: color-mix(in srgb, #4fd1c5 35%, #182941);
+  --color-teal-300: color-mix(in srgb, #4fd1c5 55%, #182941);
+  --color-teal-400: #4fd1c5;
+  --color-teal-500: #4fd1c5;
+  --color-teal-600: #4fd1c5;
+  --color-teal-700: #99e6df;
+  --color-teal-800: #99e6df;
+  --color-teal-900: #99e6df;
+  --color-teal-950: color-mix(in srgb, #12514d 70%, #0b1629);
+}
+
 /* Superfícies brancas fixas viram cartão escuro; o texto branco (text-white) permanece. */
 .bg-white { background-color: var(--card); }
 .bg-black { background-color: #12161b; }
@@ -413,3 +474,71 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 /* Texto de severidade "baixa" (verde-azulado) e "crítica" (vermelho) em selos translúcidos: 3,1-3,9:1 -> >= 6,6:1. Alta e média já passam. */
 .text-severity-baixa { color: #78dac0; }
 .text-severity-critica { color: #ff8e86; }
+/* Severidade alta (laranja #f3680f = 3,7-4,3:1) e média (âmbar #d6a62e = 4,6:1) como TEXTO sobre cartão/realce e selos translúcidos: >= 5,9:1.
+   Tokens próprios (--severity-*-text) para o par ficar protegido em scripts/test-contrast-system.mjs; o fundo (bg-severity-*) não muda. */
+:root {
+  --severity-alta-text: #ffa066;
+  --severity-media-text: #efc258;
+  --severity-baixa-text: #78dac0; /* espelha .text-severity-baixa acima (test-contrast-system confere a igualdade) */
+  --severity-critica-text: #ff8e86; /* espelha .text-severity-critica acima */
+}
+.text-severity-alta { color: var(--severity-alta-text); }
+.text-severity-media { color: var(--severity-media-text); }
+
+/* Tons 950 de TEXTO (text-red-950 sobre bg-red-50, text-amber-950, text-emerald-950...) apontavam para o tom ESCURO remapeado
+   (#441e1e sobre #5c2219 = 1,2:1: escuro sobre escuro). Em fundo escuro a fonte é clara: passam ao tom claro de texto da própria cor. */
+.text-red-950 { color: #ffa899; }
+.text-orange-950 { color: #f9be8c; }
+.text-amber-950, .text-yellow-950 { color: #f7d488; }
+.text-green-950, .text-emerald-950 { color: #8fe0c0; }
+.text-blue-950, .text-sky-950 { color: #a9d0f5; }
+.text-violet-950 { color: #c9bbf5; }
+.text-purple-950 { color: #e3ccf8; }
+.text-indigo-950 { color: #cdd0fa; }
+.text-cyan-950 { color: #a8e6f4; }
+.text-teal-950 { color: #99e6df; }
+/* Violeta 400-600 como texto (#9b84f0 = 4,4:1 sobre o realce) sobe levemente, como o azul. */
+.text-violet-400, .text-violet-500, .text-violet-600 { color: #b3a1f6; }
+/* Tons 200/300 das paletas novas como texto: eram misturas escuras. */
+.text-purple-200, .text-purple-300 { color: #e3ccf8; }
+.text-indigo-200, .text-indigo-300 { color: #cdd0fa; }
+.text-cyan-200, .text-cyan-300 { color: #a8e6f4; }
+.text-teal-200, .text-teal-300 { color: #99e6df; }
+
+/* Fundos cinza SÓLIDOS 500-900 (bg-slate-500 text-white, bg-gray-800 text-white): na paleta remapeada esses tons são CLAROS (#b8c7dc...#ffffff,
+   pensados para texto), então branco sobre eles ficava em 1,1-1,7:1. Como fundo viram cinza-azulado escuro com texto branco >= 8:1. */
+.bg-slate-500, .bg-gray-500, .bg-zinc-500, .bg-neutral-500 { background-color: #3f5273; }
+.bg-slate-600, .bg-gray-600, .bg-zinc-600, .bg-neutral-600 { background-color: #364764; }
+.bg-slate-700, .bg-gray-700, .bg-zinc-700, .bg-neutral-700 { background-color: #2d3d57; }
+.bg-slate-800, .bg-gray-800, .bg-zinc-800, .bg-neutral-800 { background-color: #25334b; }
+.bg-slate-900, .bg-gray-900, .bg-zinc-900, .bg-neutral-900 { background-color: #1d293d; }
+.hover\:bg-slate-700:hover, .hover\:bg-gray-700:hover { background-color: #2d3d57; }
+.hover\:bg-slate-800:hover, .hover\:bg-gray-800:hover { background-color: #25334b; }
+.hover\:bg-slate-900:hover, .hover\:bg-gray-900:hover { background-color: #1d293d; }
+
+/* Campos CLAROS explícitos: o remapeamento acima faz bg-white/bg-gray-100..300/bg-slate-100..300 virarem fundos ESCUROS, mas quem declara
+   texto PRETO (text-black / text-[#000000]) na mesma classe quer superfície clara: ficava preto sobre azul-marinho (1,4:1). Regra claro->escuro:
+   com texto escuro explícito o fundo volta ao tom claro original (Tailwind padrão). Só vale quando o texto escuro está no MESMO elemento. */
+.bg-white:is(.text-black, [class~="text-[#000000]"], [class~="text-[#000]"]) { background-color: #ffffff; }
+.bg-gray-50:is(.text-black, [class~="text-[#000000]"]), .bg-slate-50:is(.text-black, [class~="text-[#000000]"]) { background-color: #f9fafb; }
+.bg-gray-100:is(.text-black, [class~="text-[#000000]"]), .bg-slate-100:is(.text-black, [class~="text-[#000000]"]) { background-color: #f3f4f6; }
+.bg-gray-200:is(.text-black, [class~="text-[#000000]"]), .bg-slate-200:is(.text-black, [class~="text-[#000000]"]) { background-color: #e5e7eb; }
+.bg-gray-300:is(.text-black, [class~="text-[#000000]"]), .bg-slate-300:is(.text-black, [class~="text-[#000000]"]) { background-color: #d1d5db; }
+.hover\:bg-gray-100:hover:is(.text-black, [class~="text-[#000000]"]) { background-color: #f3f4f6; }
+.hover\:bg-gray-200:hover:is(.text-black, [class~="text-[#000000]"]) { background-color: #e5e7eb; }
+.hover\:bg-gray-400:hover:is(.text-black, [class~="text-[#000000]"]) { background-color: #9ca3af; }
+
+/* ===== Estados dos componentes base (hover, foco, ativo, selecionado, desabilitado, erro, sucesso, aviso, seleção de texto, links) ===== */
+:root {
+  --selection-bg: #2c5aa0; /* texto selecionado: branco sobre #2c5aa0 = 6,8:1 */
+  --selection-fg: #ffffff;
+  --link: #8ec1ff; /* link: >= 7,0:1 sobre fundo, cartão e realce */
+  --link-hover: #b7d7ff; /* hover do link: mais claro (>= 8,9:1) */
+}
+::selection { background-color: var(--selection-bg); color: var(--selection-fg); }
+/* Link de texto sobre superfície escura (uso opt-in: nenhum <a> existente muda de cor). */
+.acc-link { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+.acc-link:hover { color: var(--link-hover); }
+/* Campo inválido (erro): borda coral >= 3:1 + anel; só quando o componente marca aria-invalid. */
+:is(input, textarea, select)[aria-invalid="true"] { border-color: var(--destructive); }
+[aria-busy="true"] { cursor: progress; }

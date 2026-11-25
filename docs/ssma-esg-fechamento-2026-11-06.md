@@ -1,6 +1,6 @@
 # SSMA/ESG — decisões aprovadas, implementação, lacunas e critérios de encerramento (06/11/2026)
 
-Branch `feat/ssma-esg-acoes-notificacoes-perfis`. Migration **não aplicada** (ver `docs/ssma-esg-migration-20261106100000.md`). Critério de aceite permanente: **Reynaldo acessa acc.axion.com.br de outro PC autorizado e continua o trabalho com o computador do escritório desligado.**
+Branch `feat/ssma-esg-acoes-notificacoes-perfis`. Migration **não aplicada** (ver `docs/ssma-esg-migration-20261111042824.md`). Critério de aceite permanente: **Reynaldo acessa acc.axion.com.br de outro PC autorizado e continua o trabalho com o computador do escritório desligado.**
 
 ## 1. Decisões aprovadas → o que foi implementado
 
@@ -62,7 +62,7 @@ Atendidos **no código e nos testes automatizados** (branch): decisões 1–7 ac
 
 **PUBLICADO / COMPROVADO EM PRODUÇÃO**: nada deste bloco ainda (depende de aplicar migrations e do merge).
 
-**PENDENTE**: aplicar `20261106100000` (autorizada) e `20261106110000` (aguarda aprovação do SQL); `20261106120000` não faz parte deste PR (decisão e PR próprios); merge, Vercel, validação em produção em duas sessões; circuito fechado de e-mail (piloto); iPhone/Safari e Android/Chrome reais; Drive (conector não autenticado); conta Leitura/não-membro reais.
+**PENDENTE**: aplicar `20261111042824` (autorizada) e `20261111043023` (aguarda aprovação do SQL); `20261106120000` não faz parte deste PR (decisão e PR próprios); merge, Vercel, validação em produção em duas sessões; circuito fechado de e-mail (piloto); iPhone/Safari e Android/Chrome reais; Drive (conector não autenticado); conta Leitura/não-membro reais.
 
 ## 6. Atualização (06/11/2026, noite) — formulário 12, Near Misses e prévia da avaliação do técnico
 

@@ -6,6 +6,7 @@ import type { AlertSeverity } from "@axion/types";
 
 import { AlertActionNotice } from "@/components/alerts/alert-action-notice";
 import { Button } from "@/components/ui/button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,9 +45,12 @@ export function DeliveryAlertActionForm({
       <AlertActionNotice action={action} severity={severity} />
 
       {action === "ENVIADO_PARA" ? (
-        <label className="grid gap-1.5 text-sm font-medium">
-          Enviado para
-          <Select name="assignedUserId" required defaultValue="">
+        <div className="grid gap-1.5 text-sm font-medium">
+          <span className="inline-flex items-center gap-1">
+            <label htmlFor="providencia-enviado-para">Enviado para</label>
+            <FeatureInfo helpId="planejamento.alerta-email-acao.enviado-para" />
+          </span>
+          <Select id="providencia-enviado-para" name="assignedUserId" required defaultValue="">
             <option value="" disabled>
               Selecione um colaborador
             </option>
@@ -56,13 +60,14 @@ export function DeliveryAlertActionForm({
               </option>
             ))}
           </Select>
-        </label>
+        </div>
       ) : null}
 
       {action === "RESOLVIDO" ? (
         <>
           <p className="text-xs text-muted-foreground">
-            Concluir a providência exige gestor, gerente ou administrador da obra e uma evidência/protocolo ou uma justificativa.
+            Concluir a providência exige gestor, gerente ou administrador da obra e uma evidência/protocolo ou uma justificativa.{" "}
+            <FeatureInfo helpId="planejamento.alerta-providencia.evidencia" />
           </p>
           <label className="grid gap-1 text-sm font-medium">
             Evidência / documento / protocolo
@@ -77,9 +82,12 @@ export function DeliveryAlertActionForm({
 
       {state.error ? <p className="text-sm text-destructive">{state.error}</p> : null}
 
-      <Button type="submit" disabled={pending} className="md:self-end md:px-10">
-        {pending ? "Confirmando…" : "CONFIRMAR"}
-      </Button>
+      <span className="inline-flex items-center gap-1 md:self-end">
+        <Button type="submit" disabled={pending} className="md:px-10">
+          {pending ? "Confirmando…" : "CONFIRMAR"}
+        </Button>
+        <FeatureInfo helpId="planejamento.alerta-email-acao.confirmar" />
+      </span>
     </form>
   );
 }

@@ -3,6 +3,8 @@
 // e o corpo text/plain (fallback: HTML sem tags). Sem rede, sem I/O.
 // O corpo é persistido só em alert_email_messages — nunca em logs.
 
+import { listGmailAttachments, type InboundAttachmentRef } from "@/lib/email-replies/inbound-attachments";
+
 import type { InboundHeaders } from "./reply-pipeline";
 
 export interface GmailHeader {
@@ -32,6 +34,17 @@ export function decodeBase64Url(value: string): string {
   return Buffer.from(value.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8");
 }
 
+/**
+ * TODOS os cabeçalhos com o nome (na ordem da mensagem: o primeiro é o do servidor que entregou), cada um com espaços
+ * normalizados (cabeçalhos dobrados viram uma linha) — um por linha no valor devolvido.
+ */
+export function allHeaderValues(headers: GmailHeader[] | null | undefined, name: string): string[] {
+  return (headers ?? [])
+    .filter((h) => (h.name ?? "").toLowerCase() === name.toLowerCase())
+    .map((h) => (h.value ?? "").replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+}
+
 function findPart(part: GmailPart | null | undefined, mimeType: string): GmailPart | null {
   if (!part) return null;
   if ((part.mimeType ?? "").toLowerCase() === mimeType && part.body?.data) return part;
@@ -45,6 +58,19 @@ function findPart(part: GmailPart | null | undefined, mimeType: string): GmailPa
 export function extractAddresses(value: string | null | undefined): string[] {
   if (!value) return [];
   return Array.from(new Set((value.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) ?? []).map((a) => a.toLowerCase())));
+}
+
+/**
+ * Endereço REAL do remetente a partir do cabeçalho From. Ignora o nome de exibição (entre aspas ou antes do "<...>"), que o
+ * remetente controla (ex.: `"maria@axion.com.br" <externo@x.com>`), usa o endereço entre "<>" quando existe e exige
+ * exatamente UM endereço — From com vários remetentes ou ambíguo => "" (a mensagem é recusada como remetente não corporativo).
+ */
+export function extractFromAddress(value: string | null | undefined): string {
+  if (!value) return "";
+  const noQuotes = value.replace(/"(?:[^"\\]|\\.)*"/g, " ").replace(/\([^)]*\)/g, " ");
+  const angled = Array.from(noQuotes.matchAll(/<([^<>]*)>/g)).flatMap((m) => extractAddresses(m[1]));
+  const unique = angled.length > 0 ? Array.from(new Set(angled)) : extractAddresses(noQuotes);
+  return unique.length === 1 ? unique[0] : "";
 }
 
 export function stripHtml(html: string): string {
@@ -79,12 +105,14 @@ export interface ExtractedInbound {
   bodyOriginal: string;
   receivedAt: string;
   isSentByMailbox: boolean;
+  /** Anexos (só metadados + id do Gmail; o download é feito pelo worker quando o comando precisa de evidência). */
+  attachments: InboundAttachmentRef[];
 }
 
 export function extractInboundFromGmail(message: GmailMessageLike, mailbox: string): ExtractedInbound | null {
   if (!message.id || !message.payload) return null;
   const headers = message.payload.headers ?? [];
-  const from = extractAddresses(header(headers, "From"))[0] ?? "";
+  const from = extractFromAddress(header(headers, "From"));
   const references = (header(headers, "References") ?? "").split(/\s+/).filter(Boolean);
   const plain = findPart(message.payload, "text/plain");
   const html = plain ? null : findPart(message.payload, "text/html");
@@ -107,12 +135,14 @@ export function extractInboundFromGmail(message: GmailMessageLike, mailbox: stri
       xAutoRespond: header(headers, "X-Autorespond"),
       returnPath: header(headers, "Return-Path"),
       contentType: header(headers, "Content-Type"),
-      authenticationResults: header(headers, "Authentication-Results"),
+      // P2: TODOS os Authentication-Results (um por linha) — a verificação exige servidor confiável e DMARC/DKIM alinhado.
+      authenticationResults: allHeaderValues(headers, "Authentication-Results").join("\n") || null,
       subject: header(headers, "Subject"),
       xAccOutbound: header(headers, "X-ACC-Outbound"),
     },
     bodyOriginal: limitInboundBody(body),
     receivedAt,
+    attachments: listGmailAttachments(message.payload),
     isSentByMailbox: (message.labelIds ?? []).includes("SENT") || from === mailbox.toLowerCase() || from.startsWith(`${mailbox.toLowerCase().split("@")[0]}+`),
   };
 }

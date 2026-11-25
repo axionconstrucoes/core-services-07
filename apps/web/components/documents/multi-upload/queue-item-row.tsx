@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Select } from "@/components/ui/select";
@@ -84,6 +85,7 @@ export function QueueItemRow({
           <Badge variant={STATUS_BADGE_VARIANT[item.status]}>
             {STATUS_LABELS[item.status]}
           </Badge>
+          <FeatureInfo helpId="juridico.documentos.fila-status" />
 
           {canRemove ? (
             <Button type="button" variant="ghost" size="sm" onClick={onRemove}>
@@ -102,7 +104,10 @@ export function QueueItemRow({
       <Progress value={item.progressPercent} />
 
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted-foreground">Tipo documental:</span>
+        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+          Tipo documental:
+          <FeatureInfo helpId="juridico.documentos.tipo-lote" />
+        </span>
         <Select
           value={item.kind}
           disabled={!canEditKind}
@@ -127,6 +132,7 @@ export function QueueItemRow({
           <span>
             Isso parece uma nova versão de{" "}
             <strong>{item.matchedDocumentTitle}</strong>. Confirmar?
+            <FeatureInfo helpId="juridico.documentos.decisao-versao" />
           </span>
           <div className="flex gap-2">
             <Button type="button" size="sm" onClick={onConfirmVersion}>
@@ -149,6 +155,7 @@ export function QueueItemRow({
           <span>
             Já existe <strong>{item.matchedDocumentTitle}</strong> com um tipo
             documental diferente do selecionado. Decisão necessária.
+            <FeatureInfo helpId="juridico.documentos.decisao-versao" />
           </span>
           <div className="flex gap-2">
             <Button type="button" size="sm" onClick={onConfirmConflict}>

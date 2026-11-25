@@ -78,6 +78,7 @@ export function MemberRowActions({
     <div className="flex flex-col items-end gap-1.5">
       <div className="flex items-center gap-1.5">
         {editingJobTitle ? (
+          // help-exempt: formulário repetido por linha; a ação Editar cargo é descrita pelo ícone da coluna Ações (admin.usuarios.col-acoes)
           <form
             action={jobTitleAction}
             className="flex items-center gap-1"
@@ -85,12 +86,15 @@ export function MemberRowActions({
           >
             <input type="hidden" name="projectId" value={projectId} />
             <input type="hidden" name="userId" value={userId} />
+            {/* help-exempt: campo de cargo por linha, descrito em admin.usuarios.col-acoes */}
             <Input name="jobTitle" defaultValue={currentJobTitle ?? ""} placeholder="Cargo" className="h-7 w-36 text-xs" />
+            {/* help-exempt: salvar o cargo, descrito em admin.usuarios.col-acoes */}
             <Button type="submit" size="sm" variant="ghost" className="h-7 px-2" disabled={jobTitlePending}>
               {jobTitlePending ? "…" : "Salvar"}
             </Button>
           </form>
         ) : (
+          // help-exempt: Editar cargo por linha, descrito em admin.usuarios.col-acoes
           <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setEditingJobTitle(true)}>
             Editar cargo
           </Button>
@@ -101,6 +105,7 @@ export function MemberRowActions({
         <form action={permissionAction} className="flex items-center gap-1">
           <input type="hidden" name="projectId" value={projectId} />
           <input type="hidden" name="userId" value={userId} />
+          {/* help-exempt: seletor de perfil por linha, descrito em admin.usuarios.col-acoes (perfis em admin.usuarios.col-permissao) */}
           <Select name="newPermission" defaultValue={currentPermission} className="h-7 text-xs" disabled={permissionPending}>
             {buildSelectablePermissions(currentPermission).map((permission) => (
               <option key={permission} value={permission}>
@@ -108,6 +113,7 @@ export function MemberRowActions({
               </option>
             ))}
           </Select>
+          {/* help-exempt: salvar o perfil por linha, descrito em admin.usuarios.col-acoes */}
           <Button type="submit" size="sm" variant="ghost" className="h-7 px-2" disabled={permissionPending}>
             {permissionPending ? "…" : "Salvar"}
           </Button>
@@ -120,6 +126,7 @@ export function MemberRowActions({
         <input type="hidden" name="projectId" value={projectId} />
         <input type="hidden" name="userId" value={userId} />
         <input type="hidden" name="status" value={nextStatus} />
+        {/* help-exempt: Desativar ou Reativar por linha, descrito em admin.usuarios.col-acoes */}
         <Button type="submit" size="sm" variant="ghost" className="h-7 px-2 text-xs" disabled={statusPending}>
           {statusPending ? "…" : currentStatus === "ACTIVE" ? "Desativar" : "Reativar"}
         </Button>

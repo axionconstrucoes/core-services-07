@@ -5,6 +5,7 @@ import { useRef, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { createSupabaseBrowserClient } from "@axion/db/browser";
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { computeFileSha256Hex } from "@/lib/documents/multi-upload/sha256";
 
@@ -346,23 +347,24 @@ export function DocumentUploadForm({
   }
 
   return (
+    // help-exempt: o formulário agrupa campos e botão que têm Hover Text próprio (tipo, título, versão, arquivo e envio)
     <form
       onSubmit={handleSubmit}
       className="flex flex-col gap-3"
     >
       {isNewDocument ? (
         <div className="grid gap-3 md:grid-cols-2">
+          {/* Nunca "disabled" aqui: o select de tipo é lido via
+              FormData(form) no submit — um campo disabled não é
+              enviado no FormData e quebraria o envio. Para .mpp, o
+              valor já vem pré-selecionado (handleFileChange) — o
+              usuário só altera se explicitamente escolher outro
+              valor, nunca um default silencioso. */}
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium">
+            <span className="flex items-center gap-1 font-medium">
               Tipo documental *
+              <FeatureInfo helpId="juridico.documentos.upload-tipo-titulo" />
             </span>
-
-            {/* Nunca "disabled" aqui: este <select> é lido via
-                FormData(form) no submit — um campo disabled não é
-                enviado no FormData e quebraria o envio. Para .mpp, o
-                valor já vem pré-selecionado (handleFileChange) — o
-                usuário só altera se explicitamente escolher outro
-                valor, nunca um default silencioso. */}
             <select
               ref={kindSelectRef}
               name="kind"
@@ -387,8 +389,9 @@ export function DocumentUploadForm({
           </label>
 
           <label className="flex flex-col gap-1.5 text-sm">
-            <span className="font-medium">
+            <span className="flex items-center gap-1 font-medium">
               Título *
+              <FeatureInfo helpId="juridico.documentos.upload-tipo-titulo" />
             </span>
 
             <input
@@ -403,7 +406,10 @@ export function DocumentUploadForm({
 
       <div className="grid gap-3 md:grid-cols-4">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Versão *</span>
+          <span className="flex items-center gap-1 font-medium">
+              Versão *
+              <FeatureInfo helpId="juridico.documentos.upload-versao-data-origem" />
+            </span>
 
           <input
             name="versionLabel"
@@ -414,7 +420,10 @@ export function DocumentUploadForm({
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Data do documento *</span>
+          <span className="flex items-center gap-1 font-medium">
+              Data do documento *
+              <FeatureInfo helpId="juridico.documentos.upload-versao-data-origem" />
+            </span>
 
           <input
             type="date"
@@ -426,7 +435,10 @@ export function DocumentUploadForm({
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Origem *</span>
+          <span className="flex items-center gap-1 font-medium">
+              Origem *
+              <FeatureInfo helpId="juridico.documentos.upload-versao-data-origem" />
+            </span>
 
           <select
             name="sourceType"
@@ -443,7 +455,10 @@ export function DocumentUploadForm({
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Autor / emissor *</span>
+          <span className="flex items-center gap-1 font-medium">
+              Autor / emissor *
+              <FeatureInfo helpId="juridico.documentos.upload-versao-data-origem" />
+            </span>
 
           <input
             name="author"
@@ -455,7 +470,10 @@ export function DocumentUploadForm({
 
       <div className="grid gap-3 md:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Resumo *</span>
+          <span className="flex items-center gap-1 font-medium">
+              Resumo *
+              <FeatureInfo helpId="juridico.documentos.upload-resumo-observacoes" />
+            </span>
 
           <textarea
             name="summary"
@@ -466,7 +484,10 @@ export function DocumentUploadForm({
         </label>
 
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Observações</span>
+          <span className="flex items-center gap-1 font-medium">
+              Observações
+              <FeatureInfo helpId="juridico.documentos.upload-resumo-observacoes" />
+            </span>
 
           <textarea
             name="notes"
@@ -477,8 +498,9 @@ export function DocumentUploadForm({
       </div>
 
       <label className="flex flex-col gap-1.5 text-sm">
-        <span className="font-medium">
+        <span className="flex items-center gap-1 font-medium">
           Arquivo *
+          <FeatureInfo helpId="juridico.documentos.upload-arquivo" />
         </span>
 
         <input
@@ -508,17 +530,15 @@ export function DocumentUploadForm({
         </p>
       ) : null}
 
-      <div>
-        <Button
-          type="submit"
-          disabled={submitting}
-        >
+      <div className="flex items-center gap-1">
+        <Button type="submit" disabled={submitting}>
           {submitting
             ? "Enviando..."
             : existingDocument
               ? "Enviar nova versão"
               : "Adicionar documento"}
         </Button>
+        <FeatureInfo helpId="juridico.documentos.upload-individual" />
       </div>
     </form>
   );

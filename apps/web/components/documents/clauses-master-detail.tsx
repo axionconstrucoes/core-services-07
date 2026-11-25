@@ -15,6 +15,7 @@
 
 import { useState } from "react";
 import { EmptyState } from "@/components/shared/empty-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { ContractClause } from "@axion/types";
@@ -35,6 +36,10 @@ function ClauseListNav({
 }) {
   return (
     <nav className="flex flex-col gap-1" aria-label="Lista de cláusulas">
+      <div className="flex items-center gap-1 px-1 text-xs font-semibold text-muted-foreground">
+        Cláusulas do contrato
+        <FeatureInfo helpId="juridico.documentos.clausulas-lista" />
+      </div>
       {clauses.map((clause) => {
         const isSelected = clause.id === selectedId;
         return (
@@ -96,8 +101,9 @@ export function ClausesMasterDetail({ clauses }: { clauses: ContractClause[] }) 
 
       <Card>
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
             Cláusula {selected.clauseNumber} — {selected.title}
+            <FeatureInfo helpId="juridico.documentos.clausulas-lista" />
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
@@ -110,6 +116,7 @@ export function ClausesMasterDetail({ clauses }: { clauses: ContractClause[] }) 
             {selected.text}
           </p>
           {needsCollapse ? (
+            // help-exempt: alternador de leitura (recolher ou expandir o texto) descrito na ajuda da lista de cláusulas
             <button
               type="button"
               onClick={() => setExpanded((value) => !value)}

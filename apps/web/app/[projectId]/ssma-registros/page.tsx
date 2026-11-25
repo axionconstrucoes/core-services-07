@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { SsmaInstallCard } from "@/components/ssma/ssma-install-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getProject, getProjectMembers } from "@/lib/data";
@@ -81,20 +82,32 @@ export default async function SsmaFieldRecordsPage({
 
   return (
     <div className="space-y-6">
+      <div className="flex items-start gap-2">
+      <div className="min-w-0 flex-1">
       <PageHeader
         title="Registros de campo SSMA"
         description="Ocorrências e inspeções registradas pelo app de campo, com as ações corretivas e o andamento. Registros criados sem sinal aparecem aqui depois de sincronizados."
         actions={
-          <Link href={`/ssma/${projectId}`} className="rounded-md border border-white/40 px-3 py-2 text-sm font-semibold bg-[#7f1d1d] text-white hover:bg-[#9b2424] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-            Abrir app de campo
-          </Link>
+          <span className="inline-flex items-center gap-1.5">
+            <Link href={`/ssma/${projectId}`} className="rounded-md border border-white/40 px-3 py-2 text-sm font-semibold bg-[#7f1d1d] text-white hover:bg-[#9b2424] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
+              Abrir app de campo
+            </Link>
+            <FeatureInfo helpId="ssma.registros.abrir-app" />
+          </span>
         }
       />
+      </div>
+      <FeatureInfo helpId="ssma.registros.pagina" className="mt-1.5" />
+      </div>
 
       {!available ? (
-        <Card><CardContent className="p-4 text-sm text-muted-foreground">Os registros de campo ainda não estão disponíveis neste ambiente (migration pendente).</CardContent></Card>
+        <Card><CardContent className="p-4 text-sm text-muted-foreground">Este recurso (registros de campo) ainda não está disponível neste ambiente.</CardContent></Card>
       ) : (
         <>
+          <p className="-mb-3 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            Resumo dos registros
+            <FeatureInfo helpId="ssma.registros.resumo" />
+          </p>
           <section className="grid grid-cols-2 gap-3 md:grid-cols-4" aria-label="Resumo">
             {[
               ["Registros", summary.total],
@@ -109,12 +122,13 @@ export default async function SsmaFieldRecordsPage({
           <PossibleDuplicatesPanel projectId={projectId} pairs={duplicatePairs} labels={duplicateLabels} />
 
           <Card id="near-misses">
-            <CardHeader><CardTitle className="text-base">Near Misses (quase-acidentes): {nearMisses.length}</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-1.5 text-base">Near Misses (quase-acidentes): {nearMisses.length}<FeatureInfo helpId="ssma.registros.near-misses" /></CardTitle></CardHeader>
             <CardContent className="space-y-3">
               <form method="get" className="flex flex-wrap items-end gap-2 text-sm">
                 <label className="flex flex-col gap-1">De<input type="date" name="de" defaultValue={from ?? ""} className="min-h-10 rounded border px-2" /></label>
                 <label className="flex flex-col gap-1">Até<input type="date" name="ate" defaultValue={to ?? ""} className="min-h-10 rounded border px-2" /></label>
                 <button type="submit" className="min-h-10 rounded border border-[#7f1d1d] px-3 font-semibold text-red-700">Filtrar período</button>
+                <FeatureInfo helpId="ssma.registros.filtro-periodo" />
                 {from || to ? <Link href={`/${projectId}/ssma-registros#near-misses`} className="min-h-10 px-2 py-2 text-red-700 underline">Limpar</Link> : null}
               </form>
               {nearMisses.length === 0 ? (
@@ -133,12 +147,12 @@ export default async function SsmaFieldRecordsPage({
           </Card>
 
           <Card>
-            <CardHeader><CardTitle className="text-base">Registros</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="flex items-center gap-1.5 text-base">Registros<FeatureInfo helpId="ssma.registros.tabela" /></CardTitle></CardHeader>
             <CardContent className="overflow-x-auto p-0">
               {records.length === 0 ? (
                 <p className="p-4 text-sm text-muted-foreground">Nenhum registro enviado ainda.</p>
               ) : (
-                <FieldRecordsTable records={records} today={today} />
+                <FieldRecordsTable records={records} today={today} projectId={projectId} />
               )}
             </CardContent>
           </Card>
@@ -147,7 +161,10 @@ export default async function SsmaFieldRecordsPage({
 
       <Card id="checklists-enviados">
         <CardHeader>
-          <CardTitle className="text-base">Checklists enviados</CardTitle>
+          <CardTitle className="flex items-center gap-1.5 text-base">
+            Checklists enviados
+            <FeatureInfo helpId="ssma.registros.checklists-enviados" />
+          </CardTitle>
           <p className="text-xs text-muted-foreground">Últimos {CHECKLIST_SUBMISSIONS_LIMIT} envios. As fotos abrem a partir do original guardado no ACC (link temporário); a cópia no Google Drive não é usada aqui.</p>
         </CardHeader>
         <CardContent>
@@ -156,7 +173,7 @@ export default async function SsmaFieldRecordsPage({
           ) : checklists.submissions.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhum checklist enviado ainda.</p>
           ) : (
-            <ChecklistSubmissionsGallery submissions={checklists.submissions} />
+            <ChecklistSubmissionsGallery submissions={checklists.submissions} projectId={projectId} />
           )}
         </CardContent>
       </Card>

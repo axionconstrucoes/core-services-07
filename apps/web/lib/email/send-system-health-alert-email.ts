@@ -3,9 +3,10 @@ import "server-only";
 import { getEmailProvider } from "./get-email-provider";
 import { appendAccEmailSignature } from "./branding/acc-email-signature";
 import { loadAccAlertLogos } from "./branding/load-acc-logo-inline-image";
+import { buildSystemHealthAlertContent } from "./informative-alert-content";
 
-import { buildUniversalAlertEmail } from "./templates/universal-alert-template";
-
+// Alerta técnico INFORMATIVO (informative-alert.ts): a Auditoria é somente leitura e a correção é técnica, fora do ACC —
+// sem os quatro botões; só o link de consulta.
 export async function sendSystemHealthAlertEmail(input: {
   recipientEmail: string;
   projectName: string;
@@ -15,37 +16,24 @@ export async function sendSystemHealthAlertEmail(input: {
   // Projeto da falha: permite ao transporte do piloto por projeto (project-pilot-profile.ts) restringir o destino.
   projectId: string;
 }) {
-  const subject = `🟡 [RISCO ALTO] ACC - FALHA OPERACIONAL - ${input.projectName}`;
-  const text = `ACC · SUPERVISÃO OPERACIONAL\nRISCO ALTO\n\nFonte: ${input.sourceType}\nProblema: ${input.summary}\n\nAbrir Auditoria: ${input.auditUrl}\n\nO ACC suprimiu repetições desta mesma falha para evitar excesso de e-mails.`;
   const { images, availability } = loadAccAlertLogos({ maroon: true, inverted: false });
-  const { html } = buildUniversalAlertEmail({
-    recipientName: null,
-    logos: availability,
+  const built = buildSystemHealthAlertContent({
+    projectName: input.projectName,
+    sourceType: input.sourceType,
+    summary: input.summary,
+    auditUrl: input.auditUrl,
     footer: "O ACC suprimiu repetições desta mesma falha para evitar excesso de e-mails.",
-    occurrence: {
-      code: "",
-      projectName: input.projectName,
-      areaLabel: "Supervisão operacional",
-      severity: "ALTA",
-      title: "Falha operacional",
-      description: input.summary,
-      stateLabel: "Falha detectada",
-      responsibleName: "",
-      specialistLabel: "Supervisão operacional",
-      openUrl: input.auditUrl,
-      actions: {},
-      details: [{ label: "Fonte", value: input.sourceType }],
-      extraLinks: [{ label: "ABRIR AUDITORIA", url: input.auditUrl }],
-    },
+    logos: availability,
   });
-  const signed = appendAccEmailSignature({ text, html }, images.length > 0, false);
+  const signed = appendAccEmailSignature({ text: built.text, html: built.html }, images.length > 0, false);
   return getEmailProvider().send({
     to: input.recipientEmail,
-    subject,
+    subject: built.subject,
     text: signed.text,
     html: signed.html,
     inlineImages: images.length > 0 ? images : undefined,
     correlationId: crypto.randomUUID(),
+    governance: { type: "SYSTEM_HEALTH", projectId: input.projectId },
     pilot: { projectId: input.projectId, participantLabel: "administrador (supervisão operacional)", escalationLevel: null },
   });
 }

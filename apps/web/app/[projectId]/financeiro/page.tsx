@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { FinancialCorrectionForm } from "@/components/financial/financial-correction-form";
 import { FinancialSeriesChart } from "@/components/financial/financial-series-chart";
+import { HelpHint } from "@/components/shared/help-hint";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,25 @@ const SHEET_STATUS_LABELS: Record<string, string> = {
   FAILED: "Falha na extração",
 };
 
+// Cartão (card.key de lib/financial/build-financial-dashboard.ts) -> helpId do catálogo.
+const CARD_HELP_IDS: Record<string, string> = {
+  previsto_periodo: "comercial.financeiro.card-previsto-periodo",
+  realizado_periodo: "comercial.financeiro.card-realizado-periodo",
+  desvio_periodo: "comercial.financeiro.card-desvio-periodo",
+  previsto_acumulado: "comercial.financeiro.card-previsto-acumulado",
+  realizado_acumulado: "comercial.financeiro.card-realizado-acumulado",
+  desvio_acumulado: "comercial.financeiro.card-desvio-acumulado",
+  cumprimento: "comercial.financeiro.card-cumprimento",
+  medido: "comercial.financeiro.card-medido",
+  faturado: "comercial.financeiro.card-faturado",
+  recebido: "comercial.financeiro.card-recebido",
+  saldo_receber: "comercial.financeiro.card-saldo-receber",
+  custo: "comercial.financeiro.card-custo",
+  receita: "comercial.financeiro.card-receita",
+  resultado: "comercial.financeiro.card-resultado",
+  margem: "comercial.financeiro.card-margem",
+};
+
 const CHANGE_LABELS: Record<string, string> = { LOW: "Baixo", MEDIUM: "Médio", HIGH: "Alto", REVIEW_REQUIRED: "Revisão necessária" };
 
 function buildHref(projectId: string, params: Record<string, string | number | null | undefined>): string {
@@ -61,10 +81,10 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
   if (!isWeeklyReportsEnabled()) {
     return (
       <div className="flex flex-col gap-6">
-        <PageHeader title="Financeiro" description="Dashboard financeiro do relatório semanal." />
+        <PageHeader title="Financeiro" description="Dashboard financeiro do relatório semanal." actions={<HelpHint helpId="financeiro" />} />
         <Card>
           <CardContent className="pt-6 text-sm" role="status" data-testid="financial-feature-disabled">
-            <strong>Funcionalidade indisponível neste ambiente.</strong> O dashboard Financeiro faz parte dos relatórios semanais, ainda não habilitados nesta instalação.
+            <strong>Funcionalidade indisponível neste ambiente.</strong> <HelpHint helpId="comercial.financeiro.mensagem-indisponivel" /> O dashboard Financeiro faz parte dos relatórios semanais, ainda não habilitados nesta instalação.
           </CardContent>
         </Card>
       </div>
@@ -76,10 +96,10 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
   if (!model.access) {
     return (
       <div className="flex flex-col gap-6">
-        <PageHeader title="Financeiro" description="Dashboard financeiro do relatório semanal." />
+        <PageHeader title="Financeiro" description="Dashboard financeiro do relatório semanal." actions={<HelpHint helpId="financeiro" />} />
         <Card>
           <CardContent className="pt-6 text-sm" role="alert" data-testid="financial-access-denied">
-            <strong>Acesso negado.</strong> Dados financeiros são restritos a membros ativos do projeto com papel Administrador ou Gerente, ou das áreas Diretoria e Financeiro. Solicite acesso ao administrador do projeto.
+            <strong>Acesso negado.</strong> <HelpHint helpId="comercial.financeiro.mensagem-acesso-negado" /> Dados financeiros são restritos a membros ativos do projeto com papel Administrador ou Gerente, ou das áreas Diretoria e Financeiro. Solicite acesso ao administrador do projeto.
           </CardContent>
         </Card>
       </div>
@@ -100,13 +120,19 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
       <PageHeader
         title="Financeiro"
         description="Dashboard alimentado exclusivamente pela aba Financeiro da planilha Excel do relatório semanal — nunca por PDF nem por valores digitados."
-        actions={originHref ? <Link href={originHref} className={cn(buttonVariants({ size: "sm" }))}>ABRIR RELATÓRIO DE ORIGEM</Link> : null}
+        actions={
+          <div className="flex items-center gap-2">
+            {originHref ? <Link href={originHref} className={cn(buttonVariants({ size: "sm" }))}>ABRIR RELATÓRIO DE ORIGEM</Link> : null}
+            {originHref ? <HelpHint helpId="comercial.financeiro.botao-relatorio-origem" /> : null}
+            <HelpHint helpId="financeiro" />
+          </div>
+        }
       />
 
       {/* Cabeçalho compacto */}
       <Card>
         <CardContent className="grid gap-2 pt-4 text-xs sm:grid-cols-4" data-testid="financial-header">
-          <div><span className="text-muted-foreground">Projeto:</span> {project ? `${project.code} — ${project.name}` : projectId}</div>
+          <div><span className="text-muted-foreground">Projeto:</span> <HelpHint helpId="comercial.financeiro.cabecalho" /> {project ? `${project.code} — ${project.name}` : projectId}</div>
           <div><span className="text-muted-foreground">Semana WNN:</span> {selected?.workWeekLabel ?? NOT_AVAILABLE}{selectedVersion?.superseded ? <Badge variant="outline" className="ml-1 border-amber-600 text-amber-800">versão substituída</Badge> : null}</div>
           <div><span className="text-muted-foreground">Data de corte:</span> {formatDateBR(selected?.cutoffDate)}</div>
           <div><span className="text-muted-foreground">E-mail:</span> {formatDateTimeBR(selected?.emailSentAt)}</div>
@@ -116,14 +142,14 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
           <div><span className="text-muted-foreground">Última atualização:</span> {formatDateTimeBR(selected?.validatedAt ?? selected?.extractedAt)}</div>
           <div><span className="text-muted-foreground">Versão:</span> {selected ? `${sameWeekVersions.length > 1 ? `${sameWeekVersions.findIndex((v) => v.workbookId === selected.workbookId) === 0 ? "mais recente" : "anterior"} de ${sameWeekVersions.length}` : "única"} · SHA ${selected.fileSha256.slice(0, 8)}…` : NOT_AVAILABLE}</div>
           <div><span className="text-muted-foreground">Unidade/moeda:</span> {unitLabel}</div>
-          <div><span className="text-muted-foreground">Expert:</span> {selected?.expertId === "commercial-director" ? "Expert Comercial/Financeiro (commercial-director) · consolidação CEO IA" : (selected?.expertId ?? "—")}</div>
+          <div><span className="text-muted-foreground">Expert:</span> <HelpHint helpId="comercial.financeiro.expert" /> {selected?.expertId === "commercial-director" ? "Expert Comercial/Financeiro (commercial-director) · consolidação CEO IA" : (selected?.expertId ?? "—")}</div>
         </CardContent>
       </Card>
 
       {/* Filtros: semana, versão, período, série */}
       <form method="get" action={`/${projectId}/financeiro`} className="grid gap-2 rounded-md border bg-card p-3 text-xs sm:grid-cols-6" role="search" aria-label="Selecionar semana, versão e período">
         <label className="flex flex-col gap-1">
-          Semana da obra
+          <span className="flex items-center gap-1">Semana da obra <HelpHint helpId="comercial.financeiro.filtro-semana" /></span>
           <Select name="semana" defaultValue={query.workWeekNumber ?? ""} aria-label="Semana da obra">
             <option value="">Mais recente</option>
             {weekOptions.map((v) => (
@@ -134,7 +160,7 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
           </Select>
         </label>
         <label className="flex flex-col gap-1">
-          Versão do envio
+          <span className="flex items-center gap-1">Versão do envio <HelpHint helpId="comercial.financeiro.filtro-versao" /></span>
           <Select name="versao" defaultValue={query.workbookId ?? ""} aria-label="Versão do envio">
             <option value="">Válida mais recente</option>
             {versions.map((v) => (
@@ -145,7 +171,7 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
           </Select>
         </label>
         <label className="flex flex-col gap-1">
-          De
+          <span className="flex items-center gap-1">De <HelpHint helpId="comercial.financeiro.filtro-periodo" /></span>
           <Input type="date" name="de" defaultValue={query.from ?? ""} aria-label="Período inicial" />
         </label>
         <label className="flex flex-col gap-1">
@@ -153,7 +179,7 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
           <Input type="date" name="ate" defaultValue={query.to ?? ""} aria-label="Período final" />
         </label>
         <label className="flex flex-col gap-1">
-          Série
+          <span className="flex items-center gap-1">Série <HelpHint helpId="comercial.financeiro.filtro-serie" /></span>
           <Select name="serie" defaultValue={query.series ?? ""} aria-label="Série financeira">
             <option value="">Todas</option>
             {charts.map((chart) => (
@@ -166,6 +192,7 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
         <div className="flex items-end gap-2">
           <button type="submit" className={cn(buttonVariants({ size: "sm" }))}>Aplicar</button>
           <Link href={`/${projectId}/financeiro`} className={cn(buttonVariants({ size: "sm", variant: "outline" }))}>Limpar</Link>
+          <HelpHint helpId="comercial.financeiro.botao-aplicar-limpar" />
         </div>
       </form>
 
@@ -176,7 +203,7 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
           {selected.sheetStatus === "MISSING_SHEET" || selected.sheetStatus === "AMBIGUOUS_SHEET" || selected.sheetStatus === "PENDING_HUMAN_REVIEW" || selected.sheetStatus === "FAILED" ? (
             <Card>
               <CardContent className="pt-4 text-xs text-amber-800" role="status">
-                {SHEET_STATUS_LABELS[selected.sheetStatus]} — {selected.alerts.map((alert) => alert.detail).join(" ") || "sem valores financeiros disponíveis nesta versão."}{" "}
+                <HelpHint helpId="comercial.financeiro.alerta-status-aba" /> {SHEET_STATUS_LABELS[selected.sheetStatus]} — {selected.alerts.map((alert) => alert.detail).join(" ") || "sem valores financeiros disponíveis nesta versão."}{" "}
                 {originHref ? <Link href={originHref} className="underline">Revisar/mapear no relatório de origem</Link> : null}
               </CardContent>
             </Card>
@@ -186,6 +213,7 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
           ) : null}
 
           <p className="text-xs text-muted-foreground" data-testid="financial-base-disclaimer">
+            <HelpHint helpId="comercial.financeiro.aviso-base" />{" "}
             Informativo: o previsto destas planilhas pode ser reprevisto a cada semana (meses encerrados ajustados ao realizado). Proximidade entre previsto e realizado não comprova cumprimento da meta original.
             {selected.cutoffDate ? null : " Esta leitura não tem data de corte gravada: meses futuros e o mês corrente (parcial) aparecem junto dos encerrados."}
           </p>
@@ -200,6 +228,7 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
                   <CardHeader className="pb-1">
                     <CardTitle className="text-xs font-medium text-muted-foreground" title={card.note ?? undefined}>
                       {card.label} <span className="font-normal">({card.scope === "PERIOD" ? "período" : card.scope === "CUMULATIVE" ? "acumulado" : "derivado"})</span>
+                      {CARD_HELP_IDS[card.key] ? <HelpHint helpId={CARD_HELP_IDS[card.key]} /> : null}
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="text-lg font-semibold">
@@ -222,7 +251,7 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
           {/* Alterações desde o relatório anterior */}
           <Card>
             <CardHeader>
-              <CardTitle>ALTERAÇÕES DESDE O RELATÓRIO ANTERIOR {previous ? `(${previous.workWeekLabel ?? "anterior"} → ${selected.workWeekLabel ?? "atual"})` : ""}</CardTitle>
+              <CardTitle>ALTERAÇÕES DESDE O RELATÓRIO ANTERIOR {previous ? `(${previous.workWeekLabel ?? "anterior"} → ${selected.workWeekLabel ?? "atual"})` : ""} <HelpHint helpId="comercial.financeiro.alteracoes" /></CardTitle>
             </CardHeader>
             <CardContent className="text-xs">
               {!previous ? (
@@ -239,7 +268,7 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
                         <TableHead>Anterior</TableHead>
                         <TableHead>Atual</TableHead>
                         <TableHead>Diferença</TableHead>
-                        <TableHead>Classificação</TableHead>
+                        <TableHead>Classificação <HelpHint helpId="comercial.financeiro.alteracoes-classificacao" /></TableHead>
                         <TableHead>Fonte anterior → atual</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -265,7 +294,7 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
           {/* Cruzamento Financeiro × Curva S × MPP */}
           <Card>
             <CardHeader>
-              <CardTitle>Cruzamento Financeiro × Curva S × MPP</CardTitle>
+              <CardTitle>Cruzamento Financeiro × Curva S × MPP <HelpHint helpId="comercial.financeiro.cruzamento" /></CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-2 text-xs">
               <p className="text-muted-foreground">
@@ -278,6 +307,7 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
                   {crossChecks.map((finding) => (
                     <li key={finding.code} className="rounded-md border p-2">
                       <div className="flex flex-wrap items-center gap-2">
+                        <HelpHint helpId="comercial.financeiro.cruzamento-severidade" />
                         <Badge variant="outline">{finding.domain}</Badge>
                         <Badge variant="outline" className={finding.severity === "CRITICAL" ? "border-red-700 text-red-700" : finding.severity === "WARNING" ? "border-amber-600 text-amber-800" : ""}>{finding.severity}</Badge>
                         {finding.humanReviewRequired ? <Badge variant="outline" className="border-violet-600 text-violet-700">revisão humana</Badge> : null}
@@ -295,7 +325,7 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
           {/* Tabela detalhada */}
           <Card>
             <CardHeader>
-              <CardTitle>Tabela detalhada ({table.total} período(s))</CardTitle>
+              <CardTitle>Tabela detalhada ({table.total} período(s)) <HelpHint helpId="comercial.financeiro.tabela-detalhada" /></CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-xs">
               <form method="get" action={`/${projectId}/financeiro`} className="flex flex-wrap items-end gap-2" aria-label="Pesquisar e ordenar a tabela">
@@ -304,7 +334,7 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
                 <input type="hidden" name="de" value={query.from ?? ""} />
                 <input type="hidden" name="ate" value={query.to ?? ""} />
                 <label className="flex flex-col gap-1">
-                  Pesquisar período
+                  <span className="flex items-center gap-1">Pesquisar período <HelpHint helpId="comercial.financeiro.tabela-busca-ordenacao" /></span>
                   <Input name="q" defaultValue={query.query} placeholder="W37 ou 2026-09" aria-label="Pesquisar período" />
                 </label>
                 <label className="flex flex-col gap-1">
@@ -329,10 +359,10 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
                         {table.columns.map((column) => (
                           <TableHead key={column}>{COLUMN_LABELS[column] ?? column}</TableHead>
                         ))}
-                        <TableHead>Desvio abs.</TableHead>
+                        <TableHead>Desvio abs. <HelpHint helpId="comercial.financeiro.coluna-desvio" /></TableHead>
                         <TableHead>Desvio %</TableHead>
                         <TableHead>Unidade</TableHead>
-                        <TableHead>Confiança</TableHead>
+                        <TableHead>Confiança <HelpHint helpId="comercial.financeiro.coluna-confianca-origem" /></TableHead>
                         <TableHead>Origem</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -378,7 +408,7 @@ export default async function FinanceiroPage({ params, searchParams }: { params:
           {canEdit && Array.isArray(data.rows) && data.rows.length > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>Correção humana de valores</CardTitle>
+                <CardTitle>Correção humana de valores <HelpHint helpId="comercial.financeiro.correcao-humana" /></CardTitle>
               </CardHeader>
               <CardContent className="flex flex-col gap-2 text-xs">
                 <p className="text-muted-foreground">O valor original extraído é preservado (evento de revisão + cópia em <code>data.original</code>); a correção fica sinalizada, auditada (usuário/data/justificativa) e as métricas são recalculadas pelo worker de forma idempotente.</p>

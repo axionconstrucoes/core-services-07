@@ -39,16 +39,20 @@ export async function completeProjectStartup(supabase: SupabaseClient, input: Co
   const dayBefore = new Date(operationalStart.getTime() - 24 * 60 * 60 * 1000);
   const historicalReviewThrough = dayBefore.toISOString().slice(0, 10);
 
-  const { error } = await supabase
+  const { data: persistedRows, error } = await supabase
     .from("projects")
     .update({
       startup_completed_at: new Date().toISOString(),
       startup_completed_by_user_id: input.completedByUserId,
       historical_review_through: historicalReviewThrough,
     })
-    .eq("id", input.projectId);
+    .eq("id", input.projectId)
+    .select("id");
 
   if (error) throw new Error(`Falha ao concluir Start-up do projeto: ${error.message}`);
+
+  // UPDATE que casa 0 linhas não dá erro (RLS): sem a linha gravada de volta, nada foi persistido.
+  if (!persistedRows?.length) throw new Error("A conclusão do Start-up não foi gravada: somente um ADMINISTRADOR ativo da obra pode alterar este registro (ou ele não existe mais).");
 
   return getProjectStartupConfig(supabase, input.projectId);
 }

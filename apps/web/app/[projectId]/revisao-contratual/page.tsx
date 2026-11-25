@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { AlertSeverity } from "@axion/types";
 import { PageHeader } from "@/components/layout/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { SeverityBadge } from "@/components/shared/badges";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,13 +56,15 @@ export default async function ContractReviewPage({
       <PageHeader
         title="Revisão Contratual"
         description="Candidatos detectados automaticamente a partir das comunicações do projeto. Nenhum candidato entra no Event Ledger sem revisão humana."
+        actions={<FeatureInfo helpId="juridico.revisao-contratual.pagina" />}
       />
 
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">
+            <p className="flex items-center gap-1 text-xs text-muted-foreground">
               Pendentes
+              <FeatureInfo helpId="juridico.revisao-contratual.resumo" />
             </p>
             <p className="text-2xl font-semibold">
               {candidates.length}
@@ -102,8 +105,9 @@ export default async function ContractReviewPage({
                 <CardHeader className="gap-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <CardTitle className="text-base">
+                      <CardTitle className="flex items-center gap-1 text-base">
                         {candidate.subject}
+                        <FeatureInfo helpId="juridico.revisao-contratual.candidato" />
                       </CardTitle>
 
                       <p className="mt-1 text-xs text-muted-foreground">
@@ -117,6 +121,7 @@ export default async function ContractReviewPage({
 
                     <SeverityBadge
                       severity={candidate.priority as AlertSeverity}
+                      withInfo
                     />
                   </div>
 
@@ -256,6 +261,7 @@ export default async function ContractReviewPage({
 
                   {canReview ? (
                     <div className="grid gap-4 lg:grid-cols-2">
+                      {/* help-exempt: o formulário agrupa campos e botão que têm Hover Text próprio (título, conclusão e Aprovar como evento) */}
                       <form
                         action={
                           reviewContractCandidateAction
@@ -277,8 +283,9 @@ export default async function ContractReviewPage({
                         />
 
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="flex items-center gap-1 text-sm font-medium">
                             Título do evento
+                            <FeatureInfo helpId="juridico.revisao-contratual.campos-evento" />
                           </label>
 
                           <input
@@ -292,8 +299,9 @@ export default async function ContractReviewPage({
                         </div>
 
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="flex items-center gap-1 text-sm font-medium">
                             Conclusão do revisor
+                            <FeatureInfo helpId="juridico.revisao-contratual.campos-evento" />
                           </label>
 
                           <textarea
@@ -305,11 +313,14 @@ export default async function ContractReviewPage({
                           />
                         </div>
 
-                        <Button
-                          type="submit"
-                        >
-                          Aprovar como evento
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="submit"
+                          >
+                            Aprovar como evento
+                          </Button>
+                          <FeatureInfo helpId="juridico.revisao-contratual.aprovar" />
+                        </div>
                       </form>
 
                       <form
@@ -333,8 +344,9 @@ export default async function ContractReviewPage({
                         />
 
                         <div>
-                          <label className="text-sm font-medium">
+                          <label className="flex items-center gap-1 text-sm font-medium">
                             Justificativa da rejeição
+                            <FeatureInfo helpId="juridico.revisao-contratual.campos-evento" />
                           </label>
 
                           <textarea
@@ -346,20 +358,23 @@ export default async function ContractReviewPage({
                           />
                         </div>
 
-                        <Button
-                          type="submit"
-                          variant="outline"
-                          className="border-destructive text-destructive hover:bg-destructive/10"
-                        >
-                          Rejeitar candidato
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="submit"
+                            variant="outline"
+                            className="border-destructive text-destructive hover:bg-destructive/10"
+                          >
+                            Rejeitar candidato
+                          </Button>
+                          <FeatureInfo helpId="juridico.revisao-contratual.rejeitar" />
+                        </div>
                       </form>
                     </div>
                   ) : (
                     <p className="rounded-md border bg-muted p-3 text-sm text-muted-foreground">
                       Você possui acesso de leitura.
-                      Aprovação ou rejeição exige
-                      permissão EDITOR ou ADMIN.
+                      Aprovação ou rejeição exige o perfil
+                      ADMINISTRADOR neste projeto.
                     </p>
                   )}
                 </CardContent>

@@ -2,8 +2,13 @@ import "server-only";
 
 import { createSupabaseAdminClient } from "@axion/db/admin";
 
+import { issueItemReplyMailto, slaReplyEligible, type ItemReplySeverity } from "@/lib/email-replies/issue-item-reply-mailto";
+import { createSupabaseEmailReplyTokenStore } from "@/lib/email-replies/reply-tokens";
+import type { ReplyMailtoLinks } from "@/lib/email-replies/reply-mailto";
+
 import { appendAccEmailSignature } from "./branding/acc-email-signature";
 import { loadAccAlertLogos } from "./branding/load-acc-logo-inline-image";
+import { ALERT_REPLY_MAILBOX_ENV } from "./alert-reply-address";
 import { EmailSendError } from "./email-provider";
 import { getEmailProvider } from "./get-email-provider";
 import { buildSlaEscalationEmail, type SlaEscalationEmailInput } from "./templates/sla-escalation-template";
@@ -38,13 +43,52 @@ export interface SendSlaEscalationEmailResult {
  * padrão de send-contract-alert-email.ts (nenhuma policy de INSERT
  * existe para essas tabelas sob RLS normal).
  */
+/**
+ * Atalhos "Responder por e-mail" (token POR ITEM, SLA_ACTION) para o destinatário do escalonamento — só quando ele pode
+ * agir pela regra do banco (ver slaReplyEligible). Qualquer falha => null (o e-mail sai como antes, sem atalhos).
+ */
+async function slaReplyMailtoFor(input: SendSlaEscalationEmailInput): Promise<ReplyMailtoLinks | null> {
+  try {
+    const admin = createSupabaseAdminClient();
+    const { data: action } = await admin
+      .from("sla_actions")
+      .select("id,project_id,status,risk_level,responsible_user_id,related_ssma_corrective_action_id")
+      .eq("id", input.actionId)
+      .maybeSingle();
+    if (!action || action.project_id !== input.projectId) return null;
+    const { data: linked } = await admin.from("risk_alert_cases").select("id").eq("sla_action_id", input.actionId);
+    const { data: profiles } = await admin.from("profiles").select("id,email").eq("email", input.recipientEmail.trim().toLowerCase());
+    const recipient = (profiles ?? []).length === 1 ? (profiles as Array<{ id: string }>)[0] : null;
+    const { data: membership } = recipient
+      ? await admin.from("project_memberships").select("permission").eq("project_id", input.projectId).eq("user_id", recipient.id).eq("status", "ACTIVE").maybeSingle()
+      : { data: null };
+    if (!slaReplyEligible({ action, riskCaseLinked: (linked ?? []).length > 0, recipientUserId: recipient?.id ?? null, recipientPermission: (membership?.permission as string | undefined) ?? null })) return null;
+    const severity = action.risk_level as ItemReplySeverity;
+    return await issueItemReplyMailto({
+      store: createSupabaseEmailReplyTokenStore(admin),
+      mailbox: process.env[ALERT_REPLY_MAILBOX_ENV] ?? null,
+      projectId: input.projectId,
+      kind: "SLA_ACTION",
+      subjectId: input.actionId,
+      recipientUserId: recipient?.id ?? null,
+      severity,
+      nowIso: new Date().toISOString(),
+      evidenceRequired: severity === "HIGH" || severity === "CRITICAL",
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function sendSlaEscalationEmail(
   input: SendSlaEscalationEmailInput
 ): Promise<SendSlaEscalationEmailResult> {
   const critical = input.email.severity === "CRITICA";
+  const replyByEmail = input.email.replyByEmail ?? (await slaReplyMailtoFor(input));
   const { images, availability } = loadAccAlertLogos({ maroon: !critical, inverted: critical });
   const { subject, html, text } = buildSlaEscalationEmail({
     ...input.email,
+    replyByEmail,
     code: input.actionId.slice(0, 8).toUpperCase(),
     logos: availability,
   });
@@ -63,6 +107,7 @@ export async function sendSlaEscalationEmail(
       inlineImages: images.length > 0 ? images : undefined,
       correlationId,
       vera: { projectId: input.projectId, context: "alerta" },
+      governance: { type: "SLA_ESCALATION", projectId: input.projectId, priority: critical ? "CRITICAL" : null },
       pilot: { projectId: input.projectId, participantLabel: `Responsável do ${input.email.escalationLevelLabel}`, escalationLevel: input.email.escalationLevelLabel },
     });
   } catch (error) {

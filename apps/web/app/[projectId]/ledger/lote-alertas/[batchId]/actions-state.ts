@@ -4,6 +4,7 @@ export interface SubmitContractAlertBatchState {
   success: boolean;
   error: string | null;
   pendingItems: PendingContractAlertBatchItem[];
+  warning?: string | null;
 }
 
 export const initialSubmitContractAlertBatchState: SubmitContractAlertBatchState = {

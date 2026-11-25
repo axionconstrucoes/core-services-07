@@ -6,6 +6,10 @@
 // reutiliza os context builders genéricos e o provider abstrato.
 
 import { createSupabaseServerClient } from "@axion/db/server";
+import { precheckAiConsult, reserveAiConsult } from "./alert-consult/consult-quota";
+import { gatedProviderForExpert } from "./governance/quota-gated-provider";
+import { sessionAuditSink } from "./governance/consult-audit";
+import { ESG_DIRECTOR_EXPERT_ID } from "./experts/esg-director/identity";
 import { answerEsgDirectorQuery } from "./experts/esg-director/query";
 import { parseExpertQueryForm, resolveExpertQueryErrorMessage } from "./expert-query-request";
 import { buildAiProviderUiMetadata, type AiProviderUiMetadata } from "./provider-ui-metadata";
@@ -30,8 +34,19 @@ export async function askEsgDirectorAction(
 
   const supabase = await createSupabaseServerClient();
 
+  // Limite de IA (EXPERT_PANEL): pré-verificação somente leitura e reserva na FRONTEIRA DO PROVEDOR.
+  const precheck = await precheckAiConsult(supabase, parsed.request.projectId);
+  if (!precheck.ok) {
+    return { response: null, error: precheck.error, meta: null };
+  }
+
   try {
-    const result = await answerEsgDirectorQuery(supabase, parsed.request);
+    const provider = gatedProviderForExpert(ESG_DIRECTOR_EXPERT_ID, (expertId) =>
+      reserveAiConsult(supabase, parsed.request.projectId, "EXPERT_PANEL", parsed.request.eventId ?? parsed.request.projectId, expertId),
+    undefined,
+    sessionAuditSink(supabase, parsed.request.projectId, "EXPERT_PANEL", parsed.request.eventId ?? parsed.request.projectId)
+    );
+    const result = await answerEsgDirectorQuery(supabase, parsed.request, provider);
 
     return {
       response: result.response,

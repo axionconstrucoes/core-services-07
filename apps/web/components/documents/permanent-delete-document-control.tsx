@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { createSupabaseBrowserClient } from "@axion/db/browser";
 
@@ -63,14 +64,17 @@ export function PermanentDeleteDocumentControl({
 
   if (!confirming) {
     return (
-      <Button
-        type="button"
-        size="sm"
-        className="bg-red-700 text-white hover:bg-red-800"
-        onClick={() => setConfirming(true)}
-      >
-        Excluir definitivamente
-      </Button>
+      <span className="inline-flex items-center gap-1">
+        <Button
+          type="button"
+          size="sm"
+          className="bg-red-700 text-white hover:bg-red-800"
+          onClick={() => setConfirming(true)}
+        >
+          Excluir definitivamente
+        </Button>
+        <FeatureInfo helpId="juridico.documentos.lixeira" />
+      </span>
     );
   }
 
@@ -80,16 +84,12 @@ export function PermanentDeleteDocumentControl({
       <span>
         O documento e suas versões operacionais serão removidos. O registro de auditoria permanece.
       </span>
-      <div className="flex gap-1">
-        <Button
-          type="button"
-          size="sm"
-          className="bg-red-700 text-white hover:bg-red-800"
-          disabled={busy}
-          onClick={handleDelete}
-        >
+      <div className="flex items-center gap-1">
+        <Button type="button" size="sm" className="bg-red-700 text-white hover:bg-red-800" disabled={busy} onClick={handleDelete}>
           {busy ? "Excluindo…" : "Confirmar exclusão"}
         </Button>
+        <FeatureInfo helpId="juridico.documentos.lixeira" />
+        {/* help-exempt: Cancelar apenas fecha a confirmação sem executar nenhuma ação */}
         <Button
           type="button"
           size="sm"

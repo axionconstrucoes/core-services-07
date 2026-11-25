@@ -9,6 +9,7 @@ import {
   type DragEvent,
 } from "react";
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import type { ManagedDocument } from "@/lib/document-management";
@@ -98,14 +99,18 @@ export function DocumentMultiUploadPanel({ projectId, documents }: Props) {
           Arraste e solte vários arquivos aqui, ou
         </p>
 
-        <Button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="border border-yellow-500 bg-yellow-400 text-black hover:bg-yellow-500 hover:text-black"
-        >
-          Selecionar arquivos
-        </Button>
+        <span className="inline-flex items-center gap-1">
+          <Button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="border border-yellow-500 bg-yellow-400 text-black hover:bg-yellow-500 hover:text-black"
+          >
+            Selecionar arquivos
+          </Button>
+          <FeatureInfo helpId="juridico.documentos.upload-multiplo" />
+        </span>
 
+        {/* help-exempt: input de arquivo oculto acionado pelo botão Selecionar arquivos, que é o controle documentado */}
         <input
           ref={fileInputRef}
           type="file"
@@ -125,7 +130,10 @@ export function DocumentMultiUploadPanel({ projectId, documents }: Props) {
         <>
           <div className="flex flex-wrap items-end gap-3">
             <label className="flex flex-col gap-1.5 text-sm">
-              <span className="font-medium">Tipo para aplicar ao lote</span>
+              <span className="flex items-center gap-1 font-medium">
+                Tipo para aplicar ao lote
+                <FeatureInfo helpId="juridico.documentos.tipo-lote" />
+              </span>
               <Select
                 value={batchDefaultKind}
                 onChange={(event) =>
@@ -133,7 +141,7 @@ export function DocumentMultiUploadPanel({ projectId, documents }: Props) {
                     event.target.value as MultiUploadDocumentKind
                   )
                 }
-                className="h-9 border-gray-400 bg-gray-300 text-black hover:bg-gray-400"
+                className="h-9 border-gray-400 bg-gray-300 text-white hover:border-gray-500"
               >
                 <option value="" disabled>
                   Selecione o tipo documental
@@ -146,28 +154,23 @@ export function DocumentMultiUploadPanel({ projectId, documents }: Props) {
               </Select>
             </label>
 
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={!hasPending || !batchDefaultKind}
-              onClick={() => applyKindToAllPending(batchDefaultKind)}
-            >
-              Aplicar aos arquivos aguardando
-            </Button>
+            <span className="inline-flex items-center gap-1">
+              <Button type="button" variant="outline" size="sm" disabled={!hasPending || !batchDefaultKind} onClick={() => applyKindToAllPending(batchDefaultKind)}>
+                Aplicar aos arquivos aguardando
+              </Button>
+              <FeatureInfo helpId="juridico.documentos.tipo-lote" />
+            </span>
 
-            <Button
-              type="button"
-              disabled={!hasPending || hasPendingWithoutKind || isRunning}
-              onClick={startBatch}
-              className="ml-auto"
-            >
-              {isRunning ? "Enviando lote..." : "Iniciar envio"}
-            </Button>
+            <span className="ml-auto inline-flex items-center gap-1">
+              <Button type="button" disabled={!hasPending || hasPendingWithoutKind || isRunning} onClick={startBatch}>
+                {isRunning ? "Enviando lote..." : "Iniciar envio"}
+              </Button>
+              <FeatureInfo helpId="juridico.documentos.tipo-lote" />
+            </span>
           </div>
 
           {hasPendingWithoutKind ? (
-            <p className="rounded-md border border-amber-500/50 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+            <p className="rounded-md border border-amber-500/50 bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-100">
               Antes de iniciar, confirme o tipo documental de cada arquivo. Você pode selecionar o tipo individualmente em cada item ou escolher um tipo acima e clicar em <strong>Aplicar aos arquivos aguardando</strong>. Nenhum tipo é atribuído automaticamente, exceto arquivos .mpp, identificados como cronograma baseline.
             </p>
           ) : null}

@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,7 +31,10 @@ export function EsgReviewForm({
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="submissionId" value={submissionId} />
 
-      <p className="text-xs font-medium text-muted-foreground">Revisar/ajustar status (ADMIN)</p>
+      <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        Revisar/ajustar status (ADMIN)
+        <FeatureInfo helpId="ssma.esg.revisao-formulario" />
+      </p>
 
       <div className="flex flex-wrap items-end gap-2">
         <Select name="newStatus" defaultValue={currentStatus} className="max-w-[220px]">
@@ -45,7 +49,10 @@ export function EsgReviewForm({
         </Button>
       </div>
 
-      <Textarea name="reviewNote" rows={2} placeholder="Observação da revisão (obrigatória para Não aplicável/Dispensado)" />
+      <div className="flex items-start gap-1.5">
+        <Textarea name="reviewNote" rows={2} aria-label="Observação da revisão" placeholder="Observação da revisão (obrigatória para Não aplicável/Dispensado)" />
+        <FeatureInfo helpId="ssma.esg.revisao-nota" className="mt-2" />
+      </div>
 
       {state.error ? <p className="text-xs text-destructive">{state.error}</p> : null}
       {state.success ? <p className="text-xs text-emerald-600">Revisão registrada.</p> : null}

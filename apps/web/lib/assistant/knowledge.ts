@@ -9,6 +9,7 @@
 // Puro, sem I/O, sem "server-only": testável por script Node (mesmo padrão de lib/ui/feature-help.ts).
 
 import { APPROVED_BATCH_1_ENTRIES } from "./approved-batch-1";
+import { ABAS_ENTRIES } from "./abas/axia-entradas";
 import { EMAIL_AUTH_FILTERS, GMAIL_OAUTH_SCOPE, GOOGLE_PERMISSIONS_URL } from "../email-authorization/notice";
 
 export interface AssistantLink {
@@ -344,7 +345,9 @@ export const ASSISTANT_READ_ONLY_NOTICE =
   "A AXIA só orienta: ela não altera dados nem executa ações no sistema. Os passos abaixo mostram como fazer isso você mesmo, com o seu perfil.";
 
 /** Base completa: entradas do tutorial + 20 entradas aprovadas do lote 1 do Q&A (docs/qa-axia-lote-1.md). */
-export const ASSISTANT_ENTRIES: AssistantEntry[] = [...CORE_ASSISTANT_ENTRIES, ...APPROVED_BATCH_1_ENTRIES];
+// Ordem: tutorial, lote 1 aprovado e, por último, a base de USO por aba (lib/assistant/abas, mesma fonte do Manual do Usuário):
+// em empate de pontuação, as entradas anteriores vencem.
+export const ASSISTANT_ENTRIES: AssistantEntry[] = [...CORE_ASSISTANT_ENTRIES, ...APPROVED_BATCH_1_ENTRIES, ...ABAS_ENTRIES];
 
 export function getAssistantEntry(id: string): AssistantEntry | null {
   return ASSISTANT_ENTRIES.find((entry) => entry.id === id) ?? null;

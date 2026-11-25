@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@axion/db/browser";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { ESG_REFERENCE_NOTICE, eligibleSubmissions, esgReferenceErrorMessage } from "@/lib/ssma/esg-reference";
 
 interface Reference {
@@ -97,7 +98,10 @@ export function EsgEvidenceLink({
 
   return (
     <section className="space-y-3 rounded-xl bg-white p-4 shadow-sm" aria-label="Evidência ESG" data-testid="esg-evidence-link">
-      <h2 className="font-bold uppercase text-slate-900">Evidência ESG</h2>
+      <h2 className="flex items-center gap-1.5 font-bold uppercase text-slate-900">
+        Evidência ESG
+        <FeatureInfo helpId="ssma.registro.evidencia-esg" />
+      </h2>
       <p className="text-xs font-medium text-slate-600">{ESG_REFERENCE_NOTICE}</p>
       {refs.length > 0 ? (
         <ul className="space-y-2">
@@ -111,6 +115,7 @@ export function EsgEvidenceLink({
                 </p>
                 {!canLink || !(isAdmin || ref.created_by_user_id === userId) ? null : unlinking === ref.id ? (
                   <div className="mt-2 space-y-2">
+                    {/* help-exempt: motivo e confirmação para desfazer o vínculo; descritos em ssma.registro.evidencia-esg */}
                     <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Motivo (mín. 3 caracteres)" aria-label="Motivo" className="block min-h-11 w-full rounded border-2 border-slate-300 px-2 text-sm" />
                     <button
                       type="button"
@@ -122,6 +127,7 @@ export function EsgEvidenceLink({
                     </button>
                   </div>
                 ) : (
+                  // help-exempt: botão Desfazer vínculo; fluxo descrito em ssma.registro.evidencia-esg
                   <button type="button" onClick={() => setUnlinking(ref.id)} className="mt-1 min-h-11 text-xs font-bold text-red-700 underline">Desfazer vínculo</button>
                 )}
               </li>
@@ -135,17 +141,19 @@ export function EsgEvidenceLink({
         <p className="text-xs text-slate-600">Seu perfil nesta obra é somente leitura: você vê os vínculos, mas não pode criar nem desfazer.</p>
       ) : options.length > 0 ? (
         <div className="space-y-2">
+          {/* help-exempt: seletor da comprovação ESG a vincular; descrito em ssma.registro.evidencia-esg */}
           <select aria-label="Comprovação ESG" value={choice} onChange={(e) => setChoice(e.target.value)} className="block min-h-12 w-full rounded-lg border-2 border-slate-300 bg-white px-3 text-sm">
             <option value="">Selecione a comprovação ESG</option>
             {options.map((s) => (
               <option key={s.id} value={s.id}>{titleOf(s)} · {s.reference_date} · {s.status}</option>
             ))}
           </select>
+          {/* help-exempt: botão que cria o vínculo com a comprovação escolhida; descrito em ssma.registro.evidencia-esg */}
           <button
             type="button"
             disabled={!choice || busy || !online}
             onClick={() => void run(() => createSupabaseBrowserClient().rpc("esg_link_ssma_record", { p_submission_id: choice, p_field_record_id: recordId }), "Registro vinculado como evidência. A obrigação não foi alterada.")}
-            className="min-h-12 w-full rounded-lg border-2 border-[#7f1d1d] px-3 text-sm font-bold uppercase text-red-700 disabled:opacity-50"
+            className="min-h-12 w-full rounded-lg border-2 border-[#7f1d1d] px-3 text-sm font-bold uppercase text-red-700 disabled:opacity-60"
           >
             Usar como evidência ESG
           </button>

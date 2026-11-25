@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { buttonVariants } from "@/components/ui/button";
 import { getProjectMembers } from "@/lib/data";
 import { getWeeklyAlertDigest } from "@/lib/email/get-weekly-alert-digest";
@@ -11,12 +12,18 @@ import { WeeklyDigestForm } from "./weekly-digest-form";
 
 export const metadata: Metadata = { title: "Resumo semanal de alertas" };
 
+const LINK_RESPONSES = ["RESOLVED", "STUDYING", "FORWARDED"] as const;
+
 export default async function WeeklyDigestPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ projectId: string; digestId: string }>;
+  searchParams: Promise<{ item?: string | string[]; resposta?: string | string[] }>;
 }) {
   const { projectId, digestId } = await params;
+  // Botão do e-mail (?item=&resposta=): só pré-seleciona a resposta do item; nada é gravado ao abrir.
+  const query = await searchParams;
   const [digest, members] = await Promise.all([
     getWeeklyAlertDigest(projectId, digestId),
     getProjectMembers(projectId),
@@ -35,14 +42,15 @@ export default async function WeeklyDigestPage({
   }
 
   const activeMembers = members
-    .filter((member) => member.status === "ACTIVE")
+    // Destino de direcionamento: ativo e não somente leitura (o banco revalida — 20261120150000).
+    .filter((member) => member.status === "ACTIVE" && member.permission !== "LEITURA")
     .map((member) => ({ userId: member.userId, name: member.user.name }));
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-5">
       <div>
         <p className="text-sm font-medium text-primary">ACC · AXION CONTROLE DE CONTRATOS</p>
-        <h1 className="mt-1 text-2xl font-semibold">Resumo semanal — riscos médios e baixos</h1>
+        <h1 className="mt-1 flex items-center gap-1.5 text-2xl font-semibold">Resumo semanal — riscos médios e baixos<FeatureInfo helpId="planejamento.resumo-semanal.pagina" /></h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {digest.projectName} · Semana de {formatDate(digest.weekDate)} · Destinatário: {digest.recipientName}
         </p>
@@ -63,9 +71,20 @@ export default async function WeeklyDigestPage({
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
             Selecione uma opção para cada alerta. O sistema só aceitará o envio quando todos estiverem respondidos.
           </div>
-          <WeeklyDigestForm digestId={digest.id} projectId={projectId} items={digest.items} members={activeMembers} />
+          <WeeklyDigestForm digestId={digest.id} projectId={projectId} items={digest.items} members={activeMembers} initialAnswer={initialAnswerFrom(query, digest.items)} />
         </>
       )}
     </div>
   );
+}
+
+function initialAnswerFrom(
+  query: { item?: string | string[]; resposta?: string | string[] },
+  items: Array<{ actionId: string }>
+): { actionId: string; response: (typeof LINK_RESPONSES)[number] } | null {
+  const actionId = typeof query.item === "string" ? query.item : "";
+  const response = typeof query.resposta === "string" ? query.resposta.toUpperCase() : "";
+  if (!items.some((item) => item.actionId === actionId)) return null;
+  const match = LINK_RESPONSES.find((value) => value === response);
+  return match ? { actionId, response: match } : null;
 }

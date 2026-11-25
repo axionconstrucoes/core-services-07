@@ -71,38 +71,38 @@ check("getFeatureHelp devolve null (nunca lança) para um helpId desconhecido", 
 
 // --- Menu (sidebar): todos os itens reais têm helpId válido ---
 
+// Itens REAIS de NAV_ITEMS (apps/web/lib/ui/nav-items.ts) — 19 hoje (inclui Seguros). Os itens restritos (Eventos, Financeiro, Integrações, Usuários,
+// Autorizações, Reemissão de alertas, Start-up ACC) continuam em NAV_ITEMS; só a exibição é filtrada no layout (server).
+// "Análise Contratual"/"Análise de Cláusulas" saíram do menu (o Expert Jurídico é o ponto único; rotas e ajuda preservadas).
 const EXPECTED_SIDEBAR_LABELS = [
   "Dashboard",
+  "Quatro Pilares",
   "Timeline",
   "Eventos",
   "Solicitações",
   "Ações e Escalonamentos",
-  // Expert Jurídico: ponto único para análise de contratos e consultas
-  // jurídicas (as entradas "Análise Contratual"/"Análise de Cláusulas"
-  // saíram do menu).
   "Jurídico",
-  // "Propostas de Adicionais" removida da sidebar: aba "Serviços
-  // Adicionais" descontinuada (dependia da importação automática do
-  // Drive de Orçamentos, integração cancelada) — serviço adicional
-  // aprovado agora entra por upload manual do ADM em Documentos.
-  // "Análise Contratual"/"Análise de Cláusulas" saíram do menu: o Expert
-  // Jurídico é o ponto único (rotas e ajuda preservadas).
   "Documentos",
-  // Providências e pendências para entrega (tabela única compartilhada com os alertas).
   "Providências",
-  // Financeiro: item restrito (só aparece para quem passa em
-  // evaluateFinancialDashboardAccess), mas faz parte de NAV_ITEMS.
+  "Seguros",
   "Financeiro",
   "ESG/SSMA",
+  "Garantias",
   "Experts IA",
-  "Start-up ACC",
   "Integrações",
   "Usuários",
+  "Autorizações",
+  "Reemissão de alertas",
   "Auditoria",
+  "Ajuda e tutorial",
+  "Start-up ACC",
 ];
 
 check(`menu ${EXPECTED_SIDEBAR_LABELS.length}/${EXPECTED_SIDEBAR_LABELS.length}: NAV_ITEMS cobre exatamente os itens reais da sidebar, todos com helpId válido`, () => {
-  assert(NAV_ITEMS.length === EXPECTED_SIDEBAR_LABELS.length, `esperado ${EXPECTED_SIDEBAR_LABELS.length} itens, obtido ${NAV_ITEMS.length}`);
+  const PHASE2_EXTRA = ["Qualidade", "Garantias", "Seguros", "Pilares", "Competências", "Aprovações externas"]; // + Fase 6/H2a // módulos da fase 2 (um item por agente; cada um com helpId válido, verificado abaixo)
+  const extras = NAV_ITEMS.filter((item) => !EXPECTED_SIDEBAR_LABELS.includes(item.label));
+  assert(extras.every((item) => PHASE2_EXTRA.includes(item.label)), `itens inesperados em NAV_ITEMS: ${extras.map((i) => i.label).join(", ")}`);
+  assert(NAV_ITEMS.length === EXPECTED_SIDEBAR_LABELS.length + extras.length, "itens duplicados em NAV_ITEMS");
   for (const label of EXPECTED_SIDEBAR_LABELS) {
     assert(NAV_ITEMS.some((item) => item.label === label), `item real da sidebar ausente de NAV_ITEMS: "${label}"`);
   }
@@ -119,11 +119,19 @@ check("consistência futura: todo item principal de navegação possui helpId v�
 
 // --- Experts individuais têm ajuda ---
 
-check("Experts individuais têm ajuda: os 5 Experts oficiais têm entrada expert-<id> no registry", () => {
+check("Experts individuais têm ajuda: todos os Experts oficiais (7 com o Analista IA de Qualidade) têm entrada expert-<id> no registry", () => {
+  // Os seis especialistas anteriores mantêm a entrada legada expert-<id> (catálogo legado fixo em 91 entradas, ver
+  // test-help-catalog). O Analista IA de Qualidade (quality-analyst) NÃO cria entrada legada: o perfil dele vive no
+  // módulo experts-ia (experts.qualidade.perfil, formato modulo.tela.elemento) e é o que o hub exibe.
   for (const def of ALL_OFFICIAL_EXPERT_DEFINITIONS) {
-    const helpId = `expert-${def.expertId}`;
-    assert(ACC_FEATURE_HELP[helpId], `${helpId} ausente do registry`);
-    assert(ACC_FEATURE_HELP[helpId].title === def.expertName, `título de ${helpId} deveria bater com o nome real do Expert`);
+    const legacyId = `expert-${def.expertId}`;
+    if (def.expertId === "quality-analyst") {
+      const profile = ACC_FEATURE_HELP["experts.qualidade.perfil"];
+      assert(profile && profile.title.startsWith(def.expertName), "perfil do Analista IA de Qualidade ausente ou com nome divergente");
+      continue;
+    }
+    assert(ACC_FEATURE_HELP[legacyId], `${legacyId} ausente do registry`);
+    assert(ACC_FEATURE_HELP[legacyId].title === def.expertName, `título de ${legacyId} deveria bater com o nome real do Expert`);
   }
 });
 
@@ -142,10 +150,13 @@ check("Start-up tem ajuda: os 6 campos/ações internas têm entrada no registry
 });
 
 check("Start-up tem ajuda: page.tsx e os componentes internos realmente renderizam FeatureInfo com os helpIds certos", () => {
+  // A tela atual do Start-up é SÓ o checklist de implantação (commit 913d672: cabeçalho histórico, editor de datas e achados saíram da
+  // página). A página e o checklist renderizam os ícones novos; os componentes históricos preservados (não montados hoje) mantêm os seus.
   const pageSource = readSource("apps/web/app/[projectId]/startup/page.tsx");
-  assert(pageSource.includes('helpId="startup-project-start-date"'));
-  assert(pageSource.includes('helpId="startup-acc-operational-start-date"'));
-  assert(pageSource.includes('helpId="finding"'));
+  assert(pageSource.includes('helpId="juridico.startup.pagina"'));
+  const checklistSource = readSource("apps/web/components/startup/new-project-startup-checklist.tsx");
+  assert(checklistSource.includes('helpId="juridico.startup.checklist"'));
+  assert(checklistSource.includes('helpId="juridico.startup.etapa"'));
 
   const cardSource = readSource("apps/web/components/startup/historical-finding-card.tsx");
   assert(cardSource.includes('helpId="startup-dismiss"'));
@@ -213,11 +224,20 @@ check("badges: ALTO (amarelo/preto) e CRÍTICO (vermelho/branco) mantêm caixa s
 
 // --- FeatureInfo: verificação estrutural (sem framework de DOM disponível) ---
 
-const featureInfoSource = readSource("apps/web/components/shared/feature-info.tsx");
+// A implementação vive em HelpHint (sistema universal de Hover Text); FeatureInfo é só o nome histórico (wrapper).
+const wrapperSource = readSource("apps/web/components/shared/feature-info.tsx");
+const featureInfoSource = readSource("apps/web/components/shared/help-hint.tsx");
+const helpContentSource = readSource("apps/web/components/shared/help-content.tsx");
+
+check("FeatureInfo: continua exportado como wrapper fino de HelpHint (usos existentes preservados)", () => {
+  assert(wrapperSource.includes("export function FeatureInfo"));
+  assert(wrapperSource.includes("<HelpHint"));
+});
 
 check("FeatureInfo: acessibilidade — aria-label, aria-expanded, aria-haspopup, role=dialog no popover", () => {
   assert(featureInfoSource.includes("aria-label={`Informações sobre"));
   assert(featureInfoSource.includes("aria-expanded={open}"));
+  assert(featureInfoSource.includes("aria-controls={open ? panelId : undefined}") && featureInfoSource.includes("aria-labelledby={titleId}"));
   assert(featureInfoSource.includes('aria-haspopup="dialog"'));
   assert(featureInfoSource.includes('role="dialog"'));
 });
@@ -233,18 +253,26 @@ check("FeatureInfo: click nunca navega/seleciona/fecha sidebar/executa ação da
   assert(featureInfoSource.includes("event.stopPropagation()"));
 });
 
-check("FeatureInfo: desktop hover/focus mostra tooltip curto; click abre popover com explicação completa", () => {
-  assert(featureInfoSource.includes("shortDescription"), "tooltip deveria usar shortDescription (curto)");
-  assert(featureInfoSource.includes("help.description"), "popover deveria usar description (completo)");
-  // O tooltip curto passou de opacity-0/opacity-100 para hidden/block
-  // (display toggle) — correção de um bug real de overflow horizontal
-  // de página: um elemento absolute com opacity-0 continua no layout e
-  // conta no "scrollable overflow" de qualquer ancestral o tempo todo,
-  // mesmo invisível; hidden (display:none) remove a caixa do layout
-  // por completo enquanto oculta. Comportamento visível ao usuário é o
-  // mesmo (aparece no hover/focus), só o mecanismo CSS mudou.
-  assert(featureInfoSource.includes("group-hover/feature-info:block"));
-  assert(featureInfoSource.includes("group-focus-within/feature-info:block"));
+check("FeatureInfo: desktop — mouse sobre o ícone abre o painel e ele permanece aberto enquanto o ponteiro estiver no painel; clique fixa", () => {
+  assert(featureInfoSource.includes("onPointerEnter") && featureInfoSource.includes("onPointerLeave"), "deveria tratar entrada/saída do ponteiro");
+  assert(featureInfoSource.includes("cancelClose") && featureInfoSource.includes("scheduleClose"), "painel deveria permanecer aberto sob o ponteiro (tolerância de saída)");
+  assert(featureInfoSource.includes('event.pointerType !== "mouse"'), "hover só vale para mouse (toque nunca depende de hover)");
+  assert(helpContentSource.includes("help.description"), "painel deveria usar description (completo)");
+  assert(featureInfoSource.includes("HelpContent"), "painel deveria renderizar o conteúdo estruturado");
+});
+
+check("HelpHint: posicionamento — portal fixo dentro da tela, vira para cima, rolagem interna, sem rolar a página", () => {
+  assert(featureInfoSource.includes("createPortal"), "painel em portal (não é cortado por overflow de ancestrais)");
+  assert(featureInfoSource.includes("getBoundingClientRect") && featureInfoSource.includes("window.innerWidth") && featureInfoSource.includes("window.innerHeight"));
+  assert(featureInfoSource.includes("overflow-y-auto") && featureInfoSource.includes("overscroll-contain"), "conteúdo longo rolável sem vazar a rolagem");
+  assert(!featureInfoSource.includes("scrollIntoView"), "nunca rolar a página automaticamente");
+  assert(!/title={[^}]+}|title="/.test(featureInfoSource), "não usar o atributo title");
+});
+
+check("HelpHint: mobile — folha inferior com botão Fechar e toque fora; um painel por vez", () => {
+  assert(featureInfoSource.includes("max-width: 639px") && featureInfoSource.includes("pointer: coarse"));
+  assert(featureInfoSource.includes('aria-label="Fechar ajuda"'));
+  assert(featureInfoSource.includes("acc-help-open"), "um painel aberto por vez");
 });
 
 check("FeatureInfo: mobile/touch — o mesmo botão que recebe click também recebe tap (nenhum caminho hover-only para abrir o popover)", () => {
@@ -256,19 +284,52 @@ check("FeatureInfo: nunca renderiza nada quando helpId é desconhecido (nunca qu
   assert(featureInfoSource.includes("return null;"));
 });
 
-// --- Sidebar: expanded mostra ⓘ, collapsed mantém UX limpa (ajuda dentro do tooltip nativo) ---
+// --- Sidebar: Hover Text universal (HelpHint/FeatureInfo) AO LADO de cada item e do botão Recolher/Expandir ---
+// Mudança de regra (fechamento do Hover Text): antes a trava exigia NENHUM ícone (i) e a dica nativa title; agora exige o ícone universal
+// (que funciona por mouse, teclado e toque, inclusive com a sidebar recolhida) e PROÍBE o atributo title como ajuda.
 
 const sidebarSource = readSource("apps/web/components/layout/app-sidebar.tsx");
 
-check("sidebar: NUNCA renderiza um ⓘ separado (expandida ou recolhida) — ajuda via hover/focus no próprio item, reduz poluição visual (ACC — AJUSTES FINAIS, seção 5/7)", () => {
-  assert(!sidebarSource.includes("<FeatureInfo"), "a sidebar não deveria mais importar/renderizar o componente FeatureInfo");
-  assert(!sidebarSource.includes("import { FeatureInfo }"), "import de FeatureInfo deveria ter sido removido da sidebar");
+check("sidebar: cada item de menu renderiza o Hover Text universal (FeatureInfo) com o helpId do item, FORA do <Link>", () => {
+  assert(sidebarSource.includes('import { FeatureInfo } from "@/components/shared/feature-info"'), "a sidebar deveria importar FeatureInfo");
+  assert(sidebarSource.includes("<FeatureInfo helpId={item.helpId}"), "cada item deveria renderizar <FeatureInfo helpId={item.helpId} />");
+  const linkBlock = sidebarSource.slice(sidebarSource.indexOf("<Link"), sidebarSource.indexOf("</Link>"));
+  assert(!linkBlock.includes("FeatureInfo") && !linkBlock.includes("HelpHint"), "o ícone de ajuda não pode ficar dentro do <a> (HTML inválido e clique navegaria)");
 });
 
-check("sidebar: tooltip nativo (title) com label + shortDescription do registry, no MESMO item, em qualquer estado (recolhida ou expandida)", () => {
-  assert(sidebarSource.includes("itemTitle"));
-  assert(sidebarSource.includes("help.shortDescription"));
-  assert(sidebarSource.includes("title={itemTitle}"), "o tooltip deveria valer para os dois estados (nunca condicional a collapsed)");
+check("sidebar: o botão Recolher/Expandir tem o Hover Text (shared.global.menu-recolher) ao lado, fora do <button>", () => {
+  assert(sidebarSource.includes('helpId="shared.global.menu-recolher"'));
+  const buttonBlock = sidebarSource.slice(sidebarSource.indexOf("<button"), sidebarSource.indexOf("</button>"));
+  assert(!buttonBlock.includes("FeatureInfo"), "o ícone de ajuda não pode ficar dentro do <button> de recolher");
+  assert(ACC_FEATURE_HELP["shared.global.menu-recolher"], "entrada shared.global.menu-recolher ausente do registry");
+});
+
+check("sidebar: NUNCA usa o atributo title como ajuda (nem itemTitle/shortDescription nativo); aria-label e navegação preservados", () => {
+  assert(!/title=/.test(sidebarSource), "a sidebar não deve usar o atributo title");
+  assert(!sidebarSource.includes("itemTitle"));
+  assert(sidebarSource.includes("aria-label={item.label}"), "aria-label do item preservado");
+  assert(sidebarSource.includes("aria-label={collapsed"), "aria-label do botão de recolher preservado");
+  assert(sidebarSource.includes("prefetch={false}") && sidebarSource.includes("pathname?.startsWith(href)"));
+});
+
+check("sidebar recolhida (só ícones): o ícone de ajuda continua presente em todos os itens (não depende de collapsed nem de hover)", () => {
+  const feature = sidebarSource.indexOf("<FeatureInfo helpId={item.helpId}");
+  const before = sidebarSource.slice(Math.max(0, feature - 300), feature);
+  assert(!/collapsed\s*(\?|&&)\s*\(?\s*<FeatureInfo/.test(before), "FeatureInfo não pode ser condicional a collapsed");
+  assert(!sidebarSource.includes("{!collapsed ? <FeatureInfo"), "FeatureInfo não pode ser escondido quando recolhida");
+});
+
+check("cabeçalho (top-bar): renderiza shared.global.cabecalho ao lado do título e não usa title nativo", () => {
+  const topBar = readSource("apps/web/components/layout/top-bar.tsx");
+  assert(topBar.includes('helpId="shared.global.cabecalho"'));
+  assert(!/title=/.test(topBar), "o cabeçalho não deve usar o atributo title");
+});
+
+check("tela Ajuda e tutorial: expõe icone-ajuda, menu-lateral e status-global (pontos de renderização globais)", () => {
+  const ajuda = readSource("apps/web/app/[projectId]/ajuda/page.tsx");
+  for (const id of ["shared.global.icone-ajuda", "shared.global.menu-lateral", "shared.global.status-global"]) {
+    assert(ajuda.includes(`helpId="${id}"`), `${id} não renderizado na tela Ajuda`);
+  }
 });
 
 // --- Seção 12: inventário de TODAS as abas/seções reais mapeadas ---
@@ -320,9 +381,9 @@ const TAB_COVERAGE = [
   {
     page: "Start-up ACC",
     entries: [
-      { id: "startup-project-start-date", file: "apps/web/app/[projectId]/startup/page.tsx" },
-      { id: "startup-acc-operational-start-date", file: "apps/web/app/[projectId]/startup/page.tsx" },
-      { id: "finding", file: "apps/web/app/[projectId]/startup/page.tsx" },
+      { id: "juridico.startup.pagina", file: "apps/web/app/[projectId]/startup/page.tsx" },
+      { id: "juridico.startup.checklist", file: "apps/web/components/startup/new-project-startup-checklist.tsx" },
+      { id: "juridico.startup.etapa", file: "apps/web/components/startup/new-project-startup-checklist.tsx" },
       { id: "startup-dismiss", file: "apps/web/components/startup/historical-finding-card.tsx" },
       { id: "startup-resolve", file: "apps/web/components/startup/historical-finding-card.tsx" },
       { id: "startup-create-action", file: "apps/web/components/startup/historical-finding-card.tsx" },

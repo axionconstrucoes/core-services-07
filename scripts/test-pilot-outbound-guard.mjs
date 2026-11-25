@@ -356,8 +356,10 @@ check("bypass 1/4 — toda classe que implementa EmailProvider chama applyPilotO
   assert(implementers.length >= 2, `esperava pelo menos GmailEmailProvider e FakeEmailProvider, encontrado ${implementers.length}`);
   for (const file of implementers) {
     const source = readFileSync(file, "utf8");
+    // Envoltório de governança (doc 35): só RESTRINGE e delega CADA envio a um provedor interno (que aplica a trava); nunca transporta nem monta MIME.
+    const isDelegatingWrapper = path.basename(file) === "governed-email-provider.ts" && /\binner\.send\(/.test(source) && !/gmail\.users\.messages\.send\(|buildMimeMessage\(|googleapis/.test(source);
     assert(
-      source.includes("prepareOutboundMessage(") || source.includes("applyPilotOutboundGuard("),
+      isDelegatingWrapper || source.includes("prepareOutboundMessage(") || source.includes("applyPilotOutboundGuard("),
       `${path.relative(repoRoot, file)} implementa EmailProvider mas não chama applyPilotOutboundGuard — bypass possível`
     );
   }

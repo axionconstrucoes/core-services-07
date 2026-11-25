@@ -6,6 +6,7 @@
 
 import { useMemo, useState } from "react";
 import { EmptyState } from "@/components/shared/empty-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { OFFICIAL_EXPERT_DEFINITIONS } from "@/lib/ai/expert-definitions";
@@ -94,7 +95,8 @@ export function EmailAttachmentsPanel({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <FeatureInfo helpId="juridico.documentos.anexos-email-filtros" />
         {FILTER_OPTIONS.map((option) => (
           <button
             key={option.value}
@@ -109,6 +111,10 @@ export function EmailAttachmentsPanel({
         ))}
       </div>
 
+      <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+        Busca, tipo de arquivo, Expert, risco e ordenação
+        <FeatureInfo helpId="juridico.documentos.anexos-email-filtros" />
+      </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <Input
           placeholder="Buscar por arquivo, assunto ou remetente…"
@@ -144,18 +150,24 @@ export function EmailAttachmentsPanel({
           ))}
         </Select>
 
-        <Select value={sortKey} onChange={(event) => setSortKey(event.target.value as EmailAttachmentRegistrySortKey)}>
-          {SORT_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              Ordenar por {option.label}
-            </option>
-          ))}
-        </Select>
+        <div className="flex items-center gap-1">
+          <Select value={sortKey} onChange={(event) => setSortKey(event.target.value as EmailAttachmentRegistrySortKey)}>
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                Ordenar por {option.label}
+              </option>
+            ))}
+          </Select>
+          <FeatureInfo helpId="juridico.documentos.anexos-email-filtros" />
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          Período
+          <span className="flex items-center gap-1">
+            Período
+            <FeatureInfo helpId="juridico.documentos.anexos-email-filtros" />
+          </span>
           <Input type="date" value={periodFrom} onChange={(event) => setPeriodFrom(event.target.value)} className="h-8 w-auto" />
         </label>
         <span className="text-xs text-muted-foreground">até</span>

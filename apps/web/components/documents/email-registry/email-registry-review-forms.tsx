@@ -16,6 +16,7 @@ import {
   validateWeeklyReportCurveValuesAction,
 } from "@/app/[projectId]/documentos/emails/actions";
 import { initialEmailRegistryActionState } from "@/app/[projectId]/documentos/emails/actions-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -55,7 +56,10 @@ export function IntakeReviewForm({
       <input type="hidden" name="intakeId" value={intakeId} />
 
       <label className="flex flex-col gap-1 font-medium">
-        Ação
+        <span className="flex items-center gap-1">
+          Ação
+          <FeatureInfo helpId="juridico.emails.revisao-humana" />
+        </span>
         <Select name="action" defaultValue={canDecide ? "APPROVE" : "SET_WORK_WEEK"} required aria-label="Ação de revisão">
           {canDecide ? <option value="APPROVE">Aprovar (promover o .mpp a nova versão)</option> : null}
           {canDecide ? <option value="REJECT">Rejeitar</option> : null}
@@ -69,11 +73,17 @@ export function IntakeReviewForm({
 
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="flex flex-col gap-1">
-          Semana da obra (para “Identificar semana”)
+          <span className="flex items-center gap-1">
+            Semana da obra (para “Identificar semana”)
+            <FeatureInfo helpId="juridico.emails.revisao-campos-condicionais" />
+          </span>
           <Input name="workWeekNumber" inputMode="numeric" placeholder="37" aria-label="Número da semana da obra" />
         </label>
         <label className="flex flex-col gap-1">
-          Anexo principal (para “Escolher o anexo”)
+          <span className="flex items-center gap-1">
+            Anexo principal (para “Escolher o anexo”)
+            <FeatureInfo helpId="juridico.emails.revisao-campos-condicionais" />
+          </span>
           <Select name="emailAttachmentId" defaultValue="" aria-label="Anexo principal">
             <option value="">—</option>
             {attachments.map((attachment) => (
@@ -84,7 +94,10 @@ export function IntakeReviewForm({
           </Select>
         </label>
         <label className="flex flex-col gap-1">
-          Projeto de destino (para “Vincular ao projeto”)
+          <span className="flex items-center gap-1">
+            Projeto de destino (para “Vincular ao projeto”)
+            <FeatureInfo helpId="juridico.emails.revisao-campos-condicionais" />
+          </span>
           <Select name="targetProjectId" defaultValue="" aria-label="Projeto de destino">
             <option value="">—</option>
             {otherProjects.map((project) => (
@@ -95,7 +108,10 @@ export function IntakeReviewForm({
           </Select>
         </label>
         <label className="flex flex-col gap-1">
-          Classificação (para “Corrigir classificação”)
+          <span className="flex items-center gap-1">
+            Classificação (para “Corrigir classificação”)
+            <FeatureInfo helpId="juridico.emails.revisao-campos-condicionais" />
+          </span>
           <Select name="classification" defaultValue="" aria-label="Classificação">
             <option value="">—</option>
             {Object.entries(EMAIL_CLASSIFICATION_LABELS).map(([value, label]) => (
@@ -108,15 +124,19 @@ export function IntakeReviewForm({
       </div>
 
       <label className="flex flex-col gap-1 font-medium">
-        Justificativa (obrigatória, mínimo {MIN_JUSTIFICATION} caracteres)
+        <span className="flex items-center gap-1">
+          Justificativa (obrigatória, mínimo {MIN_JUSTIFICATION} caracteres)
+          <FeatureInfo helpId="juridico.emails.justificativa-obrigatoria" />
+        </span>
         <Textarea name="justification" rows={2} required minLength={MIN_JUSTIFICATION} placeholder="Ex.: Remetente confirmado com o gestor do projeto." />
       </label>
 
       <Feedback state={state} />
-      <div>
+      <div className="flex items-center gap-1">
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Registrando…" : "Registrar decisão"}
         </Button>
+        <FeatureInfo helpId="juridico.emails.revisao-humana" />
       </div>
     </form>
   );
@@ -142,7 +162,10 @@ export function ClassificationConfirmForm({
       <input type="hidden" name="emailId" value={emailId} />
       {emailAttachmentId ? <input type="hidden" name="emailAttachmentId" value={emailAttachmentId} /> : null}
       <label className="flex flex-col gap-1">
-        Classificação
+        <span className="flex items-center gap-1">
+          Classificação
+          <FeatureInfo helpId="juridico.emails.confirmar-classificacao" />
+        </span>
         <Select name="classification" defaultValue={current ?? "UNCLASSIFIED"} aria-label="Classificação">
           {options.map((option) => (
             <option key={option.value} value={option.value}>
@@ -152,12 +175,18 @@ export function ClassificationConfirmForm({
         </Select>
       </label>
       <label className="flex min-w-[220px] flex-1 flex-col gap-1">
-        Justificativa
+        <span className="flex items-center gap-1">
+          Justificativa
+          <FeatureInfo helpId="juridico.emails.justificativa-obrigatoria" />
+        </span>
         <Input name="justification" required minLength={MIN_JUSTIFICATION} placeholder="Por que esta classificação?" />
       </label>
-      <Button type="submit" size="sm" variant="outline" disabled={pending}>
-        {pending ? "Salvando…" : "Confirmar"}
-      </Button>
+      <span className="inline-flex items-center gap-1">
+        <Button type="submit" size="sm" variant="outline" disabled={pending}>
+          {pending ? "Salvando…" : "Confirmar"}
+        </Button>
+        <FeatureInfo helpId="juridico.emails.confirmar-classificacao" />
+      </span>
       <Feedback state={state} />
     </form>
   );
@@ -180,7 +209,10 @@ export function BaselineSelectorForm({
       <input type="hidden" name="projectId" value={projectId} />
       {emailId ? <input type="hidden" name="emailId" value={emailId} /> : null}
       <label className="flex flex-col gap-1 font-medium">
-        Versão extraída que passa a ser a baseline oficial
+        <span className="flex items-center gap-1">
+          Versão extraída que passa a ser a baseline oficial
+          <FeatureInfo helpId="juridico.emails.baseline-oficial" />
+        </span>
         <Select name="scheduleVersionId" defaultValue={activeScheduleVersionId ?? ""} required aria-label="Versão de cronograma">
           <option value="" disabled>
             Selecione…
@@ -194,17 +226,21 @@ export function BaselineSelectorForm({
         </Select>
       </label>
       <label className="flex flex-col gap-1 font-medium">
-        Justificativa (obrigatória)
+        <span className="flex items-center gap-1">
+          Justificativa (obrigatória)
+          <FeatureInfo helpId="juridico.emails.justificativa-obrigatoria" />
+        </span>
         <Textarea name="justification" rows={2} required minLength={MIN_JUSTIFICATION} placeholder="Ex.: Baseline aprovada em reunião de kick-off de 12/09." />
       </label>
       <p className="text-muted-foreground">
         Somente ADMINISTRADOR do projeto. A baseline anterior nunca é excluída: fica no histórico com data, usuário e justificativa.
       </p>
       <Feedback state={state} />
-      <div>
+      <div className="flex items-center gap-1">
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Definindo…" : activeScheduleVersionId ? "Substituir baseline" : "Definir baseline"}
         </Button>
+        <FeatureInfo helpId="juridico.emails.baseline-oficial" />
       </div>
     </form>
   );
@@ -232,7 +268,10 @@ export function SheetMappingForm({
       <input type="hidden" name="emailId" value={emailId} />
       <input type="hidden" name="sheetId" value={sheetId} />
       <label className="flex flex-col gap-1">
-        Aba do arquivo que corresponde a {category}
+        <span className="flex items-center gap-1">
+          Aba do arquivo que corresponde a {category}
+          <FeatureInfo helpId="juridico.emails.mapear-aba" />
+        </span>
         <Select name="sheetName" defaultValue={current ?? ""} required aria-label="Aba do arquivo">
           <option value="" disabled>
             Selecione…
@@ -245,12 +284,18 @@ export function SheetMappingForm({
         </Select>
       </label>
       <label className="flex min-w-[220px] flex-1 flex-col gap-1">
-        Justificativa
+        <span className="flex items-center gap-1">
+          Justificativa
+          <FeatureInfo helpId="juridico.emails.justificativa-obrigatoria" />
+        </span>
         <Input name="justification" required minLength={MIN_JUSTIFICATION} placeholder="Por que esta aba corresponde à categoria?" />
       </label>
-      <Button type="submit" size="sm" variant="outline" disabled={pending}>
-        {pending ? "Mapeando…" : "Mapear aba"}
-      </Button>
+      <span className="inline-flex items-center gap-1">
+        <Button type="submit" size="sm" variant="outline" disabled={pending}>
+          {pending ? "Mapeando…" : "Mapear aba"}
+        </Button>
+        <FeatureInfo helpId="juridico.emails.mapear-aba" />
+      </span>
       <Feedback state={state} />
     </form>
   );
@@ -274,29 +319,45 @@ export function CurveValuesValidationForm({
       <input type="hidden" name="emailId" value={emailId} />
       <input type="hidden" name="sheetId" value={sheetId} />
       <label className="flex flex-col gap-1">
-        Data de corte
+        <span className="flex items-center gap-1">
+          Data de corte
+          <FeatureInfo helpId="juridico.emails.validar-curva-s" />
+        </span>
         <Input type="date" name="cutoffDate" defaultValue={defaults.cutoffDate ?? ""} required />
       </label>
       <label className="flex flex-col gap-1">
-        Planejado acumulado (%)
+        <span className="flex items-center gap-1">
+          Planejado acumulado (%)
+          <FeatureInfo helpId="juridico.emails.validar-curva-s" />
+        </span>
         <Input name="plannedCumulative" inputMode="decimal" defaultValue={defaults.planned ?? ""} required />
       </label>
       <label className="flex flex-col gap-1">
-        Realizado acumulado (%)
+        <span className="flex items-center gap-1">
+          Realizado acumulado (%)
+          <FeatureInfo helpId="juridico.emails.validar-curva-s" />
+        </span>
         <Input name="actualCumulative" inputMode="decimal" defaultValue={defaults.actual ?? ""} required />
       </label>
       <label className="flex flex-col gap-1">
-        Projetado (%)
+        <span className="flex items-center gap-1">
+          Projetado (%)
+          <FeatureInfo helpId="juridico.emails.validar-curva-s" />
+        </span>
         <Input name="forecastCumulative" inputMode="decimal" defaultValue={defaults.forecast ?? ""} />
       </label>
       <label className="flex flex-col gap-1 sm:col-span-5">
-        Justificativa (aba, células e valores lidos)
+        <span className="flex items-center gap-1">
+          Justificativa (aba, células e valores lidos)
+          <FeatureInfo helpId="juridico.emails.justificativa-obrigatoria" />
+        </span>
         <Input name="justification" required minLength={MIN_JUSTIFICATION} placeholder="Ex.: aba Curva S, células C12:D12." />
       </label>
       <div className="flex items-center gap-2 sm:col-span-5">
         <Button type="submit" size="sm" variant="outline" disabled={pending}>
           {pending ? "Validando…" : "Validar valores"}
         </Button>
+        <FeatureInfo helpId="juridico.emails.validar-curva-s" />
         <Feedback state={state} />
       </div>
     </form>

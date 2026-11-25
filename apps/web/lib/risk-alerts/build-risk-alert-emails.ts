@@ -16,6 +16,7 @@ import { EMAIL_ALERT_ACTION_LABELS } from "@/lib/email-actions/types";
 import { ALERT_TONES, type AlertLogoAvailability } from "@/lib/email/templates/alert-box-style";
 import { alertRiskLevelLabels, buildContractAlertSubject } from "@/lib/email/templates/contract-alert-template";
 import { buildUniversalAlertEmail, buildUniversalDigestEmail, type UniversalActionLinks, type UniversalOccurrence } from "@/lib/email/templates/universal-alert-template";
+import type { ReplyMailtoLinks } from "@/lib/email-replies/reply-mailto";
 import { slaAreaLabels } from "@/lib/labels";
 import type { SlaArea, SlaRiskLevel } from "@/lib/sla/types";
 
@@ -80,6 +81,7 @@ const SPECIALIST_BY_AREA: Partial<Record<SlaArea, string>> = {
   ENGENHARIA: "Especialista Engenharia",
   PLANEJAMENTO: "Especialista Planejamento",
   JURIDICO: "Especialista Jurídico/Contratos",
+  QUALIDADE: "Analista de Qualidade",
 };
 function specialistLabelFor(area: SlaArea): string {
   return SPECIALIST_BY_AREA[area] ?? `Especialista (${slaAreaLabels[area]}) — consulta geral`;
@@ -128,6 +130,8 @@ export interface ImmediateEmailInput {
   caseId?: string | null;
   /** Logotipos disponíveis nesta execução (o chamador carrega os arquivos oficiais). */
   logos?: AlertLogoAvailability;
+  /** Atalhos "Responder por e-mail" (mailto com token POR ITEM já gravado). Ausente => sem atalhos. */
+  replyByEmail?: ReplyMailtoLinks | null;
 }
 
 export function buildImmediateRiskAlertEmail(input: ImmediateEmailInput): BuiltEmail {
@@ -211,6 +215,7 @@ export function buildImmediateRiskAlertEmail(input: ImmediateEmailInput): BuiltE
     details: details.filter((d) => d.label !== "Resumo"),
     replyInstruction: `${replyInstructionFor(content.riskLevel)}${input.visibleCode ? ` Código do alerta: ${input.visibleCode}.` : ""}`,
     extraLinks: input.actionButtons.map((b) => ({ label: EMAIL_ALERT_ACTION_LABELS[b.action], url: b.url })),
+    replyByEmail: input.replyByEmail ?? null,
   };
   const built = buildUniversalAlertEmail({
     recipientName: input.recipientName,
@@ -234,6 +239,8 @@ export interface DigestEmailInput {
   /** caseKey -> id do caso registrado (os quatro botões de cada ocorrência levam ao caso). */
   caseIdByKey?: ReadonlyMap<string, string>;
   logos?: AlertLogoAvailability;
+  /** caseId -> atalhos "Responder por e-mail" do ITEM (token próprio por ocorrência). */
+  replyByEmailByCaseId?: ReadonlyMap<string, ReplyMailtoLinks>;
 }
 
 const DIGEST_STATE_LABEL: Record<DigestItem["state"], string> = { NEW: "Novo", CHANGED: "Alterado", OPEN: "Em aberto", CLOSED: "Encerrado" };
@@ -258,6 +265,7 @@ function digestOccurrence(item: DigestItem, input: DigestEmailInput): UniversalO
     unavailableReasons,
     // Encerrado/concluído: tique verde no resumo NOVO (e-mails já entregues não se atualizam).
     completed: item.state === "CLOSED",
+    replyByEmail: caseId && item.state !== "CLOSED" ? (input.replyByEmailByCaseId?.get(caseId) ?? null) : null,
   };
 }
 
@@ -304,6 +312,8 @@ export interface FollowUpEmailInput {
   /** Área do alerta (define o especialista); sem ela, consulta geral. */
   area?: SlaArea;
   logos?: AlertLogoAvailability;
+  /** Atalhos "Responder por e-mail" (mailto com token POR ITEM já gravado). Ausente => sem atalhos. */
+  replyByEmail?: ReplyMailtoLinks | null;
 }
 
 const FOLLOW_UP_TITLES: Record<FollowUpEmailInput["kind"], string> = {
@@ -329,16 +339,19 @@ export function buildAlertFollowUpEmail(input: FollowUpEmailInput): BuiltEmail {
     title,
     description: input.caseTitle,
     stateLabel: "Aberto",
+    // "Responsável atual" vai no campo próprio da ocorrência (sem repetir na lista de detalhes).
+    responsibleName: input.rows.find(([label]) => label === "Responsável atual")?.[1] ?? undefined,
     specialistLabel: area ? specialistLabelFor(area) : "Especialista (consulta geral)",
     openUrl: alertUrl,
     actions: links,
     unavailableReasons,
-    details: [...input.rows.map(([label, value]) => ({ label, value })), { label: "Gerado em", value: formatDateTimeBR(input.generatedAt, input.timeZone) }],
+    details: [...input.rows.filter(([label]) => label !== "Responsável atual").map(([label, value]) => ({ label, value })), { label: "Gerado em", value: formatDateTimeBR(input.generatedAt, input.timeZone) }],
     notices: [
       ...(input.paragraphs ?? []),
       ...(input.requiresHumanReview ? ["O Expert apenas recomenda: nenhuma ação foi executada e o alerta continua aberto até decisão humana."] : []),
     ],
     replyInstruction: replyInstructionFor(input.riskLevel),
+    replyByEmail: input.replyByEmail ?? null,
   };
   const built = buildUniversalAlertEmail({
     recipientName: input.recipientName,

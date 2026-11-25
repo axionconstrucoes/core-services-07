@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { addDeliveryItemAction, seedDeliveryChecklistAction } from "@/app/[projectId]/providencias/actions";
@@ -21,9 +22,12 @@ export function DeliveryAdminControls({ projectId, hasItems }: { projectId: stri
     <div className="flex flex-wrap items-start gap-4 rounded-lg border bg-card p-3">
       {!hasItems ? (
         <form action={seedAction} className="flex flex-col gap-1">
-          <Button type="submit" size="sm" disabled={seedPending}>
-            {seedPending ? "Cadastrando…" : "Cadastrar checklist inicial"}
-          </Button>
+          <span className="inline-flex items-center gap-1">
+            <Button type="submit" size="sm" disabled={seedPending}>
+              {seedPending ? "Cadastrando…" : "Cadastrar checklist inicial"}
+            </Button>
+            <FeatureInfo helpId="planejamento.providencias.checklist-inicial" />
+          </span>
           <p className="max-w-xs text-[11px] text-muted-foreground">
             Cria 14 providências sem datas, responsáveis nem comprovações. O checklist não comprova que cada item seja obrigação da construtora:
             confirme a aplicabilidade item a item.
@@ -34,10 +38,13 @@ export function DeliveryAdminControls({ projectId, hasItems }: { projectId: stri
       ) : null}
 
       <form action={addAction} className="flex flex-wrap items-end gap-2">
-        <label className="grid gap-1 text-xs">
-          Nova providência da obra
-          <Input name="title" placeholder="Ex.: Licença ambiental de operação" className="w-72" />
-        </label>
+        <div className="grid gap-1 text-xs">
+          <span className="inline-flex items-center gap-1">
+            <label htmlFor="providencia-titulo">Nova providência da obra</label>
+            <FeatureInfo helpId="planejamento.providencias.nova-providencia" />
+          </span>
+          <Input id="providencia-titulo" name="title" placeholder="Ex.: Licença ambiental de operação" className="w-72" />
+        </div>
         <label className="grid gap-1 text-xs">
           Fase
           <Select name="phase" defaultValue="ENTREGA">
@@ -45,6 +52,7 @@ export function DeliveryAdminControls({ projectId, hasItems }: { projectId: stri
             <option value="ENTREGA">Entrega</option>
           </Select>
         </label>
+        {/* help-exempt: ação descrita pelo ícone planejamento.providencias.nova-providencia ao lado do campo de título deste mesmo formulário */}
         <Button type="submit" size="sm" variant="outline" disabled={addPending}>
           {addPending ? "Adicionando…" : "Adicionar"}
         </Button>

@@ -1,7 +1,7 @@
 import { google } from "googleapis";
 import { pilotMessageEligible, pilotScopeBypass, pilotSenderQuery, pilotSenderTerms } from "./lib/gmail-weg-pilot-sender.mjs";
-import { participantColumns, participantsFromGmailHeaders } from "./lib/mail-universal/participants.mjs";
 import { createClient } from "@supabase/supabase-js";
+import { participantColumns, participantsFromGmailHeaders } from "./lib/mail-universal/participants.mjs";
 import { extractGmailBody } from "./lib/gmail-message-body.mjs";
 import { insertEmailsIdempotent } from "./lib/gmail-insert-idempotent.mjs";
 import { findFrozenEndConflict, parseBackfillArgs, monthKey, buildWindowQuery, withinWindow, emptyMonthStats } from "./lib/gmail-backfill-window.mjs";

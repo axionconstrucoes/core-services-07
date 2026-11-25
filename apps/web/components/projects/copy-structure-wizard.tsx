@@ -8,10 +8,12 @@
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { ArrowLeft, Users } from "lucide-react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
+import { FieldLabel } from "@/components/admin/field-label";
 import {
   executeTeamCopyAction,
   loadTeamCandidatesAction,
@@ -41,6 +43,10 @@ interface RowState {
 }
 
 const PRIMARY = "bg-[#7f1d1d] text-white hover:bg-[#681717] disabled:opacity-50";
+// Cartão claro (bg-white/95, texto #0f172a): o ícone de ajuda (padrão claro) fica escuro; erros e avisos usam vermelho/âmbar escuros,
+// pois text-destructive (#ff6b57) e text-amber-800 (remapeado para claro no tema) ficariam ilegíveis sobre o fundo claro.
+const ICON_ON_LIGHT = "text-[#475569] hover:text-[#0f172a] focus-visible:text-[#0f172a]";
+const ERROR_ON_LIGHT = "text-[#b42318]";
 
 const STEPS = ["Origem", "Pessoas", "Perfis", "Prévia", "Executar"] as const;
 
@@ -178,6 +184,7 @@ export function CopyStructureWizard({
         <CardTitle className="flex items-center gap-2 text-[#0f172a]">
           <Users aria-hidden="true" className="size-5 text-[#7f1d1d]" />
           Copiar estrutura de outro projeto
+          <FeatureInfo helpId="admin.copiar.pagina" iconClassName={ICON_ON_LIGHT} />
         </CardTitle>
         <CardDescription className="text-[#475569]">
           Destino: <strong>{projectLabel(destination)}</strong>. Nada é enviado: nenhum convite nem e-mail. Pessoas já vinculadas ao destino nunca têm o acesso alterado.
@@ -195,14 +202,17 @@ export function CopyStructureWizard({
 
       <CardContent className="flex flex-col gap-5">
         {error ? (
-          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-[#b42318]">
             {error}
           </p>
         ) : null}
 
         {step === 1 ? (
           <section className="flex flex-col gap-4" aria-labelledby="copy-step-1">
-            <h2 id="copy-step-1" className="text-base font-semibold">1. Origem</h2>
+            <h2 id="copy-step-1" className="flex items-center gap-1.5 text-base font-semibold">
+              1. Origem
+              <FeatureInfo helpId="admin.copiar.etapa-origem" iconClassName={ICON_ON_LIGHT} />
+            </h2>
             {categories.length > 1 ? (
               <label className="flex flex-col gap-1.5 text-sm font-medium">
                 O que copiar
@@ -219,27 +229,33 @@ export function CopyStructureWizard({
             {sources.length === 0 ? (
               <p className="text-sm">Você não é Administrador ativo de nenhum outro projeto, então não há origem disponível.</p>
             ) : (
-              <label className="flex max-w-xl flex-col gap-1.5 text-sm font-medium">
-                Projeto de origem (somente projetos em que você é Administrador)
-                <Select className="border-[#94a3b8]" value={sourceId} onChange={(event) => setSourceId(event.target.value)}>
+              <div className="flex max-w-xl flex-col gap-1.5">
+                <FieldLabel htmlFor="copy-source" helpId="admin.copiar.projeto-origem" iconClassName={ICON_ON_LIGHT}>
+                  Projeto de origem (somente projetos em que você é Administrador)
+                </FieldLabel>
+                <Select id="copy-source" className="border-[#94a3b8]" value={sourceId} onChange={(event) => setSourceId(event.target.value)}>
                   <option value="">Selecione…</option>
                   {sources.map((item) => (
                     <option key={item.id} value={item.id}>{projectLabel(item)}</option>
                   ))}
                 </Select>
-              </label>
+              </div>
             )}
-            <div>
+            <div className="flex items-center gap-1.5">
               <Button type="button" className={PRIMARY} disabled={!sourceId || pending} onClick={loadSource}>
                 {pending ? "Carregando equipe…" : "Carregar equipe da origem"}
               </Button>
+              <FeatureInfo helpId="admin.copiar.carregar-equipe" iconClassName={ICON_ON_LIGHT} />
             </div>
           </section>
         ) : null}
 
         {step === 2 ? (
           <section className="flex flex-col gap-3" aria-labelledby="copy-step-2">
-            <h2 id="copy-step-2" className="text-base font-semibold">2. Pessoas de {source ? projectLabel(source) : "origem"}</h2>
+            <h2 id="copy-step-2" className="flex items-center gap-1.5 text-base font-semibold">
+              2. Pessoas de {source ? projectLabel(source) : "origem"}
+              <FeatureInfo helpId="admin.copiar.etapa-pessoas" iconClassName={ICON_ON_LIGHT} />
+            </h2>
             <div className="flex flex-wrap gap-2">
               <Button type="button" size="sm" variant="outline" className="border-[#94a3b8] text-[#0f172a] hover:bg-[#e2e8f0] hover:text-[#0f172a]" onClick={() => setRows((current) => Object.fromEntries(candidates.map((c) => [c.userId, { ...current[c.userId], selected: c.defaultSelected }])))}>
                 Selecionar sugeridos
@@ -254,7 +270,12 @@ export function CopyStructureWizard({
                 <thead className="bg-[#f1f5f9] text-[#0f172a] text-left">
                   <tr>
                     <th className="p-2"><span className="sr-only">Selecionar</span></th>
-                    <th className="p-2">Pessoa</th>
+                    <th className="p-2">
+                      <span className="inline-flex items-center gap-1">
+                        Pessoa
+                        <FeatureInfo helpId="admin.copiar.tabela-pessoas" iconClassName={ICON_ON_LIGHT} />
+                      </span>
+                    </th>
                     <th className="p-2">Perfil na origem</th>
                     <th className="p-2">Área</th>
                     <th className="p-2">Situação no destino</th>
@@ -268,6 +289,7 @@ export function CopyStructureWizard({
                     return (
                       <tr key={candidate.userId} className="border-t border-[#cbd5e1] align-top">
                         <td className="p-2">
+                          {/* help-exempt: seleção por pessoa, descrita em admin.copiar.etapa-pessoas (marque ou desmarque pessoas) */}
                           <input
                             type="checkbox"
                             aria-label={`Selecionar ${candidate.name}`}
@@ -281,6 +303,7 @@ export function CopyStructureWizard({
                           <p className="text-xs text-[#475569]">{candidate.email ?? "sem e-mail"}{candidate.title ? ` · ${candidate.title}` : ""}</p>
                           {needsOverride ? (
                             <label className="mt-1 flex items-center gap-1.5 text-xs">
+                              {/* help-exempt: Incluir mesmo assim está descrito em admin.copiar.etapa-pessoas (contas compartilhadas, CRM e teste) */}
                               <input
                                 type="checkbox"
                                 checked={row?.includeExcluded ?? false}
@@ -317,7 +340,10 @@ export function CopyStructureWizard({
 
         {step === 3 ? (
           <section className="flex flex-col gap-3" aria-labelledby="copy-step-3">
-            <h2 id="copy-step-3" className="text-base font-semibold">3. Perfis propostos no destino</h2>
+            <h2 id="copy-step-3" className="flex items-center gap-1.5 text-base font-semibold">
+              3. Perfis propostos no destino
+              <FeatureInfo helpId="admin.copiar.etapa-perfis" iconClassName={ICON_ON_LIGHT} />
+            </h2>
             <p className="text-sm text-[#475569]">
               O perfil proposto copia o da origem, exceto Administrador: ele vira Gerente e só se torna Administrador com a sua confirmação explícita, pessoa a pessoa.
             </p>
@@ -332,38 +358,39 @@ export function CopyStructureWizard({
                         Origem: {permissionLabel(candidate.sourcePermission)} · {areaLabel(candidate.sourceArea)}
                       </p>
                       {candidate.adminNeedsExplicitDecision ? (
-                        <p className="mt-1 text-xs text-amber-800">Administrador na origem; no destino a proposta é Gerente.</p>
+                        <p className="mt-1 text-xs text-[#92400e]">Administrador na origem; no destino a proposta é Gerente.</p>
                       ) : null}
                     </div>
-                    <label className="flex flex-col gap-1 text-sm font-medium">
-                      Perfil no destino
-                      <Select className="border-[#94a3b8]" value={row.permission} onChange={(event) => updateRow(candidate.userId, { permission: event.target.value as TeamPermission, explicitAdmin: false })}>
+                    <div className="flex flex-col gap-1">
+                      <FieldLabel htmlFor={`copy-perm-${candidate.userId}`} helpId="admin.copiar.perfil-destino" iconClassName={ICON_ON_LIGHT}>Perfil no destino</FieldLabel>
+                      <Select id={`copy-perm-${candidate.userId}`} className="border-[#94a3b8]" value={row.permission} onChange={(event) => updateRow(candidate.userId, { permission: event.target.value as TeamPermission, explicitAdmin: false })}>
                         {TEAM_PERMISSIONS.map((permission) => (
                           <option key={permission} value={permission}>{permissionLabel(permission)}</option>
                         ))}
                       </Select>
                       {row.permission === "ADMINISTRADOR" ? (
-                        <span className="flex items-center gap-1.5 text-xs font-normal">
+                        <label className="flex items-center gap-1.5 text-xs font-normal">
                           <input type="checkbox" checked={row.explicitAdmin} onChange={(event) => updateRow(candidate.userId, { explicitAdmin: event.target.checked })} />
                           Confirmo conceder Administrador a esta pessoa
-                        </span>
+                        </label>
                       ) : null}
-                    </label>
-                    <label className="flex flex-col gap-1 text-sm font-medium">
-                      Área no destino
-                      <Select className="border-[#94a3b8]" value={row.area} onChange={(event) => updateRow(candidate.userId, { area: event.target.value })}>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <FieldLabel htmlFor={`copy-area-${candidate.userId}`} helpId="admin.copiar.area-destino" iconClassName={ICON_ON_LIGHT}>Área no destino</FieldLabel>
+                      <Select id={`copy-area-${candidate.userId}`} className="border-[#94a3b8]" value={row.area} onChange={(event) => updateRow(candidate.userId, { area: event.target.value })}>
                         <option value="">Selecione…</option>
                         {TEAM_AREAS.map((area) => (
                           <option key={area} value={area}>{areaLabel(area)}</option>
                         ))}
                       </Select>
-                    </label>
+                    </div>
                   </div>
                 );
               })}
             </div>
             <div className="flex justify-between gap-2">
               <Button type="button" variant="outline" className="border-[#94a3b8] text-[#0f172a] hover:bg-[#e2e8f0] hover:text-[#0f172a]" onClick={() => setStep(2)}>Voltar</Button>
+              {/* help-exempt: Gerar prévia, descrito em admin.copiar.etapa-perfis (howToUse e limitações) */}
               <Button type="button" className={PRIMARY} disabled={missingProfile || pending} onClick={runPreview}>
                 {pending ? "Gerando prévia…" : "Gerar prévia"}
               </Button>
@@ -374,14 +401,18 @@ export function CopyStructureWizard({
 
         {step === 4 && preview ? (
           <section className="flex flex-col gap-4" aria-labelledby="copy-step-4">
-            <h2 id="copy-step-4" className="text-base font-semibold">4. Prévia (nada foi gravado)</h2>
+            <h2 id="copy-step-4" className="flex items-center gap-1.5 text-base font-semibold">
+              4. Prévia (nada foi gravado)
+              <FeatureInfo helpId="admin.copiar.etapa-previa" iconClassName={ICON_ON_LIGHT} />
+            </h2>
             <PreviewGroup title="Novos vínculos" empty="Nenhum novo vínculo." items={preview.preview.newLinks} tone="default" />
             <PreviewGroup title="Já vinculadas (sem alteração)" empty="Ninguém já vinculado com o mesmo perfil/área." items={preview.preview.alreadyLinked} tone="secondary" />
             <PreviewGroup title="Conflitos (o acesso existente NÃO será alterado)" empty="Sem conflitos." items={preview.preview.conflicts} tone="destructive" showExisting />
             <PreviewGroup title="Bloqueadas" empty="Nenhuma." items={preview.preview.blocked} tone="destructive" showReason />
             {emailIngestion ? (
               <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-                O destino tem coleta de e-mail habilitada. Como no cadastro manual, vincular uma pessoa aciona a leitura retroativa dos e-mails dela naquele projeto. A coleta em si não é alterada.
+                O destino tem coleta de e-mail habilitada. Como no cadastro manual, vincular uma pessoa aciona a leitura retroativa dos e-mails dela naquele projeto. A coleta em si não é alterada.{" "}
+                <FeatureInfo helpId="admin.copiar.aviso-email" />
               </p>
             ) : null}
             <div className="flex justify-between gap-2">
@@ -393,7 +424,10 @@ export function CopyStructureWizard({
 
         {step === 5 && !result && preview ? (
           <section className="flex flex-col gap-3" aria-labelledby="copy-step-5">
-            <h2 id="copy-step-5" className="text-base font-semibold">5. Confirmar e executar</h2>
+            <h2 id="copy-step-5" className="flex items-center gap-1.5 text-base font-semibold">
+              5. Confirmar e executar
+              <FeatureInfo helpId="admin.copiar.etapa-executar" iconClassName={ICON_ON_LIGHT} />
+            </h2>
             <p className="text-sm">
               Serão vinculadas <strong>{preview.preview.executable.length}</strong> pessoa(s) a <strong>{projectLabel(destination)}</strong>, a partir de{" "}
               <strong>{source ? projectLabel(source) : ""}</strong>. Nenhum convite ou e-mail será enviado. Repetir a operação não cria duplicidades.
@@ -404,16 +438,22 @@ export function CopyStructureWizard({
             </label>
             <div className="flex justify-between gap-2">
               <Button type="button" variant="outline" className="border-[#94a3b8] text-[#0f172a] hover:bg-[#e2e8f0] hover:text-[#0f172a]" onClick={() => setStep(4)}>Voltar à prévia</Button>
-              <Button type="button" className={PRIMARY} disabled={!confirmed || pending} onClick={runExecute}>
-                {pending ? "Copiando…" : `Copiar ${preview.preview.executable.length} pessoa(s)`}
-              </Button>
+              <span className="inline-flex items-center gap-1.5">
+                <Button type="button" className={PRIMARY} disabled={!confirmed || pending} onClick={runExecute}>
+                  {pending ? "Copiando…" : `Copiar ${preview.preview.executable.length} pessoa(s)`}
+                </Button>
+                <FeatureInfo helpId="admin.copiar.executar" iconClassName={ICON_ON_LIGHT} />
+              </span>
             </div>
           </section>
         ) : null}
 
         {step === 5 && result ? (
           <section className="flex flex-col gap-3" aria-live="polite" aria-labelledby="copy-result">
-            <h2 id="copy-result" className="text-base font-semibold">Resultado</h2>
+            <h2 id="copy-result" className="flex items-center gap-1.5 text-base font-semibold">
+              Resultado
+              <FeatureInfo helpId="admin.copiar.resultado" iconClassName={ICON_ON_LIGHT} />
+            </h2>
             <p className="text-sm">
               {result.added} vinculada(s) · {result.alreadyMember} já era(m) membro(s) · {result.skipped} ignorada(s) · {result.errors} com erro.
             </p>
@@ -482,7 +522,7 @@ function PreviewGroup({
                   (hoje no destino: {permissionLabel(item.existingPermission ?? "")} · {areaLabel(item.existingArea)} · {item.existingStatus === "ACTIVE" ? "ativo" : "inativo"})
                 </span>
               ) : null}
-              {showReason && item.reason ? <span className="text-destructive"> — {BLOCK_LABELS[item.reason]}</span> : null}
+              {showReason && item.reason ? <span className={ERROR_ON_LIGHT}> — {BLOCK_LABELS[item.reason]}</span> : null}
             </li>
           ))}
         </ul>

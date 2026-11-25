@@ -1,3 +1,4 @@
+import { formatAdditivesMil, resolveAdditivesDisplay } from "@/lib/dashboard/additives-display";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -14,6 +15,13 @@ import {
 } from "lucide-react";
 
 import { createSupabaseServerClient } from "@axion/db/server";
+import { getCurrentProjectPermission } from "@/lib/contract-review";
+import { computeClimateImpact, computeElapsedDays } from "@/lib/dashboard/elapsed-and-climate";
+import { resolveEmailDisplayStatus, resolveEmailPipelineStages, type EmailStageState } from "@/lib/dashboard/email-pipeline-stages";
+import { getDashboardOperationalFacts } from "@/lib/dashboard/get-dashboard-operational-facts";
+import { resolveDashboardRiskLevel, summarizeRiskAlertCases } from "@/lib/dashboard/risk-alert-cases-summary";
+import { computeSlaEscalationBreakdown } from "@/lib/dashboard/sla-escalation-breakdown";
+import { baselineStage, mppFileStage, scheduleUpdatedStage, sheetStage, weeklyReportStage } from "@/lib/dashboard/weekly-planning-stages";
 import type { EsgSummary } from "@/lib/dashboard-visual/compute-esg-summary";
 import { getDashboardVisualData } from "@/lib/dashboard-visual/get-dashboard-visual-data";
 import { getEvents } from "@/lib/data";
@@ -21,27 +29,34 @@ import { formatCurrency, formatDateTime } from "@/lib/labels";
 import type { FieldRecordRow } from "@/lib/ssma/field-records/field-record-view";
 import { computeSsmaDashboardMetrics, type SsmaFormMetricsRow, type SsmaIncidentLinkRow } from "@/lib/ssma/dashboard-metrics";
 import { resolveSystemStatus } from "@/lib/ui/resolve-system-status";
+import { HelpHint } from "@/components/shared/help-hint";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
 type MetricValue = number | string | null;
+
+// Ícone ⓘ sobre o fundo escuro do Dashboard (#182941): fonte clara (contraste >= 4,5:1) em vez do token de tema.
+const HINT_ICON_CLASS = "text-[#c9d6e8] hover:text-white focus-visible:text-white";
 
 function ExecutiveKpi({
   label,
   value,
   subtitle,
   icon: Icon,
+  helpId,
 }: {
   label: string;
   value: React.ReactNode;
   subtitle?: string;
   icon: React.ComponentType<{ className?: string }>;
+  helpId?: string;
 }) {
   return (
     <div className="flex min-h-[64px] flex-col items-center justify-center rounded-[7px] border border-[#263b5c] bg-[#182941] px-3 py-1 text-center">
       <div className="flex items-center gap-1.5 text-[11px] font-normal uppercase tracking-[0.04em] text-[#c9d6e8]">
         <Icon className="size-3.5" />
         {label}
+        {helpId ? <HelpHint helpId={helpId} iconClassName={HINT_ICON_CLASS} /> : null}
       </div>
 
       <div className="flex min-h-7 items-center justify-center text-center text-xl font-normal leading-none text-white">
@@ -57,15 +72,20 @@ function Panel({
   title,
   children,
   className = "",
+  helpId,
 }: {
   title: string;
   children: React.ReactNode;
   className?: string;
+  helpId?: string;
 }) {
   return (
     <section className={`rounded-[7px] border border-[#263b5c] bg-[#182941] ${className}`}>
       <div className="border-b border-[#263b5c] px-2.5 py-1">
-        <h2 className="text-[15px] font-medium tracking-[0.005em] text-white">{title}</h2>
+        <h2 className="flex items-center gap-1.5 text-[15px] font-medium tracking-[0.005em] text-white">
+          {title}
+          {helpId ? <HelpHint helpId={helpId} iconClassName={HINT_ICON_CLASS} /> : null}
+        </h2>
       </div>
 
       <div className="px-2.5 py-1">{children}</div>
@@ -77,10 +97,12 @@ function StatusLine({
   label,
   value,
   status = "ok",
+  helpId,
 }: {
   label: string;
   value: React.ReactNode;
   status?: "ok" | "warning" | "error" | "neutral";
+  helpId?: string;
 }) {
   const dot =
     status === "ok"
@@ -96,6 +118,7 @@ function StatusLine({
       <div className="flex min-w-0 items-center gap-1.5">
         <span className={`size-2 shrink-0 rounded-full ${dot}`} />
         <span className="break-words text-[12px] font-normal leading-[18px] text-white">{label}</span>
+        {helpId ? <HelpHint helpId={helpId} iconClassName={HINT_ICON_CLASS} /> : null}
       </div>
 
       <span className="shrink-0 whitespace-nowrap text-right text-[13px] font-normal text-white">{compactStatus(value)}</span>
@@ -115,7 +138,10 @@ function EsgObligationsBlock({ projectId, summary }: { projectId: string; summar
   const color = { ok: "text-emerald-300", warning: "text-amber-300", error: "text-red-300", neutral: "text-slate-300" };
   return (
     <div className="border-b border-white/[0.07] py-px">
-      <div className="text-[12px] leading-[18px] text-white">Obrigações ESG (posição atual)</div>
+      <div className="flex items-center gap-1.5 text-[12px] leading-[18px] text-white">
+        Obrigações ESG (posição atual)
+        <HelpHint helpId="dashboard.executivo.esg-obrigacoes" iconClassName={HINT_ICON_CLASS} />
+      </div>
       <div className="grid grid-cols-5 gap-1">
         {cells.map((cell) => (
           <Link
@@ -254,31 +280,20 @@ function formatDashboardDate(value: string | null): string {
   return `${day.padStart(2, "0")}/${month.padStart(2, "0")}/${year}`;
 }
 
-function inclusiveDaysBetween(
-  startDate: string | null,
-  endDate: string | null
-): number | null {
-  if (!startDate || !endDate) return null;
+const STAGE_STATE_TONE: Record<EmailStageState, "ok" | "warning" | "error" | "neutral"> = {
+  OK: "ok",
+  PENDENTE: "warning",
+  ATENCAO: "warning",
+  ERRO: "error",
+  NAO_VERIFICAVEL: "neutral",
+};
 
-  const start = Date.parse(`${startDate}T00:00:00Z`);
-  const end = Date.parse(`${endDate}T00:00:00Z`);
-
-  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) {
-    return null;
-  }
-
-  return Math.floor((end - start) / 86400000) + 1;
+/** Linha secund\u00e1ria (detalhe/motivo) sob um StatusLine \u2014 evid\u00eancia da contagem ou motivo da indisponibilidade. */
+function SubNote({ children }: { children: React.ReactNode }) {
+  return <p className="pb-0.5 pl-4 text-[10px] leading-tight text-[#b8c7dc]">{children}</p>;
 }
 
-function isImpraticavel(value: unknown): boolean {
-  return (
-    typeof value === "string" &&
-    value
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .toLowerCase() === "impraticavel"
-  );
-}
+const LEVEL_LABEL: Record<string, string> = { RESPONSAVEL: "Respons\u00e1vel", ESCALAO_1: "Escal\u00e3o 1", ESCALAO_2: "Escal\u00e3o 2", DIRETORIA: "Diretoria" };
 
 export default async function DashboardPage({
   params,
@@ -472,46 +487,30 @@ export default async function DashboardPage({
       .filter((value): value is string => Boolean(value))
       .sort()[0] ?? null;
 
-  const { data: rdoRows } = mppStartDate
+  // Dias decorridos: calendário desde o início da obra (project_start_date, senão start_date contratual) até hoje
+  // (fuso America/Sao_Paulo). Antes dependia do MPP + último RDO e ficava indisponível sem cronograma processado.
+  const dashboardToday = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const elapsed = computeElapsedDays({
+    projectStartDate: projectDates?.project_start_date ?? null,
+    contractStartDate,
+    today: dashboardToday,
+  });
+
+  // Clima (RDO): janela a partir do início do MPP vinculado ou, sem MPP, do início da obra. Sem RDO => indisponível (nunca 0).
+  const climateWindowStart = mppStartDate ?? (elapsed.available ? elapsed.value.startDate : null);
+  const { data: rdoRows, error: rdoError } = climateWindowStart
     ? await supabase
         .from("diario_de_obra_reports")
         .select("reference_date,weather")
         .eq("project_id", projectId)
-        .gte("reference_date", mppStartDate)
+        .gte("reference_date", climateWindowStart)
         .lte("reference_date", mppEndDate ?? "9999-12-31")
         .order("reference_date", { ascending: true })
-    : { data: [] };
+    : { data: [], error: null };
 
-  const latestRdoDate =
-    (rdoRows ?? [])
-      .map((row) => row.reference_date)
-      .filter((value): value is string => typeof value === "string")
-      .at(-1) ?? null;
-
-  const elapsedDays = inclusiveDaysBetween(mppStartDate, latestRdoDate);
-
-  const equivalentNonWorkedDays = (rdoRows ?? []).reduce((total, row) => {
-    const weather = asObject(row.weather);
-    const morning = asObject(weather?.manha);
-    const afternoon = asObject(weather?.tarde);
-
-    let equivalent = 0;
-
-    if (morning?.ativo !== false && isImpraticavel(morning?.condicao)) {
-      equivalent += 0.5;
-    }
-
-    if (afternoon?.ativo !== false && isImpraticavel(afternoon?.condicao)) {
-      equivalent += 0.5;
-    }
-
-    return total + equivalent;
-  }, 0);
-
-  const climateImpactPercent =
-    elapsedDays && elapsedDays > 0
-      ? (equivalentNonWorkedDays / elapsedDays) * 100
-      : null;
+  const climate = rdoError
+    ? ({ available: false, reason: "leitura do Diário de Obra indisponível" } as const)
+    : computeClimateImpact({ rows: rdoRows ?? [], windowStart: climateWindowStart });
 
   const indicators = Array.isArray(ssmaMetrics?.indicators)
     ? ssmaMetrics.indicators
@@ -559,20 +558,10 @@ export default async function DashboardPage({
   // contrato vigente incluindo o Aditivo 01.
   const dashboardContractTotal = financialPlanned;
 
-  // Valor original do contrato-base WEG:
-  // Cláusula 5.1 = R$ 33.450.000,00.
-  //
-  // A fonte estruturada de aditivos ainda pode retornar zero.
-  // Enquanto isso, usamos a diferença comprovável entre o
-  // valor vigente do relatório e o contrato-base.
-  const dashboardBaseContractValue = 33_450_000;
-
-  const dashboardAdditives =
-    dashboardContractTotal !== null
-      ? Math.max(0, dashboardContractTotal - dashboardBaseContractValue)
-      : formalizedVariation !== 0
-        ? formalizedVariation
-        : null;
+  // Aditivos: SOMENTE da fonte estruturada (aditivos contratuais formalizados).
+  // Não há valor de contrato-base em tabela alguma; nenhum número fixo no código
+  // e nenhuma subtração "total - base". Sem fonte = "Sem fonte", nunca zero.
+  const dashboardAdditives = resolveAdditivesDisplay(data.aditivosSummary);
 
   const dashboardFinancialRealized = financialActual;
 
@@ -661,29 +650,84 @@ export default async function DashboardPage({
   const dashboardSafetyOccurrences = ssmaDash.occurrences;
   const dashboardDaysWithoutAccident = ssmaDash.daysWithoutAccident;
 
-  const activeIntegrations =
-    data.integrationStatusGroups.find(
-      (group) => group.status === "CONECTADO"
-    )?.count ?? 0;
+  // ----------------------------------------------------------
+  // Fatos operacionais (somente leitura, RLS da sessão): casos de risco, escalonamentos, outbox, e-mails.
+  // ----------------------------------------------------------
+  const permission = await getCurrentProjectPermission(projectId);
+  const opFacts = await getDashboardOperationalFacts(supabase, projectId, { isAdmin: permission === "ADMINISTRADOR" });
 
-  const totalIntegrations = data.integrationStatusGroups.reduce(
-    (sum, group) => sum + group.count,
-    0
-  );
+  // Alertas de risco = risk_alert_cases abertos (os mesmos de /alertas/{caseId} e dos e-mails de alerta).
+  // Achados de IA (ai_findings) continuam exibidos, mas SEPARADOS — nunca somados aos alertas.
+  const riskCases = opFacts.riskCases ? summarizeRiskAlertCases(opFacts.riskCases) : null;
+  const riskCaseActionIds = opFacts.riskCases
+    ? new Set(opFacts.riskCases.map((row) => row.sla_action_id).filter((id): id is string => Boolean(id)))
+    : null;
+  const slaBreakdown = computeSlaEscalationBreakdown({
+    actions: data.slaActions,
+    escalations: opFacts.escalations ?? [],
+    riskCaseActionIds,
+  });
+  const consistencyIssuesTotal = opFacts.consistencyIssues
+    ? Object.values(opFacts.consistencyIssues).reduce((sum, value) => sum + value, 0)
+    : null;
 
+  // E-mail por etapa: farol verde só com todas as etapas comprovadas.
+  const emailPipeline = resolveEmailPipelineStages({
+    ...data.emailFacts,
+    individualCollectionsEnabled: opFacts.individualCollections?.enabled ?? null,
+    individualCollectionsTotal: opFacts.individualCollections?.total ?? null,
+    persistedEmails: opFacts.persistedEmails,
+    latestEmailAt: opFacts.latestEmailAt,
+    outbox: opFacts.outbox,
+    emailReplyOrigins: opFacts.emailReplyOrigins,
+  });
+  const emailDisplayStatus = resolveEmailDisplayStatus(data.emailFacts.serviceStatus, emailPipeline);
+  const integrationRows = data.integrationEntries.map((entry) => ({
+    ...entry,
+    displayStatus: entry.sourceType === "EMAIL" ? emailDisplayStatus : entry.status,
+  }));
+
+  const activeIntegrations = integrationRows.filter((row) => row.displayStatus === "CONECTADO").length;
+  const partialIntegrations = integrationRows.filter((row) => row.displayStatus === "PARCIAL").length;
+  const totalIntegrations = integrationRows.length;
+
+  const dashboardRisk = resolveDashboardRiskLevel(data.generalSituation, riskCases);
   const highestRisk =
-    data.generalSituation === "SEM_RISCO_ATIVO"
+    dashboardRisk === "SEM_RISCO_ATIVO"
       ? "SEM RISCO"
-      : data.generalSituation === "CRITICA"
-        ? "CRÍTICO"
-        : data.generalSituation === "ALTA"
-          ? "ALTO"
-          : data.generalSituation === "MEDIA"
-            ? "MÉDIO"
-            : "BAIXO";
+      : dashboardRisk === "EM_REVISAO"
+        ? "EM REVISÃO"
+        : dashboardRisk === "CRITICA"
+          ? "CRÍTICO"
+          : dashboardRisk === "ALTA"
+            ? "ALTO"
+            : dashboardRisk === "MEDIA"
+              ? "MÉDIO"
+              : "BAIXO";
 
+  const systemStatusBase = resolveSystemStatus(data.integrationStatusGroups);
+  // Nenhum verde global quando o e-mail só está parcialmente comprovado (etapas acima).
+  const systemStatus =
+    systemStatusBase.level === "OPERACIONAL" && emailDisplayStatus === "PARCIAL"
+      ? {
+          level: "PARCIAL" as const,
+          label: "INTEGRAÇÕES PARCIAIS",
+          reason: `E-mail com ${emailPipeline.proven} de ${emailPipeline.total} etapas comprovadas.`,
+        }
+      : systemStatusBase;
 
-  const systemStatus = resolveSystemStatus(data.integrationStatusGroups);
+  // Planejamento semanal por etapa (recebido × processado × extraído × reconhecido × atualizado).
+  const cronogramaEvaluated = data.cronogramaResolution.cause !== null || data.cronogramaResolution.status !== "PENDENTE";
+  const planningStages = {
+    weeklyReport: weeklyReportStage({ attachmentReceived: Boolean(weeklyAttachment), workbookStatus: latestWorkbook?.status ?? null }),
+    mppFile: mppFileStage({ attachmentReceived: Boolean(scheduleAttachment), processingStatus: scheduleAttachment?.processing_status ?? null }),
+    baseline: baselineStage({ configRead: opFacts.weeklyConfig.read, baselineScheduleVersionId: opFacts.weeklyConfig.baselineScheduleVersionId }),
+    scheduleUpdated: scheduleUpdatedStage({
+      status: data.cronogramaResolution.status,
+      detail: data.cronogramaResolution.detail,
+      evaluated: cronogramaEvaluated,
+    }),
+  };
   const projectName = data.project?.name ?? "Projeto não disponível";
   const projectCode = data.project?.code ?? "Código não disponível";
   // Se o nome cadastrado já termina com o código (ex.: "… Goiânia · 0079"), não repete o código.
@@ -696,7 +740,10 @@ export default async function DashboardPage({
           {/* Marca fica só na barra superior. Nome e código da obra ativa: uma linha, peso regular; em tela estreita
               trunca com reticências e o texto completo aparece no title (mouse) e ao focar com o teclado (Tab). */}
           <div className="flex min-w-[16rem] flex-1 items-baseline gap-3">
-            <h1 className="shrink-0 text-xl font-medium leading-tight tracking-tight text-white">Dashboard Executivo</h1>
+            <h1 className="flex shrink-0 items-center gap-1.5 text-xl font-medium leading-tight tracking-tight text-white">
+              Dashboard Executivo
+              <HelpHint helpId="dashboard.executivo.pagina" iconClassName={HINT_ICON_CLASS} />
+            </h1>
             <p
               tabIndex={0}
               title={projectLabel}
@@ -724,6 +771,7 @@ export default async function DashboardPage({
                   {systemStatus.label}
                 </span>
               </div>
+              <HelpHint helpId="dashboard.executivo.status-integracoes" iconClassName={HINT_ICON_CLASS} />
               {systemStatus.reason ? (
                 <p className="max-w-[360px] text-[11px] leading-tight text-[#c9d6e8]">{systemStatus.reason}</p>
               ) : null}
@@ -739,16 +787,16 @@ export default async function DashboardPage({
         {/* KPIs — números centralizados */}
         <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
           <ExecutiveKpi
-            label="Alertas ativos"
-            value={data.activeFindingsSummary.totalActive}
-            subtitle="Achados ainda ativos"
+            label="Alertas de risco" helpId="dashboard.executivo.kpi-alertas-risco"
+            value={riskCases ? riskCases.open : "—"}
+            subtitle={riskCases ? "Casos de risco abertos" : "Leitura indisponível"}
             icon={AlertTriangle}
           />
 
-          <ExecutiveKpi label="Eventos Ledger" value={events.length} subtitle="Eventos registrados" icon={Activity} />
+          <ExecutiveKpi label="Eventos Ledger" helpId="dashboard.executivo.kpi-eventos-ledger" value={events.length} subtitle="Eventos registrados" icon={Activity} />
 
           <ExecutiveKpi
-            label="Risco atual"
+            label="Risco atual" helpId="dashboard.executivo.kpi-risco-atual"
             value={
               <span
                 className={
@@ -756,7 +804,7 @@ export default async function DashboardPage({
                     ? "text-red-400"
                     : highestRisk === "ALTO"
                       ? "text-orange-400"
-                      : highestRisk === "MÉDIO"
+                      : highestRisk === "MÉDIO" || highestRisk === "EM REVISÃO"
                         ? "text-amber-300"
                         : "text-[#2fbf71]"
                 }
@@ -764,19 +812,19 @@ export default async function DashboardPage({
                 {highestRisk}
               </span>
             }
-            subtitle="Situação consolidada"
+            subtitle={riskCases ? "Alertas de risco + achados de IA" : "Só achados de IA (alertas indisponíveis)"}
             icon={TriangleAlert}
           />
 
           <ExecutiveKpi
-            label="Integrações"
+            label="Integrações" helpId="dashboard.executivo.kpi-integracoes"
             value={`${activeIntegrations}/${totalIntegrations}`}
-            subtitle="Fontes conectadas"
+            subtitle={partialIntegrations > 0 ? `Comprovadas · ${partialIntegrations} parcial(is)` : "Fontes comprovadas"}
             icon={CheckCircle2}
           />
 
           <ExecutiveKpi
-            label="Aditivos"
+            label="Aditivos" helpId="dashboard.executivo.kpi-aditivos"
             value={data.aditivosSummary.quantity}
             subtitle={
               formalizedVariation !== 0
@@ -787,7 +835,7 @@ export default async function DashboardPage({
           />
 
           <ExecutiveKpi
-            label="Avanço físico"
+            label="Avanço físico" helpId="dashboard.executivo.kpi-avanco-fisico"
             value={
               physicalActual !== null
                 ? `${physicalActual.toLocaleString("pt-BR", {
@@ -805,55 +853,131 @@ export default async function DashboardPage({
           <div className="flex flex-col gap-2">
             <Panel title="Situação contratual">
               <StatusLine
-                label="Alertas ativos"
-                value={data.activeFindingsSummary.totalActive}
-                status={data.activeFindingsSummary.totalActive > 0 ? "warning" : "ok"}
+                label="Alertas de risco abertos" helpId="dashboard.executivo.kpi-alertas-risco"
+                value={riskCases ? riskCases.open : "Indisponível"}
+                status={riskCases ? (riskCases.open > 0 ? "warning" : "ok") : "neutral"}
               />
-              <StatusLine label="Ações pendentes" value={data.slaSummary.pending} status={data.slaSummary.pending > 0 ? "warning" : "ok"} />
+              {riskCases ? (
+                <SubNote>
+                  Casos de risco (status aberto, não resolvidos) · {riskCases.openWithSlaAction} com ação SLA ·{" "}
+                  {riskCases.closed} encerrado(s){riskCases.testOpen > 0 ? ` · ${riskCases.testOpen} de teste fora da contagem` : ""}
+                </SubNote>
+              ) : (
+                <SubNote>Não foi possível ler os casos de risco (permissão ou falha de leitura).</SubNote>
+              )}
+              {riskCases && riskCases.openHighCriticalWithoutSlaAction > 0 ? (
+                <StatusLine
+                  label="Alto/crítico sem ação SLA" helpId="dashboard.executivo.linha-alto-critico-sem-sla"
+                  value={riskCases.openHighCriticalWithoutSlaAction}
+                  status="error"
+                />
+              ) : null}
               <StatusLine
-                label="Ações vencidas"
+                label="Achados de IA ativos" helpId="dashboard.executivo.linha-achados-ia"
+                value={data.activeFindingsSummaryCurrent.totalActive}
+                status={data.activeFindingsSummaryCurrent.totalActive > 0 ? "warning" : "ok"}
+              />
+              <StatusLine
+                label="Ações abertas (SLA)" helpId="dashboard.executivo.linha-acoes-abertas-sla"
+                value={data.slaSummary.pending}
+                status={data.slaSummary.pending > 0 ? "warning" : "ok"}
+              />
+              {slaBreakdown.openActions > 0 ? (
+                <SubNote>
+                  Status:{" "}
+                  {Object.entries(slaBreakdown.openByStatus)
+                    .map(([status, count]) => `${status} ${count}`)
+                    .join(", ")}
+                  {riskCaseActionIds ? ` · ${slaBreakdown.openLinkedToRiskCase} vinculada(s) a caso de risco` : ""}
+                </SubNote>
+              ) : null}
+              <StatusLine
+                label="Ações vencidas" helpId="dashboard.executivo.linha-acoes-vencidas"
                 value={data.slaSummary.overdue}
                 status={data.slaSummary.overdue > 0 ? "error" : "ok"}
               />
               <StatusLine
-                label="Escalonamentos"
+                label="Ações escalonadas (abertas)" helpId="dashboard.executivo.linha-acoes-escalonadas"
                 value={data.slaSummary.escalated}
                 status={data.slaSummary.escalated > 0 ? "warning" : "ok"}
               />
+              {slaBreakdown.openEscalated > 0 ? (
+                <SubNote>
+                  Nível atual:{" "}
+                  {(["ESCALAO_1", "ESCALAO_2", "DIRETORIA"] as const)
+                    .filter((level) => slaBreakdown.openByLevel[level] > 0)
+                    .map((level) => `${LEVEL_LABEL[level]} ${slaBreakdown.openByLevel[level]}`)
+                    .join(", ")}
+                </SubNote>
+              ) : null}
               <StatusLine
-                label="Início da obra"
+                label="Registros de escalonamento" helpId="dashboard.executivo.linha-registros-escalonamento"
+                value={opFacts.escalations ? slaBreakdown.escalationRecords : "Indisponível"}
+                status="neutral"
+              />
+              {opFacts.escalations && slaBreakdown.escalationRecords > 0 ? (
+                <SubNote>
+                  Histórico (uma ação pode subir mais de um nível):{" "}
+                  {(["ESCALAO_1", "ESCALAO_2", "DIRETORIA"] as const)
+                    .filter((level) => slaBreakdown.recordsByToLevel[level] > 0)
+                    .map((level) => `→ ${LEVEL_LABEL[level]} ${slaBreakdown.recordsByToLevel[level]}`)
+                    .join(", ")}
+                  {slaBreakdown.recordsOnClosedOrUnknownActions > 0 ? ` · ${slaBreakdown.recordsOnClosedOrUnknownActions} de ações encerradas` : ""}
+                  {slaBreakdown.openEscalatedWithMultipleRecords > 0 ? ` · ${slaBreakdown.openEscalatedWithMultipleRecords} ação(ões) com mais de um registro` : ""}
+                  {slaBreakdown.openEscalatedWithoutRecord > 0 ? ` · ${slaBreakdown.openEscalatedWithoutRecord} escalonada(s) sem registro` : ""}
+                </SubNote>
+              ) : null}
+              <StatusLine
+                label="Divergências caso × ação" helpId="dashboard.executivo.linha-divergencias-caso-acao"
+                value={consistencyIssuesTotal ?? "Indisponível"}
+                status={consistencyIssuesTotal === null ? "neutral" : consistencyIssuesTotal > 0 ? "warning" : "ok"}
+              />
+              {opFacts.consistencyIssues && consistencyIssuesTotal ? (
+                <SubNote>
+                  {Object.entries(opFacts.consistencyIssues)
+                    .map(([code, count]) => `${code} ${count}`)
+                    .join(", ")}
+                </SubNote>
+              ) : null}
+              <StatusLine
+                label="Início da obra" helpId="dashboard.executivo.data-inicio-obra"
                 value={formatDashboardDate(projectDates?.project_start_date ?? contractStartDate)}
                 status={(projectDates?.project_start_date ?? contractStartDate) ? "ok" : "neutral"}
               />
               <StatusLine
-                label="Término da baseline"
+                label="Término da baseline" helpId="dashboard.executivo.data-termino-baseline"
                 value={formatDashboardDate(projectDates?.baseline_end_date ?? dashboardContractEndDate)}
                 status={(projectDates?.baseline_end_date ?? dashboardContractEndDate) ? "ok" : "neutral"}
               />
               <StatusLine
-                label="Início operacional ACC"
+                label="Início operacional ACC" helpId="dashboard.executivo.data-inicio-operacional-acc"
                 value={formatDashboardDate(projectDates?.acc_operational_start_date ?? null)}
                 status={projectDates?.acc_operational_start_date ? "ok" : "neutral"}
               />
             </Panel>
 
-            <Panel title="Distribuição dos alertas">
+            <Panel title="Distribuição dos alertas de risco abertos" helpId="dashboard.executivo.distribuicao-alertas">
               <div className="grid grid-cols-4 gap-2">
                 {[
-                  ["Baixo", data.activeFindingsSummary.countsBySeverity.BAIXA, "bg-[#166534]", "text-[#ffffff]"],
-                  ["Médio", data.activeFindingsSummary.countsBySeverity.MEDIA, "bg-yellow-400", "text-[#000000]"],
-                  ["Alto", data.activeFindingsSummary.countsBySeverity.ALTA, "bg-[#c2410c]", "text-[#ffffff]"],
-                  ["Crítico", data.activeFindingsSummary.countsBySeverity.CRITICA, "bg-[#b91c1c]", "text-[#ffffff]"],
+                  ["Baixo", riskCases?.openBySeverity.BAIXA ?? null, "bg-[#166534]", "text-[#ffffff]"],
+                  ["Médio", riskCases?.openBySeverity.MEDIA ?? null, "bg-yellow-400", "text-[#000000]"],
+                  ["Alto", riskCases?.openBySeverity.ALTA ?? null, "bg-[#c2410c]", "text-[#ffffff]"],
+                  ["Crítico", riskCases?.openBySeverity.CRITICA ?? null, "bg-[#b91c1c]", "text-[#ffffff]"],
                 ].map(([label, value, color, textColor]) => (
                   <div
                     key={String(label)}
                     className={`flex h-11 flex-col items-center justify-center rounded-[5px] ${color} ${textColor}`}
                   >
                     <span className="text-[12px] font-normal leading-none">{label}</span>
-                    <span className="mt-1 text-xl font-normal leading-none">{Number(value)}</span>
+                    <span className="mt-1 text-xl font-normal leading-none">{value === null ? "—" : Number(value)}</span>
                   </div>
                 ))}
               </div>
+              <p className="pt-1 text-[10px] leading-tight text-[#b8c7dc]">
+                {riskCases
+                  ? `${riskCases.reviewRequired > 0 ? `${riskCases.reviewRequired} caso(s) em revisão (sem nível definido) fora das colunas. ` : ""}Achados de IA ativos por severidade: baixo ${data.activeFindingsSummaryCurrent.countsBySeverity.BAIXA}, médio ${data.activeFindingsSummaryCurrent.countsBySeverity.MEDIA}, alto ${data.activeFindingsSummaryCurrent.countsBySeverity.ALTA}, crítico ${data.activeFindingsSummaryCurrent.countsBySeverity.CRITICA}.`
+                  : "Casos de risco indisponíveis: “—” significa sem dado, não zero."}
+              </p>
             </Panel>
           </div>
 
@@ -861,22 +985,22 @@ export default async function DashboardPage({
           <div className="flex flex-col gap-2">
             <Panel title="Financeiro resumido — R$ mil">
               <StatusLine
-                label="Contrato + aditivos"
+                label="Contrato + aditivos" helpId="dashboard.executivo.fin-contrato-aditivos"
                 value={formatDashboardMil(dashboardContractTotal)}
                 status={dashboardContractTotal !== null ? "ok" : "neutral"}
               />
               <StatusLine
-                label="Aditivos"
-                value={formatDashboardMil(dashboardAdditives)}
-                status={dashboardAdditives !== null ? "ok" : "neutral"}
+                label="Aditivos" helpId="dashboard.executivo.fin-aditivos"
+                value={formatAdditivesMil(dashboardAdditives)}
+                status={dashboardAdditives.value !== null ? "ok" : "neutral"}
               />
               <StatusLine
-                label="Realizado total"
+                label="Realizado total" helpId="dashboard.executivo.fin-realizado-total"
                 value={formatDashboardMil(dashboardFinancialRealized)}
                 status={dashboardFinancialRealized !== null ? "ok" : "neutral"}
               />
               <StatusLine
-                label="Saldo"
+                label="Saldo" helpId="dashboard.executivo.fin-saldo"
                 value={formatDashboardMil(dashboardFinancialBalance)}
                 status={dashboardFinancialBalance !== null ? "ok" : "neutral"}
               />
@@ -887,14 +1011,14 @@ export default async function DashboardPage({
 
             <Panel title="SSMA / ESG — Segurança">
               <StatusLine
-                label="Acidentes com afastamento"
+                label="Acidentes com afastamento" helpId="dashboard.executivo.ssma-acidentes-com-afastamento"
                 value={dashboardAccidentsWithLeave !== null ? dashboardAccidentsWithLeave : "—"}
                 status={
                   dashboardAccidentsWithLeave !== null ? (dashboardAccidentsWithLeave > 0 ? "error" : "ok") : "neutral"
                 }
               />
               <StatusLine
-                label="Acidentes sem afastamento"
+                label="Acidentes sem afastamento" helpId="dashboard.executivo.ssma-acidentes-sem-afastamento"
                 value={dashboardAccidentsWithoutLeave !== null ? dashboardAccidentsWithoutLeave : "—"}
                 status={
                   dashboardAccidentsWithoutLeave !== null
@@ -905,14 +1029,14 @@ export default async function DashboardPage({
                 }
               />
               <StatusLine
-                label="Ocorrências de segurança"
+                label="Ocorrências de segurança" helpId="dashboard.executivo.ssma-ocorrencias"
                 value={dashboardSafetyOccurrences !== null ? dashboardSafetyOccurrences : "—"}
                 status={
                   dashboardSafetyOccurrences !== null ? (dashboardSafetyOccurrences > 0 ? "warning" : "ok") : "neutral"
                 }
               />
               <StatusLine
-                label="Near Misses (quase-acidentes)"
+                label="Near Misses (quase-acidentes)" helpId="dashboard.executivo.ssma-near-misses"
                 value={ssmaDash.nearMisses !== null ? ssmaDash.nearMisses : "—"}
                 status={ssmaDash.nearMisses !== null ? (ssmaDash.nearMisses > 0 ? "warning" : "ok") : "neutral"}
               />
@@ -923,17 +1047,23 @@ export default async function DashboardPage({
                 <Link href={`/${projectId}/ssma-registros#near-misses`} className="font-bold text-[#ffd0c7] underline">Ver registros</Link>
               </p>
               <StatusLine
-                label="Dias sem acidente"
+                label="Dias sem acidente" helpId="dashboard.executivo.ssma-dias-sem-acidente"
                 value={dashboardDaysWithoutAccident !== null ? dashboardDaysWithoutAccident : "—"}
                 status={dashboardDaysWithoutAccident !== null ? "ok" : "neutral"}
               />
+              {dashboardDaysWithoutAccident === null && ssmaDash.hasData ? (
+                <SubNote>
+                  Indisponível: nenhum acidente registrado em formulário SSMA, logo não há data-base para a contagem
+                  (ausência de registro não prova ausência de acidente).
+                </SubNote>
+              ) : null}
               <StatusLine
-                label="Ações corretivas em aberto"
+                label="Ações corretivas em aberto" helpId="dashboard.executivo.ssma-acoes-corretivas-abertas"
                 value={ssmaDash.openCorrectiveActions !== null ? ssmaDash.openCorrectiveActions : "—"}
                 status={ssmaDash.openCorrectiveActions !== null ? (ssmaDash.openCorrectiveActions > 0 ? "warning" : "ok") : "neutral"}
               />
               <StatusLine
-                label="Ações corretivas em atraso"
+                label="Ações corretivas em atraso" helpId="dashboard.executivo.ssma-acoes-corretivas-atraso"
                 value={ssmaDash.overdueCorrectiveActions !== null ? ssmaDash.overdueCorrectiveActions : "—"}
                 status={ssmaDash.overdueCorrectiveActions !== null ? (ssmaDash.overdueCorrectiveActions > 0 ? "error" : "ok") : "neutral"}
               />
@@ -953,7 +1083,7 @@ export default async function DashboardPage({
                 <ProgressRing percent={physicalActual !== null ? Number(physicalActual) : null} />
                 <div className="min-w-0 flex-1">
                   <StatusLine
-                    label="Avanço físico atual"
+                    label="Avanço físico atual" helpId="dashboard.executivo.kpi-avanco-fisico"
                     value={
                       physicalActual !== null
                         ? `${physicalActual.toLocaleString("pt-BR", {
@@ -977,7 +1107,7 @@ export default async function DashboardPage({
                 <ProgressRing percent={financialProgressPercent} />
                 <div className="min-w-0 flex-1">
                   <StatusLine
-                    label="Avanço financeiro"
+                    label="Avanço financeiro" helpId="dashboard.executivo.avanco-financeiro"
                     value={
                       financialProgressPercent !== null
                         ? `${financialProgressPercent.toLocaleString("pt-BR", {
@@ -992,27 +1122,27 @@ export default async function DashboardPage({
 
               <div className="mt-1">
                 <StatusLine
-                  label="Faturamento AXION"
+                  label="Faturamento AXION" helpId="dashboard.executivo.faturamento-axion"
                   value={formatFinancialMil(financialAxion)}
                   status={financialAxion !== null ? "ok" : "neutral"}
                 />
                 <StatusLine
-                  label="Faturamento Direto WEG"
+                  label="Faturamento Direto WEG" helpId="dashboard.executivo.faturamento-direto"
                   value={formatFinancialMil(financialDirect)}
                   status={financialDirect !== null ? "ok" : "neutral"}
                 />
                 <StatusLine
-                  label="Realizado total"
+                  label="Realizado total" helpId="dashboard.executivo.fin-realizado-total"
                   value={formatFinancialMil(financialActual)}
                   status={financialActual !== null ? "ok" : "neutral"}
                 />
                 <StatusLine
-                  label="Base contratual"
+                  label="Base contratual" helpId="dashboard.executivo.fin-contrato-aditivos"
                   value={formatFinancialMil(financialPlanned)}
                   status={financialPlanned !== null ? "ok" : "neutral"}
                 />
                 <StatusLine
-                  label="Saldo"
+                  label="Saldo" helpId="dashboard.executivo.fin-saldo"
                   value={formatFinancialMil(financialBalance)}
                   status={financialBalance !== null ? "ok" : "neutral"}
                 />
@@ -1022,80 +1152,101 @@ export default async function DashboardPage({
 
           {/* COLUNA 4 */}
           <div className="flex flex-col gap-2">
-            <Panel title="Status das integrações">
-              {data.integrationStatusGroups.flatMap((group) =>
-                group.labels.map((label) => (
-                  <div
-                    key={`${group.status}-${label}`}
-                    className="flex items-center justify-between gap-3 border-b border-white/[0.07] py-px last:border-b-0"
-                  >
+            <Panel title="Status das integrações" helpId="dashboard.executivo.integracoes-status">
+              {integrationRows.map((row) => (
+                <div key={row.sourceType} className="border-b border-white/[0.07] py-px last:border-b-0">
+                  <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-2">
                       <span
                         className={`size-2 shrink-0 rounded-full ${
-                          group.status === "CONECTADO"
+                          row.displayStatus === "CONECTADO"
                             ? "bg-emerald-400"
-                            : group.status === "ATENCAO"
+                            : row.displayStatus === "ATENCAO" || row.displayStatus === "PARCIAL"
                               ? "bg-amber-400"
-                              : group.status === "ERRO"
+                              : row.displayStatus === "ERRO"
                                 ? "bg-red-400"
                                 : "bg-slate-400"
                         }`}
                       />
-                      <span className="break-words text-[12px] font-normal leading-[18px] text-white">{label}</span>
+                      <span className="break-words text-[12px] font-normal leading-[18px] text-white">{row.label}</span>
+                      {row.sourceType === "EMAIL" ? <HelpHint helpId="dashboard.executivo.integracoes-email-etapas" iconClassName={HINT_ICON_CLASS} /> : null}
                     </div>
 
                     <StatusBadge
                       tone={
-                        group.status === "CONECTADO"
+                        row.displayStatus === "CONECTADO"
                           ? "ok"
-                          : group.status === "ATENCAO"
+                          : row.displayStatus === "ATENCAO" || row.displayStatus === "PARCIAL"
                             ? "warning"
-                            : group.status === "ERRO"
+                            : row.displayStatus === "ERRO"
                               ? "error"
                               : "pending"
                       }
                     >
-                      {group.status === "CONECTADO"
+                      {row.displayStatus === "CONECTADO"
                         ? "ATIVO"
-                        : group.status === "ATENCAO"
-                          ? "ATENÇÃO"
-                          : group.status === "ERRO"
-                            ? "ERRO"
-                            : "PENDENTE"}
+                        : row.displayStatus === "PARCIAL"
+                          ? "PARCIAL"
+                          : row.displayStatus === "ATENCAO"
+                            ? "ATENÇÃO"
+                            : row.displayStatus === "ERRO"
+                              ? "ERRO"
+                              : "PENDENTE"}
                     </StatusBadge>
                   </div>
-                ))
-              )}
+                  {row.sourceType === "EMAIL" ? (
+                    <div className="pb-0.5 pl-4" data-testid="email-pipeline-stages">
+                      {emailPipeline.stages.map((stage) => (
+                        <div key={stage.key} className="flex items-start justify-between gap-2 text-[10px] leading-tight">
+                          <span className="flex min-w-0 items-center gap-1 text-[#c9d6e8]">
+                            <span
+                              className={`size-1.5 shrink-0 rounded-full ${
+                                STAGE_STATE_TONE[stage.state] === "ok"
+                                  ? "bg-emerald-400"
+                                  : STAGE_STATE_TONE[stage.state] === "warning"
+                                    ? "bg-amber-400"
+                                    : STAGE_STATE_TONE[stage.state] === "error"
+                                      ? "bg-red-400"
+                                      : "bg-slate-400"
+                              }`}
+                            />
+                            {stage.label}
+                          </span>
+                          <span className="text-right text-[#b8c7dc]">{stage.detail}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
             </Panel>
 
-            <Panel title="Relatório semanal processado">
-              <StatusLine
-                label="Curva S"
-                value={sheetByCategory.get("CURVA_S")?.status ?? "Ausente"}
-                status={sheetByCategory.get("CURVA_S") ? "ok" : "neutral"}
-              />
-              <StatusLine
-                label="Linha de Base"
-                value={sheetByCategory.get("LINHA_BASE")?.status ?? "Ausente"}
-                status={sheetByCategory.get("LINHA_BASE") ? "ok" : "neutral"}
-              />
-              <StatusLine
-                label="Financeiro"
-                value={sheetByCategory.get("FINANCEIRO")?.status ?? "Ausente"}
-                status={sheetByCategory.get("FINANCEIRO") ? "ok" : "neutral"}
-              />
-              <StatusLine
-                label="SSMA"
-                value={sheetByCategory.get("SSMA")?.status ?? "Ausente"}
-                status={sheetByCategory.get("SSMA") ? "ok" : "neutral"}
-              />
+            <Panel title="Relatório semanal — abas extraídas" helpId="dashboard.executivo.relatorio-semanal-abas">
+              {(
+                [
+                  ["CURVA_S", "Curva S"],
+                  ["LINHA_BASE", "Linha de base (aba do Excel)"],
+                  ["FINANCEIRO", "Financeiro"],
+                  ["SSMA", "SSMA"],
+                ] as const
+              ).map(([category, label]) => {
+                const stage = sheetStage(sheetByCategory.get(category)?.status ?? null);
+                return <StatusLine key={category} label={label} value={stage.text} status={stage.tone} />;
+              })}
+              <p className="pt-1 text-[10px] leading-tight text-[#b8c7dc]">
+                Abas lidas da planilha do relatório semanal. Extrair a Curva S ou a aba de linha de base não atualiza o
+                cronograma: isso exige o MPP da semana processado.
+              </p>
             </Panel>
 
             <div className="rounded-[7px] border border-[#263b5c] bg-[#182941] px-3 py-1.5">
               <div className="flex items-start gap-2">
                 <ShieldCheck className="mt-0.5 size-4 shrink-0 text-[#8fb8f0]" />
                 <div>
-                  <p className="text-[12px] font-normal text-white">Atualização automática</p>
+                  <p className="flex items-center gap-1.5 text-[12px] font-normal text-white">
+                    Atualização automática
+                    <HelpHint helpId="dashboard.executivo.atualizacao-automatica" iconClassName={HINT_ICON_CLASS} />
+                  </p>
                   <p className="text-[10px] leading-snug text-[#b8c7dc]">
                     Cronograma, relatório semanal, financeiro e SSMA são exibidos somente após o respectivo e-mail/anexo
                     ter sido persistido e processado pelo ACC.
@@ -1109,10 +1260,13 @@ export default async function DashboardPage({
           <div className="flex flex-col gap-2">
             <Panel title="Planejamento — recebimento por e-mail">
               <StatusLine
-                label="Cronograma atualizado"
-                value={scheduleAttachment ? scheduleAttachment.processing_status : "Não recebido"}
-                status={scheduleAttachment ? "ok" : "warning"}
+                label="Cronograma atualizado (semana)" helpId="dashboard.executivo.plan-cronograma-atualizado"
+                value={planningStages.scheduleUpdated.tone === "ok" ? "PROCESSED" :planningStages.scheduleUpdated.tone === "neutral" ? "Não verificável" : "PENDING"}
+                status={planningStages.scheduleUpdated.tone}
               />
+              {planningStages.scheduleUpdated.tone !== "ok" ? <SubNote>{planningStages.scheduleUpdated.text}</SubNote> : null}
+              <StatusLine label="Arquivo de cronograma (MPP)" helpId="dashboard.executivo.plan-mpp" value={planningStages.mppFile.text} status={planningStages.mppFile.tone} />
+              <StatusLine label="Baseline oficial do cronograma" helpId="dashboard.executivo.plan-baseline" value={planningStages.baseline.text} status={planningStages.baseline.tone} />
 
               {scheduleEmail ? (
                 <details className="pb-1 pl-4 text-[11px] leading-snug text-[#c9d6e8]">
@@ -1128,9 +1282,9 @@ export default async function DashboardPage({
               ) : null}
 
               <StatusLine
-                label="Relatório semanal"
-                value={latestWorkbook?.status ?? weeklyAttachment?.processing_status ?? "Não recebido"}
-                status={weeklyAttachment ? "ok" : "warning"}
+                label="Relatório semanal (Excel)" helpId="dashboard.executivo.plan-relatorio-semanal"
+                value={planningStages.weeklyReport.text}
+                status={planningStages.weeklyReport.tone}
               />
 
               {weeklyEmail ? (
@@ -1150,32 +1304,43 @@ export default async function DashboardPage({
 
               <div className="mt-1 border-t border-[#263b5c] pt-1">
                 <StatusLine
-                  label="Dias decorridos"
-                  value={elapsedDays ?? "Não disponível"}
-                  status={elapsedDays !== null ? "ok" : "neutral"}
+                  label="Dias decorridos" helpId="dashboard.executivo.dias-decorridos"
+                  value={elapsed.available ? elapsed.value.days : "Não disponível"}
+                  status={elapsed.available ? "ok" : "neutral"}
                 />
+                <SubNote>
+                  {elapsed.available
+                    ? `Calendário, desde ${formatDashboardDate(elapsed.value.startDate)} (${elapsed.value.startSource === "PROJECT_START_DATE" ? "início da obra" : "início contratual"}) até hoje.`
+                    : `Motivo: ${elapsed.reason}.`}
+                </SubNote>
                 <StatusLine
-                  label="Dias não trabalhados"
-                  value={equivalentNonWorkedDays.toLocaleString("pt-BR", {
-                    minimumFractionDigits: 1,
-                    maximumFractionDigits: 1,
-                  })}
-                  status={equivalentNonWorkedDays > 0 ? "warning" : "ok"}
-                />
-                <StatusLine
-                  label="Impacto climático"
+                  label="Dias não trabalhados (clima)" helpId="dashboard.executivo.dias-nao-trabalhados"
                   value={
-                    climateImpactPercent !== null
-                      ? `${climateImpactPercent.toLocaleString("pt-BR", {
+                    climate.available
+                      ? climate.value.nonWorkedDays.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+                      : "Não disponível"
+                  }
+                  status={climate.available ? (climate.value.nonWorkedDays > 0 ? "warning" : "ok") : "neutral"}
+                />
+                <StatusLine
+                  label="Impacto climático" helpId="dashboard.executivo.impacto-climatico"
+                  value={
+                    climate.available
+                      ? `${climate.value.percent.toLocaleString("pt-BR", {
                           minimumFractionDigits: 2,
                           maximumFractionDigits: 2,
                         })}%`
                       : "Não disponível"
                   }
-                  status={climateImpactPercent !== null && climateImpactPercent > 0 ? "warning" : "ok"}
+                  status={climate.available ? (climate.value.percent > 0 ? "warning" : "ok") : "neutral"}
                 />
+                <SubNote>
+                  {climate.available
+                    ? `${climate.value.rdoCount} RDO(s) de ${formatDashboardDate(climate.value.windowStart)} a ${formatDashboardDate(climate.value.lastRdoDate)} (${climate.value.windowDays} dias); turno impraticável = 0,5 dia.`
+                    : `Motivo: ${climate.reason}.`}
+                </SubNote>
                 <StatusLine
-                  label="Efetivo atual"
+                  label="Efetivo atual" helpId="dashboard.executivo.efetivo-atual"
                   value={
                     dashboardCurrentWorkforce !== null
                       ? `${dashboardCurrentWorkforce.toLocaleString("pt-BR")} pessoas`

@@ -14,6 +14,7 @@ import { getAuditLog, getUser } from "@/lib/data";
 import { formatDateTime } from "@/lib/labels";
 import { normalizeLegacyMojibake } from "@/lib/normalize-legacy-mojibake";
 import { Badge } from "@/components/ui/badge";
+import { FeatureInfo } from "@/components/shared/feature-info";
 
 const LOG_FILTERS = [
   { value: "TODOS", label: "Todos" },
@@ -92,10 +93,13 @@ export default async function AuditoriaPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Auditoria" description="Trilha cronológica e supervisão operacional para a Diretoria." />
+      <PageHeader title="Auditoria" description="Trilha cronológica e supervisão operacional para a Diretoria." actions={<FeatureInfo helpId="admin.auditoria.pagina" />} />
 
       <div className="flex flex-wrap items-center gap-2 rounded-md border p-3">
-        <span className="mr-1 text-sm font-semibold">Filtrar logs:</span>
+        <span className="mr-1 flex items-center gap-1 text-sm font-semibold">
+          Filtrar logs:
+          <FeatureInfo helpId="admin.auditoria.filtros" />
+        </span>
         {LOG_FILTERS.map((filter) => (
           <Link
             key={filter.value}
@@ -108,7 +112,8 @@ export default async function AuditoriaPage({
 
       {operationalFailures > 0 ? (
         <div className="rounded-md border border-red-600 bg-red-50 p-3 text-sm text-red-900 dark:bg-red-950/30 dark:text-red-100">
-          <strong>Supervisão do ACC:</strong> {operationalFailures} registro(s) de falha ou indisponibilidade no histórico. Use o filtro “Integrações e falhas” para investigar.
+          <strong>Supervisão do ACC:</strong> {operationalFailures} registro(s) de falha ou indisponibilidade no histórico. Use o filtro “Integrações e falhas” para investigar.{" "}
+          <FeatureInfo helpId="admin.auditoria.supervisao" />
         </div>
       ) : null}
 
@@ -118,11 +123,36 @@ export default async function AuditoriaPage({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Data/Hora</TableHead>
-              <TableHead>Ator</TableHead>
-              <TableHead>Ação</TableHead>
-              <TableHead>Entidade</TableHead>
-              <TableHead>Detalhe</TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  Data/Hora
+                  <FeatureInfo helpId="admin.auditoria.col-data-hora" />
+                </span>
+              </TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  Ator
+                  <FeatureInfo helpId="admin.auditoria.col-ator" />
+                </span>
+              </TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  Ação
+                  <FeatureInfo helpId="admin.auditoria.col-acao" />
+                </span>
+              </TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  Entidade
+                  <FeatureInfo helpId="admin.auditoria.col-entidade" />
+                </span>
+              </TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  Detalhe
+                  <FeatureInfo helpId="admin.auditoria.col-detalhe" />
+                </span>
+              </TableHead>
             </TableRow>
           </TableHeader>
 

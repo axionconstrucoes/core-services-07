@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useActionState, useId, useMemo, useState } from "react";
 
 import { initialRiskReviewActionState, type RiskReviewActionState } from "@/app/[projectId]/risco/actions-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -84,6 +85,7 @@ export function RiskReviewPanel({
   initialDeclared?: Partial<DeclaredState>;
 }) {
   const [state, formAction, pending] = useActionState(action, initialRiskReviewActionState);
+  const uid = useId();
   const [declared, setDeclared] = useState<DeclaredState>({
     nature: "DESCONHECIDA",
     deadlineStatus: recordDeadline?.status ?? "DESCONHECIDO",
@@ -114,7 +116,10 @@ export function RiskReviewPanel({
   return (
     <div className="grid gap-3 text-xs">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="font-semibold">Grau de risco atual:</p>
+        <p className="inline-flex items-center gap-1 font-semibold">
+          Grau de risco atual:
+          <FeatureInfo helpId="planejamento.risco.grau-atual" />
+        </p>
         <span className="rounded border px-2 py-0.5 font-medium">
           {currentLevel ? `${RISK_LEVEL_LABEL[currentLevel]} — repete ${repeatIntervalPhrase(currentLevel)}` : "A definir"}
         </span>
@@ -125,7 +130,8 @@ export function RiskReviewPanel({
         ) : null}
       </div>
 
-      <details className="rounded border bg-muted/30 p-2">
+      <div className="flex items-start gap-1">
+      <details className="min-w-0 flex-1 rounded border bg-muted/30 p-2">
         <summary className="cursor-pointer font-medium">Critérios de classificação</summary>
         <ul className="mt-1 grid gap-1">
           {LEVELS.map((l) => (
@@ -138,67 +144,95 @@ export function RiskReviewPanel({
           Não há um número de dias que separe os níveis: iminência e tempo para mitigação são informados por quem revisa.
         </p>
       </details>
+      <FeatureInfo helpId="planejamento.risco.criterios" />
+      </div>
 
       {canReview ? (
         <form action={formAction} className="grid gap-2 rounded border p-2">
-          <p className="font-semibold">Revisar classificação (gestor, gerente ou administrador)</p>
+          <p className="inline-flex items-center gap-1 font-semibold">
+            Revisar classificação (gestor, gerente ou administrador)
+            <FeatureInfo helpId="planejamento.risco.revisar" />
+          </p>
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="grid gap-1">
-              Natureza do risco
-              <Select name="nature" value={declared.nature} onChange={(e) => set("nature", e.target.value)}>
+            <div className="grid gap-1">
+              <span className="inline-flex items-center gap-1">
+                <label htmlFor={`${uid}-nature`}>Natureza do risco</label>
+                <FeatureInfo helpId="planejamento.risco.campo-natureza" />
+              </span>
+              <Select id={`${uid}-nature`} name="nature" value={declared.nature} onChange={(e) => set("nature", e.target.value)}>
                 <option value="DESCONHECIDA">A confirmar</option>
                 <option value="DESCUMPRIMENTO_CONTRATUAL">Possível descumprimento contratual</option>
                 <option value="PROCESSUAL">Processual (acompanhamento/organização)</option>
               </Select>
-            </label>
+            </div>
             {recordDeadline ? (
               <p className="self-end text-muted-foreground">
                 Prazo da providência: {recordDeadline.date ?? "sem prazo cadastrado"}
                 {recordDeadline.status === "VENCIDO" ? " (vencido)" : ""}.
+                <FeatureInfo helpId="planejamento.risco.prazo-providencia" className="ml-1 align-middle" />
               </p>
             ) : (
-              <label className="grid gap-1">
-                Prazo contratual aplicável
-                <Select name="deadlineStatus" value={declared.deadlineStatus} onChange={(e) => set("deadlineStatus", e.target.value)}>
+              <div className="grid gap-1">
+              <span className="inline-flex items-center gap-1">
+                <label htmlFor={`${uid}-deadline`}>Prazo contratual aplicável</label>
+                <FeatureInfo helpId="planejamento.risco.campo-prazo-contratual" />
+              </span>
+                <Select id={`${uid}-deadline`} name="deadlineStatus" value={declared.deadlineStatus} onChange={(e) => set("deadlineStatus", e.target.value)}>
                   <option value="DESCONHECIDO">A confirmar</option>
                   <option value="VENCIDO">Já vencido</option>
                   <option value="A_VENCER">Ainda não venceu</option>
                   <option value="SEM_PRAZO">Sem prazo contratual</option>
                 </Select>
-              </label>
+              </div>
             )}
-            <label className="grid gap-1">
-              O descumprimento é iminente?
-              <Select name="imminence" value={declared.imminence} onChange={(e) => set("imminence", e.target.value)}>
+            <div className="grid gap-1">
+              <span className="inline-flex items-center gap-1">
+                <label htmlFor={`${uid}-imminence`}>O descumprimento é iminente?</label>
+                <FeatureInfo helpId="planejamento.risco.campo-iminencia" />
+              </span>
+              <Select id={`${uid}-imminence`} name="imminence" value={declared.imminence} onChange={(e) => set("imminence", e.target.value)}>
                 <option value="DESCONHECIDA">A confirmar</option>
                 <option value="SIM">Sim</option>
                 <option value="NAO">Não</option>
               </Select>
-            </label>
-            <label className="grid gap-1">
-              Ainda há tempo para mitigação?
-              <Select name="mitigationTime" value={declared.mitigationTime} onChange={(e) => set("mitigationTime", e.target.value)}>
+            </div>
+            <div className="grid gap-1">
+              <span className="inline-flex items-center gap-1">
+                <label htmlFor={`${uid}-mitigation`}>Ainda há tempo para mitigação?</label>
+                <FeatureInfo helpId="planejamento.risco.campo-mitigacao" />
+              </span>
+              <Select id={`${uid}-mitigation`} name="mitigationTime" value={declared.mitigationTime} onChange={(e) => set("mitigationTime", e.target.value)}>
                 <option value="DESCONHECIDA">A confirmar</option>
                 <option value="SIM">Sim, há tempo</option>
                 <option value="NAO">Não há tempo</option>
               </Select>
-            </label>
+            </div>
           </div>
-          <label className="grid gap-1">
-            Consequência/penalidade contratual prevista (opcional)
-            <Input name="consequenceDescription" value={declared.consequenceDescription} onChange={(e) => set("consequenceDescription", e.target.value)} maxLength={600} />
-          </label>
+          <div className="grid gap-1">
+            <span className="inline-flex items-center gap-1">
+              <label htmlFor={`${uid}-consequence`}>Consequência/penalidade contratual prevista (opcional)</label>
+              <FeatureInfo helpId="planejamento.risco.campo-consequencia" />
+            </span>
+            <Input id={`${uid}-consequence`} name="consequenceDescription" value={declared.consequenceDescription} onChange={(e) => set("consequenceDescription", e.target.value)} maxLength={600} />
+          </div>
           {verifiedClause ? (
-            <label className="flex items-center gap-2">
-              <input type="checkbox" name="consequenceInVerifiedClause" checked={declared.consequenceInVerifiedClause} onChange={(e) => set("consequenceInVerifiedClause", e.target.checked)} />
-              Confirmo que esta consequência está prevista em {verifiedClause.label}
-            </label>
+            <span className="flex items-center gap-1">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" name="consequenceInVerifiedClause" checked={declared.consequenceInVerifiedClause} onChange={(e) => set("consequenceInVerifiedClause", e.target.checked)} />
+                Confirmo que esta consequência está prevista em {verifiedClause.label}
+              </label>
+              <FeatureInfo helpId="planejamento.risco.confirmar-consequencia" />
+            </span>
           ) : (
-            <p className="text-muted-foreground">Sem cláusula verificada vinculada: uma penalidade não pode ser tratada como prevista em contrato.</p>
+            <p className="text-muted-foreground">
+              Sem cláusula verificada vinculada: uma penalidade não pode ser tratada como prevista em contrato.
+              <FeatureInfo helpId="planejamento.risco.confirmar-consequencia" className="ml-1 align-middle" />
+            </p>
           )}
 
           <div className="grid gap-1 rounded border bg-muted/30 p-2" aria-live="polite">
             <p className="font-semibold">
+              <FeatureInfo helpId="planejamento.risco.sugestao" className="mr-1 align-middle" />
               Sugestão:{" "}
               {suggestion.level
                 ? `${RISK_LEVEL_LABEL[suggestion.level]} (incerteza ${suggestion.uncertainty.toLowerCase()})`
@@ -225,13 +259,19 @@ export function RiskReviewPanel({
                 </li>
               ))}
             </ul>
-            <p className="text-muted-foreground">A sugestão não altera o alerta; é apoio à decisão e exige revisão humana.</p>
+            <p className="text-muted-foreground">
+              A sugestão não altera o alerta; é apoio à decisão e exige revisão humana.
+              <FeatureInfo helpId="planejamento.risco.base-fato-inferencia" className="ml-1 align-middle" />
+            </p>
           </div>
 
           <div className="grid gap-2 sm:grid-cols-2">
-            <label className="grid gap-1">
-              Grau de risco a registrar
-              <Select name="newLevel" value={chosen} onChange={(e) => setNewLevel(e.target.value)} required>
+            <div className="grid gap-1">
+              <span className="inline-flex items-center gap-1">
+                <label htmlFor={`${uid}-newlevel`}>Grau de risco a registrar</label>
+                <FeatureInfo helpId="planejamento.risco.campo-novo-grau" />
+              </span>
+              <Select id={`${uid}-newlevel`} name="newLevel" value={chosen} onChange={(e) => setNewLevel(e.target.value)} required>
                 <option value="" disabled>
                   Selecione
                 </option>
@@ -241,28 +281,40 @@ export function RiskReviewPanel({
                   </option>
                 ))}
               </Select>
-            </label>
-            <label className="grid gap-1">
-              Referência verificável (opcional)
-              <Input name="reference" maxLength={300} placeholder="Cláusula, documento ou protocolo" />
-            </label>
+            </div>
+            <div className="grid gap-1">
+              <span className="inline-flex items-center gap-1">
+                <label htmlFor={`${uid}-reference`}>Referência verificável (opcional)</label>
+                <FeatureInfo helpId="planejamento.risco.campo-referencia" />
+              </span>
+              <Input id={`${uid}-reference`} name="reference" maxLength={300} placeholder="Cláusula, documento ou protocolo" />
+            </div>
           </div>
-          <label className="grid gap-1">
-            Justificativa (obrigatória)
-            <Textarea name="justification" rows={3} required />
-          </label>
+          <div className="grid gap-1">
+            <span className="inline-flex items-center gap-1">
+              <label htmlFor={`${uid}-justification`}>Justificativa (obrigatória)</label>
+              <FeatureInfo helpId="planejamento.risco.campo-justificativa" />
+            </span>
+            <Textarea id={`${uid}-justification`} name="justification" rows={3} required />
+          </div>
           {state.error ? <p className="text-destructive">{state.error}</p> : null}
           {state.success ? <p className="text-emerald-700">{state.success}</p> : null}
-          <Button type="submit" size="sm" disabled={pending} className="self-start">
-            {pending ? "Registrando…" : "Registrar classificação"}
-          </Button>
+          <div className="flex items-center gap-1 self-start">
+            <Button type="submit" size="sm" disabled={pending}>
+              {pending ? "Registrando…" : "Registrar classificação"}
+            </Button>
+            <FeatureInfo helpId="planejamento.risco.registrar" />
+          </div>
         </form>
       ) : (
         <p className="text-muted-foreground">Apenas gestor, gerente ou administrador da obra revisa o grau de risco.</p>
       )}
 
       <div>
-        <p className="font-semibold">Histórico de classificação</p>
+        <p className="inline-flex items-center gap-1 font-semibold">
+          Histórico de classificação
+          <FeatureInfo helpId="planejamento.risco.historico" />
+        </p>
         {history.length === 0 ? (
           <p className="text-muted-foreground">Nenhuma revisão registrada — vale a classificação original.</p>
         ) : (

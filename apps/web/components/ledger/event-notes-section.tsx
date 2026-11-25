@@ -1,4 +1,5 @@
 import { NotebookPen } from "lucide-react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { EventNoteForm } from "@/components/ledger/event-note-form";
 import { getEventNotes } from "@/lib/event-notes";
 import { eventNoteCategoryLabels, formatDateTime } from "@/lib/labels";
@@ -23,6 +24,7 @@ export async function EventNotesSection({
       <div className="flex items-center gap-2">
         <NotebookPen className="size-4 text-amber-600 dark:text-amber-400" />
         <h2 className="text-sm font-semibold">Anotações do Evento</h2>
+        <FeatureInfo helpId="planejamento.ledger-evento.anotacoes" />
       </div>
 
       <p className="text-xs text-muted-foreground">
@@ -54,7 +56,7 @@ export async function EventNotesSection({
         <EventNoteForm projectId={projectId} eventId={eventId} />
       ) : (
         <p className="rounded-md border bg-muted p-3 text-xs text-muted-foreground">
-          Você possui acesso de leitura. Adicionar anotação exige permissão EDITOR ou ADMIN.
+          Você possui acesso de leitura. Adicionar anotação exige o perfil ADMINISTRADOR neste projeto.
         </p>
       )}
     </div>

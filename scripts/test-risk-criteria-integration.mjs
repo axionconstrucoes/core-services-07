@@ -45,7 +45,7 @@ console.log("RISCO — CRITÉRIOS NOS PROMPTS E INTEGRAÇÃO NO FLUXO");
 console.log("======================================\n");
 
 await check("sem chave nem seleção de provedor no ambiente: todos os Experts resolvem para o provedor SIMULADO", async () => {
-  for (const id of ["commercial-director", "esg-director", "ceo", "legal-consultant", "planning-director"]) {
+  for (const id of ["commercial-director", "esg-director", "ceo", "legal-consultant", "planning-director", "engineering-director"]) {
     assert.equal(resolveAiProviderForExpert(id).id, "fake", id);
   }
 });
@@ -56,6 +56,7 @@ const EXPERTS = [
   ["esg-director", "ESG_DIRECTOR_INSTRUCTIONS", "ESG_DIRECTOR_VERSION"],
   ["legal-consultant", "LEGAL_CONSULTANT_INSTRUCTIONS", "LEGAL_CONSULTANT_VERSION"],
   ["planning-director", "PLANNING_DIRECTOR_INSTRUCTIONS", "PLANNING_DIRECTOR_VERSION"],
+  ["engineering-director", "ENGINEERING_DIRECTOR_INSTRUCTIONS", "ENGINEERING_DIRECTOR_VERSION"],
 ];
 
 await check("o texto dos quatro critérios é EXATO (definição de Reynaldo) e espelha RISK_CRITERIA da sugestão determinística", () => {
@@ -93,13 +94,16 @@ for (const [dir, instrName, versionName] of EXPERTS) {
   });
 }
 
-await check("versões subiram: ceo v3, comercial v4, ESG v3, jurídico v5, planejamento v5", async () => {
+await check("versões subiram (framework comum; Planejamento e Engenharia separados; Comercial estratégico + Orçamentos): ceo v5, comercial v5, ESG v4, jurídico v7, planejamento v6, engenharia v1, qualidade v1", async () => {
   const get = async (dir, name) => (await import(`../apps/web/lib/ai/experts/${dir}/identity.ts`))[name];
-  assert.equal(await get("ceo", "CEO_VERSION"), "v3");
-  assert.equal(await get("commercial-director", "COMMERCIAL_DIRECTOR_VERSION"), "v4");
-  assert.equal(await get("esg-director", "ESG_DIRECTOR_VERSION"), "v3");
-  assert.equal(await get("legal-consultant", "LEGAL_CONSULTANT_VERSION"), "v5");
-  assert.equal(await get("planning-director", "PLANNING_DIRECTOR_VERSION"), "v5");
+  // v5/v7: bump por prompt alterado (CEO: quatro pilares + Qualidade; Jurídico: competência de seguros e garantias).
+  assert.equal(await get("ceo", "CEO_VERSION"), "v5");
+  assert.equal(await get("commercial-director", "COMMERCIAL_DIRECTOR_VERSION"), "v5");
+  assert.equal(await get("esg-director", "ESG_DIRECTOR_VERSION"), "v4");
+  assert.equal(await get("legal-consultant", "LEGAL_CONSULTANT_VERSION"), "v7");
+  assert.equal(await get("quality-analyst", "QUALITY_ANALYST_VERSION"), "v1");
+  assert.equal(await get("planning-director", "PLANNING_DIRECTOR_VERSION"), "v6");
+  assert.equal(await get("engineering-director", "ENGINEERING_DIRECTOR_VERSION"), "v1");
 });
 
 await check("ESG: o prompt continua dizendo que o risco ESG vem de regras objetivas (os critérios não substituem a regra)", async () => {

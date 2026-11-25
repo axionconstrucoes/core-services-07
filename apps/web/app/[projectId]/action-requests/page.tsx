@@ -4,6 +4,7 @@ import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { ActionRequestStatusBadge } from "@/components/shared/badges";
 import { EmptyState } from "@/components/shared/empty-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { formatDateTime } from "@/lib/labels";
 import { getActionRequests } from "@/lib/data";
 
@@ -15,12 +16,16 @@ export default async function ActionRequestsPage({ params }: { params: Promise<{
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Solicitações" description="Solicitações rastreáveis para alguém analisar, responder ou executar algo." />
+      <PageHeader title="Solicitações" description="Solicitações rastreáveis para alguém analisar, responder ou executar algo." actions={<FeatureInfo helpId="planejamento.solicitacoes.pagina" />} />
 
       {actionRequests.length === 0 ? (
         <EmptyState message="Nenhuma solicitação registrada para este projeto." />
       ) : (
         <div className="flex flex-col gap-2">
+          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+            Cada linha mostra o título e, à direita, o selo de status da solicitação.
+            <FeatureInfo helpId="planejamento.solicitacoes.status" />
+          </p>
           {actionRequests.map((actionRequest) => (
             <Link
               key={actionRequest.id}

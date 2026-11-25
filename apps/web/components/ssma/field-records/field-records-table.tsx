@@ -1,3 +1,6 @@
+import { RegisterQualityIndication } from "@/components/quality/register-quality-indication";
+import { FeatureInfo } from "@/components/shared/feature-info";
+import { buildOriginRef } from "@/lib/quality/ingestion";
 import { isActionOverdue, type FieldRecordView } from "@/lib/ssma/field-records/field-record-view";
 import { ACTION_STATUS_LABELS, RISK_LABELS } from "@/lib/ssma/field-records/types";
 
@@ -10,14 +13,29 @@ const RISK_BADGE: Record<string, string> = {
 const dateTime = (iso: string) => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
 const dateOnly = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR");
 
+const HEADING_HELP: Record<string, string> = {
+  Risco: "ssma.registro.risco",
+  "Ação corretiva": "ssma.registro.acao-corretiva",
+};
+
 /** Tabela do painel do ACC (somente leitura). `today` = AAAA-MM-DD para marcar ações em atraso. */
-export function FieldRecordsTable({ records, today }: { records: FieldRecordView[]; today: string }) {
+export function FieldRecordsTable({ records, today, projectId }: { records: FieldRecordView[]; today: string; projectId?: string }) {
   return (
     <table className="w-full min-w-[900px] text-sm">
     <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
       <tr>
         {["Fato", "Tipo / categoria", "Local", "Risco", "Registrado por", "Responsável", "Prazo", "Ação corretiva", "Fotos"].map((heading) => (
-          <th key={heading} className="px-3 py-2 font-semibold">{heading}</th>
+          // help-exempt: cabeçalhos da tabela do painel; descritos em ssma.registros.tabela (Risco e Ação corretiva têm ícone próprio)
+          <th key={heading} className="px-3 py-2 font-semibold">
+            {HEADING_HELP[heading] ? (
+              <span className="inline-flex items-center gap-1.5">
+                {heading}
+                <FeatureInfo helpId={HEADING_HELP[heading]} />
+              </span>
+            ) : (
+              heading
+            )}
+          </th>
         ))}
       </tr>
     </thead>
@@ -44,6 +62,18 @@ export function FieldRecordsTable({ records, today }: { records: FieldRecordView
                   ))}
                 </span>
               )}
+              {projectId ? (
+                <RegisterQualityIndication
+                  compact
+                  projectId={projectId}
+                  originTypes={["SSMA_FOTO"]}
+                  originRef={buildOriginRef("ssma_field_record", record.id)}
+                  sourceTable="ssma_field_records"
+                  originUrl={`/${projectId}/ssma-registros`}
+                  defaultTitle={`${record.category} — ${record.location}`}
+                  triageEligible
+                />
+              ) : null}
             </td>
           </tr>
         );

@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { FlaskConical, Loader2 } from "lucide-react";
 import { AiPendingIndicator } from "@/components/ai/ai-pending-indicator";
 import { SeverityBadge } from "@/components/shared/badges";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { confrontationSeverityToAlertSeverity } from "@/lib/labels";
@@ -31,6 +32,7 @@ export function RunMultiExpertCurationButton({ projectId, eventId }: { projectId
       <CardHeader className="flex-row items-center gap-2 space-y-0">
         <FlaskConical className="size-4 text-muted-foreground" aria-hidden="true" />
         <CardTitle className="text-base">Curadoria multiagente (Experts IA)</CardTitle>
+        <FeatureInfo helpId="planejamento.ledger-evento.curadoria" />
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <p className="text-sm text-muted-foreground">
@@ -41,6 +43,7 @@ export function RunMultiExpertCurationButton({ projectId, eventId }: { projectId
         <form action={formAction} className="flex flex-col gap-1.5">
           <input type="hidden" name="projectId" value={projectId} />
           <input type="hidden" name="eventId" value={eventId} />
+          {/* help-exempt: ação descrita pelo ícone planejamento.ledger-evento.curadoria do cabeçalho deste mesmo cartão */}
           <Button type="submit" variant="outline" size="sm" disabled={pending} className="self-start">
             {pending ? (
               <>

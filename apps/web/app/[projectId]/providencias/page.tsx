@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { DeliveryAdminControls } from "@/components/delivery/delivery-admin-controls";
 import { DeliveryItemsTable } from "@/components/delivery/delivery-items-table";
 import { EmptyState } from "@/components/shared/empty-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { PageHeader } from "@/components/layout/page-header";
 import { createSupabaseServerClient } from "@axion/db/server";
 import type { RiskReviewHistoryItem } from "@/components/risk/risk-review-panel";
@@ -50,10 +51,11 @@ export default async function ProvidenciasPage({ params }: { params: Promise<{ p
       <PageHeader
         title="Providências e pendências para entrega"
         description={`${overview.projectName} — tabela única de providências: os alertas usam estes mesmos registros.`}
+        actions={<FeatureInfo helpId="planejamento.providencias.pagina" />}
       />
 
       {!overview.available ? (
-        <EmptyState message="Este módulo ainda não foi habilitado neste ambiente (a migration das providências não foi aplicada)." />
+        <EmptyState message="Este recurso (providências) ainda não está disponível neste ambiente." />
       ) : (
         <>
           {overview.canEdit ? <DeliveryAdminControls projectId={projectId} hasItems={overview.items.length > 0} /> : null}

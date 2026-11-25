@@ -25,6 +25,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "dashboard", label: "Dashboard", icon: "LayoutDashboard", helpId: "dashboard" },
+  { href: "pilares", label: "Quatro Pilares", icon: "Gauge", helpId: "pilares.menu.item" },
   { href: "timeline", label: "Timeline", icon: "History", helpId: "timeline" },
   { href: "ledger", label: "Eventos", icon: "BookText", helpId: "event-ledger", restrictedTo: "admin" },
   { href: "action-requests", label: "Solicitações", icon: "ListChecks", helpId: "solicitacoes" },
@@ -38,15 +39,22 @@ export const NAV_ITEMS: NavItem[] = [
   // continuam existindo — nada foi apagado, só a entrada de navegação.
   { href: "documentos", label: "Documentos", icon: "FileStack", helpId: "documentos" },
   { href: "providencias", label: "Providências", icon: "ClipboardCheck", helpId: "providencias" },
+  { href: "seguros", label: "Seguros", icon: "ShieldCheck", helpId: "seguros.menu.item" },
   // Dashboard financeiro alimentado só pela aba FINANCEIRO da planilha do
   // relatório semanal (weekly_report_sheets). Visível apenas para quem
   // passa em evaluateFinancialDashboardAccess (lib/financial/access.ts).
   { href: "financeiro", label: "Financeiro", icon: "Wallet", helpId: "financeiro", restrictedTo: "financial" },
   { href: "esg", label: "ESG/SSMA", icon: "Leaf", helpId: "esg-ssma" },
+  { href: "qualidade", label: "Qualidade", icon: "BadgeCheck", helpId: "qualidade.menu.item" },
+  { href: "garantias", label: "Garantias", icon: "Wrench", helpId: "garantias.menu.garantias" },
   { href: "experts-ia", label: "Experts IA", icon: "Bot", helpId: "experts-ia" },
   { href: "integracoes", label: "Integrações", icon: "Plug", helpId: "integracoes", restrictedTo: "admin" },
   { href: "usuarios", label: "Usuários", icon: "Users", helpId: "usuarios", restrictedTo: "admin" },
+  // Fase 6/H2a: visibilidade por nível em lib/permissions/nav-access.ts (TIER_GATED_SEGMENTS) e guarda de rota nos layouts dos segmentos.
+  { href: "competencias", label: "Competências", icon: "BadgeCheck", helpId: "governanca.competencias.menu" },
+  { href: "aprovacoes-externas", label: "Aprovações externas", icon: "ClipboardCheck", helpId: "governanca.aprovacoes.menu" },
   { href: "autorizacoes", label: "Autorizações", icon: "ShieldCheck", helpId: "autorizacoes-email", restrictedTo: "admin" },
+  { href: "reemissao-alertas", label: "Reemissão de alertas", icon: "ShieldCheck", helpId: "reemissao-alertas", restrictedTo: "admin" },
   { href: "auditoria", label: "Auditoria", icon: "AlertTriangle", helpId: "auditoria" },
   { href: "ajuda", label: "Ajuda e tutorial", icon: "BookOpen", helpId: "ajuda-tutorial" },
   { href: "startup", label: "Start-up ACC", icon: "Rocket", helpId: "startup-acc", restrictedTo: "admin" },

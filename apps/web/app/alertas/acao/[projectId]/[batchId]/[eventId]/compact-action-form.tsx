@@ -6,6 +6,7 @@ import type { AlertSeverity } from "@axion/types";
 
 import { AlertActionNotice } from "@/components/alerts/alert-action-notice";
 import { Button } from "@/components/ui/button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Select } from "@/components/ui/select";
 import type { ContractAlertBatchItemAction } from "@/lib/email-actions/contract-alert-batch-types";
 
@@ -41,6 +42,7 @@ export function CompactContractAlertActionForm({
     return (
       <div className="rounded-md border border-emerald-300 bg-emerald-50 p-4 text-sm font-medium text-emerald-800">
         Ação registrada no ACC. Você pode voltar ao e-mail.
+        {state.warning ? <p className="mt-2 font-normal text-amber-800">{state.warning}</p> : null}
       </div>
     );
   }
@@ -53,9 +55,10 @@ export function CompactContractAlertActionForm({
 
       {initialAction === "ENVIADO_PARA" ? (
         <div className="grid gap-1.5 md:grid-cols-[110px_minmax(0,1fr)] md:items-center">
-          <label htmlFor="assignedUserId" className="text-sm font-medium md:mb-0">
-            Enviado para
-          </label>
+          <span className="inline-flex items-center gap-1 text-sm font-medium md:mb-0">
+            <label htmlFor="assignedUserId">Enviado para</label>
+            <FeatureInfo helpId="planejamento.alerta-email-acao.enviado-para" />
+          </span>
           <Select id="assignedUserId" name="assignedUserId" required defaultValue="">
             <option value="" disabled>
               Selecione um colaborador
@@ -73,9 +76,12 @@ export function CompactContractAlertActionForm({
         <p className="text-sm text-destructive">{state.error}</p>
       ) : null}
 
-      <Button type="submit" disabled={pending} className="md:self-end md:px-10">
-        {pending ? "Confirmando…" : "CONFIRMAR"}
-      </Button>
+      <span className="inline-flex items-center gap-1 md:self-end">
+        <Button type="submit" disabled={pending} className="md:px-10">
+          {pending ? "Confirmando…" : "CONFIRMAR"}
+        </Button>
+        <FeatureInfo helpId="planejamento.alerta-email-acao.confirmar" />
+      </span>
     </form>
   );
 }

@@ -63,6 +63,7 @@ const { resolveMatrixPolicy } = await import("../apps/web/lib/sla/resolve-matrix
 const { DEFAULT_SLA_MATRIX } = await import("../apps/web/lib/sla/default-matrix");
 const { FakeEmailProvider } = await import("../apps/web/lib/email/fake-email-provider");
 const { getEmailProvider } = await import("../apps/web/lib/email/get-email-provider");
+const { GovernedEmailProvider } = await import("../apps/web/lib/email/governed-email-provider");
 const { applyPilotOutboundGuard } = await import("../apps/web/lib/email/pilot-outbound-guard");
 const { createInMemoryRiskAlertStore } = await import("./lib/weg-alert-sim/in-memory-risk-alert-store.mjs");
 const { createSupabaseRiskAlertStore } = await import("../apps/web/lib/risk-alerts/supabase-store");
@@ -251,7 +252,9 @@ function makeWorld({ override = CRM, level1 = U.RESP, allowlist = [U.RESP, U.GES
 console.log("== A. Segurança: nenhum envio real é possível");
 
 await check("A1 getEmailProvider() sem AXION_EMAIL_PROVIDER devolve o FakeEmailProvider", () => {
-  assert(getEmailProvider() instanceof FakeEmailProvider);
+  // Governador de alertas (doc 35): o ponto único devolve o provedor governado, que envolve o FAKE (nunca outro transporte).
+  const provider = getEmailProvider();
+  assert(provider instanceof GovernedEmailProvider && provider.inner instanceof FakeEmailProvider);
 });
 await check("A2 provider 'gmail' sem configuração falha fechado (nunca cai em fake nem envia)", () => {
   process.env.AXION_EMAIL_PROVIDER = "gmail";
@@ -561,7 +564,11 @@ await check("E5 após RESOLVIDO (ALTO) e IN_PROGRESS (CRÍTICO) o prazo vencido 
 });
 
 // ---- Reply-To (processador real das respostas)
-const inboundHeaders = (overrides) => ({ from: EMAIL[U.RESP], to: [], messageId: null, inReplyTo: null, references: [], replyTo: null, autoSubmitted: null, authenticationResults: null, subject: "Re: alerta", ...overrides });
+// P2: autenticação do remetente obrigatória (DMARC/DKIM alinhado, servidor confiável) — fixtures com Authentication-Results do Gmail.
+const inboundHeaders = (overrides) => {
+  const from = overrides?.from ?? EMAIL[U.RESP];
+  return { from: EMAIL[U.RESP], to: [], messageId: null, inReplyTo: null, references: [], replyTo: null, autoSubmitted: null, authenticationResults: `mx.google.com; dkim=pass header.i=@${String(from).split("@")[1]}; dmarc=pass header.from=${String(from).split("@")[1]}`, subject: "Re: alerta", ...overrides };
+};
 const STATUS_BODY = "Estou tomando as providências: equipe acionada, andamento em execução hoje.";
 
 async function replyWorld(options = {}) {
@@ -944,6 +951,10 @@ function fakeSupabase(tables) {
         },
         eq(k, v) {
           filters.push([k, v]);
+          return api;
+        },
+        neq(k, v) {
+          predicates.push((r) => r[k] !== v);
           return api;
         },
         or(expr) {

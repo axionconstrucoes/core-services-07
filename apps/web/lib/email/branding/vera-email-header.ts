@@ -62,14 +62,18 @@ function escapeAttribute(value: string): string {
 export function buildVeraHeaderHtml(url: string, hasImage: boolean): string {
   const href = escapeAttribute(url);
   const label = "FALE COM A AXIA";
+  // Faixa de identificação completa (imagem 56px sem recorte + nome + apoio), em tabela simples compatível com Gmail e Outlook.
   const image = hasImage
-    ? `&nbsp;<img src="cid:${VERA_EMAIL_IMAGE_CID}" width="40" height="40" alt="AXIA — Assistente ACC" style="vertical-align:middle;border-radius:20px;border:2px solid #7F1D1D;width:40px;height:40px;">`
+    ? `<td width="68" valign="middle" style="width:68px;padding:0 12px 0 0;"><a href="${href}" style="text-decoration:none;"><img src="cid:${VERA_EMAIL_IMAGE_CID}" width="56" height="56" alt="AXIA — Assistente ACC" style="display:block;border:0;width:56px;height:56px;border-radius:28px;"></a></td>`
     : "";
   return (
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" ${VERA_EMAIL_MARKER} style="background:#FFFFFF;">` +
-    `<tr><td align="right" style="padding:8px 14px;">` +
-    `<a href="${href}" title="Abrir a AXIA — Assistente ACC" style="text-decoration:none;color:#7F1D1D;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:bold;">` +
-    `<span style="vertical-align:middle;">${label}</span>${image}</a>` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" ${VERA_EMAIL_MARKER} style="background:#FBF4F4;border-bottom:2px solid #7F1D1D;">` +
+    `<tr><td align="center" style="padding:14px 18px;">` +
+    `<table role="presentation" cellpadding="0" cellspacing="0" align="center"><tr>${image}` +
+    `<td valign="middle" style="text-align:left;">` +
+    `<a href="${href}" title="Abrir a AXIA — Assistente ACC" style="text-decoration:none;color:#7F1D1D;font-family:Arial,Helvetica,sans-serif;font-size:18px;line-height:24px;font-weight:bold;">${label}</a><br>` +
+    `<a href="${href}" style="text-decoration:none;color:#374151;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:20px;">AXIA, a assistente do ACC — tire dúvidas sobre este alerta</a>` +
+    `</td></tr></table>` +
     `</td></tr></table>`
   );
 }

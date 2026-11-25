@@ -18,6 +18,8 @@ export type OfficialExpertId =
   | "commercial-director"
   | "legal-consultant"
   | "planning-director"
+  | "engineering-director"
+  | "quality-analyst"
   | "esg-director";
 
 export type ExpertImplementationStatus =
@@ -108,7 +110,7 @@ export interface ExpertConfidenceRule {
  */
 export interface ExpertVisualIdentity {
   icon: string;
-  colorToken: "purple" | "blue" | "indigo" | "cyan" | "green";
+  colorToken: "purple" | "blue" | "indigo" | "cyan" | "green" | "amber" | "rose";
 }
 
 /**

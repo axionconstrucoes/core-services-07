@@ -202,7 +202,7 @@ export function buildSharedSourceRows(evidence: MatrixEvidence, now = new Date()
     const recent = diario.lastRunAt ? now.getTime() - Date.parse(diario.lastRunAt) <= STALE_MS : false;
     rows.push({
       key: "diario", label: "Diário de Obra",
-      connection: diario.integrationStatus === "CONECTADO" && success ? ok("Execução comprovada", "Última execução registrada com sucesso e sem erros.", diario.lastRunAt) : bad("Não comprovada", `Integração ${diario.integrationStatus ?? "sem registro"}; última execução ${diario.lastRunStatus ?? "inexistente"}; erros ${diario.lastRunErrors ?? "?"}.`, diario.lastRunAt),
+      connection: diario.integrationStatus === "CONECTADO" && success ? ok("Execução comprovada", "Última execução registrada com sucesso e sem erros.", diario.lastRunAt) : bad("Não comprovada", `Integração ${diario.integrationStatus ?? "sem registro"}; última execução ${diario.lastRunStatus ?? "inexistente"}; ${diario.lastRunErrors === null || diario.lastRunErrors === undefined ? "erros: não informado" : `erros ${diario.lastRunErrors}`}.`, diario.lastRunAt),
       collection: success && recent ? ok("Coletando", `Última execução em ${diario.lastRunAt}: ${diario.lastRunCreated ?? 0} novos, 0 erros. Zero novos não significa falha.`, diario.lastRunAt) : bad(success ? "Execução desatualizada" : "Falha ou sem execução", `Última execução ${diario.lastRunStatus ?? "inexistente"}${diario.lastRunAt ? ` em ${diario.lastRunAt}` : ""}.`, diario.lastRunAt),
       availability: diario.reports > 0 ? ok("Estruturado disponível", `${diario.reports} relatórios estruturados importados (fotos e anexos podem existir só como contagem no fornecedor).`, diario.lastRunAt) : bad("Nada disponível", "Nenhum relatório importado."),
       facts: [personal],
@@ -250,7 +250,7 @@ export function buildSharedSourceRows(evidence: MatrixEvidence, now = new Date()
       connection: ssma.integrationStatus === "CONECTADO" && accessOk ? ok("Acesso verificado", "Última verificação de conexão sem erro.", ssma.lastCheckAt) : bad("Acesso não comprovado", `Integração ${ssma.integrationStatus ?? "sem registro"}${ssma.lastCheckAt ? "" : "; nenhuma verificação de conexão registrada"}${ssma.lastCheckError ? "; última verificação com erro" : ""}. O rótulo "CONECTADO" sozinho não comprova funcionamento.`, ssma.lastCheckAt),
       collection: synced ? ok("Sincronização comprovada", `${ssma.photosSynced} de ${ssma.photos} fotos sincronizadas com o Drive.`, ssma.lastSyncAt) : bad(ssma.photos === 0 ? "Sem execução real" : "Sincronização incompleta", ssma.photos === 0 ? `${ssma.submissions} registros e nenhuma foto sincronizada nesta obra.` : `${ssma.photosSynced} sincronizadas, ${ssma.photosPending} pendentes e ${ssma.photosFailed} com falha (de ${ssma.photos}).`, ssma.lastSyncAt),
       availability: synced && ssma.submissions > 0 ? ok("Material acessível", `${ssma.submissions} registros e ${ssma.photosSynced} fotos com arquivo identificado no Drive. A abertura do arquivo pelo usuário não é verificada por esta consulta.`, ssma.lastSyncAt) : bad("Sem registro validado", "Ainda não há registro real desta obra salvo, sincronizado e aberto como evidência."),
-      facts: ["As falhas de fotos anteriores pertencem ao projeto TESTE e permanecem separadas.", personal],
+      facts: [...(ssma.photosFailed > 0 ? ["As falhas de fotos anteriores pertencem ao projeto TESTE e permanecem separadas."] : []), personal],
     });
   }
   return rows;

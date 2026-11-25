@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { createSupabaseServerClient } from "@axion/db/server";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { loadAlertConsultSubject } from "@/lib/ai/alert-consult/load-alert-consult-subject";
 import { getAlertConsultSpecialty, preselectSpecialtyForArea } from "@/lib/ai/alert-consult/specialties";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
@@ -56,7 +57,10 @@ export default async function AlertConsultPage({ params }: { params: Promise<{ p
             <img src="/branding/acc-logo.png" alt="ACC" className="h-7 w-auto" />
           </div>
           <CardTitle className="text-base">AXION Controle de Contratos</CardTitle>
-          <CardDescription>Consultar IA sobre o alerta</CardDescription>
+          <CardDescription className="flex items-center gap-1">
+            Consultar IA sobre o alerta
+            <FeatureInfo helpId="planejamento.consulta-ia.pagina" />
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 p-4 pt-0">
           {!loaded ? (

@@ -1458,7 +1458,7 @@ Conteúdo, identidades, escopo e limites dos especialistas: ver CAP69 cap. 8 (n�
 
 - **Quem acessa / permissões**
   - Menu: todos os perfis veem o item (`nav-items.ts:45`). A página não bloqueia nenhum perfil; leitura por qualquer membro da obra (RLS `esg_obligations_select_project_members_only`, `supabase/migrations/20260822050000_esg_obligations_foundation.sql:184-187`; idem submissões `:353-356` e evidências `:488-491`).
-  - **Perfis (alinhados em interface, servidor e banco — banco após a migration `20261106100000`, ainda não aplicada)**: **registrar comprovação e anexar evidência** = Administrador, Gerente, Gestor e Colaborador ativos (Colaborador anexa só na própria comprovação); **revisar** e **configurar obrigações** = somente Administrador ativo; **Leitura** consulta. As ações do servidor conferem o perfil antes de chegar ao banco (`lib/esg/esg-permissions.ts`); a RLS é a autoridade final. Nenhum caminho do ESG usa `service_role` e não há rota de API de ESG (o upload é direto ao Storage, com policy própria para `<obra>/esg-evidence/`).
+  - **Perfis (alinhados em interface, servidor e banco — banco após a migration `20261111042824`, ainda não aplicada)**: **registrar comprovação e anexar evidência** = Administrador, Gerente, Gestor e Colaborador ativos (Colaborador anexa só na própria comprovação); **revisar** e **configurar obrigações** = somente Administrador ativo; **Leitura** consulta. As ações do servidor conferem o perfil antes de chegar ao banco (`lib/esg/esg-permissions.ts`); a RLS é a autoridade final. Nenhum caminho do ESG usa `service_role` e não há rota de API de ESG (o upload é direto ao Storage, com policy própria para `<obra>/esg-evidence/`).
   - **Dashboard**: o painel "SSMA / ESG — Segurança" traz Cumpridas, Pendentes, Vencidas, Aguardando revisão e Evidências pendentes; cada total abre `/{obra}/esg?filtro=…` com as obrigações que o compõem (definições em `docs/esg-obligations.md` §11.1). Indicadores quantitativos (resíduos, horas de treinamento, taxa de frequência) são evolução posterior.
   - Consulta ao "Diretor de ESG IA": ver cap. 8 do manual; aqui só a posição na tela.
 
@@ -1529,7 +1529,7 @@ Conteúdo, identidades, escopo e limites dos especialistas: ver CAP69 cap. 8 (n�
 - **Quem acessa / permissões**
   Qualquer membro da obra: a página só exige que a obra exista (`notFound()` caso contrário, `ssma-registros/page.tsx:17-18`) e não verifica perfil. Leitura por membro ATIVO via RLS (`supabase/migrations/20261028130000_ssma_field_records.sql:17`; `docs/modulo-seguranca-pwa.md`, tabela "O que existe"). Escrita só por RPC (mesmo arquivo `:17`); o perfil Leitura não registra (`...ssma_field_records.sql:183-186`). Esta tela é só leitura.
 
-- **Ação corretiva ↔ Ações e Escalonamentos (migration `20261106100000`, ainda não aplicada)**: cada ação corretiva ganha uma ação vinculada em `/{obra}/acoes` (origem "Ação corretiva SSMA", área ESG/SSMA). Responsável, prazo, assumir/iniciar e escalonamento são do módulo de Ações; **evidência, histórico e conclusão** são do SSMA (a conclusão exige a foto de evidência ou a justificativa do gestor). Concluir ou reabrir essa ação em Ações é recusado com mensagem orientando a concluir no app SSMA. Reatribuição e novo prazo feitos em Ações chegam ao registro e ao histórico do SSMA.
+- **Ação corretiva ↔ Ações e Escalonamentos (migration `20261111042824`, ainda não aplicada)**: cada ação corretiva ganha uma ação vinculada em `/{obra}/acoes` (origem "Ação corretiva SSMA", área ESG/SSMA). Responsável, prazo, assumir/iniciar e escalonamento são do módulo de Ações; **evidência, histórico e conclusão** são do SSMA (a conclusão exige a foto de evidência ou a justificativa do gestor). Concluir ou reabrir essa ação em Ações é recusado com mensagem orientando a concluir no app SSMA. Reatribuição e novo prazo feitos em Ações chegam ao registro e ao histórico do SSMA.
 - **Avisos por e-mail**: registro **Crítico** avisa Engenharia/SSMA-ESG e o responsável; ação em **atraso** avisa o responsável e a área SSMA/ESG (1 aviso por ação e prazo). O estado aparece no registro ("enviado", "falhou — nova tentativa automática", "NÃO enviado — nenhum destinatário elegível com e-mail"). Em piloto, todos os e-mails vão só ao destinatário do piloto (`[TESTE CONTROLADO]`). Desligado até a validação (`ACC_SSMA_NOTIFICATIONS_ENABLED`).
 - **Fluxo principal**
   1. Em ESG/SSMA, tocar **Registros de campo**.
@@ -1653,7 +1653,7 @@ Conteúdo, identidades, escopo e limites dos especialistas: ver CAP69 cap. 8 (n�
 
 - **Campo Obra** (formulários da trilha A e novo registro de campo): dentro de `/ssma/{obra}` vem preenchido com a obra atual; fora de uma obra, quem tem **um só** projeto ativo cai direto nele; com vários projetos o seletor de `/ssma` pede a escolha. O campo continua **editável**, mas só lista obras em que o usuário é membro ativo e **não** é somente leitura — não aceita texto livre. Trocar a obra limpa só o que depende dela (responsável e prazo da ação corretiva, se o responsável não for membro da nova obra); descrição, local, categoria, risco e fotos são mantidos. O registro pendente no aparelho **guarda a obra escolhida** e é enviado a ela, mesmo que você navegue para outra obra depois (a lista mostra "Obra: …" quando é diferente da atual). O servidor revalida a autorização na gravação e na sincronização; sem autorização o envio fica "Falhou" com o motivo e **nunca** é redirecionado a outra obra.
 - **Quase-acidente:** trilha B = categoria "Quase-acidente" (lista fechada); trilha A = formulário **Riscos apontados**, campo obrigatório **Classificação** (Condição insegura, Ato inseguro, Quase-acidente, Outra). Registros e formulários **antigos não são reclassificados**. A consulta de registros filtra por categoria, tipo, risco e período. O Dashboard mostra o total com a origem (registros de campo × formulários) e o período. Um quase-acidente **não** é acidente nem ocorrência. O mesmo fato lançado nas duas trilhas **não** é descontado automaticamente.
-- **Evidência ESG:** no detalhe do registro, "Usar como evidência ESG" cria uma **referência** a uma comprovação ESG da mesma obra (Administrador em qualquer uma; demais perfis só na própria). **A obrigação não é marcada como cumprida** e a revisão continua do Administrador. Desfazer exige motivo e preserva o histórico. (Disponível após a migration `20261106110000`.)
+- **Evidência ESG:** no detalhe do registro, "Usar como evidência ESG" cria uma **referência** a uma comprovação ESG da mesma obra (Administrador em qualquer uma; demais perfis só na própria). **A obrigação não é marcada como cumprida** e a revisão continua do Administrador. Desfazer exige motivo e preserva o histórico. (Disponível após a migration `20261111043023`.)
 - **Acidentes:** proximidade de 24 h só **sugere** possível duplicidade; dois fatos distintos contam dois; só decisão explícita do Administrador (auditada e revisável) desconta.
 
 #### 4.29.2 Formulário 12 (Acidentes e Near Misses) e prévia da avaliação do técnico
@@ -2122,12 +2122,12 @@ Matriz padrão no **código** (`lib/sla/default-matrix.ts:17-70`; espelho em `do
 |---|---|---|---|---|---|---|
 | **CRÍTICO** | **1** | +1 | +2 | **horas corridas** | sim | sim |
 | **ALTO** | **4** | +4 | +4 | **horas úteis** | sim | sim |
-| **MÉDIO** | **1** | +1 | +1 | **dias úteis** | não | sim |
-| **BAIXO** | **3** | +3 | +2 | **dias úteis** | não | sim |
+| **MÉDIO** | **2** | +1 | +1 | **dias úteis** | não | sim |
+| **BAIXO** | **5** | +3 | +2 | **dias úteis** | não | sim |
 
 Os prazos de *responder* e *concluir* são **nulos** no padrão ("nunca inventados"). Os dois últimos números são **intervalos em cadeia**, cada um contado a partir do **marco calculado** do passo anterior (não do horário em que o aviso saiu). Desde o início (T0), o padrão de CRÍTICO dá 1 h (Nível 2), 2 h (Nível 3) e 4 h (limite) — correção de rótulo de 04/11/2026; detalhe em `docs/diagnostico-fase-2-f1-d1-d2-d3.md` (D3). Situação: IMPLEMENTADO; valores por obra DEPENDEM DE CONFIGURAÇÃO; o ensaio isolado usou a matriz CRÍTICO equivalente ao padrão (`docs/teste-controlado-alertas-criticos.md:40`).
 
-> **Confirmação do pedido.** CRÍTICO 1 h corrida, ALTO 4 h úteis, MÉDIO 1 dia útil e BAIXO 3 dias úteis **conferem** com o código para o prazo de *assumir*. Ressalvas: (a) feriados não são considerados (cap. 7.4); (b) para MÉDIO e BAIXO não há escalonamento por prazo no ciclo automático — o prazo só vale em ações SLA manuais e aparece como "Prazo para assumir" no consolidado semanal (D5 do cap. 7).
+> **Confirmação do pedido.** CRÍTICO 1 h corrida, ALTO 4 h úteis, MÉDIO 2 dias úteis e BAIXO 5 dias úteis (aprovados; corrigidos na FRENTE A) **conferem** com o código para o prazo de *assumir*. Ressalvas: (a) feriados não são considerados (cap. 7.4); (b) para MÉDIO e BAIXO não há escalonamento por prazo no ciclo automático — o prazo só vale em ações SLA manuais e aparece como "Prazo para assumir" no consolidado semanal (D5 do cap. 7).
 
 #### 6.7.2 Tabela 2 — Política de envio
 
@@ -2186,7 +2186,7 @@ D1 permissão de revisão (alta) · D2 lote semanal × grau efetivo (alta) · D3
 | **A. Alertas de risco + ações SLA** | Nível 1 → Nível 2 (gerência) → Nível 3 (Diretoria) → limite, pelos prazos da Matriz | **Sim** | `lib/risk-alerts/plan-risk-alerts.ts`, `lib/sla/compute-escalation.ts` |
 | **B. Acompanhamento recorrente** | Lembretes "Repete: a cada N dia(s)" ao responsável atual, em 24/48/96/168 h corridas | **Não** (sem hierarquia) | `lib/alerts/repeat-policy.ts:10-22`, `followup-engine.ts:1-20` |
 
-A matriz CRÍTICO 1 h / ALTO 4 h úteis / MÉDIO 1 dia útil / BAIXO 3 dias úteis pertence ao mecanismo A. Os intervalos do B (1/2/4/7 dias) são outra tabela e **não** são a matriz de SLA (D15).
+A matriz CRÍTICO 1 h / ALTO 4 h úteis / MÉDIO 2 dias úteis / BAIXO 5 dias úteis pertence ao mecanismo A. Os intervalos do B (1/2/4/7 dias) são outra tabela e **não** são a matriz de SLA (D15).
 
 ### 7.2 Linha do tempo do alerta (mecanismo A)
 

@@ -48,6 +48,8 @@ async function check(name, fn) {
     failed += 1;
   }
 }
+// `check` já aguarda o corpo (sync ou async); `checkAsync` é o nome que os casos assíncronos usam e nunca tinha sido definido.
+const checkAsync = check;
 
 // ------------------------------------------------------------------
 // Fixtures — nenhum valor WEG/Ricardo no código de produção: tudo aqui
@@ -307,7 +309,8 @@ await check("9. Dois .mpp ambíguos → PENDING_HUMAN_REVIEW; padrão de nome do
 // ==================================================================
 await check("10. Nova versão → document_version AWAITING_PROCESSING, intake AUTHORIZED_AUTO, auditoria com SHA-256", async () => {
   const store = createMemoryIngestionStore({ senderResolution: sender() });
-  const cfg = { ...config };
+  // isola a fixture: o `config` compartilhado pode ter recebido targetDocumentId de um caso anterior (ensureTargetDocument o grava)
+  const cfg = { ...config, targetDocumentId: null };
   const outcome = await processWeeklyScheduleEmailCandidate(store, cfg, candidate());
   assert(outcome.kind === "RECORDED" && outcome.status === "AUTHORIZED_AUTO", JSON.stringify(outcome));
   const version = store.state.versions.find((row) => row.id === outcome.documentVersionId);

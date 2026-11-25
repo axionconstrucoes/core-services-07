@@ -76,3 +76,58 @@ Não altere papéis de administrador do Workspace. (O Carlos permanece ADMINISTR
 - Autorização no Google Admin (Superadministrador/TI); federação GitHub → Google; teste técnico remoto.
 - Tela do Administrador para ver/alterar os estados por caixa (hoje: RPC + leitura por RLS).
 - Aprovação do conteúdo da migration e decisão sobre o predicado de Administrador (hoje: Administrador **da obra**).
+
+## Frente N2 (21/11/2026) — diagnóstico por caixa, endurecimento e tela do Administrador
+
+### Sete etapas por caixa (nenhuma inferida da anterior)
+Tela: **Integrações → Caixas de e-mail** (`/<obra>/integracoes/caixas`, só Administrador ativo da obra). Modelo puro em
+`apps/web/lib/email/ingestion/mailbox-diagnostics.ts`; leitura em `get-mailbox-diagnostics-evidence.ts` (sessão + RLS).
+
+| Etapa | O que comprova | Fonte |
+|---|---|---|
+| 1 Usuário cadastrado | vínculo ATIVO na obra | `project_memberships` + `profiles` |
+| 2 Autorização | aceite individual AUTORIZADO **ou** autorização corporativa AUTORIZADA não revogada; recusa/revogação bloqueia | `email_access_authorizations`; `email_mailbox_collection_controls` |
+| 3 Autenticação técnica | teste técnico CONFIRMADO desta caixa (getProfile por delegação) | controle (`technical_*`) |
+| 4 Habilitada | coleta ligada + período vigente + sem suspensão por erros. **A lista da obra sozinha não habilita** | controle |
+| 5 Sincronização | resultado registrado **para esta caixa** (outra caixa ou a obra não contam) | controle (`last_sync_*`) |
+| 6 Mensagens | `emails` com `mailbox_address` = caixa | `emails` |
+| 7 Corpos e anexos | corpos não vazios; anexos armazenados/processados | `emails`, `email_attachments` |
+
+"Indício" = evidência indireta e nunca vale como comprovação (ex.: o coletor OAuth histórico de `reynaldo@`, cujo
+`last_sync_at` é da configuração da obra e só é atribuível a ele porque o coletor autentica exclusivamente como ele).
+Sem a tabela de controles (estado atual de produção) a tela mostra o aviso e **todas as ações ficam desligadas**.
+Ações (servidor confere Administrador, relê o estado, chama a RPC e só informa sucesso depois de reler o banco):
+registrar autorização corporativa, habilitar com período, desligar, revogar. Habilitar fica desligado com
+"Aguardando autorização de <pessoa>" (sem aceite nem corporativa) ou "Aguardando delegação no Google Workspace"
+(teste técnico não confirmado).
+
+### Endurecimento (código e migration `20261121110000`, rascunho, depende de `20261107090000`)
+- Falha **fechada** com mensagem clara se a tabela de controles não existir (coletor e worker de anexos).
+- Teste técnico deixou de ser bloqueado por período ausente (antes nunca podia rodar antes da habilitação).
+- Aceite individual: vale o mais restritivo entre o controle e `email_access_authorizations`; trigger propaga a decisão
+  e **desliga a coleta** em recusa/revogação. Os coletores OAuth históricos também param com recusa/revogação explícita.
+- Revogação efetiva: estado relido imediatamente antes de gravar; sucesso de caixa revogada/desligada não avança o cursor.
+- Cursor por caixa, nunca além do fim do período, nunca para trás; a sobreposição de 10 min não recua antes do início.
+- Retentativa limitada: só cota/5xx são repetidos; 5 erros seguidos suspendem a caixa (auditado) até nova habilitação.
+- Worker de anexos filtra pela caixa (IDs do Gmail são por caixa) e aceita delegação pela mesma porta.
+
+### Execução remota (não depende de notebook/PC)
+Tudo roda em **GitHub Actions** (`ubuntu-latest`); o `pg_cron` do Supabase dispara o `gmail-sync` a cada 15 min.
+Nomes (nunca valores):
+- Segredos: `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `GOOGLE_GMAIL_REYNALDO_CLIENT_ID/_CLIENT_SECRET/_REFRESH_TOKEN`
+  (coletor agendado), `GOOGLE_GMAIL_INBOUND_CLIENT_ID/_CLIENT_SECRET` e `GOOGLE_GMAIL_TITULAR_<N>_MAILBOX/_REFRESH_TOKEN`
+  (caixa do titular). Opcional e só como último recurso: `GOOGLE_GMAIL_DWD_KEY_JSON` (não gerado).
+- Variáveis: `GOOGLE_WIF_PROVIDER` (**pendente**), `GOOGLE_GMAIL_DWD_SERVICE_ACCOUNT` (opcional).
+- Delegação: `id-token: write` + `google-github-actions/auth` (OIDC → Workload Identity Federation) + `signJwt`.
+
+### Passos humanos para habilitar Carlos e Jaime (nada disso foi feito)
+1. **Google Admin (Superadministrador/TI):** autorizar a delegação do cliente `101242849785015243815` com o escopo único
+   `gmail.readonly` (seção acima). Sem isso a etapa 3 nunca é comprovada.
+2. **Google Cloud (dono do projeto):** criar pool/provedor WIF e conceder os dois papéis à conta `ACC Gmail Reader`;
+   **GitHub (admin do repositório):** criar a variável `GOOGLE_WIF_PROVIDER`.
+3. **Banco (aprovação):** aplicar `20261107090000` e `20261121110000` (nesta ordem).
+4. **ACC, Administrador da obra:** incluir a caixa na lista da obra (Integrações → configuração de ingestão).
+5. **ACC:** solicitar o aceite individual (aba Autorizações) — **Carlos e Jaime decidem** no ACC — e/ou registrar a
+   autorização corporativa com a referência da decisão da empresa (Integrações → Caixas).
+6. **GitHub Actions:** `Gmail Delegated Sync (manual)`, caixa explícita, `mode = technical_check`.
+7. **ACC, Administrador:** habilitar a coleta com período (início e fim); depois `sample`, conferir, e `sync`.

@@ -9,6 +9,7 @@ import "server-only";
 // (reivindicado sem SENT => incerto, nunca repetido automaticamente); ação SLA vinculada a caso de risco é do ciclo de riscos.
 
 import { getAppBaseUrl } from "@/lib/app-base-url";
+import { ALERT_REPLY_MAILBOX_ENV } from "@/lib/email/alert-reply-address";
 import { generateReplyToken } from "@/lib/risk-alerts/replies/reply-pipeline";
 import { resolveMatrixPolicy } from "@/lib/sla/resolve-matrix-policy";
 import type { SlaArea, SlaAreaResponsibles, SlaMatrixRule, SlaProjectSettings, SlaRiskLevel } from "@/lib/sla/types";
@@ -16,6 +17,7 @@ import type { createSupabaseAdminClient } from "@axion/db/admin";
 
 import type { Mailer } from "./core";
 import type { SsmaNotificationScope } from "./enabled";
+import { ssmaReplyMailto } from "./content";
 import { buildSsmaEscalationEmail, buildSsmaForecastExpiredEmail } from "./escalation-content";
 import {
   buildSsmaEscalationLedger,
@@ -216,6 +218,7 @@ export async function followUpSsmaCorrectiveActions(admin: Admin, mailer: Mailer
       const base = {
         projectName, severity, category: String(record.category), location: String(record.location), description: String(record.description),
         occurredAt: fmt(record.occurred_at as string), accUrl: `${getAppBaseUrl()}/${projectId}/ssma-registros`, visibleCode: String(corrective.id).slice(0, 8).toUpperCase(),
+        recordLink: { baseUrl: getAppBaseUrl(), projectId, recordId: String(corrective.record_id) },
         responsibleName: (person(corrective.responsible_user_id as string | null)?.name as string | undefined) ?? null,
         assumeDue: fmt(state.assumeDueAt), completeDue: state.completeDueAt ? fmt(state.completeDueAt) : null, forecastLine,
       };
@@ -266,13 +269,15 @@ export async function followUpSsmaCorrectiveActions(admin: Admin, mailer: Mailer
         const { error: claimError } = await audit(SSMA_FORECAST_EXPIRED_CLAIMED, { forecastAt: expiry.forecastAt });
         if (!claimError) {
           try {
+            const expiredToken = generateReplyToken();
             const mail = buildSsmaForecastExpiredEmail({
               ...base, recipientName: (responsible?.name as string | undefined) ?? null, forecastAt: fmt(expiry.forecastAt),
+              replyByEmail: ssmaReplyMailto(expiredToken, base.visibleCode, process.env[ALERT_REPLY_MAILBOX_ENV], severity),
               escalationState: `${ssmaLevelLabel(sla.current_escalation_level === "DIRETORIA" || plan.levelSteps.some((p) => p.to === "DIRETORIA") ? "DIRETORIA" : "ESCALAO_1")} pela Matriz (prazos originais)`,
             });
             const sent = await mailer.deliver({
               to: responsibleEmail, name: (responsible?.name as string | undefined) ?? null, projectId, correlationId: crypto.randomUUID(),
-              content: { ...mail, participantLabel: (responsible?.name as string | undefined) ?? null, reply: { token: generateReplyToken(), actionId: corrective.id as string, recordId: corrective.record_id as string } },
+              content: { ...mail, participantLabel: (responsible?.name as string | undefined) ?? null, reply: { token: expiredToken, actionId: corrective.id as string, recordId: corrective.record_id as string, recipientUserId: (corrective.responsible_user_id as string | null) ?? null } },
             });
             await audit(SSMA_FORECAST_EXPIRED_SENT, { forecastAt: expiry.forecastAt, providerMessageId: sent.providerMessageId, sentAt: sent.sentAt });
             result.forecastExpiredSent += 1;

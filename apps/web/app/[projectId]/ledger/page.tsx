@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
 import { EventTable } from "@/components/ledger/event-table";
 import { EmptyState } from "@/components/shared/empty-state";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { getEvents } from "@/lib/data";
 
 export const metadata: Metadata = { title: "Event Ledger" };
@@ -14,7 +15,7 @@ export default async function LedgerPage({ params }: { params: Promise<{ project
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Eventos" description="Registro cronológico de eventos com possível implicação contratual." />
+      <PageHeader title="Eventos" description="Registro cronológico de eventos com possível implicação contratual." actions={<FeatureInfo helpId="planejamento.ledger.pagina" />} />
       {events.length === 0 ? <EmptyState message="Nenhum evento registrado." /> : <EventTable events={events} projectId={projectId} />}
     </div>
   );

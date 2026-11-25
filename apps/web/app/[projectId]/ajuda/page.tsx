@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { BookOpen, Download, FileText } from "lucide-react";
+import { BookOpen, Download, FileText, Info } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getProject } from "@/lib/data";
 import { TUTORIAL_FILES } from "@/lib/help/tutorial-files";
@@ -17,7 +18,7 @@ export default async function AjudaPage({ params }: { params: Promise<{ projectI
   const base = `/${projectId}/ajuda/tutorial`;
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Ajuda e tutorial" description="Apresentação da suíte e guia de uso do ACC, com imagens das telas e dos e-mails de alerta." />
+      <PageHeader title="Ajuda e tutorial" description="Apresentação da suíte e guia de uso do ACC, com imagens das telas e dos e-mails de alerta." actions={<FeatureInfo helpId="admin.ajuda.pagina" />} />
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-bold">
@@ -39,16 +40,45 @@ export default async function AjudaPage({ params }: { params: Promise<{ projectI
             >
               <FileText className="size-4" /> {TUTORIAL_FILES.pdf.label}
             </a>
+            <FeatureInfo helpId="admin.ajuda.pdf" className="self-center" />
             <a
               href={`${base}/pptx`}
               className="inline-flex min-h-10 items-center gap-2 rounded-md border-2 border-red-900 px-4 text-sm font-bold text-red-900 hover:bg-red-50"
             >
               <Download className="size-4" /> {TUTORIAL_FILES.pptx.label}
             </a>
+            <FeatureInfo helpId="admin.ajuda.pptx" className="self-center" />
           </div>
           <p className="text-xs text-muted-foreground">
             Acesso restrito a usuários autenticados com acesso a esta obra. O PowerPoint é editável; o PDF é para consulta.
           </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-bold">
+            <Info className="size-4" /> Como ler a ajuda do ACC
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3 text-sm">
+          <p>
+            O ícone (i) abre o texto explicativo de cada tela, aba, botão, campo, indicador e selo. Funciona com o mouse, pelo
+            teclado e por toque, inclusive no menu lateral recolhido. Os textos abaixo valem para todas as telas.
+          </p>
+          <ul className="flex flex-col gap-2">
+            <li className="flex items-center gap-2">
+              <span>Ícone de ajuda (i): como usar</span>
+              <FeatureInfo helpId="shared.global.icone-ajuda" />
+            </li>
+            <li className="flex items-center gap-2">
+              <span>Menu lateral: itens, recolher e itens restritos</span>
+              <FeatureInfo helpId="shared.global.menu-lateral" />
+            </li>
+            <li className="flex items-center gap-2">
+              <span>Selos de status: cores e significados</span>
+              <FeatureInfo helpId="shared.global.status-global" />
+            </li>
+          </ul>
         </CardContent>
       </Card>
     </div>

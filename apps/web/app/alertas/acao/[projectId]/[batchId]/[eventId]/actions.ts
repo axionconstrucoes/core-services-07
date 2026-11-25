@@ -50,5 +50,5 @@ export async function submitCompactContractAlertAction(
     return { success: false, error: outcome.error };
   }
 
-  return { success: true, error: null };
+  return { success: true, error: null, warning: outcome.followupWarning ?? null };
 }

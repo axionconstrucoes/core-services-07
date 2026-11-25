@@ -7,6 +7,7 @@ import { createSupabaseAdminClient } from "@axion/db/admin";
 import { loadEventAlertContexts } from "../alerts/load-event-alert-context";
 import { loadReviewedEventSeverities } from "../risk-classification/reviewed-severity";
 import { getAppBaseUrl } from "../app-base-url";
+import { createCapacityGate } from "./get-email-provider";
 import { createAndSendContractAlertBatch, type ContractAlertBatchSourceItem } from "./create-and-send-contract-alert-batch";
 
 type SlaActionRow = {
@@ -65,6 +66,7 @@ export interface ContractAlertBatchRunResult {
 }
 
 export async function runContractAlertBatches(): Promise<ContractAlertBatchRunResult> {
+  const capacityGate = createCapacityGate();
   const admin = createSupabaseAdminClient();
 
   const { data, error } = await admin
@@ -235,6 +237,12 @@ export async function runContractAlertBatches(): Promise<ContractAlertBatchRunRe
     }
 
     const groupEventIds = groupActions.map((action) => action.related_event_id);
+
+    // Portão do governador (doc 35) ANTES de reivindicar os eventos: adiado por limite => eventos continuam disponíveis para a próxima janela.
+    if (!(await capacityGate({ type: "CONTRACT_ALERT_BATCH", projectId: first.project_id }))) {
+      result.groupsSkipped += 1;
+      continue;
+    }
 
     const { data: claimGroupId, error: claimError } = await admin.rpc(
       "claim_contract_alert_batch_events",

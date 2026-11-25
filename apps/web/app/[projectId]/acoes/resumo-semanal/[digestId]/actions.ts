@@ -23,6 +23,8 @@ export async function submitWeeklyDigestAction(
   for (const actionId of actionIds) {
     const resolution = String(formData.get(`resolution:${actionId}`) ?? "");
     const directedToUserId = String(formData.get(`directedToUserId:${actionId}`) ?? "").trim() || null;
+    const note = String(formData.get(`note:${actionId}`) ?? "").trim() || null;
+    const evidence = String(formData.get(`evidence:${actionId}`) ?? "").trim() || null;
 
     if (!RESPONSE_VALUES.has(resolution)) {
       return { success: false, error: "Responda todos os itens antes de enviar." };
@@ -31,17 +33,25 @@ export async function submitWeeklyDigestAction(
       return { success: false, error: "Selecione para quem cada ação será direcionada." };
     }
 
-    responses.push({ actionId, resolution, directedToUserId });
+    if (resolution === "RESOLVED" && (!note || note.length < 10)) {
+      return { success: false, error: "Descreva o que foi feito em cada item resolvido (mínimo de 10 caracteres)." };
+    }
+
+    responses.push({ actionId, resolution, directedToUserId, note, evidence });
   }
 
   const supabase = await createSupabaseServerClient();
-  const { error } = await supabase.rpc("submit_weekly_alert_digest", {
+  const { data, error } = await supabase.rpc("submit_weekly_alert_digest", {
     p_digest_id: digestId,
     p_responses: responses,
   });
 
   if (error) {
     return { success: false, error: error.message || "Falha ao registrar as respostas." };
+  }
+  // Sucesso só com a confirmação do banco: todos os itens gravados.
+  if ((data as { respondedItems?: number } | null)?.respondedItems !== actionIds.length) {
+    return { success: false, error: "As respostas não foram confirmadas pelo banco de dados. Atualize a página e tente novamente." };
   }
 
   revalidatePath(`/${projectId}/acoes`);

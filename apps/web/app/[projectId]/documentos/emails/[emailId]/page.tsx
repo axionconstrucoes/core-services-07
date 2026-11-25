@@ -15,6 +15,8 @@ import {
 } from "@/components/documents/email-registry/email-registry-review-forms";
 import { WeeklyReportWorkbookSection } from "@/components/documents/email-registry/weekly-report-workbook-section";
 import { PageHeader } from "@/components/layout/page-header";
+import { RegisterQualityIndication } from "@/components/quality/register-quality-indication";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,6 +24,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { getProjects } from "@/lib/data";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
+import { buildOriginRef } from "@/lib/quality/ingestion";
 import { getEmailDocumentDetail } from "@/lib/email/registry/email-document-registry-data";
 import { EMAIL_CLASSIFICATION_LABELS } from "@/lib/email/registry/email-document-registry-shared";
 import { resolveAttachmentOpenBehavior } from "@/lib/email/registry/resolve-attachment-open-behavior";
@@ -64,6 +67,7 @@ function buildSafeEmailHtml(
     .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
     .replace(/<object[\s\S]*?<\/object>/gi, "")
     .replace(/<embed[^>]*>/gi, "")
+    // help-exempt: remove tags form do HTML do e-mail por segurança; não é um formulário da tela
     .replace(/<form[\s\S]*?<\/form>/gi, "");
 
   return `<!doctype html>
@@ -146,6 +150,7 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
         description={`E-mail recebido em ${formatDateTime(email.sentAt)}`}
         actions={
           <div className="flex flex-wrap items-center gap-2">
+            <FeatureInfo helpId="juridico.emails.pagina" />
             <Link
               href={`/${projectId}/timeline`}
               className={cn(
@@ -171,6 +176,16 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
             </Link>
           </div>
         }
+      />
+
+      <RegisterQualityIndication
+        projectId={projectId}
+        originTypes={["EMAIL"]}
+        originRef={buildOriginRef("email", emailId)}
+        sourceTable="emails"
+        originUrl={`/${projectId}/documentos/emails/${emailId}`}
+        defaultTitle={email.subject}
+        triageEligible
       />
 
       <Card className="overflow-hidden">
@@ -249,8 +264,9 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
 
       <Card>
         <CardHeader>
-          <CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
             Anexos ({attachments.length})
+            <FeatureInfo helpId="juridico.emails.anexos" />
           </CardTitle>
         </CardHeader>
 
@@ -335,7 +351,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Metadados do e-mail</CardTitle>
+            <CardTitle className="flex items-center gap-1.5">
+              Metadados do e-mail
+              <FeatureInfo helpId="juridico.emails.metadados" />
+            </CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2 text-xs sm:grid-cols-2">
             <div><span className="text-muted-foreground">Projeto:</span> {projectId}</div>
@@ -363,7 +382,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
 
         <Card>
           <CardHeader>
-            <CardTitle>Envio semanal (ingestão)</CardTitle>
+            <CardTitle className="flex items-center gap-1.5">
+              Envio semanal (ingestão)
+              <FeatureInfo helpId="juridico.emails.envio-semanal" />
+            </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2 text-xs">
             {intake ? (
@@ -393,7 +415,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
 
       <Card>
         <CardHeader>
-          <CardTitle>Anexos ({attachments.length})</CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
+            Anexos ({attachments.length})
+            <FeatureInfo helpId="juridico.emails.anexos" />
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {attachments.length === 0 ? (
@@ -404,13 +429,33 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
                 <TableHeader>
                   <TableRow>
                     <TableHead>Nome</TableHead>
-                    <TableHead>Ext.</TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        Ext.
+                        <FeatureInfo helpId="juridico.emails.anexo-colunas-armazenamento" />
+                      </span>
+                    </TableHead>
                     <TableHead>MIME</TableHead>
                     <TableHead className="text-right">Tamanho</TableHead>
                     <TableHead>SHA-256</TableHead>
-                    <TableHead>Storage</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Classificação</TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        Storage
+                        <FeatureInfo helpId="juridico.emails.anexo-colunas-armazenamento" />
+                      </span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        Status
+                        <FeatureInfo helpId="shared.global.status-global" />
+                      </span>
+                    </TableHead>
+                    <TableHead>
+                      <span className="inline-flex items-center gap-1">
+                        Classificação
+                        <FeatureInfo helpId="juridico.emails.classificacao-anexo" />
+                      </span>
+                    </TableHead>
                     <TableHead>Ação</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -469,7 +514,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
         <>
           <Card>
             <CardHeader>
-              <CardTitle>Cronograma MPP e comparações</CardTitle>
+              <CardTitle className="flex items-center gap-1.5">
+                Cronograma MPP e comparações
+                <FeatureInfo helpId="juridico.emails.cronograma-mpp" />
+              </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-xs">
               {scheduleVersion ? (
@@ -542,7 +590,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
           {detail.otherSendsSameWeek.length > 0 ? (
             <Card>
               <CardHeader>
-                <CardTitle>Outros envios da mesma semana da obra ({email.workWeekLabel})</CardTitle>
+                <CardTitle className="flex items-center gap-1.5">
+                  Outros envios da mesma semana da obra ({email.workWeekLabel})
+                  <FeatureInfo helpId="juridico.emails.outros-envios" />
+                </CardTitle>
               </CardHeader>
               <CardContent className="text-xs">
                 <ul className="list-disc pl-4">
@@ -562,7 +613,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
       {isAdmin && intake ? (
         <Card>
           <CardHeader>
-            <CardTitle>Revisão humana</CardTitle>
+            <CardTitle className="flex items-center gap-1.5">
+              Revisão humana
+              <FeatureInfo helpId="juridico.emails.revisao-humana" />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <IntakeReviewForm projectId={projectId} emailId={email.id} intakeId={intake.id} intakeStatus={intake.status} attachments={attachments.map((item) => ({ id: item.id, fileName: item.fileName }))} otherProjects={otherProjects} />
@@ -573,7 +627,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
       {isAdmin && isWeeklyReport ? (
         <Card>
           <CardHeader>
-            <CardTitle>Baseline oficial</CardTitle>
+            <CardTitle className="flex items-center gap-1.5">
+              Baseline oficial
+              <FeatureInfo helpId="juridico.emails.baseline-oficial" />
+            </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2 text-xs">
             <p>
@@ -586,7 +643,10 @@ export default async function EmailDocumentDetailPage({ params }: { params: Prom
 
       <Card>
         <CardHeader>
-          <CardTitle>Histórico de revisão e auditoria</CardTitle>
+          <CardTitle className="flex items-center gap-1.5">
+            Histórico de revisão e auditoria
+            <FeatureInfo helpId="juridico.emails.historico-revisao" />
+          </CardTitle>
         </CardHeader>
         <CardContent className="text-xs">
           {reviewEvents.length === 0 ? (

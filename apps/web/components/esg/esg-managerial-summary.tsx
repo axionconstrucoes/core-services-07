@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 
 import { SeverityBadge } from "@/components/shared/badges";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Select } from "@/components/ui/select";
 import {
   confrontationSeverityToAlertSeverity,
@@ -78,6 +79,10 @@ export function EsgManagerialSummary({ rows }: { rows: EsgManagerialRow[] }) {
 
   return (
     <div className="flex flex-col gap-4">
+      <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        Contadores da visão gerencial
+        <FeatureInfo helpId="ssma.esg.gerencial-contadores" />
+      </p>
       <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <div className="rounded-md border p-3 text-center">
           <p className="text-lg font-semibold">{filtered.length}</p>
@@ -107,6 +112,10 @@ export function EsgManagerialSummary({ rows }: { rows: EsgManagerialRow[] }) {
         </div>
       </div>
 
+      <p className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        Filtros
+        <FeatureInfo helpId="ssma.esg.gerencial-filtros" />
+      </p>
       <div className="flex flex-wrap gap-2">
         <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
           <option value="">Todos os status</option>
@@ -140,12 +149,14 @@ export function EsgManagerialSummary({ rows }: { rows: EsgManagerialRow[] }) {
             </option>
           ))}
         </Select>
+        {/* help-exempt: campo de data inicial do período; descrito em ssma.esg.gerencial-filtros */}
         <input
           type="date"
           value={periodFrom}
           onChange={(e) => setPeriodFrom(e.target.value)}
           className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
         />
+        {/* help-exempt: campo de data final do período; descrito em ssma.esg.gerencial-filtros */}
         <input
           type="date"
           value={periodTo}
@@ -158,12 +169,27 @@ export function EsgManagerialSummary({ rows }: { rows: EsgManagerialRow[] }) {
         <table className="w-full text-sm">
           <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
             <tr>
-              <th className="p-2">Obrigação</th>
+              <th className="p-2">
+                <span className="inline-flex items-center gap-1.5">
+                  Obrigação
+                  <FeatureInfo helpId="ssma.esg.gerencial-tabela" />
+                </span>
+              </th>
               <th className="p-2">Categoria</th>
               <th className="p-2">Responsável</th>
               <th className="p-2">Último registro</th>
-              <th className="p-2">Status</th>
-              <th className="p-2">Risco</th>
+              <th className="p-2">
+                <span className="inline-flex items-center gap-1.5">
+                  Status
+                  <FeatureInfo helpId="ssma.esg.status-comprovacao" />
+                </span>
+              </th>
+              <th className="p-2">
+                <span className="inline-flex items-center gap-1.5">
+                  Risco
+                  <FeatureInfo helpId="ssma.esg.risco-obrigacao" />
+                </span>
+              </th>
             </tr>
           </thead>
           <tbody>

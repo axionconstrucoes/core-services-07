@@ -103,7 +103,7 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="Usuários & Permissões" description="Usuários internos Axion e terceiros com acesso a este projeto." />
+      <PageHeader title="Usuários & Permissões" description="Usuários internos Axion e terceiros com acesso a este projeto." actions={<FeatureInfo helpId="admin.usuarios.pagina" />} />
 
       {allProjects.length > 1 ? <ProjectSourceSelector currentProjectId={projectId} projects={allProjects.map((item) => ({ id: item.id, label: `${item.code} — ${item.name}` }))} /> : null}
 
@@ -126,15 +126,62 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Usuário</TableHead>
-              <TableHead>Origem</TableHead>
-              <TableHead>Cargo</TableHead>
-              <TableHead>Área</TableHead>
-              <TableHead>Permissão</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="hidden md:table-cell">Fontes que alimentam o ACC neste projeto</TableHead>
-              {canManage ? <TableHead>WhatsApp (alerta crítico na Diretoria)</TableHead> : null}
-              <TableHead>Ações</TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  Usuário
+                  <FeatureInfo helpId="admin.usuarios.col-usuario" />
+                </span>
+              </TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  Origem
+                  <FeatureInfo helpId="admin.usuarios.col-origem" />
+                </span>
+              </TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  Cargo
+                  <FeatureInfo helpId="admin.usuarios.col-cargo" />
+                </span>
+              </TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  Área
+                  <FeatureInfo helpId="admin.usuarios.col-area" />
+                </span>
+              </TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  Permissão
+                  <FeatureInfo helpId="admin.usuarios.col-permissao" />
+                </span>
+              </TableHead>
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  Status
+                  <FeatureInfo helpId="admin.usuarios.col-status" />
+                </span>
+              </TableHead>
+              <TableHead className="hidden md:table-cell">
+                <span className="inline-flex items-center gap-1">
+                  Fontes que alimentam o ACC neste projeto
+                  <FeatureInfo helpId="admin.usuarios.col-fontes" />
+                </span>
+              </TableHead>
+              {canManage ? (
+              <TableHead>
+                <span className="inline-flex items-center gap-1">
+                  WhatsApp (alerta crítico na Diretoria)
+                  <FeatureInfo helpId="admin.usuarios.col-whatsapp" />
+                </span>
+              </TableHead>
+            ) : null}
+              <TableHead>
+              <span className="inline-flex items-center gap-1">
+                Ações
+                <FeatureInfo helpId="admin.usuarios.col-acoes" />
+              </span>
+            </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -232,7 +279,10 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
       {canManage ? (
         <section id="matriz-responsabilidades" className="scroll-mt-6 space-y-4">
           <div>
-            <h2 className="text-lg font-semibold">Matriz de responsabilidades e prazos</h2>
+            <h2 className="flex items-center gap-1.5 text-lg font-semibold">
+              Matriz de responsabilidades e prazos
+              <FeatureInfo helpId="admin.usuarios.matriz-secao" />
+            </h2>
             <p className="text-sm text-muted-foreground">
               Configuração exclusiva deste projeto. O Nível 1 trata a ação, o Nível 2 recebe o primeiro escalonamento e o Nível 3 corresponde à Diretoria.
             </p>
@@ -299,15 +349,15 @@ export default async function UsuariosPage({ params }: { params: Promise<{ proje
                 <table className="w-full min-w-[720px] text-xs">
                   <thead>
                     <tr className="border-b text-left">
-                      <th scope="col" className="px-2 py-1.5 font-semibold text-muted-foreground">Risco</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Unidade</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Nível 1: assumir</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Responder</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Concluir</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Nível 2</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Nível 3</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Opções</th>
-                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground">Ações</th>
+                      <th scope="col" className="px-2 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Risco<FeatureInfo helpId="planejamento.acoes-config.col-risco" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Unidade<FeatureInfo helpId="planejamento.acoes-config.col-unidade" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Nível 1: assumir<FeatureInfo helpId="planejamento.acoes-config.col-assumir" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Responder<FeatureInfo helpId="planejamento.acoes-config.col-responder" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Concluir<FeatureInfo helpId="planejamento.acoes-config.col-concluir" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Nível 2<FeatureInfo helpId="planejamento.acoes-config.col-nivel2" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Nível 3<FeatureInfo helpId="planejamento.acoes-config.col-nivel3" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Opções<FeatureInfo helpId="planejamento.acoes-config.col-opcoes" /></span></th>
+                      <th scope="col" className="px-1 py-1.5 font-semibold text-muted-foreground"><span className="inline-flex items-center gap-1">Ações<FeatureInfo helpId="planejamento.acoes-config.col-acoes" /></span></th>
                     </tr>
                   </thead>
                   <tbody>

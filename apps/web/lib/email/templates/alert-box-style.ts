@@ -11,7 +11,7 @@
 //   MÉDIO   : fundo branco,                   texto preto,  logo vinho
 //   BAIXO   : fundo branco,                   texto preto,  logo vinho
 //   Borda contínua de 2px: tom mais escuro que o fundo nos coloridos, cinza médio nos brancos.
-//   UM único tamanho de fonte em todo o alerta (14px); só o PESO diferencia (regular ou negrito; nunca black/900); o cabeçalho de risco e o título usam corpo maior,
+//   UM único tamanho de fonte em todo o alerta (16px); só o PESO diferencia (regular ou negrito; nunca black/900); o cabeçalho de risco e o título usam corpo maior (20px),
 //   cabeçalho/cláusula/evidência/"Repete" em negrito, descrição em regular.
 //
 // BADGE_STYLES (contract-alert-template.ts) NÃO é alterado: continua sendo usado pelos demais
@@ -80,12 +80,12 @@ export function contrastRatio(foregroundHex: string, backgroundHex: string): num
 // ---------- tipografia ÚNICA ----------
 
 /** Tamanho de fonte único de todo texto do alerta (cabeçalho, título, descrição, cláusula, evidência, "Repete", botões). */
-export const ALERT_FONT_SIZE = "14px";
-export const ALERT_LINE_HEIGHT = "20px";
+export const ALERT_FONT_SIZE = "16px";
+export const ALERT_LINE_HEIGHT = "24px";
 
-/** Corpo MAIOR (cabeçalho "RISCO … | OBRA" e título do alerta); o restante segue em 14px. */
-export const ALERT_EMPHASIS_FONT_SIZE = "16px";
-export const ALERT_EMPHASIS_LINE_HEIGHT = "22px";
+/** Corpo MAIOR (cabeçalho "RISCO … | OBRA" e título do alerta); o restante segue em 16px (cabeçalho e título em 20px). */
+export const ALERT_EMPHASIS_FONT_SIZE = "20px";
+export const ALERT_EMPHASIS_LINE_HEIGHT = "28px";
 
 export const WEIGHT = { regular: 400, bold: 700 } as const;
 
@@ -99,8 +99,8 @@ export function textStyle(weight: keyof typeof WEIGHT, color: string, extra = ""
 
 // ---------- logo / cabeçalho ----------
 
-// Logo oficial 44px (quadrado). Mantém proporção 1:1 do arquivo oficial.
-export const ALERT_LOGO_SIZE_PX = 44;
+// Logo oficial 56px (quadrado). Mantém proporção 1:1 do arquivo oficial.
+export const ALERT_LOGO_SIZE_PX = 56;
 
 export function logoCidFor(variant: LogoVariant): string {
   return variant === "inverted" ? ACC_EMAIL_LOGO_INVERTED_CID : ACC_EMAIL_LOGO_CID;
@@ -149,7 +149,7 @@ export function buildAlertHeaderHtml(
 // ---------- caixa ----------
 
 /** Espaço visível entre a linha logo/risco e o primeiro texto abaixo. */
-export const HEADER_GAP_PX = 18;
+export const HEADER_GAP_PX = 24;
 
 /**
  * Indicação de gravidade nos alertas de fundo BRANCO: faixa lateral azul (MÉDIO) ou verde (BAIXO). CRÍTICO e ALTO já se
@@ -162,31 +162,32 @@ export function buildAlertBoxHtml(severity: AlertSeverity, innerHtml: string): s
   const tone = ALERT_TONES[severity];
   const accent = ALERT_ACCENT[severity];
   const accentStyle = accent ? `border-left:6px solid ${accent};` : "";
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${tone.background}" style="width:100%;border-collapse:separate;border-spacing:0;background-color:${tone.background};border:2px solid ${tone.border};${accentStyle}border-radius:8px;"><tr><td style="padding:16px 18px;">${innerHtml}</td></tr></table>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" bgcolor="${tone.background}" style="width:100%;border-collapse:separate;border-spacing:0;background-color:${tone.background};border:2px solid ${tone.border};${accentStyle}border-radius:8px;"><tr><td style="padding:20px 22px;">${innerHtml}</td></tr></table>`;
 }
 
 /** Painel interno branco usado nos blocos de detalhe quando o fundo da caixa é escuro. */
 export function panelStyle(severity: AlertSeverity): string {
   return ALERT_TONES[severity].dark
-    ? "background-color:#ffffff;color:#111111;border:1px solid #e5e7eb;border-radius:6px;padding:10px 12px;"
+    ? "background-color:#ffffff;color:#111111;border:1px solid #e5e7eb;border-radius:6px;padding:12px 14px;"
     : "";
 }
 
 // ---------- botões (RESOLVIDO / EM ANDAMENTO / ENVIADO P/) ----------
 
-export const BUTTON_FONT_SIZE_PX = 14;
-// Largura do texto "EM ANDAMENTO" em Arial negrito 14px MEDIDA NO HTML RENDERIZADO (Chrome,
-// escala 1x, getBoundingClientRect): 114px. Largura do botão = texto + 12px de cada lado = 138px.
+export const BUTTON_FONT_SIZE_PX = 16;
+// Largura do texto "EM ANDAMENTO" em Arial negrito 16px MEDIDA NO HTML RENDERIZADO (Chrome,
+// escala 1x, getBoundingClientRect): 130px. Largura do botão = texto + 15px de cada lado = 160px
+// (limite do template universal, para sobrar espaço ao texto quando o cliente ignora o empilhamento do celular).
 // Observação: a métrica sem hinting pode diferir ~1–5%; a folga lateral varia um pouco, sem cortar
 // o texto (nowrap, largura fixa maior que o texto).
-export const EM_ANDAMENTO_TEXT_WIDTH_PX = 114;
-export const BUTTON_SIDE_PADDING_PX = 12;
-export const BUTTON_WIDTH_PX = Math.ceil(EM_ANDAMENTO_TEXT_WIDTH_PX + 2 * BUTTON_SIDE_PADDING_PX); // 138
-export const BUTTON_HEIGHT_PX = 34;
+export const EM_ANDAMENTO_TEXT_WIDTH_PX = 130;
+export const BUTTON_SIDE_PADDING_PX = 15;
+export const BUTTON_WIDTH_PX = Math.ceil(EM_ANDAMENTO_TEXT_WIDTH_PX + 2 * BUTTON_SIDE_PADDING_PX); // 160
+export const BUTTON_HEIGHT_PX = 48;
 
 /** Coluna branca dos botões: um pouco mais larga que os botões, com pequena margem lateral. */
-export const BUTTON_COLUMN_MARGIN_PX = 8;
-export const BUTTON_COLUMN_WIDTH_PX = BUTTON_WIDTH_PX + 2 * BUTTON_COLUMN_MARGIN_PX; // 154
+export const BUTTON_COLUMN_MARGIN_PX = 10;
+export const BUTTON_COLUMN_WIDTH_PX = BUTTON_WIDTH_PX + 2 * BUTTON_COLUMN_MARGIN_PX; // 180
 
 export interface AlertActionButtonStyle {
   background: string;
@@ -199,10 +200,21 @@ export interface AlertActionButtonStyle {
  * <table width=W><td width=W height=H bgcolor> + <a display:block width:W height:H line-height:H>
  * — sem padding horizontal, sem min-width e sem largura 100%: nada herdado consegue alargá-lo.
  */
+/**
+ * Botão "à prova de Outlook" (Lote 3): no Outlook desktop (motor Word) o <a display:block> não ocupa a célula e border-radius é
+ * ignorado — o clique só funcionava sobre o texto. Para o motor Word (comentário condicional `mso`) o botão vira um retângulo VML
+ * (v:roundrect) clicável por inteiro, com a MESMA cor de fundo; os demais clientes ignoram o comentário e usam o <a> de sempre.
+ * Fallback de cor: a célula mantém `bgcolor` (atributo) e `background-color` — o botão nunca depende de border-radius para existir.
+ * `mso-line-height-rule:exactly` evita a altura dupla do Word. Nada muda para Gmail/Apple Mail/Outlook web e mobile.
+ */
+export function buildOutlookVmlButton(href: string, style: AlertActionButtonStyle, w: number, h: number): string {
+  return `<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${escapeAttr(href)}" style="height:${h}px;width:${w}px;v-text-anchor:middle;" arcsize="10%" stroke="f" fillcolor="${style.background}"><w:anchorlock/><center style="color:${style.color};font-family:Arial,Helvetica,sans-serif;font-size:${BUTTON_FONT_SIZE_PX}px;font-weight:bold;mso-line-height-rule:exactly;"> ${escapeAttr(style.label)} </center></v:roundrect><![endif]-->`;
+}
+
 export function buildCompactButtonHtml(href: string, style: AlertActionButtonStyle, title: string, isFirst: boolean): string {
   const w = BUTTON_WIDTH_PX;
   const h = BUTTON_HEIGHT_PX;
-  return `<table class="acc-compact-btn" role="presentation" align="center" width="${w}" cellpadding="0" cellspacing="0" style="width:${w}px;margin:${isFirst ? "0" : "8px"} auto 0 auto;border-collapse:separate;"><tr><td width="${w}" height="${h}" align="center" bgcolor="${style.background}" style="width:${w}px;height:${h}px;background-color:${style.background};border-radius:6px;text-align:center;"><a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(title)}" aria-label="${escapeAttr(`${style.label} — ${title}`)}" style="display:block;width:${w}px;height:${h}px;line-height:${h}px;margin:0;padding:0;color:${style.color};font-family:${ACC_FONT_FAMILY};font-size:${BUTTON_FONT_SIZE_PX}px;font-weight:700;text-decoration:none;text-align:center;white-space:nowrap;overflow:hidden;">${escapeAttr(style.label)}</a></td></tr></table>`;
+  return `<table class="acc-compact-btn" role="presentation" align="center" width="${w}" cellpadding="0" cellspacing="0" style="width:${w}px;margin:${isFirst ? "0" : "8px"} auto 0 auto;border-collapse:separate;"><tr><td width="${w}" height="${h}" align="center" bgcolor="${style.background}" style="width:${w}px;height:${h}px;background-color:${style.background};border-radius:6px;text-align:center;mso-line-height-rule:exactly;">${buildOutlookVmlButton(href, style, w, h)}<!--[if !mso]><!--><a href="${escapeAttr(href)}" target="_blank" rel="noopener noreferrer" title="${escapeAttr(title)}" aria-label="${escapeAttr(`${style.label} — ${title}`)}" style="display:block;width:${w}px;height:${h}px;line-height:${h}px;margin:0;padding:0;color:${style.color};font-family:${ACC_FONT_FAMILY};font-size:${BUTTON_FONT_SIZE_PX}px;font-weight:700;text-decoration:none;text-align:center;white-space:nowrap;overflow:hidden;">${escapeAttr(style.label)}</a><!--<![endif]--></td></tr></table>`;
 }
 
 /** Cores e rótulos dos três botões (cores e funções preservadas do layout aprovado). */
@@ -255,5 +267,5 @@ export function buildActionsPanelHtml(innerHtml: string, consultAiHref?: string 
 export const ALERT_MOBILE_CSS = `
     .acc-actions-panel { width:100% !important; }
     .acc-buttons-wrap { display:block !important; width:100% !important; margin:0 !important; }
-    .acc-compact-btn td { height:44px !important; }
-    .acc-compact-btn a, .acc-compact-btn span { height:44px !important; line-height:44px !important; }`;
+    .acc-compact-btn td { height:52px !important; }
+    .acc-compact-btn a, .acc-compact-btn span { height:52px !important; line-height:52px !important; }`;

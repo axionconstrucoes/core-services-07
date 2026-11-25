@@ -271,7 +271,7 @@ await check("página e rotas: guarda de Administrador do destino no servidor; li
 });
 
 await check("migration da RPC: aditiva, valida Administrador nos DOIS projetos, reusa add_project_member, sem convites/e-mail/Drive/documentos", () => {
-  const sql = read("supabase/migrations/20261111120000_copy_project_team.sql");
+  const sql = read("supabase/migrations/20261111121457_copy_project_team.sql");
   const code = sql.replace(/--.*$/gm, "");
   assert.equal((code.match(/has_project_permission\(/g) ?? []).length, 2);
   assert.match(code, /perform public\.add_project_member\(/);

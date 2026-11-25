@@ -90,6 +90,7 @@ const { isProjectPilotActive } = await import("../apps/web/lib/email/project-pil
 const { extractInboundFromGmail } = await import("../apps/web/lib/risk-alerts/replies/gmail-reply-extract");
 const { extractReplyTokens, hashReplyToken } = await import("../apps/web/lib/risk-alerts/replies/reply-pipeline");
 const { resolveRiskAlertInboundCredentials, inboundProfileMatchesMailbox, checkOverrideCompatibility } = await import("../apps/web/lib/risk-alerts/replies/inbound-credentials");
+const { createRiskReplyDispatch } = await import("../apps/web/lib/email-replies/risk-reply-dispatch");
 
 const args = process.argv.slice(2);
 const apply = args.includes("--apply");
@@ -489,6 +490,13 @@ if (phases.has("replies") && (apply || repliesDryRun)) {
       .eq("direction", "OUTBOUND")
       .not("reply_token_hash", "is", null);
     const conversationByTokenHash = new Map((outboundTokens ?? []).map((row) => [row.reply_token_hash, { id: row.conversation_id, case_id: row.case_id }]));
+    // P2 — despachante: 1º token POR ITEM (email_reply_tokens, RISK_CASE), depois os mecanismos legados.
+    const dispatch = createRiskReplyDispatch({ supabase, gmail, projectId: config.projectId, dryRun: repliesDryRun });
+    const conversationForCase = async (caseId) => {
+      if (repliesDryRun) return { id: `dry-conv-${caseId}`, case_id: caseId };
+      const conv = await riskStore.ensureConversation(config.projectId, caseId);
+      return { id: conv.id, case_id: caseId };
+    };
 
     const dryInbound = [];
     const insertInbound = async (conversation, message) => {
@@ -535,7 +543,7 @@ if (phases.has("replies") && (apply || repliesDryRun)) {
     //     caixa oficial. A busca é por prefixo do plus-address; o token de
     //     cada mensagem é resolvido pelo hash — sem hash conhecido, a
     //     mensagem fica para a correlação por thread (b) ou revisão humana.
-    if (conversationByTokenHash.size > 0) {
+    {
       const [local] = mailbox.split("@");
       let pageToken;
       do {
@@ -555,7 +563,21 @@ if (phases.has("replies") && (apply || repliesDryRun)) {
           }
           const headers = full.data.payload?.headers ?? [];
           const addressed = headers.filter((h) => /^(to|cc|delivered-to)$/i.test(h.name ?? "")).map((h) => h.value ?? "");
-          const tokens = extractReplyTokens(addressed.flatMap((v) => v.split(",")));
+          const addresses = addressed.flatMap((v) => v.split(","));
+          // 1º token POR ITEM (mailto / Reply-To por item).
+          let itemToken = null;
+          try {
+            itemToken = await dispatch.resolveItemToken(addresses);
+          } catch {
+            itemToken = null; // tabela indisponível nesta rodada: segue o legado
+          }
+          if (itemToken) {
+            summary.replies.itemTokenMatches = (summary.replies.itemTokenMatches ?? 0) + 1;
+            await insertInbound(await conversationForCase(itemToken.subjectId), full.data);
+            continue;
+          }
+          // 2º legado: hash do Reply-To da conversa.
+          const tokens = extractReplyTokens(addresses);
           const matches = Array.from(new Set(tokens.map((t) => conversationByTokenHash.get(hashReplyToken(t))).filter(Boolean)));
           if (matches.length !== 1) continue; // sem token deste projeto (ou ambíguo): fica para (b)/revisão
           summary.replies.replyToMatches += 1;
@@ -604,9 +626,35 @@ if (phases.has("replies") && (apply || repliesDryRun)) {
       }
     }
     summary.replies.messageIdAliases = (summary.replies.messageIdAliases ?? 0) + messageIdAliases.size;
+    // Opções do processador (P2): tokens por item pendentes, membros com perfil, anexos-evidência, limite por remetente,
+    // servidores de autenticação confiáveis e registro de cada mensagem. Falha na preparação => processamento sem elas
+    // (a autenticação do remetente continua obrigatória dentro do processador).
+    const replyOptions = { messageIdAliases };
+    try {
+      const itemReplyTokens = await dispatch.loadPendingItemTokens();
+      for (const dry of dryInbound) {
+        const row = await dispatch.resolveItemToken([...(dry.headers.to ?? []), ...(dry.headers.cc ?? [])]);
+        if (row) itemReplyTokens.set(row.tokenHash, row);
+      }
+      Object.assign(replyOptions, {
+        itemReplyTokens,
+        tokenStore: dispatch.tokenStore,
+        targetCandidates: await dispatch.targetCandidates(),
+        senderRateLimiter: await dispatch.senderRateLimiter(),
+        trustedAuthservIds: dispatch.trustedAuthservIds,
+        workspaceTenantDomains: dispatch.workspaceTenantDomains,
+        ownerStrict: dispatch.ownerStrict,
+        specialistEnabled: dispatch.specialistEnabled,
+        specialistRecorder: dispatch.specialistRecorder,
+        attachmentsFor: (message, caseId) => dispatch.attachmentsFor(message, caseId),
+        onMessageProcessed: (entry) => dispatch.onMessageProcessed(entry),
+      });
+    } catch {
+      Object.assign(replyOptions, { trustedAuthservIds: dispatch.trustedAuthservIds, workspaceTenantDomains: dispatch.workspaceTenantDomains, ownerStrict: dispatch.ownerStrict, specialistEnabled: dispatch.specialistEnabled });
+    }
     if (repliesDryRun) {
       const dry = createDryRunReplyStore(riskStore, dryInbound);
-      const outcome = await processAlertReplies(dry.store, config.projectId, new Date().toISOString(), [mailbox], { messageIdAliases });
+      const outcome = await processAlertReplies(dry.store, config.projectId, new Date().toISOString(), [mailbox], { ...replyOptions, tokenStore: undefined, onMessageProcessed: undefined, specialistRecorder: undefined });
       summary.replies.processed.push({ ...outcome, dryRun: true });
       console.log(`Respostas (DRY-RUN, nada gravado/enviado) projeto ${config.projectId}: ${JSON.stringify(outcome)}`);
       console.log(`  mensagens: ${JSON.stringify(dry.captured.updates.map((u) => ({ status: u.status, motivo: u.statusReason ?? null, classificacao: u.classification ?? null, correlacao: u.correlationMethod ?? null })))}`);
@@ -614,7 +662,7 @@ if (phases.has("replies") && (apply || repliesDryRun)) {
       console.log(`  auditoria planejada: ${JSON.stringify(dry.captured.audits)}; confirmações planejadas: ${dry.captured.confirmations.length + dry.captured.transitions.reduce((n, t) => n + t.outbox.filter((e) => e.notificationType === "ACTION_CONFIRMATION").length, 0)}`);
       continue;
     }
-    const outcome = await processAlertReplies(riskStore, config.projectId, new Date().toISOString(), [mailbox], { messageIdAliases });
+    const outcome = await processAlertReplies(riskStore, config.projectId, new Date().toISOString(), [mailbox], replyOptions);
     summary.replies.processed.push(outcome);
   }
   // Respostas aos avisos de AÇÃO CORRETIVA SSMA (escopo WEG): mesma caixa institucional, somente leitura; só contagens no log.
@@ -626,6 +674,15 @@ if (phases.has("replies") && (apply || repliesDryRun)) {
     } catch {
       summary.replies.ssma = { error: true };
       console.error("Respostas SSMA (ações corretivas): falha nesta rodada (sem detalhes no log público).");
+    }
+    // N3 — ação SLA, item do resumo semanal e alerta de contrato (token por item); mesma caixa, somente leitura.
+    try {
+      const { runTokenRepliesPhase } = await import("./lib/token-replies-phase.mjs");
+      summary.replies.tokenItems = await runTokenRepliesPhase({ supabase, gmail, mailbox, projectIds: configs.map((config) => config.projectId) });
+      console.log(`Respostas por item (SLA / resumo semanal / contrato): ${JSON.stringify(summary.replies.tokenItems)}`);
+    } catch {
+      summary.replies.tokenItems = { error: true };
+      console.error("Respostas por item (SLA / resumo semanal / contrato): falha nesta rodada (sem detalhes no log público).");
     }
   }
 }

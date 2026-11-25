@@ -165,7 +165,7 @@ com origem e período. **Zero registrado (0) ≠ ausência de dados (—)**. Det
 
 ## Ação corretiva ↔ Ações e Escalonamentos, avisos e perfis ESG (migration pendente)
 
-Ver `docs/ssma-esg-migration-20261106100000.md` (SQL, pré-condições, fonte oficial por campo, ordem de aplicação,
+Ver `docs/ssma-esg-migration-20261111042824.md` (SQL, pré-condições, fonte oficial por campo, ordem de aplicação,
 reversão) e `docs/ssma-esg-fechamento-2026-11-06.md` (decisões × implementação, lacunas e critérios de encerramento).
 Notificações: `apps/web/lib/ssma/field-notifications/` — dedupe por (registro, evento, dia/prazo, destinatário),
 claim atômico, falha com nova tentativa (até 5), ausência de destinatário registrada e visível, travas do piloto no provedor.

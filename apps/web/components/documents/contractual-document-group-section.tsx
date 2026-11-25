@@ -1,5 +1,6 @@
 import { ContractualAttachmentRow } from "@/components/documents/contractual-attachment-row";
 import { DocumentCard } from "@/components/documents/document-card";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import type { LinkableDocumentCandidate } from "@/components/documents/link-existing-document-to-parent-control";
 import { LinkExistingDocumentToParentControl } from "@/components/documents/link-existing-document-to-parent-control";
 import type { ManagedDocument } from "@/lib/document-management";
@@ -100,7 +101,10 @@ export function ContractualDocumentGroupSection({
           <div className="min-w-0 p-1.5">
             {group.attachments.length === 0 ? (
               <div className="flex flex-col gap-1.5">
-                <p className="text-xs text-muted-foreground">Nenhum anexo contratual vinculado</p>
+                <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                  Nenhum anexo contratual vinculado
+                  <FeatureInfo helpId="juridico.documentos.vincular-anexo" />
+                </p>
                 {canLinkContractualAttachment ? (
                   <LinkExistingDocumentToParentControl
                     projectId={projectId}

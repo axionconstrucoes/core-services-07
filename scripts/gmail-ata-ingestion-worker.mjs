@@ -2,6 +2,12 @@ import { register } from "node:module";
 import { google } from "googleapis";
 import { createClient } from "@supabase/supabase-js";
 import { computeExitCode, formatSummary, processMessageRows } from "./lib/gmail-ata-processing.mjs";
+import { createDelegatedGmailAuth } from "./lib/gmail-delegated-auth.mjs";
+import { prepareDelegatedRun } from "./lib/gmail-mailbox-run.mjs";
+
+// Modo de autenticação: PADRÃO = OAUTH_USUARIO (histórico). DOMAIN_DELEGATION é opt-in e passa pela MESMA porta por
+// caixa do coletor (controle + lista da obra + aceite individual + período), falhando fechado sem a tabela de controles.
+const DELEGATION = (process.env.ACC_GMAIL_AUTH_MODE ?? "OAUTH_USUARIO").trim().toUpperCase() === "DOMAIN_DELEGATION";
 
 register("./ts-module-resolver.mjs", import.meta.url);
 
@@ -119,11 +125,25 @@ async function recordUnavailable(row) {
   unavailableCounts.set(row.id, attempt);
 }
 
-const auth = new google.auth.OAuth2(
-  required("GOOGLE_GMAIL_INBOUND_CLIENT_ID"),
-  required("GOOGLE_GMAIL_INBOUND_CLIENT_SECRET")
-);
-auth.setCredentials({ refresh_token: required("GOOGLE_GMAIL_INBOUND_REFRESH_TOKEN") });
+let auth;
+if (DELEGATION) {
+  const decision = await prepareDelegatedRun({ supabase, projectId: PROJECT_ID, mailbox, mode: "collect" });
+  if (decision.failClosed) {
+    console.error(decision.reason);
+    process.exit(1);
+  }
+  if (!decision.proceed) {
+    console.log(`Anexos da caixa ${mailbox} BLOQUEADOS: ${decision.blockers.join(", ")}. Nenhuma mensagem foi lida.`);
+    process.exit(0);
+  }
+  auth = (await createDelegatedGmailAuth({ mailbox })).auth;
+} else {
+  auth = new google.auth.OAuth2(
+    required("GOOGLE_GMAIL_INBOUND_CLIENT_ID"),
+    required("GOOGLE_GMAIL_INBOUND_CLIENT_SECRET")
+  );
+  auth.setCredentials({ refresh_token: required("GOOGLE_GMAIL_INBOUND_REFRESH_TOKEN") });
+}
 const gmail = google.gmail({ version: "v1", auth });
 
 const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -138,6 +158,7 @@ const [
     .select("id,provider_message_id,provider_thread_id,sent_at,subject,from_address")
     .eq("project_id", PROJECT_ID)
     .eq("provider", "GMAIL")
+    .eq("mailbox_address", mailbox)
     .gte("sent_at", since)
     .order("sent_at", { ascending: false })
     .limit(50),
@@ -146,6 +167,7 @@ const [
     .select("id,provider_message_id,provider_thread_id,sent_at,subject,from_address")
     .eq("project_id", PROJECT_ID)
     .eq("provider", "GMAIL")
+    .eq("mailbox_address", mailbox)
     .or("subject.ilike.%ata%,subject.ilike.%reuni%")
     .order("sent_at", { ascending: false })
     .limit(150),
@@ -157,6 +179,7 @@ const [
     .select("id,provider_message_id,provider_thread_id,sent_at,subject,from_address")
     .eq("project_id", PROJECT_ID)
     .eq("provider", "GMAIL")
+    .eq("mailbox_address", mailbox)
     .eq("document_classification", "RELATORIO_SEMANAL")
     .order("sent_at", { ascending: false })
     .limit(150),
@@ -166,6 +189,8 @@ if (recentError) throw new Error(recentError.message);
 if (ataError) throw new Error(ataError.message);
 if (weeklyReportsError) throw new Error(weeklyReportsError.message);
 
+// Isolamento por CAIXA: o ID de mensagem do Gmail só existe na caixa que o importou. Sem o filtro acima, a
+// credencial de uma caixa consultaria IDs de outra (404 => pendência permanente indevida).
 const byId = new Map();
 for (const row of [...(recent ?? []), ...(ataBySubject ?? []), ...(weeklyReports ?? [])]) {
   if (row.provider_message_id) byId.set(row.id, row);

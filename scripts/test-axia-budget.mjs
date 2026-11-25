@@ -1,5 +1,5 @@
 // Controle financeiro da conversa com IA da AXIA (PR #135 — pendências 1, 2 e 3):
-//   1. orçamento GLOBAL e CONCORRENTE: migration 20261105150000 executada em PostgreSQL de verdade (PGlite) com dezenas de
+//   1. orçamento GLOBAL e CONCORRENTE: migration 20261105173838 executada em PostgreSQL de verdade (PGlite) com dezenas de
 //      reservas simultâneas, mais a mesma interface em memória;
 //   2. contabilidade CONSERVADORA em timeout / resultado incerto / conclusão tardia;
 //   3. cache do provedor com invalidação por rotação de credencial, sem vazar a chave.
@@ -41,7 +41,7 @@ t("arredondamento sempre para cima (nunca subestima)", budget.toMicros(0.0000001
 }
 
 // ───────────────────────── 2. SQL: migration em PostgreSQL de verdade ─────────────────────────
-const MIGRATION = "20261105150000_axia_chat_budget.sql";
+const MIGRATION = "20261105173838_axia_chat_budget.sql";
 // A migration roda DEPOIS dos privilégios padrão do Supabase (que dão acesso a anon/authenticated a tabelas novas): é a ordem real
 // em produção, e a migration precisa revogar esse acesso.
 const db = await createLocalDb([]);

@@ -1,0 +1,33 @@
+{
+  "nodes": [
+    {"id": "g-base", "type": "group", "x": -40, "y": -60, "width": 1180, "height": 220, "label": "Base preservada", "color": "4"},
+    {"id": "main", "type": "text", "x": 0, "y": 0, "width": 220, "height": 120, "text": "**main / origin/main**\n`09fda9b`\n(intocada)"},
+    {"id": "pr243", "type": "text", "x": 280, "y": 0, "width": 240, "height": 120, "text": "**PR #243 (remoto)**\n`d8de792`\nrevisão local `750f79e`"},
+    {"id": "integ", "type": "text", "x": 580, "y": 0, "width": 240, "height": 120, "text": "**Integridade operacional**\n`baba746`"},
+    {"id": "p0", "type": "text", "x": 880, "y": 0, "width": 220, "height": 120, "text": "**P0**\n`a938ff9`\nrevalidação da transição de risco"},
+
+    {"id": "g-frentes", "type": "group", "x": -40, "y": 220, "width": 1180, "height": 260, "label": "Frentes paralelas (base a938ff9)", "color": "5"},
+    {"id": "seg", "type": "text", "x": 0, "y": 280, "width": 260, "height": 160, "text": "**P0/P1 Segurança e consistência**\n`b3758dc`\nautorização falha fechada (NULL), outbox não autoriza, resumo semanal com evidência, view de divergências"},
+    {"id": "email", "type": "text", "x": 290, "y": 280, "width": 260, "height": 160, "text": "**P2 Ações por e-mail**\n`d731e25` · `ce07257`\nDMARC/DKIM obrigatório, token por item, mailto, SSMA por RPC"},
+    {"id": "experts", "type": "text", "x": 580, "y": 280, "width": 260, "height": 160, "text": "**P3 Experts**\n`7f37267`\nengineering-director, roteamento por assunto, framework no runtime, limite de IA em todos os caminhos"},
+    {"id": "comercial", "type": "text", "x": 870, "y": 280, "width": 250, "height": 160, "text": "**P4 Comercial × Orçamentos**\n`4b15617`\nDiretor Comercial v5, CommercialStrategyBrief, carregador somente leitura"},
+
+    {"id": "integracao", "type": "text", "x": 300, "y": 560, "width": 520, "height": 160, "text": "**integration/acc-consolidacao**\nmerges das 4 frentes + `dee671e` (P3×P4) + `b29f481` (núcleos SSMA falha fechada)\n\nMigrations locais: 20261120150000 → 20261120190000\n(nenhuma aplicada em produção)"},
+
+    {"id": "pend", "type": "text", "x": 900, "y": 560, "width": 260, "height": 160, "text": "**Pendente**\n- SLA_ACTION / resumo semanal / lote por e-mail\n- homologação Gmail/Outlook\n- decisões de negócio", "color": "1"}
+  ],
+  "edges": [
+    {"id": "e1", "fromNode": "main", "fromSide": "right", "toNode": "pr243", "toSide": "left"},
+    {"id": "e2", "fromNode": "pr243", "fromSide": "right", "toNode": "integ", "toSide": "left"},
+    {"id": "e3", "fromNode": "integ", "fromSide": "right", "toNode": "p0", "toSide": "left"},
+    {"id": "e4", "fromNode": "p0", "fromSide": "bottom", "toNode": "seg", "toSide": "top"},
+    {"id": "e5", "fromNode": "p0", "fromSide": "bottom", "toNode": "email", "toSide": "top"},
+    {"id": "e6", "fromNode": "p0", "fromSide": "bottom", "toNode": "experts", "toSide": "top"},
+    {"id": "e7", "fromNode": "p0", "fromSide": "bottom", "toNode": "comercial", "toSide": "top"},
+    {"id": "e8", "fromNode": "seg", "fromSide": "bottom", "toNode": "integracao", "toSide": "top", "label": "merge"},
+    {"id": "e9", "fromNode": "email", "fromSide": "bottom", "toNode": "integracao", "toSide": "top", "label": "merge"},
+    {"id": "e10", "fromNode": "experts", "fromSide": "bottom", "toNode": "integracao", "toSide": "top", "label": "merge"},
+    {"id": "e11", "fromNode": "comercial", "fromSide": "bottom", "toNode": "integracao", "toSide": "top", "label": "merge"},
+    {"id": "e12", "fromNode": "integracao", "fromSide": "right", "toNode": "pend", "toSide": "left"}
+  ]
+}

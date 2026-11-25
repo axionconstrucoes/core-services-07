@@ -5,6 +5,7 @@ import { useActionState, useMemo, useState, useTransition } from "react";
 import { AlertActionNotice } from "@/components/alerts/alert-action-notice";
 import { SeverityBadge } from "@/components/shared/badges";
 import { Button } from "@/components/ui/button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Select } from "@/components/ui/select";
 import {
   CONTRACT_ALERT_BATCH_ITEM_ACTIONS,
@@ -98,11 +99,13 @@ export function ContractAlertBatchForm({
     return (
       <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-5 text-sm font-medium text-emerald-800">
         Todos os alertas foram respondidos. A resposta ao ACC foi enviada.
+        {state.warning ? <p className="mt-2 font-normal text-amber-800">{state.warning}</p> : null}
       </div>
     );
   }
 
   return (
+    // help-exempt: formulário do lote; cada campo (alerta-lote.acao, enviado-para) e botão (salvar-acao, responder) tem ícone próprio
     <form action={formAction} className={compact ? "flex flex-col gap-2" : "flex flex-col gap-4"}>
       {items.map((item) => (
         <section
@@ -122,9 +125,10 @@ export function ContractAlertBatchForm({
             </div>
 
             <div className={compact ? "grid w-full gap-1.5" : "grid w-full gap-2 sm:w-[260px]"}>
-              <label className="text-xs font-medium" htmlFor={`action-${item.eventId}`}>
-                {compact ? "Ação" : "Ação obrigatória"}
-              </label>
+              <span className="inline-flex items-center gap-1 text-xs font-medium">
+                <label htmlFor={`action-${item.eventId}`}>{compact ? "Ação" : "Ação obrigatória"}</label>
+                <FeatureInfo helpId="planejamento.alerta-lote.acao" />
+              </span>
               <Select
                 id={`action-${item.eventId}`}
                 name={`action:${item.eventId}`}
@@ -150,9 +154,10 @@ export function ContractAlertBatchForm({
 
               {actions[item.eventId] === "ENVIADO_PARA" ? (
                 <>
-                  <label className="text-xs font-medium" htmlFor={`assignee-${item.eventId}`}>
-                    Enviado para
-                  </label>
+                  <span className="inline-flex items-center gap-1 text-xs font-medium">
+                    <label htmlFor={`assignee-${item.eventId}`}>Enviado para</label>
+                    <FeatureInfo helpId="planejamento.alerta-email-acao.enviado-para" />
+                  </span>
                   <Select
                     id={`assignee-${item.eventId}`}
                     name={`assignedUserId:${item.eventId}`}
@@ -176,14 +181,13 @@ export function ContractAlertBatchForm({
                 return (
                   <div className="flex flex-wrap items-center gap-2">
                     <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
+                      type="button" size="sm" variant="outline"
                       disabled={!ready || alreadySaved || savingEventId === item.eventId}
                       onClick={() => saveItem(item.eventId)}
                     >
                       {savingEventId === item.eventId ? "Salvando…" : "Salvar esta ação"}
                     </Button>
+                    <FeatureInfo helpId="planejamento.alerta-lote.salvar-acao" />
                     {alreadySaved ? <span className="text-xs font-medium text-emerald-700">Ação salva</span> : null}
                     {itemErrors[item.eventId] ? <span className="text-xs text-destructive">{itemErrors[item.eventId]}</span> : null}
                   </div>
@@ -199,9 +203,12 @@ export function ContractAlertBatchForm({
           <p className="text-sm text-muted-foreground">
             {answeredState.answeredCount} de {answeredState.totalCount} alertas respondidos
           </p>
-          <Button type="submit" disabled={!answeredState.allEventsAnswered || pending}>
-            {pending ? "Enviando resposta…" : compact ? "CONFIRMAR TUDO" : "RESPONDER AO ACC"}
-          </Button>
+          <span className="inline-flex items-center gap-1">
+            <Button type="submit" disabled={!answeredState.allEventsAnswered || pending}>
+              {pending ? "Enviando resposta…" : compact ? "CONFIRMAR TUDO" : "RESPONDER AO ACC"}
+            </Button>
+            <FeatureInfo helpId="planejamento.alerta-lote.responder" />
+          </span>
         </div>
 
         {!answeredState.allEventsAnswered ? (

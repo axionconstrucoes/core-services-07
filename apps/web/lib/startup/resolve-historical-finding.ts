@@ -21,7 +21,7 @@ export async function resolveHistoricalFinding(supabase: SupabaseClient, input: 
     throw new Error("Descrição de como foi resolvido é obrigatória.");
   }
 
-  const { error } = await supabase
+  const { data: persistedRows, error } = await supabase
     .from("ai_findings")
     .update({
       lifecycle_status: "RESOLVED_BEFORE_GO_LIVE",
@@ -32,9 +32,13 @@ export async function resolveHistoricalFinding(supabase: SupabaseClient, input: 
       reviewed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq("id", input.findingId);
+    .eq("id", input.findingId)
+    .select("id");
 
   if (error) throw new Error(`Falha ao marcar finding como pacificado: ${error.message}`);
+
+  // UPDATE que casa 0 linhas não dá erro (RLS): sem a linha gravada de volta, nada foi persistido.
+  if (!persistedRows?.length) throw new Error("A decisão de pacificar o finding não foi gravada: somente um ADMINISTRADOR ativo da obra pode alterar este registro (ou ele não existe mais).");
 
   const updated = await getFinding(supabase, input.findingId);
   if (!updated) throw new Error("Finding não encontrado após atualização.");

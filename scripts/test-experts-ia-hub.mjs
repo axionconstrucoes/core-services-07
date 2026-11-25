@@ -52,19 +52,19 @@ console.log("EXPERTS IA — HUB E NAVEGAÇÃO — TESTES");
 console.log("======================================");
 console.log("");
 
-check("os 5 Experts oficiais estão disponíveis em ALL_OFFICIAL_EXPERT_DEFINITIONS (fonte única para o hub)", () => {
-  assert(ALL_OFFICIAL_EXPERT_DEFINITIONS.length === 5);
+check("os 7 Experts oficiais estão disponíveis em ALL_OFFICIAL_EXPERT_DEFINITIONS (fonte única para o hub)", () => {
+  assert(ALL_OFFICIAL_EXPERT_DEFINITIONS.length === 7);
   const ids = ALL_OFFICIAL_EXPERT_DEFINITIONS.map((e) => e.expertId).sort();
   assert(
-    JSON.stringify(ids) === JSON.stringify(["ceo", "commercial-director", "esg-director", "legal-consultant", "planning-director"].sort())
+    JSON.stringify(ids) === JSON.stringify(["ceo", "commercial-director", "engineering-director", "esg-director", "legal-consultant", "planning-director", "quality-analyst"].sort())
   );
 });
 
 // Os 5 Experts oficiais estão IMPLEMENTED (commits 34d6186/6f7d98e/755b96f); nenhum fica PLANNED.
-check("os 5 Experts oficiais têm status IMPLEMENTED (Ativo); nenhum PLANNED", () => {
+check("os 7 Experts oficiais têm status IMPLEMENTED (Ativo); nenhum PLANNED", () => {
   const implemented = ALL_OFFICIAL_EXPERT_DEFINITIONS.filter((e) => e.status === "IMPLEMENTED").map((e) => e.expertId).sort();
   const planned = ALL_OFFICIAL_EXPERT_DEFINITIONS.filter((e) => e.status === "PLANNED").map((e) => e.expertId);
-  assert(JSON.stringify(implemented) === JSON.stringify(["ceo", "commercial-director", "esg-director", "legal-consultant", "planning-director"]));
+  assert(JSON.stringify(implemented) === JSON.stringify(["ceo", "commercial-director", "engineering-director", "esg-director", "legal-consultant", "planning-director", "quality-analyst"]));
   assert(planned.length === 0);
 });
 
@@ -88,8 +88,8 @@ check("página experts-ia só oferece link de acesso (\"Abrir Expert\") para com
   assert(source.includes('"esg-director": (projectId) => `/${projectId}/esg`'));
   assert(!source.includes('"ceo":'), "CEO IA não deveria ter link de acesso — ainda não é operacional");
   assert(source.includes('"legal-consultant": (projectId) => `/${projectId}/juridico`'), "Consultor Jurídico IA tem link para a página Jurídico");
-  assert(source.includes('"planning-director":'), "Diretor de Engenharia IA deveria ter link de acesso dedicado");
-  assert(source.includes("/experts-ia/diretor-engenharia"), "link dedicado do Diretor de Engenharia IA ausente");
+  assert(source.includes('"planning-director": (projectId) => `/${projectId}/experts-ia/diretor-planejamento`'), "Diretor de Planejamento IA deveria ter link de acesso dedicado");
+  assert(source.includes('"engineering-director": (projectId) => `/${projectId}/experts-ia/diretor-engenharia`'), "Diretor de Engenharia e Construção IA deveria ter link de acesso dedicado");
 });
 
 check("página experts-ia nunca conecta um novo LLM nem chama providers (não importa nada de lib/ai/providers/)", () => {

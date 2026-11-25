@@ -40,6 +40,7 @@ export function EmailAttachmentRow({
         <div className="flex flex-wrap items-center gap-2">
           <span className="rounded-md border px-2 py-0.5 text-xs font-medium">{extension}</span>
           <AttachmentStatusBadge status={displayStatus} />
+          <FeatureInfo helpId="juridico.documentos.anexos-email-linha" />
         </div>
       </div>
 

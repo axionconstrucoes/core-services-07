@@ -1,25 +1,43 @@
 // Puro — especialidades da caixa "CONSULTAR IA" dos alertas.
 //
-// NÃO cria Experts novos: cada especialidade é mapeada para um Expert JÁ existente (provider,
+// NÃO cria Experts novos: cada especialidade é mapeada para um Expert oficial (provider,
 // permissões, grounding e validação continuam os dele) + um foco de especialidade que entra no
 // texto da pergunta. O mapeamento é explícito e auditável:
-//   Contratual/Jurídico      → legal-consultant
-//   Engenharia               → planning-director (mesmo mapeamento de askEngineeringDirectorAction)
-//   Planejamento e Prazo     → planning-director
-//   SSMA                     → esg-director
-//   Documentação e Entrega   → legal-consultant (documentos contratuais/evidências) com foco próprio
-//   Geral                    → legal-consultant (base contratual do alerta) com foco multidisciplinar
+//   Contratual/Jurídico               → legal-consultant
+//   Engenharia e Construção           → engineering-director (mesmo Expert de askEngineeringDirectorAction)
+//   Planejamento e Prazo              → planning-director
+//   Comercial/Financeiro/Orçamento    → commercial-director
+//   SSMA                              → esg-director
+//   Qualidade e Garantias             → quality-analyst
+//   Seguros e Garantias Financeiras   → legal-consultant (foco: seguros, garantias, endossos e sinistros)
+//   Documentação e Entrega            → legal-consultant (documentos contratuais/evidências) com foco próprio
+//   Geral (pelo assunto)              → AUTO: roteamento pelo ASSUNTO concreto (lib/ai/routing/expert-topics.ts):
+//                                       um tema → o Expert do tema; dois ou mais (ou nenhum) → curadoria
+//                                       multi-Expert (um parecer por Expert + consolidação CEO IA) — nunca
+//                                       um único Expert simulando várias áreas. A AXIA nunca participa.
 
 import type { MembershipArea } from "@axion/types";
 
 import type { ExpertId } from "../types";
 
-export type AlertConsultSpecialtyId = "juridico" | "engenharia" | "planejamento" | "ssma" | "documentacao" | "geral";
+export type AlertConsultSpecialtyId =
+  | "juridico"
+  | "engenharia"
+  | "planejamento"
+  | "comercial"
+  | "ssma"
+  | "qualidade"
+  | "seguros"
+  | "documentacao"
+  | "geral";
+
+/** "AUTO" = roteamento pelo assunto (um Expert ou curadoria multi-Expert), decidido no servidor. */
+export type AlertConsultSpecialtyTarget = ExpertId | "AUTO";
 
 export interface AlertConsultSpecialty {
   id: AlertConsultSpecialtyId;
   label: string;
-  expertId: ExpertId;
+  expertId: AlertConsultSpecialtyTarget;
   /** Foco anexado à pergunta — instrui o Expert existente sob a ótica da especialidade. */
   focus: string;
 }
@@ -34,10 +52,10 @@ export const ALERT_CONSULT_SPECIALTIES: readonly AlertConsultSpecialty[] = [
   },
   {
     id: "engenharia",
-    label: "Engenharia",
-    expertId: "planning-director",
+    label: "Engenharia e Construção",
+    expertId: "engineering-director",
     focus:
-      "Responda sob a ótica de engenharia: soluções técnicas, método executivo, recursos, qualidade e recuperação física da situação, indicando o que depende de projeto, medição ou inspeção em campo.",
+      "Responda sob a ótica de engenharia e construção: solução técnica, método construtivo, alternativas, construtibilidade e qualidade, indicando o que depende de projeto, medição ou inspeção em campo. Efeito em prazo só como inferência a confirmar pelo Planejamento.",
   },
   {
     id: "planejamento",
@@ -47,11 +65,32 @@ export const ALERT_CONSULT_SPECIALTIES: readonly AlertConsultSpecialty[] = [
       "Responda sob a ótica de planejamento e prazo: impacto em marcos e caminho crítico, opções de recuperação de prazo, sequenciamento e janelas de mitigação, usando só as datas e atividades presentes no contexto.",
   },
   {
+    id: "comercial",
+    label: "Comercial/Financeiro/Orçamento",
+    expertId: "commercial-director",
+    focus:
+      "Responda sob a ótica comercial, financeira e de orçamento: custo, preço, medição, pagamento, reajuste e exposição econômica, sem inventar valores, margens ou limites de negociação ausentes do contexto.",
+  },
+  {
     id: "ssma",
     label: "SSMA",
     expertId: "esg-director",
     focus:
       "Responda sob a ótica de segurança, saúde e meio ambiente: riscos às pessoas e ao ambiente, controles e medidas corretivas, licenças e registros exigidos, indicando evidências necessárias.",
+  },
+  {
+    id: "qualidade",
+    label: "Qualidade e Garantias",
+    expertId: "quality-analyst",
+    focus:
+      "Responda sob a ótica da qualidade: não conformidades, inspeções, conformidade executiva, garantia e assistência técnica, causas apenas como hipótese, recorrência e a necessidade de inspeção em campo. Foto ou relato sozinhos não comprovam conformidade nem resistência; não emita diagnóstico estrutural definitivo; separe fato, inferência e recomendação e indique o impacto em prazo, custo, segurança e qualidade (o pior pilar domina).",
+  },
+  {
+    id: "seguros",
+    label: "Seguros e Garantias Financeiras",
+    expertId: "legal-consultant",
+    focus:
+      "Responda sob a ótica de seguros, garantias, endossos e sinistros: documento de origem, versão/data, cláusula, fatos conhecidos, hipóteses, dados faltantes, limitações e próxima providência. Distinga garantia legal, garantia contratual, seguro-garantia, RC e fiança. Conclua cobertura apenas como POTENCIALMENTE COBERTO, POTENCIALMENTE NÃO COBERTO, COBERTURA CONDICIONADA ou INFORMAÇÕES INSUFICIENTES; nunca reconheça cobertura em nome da seguradora, não exclua por expiração da garantia contratual, não aplique 5 anos universalmente e não invente canal de atendimento.",
   },
   {
     id: "documentacao",
@@ -62,10 +101,10 @@ export const ALERT_CONSULT_SPECIALTIES: readonly AlertConsultSpecialty[] = [
   },
   {
     id: "geral",
-    label: "Geral",
-    expertId: "legal-consultant",
+    label: "Geral (pelo assunto)",
+    expertId: "AUTO",
     focus:
-      "Responda de forma geral e multidisciplinar a partir do contexto do alerta e indique quando outra especialidade deve ser consultada.",
+      "Responda sob a ótica da sua especialidade a partir do contexto do alerta; os demais especialistas respondem em pareceres próprios e o CEO IA consolida.",
   },
 ];
 
@@ -88,6 +127,11 @@ export function preselectSpecialtyForArea(area: MembershipArea | string | null |
       return "engenharia";
     case "PLANEJAMENTO":
       return "planejamento";
+    case "COMERCIAL":
+    case "FINANCEIRO":
+    case "ORÇAMENTO":
+    case "ORCAMENTO":
+      return "comercial";
     case "SSMA/ESG":
       return "ssma";
     case "JURÍDICO":
@@ -99,8 +143,8 @@ export function preselectSpecialtyForArea(area: MembershipArea | string | null |
 
 /**
  * Especialidade inicial pela ÁREA SLA do alerta de risco (a mesma que define o responsável na Matriz).
- * Áreas sem especialista dedicado (Financeiro, Comercial, Orçamento, Administrativo, Diretoria) voltam
- * "geral" — nunca uma suposição; o usuário pode trocar.
+ * Áreas sem especialista dedicado (Administrativo, Diretoria) voltam "geral" (roteamento pelo assunto)
+ * — nunca uma suposição; o usuário pode trocar.
  */
 export function specialtyForSlaArea(area: string | null | undefined): AlertConsultSpecialtyId {
   switch (area) {
@@ -108,10 +152,16 @@ export function specialtyForSlaArea(area: string | null | undefined): AlertConsu
       return "engenharia";
     case "PLANEJAMENTO":
       return "planejamento";
+    case "COMERCIAL":
+    case "FINANCEIRO":
+    case "ORCAMENTO":
+      return "comercial";
     case "ESG_SSMA":
       return "ssma";
     case "JURIDICO":
       return "juridico";
+    case "QUALIDADE":
+      return "qualidade";
     default:
       return "geral";
   }

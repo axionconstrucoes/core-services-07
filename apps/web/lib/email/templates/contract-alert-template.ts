@@ -24,6 +24,8 @@ import {
   type ThreeActions,
 } from "@/lib/email/templates/alert-box-style";
 import { buildUniversalActionsPanelHtml } from "@/lib/email/templates/universal-alert-actions";
+import { buildReplyByEmailPanelHtml, replyByEmailTextLines } from "@/lib/email/templates/reply-by-email-panel";
+import type { ReplyMailtoLinks } from "@/lib/email-replies/reply-mailto";
 import {
   alertClauseHtml,
   alertClauseText,
@@ -161,6 +163,8 @@ export interface ContractAlertEmailInput {
   // Cláusula impactada VERIFICADA (número e título). undefined = derivar do confronto aprovado,
   // se houver; null/sem rótulo = "Cláusula: Pendente de confirmação".
   impactedClause?: { label: string | null; text?: string | null } | null;
+  // Atalhos "Responder por e-mail" (token por item, CONTRACT_ALERT_ITEM do lote de um item). Ausente => só os botões.
+  replyByEmail?: ReplyMailtoLinks | null;
 }
 
 export interface ContractAlertEmail {
@@ -300,7 +304,8 @@ export function buildContractAlertEmail(input: ContractAlertEmailInput): Contrac
           ${input.confrontationBlocks.map((b) => alertConfrontationHtml(b, input.severity)).join("")}
           ${alertEvidenceHtml(input.keyEvidence, input.severity)}
           ${input.repeatNotice ? alertRepeatHtml(input.severity) : ""}
-          ${tokenLinksHtml}`;
+          ${tokenLinksHtml}
+          ${buildReplyByEmailPanelHtml(input.replyByEmail)}`;
 
   // Coluna de ações: três botões numa coluna BRANCA estreita (acompanhamento válido) ou, sem ele,
   // a coluna anterior com os botões por token (preservada).
@@ -308,7 +313,7 @@ export function buildContractAlertEmail(input: ContractAlertEmailInput): Contrac
   if (quick) {
     actionsColumnHtml = `<td class="acc-actions-col" valign="top" width="${BUTTON_COLUMN_WIDTH_PX}" style="width:${BUTTON_COLUMN_WIDTH_PX}px;padding:0 0 0 16px;">${buildUniversalActionsPanelHtml({ links: { RESOLVIDO: quick.RESOLVIDO, EM_ANDAMENTO: quick.EM_ANDAMENTO, ENVIAR_PARA: quick.ENVIADO_PARA, ESPECIALISTA: input.aiConsultUrl }, unavailableReasons: { ESPECIALISTA: "Consulta indisponível para este alerta." } })}</td>`;
   } else if (input.actionButtons.length > 0) {
-    actionsColumnHtml = `<td class="acc-actions-col" valign="top" width="36%" style="width:36%;padding:0 0 0 16px;"><div style="background-color:#FFFFFF;border:1px solid #E5E7EB;border-radius:6px;padding:8px;">${renderEmailActionButtonsHtml(input.actionButtons, input.summary, "#4B5563", "14px")}</div></td>`;
+    actionsColumnHtml = `<td class="acc-actions-col" valign="top" width="36%" style="width:36%;padding:0 0 0 16px;"><div style="background-color:#FFFFFF;border:1px solid #E5E7EB;border-radius:6px;padding:8px;">${renderEmailActionButtonsHtml(input.actionButtons, input.summary, "#4B5563", "16px")}</div></td>`;
   }
 
   const boxInner = `
@@ -382,6 +387,7 @@ export function buildContractAlertEmail(input: ContractAlertEmailInput): Contrac
     ...(input.repeatNotice ? ["", repeatNoticeText(input.severity)] : []),
     ...(quick ? ["", "Ações (abrem o ACC autenticado; nada é alterado só pelo clique):", `RESOLVIDO: ${quick.RESOLVIDO}`, `EM ANDAMENTO: ${quick.EM_ANDAMENTO}`, `ENVIAR PARA: ${quick.ENVIADO_PARA}`, `ESPECIALISTA: ${input.aiConsultUrl ?? "indisponível (consulta indisponível para este alerta)"}`] : []),
     ...(input.actionButtons.length > 0 ? ["", quick ? "Outras ações:" : "Ações disponíveis:", renderEmailActionButtonsText(input.actionButtons)] : []),
+    ...(replyByEmailTextLines(input.replyByEmail).length > 0 ? ["", ...replyByEmailTextLines(input.replyByEmail)] : []),
     "",
     "Este alerta é uma sugestão de análise automatizada e exige revisão humana — não é uma decisão contratual ou jurídica definitiva.",
   ].join("\n");

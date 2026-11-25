@@ -9,6 +9,9 @@
 // demais Experts).
 
 import { createSupabaseServerClient } from "@axion/db/server";
+import { precheckAiConsult, reserveAiConsult } from "./alert-consult/consult-quota";
+import { gatedProviderForExpert } from "./governance/quota-gated-provider";
+import { sessionAuditSink } from "./governance/consult-audit";
 import { answerCommercialDirectorQuery } from "./experts/commercial-director/query";
 import {
   parseExpertQueryForm,
@@ -36,8 +39,20 @@ export async function askCommercialDirectorAction(
 
   const supabase = await createSupabaseServerClient();
 
+  // Limite de IA (EXPERT_PANEL): pré-verificação somente leitura e reserva na FRONTEIRA DO PROVEDOR (depois dos
+  // guards determinísticos; recusa antes do provedor não consome unidade). Recusada = nenhuma chamada.
+  const precheck = await precheckAiConsult(supabase, parsed.request.projectId);
+  if (!precheck.ok) {
+    return { response: null, error: precheck.error, meta: null };
+  }
+
   try {
-    const result = await answerCommercialDirectorQuery(supabase, parsed.request);
+    const provider = gatedProviderForExpert("commercial-director", (expertId) =>
+      reserveAiConsult(supabase, parsed.request.projectId, "EXPERT_PANEL", parsed.request.eventId ?? parsed.request.projectId, expertId),
+    undefined,
+    sessionAuditSink(supabase, parsed.request.projectId, "EXPERT_PANEL", parsed.request.eventId ?? parsed.request.projectId)
+    );
+    const result = await answerCommercialDirectorQuery(supabase, parsed.request, provider);
 
     return {
       response: result.response,

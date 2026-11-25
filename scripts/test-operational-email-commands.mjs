@@ -128,7 +128,9 @@ function makeStore({ riskLevel = "MEDIUM", inbound, state = "OPEN", failApplyOnc
   };
   return { store, calls };
 }
-const inboundMsg = (o = {}) => ({ id: o.id ?? "in-1", projectId: PROJECT, providerMessageId: o.id ?? "in-1", receivedAt: RECEIVED, bodyOriginal: o.body, headers: { from: o.from ?? "responsavel@axion.com.br", to: ["crm+alerta-tok@axion.com.br"], messageId: o.messageId ?? `<${o.id ?? "in-1"}@mail>`, inReplyTo: "<root@acc>", references: [], subject: "RE: alerta", autoSubmitted: null } });
+// P2: autenticação do remetente obrigatória (DMARC/DKIM alinhado, servidor confiável) — fixtures com Authentication-Results do Gmail.
+const AUTH_OK = "mx.google.com; dkim=pass header.i=@axion.com.br header.s=google; spf=pass smtp.mailfrom=axion.com.br; dmarc=pass (p=QUARANTINE) header.from=axion.com.br";
+const inboundMsg = (o = {}) => ({ id: o.id ?? "in-1", projectId: PROJECT, providerMessageId: o.id ?? "in-1", receivedAt: RECEIVED, bodyOriginal: o.body, headers: { from: o.from ?? "responsavel@axion.com.br", to: ["crm+alerta-tok@axion.com.br"], messageId: o.messageId ?? `<${o.id ?? "in-1"}@mail>`, inReplyTo: "<root@acc>", references: [], subject: "RE: alerta", autoSubmitted: null, authenticationResults: o.auth === undefined ? AUTH_OK : o.auth } });
 const run = (store) => processAlertReplies(store, PROJECT, NOW, ["crm@axion.com.br"]);
 
 await check("4. RESOLVIDO (MÉDIO) por remetente autorizado => RESOLVED aplicado, confirmação na MESMA transação", async () => {

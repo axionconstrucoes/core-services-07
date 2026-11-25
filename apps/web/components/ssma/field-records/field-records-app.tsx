@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createSupabaseBrowserClient } from "@axion/db/browser";
 import { AlertTriangle, CheckCircle2, CloudOff, CloudUpload, Plus, RefreshCw, Trash2, WifiOff } from "lucide-react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { SsmaBottomNav, SsmaHeader, type SsmaTab } from "@/components/ssma/ssma-chrome";
 import { NewRecordForm } from "@/components/ssma/field-records/new-record-form";
 import { RecordDetail } from "@/components/ssma/field-records/record-detail";
@@ -13,6 +14,7 @@ import { isActionOverdue, mapFieldRecordRow, type FieldRecordRow, type FieldReco
 import type { useFieldQueue } from "@/lib/ssma/field-records/use-field-queue";
 import { ACTION_STATUS_LABELS, FIELD_RECORD_CATEGORIES, FIELD_RECORD_KINDS, FIELD_RECORD_RISKS, PHOTO_STATE_LABELS, QUEUE_STATUS_LABELS, RISK_LABELS, photoSyncState, type PhotoSyncState, type QueuedRecord, type QueueStatus } from "@/lib/ssma/field-records/types";
 import { cn } from "@/lib/utils";
+import type { SsmaRecordLinkAction } from "@/lib/ssma/field-records/deep-link";
 import { describeNotification, groupNotificationRows, type NotificationLine, type NotificationSummaryRow } from "@/lib/ssma/field-notifications/view";
 
 export type FieldProject = OfflineContext["projects"][number];
@@ -44,13 +46,16 @@ function PhotoStates({ item }: { item: QueuedRecord }) {
   const counts: Record<PhotoSyncState, number> = { PENDING: 0, SENDING: 0, SYNCED: 0, FAILED: 0 };
   for (const photo of item.photos) counts[photoSyncState(item, photo)] += 1;
   return (
-    <ul className="mt-1 flex flex-wrap gap-1" aria-label="Estado das fotos" data-testid="photo-states">
+    <div className="mt-1 flex items-start gap-1.5">
+    <ul className="flex flex-wrap gap-1" aria-label="Estado das fotos" data-testid="photo-states">
       {(Object.keys(counts) as PhotoSyncState[]).filter((state) => counts[state] > 0).map((state) => (
         <li key={state} data-photo-state={state} className={cn("rounded px-2 py-1 text-[11px] font-bold", PHOTO_STATE_STYLES[state])}>
           {counts[state]} {counts[state] === 1 ? "foto" : "fotos"}: {PHOTO_STATE_LABELS[state]}
         </li>
       ))}
     </ul>
+    <FeatureInfo helpId="ssma.registro.estado-foto" />
+    </div>
   );
 }
 
@@ -65,6 +70,8 @@ export function FieldRecordsApp({
   onHome,
   onSignOut,
   initialServerRecords,
+  initialRecordId = null,
+  initialRecordAction = null,
 }: {
   /** Fila do aparelho (um único hook por tela, criado pelo componente pai). */
   queue: FieldQueueApi;
@@ -80,7 +87,14 @@ export function FieldRecordsApp({
   onSignOut?: () => void;
   /** Registros já conhecidos (ex.: vindos do servidor); a lista é atualizada pela rede em seguida. */
   initialServerRecords?: FieldRecordView[];
+  /** Registro aberto pelo link do e-mail; a ação só pré-seleciona o formulário (nada é gravado ao abrir). */
+  initialRecordId?: string | null;
+  initialRecordAction?: SsmaRecordLinkAction | null;
 }) {
+  // Link do e-mail ainda não resolvido (consumido uma única vez, na primeira carga do servidor).
+  const pendingLink = useRef<string | null>(initialRecordId);
+  const [linkedRecordId, setLinkedRecordId] = useState<string | null>(null);
+  const [linkMessage, setLinkMessage] = useState<string | null>(null);
   const [tab, setTab] = useState<SsmaTab>(initialTab);
   const [creating, setCreating] = useState(false);
   const [selected, setSelected] = useState<FieldRecordView | null>(null);
@@ -122,6 +136,29 @@ export function FieldRecordsApp({
         if (!summaryError) setNotifications(groupNotificationRows((summary ?? []) as NotificationSummaryRow[]));
       } catch { /* sem resumo agora */ }
       setSelected((current) => (current ? (views.find((view) => view.id === current.id) ?? current) : null));
+      const linked = pendingLink.current;
+      if (linked) {
+        pendingLink.current = null;
+        let target = views.find((view) => view.id === linked) ?? null;
+        if (!target) {
+          // Registro mais antigo que a lista carregada: busca só ele, nesta obra (o RLS decide o acesso).
+          const { data: single } = await supabase
+            .from("ssma_field_records")
+            .select(
+              "id, kind, category, description, location, occurred_at, client_created_at, received_at, risk_level, responsible_user_id, due_date, reported_by_user_id, ssma_corrective_actions(id, status, due_date, concluded_at, responsible_user_id), ssma_field_record_photos(id, purpose)"
+            )
+            .eq("project_id", project.id)
+            .eq("id", linked)
+            .maybeSingle();
+          target = single ? mapFieldRecordRow(single as unknown as FieldRecordRow, names) : null;
+        }
+        if (target) {
+          setLinkedRecordId(target.id);
+          setSelected(target);
+        } else {
+          setLinkMessage("O registro do link não foi encontrado nesta obra ou você não tem acesso a ele.");
+        }
+      }
     } catch {
       setServerError("Não foi possível carregar os registros do ACC agora.");
     } finally {
@@ -160,20 +197,26 @@ export function FieldRecordsApp({
 
   return (
     <div className="min-h-dvh bg-slate-100 pb-20">
-      <SsmaHeader title={headerTitle} onBack={onBack} />
+      <SsmaHeader
+        title={headerTitle}
+        onBack={onBack}
+        helpId={creating ? "ssma.registro.novo" : selected ? "ssma.registro.detalhe" : tab === "sync" ? "ssma.app.aba-sincronizacao" : tab === "perfil" ? "ssma.app.aba-perfil" : "ssma.app.aba-registros"}
+      />
 
       {!online || offlineShell ? (
         <div role="status" className="flex items-center gap-2 bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">
           <WifiOff className="size-5 shrink-0" /> {online ? "Modo sem conexão do aparelho." : "Sem conexão — você pode registrar normalmente; o envio acontece quando a internet voltar."}
+          {offlineShell ? <FeatureInfo helpId="ssma.offline.pagina" iconClassName="text-amber-900 hover:text-amber-900" /> : null}
         </div>
       ) : null}
       {queue.storageError ? <p role="alert" className="bg-red-100 px-4 py-2 text-sm font-bold text-red-800">{queue.storageError}</p> : null}
       {queue.message ? <p role="status" className="bg-slate-200 px-4 py-2 text-sm font-semibold text-slate-800">{queue.message}</p> : null}
+      {linkMessage ? <p role="alert" className="bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">{linkMessage}</p> : null}
 
       {creating ? (
         <NewRecordForm projects={registrable} contextProjectId={project.id} online={online} onSave={handleSave} onCancel={() => setCreating(false)} />
       ) : selected ? (
-        <RecordDetail record={selected} notice={describeNotification(notifications.get(selected.id) ?? [])} userId={userId} projectId={project.id} canManage={project.canManage} isAdmin={project.isAdmin} canRegisterEsg={project.canRegisterEsg} online={online} names={names} onChanged={() => void loadServer()} />
+        <RecordDetail key={selected.id} record={selected} members={project.members} initialEvent={selected.id === linkedRecordId && (initialRecordAction === "ANDAMENTO" || initialRecordAction === "CONCLUIDA") ? initialRecordAction : null} initialFocus={selected.id === linkedRecordId && (initialRecordAction === "ENCAMINHAR" || initialRecordAction === "ESPECIALISTA") ? initialRecordAction : null} notice={describeNotification(notifications.get(selected.id) ?? [])} userId={userId} projectId={project.id} canManage={project.canManage} isAdmin={project.isAdmin} canRegisterEsg={project.canRegisterEsg} online={online} names={names} onChanged={() => void loadServer()} />
       ) : tab === "sync" ? (
         <SyncView items={queue.items} projectId={project.id} foreignPending={queue.foreignPending} syncing={queue.syncing} online={online} onRetry={() => void queue.runSync(true)} onDiscard={(id) => void queue.discard(id)} onPurge={() => void queue.purgeForeign()} />
       ) : tab === "perfil" ? (
@@ -190,18 +233,27 @@ export function FieldRecordsApp({
 
           {localOnly.length > 0 ? (
             <section aria-label="Neste aparelho" className="space-y-2">
-              <h2 className="text-xs font-bold uppercase text-slate-600">Neste aparelho</h2>
+              <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase text-slate-600">
+                Neste aparelho
+                <FeatureInfo helpId="ssma.registro.estado-fila" />
+              </h2>
               {localOnly.map((item) => <LocalRow key={item.clientId} item={item} projectLabel={item.projectId !== project.id ? labelOf(item.projectId) : null} />)}
             </section>
           ) : null}
 
           <section aria-label="Registros da obra" className="space-y-2">
             <div className="flex items-center justify-between">
-              <h2 className="text-xs font-bold uppercase text-slate-600">Registros da obra</h2>
+              <h2 className="flex items-center gap-1.5 text-xs font-bold uppercase text-slate-600">
+                Registros da obra
+                <FeatureInfo helpId="ssma.registro.lista" />
+              </h2>
               {!offlineShell ? (
+                <span className="inline-flex items-center">
                 <button type="button" onClick={() => { setLoadingServer(true); void loadServer(); }} className="flex min-h-11 items-center gap-1 px-2 text-xs font-bold text-red-700" disabled={loadingServer || !online}>
                   <RefreshCw className={cn("size-4", loadingServer && "animate-spin")} /> Atualizar
                 </button>
+                <FeatureInfo helpId="ssma.registro.atualizar" className="ml-1" />
+                </span>
               ) : null}
             </div>
             {offlineShell ? <p className="rounded-lg bg-white p-3 text-sm text-slate-600">Os registros da obra são exibidos quando há conexão.</p> : null}
@@ -209,14 +261,17 @@ export function FieldRecordsApp({
             {!offlineShell && !loadingServer && !serverError && serverRecords.length === 0 ? <p className="rounded-lg bg-white p-3 text-sm text-slate-600">Nenhum registro enviado ainda.</p> : null}
             {!offlineShell && serverRecords.length > 0 ? (
               <div className="grid grid-cols-2 gap-2 rounded-xl bg-white p-3 shadow-sm" aria-label="Filtros dos registros">
+                {/* help-exempt: filtro Categoria da lista de registros; descrito em ssma.registro.filtros */}
                 <select aria-label="Categoria" value={fCategory} onChange={(e) => setFCategory(e.target.value)} className="min-h-11 rounded border border-slate-400 px-2 text-sm">
                   <option value="">Todas as categorias</option>
                   {FIELD_RECORD_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </select>
+                {/* help-exempt: filtro Tipo da lista de registros; descrito em ssma.registro.filtros */}
                 <select aria-label="Tipo" value={fKind} onChange={(e) => setFKind(e.target.value)} className="min-h-11 rounded border border-slate-400 px-2 text-sm">
                   <option value="">Ocorrência e inspeção</option>
                   {FIELD_RECORD_KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}
                 </select>
+                {/* help-exempt: filtro Risco da lista de registros; descrito em ssma.registro.filtros */}
                 <select aria-label="Risco" value={fRisk} onChange={(e) => setFRisk(e.target.value)} className="min-h-11 rounded border border-slate-400 px-2 text-sm">
                   <option value="">Todos os riscos</option>
                   {FIELD_RECORD_RISKS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
@@ -225,7 +280,8 @@ export function FieldRecordsApp({
                   <input aria-label="De" type="date" value={fFrom} onChange={(e) => setFFrom(e.target.value)} className="min-h-11 w-1/2 rounded border border-slate-400 px-1 text-xs" />
                   <input aria-label="Até" type="date" value={fTo} onChange={(e) => setFTo(e.target.value)} className="min-h-11 w-1/2 rounded border border-slate-400 px-1 text-xs" />
                 </div>
-                <p className="col-span-2 text-xs text-slate-600">
+                <p className="col-span-2 flex items-center gap-1.5 text-xs text-slate-600">
+                  <FeatureInfo helpId="ssma.registro.filtros" />
                   {filteredServer.length} de {serverRecords.length} registro(s) carregados (até 100 mais recentes)
                   {fCategory === "Quase-acidente" ? ` · quase-acidentes no filtro: ${filteredServer.length}` : ""}
                 </p>
@@ -287,6 +343,7 @@ function ServerRow({ record, notice, onOpen }: { record: FieldRecordView; notice
   const today = new Date().toISOString().slice(0, 10);
   const overdue = isActionOverdue(record.action, today);
   return (
+    // help-exempt: cartão clicável que abre o detalhe do registro; lista descrita em ssma.registro.lista
     <button type="button" onClick={onOpen} className="block w-full rounded-xl bg-white p-3 text-left shadow-sm hover:ring-2 hover:ring-[#7f1d1d]/40">
       <div className="flex items-start justify-between gap-2">
         <p className="min-w-0 flex-1 text-sm font-bold text-slate-900">{record.category} · {record.location}</p>
@@ -331,6 +388,10 @@ function SyncView({
   const [confirmPurge, setConfirmPurge] = useState(false);
   return (
     <main className="mx-auto max-w-2xl space-y-3 p-4">
+      <p className="flex items-center gap-1.5 text-xs font-bold uppercase text-slate-600">
+        Resumo da fila
+        <FeatureInfo helpId="ssma.sync.resumo" />
+      </p>
       <section className="grid grid-cols-2 gap-2 sm:grid-cols-4" aria-label="Resumo da fila">
         {(["SAVED_ON_DEVICE", "WAITING_SEND", "SYNCED", "FAILED"] as const).map((status) => (
           <div key={status} className="rounded-xl bg-white p-3 text-center shadow-sm">
@@ -342,6 +403,10 @@ function SyncView({
       <button type="button" onClick={onRetry} disabled={syncing || !online} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#7f1d1d] px-4 font-bold uppercase text-white disabled:opacity-50">
         <CloudUpload className={cn("size-5", syncing && "animate-pulse")} /> {syncing ? "Enviando…" : "Enviar agora / tentar de novo"}
       </button>
+      <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+        Como funciona o envio
+        <FeatureInfo helpId="ssma.sync.enviar-agora" />
+      </p>
       {!online ? <p className="flex items-center gap-2 text-sm font-semibold text-amber-800"><CloudOff className="size-5" /> Sem conexão: os itens seguem salvos no aparelho.</p> : null}
       <SsmaOfflineCapabilities />
 
@@ -359,16 +424,20 @@ function SyncView({
               <p role="alert" className="mt-1 flex items-start gap-1 text-xs font-bold text-red-700"><AlertTriangle className="mt-0.5 size-4 shrink-0" /> {item.lastError}</p>
             ) : null}
             {item.status !== "SYNCED" ? (
+              <span className="flex items-center">
               <button type="button" onClick={() => onDiscard(item.clientId)} className="mt-1 flex min-h-11 items-center gap-1 text-xs font-bold text-slate-600 underline">
                 <Trash2 className="size-4" /> Descartar este registro do aparelho
               </button>
+              <FeatureInfo helpId="ssma.sync.descartar" className="ml-1" />
+              </span>
             ) : null}
           </li>
         ))}
       </ul>
       {foreignPending > 0 ? (
         <section className="space-y-2 rounded-xl border-2 border-amber-400 bg-amber-50 p-3" aria-label="Registros de outra conta">
-          <p className="text-sm font-bold text-amber-900">
+          <p className="flex items-start gap-1.5 text-sm font-bold text-amber-900">
+            <FeatureInfo helpId="ssma.sync.outras-contas" className="mt-0.5" iconClassName="text-amber-900 hover:text-amber-900" />
             Há {foreignPending} registro(s) neste aparelho criados por outra conta (conteúdo não exibido). Eles só serão enviados quando essa conta entrar de novo.
           </p>
           {confirmPurge ? (
@@ -377,6 +446,7 @@ function SyncView({
               <button type="button" onClick={() => setConfirmPurge(false)} className="min-h-11 flex-1 rounded-lg border-2 border-slate-300 bg-white px-3 text-sm font-bold uppercase text-slate-700">Manter</button>
             </div>
           ) : (
+            // help-exempt: botão que abre a confirmação de remover registros de outras contas; descrito em ssma.sync.outras-contas
             <button type="button" onClick={() => setConfirmPurge(true)} className="flex min-h-11 items-center text-left text-xs font-bold text-red-700 underline">Remover os registros de outras contas deste aparelho…</button>
           )}
         </section>
@@ -418,6 +488,7 @@ function ProfileView({
         <p className="text-xs text-slate-500">Os registros são guardados no navegador do aparelho, separados por conta. Sair da conta NÃO apaga registros ainda não enviados.</p>
       </section>
       {foreignPending > 0 ? (
+        // help-exempt: botão que remove registros de outras contas; descrito em ssma.sync.outras-contas
         <button type="button" onClick={onPurge} className="min-h-11 w-full rounded-lg border-2 border-red-700 bg-white px-3 text-sm font-bold uppercase text-red-700">
           Remover registros de outras contas
         </button>
@@ -434,7 +505,13 @@ function ProfileView({
             </div>
           </div>
         ) : (
+          <>
           <button type="button" onClick={() => setConfirmSignOut(true)} className="min-h-12 w-full rounded-lg bg-[#7f1d1d] px-3 font-bold uppercase text-white">Sair da conta</button>
+          <p className="flex items-center gap-1.5 text-xs text-slate-500">
+            Sobre sair da conta
+            <FeatureInfo helpId="ssma.perfil.sair" />
+          </p>
+          </>
         )
       ) : (
         <p className="text-xs text-slate-500">Sem conexão: para trocar de conta, abra o app com internet.</p>

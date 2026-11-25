@@ -3,10 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { DocumentDownloadButton } from "@/components/documents/document-download-button";
 import { PageHeader } from "@/components/layout/page-header";
+import { RegisterQualityIndication } from "@/components/quality/register-quality-indication";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
 import { resolveAttachmentOpenBehavior } from "@/lib/email/registry/resolve-attachment-open-behavior";
+import { buildOriginRef } from "@/lib/quality/ingestion";
 import { cn } from "@/lib/utils";
 import { createSupabaseServerClient } from "@axion/db/server";
 
@@ -49,12 +52,23 @@ export default async function EmailAttachmentViewerPage({ params }: { params: Pr
         description={`${attachment.mime_type} · ${Math.round(Number(attachment.file_size_bytes) / 1024)} KB · SHA-256 ${String(attachment.sha256_hash).slice(0, 16)}…`}
         actions={
           <div className="flex items-center gap-2">
+            <FeatureInfo helpId="juridico.emails.anexo-pagina" />
             <Link href={`/${projectId}/documentos/emails/${emailId}`} className={cn(buttonVariants({ size: "sm", variant: "outline" }))}>
               ← E-mail
             </Link>
             <DocumentDownloadButton bucket={attachment.storage_bucket} filePath={attachment.storage_path} originalFileName={attachment.original_file_name} />
           </div>
         }
+      />
+
+      <RegisterQualityIndication
+        projectId={projectId}
+        originTypes={["EMAIL"]}
+        originRef={buildOriginRef("email_attachment", attachment.id)}
+        sourceTable="email_attachments"
+        originUrl={`/${projectId}/documentos/emails/${emailId}/anexos/${attachment.id}`}
+        defaultTitle={attachment.original_file_name}
+        triageEligible
       />
 
       <Card>

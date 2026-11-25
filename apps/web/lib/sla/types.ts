@@ -23,7 +23,8 @@ export type SlaArea =
   | "ORCAMENTO"
   | "JURIDICO"
   | "PLANEJAMENTO"
-  | "ESG_SSMA";
+  | "ESG_SSMA"
+  | "QUALIDADE";
 
 /** Unidade de contagem de tempo (seção 20) — sem calendário corporativo completo, ver docs/sla-escalation.md "Limitações". */
 export type SlaTimeUnit = "BUSINESS_HOURS" | "CLOCK_HOURS" | "BUSINESS_DAYS" | "CALENDAR_DAYS";

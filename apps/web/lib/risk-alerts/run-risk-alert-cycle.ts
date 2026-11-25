@@ -14,16 +14,15 @@ import "server-only";
 
 import { createSupabaseAdminClient } from "@axion/db/admin";
 
-import { answerCeoQuery } from "@/lib/ai/experts/ceo/query";
-import { answerCommercialDirectorQuery } from "@/lib/ai/experts/commercial-director/query";
-import { answerEsgDirectorQuery } from "@/lib/ai/experts/esg-director/query";
-import { answerLegalConsultantQuery } from "@/lib/ai/experts/legal-consultant/query";
-import { answerPlanningDirectorQuery } from "@/lib/ai/experts/planning-director/query";
+import { createDefaultCycleExpertConsultant } from "./experts/cycle-expert-consultant";
 import { getAppBaseUrl } from "@/lib/app-base-url";
 import { appendAccEmailSignature } from "@/lib/email/branding/acc-email-signature";
 import { loadAccLogoInlineImage, loadAccLogoInvertedInlineImage } from "@/lib/email/branding/load-acc-logo-inline-image";
 import { EmailSendError, type EmailProvider } from "@/lib/email/email-provider";
+import { FAILURE_CLASS_NOTES, classifySendFailure } from "@/lib/email/outbound-delivery";
 import { FakeEmailProvider } from "@/lib/email/fake-email-provider";
+import { parseGovernorConfig, riskAlertGovernanceType, type AlertGovernanceContext } from "@/lib/email/alert-send-governor";
+import { checkAlertCapacity } from "@/lib/email/governed-email-provider";
 import { getEmailProvider } from "@/lib/email/get-email-provider";
 import { resolveEmailProviderName } from "@/lib/email/gmail-auth";
 import { issueEmailAlertActionButtons } from "@/lib/email-actions/issue-tokens";
@@ -54,10 +53,13 @@ import { runCycleEscalationHook } from "@/lib/whatsapp/hooks";
 import { notifyDirectorateWhatsappSafely } from "@/lib/whatsapp/notify-directorate-server";
 
 import { buildOpaqueReplyTo, generateReplyToken, hashReplyToken } from "./replies/reply-pipeline";
+import { buildReplyMailtoLinks, type ReplyMailtoLinks } from "@/lib/email-replies/reply-mailto";
+import { createMemoryEmailReplyTokenStore, createSupabaseEmailReplyTokenStore, issueEmailReplyToken, type EmailReplyTokenStore } from "@/lib/email-replies/reply-tokens";
 import { isPilotTestCase } from "./pilot-test-case";
 import { buildCycleDryRunPreviewItem, dryRunEffectiveConfig, shouldAssumeRiskAlertsEnabledForDryRun } from "./cycle-dry-run";
 import type { PendingOutboxRow, RiskAlertProjectSnapshot, RiskAlertStore } from "./store";
 import { createSupabaseRiskAlertStore, sanitizeError } from "./supabase-store";
+import { applyReissueSendGate } from "./reissue-send-gate";
 import type { AlertActionType, ExpertId, ImmediateAlertContent, PlannedOutboxEntry, RiskAlertPlan } from "./types";
 import { DEFAULT_PROJECT_TIMEZONE } from "./types";
 
@@ -90,6 +92,10 @@ export interface RiskAlertCycleProjectResult {
   informativeAreas?: string[];
   /** Alertas "detectados com atraso" retidos sem comunicação (aguardam decisão de reemissão). */
   lateDetectionHeld?: Array<{ visibleCode: string | null; reference: string }>;
+  /** Aprovações de reemissão retidas pelo interruptor ACC_RISK_ALERT_REISSUE_SEND_ENABLED (desligado = nenhuma reemissão planejada). */
+  reissueApprovalsHeldByFlag?: number;
+  /** Estado do interruptor de envio das reemissões aprovadas neste ciclo. */
+  reissueSendFlagEnabled?: boolean;
   /** Casos com comunicação suspensa (verificação pendente): sem alerta, escalonamento nem reemissão. */
   communicationSuspended?: Array<{ visibleCode: string | null; reference: string }>;
   /**
@@ -100,7 +106,7 @@ export interface RiskAlertCycleProjectResult {
     visibleCode: string | null;
     stageReached: string;
     decision: string;
-    recipients: Array<{ role: string; status: string; suppressions: number; acceptedByGmail: number; deliveredToRecipient: number; eligibleNow: boolean; ineligibleReason: string | null }>;
+    recipients: Array<{ role: string; status: string; suppressions: number; acceptedByGmail: number; addressedToRecipient: number; eligibleNow: boolean; ineligibleReason: string | null }>;
   }>;
 }
 
@@ -114,7 +120,7 @@ export interface RiskAlertCycleResult {
 
 /** Porta do Expert (injeção nos testes; real = Experts existentes). Só recomenda. */
 export interface ExpertConsultant {
-  answer(input: { expertId: ExpertId; projectId: string; question: string }): Promise<{ answerText: string; confidence: number; requiresHumanReview: boolean }>;
+  answer(input: { expertId: ExpertId; projectId: string; question: string; askedByUserId?: string | null; subjectId?: string }): Promise<{ answerText: string; confidence: number; requiresHumanReview: boolean }>;
 }
 
 export interface RunRiskAlertCycleOptions {
@@ -126,6 +132,8 @@ export interface RunRiskAlertCycleOptions {
   expert?: ExpertConsultant;
   /** Verificação de respostas antes de escalonar (testes injetam; padrão: Gmail somente leitura da caixa monitorada). */
   replyVerifier?: (requests: ReplyCheckRequest[]) => Promise<Map<string, ReplyCheck>>;
+  /** Tokens POR ITEM dos atalhos "Responder por e-mail" (padrão: tabela email_reply_tokens; com store injetado, só se informado). */
+  replyTokenStore?: EmailReplyTokenStore | null;
 }
 
 function createSupabaseReplyLookup(client: ReturnType<typeof createSupabaseAdminClient>): ReplyLookup {
@@ -153,30 +161,12 @@ function createDefaultReplyVerifier(): (requests: ReplyCheckRequest[]) => Promis
 }
 
 function createDefaultExpertConsultant(): ExpertConsultant {
-  const client = createSupabaseAdminClient();
+  // Mapa de Experts, curadoria multidisciplinar e limite de IA (reserva service_role com o usuário que
+  // perguntou, antes de cada chamada) vivem em experts/cycle-expert-consultant.ts.
+  const consultant = createDefaultCycleExpertConsultant(createSupabaseAdminClient());
   return {
-    async answer({ expertId, projectId, question }) {
-      const request = { scope: "PROJECT" as const, projectId, question };
-      const fn = {
-        "planning-director": answerPlanningDirectorQuery,
-        "commercial-director": answerCommercialDirectorQuery,
-        "esg-director": answerEsgDirectorQuery,
-        "legal-consultant": answerLegalConsultantQuery,
-        ceo: answerCeoQuery,
-      }[expertId];
-      const result = await fn(client, request);
-      const r = result.response;
-      const answerText = [
-        r.interpretacao,
-        r.riscos.length ? `Riscos: ${r.riscos.join("; ")}` : null,
-        r.recomendacoes.length ? `Recomendações: ${r.recomendacoes.join("; ")}` : null,
-        r.fatosDocumentados.length ? `Evidências: ${r.fatosDocumentados.slice(0, 5).join("; ")}` : null,
-        r.informacoesFaltantes.length ? `Informações faltantes: ${r.informacoesFaltantes.join("; ")}` : null,
-      ]
-        .filter(Boolean)
-        .join("\n\n");
-      return { answerText, confidence: r.confidence, requiresHumanReview: true };
-    },
+    answer: ({ expertId, projectId, question, askedByUserId, subjectId }) =>
+      consultant.answer({ expertId, projectId, question, askedByUserId: askedByUserId ?? null, subjectId: subjectId ?? projectId }),
   };
 }
 
@@ -191,8 +181,18 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
   if (!featureEnabled) return result; // nenhuma consulta ao banco
 
   const store = options.store ?? createSupabaseRiskAlertStore(createSupabaseAdminClient());
+  // Atalhos mailto por item: tokens gravados ANTES do envio. Dry-run: só memória (nada gravado).
+  const replyTokens: EmailReplyTokenStore | null = dryRun
+    ? createMemoryEmailReplyTokenStore()
+    : options.replyTokenStore !== undefined
+      ? options.replyTokenStore
+      : options.store
+        ? null
+        : createSupabaseEmailReplyTokenStore(createSupabaseAdminClient());
   let replyVerifier: ((requests: ReplyCheckRequest[]) => Promise<Map<string, ReplyCheck>>) | undefined;
   const provider = dryRun ? new FakeEmailProvider() : (options.provider ?? getEmailProvider());
+  // Um único orçamento de envios para a execução inteira (todos os projetos), conforme ACC_ALERT_BATCH_SIZE.
+  const sendBudget = dryRun ? undefined : governorSendBudget();
   const providerConfigured = providerName === "gmail" || Boolean(options.provider);
   const baseUrl = getAppBaseUrl();
   const inlineLogo = loadAccLogoInlineImage();
@@ -246,6 +246,9 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       })(),
     });
 
+    // Aprovar só registra a decisão: no ciclo REAL as aprovações só valem com o interruptor de envio ligado (dry-run sempre vê).
+    const reissueGate = applyReissueSendGate(snapshot.reissueApprovals, { dryRun });
+
     const plannedRaw: RiskAlertPlan = planRiskAlerts({
       now: nowIso,
       projectId,
@@ -266,7 +269,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       informativeAreas,
       suspendedCaseIds: new Set(snapshot.suspendedCaseIds ?? []),
       outboxHistory: snapshot.outboxHistory,
-      reissueApprovals: snapshot.reissueApprovals,
+      reissueApprovals: reissueGate.approvals,
       reissueDecisionRecordedCaseIds: snapshot.reissueDecisionRecordedCaseIds,
     });
 
@@ -309,6 +312,8 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
       digestWindow: plan.digestWindow,
       ...(replyGate.length ? { replyGate } : {}),
       informativeAreas: Array.from(informativeAreas),
+      reissueSendFlagEnabled: reissueGate.sendFlagEnabled,
+      ...(reissueGate.held > 0 ? { reissueApprovalsHeldByFlag: reissueGate.held } : {}),
       communicationSuspended: (plan.communicationSuspended ?? []).map((caseKey) => ({
         visibleCode: snapshot.existingCases.find((c) => caseKeyOf(c) === caseKey)?.visibleCode ?? null,
         reference: snapshot.cases.find((c) => caseKeyOf(c) === caseKey)?.reference ?? caseKey,
@@ -338,7 +343,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
           status: r.status,
           suppressions: r.suppressions.length,
           acceptedByGmail: r.acceptedByGmail.length,
-          deliveredToRecipient: r.acceptedByGmail.filter((a) => a.deliveredToRecipient).length,
+          addressedToRecipient: r.acceptedByGmail.filter((a) => a.addressedToRecipient).length,
           eligibleNow: r.eligibleNow,
           ineligibleReason: r.ineligibleReason,
         })),
@@ -431,7 +436,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     if (expert) {
       for (const consultation of await store.listPendingExpertConsultations(projectId)) {
         try {
-          const answer = await expert.answer({ expertId: consultation.expertId, projectId, question: consultation.question });
+          const answer = await expert.answer({ expertId: consultation.expertId, projectId, question: consultation.question, askedByUserId: consultation.askedByUserId, subjectId: consultation.caseId });
           await store.recordExpertAnswer({ ...consultation, ...answer, requiresHumanReview: true });
           projectResult.expertAnswers += 1;
           // Resposta na mesma thread ao solicitante (allowlist do piloto aplicada).
@@ -466,9 +471,11 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     }
 
     // ---- envio: entradas planejadas neste ciclo ----
-    const ctx: SendContext = { store, provider, projectId, projectName: snapshot.projectName, baseUrl, timeZone, nowIso, inlineLogo, inlineLogoInverted, caseIds, snapshot, policyFor, deliveredKeys: new Set(), readinessBlockers: readiness.blockers };
+    const ctx: SendContext = { store, provider, projectId, projectName: snapshot.projectName, baseUrl, timeZone, nowIso, inlineLogo, inlineLogoInverted, caseIds, snapshot, policyFor, deliveredKeys: new Set(), readinessBlockers: readiness.blockers, replyTokens, sendBudget };
     const sentKeys = new Set<string>();
-    for (const item of persisted) {
+    // Prioridade: alertas CRÍTICOS primeiro (ordem estável entre os demais), para que a cota do período os alcance antes.
+    const byPriority = <T,>(level: (x: T) => string | undefined) => (a: T, b: T) => Number(level(b) === "CRITICAL") - Number(level(a) === "CRITICAL");
+    for (const item of [...persisted].sort(byPriority((x) => x.entry.riskLevel))) {
       if (item.entry.recipient.status !== "PENDING") continue;
       sentKeys.add(item.entry.idempotencyKey);
       const outcome = await sendPlanned(item.id, item.caseId, item.entry, ctx);
@@ -478,7 +485,7 @@ export async function runRiskAlertCycle(options: RunRiskAlertCycleOptions = {}):
     }
 
     // ---- envio: pendentes de outras origens (manual, ação humana, Expert, retry) ----
-    for (const row of await store.listPendingRows(projectId)) {
+    for (const row of [...(await store.listPendingRows(projectId))].sort(byPriority((x) => x.riskLevel))) {
       if (sentKeys.has(row.idempotencyKey)) continue;
       const outcome = await sendPendingRow(row, ctx);
       if (outcome === "SENT") projectResult.sent += 1;
@@ -517,6 +524,42 @@ export interface SendContext {
    */
   pilotSingleArmedKeys?: ReadonlySet<string>;
   testCaseBlocked?: number;
+  /** Tokens por item dos atalhos "Responder por e-mail" (null/ausente => e-mail sem atalhos mailto). */
+  replyTokens?: EmailReplyTokenStore | null;
+  /**
+   * Lote por execução (ACC_ALERT_BATCH_SIZE, governador de alertas): máximo de envios NESTA execução. Esgotado => a linha NÃO é reivindicada
+   * nem alterada (continua PENDING para a próxima execução, sem gastar tentativa). Ausente => sem limite (comportamento anterior).
+   */
+  sendBudget?: { remaining: number };
+}
+
+/** Orçamento de envios da execução a partir de ACC_ALERT_BATCH_SIZE (configuração inválida => sem orçamento aqui; o governador do provedor já bloqueia tudo). */
+function governorSendBudget(): { remaining: number } | undefined {
+  const batchSize = parseGovernorConfig(process.env).batchSize;
+  return batchSize === null ? undefined : { remaining: batchSize };
+}
+
+/**
+ * Atalhos "Responder por e-mail" de UM caso para UM destinatário: token próprio (hash gravado ANTES do envio em
+ * email_reply_tokens) e os três mailto (RESOLVIDO / EM ANDAMENTO / ENVIAR PARA). Sem caixa de resposta, sem store, área
+ * informativa (sem processamento) ou falha ao gravar => null (o e-mail sai só com os botões do ACC).
+ */
+export async function issueReplyMailtoForCase(ctx: SendContext, input: { caseId: string; recipientUserId: string; visibleCode: string | null; riskLevel: string; area: string }): Promise<ReplyMailtoLinks | null> {
+  if (!ctx.replyTokens || !ctx.snapshot.replyMailbox) return null;
+  if ((ctx.snapshot.informativeAreas ?? []).includes(input.area as SlaArea)) return null;
+  try {
+    const issued = await issueEmailReplyToken(ctx.replyTokens, { projectId: ctx.projectId, subjectKind: "RISK_CASE", subjectId: input.caseId, recipientUserId: input.recipientUserId, nowIso: ctx.nowIso });
+    const tracked = input.riskLevel === "HIGH" || input.riskLevel === "CRITICAL";
+    return buildReplyMailtoLinks({
+      mailbox: ctx.snapshot.replyMailbox,
+      token: issued.token,
+      visibleCode: input.visibleCode ? `ACC-ALERTA:${input.visibleCode}` : "",
+      evidenceAttachment: tracked ? "REQUIRED_FILE" : "OPTIONAL",
+      forecastNeedsTime: tracked,
+    });
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -570,6 +613,19 @@ function logosOf(ctx: SendContext): { maroon: boolean; inverted: boolean } {
 async function deliver(ctx: SendContext, outboxId: string, caseId: string | null, recipientUserId: string, recipientEmail: string, built: BuiltEmail, notificationType: string, escalationLevel: string | null, idempotencyKey: string, riskLevel?: string): Promise<"SENT" | "FAILED" | "SKIPPED"> {
   // Ciclos simultâneos (instâncias/execuções sobrepostas): só quem reivindicar a linha envia.
   // Quem perde NÃO envia nem altera a linha (o vencedor é o dono dela).
+  // PORTÃO de capacidade (governador, doc 35) ANTES da reivindicação: limite por hora/dia atingido => a linha fica ADIADA (PENDING, sem
+  // tentativa gasta, sem FAILED) e é retomada na janela seguinte. Alerta crítico nunca é descartado: só adiado, e usa a reserva de cota.
+  const governance: AlertGovernanceContext = {
+    type: riskAlertGovernanceType(notificationType, idempotencyKey.includes(":PILOT_SINGLE:")),
+    projectId: ctx.projectId,
+    dedupKey: idempotencyKey,
+    priority: riskLevel === "CRITICAL" ? "CRITICAL" : null,
+  };
+  if (!(await checkAlertCapacity(ctx.provider, governance)).allowed) return "SKIPPED";
+  if (ctx.sendBudget) {
+    if (ctx.sendBudget.remaining <= 0) return "SKIPPED"; // lote da execução esgotado: a linha fica PENDING (não reivindicada, sem tentativa gasta)
+    ctx.sendBudget.remaining -= 1;
+  }
   if (!(await ctx.store.claimOutbox(outboxId, ctx.nowIso))) return "SKIPPED";
   // Override de ENTREGA do piloto: só o To muda (nunca CC/BCC); o destinatário
   // lógico (recipientUserId/recipientEmail) permanece na outbox e na auditoria.
@@ -582,6 +638,9 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
     await ctx.store.markSkipped(outboxId, `Deduplicado pelo override de entrega do piloto (mesmo evento já entregue em ${delivery.deliveryEmail} neste ciclo).`);
     return "SKIPPED";
   }
+  // Aceite do provedor nesta tentativa: depois dele NADA pode devolver a linha à fila (reenvio duplicaria a mensagem).
+  let accepted: { provider: string; providerMessageId: string; sentAt: string } | null = null;
+  let acceptedRecorded = false;
   try {
     const conversation = caseId ? await ctx.store.ensureConversation(ctx.projectId, caseId) : null;
     // Reply-To = caixa inbound OFICIAL (+alerta-<token>), só em mensagens
@@ -609,12 +668,15 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
       inReplyTo: conversation?.rootMessageIdHeader ?? undefined,
       references: conversation?.rootMessageIdHeader ? [conversation.rootMessageIdHeader] : undefined,
       correlationId: crypto.randomUUID(),
+      governance,
       vera: { projectId: ctx.projectId, context: "alerta" },
       // Faixa/prefixo de TESTE só no envio único armado (chave PILOT_SINGLE); alertas operacionais saem sem faixa de teste.
       pilot: { projectId: ctx.projectId, participantLabel: `usuário ${recipientUserId.slice(0, 8)}`, escalationLevel: escalationLevel ?? notificationType, testMessage: idempotencyKey.includes(":PILOT_SINGLE:") },
     });
-    const emailId = await ctx.store.recordEmail(ctx.projectId, { from: sent.from, to: delivery.deliveryEmail, subject: built.subject, sentAt: sent.sentAt, snippet: built.text });
+    accepted = { provider: sent.provider, providerMessageId: sent.providerMessageId, sentAt: sent.sentAt };
+    const emailId = await ctx.store.recordEmail(ctx.projectId, { from: sent.from, to: delivery.deliveryEmail, subject: built.subject, sentAt: sent.sentAt, snippet: built.text }).catch(() => null);
     await ctx.store.markSent(outboxId, { recipientEmail: delivery.deliveryEmail, provider: sent.provider, providerMessageId: sent.providerMessageId, emailId, sentAt: sent.sentAt, messageIdHeader: sent.messageIdHeader, conversationId: conversation?.id ?? null });
+    acceptedRecorded = true;
     ctx.deliveredKeys.add(delivery.dedupKey);
     if (conversation) {
       if (!conversation.rootMessageIdHeader) await ctx.store.setConversationRoot(conversation.id, sent.messageIdHeader, sent.providerThreadId);
@@ -640,7 +702,7 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
         action: "RISK_ALERT_EMAIL_SENT",
         entityType: caseId ? "RISK_ALERT_CASE" : "RISK_ALERT_DIGEST",
         entityId: caseId ?? idempotencyKey,
-        detail: `E-mail ${notificationType}${escalationLevel ? ` (${escalationLevel})` : ""} enviado ao usuário ${recipientUserId} via ${sent.provider} (${sent.providerMessageId}). Chave ${idempotencyKey}.${sent.cc && sent.cc.length > 0 ? ` Remetente autenticado: ${sent.from}; destinatário principal (usuário lógico): ${sent.to}; cópia institucional: ${sent.cc.join(", ")}.` : ""}${delivery.overridden ? " Override de entrega do piloto: entregue na caixa institucional configurada (destinatário lógico preservado)." : ""}`,
+        detail: `E-mail ${notificationType}${escalationLevel ? ` (${escalationLevel})` : ""} enviado ao usuário ${recipientUserId} via ${sent.provider} (${sent.providerMessageId}) — aceito pelo provedor; aceite não é confirmação de entrega. Chave ${idempotencyKey}.${sent.cc && sent.cc.length > 0 ? ` Remetente autenticado: ${sent.from}; destinatário principal (usuário lógico): ${sent.to}; cópia institucional: ${sent.cc.join(", ")}.` : ""}${delivery.overridden ? " Override de entrega do piloto: entregue na caixa institucional configurada (destinatário lógico preservado)." : ""}`,
       },
     ]);
     // WhatsApp SIMULADO (desligado por padrão): só alerta CRÍTICO que acabou de chegar à Diretoria. Nunca lança nem altera o resultado do e-mail.
@@ -650,11 +712,54 @@ async function deliver(ctx: SendContext, outboxId: string, caseId: string | null
     ).catch(() => false); // o canal nunca pode marcar o e-mail como falho
     return "SENT";
   } catch (error) {
+    if (accepted) return recordAcceptedAfterError(ctx, outboxId, idempotencyKey, accepted, acceptedRecorded, delivery.deliveryEmail, delivery.dedupKey);
     const message = error instanceof EmailSendError ? error.message : sanitizeError(error);
-    await ctx.store.markFailed(outboxId, sanitizeError(message), { attemptAlreadyClaimed: true });
-    await ctx.store.audit(ctx.projectId, [{ action: "RISK_ALERT_EMAIL_FAILED", entityType: "RISK_ALERT_OUTBOX", entityId: outboxId, detail: `Falha de envio (${idempotencyKey}): ${sanitizeError(message)}` }]);
+    // Classe da falha (diagnóstico normalizado do provedor): PERMANENTE e INCERTA saem da fila — a incerta pode ter sido
+    // aceita e reenviar duplicaria; só a transitória volta a ser tentada (limitada por MAX_SEND_ATTEMPTS).
+    const failureClass = classifySendFailure(error);
+    await ctx.store.markFailed(outboxId, sanitizeError(message), { attemptAlreadyClaimed: true, failureClass });
+    await ctx.store.audit(ctx.projectId, [{ action: "RISK_ALERT_EMAIL_FAILED", entityType: "RISK_ALERT_OUTBOX", entityId: outboxId, detail: `Falha de envio (${idempotencyKey}) [${failureClass}: ${FAILURE_CLASS_NOTES[failureClass]}]: ${sanitizeError(message)}` }]);
     return "FAILED";
   }
+}
+
+/**
+ * O provedor JÁ aceitou a mensagem, mas um passo posterior (gravação, conversa, auditoria) falhou. A linha NUNCA volta à
+ * fila: se o aceite ainda não foi gravado, tenta gravar de novo; se não der, marca como resultado INCERTO (terminal) para
+ * que a expiração da reivindicação não reenvie. Em todos os casos registra a ocorrência na auditoria.
+ */
+async function recordAcceptedAfterError(ctx: SendContext, outboxId: string, idempotencyKey: string, accepted: { provider: string; providerMessageId: string; sentAt: string }, alreadyRecorded: boolean, recipientEmail: string, dedupKey: string): Promise<"SENT" | "FAILED"> {
+  let recorded = alreadyRecorded;
+  if (!recorded) {
+    try {
+      await ctx.store.markSent(outboxId, { recipientEmail, provider: accepted.provider, providerMessageId: accepted.providerMessageId, emailId: null, sentAt: accepted.sentAt, messageIdHeader: "", conversationId: null });
+      recorded = true;
+    } catch {
+      await ctx.store
+        .markFailed(outboxId, `Aceito pelo provedor (${accepted.providerMessageId}), mas a gravação do aceite falhou — verificar Enviados antes de qualquer reenvio.`, { attemptAlreadyClaimed: true, failureClass: "UNCERTAIN" })
+        .catch(() => undefined);
+    }
+  }
+  if (recorded) ctx.deliveredKeys.add(dedupKey);
+  await ctx.store
+    .audit(ctx.projectId, [{ action: recorded ? "RISK_ALERT_EMAIL_SENT" : "RISK_ALERT_EMAIL_ACCEPTED_UNRECORDED", entityType: "RISK_ALERT_OUTBOX", entityId: outboxId, detail: `E-mail aceito pelo provedor ${accepted.provider} (${accepted.providerMessageId}) com falha em registro posterior; ${recorded ? "aceite gravado" : "aceite NÃO gravado — linha marcada como resultado incerto, sem reenvio automático"}. Chave ${idempotencyKey}.` }])
+    .catch(() => undefined);
+  return recorded ? "SENT" : "FAILED";
+}
+
+/** Um token (e três atalhos) POR ITEM aberto do consolidado — cada ocorrência é tratada individualmente. */
+async function digestReplyMailto(ctx: SendContext, items: ReadonlyArray<{ caseKey: string; riskLevel: string }>, caseIdByKey: ReadonlyMap<string, string>, recipientUserId: string): Promise<Map<string, ReplyMailtoLinks>> {
+  const out = new Map<string, ReplyMailtoLinks>();
+  if (!ctx.replyTokens || !ctx.snapshot.replyMailbox) return out;
+  for (const item of items) {
+    const caseId = caseIdByKey.get(item.caseKey);
+    if (!caseId || out.has(caseId)) continue;
+    const record = await ctx.store.loadCaseRecord(caseId).catch(() => null);
+    if (!record || record.status === "CLOSED") continue;
+    const links = await issueReplyMailtoForCase(ctx, { caseId, recipientUserId, visibleCode: record.visibleCode ?? null, riskLevel: item.riskLevel, area: record.area });
+    if (links) out.set(caseId, links);
+  }
+  return out;
 }
 
 export async function sendPlanned(outboxId: string, caseId: string | null, entry: PlannedOutboxEntry, ctx: SendContext): Promise<"SENT" | "FAILED" | "SKIPPED"> {
@@ -667,7 +772,9 @@ export async function sendPlanned(outboxId: string, caseId: string | null, entry
   if (isPilotTestCaseSendBlocked(record, entry.idempotencyKey, ctx)) return "SKIPPED";
   let built: BuiltEmail;
   if (entry.content.kind === "DIGEST") {
-    built = buildRiskDigestEmail({ content: entry.content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: entry.recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseIdByKey: ctx.caseIds, logos: logosOf(ctx) });
+    const digestContent = entry.content;
+    const replyByEmailByCaseId = await digestReplyMailto(ctx, [...digestContent.mediumItems, ...digestContent.lowItems], ctx.caseIds, entry.recipient.userId);
+    built = buildRiskDigestEmail({ content: digestContent, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: entry.recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseIdByKey: ctx.caseIds, logos: logosOf(ctx), replyByEmailByCaseId });
   } else {
     const lines = await forecastLinesForEmail(ctx, caseId, entry.riskLevel, record?.status === "CLOSED");
     built = buildImmediateRiskAlertEmail({
@@ -678,13 +785,16 @@ export async function sendPlanned(outboxId: string, caseId: string | null, entry
       baseUrl: ctx.baseUrl,
       timeZone: ctx.timeZone,
       generatedAt: ctx.nowIso,
-      actionButtons: entry.slaActionId
+      // Com caso registrado, os quatro botões do caso (record_risk_alert_action) são o ÚNICO canal de tratamento: os links
+      // de SLA (DAR CIÊNCIA / ASSUMIR...) gravariam só na ação SLA e o caso divergiria. Sem caso, ficam como antes.
+      actionButtons: entry.slaActionId && !caseId
         ? await issueEmailAlertActionButtons({ projectId: ctx.projectId, alertKind: "SLA_ACTION", alertId: entry.slaActionId, intendedRecipientEmail: recipientEmail }).catch(() => [])
         : [],
       actionLinks: caseId ? await issueActionLinks(ctx, caseId, entry.recipient.userId) : undefined,
       visibleCode: record?.visibleCode ?? null,
       caseId,
       logos: logosOf(ctx),
+      replyByEmail: caseId && record ? await issueReplyMailtoForCase(ctx, { caseId, recipientUserId: entry.recipient.userId, visibleCode: record.visibleCode ?? null, riskLevel: entry.riskLevel, area: record.area }) : null,
     });
   }
   const outcome = await deliver(ctx, outboxId, caseId, entry.recipient.userId, recipientEmail, built, entry.notificationType, entry.escalationLevel, entry.idempotencyKey, entry.riskLevel);
@@ -733,7 +843,9 @@ async function sendPendingDigest(row: PendingOutboxRow, ctx: SendContext): Promi
     await ctx.store.markSkipped(row.id, "DIGEST_EMPTY: nenhum item do consolidado permanece disponível — não reenviado.");
     return "SKIPPED";
   }
-  const built = buildRiskDigestEmail({ content: rebuilt.content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseIdByKey: new Map(ctx.snapshot.existingCases.map((c) => [`${c.sourceType}:${c.sourceId}`, c.id])), logos: logosOf(ctx) });
+  const retryCaseIdByKey = new Map(ctx.snapshot.existingCases.map((c) => [`${c.sourceType}:${c.sourceId}`, c.id]));
+  const replyByEmailByCaseId = await digestReplyMailto(ctx, [...rebuilt.content.mediumItems, ...rebuilt.content.lowItems], retryCaseIdByKey, row.recipientUserId);
+  const built = buildRiskDigestEmail({ content: rebuilt.content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseIdByKey: retryCaseIdByKey, logos: logosOf(ctx), replyByEmailByCaseId });
   const outcome = await deliver(ctx, row.id, null, row.recipientUserId, recipient.email, built, row.notificationType, null, row.idempotencyKey);
   if (outcome === "SENT") {
     const caseKeys = ((row.payloadSummary.caseKeys as string[] | undefined) ?? []);
@@ -819,7 +931,7 @@ async function sendPendingRow(row: PendingOutboxRow, ctx: SendContext): Promise<
       changed: false,
       ...(await forecastLinesForEmail(ctx, record.id, riskLevel, false)),
     };
-    built = buildImmediateRiskAlertEmail({ content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, actionButtons: [], actionLinks: await issueActionLinks(ctx, record.id, row.recipientUserId), visibleCode: record.visibleCode, caseId: record.id, logos: logosOf(ctx) });
+    built = buildImmediateRiskAlertEmail({ content, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, actionButtons: [], actionLinks: await issueActionLinks(ctx, record.id, row.recipientUserId), visibleCode: record.visibleCode, caseId: record.id, logos: logosOf(ctx), replyByEmail: await issueReplyMailtoForCase(ctx, { caseId: record.id, recipientUserId: row.recipientUserId, visibleCode: record.visibleCode ?? null, riskLevel, area: record.area }) });
   } else {
     const kind = (["FORWARD", "RETURNED", "EXPERT_ANSWER", "ACTION_CONFIRMATION"] as const).find((k) => k === row.notificationType) ?? "ACTION_CONFIRMATION";
     const rows: Array<[string, string | null]> = [];
@@ -838,7 +950,7 @@ async function sendPendingRow(row: PendingOutboxRow, ctx: SendContext): Promise<
       rows.push(["Expert", (row.payloadSummary.expertId as string) ?? null], ["Confiança", row.payloadSummary.confidence !== undefined ? String(row.payloadSummary.confidence) : null]);
       paragraphs.push((row.payloadSummary.answerPreview as string) ?? "");
     }
-    built = buildAlertFollowUpEmail({ kind, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseId: record.id, caseTitle: record.title, riskLevel, visibleCode: record.visibleCode, area: record.area, logos: logosOf(ctx), rows, paragraphs, requiresHumanReview: kind === "EXPERT_ANSWER", actionLinks: kind === "FORWARD" ? await issueActionLinks(ctx, record.id, row.recipientUserId) : undefined, ...(kind === "ACTION_CONFIRMATION" && row.payloadSummary.replyConfirmation ? { titleOverride: REPLY_CONFIRMATION_TITLE } : {}) });
+    built = buildAlertFollowUpEmail({ kind, projectId: ctx.projectId, projectName: ctx.projectName, recipientName: recipient.name, baseUrl: ctx.baseUrl, timeZone: ctx.timeZone, generatedAt: ctx.nowIso, caseId: record.id, caseTitle: record.title, riskLevel, visibleCode: record.visibleCode, area: record.area, logos: logosOf(ctx), rows, paragraphs, requiresHumanReview: kind === "EXPERT_ANSWER", actionLinks: kind === "FORWARD" ? await issueActionLinks(ctx, record.id, row.recipientUserId) : undefined, ...(kind === "ACTION_CONFIRMATION" && row.payloadSummary.replyConfirmation ? { titleOverride: REPLY_CONFIRMATION_TITLE } : {}), replyByEmail: record.status === "CLOSED" ? null : await issueReplyMailtoForCase(ctx, { caseId: record.id, recipientUserId: row.recipientUserId, visibleCode: record.visibleCode ?? null, riskLevel, area: record.area }) });
   }
   const outcome = await deliver(ctx, row.id, record.id, row.recipientUserId, recipient.email, built, row.notificationType, row.escalationLevel, row.idempotencyKey, row.riskLevel);
   return outcome;

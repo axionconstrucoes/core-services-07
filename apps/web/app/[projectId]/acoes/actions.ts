@@ -157,39 +157,58 @@ export async function createSlaActionAction(
   }
 }
 
-// ---------------- Assumir ação ----------------
+// ---------------- Operações da ação: assumir / iniciar / concluir / encaminhar ----------------
+//
+// Gravação por RPC (migration 20261120100000): o banco autoriza ADMINISTRADOR e o RESPONSÁVEL atual (perfil diferente
+// de LEITURA), recusa os demais com erro explícito e devolve a linha gravada. Sucesso só é confirmado quando a linha
+// voltou com o estado esperado — nunca por ausência de erro (um UPDATE que casa 0 linhas não dá erro).
+
+const SLA_OPERATION_ERRORS: Array<[RegExp, string]> = [
+  [/AUTH_REQUIRED/, "Sessão expirada. Faça login novamente."],
+  [/PROJECT_ACCESS_DENIED/, "Você não é membro ativo desta obra."],
+  [/ACTION_ACCESS_DENIED/, "Somente o responsável atual pela ação ou um ADMINISTRADOR da obra pode registrar esta operação."],
+  [/ACTION_NOT_FOUND/, "Ação não encontrada."],
+  [/ACTION_CLOSED/, "Esta ação já está concluída ou cancelada."],
+  [/RISK_CASE_LINKED/, "Esta ação pertence a um alerta de risco: registre a operação pela página do alerta, que exige as evidências e mantém o caso e a ação sincronizados."],
+  [/ACTION_ALREADY_ACKNOWLEDGED/, "Esta ação já foi assumida."],
+  [/ACTION_NOT_ACKNOWLEDGED/, "Assuma a ação antes de registrar que está estudando a solução."],
+  [/COMPLETION_NOTE_REQUIRED/, "Informe a observação de conclusão."],
+  [/RELATED_EVENT_NOT_FOUND/, "O evento vinculado não pertence a esta obra."],
+  [/SSMA_ACTION_COMPLETE_VIA_SSMA/, "Esta ação nasceu de uma ação corretiva SSMA de campo. Conclua pelo app SSMA, anexando a foto de evidência (ou a justificativa do administrador)."],
+  [/NEW_RESPONSIBLE_REQUIRED/, "Selecione o novo responsável."],
+  [/SAME_RESPONSIBLE/, "A pessoa selecionada já é a responsável pela ação."],
+  [/NEW_RESPONSIBLE_NOT_ELIGIBLE/, "O novo responsável precisa ser membro ativo desta obra e não pode ter perfil somente leitura."],
+  [/FORWARD_REASON_REQUIRED/, "Informe o motivo do encaminhamento (mínimo de 5 caracteres)."],
+];
+
+function slaOperationError(error: { message?: string } | null, fallback: string): string {
+  const message = error?.message ?? "";
+  return SLA_OPERATION_ERRORS.find(([pattern]) => pattern.test(message))?.[1] ?? (message || fallback);
+}
+
+type SlaActionRow = { id: string; status: string; responsible_user_id: string | null };
+
+/** Confirma a persistência: a RPC devolveu a linha da ação pedida, no estado esperado. */
+function persisted(data: unknown, actionId: string, expect: (row: SlaActionRow) => boolean): boolean {
+  const row = (Array.isArray(data) ? data[0] : data) as SlaActionRow | null | undefined;
+  return Boolean(row && row.id === actionId && expect(row));
+}
+
+const NOT_PERSISTED = "A operação não foi confirmada pelo banco de dados. Nada foi alterado; atualize a página e tente novamente.";
 
 export async function assumeSlaActionAction(
   _prevState: AssumeSlaActionState,
   formData: FormData
 ): Promise<AssumeSlaActionState> {
   const supabase = await createSupabaseServerClient();
-
-  const { data: authData, error: authError } = await supabase.auth.getUser();
-  if (authError || !authData.user) {
-    return { error: "Sessão expirada. Faça login novamente.", success: false };
-  }
-
   try {
     const projectId = requiredField(formData, "projectId");
     const actionId = requiredField(formData, "actionId");
-
-    // "Isso interrompe apenas o SLA de assumir, não necessariamente o
-    // prazo de conclusão" (seção 8) — por isso status vira ACKNOWLEDGED,
-    // nunca IN_PROGRESS/COMPLETED aqui.
-    const { error } = await supabase
-      .from("sla_actions")
-      .update({
-        acknowledged_at: new Date().toISOString(),
-        acknowledged_by_user_id: authData.user.id,
-        status: "ACKNOWLEDGED",
-      })
-      .eq("id", actionId);
-
-    if (error) {
-      return { error: error.message, success: false };
-    }
-
+    // "Isso interrompe apenas o SLA de assumir, não necessariamente o prazo de conclusão" (seção 8) — por isso o status
+    // vira ACKNOWLEDGED, nunca IN_PROGRESS/COMPLETED aqui.
+    const { data, error } = await supabase.rpc("sla_action_assume", { p_action_id: actionId });
+    if (error) return { error: slaOperationError(error, "Falha ao assumir ação."), success: false };
+    if (!persisted(data, actionId, (row) => row.status === "ACKNOWLEDGED")) return { error: NOT_PERSISTED, success: false };
     revalidatePath(`/${projectId}/acoes`);
     return { error: null, success: true };
   } catch (error) {
@@ -197,24 +216,19 @@ export async function assumeSlaActionAction(
   }
 }
 
-// ---------------- Iniciar ação ----------------
+// ---------------- Iniciar ação ("Estudando solução") ----------------
 
 export async function startSlaActionAction(
   _prevState: StartSlaActionState,
   formData: FormData
 ): Promise<StartSlaActionState> {
   const supabase = await createSupabaseServerClient();
-
   try {
     const projectId = requiredField(formData, "projectId");
     const actionId = requiredField(formData, "actionId");
-
-    const { error } = await supabase.from("sla_actions").update({ status: "IN_PROGRESS" }).eq("id", actionId);
-
-    if (error) {
-      return { error: error.message, success: false };
-    }
-
+    const { data, error } = await supabase.rpc("sla_action_start", { p_action_id: actionId });
+    if (error) return { error: slaOperationError(error, "Falha ao iniciar ação."), success: false };
+    if (!persisted(data, actionId, (row) => row.status === "IN_PROGRESS")) return { error: NOT_PERSISTED, success: false };
     revalidatePath(`/${projectId}/acoes`);
     return { error: null, success: true };
   } catch (error) {
@@ -229,38 +243,18 @@ export async function completeSlaActionAction(
   formData: FormData
 ): Promise<CompleteSlaActionState> {
   const supabase = await createSupabaseServerClient();
-
-  const { data: authData, error: authError } = await supabase.auth.getUser();
-  if (authError || !authData.user) {
-    return { error: "Sessão expirada. Faça login novamente.", success: false };
-  }
-
   try {
     const projectId = requiredField(formData, "projectId");
     const actionId = requiredField(formData, "actionId");
     const completionNote = requiredField(formData, "completionNote");
-    const relatedEventId = optionalField(formData, "relatedEventId");
-    const relatedDocumentVersionId = optionalField(formData, "relatedDocumentVersionId");
-
-    const updates: Record<string, unknown> = {
-      completed_at: new Date().toISOString(),
-      completed_by_user_id: authData.user.id,
-      completion_note: completionNote,
-      status: "COMPLETED",
-    };
-    if (relatedEventId) updates.related_event_id = relatedEventId;
-    if (relatedDocumentVersionId) updates.related_document_version_id = relatedDocumentVersionId;
-
-    const { error } = await supabase.from("sla_actions").update(updates).eq("id", actionId);
-
-    if (error) {
-      // Ação de origem SSMA: a conclusão exige a evidência registrada no app SSMA (a trigger do banco recusa aqui).
-      if (/SSMA_ACTION_COMPLETE_VIA_SSMA/.test(error.message)) {
-        return { error: "Esta ação nasceu de uma ação corretiva SSMA de campo. Conclua pelo app SSMA, anexando a foto de evidência (ou a justificativa do gestor).", success: false };
-      }
-      return { error: error.message, success: false };
-    }
-
+    const { data, error } = await supabase.rpc("sla_action_complete", {
+      p_action_id: actionId,
+      p_completion_note: completionNote,
+      p_related_event_id: optionalField(formData, "relatedEventId"),
+      p_related_document_version_id: optionalField(formData, "relatedDocumentVersionId"),
+    });
+    if (error) return { error: slaOperationError(error, "Falha ao concluir ação."), success: false };
+    if (!persisted(data, actionId, (row) => row.status === "COMPLETED")) return { error: NOT_PERSISTED, success: false };
     revalidatePath(`/${projectId}/acoes`);
     return { error: null, success: true };
   } catch (error) {
@@ -268,32 +262,30 @@ export async function completeSlaActionAction(
   }
 }
 
-// ---------------- Reatribuir ação (ADMIN) ----------------
+// ---------------- Encaminhar ação (ENVIAR PARA / direcionar) ----------------
+//
+// Responsável atual (com motivo) ou ADMINISTRADOR. Prazos e escalonamento originais são mantidos (o banco não toca neles).
 
 export async function reassignSlaActionAction(
   _prevState: ReassignSlaActionState,
   formData: FormData
 ): Promise<ReassignSlaActionState> {
   const supabase = await createSupabaseServerClient();
-
   try {
     const projectId = requiredField(formData, "projectId");
     const actionId = requiredField(formData, "actionId");
     const newResponsibleUserId = requiredField(formData, "newResponsibleUserId");
-
-    const { error } = await supabase
-      .from("sla_actions")
-      .update({ responsible_user_id: newResponsibleUserId })
-      .eq("id", actionId);
-
-    if (error) {
-      return { error: error.message, success: false };
-    }
-
+    const { data, error } = await supabase.rpc("sla_action_forward", {
+      p_action_id: actionId,
+      p_new_responsible_user_id: newResponsibleUserId,
+      p_reason: optionalField(formData, "reason"),
+    });
+    if (error) return { error: slaOperationError(error, "Falha ao encaminhar ação."), success: false };
+    if (!persisted(data, actionId, (row) => row.responsible_user_id === newResponsibleUserId)) return { error: NOT_PERSISTED, success: false };
     revalidatePath(`/${projectId}/acoes`);
     return { error: null, success: true };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Falha ao reatribuir ação.", success: false };
+    return { error: error instanceof Error ? error.message : "Falha ao encaminhar ação.", success: false };
   }
 }
 
@@ -612,17 +604,25 @@ export async function processSlaEscalationsAction(
     // humanas) — o botão manual nunca gera um segundo e-mail. Sem a feature
     // (tabelas novas ausentes), o fluxo antigo continua intacto.
     const riskCaseByActionId = new Map<string, string>();
+    const closedRiskCaseActionIds = new Set<string>();
     if (isWeeklyReportsEnabled() && openActions.length > 0) {
       const { data: linked } = await supabase
         .from("risk_alert_cases")
-        .select("id,sla_action_id,title,reference")
+        .select("id,sla_action_id,title,reference,status,state")
         .eq("project_id", projectId)
         .in("sla_action_id", openActions.map((a) => a.id));
-      // Caso de TESTE do piloto nunca entra no escalonamento manual por e-mail.
-      for (const row of linked ?? []) if (row.sla_action_id && !isPilotTestCase({ title: row.title as string | null, reference: row.reference as string | null })) riskCaseByActionId.set(row.sla_action_id as string, row.id as string);
+      for (const row of linked ?? []) {
+        if (!row.sla_action_id) continue;
+        // Caso encerrado (origem fechou) ou resolvido: o ciclo de risco já não o trata; escalar a ação geraria cobrança
+        // de algo encerrado. A ação fica como está; a divergência é tratada pela página do alerta.
+        if (row.status === "CLOSED" || row.state === "RESOLVED") closedRiskCaseActionIds.add(row.sla_action_id as string);
+        // Caso de TESTE do piloto nunca entra no escalonamento manual por e-mail.
+        else if (!isPilotTestCase({ title: row.title as string | null, reference: row.reference as string | null })) riskCaseByActionId.set(row.sla_action_id as string, row.id as string);
+      }
     }
 
     for (const action of openActions) {
+      if (closedRiskCaseActionIds.has(action.id)) continue;
       const rule = resolveMatrixRule(matrixRules, action.riskLevel, action.area);
       const result = computeEscalation({
         status: action.status,

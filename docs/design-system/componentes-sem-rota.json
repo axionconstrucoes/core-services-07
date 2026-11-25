@@ -1,0 +1,71 @@
+{
+  "versao": "2026-11-20",
+  "descricao": "Componentes de apps/web/components que nenhuma rota alcança (grafo de imports a partir de page/layout/route/proxy). Decisão registrada, sem criar rotas. Verificado por scripts/test-unrouted-components.mjs. Enquanto não têm rota, não entram no inventário de Hover Text (que só considera arquivos alcançados por rota real); se algum for ATIVADO, deve receber helpId no catálogo + manifesto, contraste medido e teste de navegador (hover-text-e-contraste.md, Definition of Done).",
+  "grupos": [
+    {
+      "id": "adicionais-formularios",
+      "decisao": "MANTER_ISENTO",
+      "arquivos": [
+        "components/additionals/additional-proposal-approvals-form.tsx",
+        "components/additionals/additional-proposal-checklist.tsx",
+        "components/additionals/additional-proposal-contracted-form.tsx",
+        "components/additionals/additional-proposal-create-form.tsx",
+        "components/additionals/additional-proposal-curation-panel.tsx",
+        "components/additionals/additional-proposal-link-form.tsx",
+        "components/additionals/additional-proposal-status-form.tsx"
+      ],
+      "justificativa": "A aba Serviços Adicionais foi retirada da interface (integração com o Drive de Orçamentos cancelada); a rota /adicionais apenas redireciona para Documentos. O código e as server actions foram preservados de propósito (regra: não apagar sem autorização) e há testes que dependem dos arquivos. Ativar exige decisão do dono, ajuda (Hover Text), contraste e teste de navegador.",
+      "evidencia": "apps/web/app/[projectId]/adicionais/page.tsx (comentário e redirect); scripts/test-additional-proposal-drive-lookup.mjs (formulário preservado sem ponto de entrada na UI)."
+    },
+    {
+      "id": "dashboard-visual-antigo",
+      "decisao": "MANTER_ISENTO",
+      "arquivos": [
+        "components/dashboard/alert-card.tsx",
+        "components/dashboard/dashboard-visual-entry-card.tsx",
+        "components/dashboard/integration-status-summary.tsx",
+        "components/dashboard-visual/contract-value-card.tsx",
+        "components/dashboard-visual/deadline-card.tsx",
+        "components/dashboard-visual/experts-cards.tsx",
+        "components/dashboard-visual/source-volume-table.tsx",
+        "components/dashboard-visual/summary-cards.tsx",
+        "components/dashboard-visual/time-range-filter.tsx",
+        "components/dashboard-visual/value-placeholder.tsx"
+      ],
+      "justificativa": "Componentes do antigo Dashboard Visual. A rota /dashboard/visual redireciona para o Dashboard executivo, que calcula seus indicadores em app/[projectId]/dashboard/page.tsx. Os cartões (inclusive AditivosCard) não aparecem na tela hoje. Candidatos a remoção numa limpeza futura, que depende de autorização expressa (CLAUDE.md regra 9) porque alguns testes ainda leem esses arquivos.",
+      "evidencia": "apps/web/app/[projectId]/dashboard/visual/page.tsx (redirect); docs/manual-referencia-acc.md linha 245 e D6; scripts de teste que citam os componentes."
+    },
+    {
+      "id": "construmanager-download-conteudo",
+      "decisao": "MANTER_ISENTO",
+      "arquivos": ["components/integrations/construmanager-content-download.tsx"],
+      "justificativa": "Painel de download de conteúdo do Construmanager que nenhuma tela importa hoje; usa CONSTRUMANAGER_SEARCH_INPUT_CLASS (contraste medido OK no harness: CA05/CA06). Preservado porque há teste que lê o arquivo; se a integração for ativada, precisa de Hover Text próprio.",
+      "evidencia": "Nenhum import em apps/web/app ou apps/web/components; referenciado por scripts de teste do Construmanager."
+    },
+    {
+      "id": "legenda-de-risco",
+      "decisao": "MANTER_ISENTO",
+      "arquivos": ["components/shared/risk-legend.tsx"],
+      "justificativa": "Legenda de risco compartilhada (documentada em badges.tsx como a forma canônica da legenda) ainda não montada em nenhuma página. Sem efeito para o usuário; mantida para uso futuro e já coberta por teste de contraste dos selos.",
+      "evidencia": "components/shared/badges.tsx (comentário sobre RiskLegend); nenhuma página importa risk-legend."
+    },
+    {
+      "id": "startup-formularios-antigos",
+      "decisao": "MANTER_ISENTO",
+      "arquivos": [
+        "components/startup/complete-startup-button.tsx",
+        "components/startup/historical-finding-card.tsx",
+        "components/startup/startup-config-form.tsx"
+      ],
+      "justificativa": "A página Start-up usa NewProjectStartupChecklist; estes três componentes são da versão anterior do fluxo e não são montados. Mantidos sem uso até decisão do dono (remover com autorização ou reativar com ajuda e contraste).",
+      "evidencia": "apps/web/app/[projectId]/startup/page.tsx importa apenas new-project-startup-checklist."
+    },
+    {
+      "id": "primitivo-ui",
+      "decisao": "MANTER_ISENTO",
+      "arquivos": ["components/ui/separator.tsx"],
+      "justificativa": "Primitivo visual (linha separadora) sem texto nem interação; não exige Hover Text. Mantido para composição futura.",
+      "evidencia": "Nenhum import; componente puramente decorativo."
+    }
+  ]
+}

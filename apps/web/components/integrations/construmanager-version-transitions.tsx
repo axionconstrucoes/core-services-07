@@ -14,6 +14,7 @@
 // operacional, e a análise de impacto (custo, prazo, escopo, qualidade,
 // segurança, obrigações contratuais) é humana.
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/labels";
@@ -94,9 +95,12 @@ function TransitionRow({ item, projectId, budgetUsers }: {
         rev {item.previousRevision ?? "—"} → {item.newRevision}
       </span>
 
-      <Badge className={cn(CONTENT_STATUS_CLASS[item.contentStatus])}>
-        {CONTENT_STATUS_LABEL[item.contentStatus]}
-      </Badge>
+      <span className="inline-flex items-center gap-1">
+        <Badge className={cn(CONTENT_STATUS_CLASS[item.contentStatus])}>
+          {CONTENT_STATUS_LABEL[item.contentStatus]}
+        </Badge>
+        <FeatureInfo helpId="integracoes.integracoes.construmanager-estado-conteudo" />
+      </span>
 
       {item.authorName ? (
         <span className="text-muted-foreground">{item.authorName}</span>
@@ -148,9 +152,12 @@ export function ConstrumanagerVersionTransitions({
   if (result === null || result.status === "INDISPONIVEL") {
     return (
       <div className="flex flex-col gap-1.5 rounded-md border bg-background/60 p-2">
-        <Badge className={cn(VERSION_MONITORING_UNAVAILABLE_CLASS)}>
-          MONITORAMENTO DE VERSÕES INDISPONÍVEL
-        </Badge>
+        <span className="inline-flex items-center gap-1.5">
+          <Badge className={cn(VERSION_MONITORING_UNAVAILABLE_CLASS)}>
+            MONITORAMENTO DE VERSÕES INDISPONÍVEL
+          </Badge>
+          <FeatureInfo helpId="integracoes.integracoes.construmanager-versoes-indisponivel" />
+        </span>
         <p className="text-xs text-muted-foreground">
           Não foi possível verificar novas versões vigentes agora. Isto não
           significa que não existam. O detalhe técnico foi registrado no
@@ -169,8 +176,9 @@ export function ConstrumanagerVersionTransitions({
 
   return (
     <div className="flex flex-col gap-1.5 rounded-md border bg-background/60 p-2">
-      <p className="text-xs font-bold text-foreground">
+      <p className="flex items-center gap-1.5 text-xs font-bold text-foreground">
         NOVAS VERSÕES VIGENTES · {items.length}
+        <FeatureInfo helpId="integracoes.integracoes.construmanager-novas-versoes" />
       </p>
 
       <ul className="flex flex-col gap-0.5 text-xs">

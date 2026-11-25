@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { submitBudgetResponseAction, submitVersionImpactReviewAction, type VersionImpactReviewState } from "@/app/[projectId]/integracoes/version-impact-actions";
 
@@ -22,26 +23,29 @@ export function ConstrumanagerVersionImpactForm({
     <form action={action} className="mt-2 grid gap-2 rounded-md border border-amber-300 bg-white p-3 text-xs text-black">
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="transitionId" value={transitionId} />
-      <p className="font-bold">Análise obrigatória de impacto</p>
-      <label className="grid gap-1">Impacto no prazo
+      <p className="flex items-center gap-1.5 font-bold">
+        Análise obrigatória de impacto
+        <FeatureInfo helpId="integracoes.integracoes.construmanager-analise-impacto" iconClassName="text-neutral-700 hover:text-black focus-visible:text-black" />
+      </p>
+      <label className="grid gap-1"><span className="inline-flex items-center gap-1.5">Impacto no prazo<FeatureInfo helpId="integracoes.integracoes.construmanager-impacto-prazo" iconClassName="text-neutral-700 hover:text-black focus-visible:text-black" /></span>
         <select name="scheduleImpact" required defaultValue="" className="rounded border p-2">
           <option value="" disabled>Selecione</option><option value="SIM">Sim</option><option value="NAO">Não</option><option value="INCONCLUSIVO">Ainda inconclusivo</option>
         </select>
       </label>
-      <label className="grid gap-1">Impacto no preço
+      <label className="grid gap-1"><span className="inline-flex items-center gap-1.5">Impacto no preço<FeatureInfo helpId="integracoes.integracoes.construmanager-impacto-preco" iconClassName="text-neutral-700 hover:text-black focus-visible:text-black" /></span>
         <select name="priceImpact" required defaultValue="" className="rounded border p-2">
           <option value="" disabled>Selecione</option><option value="SIM">Sim</option><option value="NAO">Não</option><option value="INCONCLUSIVO">Ainda inconclusivo</option>
         </select>
       </label>
-      <label className="grid gap-1">Resposta do Planejamento
+      <label className="grid gap-1"><span className="inline-flex items-center gap-1.5">Resposta do Planejamento<FeatureInfo helpId="integracoes.integracoes.construmanager-resposta-planejamento" iconClassName="text-neutral-700 hover:text-black focus-visible:text-black" /></span>
         <textarea name="planningResponse" required minLength={10} maxLength={4000} rows={3} className="rounded border p-2" placeholder="Registre a análise e a ação recomendada." />
       </label>
       <label className="flex items-center gap-2">
         <input type="checkbox" name="sendToBudget" checked={sendToBudget} onChange={(event) => setSendToBudget(event.target.checked)} />
-        Encaminhar ao orçamentista
+        <span className="inline-flex items-center gap-1.5">Encaminhar ao orçamentista<FeatureInfo helpId="integracoes.integracoes.construmanager-encaminhar-orcamento" iconClassName="text-neutral-700 hover:text-black focus-visible:text-black" /></span>
       </label>
       {sendToBudget ? (
-        <label className="grid gap-1">Orçamentista responsável
+        <label className="grid gap-1"><span className="inline-flex items-center gap-1.5">Orçamentista responsável<FeatureInfo helpId="integracoes.integracoes.construmanager-orcamentista" iconClassName="text-neutral-700 hover:text-black focus-visible:text-black" /></span>
           <select name="budgetUserId" required defaultValue="" className="rounded border p-2">
             <option value="" disabled>Selecione</option>
             {budgetUsers.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
@@ -51,6 +55,7 @@ export function ConstrumanagerVersionImpactForm({
       <p className="text-neutral-600">A análise será registrada e informada à gerência do projeto e à diretoria comercial, mesmo sem impacto.</p>
       {state.error ? <p className="font-medium text-red-700">{state.error}</p> : null}
       {state.success ? <p className="font-medium text-green-700">Análise registrada.</p> : null}
+      {/* help-exempt: botão de envio do formulário; descrito em integracoes.integracoes.construmanager-analise-impacto */}
       <Button type="submit" size="sm" disabled={pending}>{pending ? "Registrando…" : "Registrar análise completa"}</Button>
     </form>
   );
@@ -62,7 +67,7 @@ export function ConstrumanagerBudgetResponseForm({ projectId, reviewId }: { proj
     <form action={action} className="mt-2 grid gap-2 rounded border border-blue-300 bg-white p-2 text-black">
       <input type="hidden" name="projectId" value={projectId} />
       <input type="hidden" name="reviewId" value={reviewId} />
-      <label className="grid gap-1 font-medium">Resposta do orçamentista designado
+      <label className="grid gap-1 font-medium"><span className="inline-flex items-center gap-1.5">Resposta do orçamentista designado<FeatureInfo helpId="integracoes.integracoes.construmanager-resposta-orcamento" iconClassName="text-neutral-700 hover:text-black focus-visible:text-black" /></span>
         <textarea name="budgetResponse" required minLength={10} maxLength={4000} rows={3} className="rounded border p-2 font-normal" placeholder="Registre a avaliação de preço e as providências." />
       </label>
       {state.error ? <p className="text-red-700">{state.error}</p> : null}

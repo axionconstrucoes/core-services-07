@@ -8,7 +8,7 @@
 
 - Deployment ativo: `dpl_3Me5ngciPNywNUPkFbVfEKjvxaR5` (READY), commit `4c42f04` (merge do #210), alias acc.axion.com.br.
 - Migrations: **nenhuma aplicada nesta sessão**. Continuam proibidas: 20261106120000 e 20261106130000.
-  Arquivos novos **não aplicados**: `20261118093000_scheduler_pg_cron_dispatch.sql` (PR #203, rascunho) e
+  Arquivos novos **não aplicados**: `20261119034721_scheduler_pg_cron_dispatch.sql` (PR #203, rascunho) e
   `20261118140000_sla_matrix_rules_unique_active_key.sql` (índice único das regras SLA).
 - AXIA: desligada (nenhum provedor de IA habilitado). Envio único de teste: **desarmado**.
 

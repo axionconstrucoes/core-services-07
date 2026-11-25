@@ -1,4 +1,5 @@
 import type { AlertSeverity } from "@axion/types";
+import { FeatureInfo } from "@/components/shared/feature-info";
 
 import {
   forwardConfirmationNotice,
@@ -20,7 +21,7 @@ export function AlertActionNotice({ action, severity }: { action: string | null 
   if (!text) return null;
   return (
     <p role="note" className="rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1.5 text-xs text-sky-900">
-      {text}
+      {text} <FeatureInfo helpId="planejamento.alerta-email-acao.aviso-repeticao" />
     </p>
   );
 }

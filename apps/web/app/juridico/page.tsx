@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, Scale } from "lucide-react";
 import { InstitutionalBackground } from "@/components/brand/institutional-background";
 import { PrecontractWorkspaceCreateForm } from "@/components/legal/precontract-workspace-create-form";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { notFound } from "next/navigation";
@@ -23,12 +24,12 @@ export default async function JuridicoPage() {
       <InstitutionalBackground />
       <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-6 rounded-lg border bg-card p-8 shadow-xl">
         <div className="flex items-center justify-between gap-3">
-          <div><h1 className="flex items-center gap-2 text-xl font-semibold"><Scale className="size-5" />Jurídico — análise prévia</h1><p className="text-sm text-muted-foreground">Negociação de minutas antes da contratação.</p></div>
+          <div><h1 className="flex items-center gap-2 text-xl font-semibold"><Scale className="size-5" />Jurídico — análise prévia<FeatureInfo helpId="juridico.analises.pagina" /></h1><p className="text-sm text-muted-foreground">Negociação de minutas antes da contratação.</p></div>
           <Link href="/projetos" className={cn(buttonVariants({ variant: "outline" }))}><ArrowLeft className="size-4" />Voltar</Link>
         </div>
 
         <Card>
-          <CardHeader><CardTitle>Nova análise pré-contratual</CardTitle></CardHeader>
+          <CardHeader><CardTitle className="flex items-center gap-1.5">Nova análise pré-contratual<FeatureInfo helpId="juridico.analises.nova-analise" /></CardTitle></CardHeader>
           <CardContent>
             <PrecontractWorkspaceCreateForm />
           </CardContent>

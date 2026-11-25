@@ -118,6 +118,31 @@ export const SOURCE_FORMAL_NOTIFICATIONS: AuthorizedSourceRef = {
   note: "Não modeladas como entidade própria, distinta de Email/ActionRequest.",
 };
 
+export const SOURCE_QUALITY_RECORDS: AuthorizedSourceRef = {
+  sourceId: "quality_records",
+  label: "Registros de qualidade (RNC, inspeções, ensaios/controle tecnológico, planos corretivos)",
+  status: "AVAILABLE",
+  note: "Tabelas quality_ncrs, quality_evidence, quality_warranty_cases e quality_customer_complaints, lidas sob RLS por lib/ai/context/build-quality-sources-context.ts (somente leitura; conteúdo embrulhado como DADO externo). Sem registro no projeto = SEM DADOS.",
+};
+export const SOURCE_WARRANTY_ASSISTANCE: AuthorizedSourceRef = {
+  sourceId: "warranty_assistance",
+  label: "Garantias e assistência técnica (chamados pós-entrega, termos de garantia, comprovantes de manutenção)",
+  status: "AVAILABLE",
+  note: "Casos de garantia em quality_warranty_cases (e comprovantes de manutenção em quality_warranty_maintenance), lidos sob RLS por lib/ai/context/build-quality-sources-context.ts; sem registro = SEM DADOS. Chamados/comprovantes fora do ACC continuam sem fonte.",
+};
+export const SOURCE_INSURANCE_GUARANTEES: AuthorizedSourceRef = {
+  sourceId: "insurance_guarantees",
+  label: "Apólices, garantias, fianças, endossos e sinistros",
+  status: "AVAILABLE",
+  note: "Tabelas insurance_policies, insurance_endorsements, insurance_claims e bank_guarantees, lidas sob RLS por lib/ai/context/build-quality-sources-context.ts (somente leitura; conteúdo embrulhado como DADO externo). Sem registro = SEM DADOS; nunca reconhece cobertura em nome da seguradora.",
+};
+export const SOURCE_LEGAL_REFERENCES_INSURANCE: AuthorizedSourceRef = {
+  sourceId: "legal_references_insurance_warranty",
+  label: "Índice versionado de referências de seguros e garantias (apps/web/lib/ai/legal/references-insurance-warranty.ts)",
+  status: "AVAILABLE",
+  note: "Índice de FONTES a conferir (sem texto de lei); fontes secundárias nunca fundamentam conclusão.",
+};
+
 export const SHARED_SOURCE_CATALOG: AuthorizedSourceRef[] = [
   SOURCE_CONTRACT_EVENTS,
   SOURCE_EVENT_EVIDENCE,
@@ -137,6 +162,10 @@ export const SHARED_SOURCE_CATALOG: AuthorizedSourceRef[] = [
   SOURCE_CONSTRUMANAGER,
   SOURCE_WEEKLY_REPORTS,
   SOURCE_FORMAL_NOTIFICATIONS,
+  SOURCE_QUALITY_RECORDS,
+  SOURCE_WARRANTY_ASSISTANCE,
+  SOURCE_INSURANCE_GUARANTEES,
+  SOURCE_LEGAL_REFERENCES_INSURANCE,
 ];
 
 // ============================================================
@@ -173,13 +202,27 @@ export const EXPERT_COLLABORATION_MATRIX: ExpertCollaborationRule[] = [
   {
     topic: "DISPUTA",
     primaryExpertId: "legal-consultant",
-    supportingExpertIds: ["commercial-director", "planning-director"],
-    condition: "Diretor de Engenharia IA quando houver prazo ou execução envolvidos",
+    supportingExpertIds: ["commercial-director", "planning-director", "engineering-director"],
+    condition:
+      "Diretor de Planejamento IA quando houver prazo envolvido; Diretor de Engenharia e Construção IA quando houver questão técnica de execução",
   },
   {
     topic: "ATRASO COM MULTA",
     primaryExpertId: "planning-director",
     supportingExpertIds: ["legal-consultant", "commercial-director"],
+    condition: null,
+  },
+  {
+    topic: "ENGENHARIA E CONSTRUÇÃO",
+    primaryExpertId: "engineering-director",
+    supportingExpertIds: ["planning-director", "commercial-director"],
+    condition:
+      "Diretor de Planejamento IA quando houver efeito em prazo; Diretor Comercial IA quando houver efeito em custo/preço",
+  },
+  {
+    topic: "NÃO CONFORMIDADE DE COMPRAS",
+    primaryExpertId: "engineering-director",
+    supportingExpertIds: ["planning-director", "legal-consultant", "commercial-director"],
     condition: null,
   },
   {
@@ -189,9 +232,28 @@ export const EXPERT_COLLABORATION_MATRIX: ExpertCollaborationRule[] = [
     condition: null,
   },
   {
+    topic: "QUALIDADE E NÃO CONFORMIDADE",
+    primaryExpertId: "quality-analyst",
+    supportingExpertIds: ["engineering-director", "legal-consultant", "planning-director", "commercial-director", "esg-director"],
+    condition:
+      "Diretor de Engenharia e Construção IA para a avaliação técnica preliminar; Jurídico quando houver contrato/garantia/notificação; Planejamento quando houver prazo; Comercial quando houver custo/medição/retenção; ESG/SSMA quando houver risco a pessoas ou ao ambiente",
+  },
+  {
+    topic: "GARANTIA E ASSISTÊNCIA TÉCNICA",
+    primaryExpertId: "quality-analyst",
+    supportingExpertIds: ["legal-consultant", "engineering-director", "commercial-director"],
+    condition: "Consultor Jurídico IA para garantia contratual/legal, seguro e cobertura; Engenharia para a causa técnica provável; Comercial para o custo da assistência",
+  },
+  {
+    topic: "SEGUROS, GARANTIAS, ENDOSSOS E SINISTROS",
+    primaryExpertId: "legal-consultant",
+    supportingExpertIds: ["quality-analyst", "commercial-director", "engineering-director"],
+    condition: "Analista IA de Qualidade quando houver defeito/evidência técnica a correlacionar; Comercial para valores e condições; Engenharia para a causa técnica",
+  },
+  {
     topic: "DECISÃO EXECUTIVA",
     primaryExpertId: "ceo",
-    supportingExpertIds: ["commercial-director", "legal-consultant", "planning-director", "esg-director"],
+    supportingExpertIds: ["commercial-director", "legal-consultant", "planning-director", "engineering-director", "esg-director"],
     condition: "consulta somente os Experts necessários ao tema da decisão",
   },
 ];

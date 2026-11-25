@@ -61,6 +61,8 @@ export interface ContractAlertBatchRespondOutcomeOk {
   ok: true;
   status: 200;
   respondedItems: number;
+  /** Resposta gravada, mas o espelho nos lembretes (alert_followups) não foi aplicado a todos os itens. */
+  followupWarning?: string | null;
 }
 
 export interface ContractAlertBatchRespondOutcomeError {

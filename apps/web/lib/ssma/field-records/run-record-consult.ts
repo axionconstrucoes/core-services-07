@@ -21,6 +21,8 @@ export interface SsmaRecordConsultDeps {
   getPermission: (projectId: string) => Promise<string | null>;
   /** Carrega o registro COM o cliente do usuário (RLS): outra obra devolve null. */
   loadRecord: (projectId: string, recordId: string) => Promise<FieldRecordView | null>;
+  /** Reserva uma unidade do limite diário de consultas de IA (ai_consult_reserve); recusada = a IA não é chamada. */
+  reserve?: (projectId: string, recordId: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   consult: (input: { projectId: string; recordContext: string; question: string }) => Promise<
     { ok: true; response: ExpertQueryResponse; meta: AiProviderUiMetadata; question: string } | { ok: false; error: string }
   >;
@@ -59,6 +61,10 @@ export async function runSsmaRecordConsult(
   if (!permission) return { ok: false, error: "Você não tem vínculo ativo com esta obra." };
   const record = await deps.loadRecord(input.projectId, input.recordId);
   if (!record) return { ok: false, error: "Registro inexistente ou sem acesso." };
+  if (deps.reserve) {
+    const reservation = await deps.reserve(input.projectId, input.recordId);
+    if (!reservation.ok) return reservation;
+  }
   const outcome = await deps.consult({ projectId: input.projectId, recordContext: buildSsmaRecordContext(record), question: input.question });
   if (!outcome.ok) return outcome;
   return { ...outcome, recordLabel: `${record.category} — ${record.location}` };

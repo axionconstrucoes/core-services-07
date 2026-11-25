@@ -117,7 +117,8 @@ await check("Reply-To: contexto SSMA válido aceito; ids inválidos removem o ca
   assert.equal(bad.replyTo, undefined);
 });
 
-const headers = (over = {}) => ({ from: "carlos.evandro@axion.com.br", to: [`crm+alerta-${TOKEN}@axion.com.br`], messageId: "<m1@mail>", inReplyTo: "<o@acc>", references: ["<o@acc>"], subject: "Re: aviso", ...over });
+// P2: autenticação do remetente obrigatória (DMARC/DKIM alinhado, servidor confiável) — fixtures com Authentication-Results do Gmail.
+const headers = (over = {}) => ({ authenticationResults: "mx.google.com; dkim=pass header.i=@axion.com.br header.s=google; spf=pass smtp.mailfrom=axion.com.br; dmarc=pass (p=QUARANTINE) header.from=axion.com.br", from: "carlos.evandro@axion.com.br", to: [`crm+alerta-${TOKEN}@axion.com.br`], messageId: "<m1@mail>", inReplyTo: "<o@acc>", references: ["<o@acc>"], subject: "Re: aviso", ...over });
 const target = (over = {}) => ({ actionId: ACTION, recordId: RECORD, projectId: WEG_PROJECT_ID, actionStatus: "ABERTA", responsibleUserId: CARLOS, severity: "ALTA", lastProcessedReceivedAt: null, ...over });
 const decide = (body, over = {}) =>
   decideSsmaReply({
@@ -198,6 +199,7 @@ await check("confirmação: Re: na mesma thread, previsão com fuso, sem faixa d
   const c = buildSsmaReplyConfirmationEmail({
     projectName: "WEG", recipientName: "Carlos", category: "Ato inseguro", location: "Galpao", visibleCode: "2BF391C1", originalSubject: "[RISCO ALTO] aviso",
     severity: "ALTA", statusLabel: "Em andamento", forecastLine: "20/11/2026 15:00 (horário de Brasília — America/Sao_Paulo)", pendingLine: null, outOfOrder: false, accUrl: "https://acc",
+    recordLink: { baseUrl: "https://acc", projectId: "p1", recordId: "11111111-2222-4333-8444-555555555555" },
   });
   assert.equal(c.subject, "Re: [RISCO ALTO] aviso");
   assert.match(c.text, /America\/Sao_Paulo/);
@@ -205,7 +207,9 @@ await check("confirmação: Re: na mesma thread, previsão com fuso, sem faixa d
   assert.match(c.html, /RISCO ALTO \| WEG/);
   assert.match(c.html, /acc-actions-col/);
   assert.match(c.html, /RESOLVIDO.*EM ANDAMENTO.*ENVIAR PARA.*ESPECIALISTA/s);
-  assert.equal((c.html.match(/aria-disabled="true"/g) ?? []).length, 4);
+  // Lote 3: os QUATRO botões abrem o registro SSMA (ENVIAR PARA e ESPECIALISTA abrem o formulário correspondente; desligador: ACC_SSMA_EMAIL_EXTRA_ACTIONS_ENABLED=false).
+  assert.equal((c.html.match(/aria-disabled="true"/g) ?? []).length, 0, "os quatro botões ativos (padrão do Lote 3)");
+  assert.ok(c.html.includes("registro=11111111-2222-4333-8444-555555555555&amp;acao=CONCLUIDA"), "RESOLVIDO abre o registro");
   assert.deepEqual(c.logoNeeds, { maroon: true, inverted: false });
   assert.doesNotMatch(c.text, /TESTE|PILOTO/);
 });

@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { slaAreaLabels, slaEscalationLevelLabels, slaTimeUnitLabels } from "@/lib/labels";
@@ -17,7 +18,7 @@ function formatDateTime(value: string | null, timeZone: string): string {
 
 const STATUS_LABEL: Record<string, string> = {
   PENDING: "Pendente",
-  SENT: "Enviado",
+  SENT: "Aceito pelo provedor",
   FAILED: "Falhou",
   SUPPRESSED: "Suprimido",
   SKIPPED: "Ignorado",
@@ -30,23 +31,25 @@ export function PilotRiskAlertsPanel({ view }: { view: PilotRiskAlertsView }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           Alertas de risco por e-mail (piloto)
+          <FeatureInfo helpId="planejamento.acoes-config.piloto-painel" />
           <Badge variant={enabled ? "default" : "outline"} data-testid="pilot-risk-alerts-status">
             {enabled ? "Habilitados" : "Desabilitados"}
           </Badge>
+          <FeatureInfo helpId="planejamento.acoes-config.piloto-status" />
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 text-sm">
         <div className="grid gap-2 sm:grid-cols-2">
-          <p><span className="text-muted-foreground">Timezone do projeto:</span> {view.timeZone}</p>
-          <p><span className="text-muted-foreground">Baixo/Médio:</span> consolidado único às quartas-feiras, 07:00 ({view.timeZone})</p>
+          <p><span className="text-muted-foreground">Timezone do projeto:</span> {view.timeZone} <FeatureInfo helpId="planejamento.acoes-config.piloto-timezone" /></p>
+          <p><span className="text-muted-foreground">Baixo/Médio:</span> consolidado único às quartas-feiras, 07:00 ({view.timeZone}) <FeatureInfo helpId="planejamento.acoes-config.piloto-agenda" /></p>
           <p><span className="text-muted-foreground">Alto/Crítico:</span> imediato + escalonamento Nível 1 → 2 → 3 pelos prazos da Matriz</p>
-          <p><span className="text-muted-foreground">Próximo consolidado:</span> {view.nextDigest}</p>
+          <p><span className="text-muted-foreground">Próximo consolidado:</span> {view.nextDigest} <FeatureInfo helpId="planejamento.acoes-config.piloto-proximo-consolidado" /></p>
           <p>
-            <span className="text-muted-foreground">Último consolidado:</span>{" "}
+            <span className="text-muted-foreground">Último consolidado:</span> <FeatureInfo helpId="planejamento.acoes-config.piloto-ultimo-consolidado" />{" "}
             {view.lastDigest ? `${view.lastDigest.window} — ${STATUS_LABEL[view.lastDigest.status] ?? view.lastDigest.status}${view.lastDigest.sentAt ? ` em ${formatDateTime(view.lastDigest.sentAt, view.timeZone)}` : ""}` : "nenhum"}
           </p>
           <p>
-            <span className="text-muted-foreground">Casos em aberto:</span> {view.openCases.critical} crítico(s), {view.openCases.high} alto(s), {view.openCases.medium} médio(s), {view.openCases.low} baixo(s), {view.openCases.reviewRequired} em revisão
+            <span className="text-muted-foreground">Casos em aberto:</span> <FeatureInfo helpId="planejamento.acoes-config.piloto-casos-abertos" /> {view.openCases.critical} crítico(s), {view.openCases.high} alto(s), {view.openCases.medium} médio(s), {view.openCases.low} baixo(s), {view.openCases.reviewRequired} em revisão
             {view.testCasesOpen > 0 ? <span data-testid="test-cases-open"> · {view.testCasesOpen} caso(s) de TESTE não contado(s) acima</span> : null}
           </p>
         </div>
@@ -58,7 +61,7 @@ export function PilotRiskAlertsPanel({ view }: { view: PilotRiskAlertsView }) {
         ) : null}
 
         <div>
-          <h3 className="mb-1 font-medium">Níveis pela Matriz de responsabilidades e prazos</h3>
+          <h3 className="mb-1 flex items-center gap-1 font-medium">Níveis pela Matriz de responsabilidades e prazos<FeatureInfo helpId="planejamento.acoes-config.piloto-niveis" /></h3>
           <p className="mb-2 text-xs text-muted-foreground">Os prazos abaixo são os da Matriz (regra ALTO por área, para referência); edite-os somente na própria Matriz.</p>
           <Table data-testid="pilot-risk-alerts-levels">
             <TableHeader>
@@ -92,7 +95,7 @@ export function PilotRiskAlertsPanel({ view }: { view: PilotRiskAlertsView }) {
         </div>
 
         <div>
-          <h3 className="mb-1 font-medium">Destinatários do piloto (allowlist por usuário)</h3>
+          <h3 className="mb-1 flex items-center gap-1 font-medium">Destinatários do piloto (allowlist por usuário)<FeatureInfo helpId="planejamento.acoes-config.piloto-allowlist" /></h3>
           {view.allowlistStatus === "MISSING" ? (
             <p className="text-amber-800" data-testid="pilot-risk-alerts-allowlist-missing">Allowlist não configurada — nenhum e-mail é enviado (fail-closed).</p>
           ) : (
@@ -104,11 +107,11 @@ export function PilotRiskAlertsPanel({ view }: { view: PilotRiskAlertsView }) {
               ))}
             </ul>
           )}
-          <p className="mt-1 text-xs text-muted-foreground">Qualquer outro destinatário indicado pela Matriz é registrado como suprimido (PILOT_RECIPIENT_SUPPRESSED) e nunca recebe e-mail durante o piloto. Suprimidos até agora: {view.suppressedCount}.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Qualquer outro destinatário indicado pela Matriz é registrado como suprimido (PILOT_RECIPIENT_SUPPRESSED) e nunca recebe e-mail durante o piloto. Suprimidos até agora: {view.suppressedCount}. <FeatureInfo helpId="planejamento.acoes-config.piloto-suprimidos" /></p>
         </div>
 
         <div>
-          <h3 className="mb-1 font-medium">Últimos alertas (outbox)</h3>
+          <h3 className="mb-1 flex items-center gap-1 font-medium">Últimos alertas (outbox)<FeatureInfo helpId="planejamento.acoes-config.piloto-outbox" /></h3>
           {view.recentOutbox.length === 0 ? (
             <p className="text-muted-foreground">Nenhum alerta registrado.</p>
           ) : (

@@ -16,6 +16,7 @@ import { EventRiskPreSendNotice, EventRiskReviewSection } from "@/components/ris
 import { SendContractAlertForm } from "@/components/ledger/send-contract-alert-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { getEvent, getProjectMembers, getUser } from "@/lib/data";
 import { getEventClauseConfrontationCandidates } from "@/lib/event-clause-confrontation-review";
@@ -116,7 +117,10 @@ export default async function EventDetailPage({
           <span>·</span>
           <span>Registrado por {creatorLabel}</span>
         </div>
-        <h1 className="mt-1 text-lg font-semibold">{event.title}</h1>
+        <h1 className="mt-1 flex items-center gap-1.5 text-lg font-semibold">
+          {event.title}
+          <FeatureInfo helpId="planejamento.ledger-evento.pagina" />
+        </h1>
         <p className="mt-1 max-w-prose text-sm text-muted-foreground">{event.description}</p>
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           <StatusBadge status={event.status} />
@@ -132,6 +136,7 @@ export default async function EventDetailPage({
             <ShieldAlert className="size-4 text-severity-alta" />
             <CardTitle>Achado da IA — {findingTypeLabels[event.aiAssessment.findingType]}</CardTitle>
             <SeverityBadge severity={event.aiAssessment.severity} />
+            <FeatureInfo helpId="planejamento.ledger-evento.achado-ia" />
           </CardHeader>
           <CardContent className="flex flex-col gap-3 pt-0">
             <p className="max-w-prose text-sm">{event.aiAssessment.summary}</p>
@@ -157,12 +162,12 @@ export default async function EventDetailPage({
       {event.aiAssessment && <EventRiskReviewSection projectId={projectId} eventId={event.id} />}
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold">Evidência original</h2>
+        <h2 className="mb-2 flex items-center gap-1 text-sm font-semibold">Evidência original<FeatureInfo helpId="planejamento.ledger-evento.evidencia" /></h2>
         <EvidenceViewer evidences={event.evidence} />
       </div>
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold">Confronto com outras fontes</h2>
+        <h2 className="mb-2 flex items-center gap-1 text-sm font-semibold">Confronto com outras fontes<FeatureInfo helpId="planejamento.ledger-evento.confronto-fontes" /></h2>
         <CrossReferenceList crossReferences={event.crossReferences} />
       </div>
 
@@ -177,7 +182,7 @@ export default async function EventDetailPage({
       <EmailAlertActionHistoryPanel alertKind="CONTRACT_EVENT" alertId={event.id} />
 
       <div>
-        <h2 className="mb-2 text-sm font-semibold">Confrontação contratual — Revisão humana</h2>
+        <h2 className="mb-2 flex items-center gap-1 text-sm font-semibold">Confrontação contratual — Revisão humana<FeatureInfo helpId="planejamento.ledger-evento.confrontacao" /></h2>
 
         {confrontationCandidates.length === 0 ? (
           <EmptyState message="Nenhum candidato de confronto Evento x Cláusula para este evento." />
@@ -269,7 +274,7 @@ export default async function EventDetailPage({
                     />
                   ) : (
                     <p className="rounded-md border bg-muted p-3 text-sm text-muted-foreground">
-                      Você possui acesso de leitura. Aprovação ou rejeição exige permissão EDITOR ou ADMIN.
+                      Você possui acesso de leitura. Aprovação ou rejeição exige o perfil ADMINISTRADOR neste projeto.
                     </p>
                   )}
                 </CardContent>

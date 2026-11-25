@@ -5,6 +5,7 @@ import { InstitutionalBackground } from "@/components/brand/institutional-backgr
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LogoutButton } from "@/components/auth/logout-button";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { AssistantWidget } from "@/components/assistant/assistant-widget";
 import { VeraTrigger } from "@/components/assistant/vera-trigger";
 import { isActiveAdminAnywhere } from "@/lib/legal/access";
@@ -14,6 +15,11 @@ import { Copy, Pencil, Plus, Scale } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 
 export const metadata: Metadata = { title: "Projetos" };
+
+// Painel claro (#F7F4EC) com texto preto: o ícone de ajuda (padrão claro, para o tema escuro) fica escuro aqui; sobre os cartões
+// azuis (#062B4F e #1267C4) ele fica branco.
+const ICON_ON_LIGHT = "text-[#334155] hover:text-[#000000] focus-visible:text-[#000000]";
+const ICON_ON_DARK = "text-white hover:text-white focus-visible:text-white";
 
 export default async function ProjetosPage() {
   const projects = await getProjects();
@@ -70,8 +76,9 @@ export default async function ProjetosPage() {
             />
 
             <div>
-              <h1 className="text-2xl font-semibold text-black">
+              <h1 className="flex items-center gap-1.5 text-2xl font-semibold text-black">
                 Selecione um projeto
+                <FeatureInfo helpId="admin.projetos.pagina" iconClassName={ICON_ON_LIGHT} />
               </h1>
 
               <p className="mt-1 text-base text-black">
@@ -83,12 +90,18 @@ export default async function ProjetosPage() {
           <div className="flex items-center gap-2 text-black">
             <VeraTrigger context="selecao" tone="onLight" alwaysShowText />
             {canCreateProject ? (
-              <Link href="/projetos/novo" className={buttonVariants({ className: "gap-2" })}>
-                <Plus aria-hidden="true" />
-                NOVO PROJETO
-              </Link>
+              <span className="inline-flex items-center gap-1">
+                <Link href="/projetos/novo" className={buttonVariants({ className: "gap-2" })}>
+                  <Plus aria-hidden="true" />
+                  NOVO PROJETO
+                </Link>
+                <FeatureInfo helpId="admin.projetos.novo-projeto" iconClassName={ICON_ON_LIGHT} />
+              </span>
             ) : null}
-            <LogoutButton />
+            <span className="inline-flex items-center gap-0.5">
+              <LogoutButton />
+              <FeatureInfo helpId="admin.projetos.sair" iconClassName={ICON_ON_LIGHT} />
+            </span>
           </div>
         </div>
 
@@ -96,13 +109,17 @@ export default async function ProjetosPage() {
           <div className="flex min-w-0 flex-col gap-4">
             {contractedProjects.length === 0 ? (
               <Card className="border-dashed bg-white/70">
-                <CardContent className="p-6 text-sm text-slate-600">
+                <CardContent className="p-6 text-sm text-[#475569]">
                   Nenhum projeto disponível para sua conta.
                 </CardContent>
               </Card>
             ) : null}
             {contractedProjects.map((project) => (
               <div key={project.id} className="relative">
+              {/* Ícone fora do <Link> (botão dentro de âncora é HTML inválido): canto superior direito do cartão. */}
+              <span className="absolute right-2 top-2 z-10">
+                <FeatureInfo helpId="admin.projetos.card-projeto" iconClassName={ICON_ON_DARK} />
+              </span>
               <Link href={`/${project.id}/dashboard`}>
                 <Card className="border-[#041D36] bg-[#062B4F] text-white shadow-md transition-all hover:bg-[#083761] hover:shadow-lg">
                   <CardHeader className="flex-row items-center justify-between gap-4 space-y-0">
@@ -145,6 +162,7 @@ export default async function ProjetosPage() {
                     <Copy aria-hidden="true" />
                     Copiar estrutura
                   </Link>
+                  <FeatureInfo helpId="admin.projetos.copiar-estrutura" className="self-center" iconClassName={ICON_ON_DARK} />
                   <Link
                     href={`/projetos/${project.id}/editar?origem=selecao`}
                     className={buttonVariants({
@@ -156,6 +174,7 @@ export default async function ProjetosPage() {
                     <Pencil aria-hidden="true" />
                     Editar projeto
                   </Link>
+                  <FeatureInfo helpId="admin.projetos.editar-projeto" className="self-center" iconClassName={ICON_ON_DARK} />
                 </div>
               ) : null}
               </div>
@@ -163,6 +182,7 @@ export default async function ProjetosPage() {
           </div>
 
           {/* Jurídico IA: SOMENTE administradores ativos (a rota /juridico, as ações e as APIs repetem a checagem no servidor). */}
+          <div className="relative">
           {showLegalCard ? (
             <Link
               href="/juridico"
@@ -184,6 +204,13 @@ export default async function ProjetosPage() {
               </Card>
             </Link>
           ) : null}
+          {/* Ícone fora do <Link> (botão dentro de âncora é HTML inválido): canto superior direito do cartão. */}
+          {showLegalCard ? (
+            <span className="absolute right-2 top-2 z-10">
+              <FeatureInfo helpId="admin.projetos.card-juridico" iconClassName={ICON_ON_DARK} />
+            </span>
+          ) : null}
+          </div>
         </div>
       </div>
       <AssistantWidget projectId={null} />

@@ -29,6 +29,8 @@ import {
   type SheetSourceRow,
 } from "./collect-risk-cases";
 import type { ActiveForward, AlertCaseSnapshot } from "./alert-state-machine";
+import { collectEmailRiskCases } from "./collect-email-risk-cases";
+import { loadEmailRiskSignalRows } from "./load-email-risk-signals";
 import { isPilotTestCase } from "./pilot-test-case";
 import { LEVEL_OVERRIDE_ENTITY_TYPE, LEVEL_OVERRIDE_SET_ACTION, LEVEL_OVERRIDE_UNSET_ACTION, resolvePilotLevelOverrides, type LevelOverrideAuditRow } from "./pilot-level-overrides";
 import { INFORMATIVE_ENTITY_TYPE, INFORMATIVE_SET_ACTION, INFORMATIVE_UNSET_ACTION, resolveInformativeAreas, type InformativeAuditRow } from "./informative-areas";
@@ -37,6 +39,7 @@ import { hashReplyToken, type InboundHeaders } from "./replies/reply-pipeline";
 import type { PersistedOutboxEntry, RiskAlertStore } from "./store";
 import type { ExpertId, IngestionAlertSeverityMap, LinkedSlaActionState, RecipientProfile, RiskCaseRecord } from "./types";
 import { CLAIM_LEASE_MS, MAX_SEND_ATTEMPTS } from "./types";
+import { failureOutcome } from "@/lib/email/outbound-delivery";
 import { buildCorrelationIndex, type CorrelationCaseRow, type CorrelationConversationRow, type CorrelationMessageRow } from "./replies/build-correlation-index";
 
 type Client = SupabaseClient;
@@ -157,6 +160,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         };
       });
       const alertRows = (alerts ?? []) as unknown as IngestionAlertSourceRow[];
+      const emailCases = collectEmailRiskCases(await loadEmailRiskSignalRows(client, projectId));
 
       // Caso de TESTE do piloto fica fora do planejamento do ciclo (não é fechado, escalado, contado nem entra em consolidado).
       const allCases: RiskCaseRecord[] = (existing ?? [])
@@ -380,7 +384,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         pilotLevelOverrides,
         suspendedCaseIds,
         settings: mapSettings((settings as Row | null) ?? null),
-        cases: [...collectComparisonCases(comparisonRows), ...collectSheetCases(sheetRows), ...collectIngestionAlertCases(alertRows, (config?.risk_alert_severity_map as IngestionAlertSeverityMap | null) ?? null)],
+        cases: [...collectComparisonCases(comparisonRows), ...collectSheetCases(sheetRows), ...collectIngestionAlertCases(alertRows, (config?.risk_alert_severity_map as IngestionAlertSeverityMap | null) ?? null), ...emailCases],
         existingCases,
         testCases,
         linkedActions,
@@ -601,6 +605,9 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
         .from("risk_alert_outbox")
         .update({
           status: "SENT",
+          // Aceito pelo provedor — NÃO é entrega comprovada (DELIVERED só com evidência; migration 20261121130000).
+          delivery_state: "ACCEPTED_BY_PROVIDER",
+          failure_class: null,
           claimed_at: null,
           sent_at: result.sentAt,
           recipient_email: result.recipientEmail,
@@ -642,10 +649,14 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
       const { data } = await client.from("risk_alert_outbox").select("attempt_count").eq("id", id).maybeSingle();
       // Com a linha já reivindicada (claimOutbox) a tentativa JÁ foi contada: não conta duas vezes.
       const attempts = Number(data?.attempt_count ?? 0) + (options.attemptAlreadyClaimed ? 0 : 1);
+      // PERMANENTE/INCERTA: falha final já (sem retentativa automática); transitória: limite MAX_SEND_ATTEMPTS.
+      const outcome = failureOutcome(options.failureClass ?? "RETRYABLE", attempts, MAX_SEND_ATTEMPTS);
       const { error } = await client
         .from("risk_alert_outbox")
-        .update({ status: attempts >= MAX_SEND_ATTEMPTS ? "FAILED" : "PENDING", attempt_count: attempts, last_error: sanitizedError, claimed_at: null })
-        .eq("id", id);
+        .update({ status: outcome.terminal ? "FAILED" : "PENDING", attempt_count: attempts, last_error: sanitizedError, failure_class: outcome.failureClass, claimed_at: null })
+        .eq("id", id)
+        // Uma linha já aceita pelo provedor nunca regride (o banco também recusa).
+        .neq("status", "SENT");
       fail("Falha ao registrar erro de envio", error);
     },
 
@@ -697,7 +708,7 @@ export function createSupabaseRiskAlertStore(client: Client): RiskAlertStore {
     },
 
     async recordRepeatedCondition(projectId, conditionKey, detail, nowIso) {
-      // Tabela/RPC da migration do agendador (20261118093000). Ausente => sem contador, sem falha.
+      // Tabela/RPC da migration do agendador (20261119034721). Ausente => sem contador, sem falha.
       try {
         await client.rpc("acc_bump_repeated_condition", { p_project_id: projectId, p_condition_key: conditionKey, p_detail: detail, p_seen_at: nowIso });
       } catch {

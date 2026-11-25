@@ -1,5 +1,6 @@
 "use client";
 
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import type { BatchSummary } from "@/lib/documents/multi-upload/types";
@@ -18,7 +19,10 @@ export function UploadSummaryBar({ summary, onClearErrors }: Props) {
   return (
     <div className="flex flex-col gap-2 rounded-md border p-3">
       <div className="flex items-center justify-between text-sm">
-        <span className="font-medium">Progresso geral</span>
+        <span className="flex items-center gap-1 font-medium">
+          Progresso geral
+          <FeatureInfo helpId="juridico.documentos.progresso-lote" />
+        </span>
         <span className="text-muted-foreground">{summary.overallPercent}%</span>
       </div>
 
@@ -36,15 +40,12 @@ export function UploadSummaryBar({ summary, onClearErrors }: Props) {
         <span>Com erro: {summary.errored}</span>
 
         {summary.errored > 0 ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-6 px-2 text-xs"
-            onClick={onClearErrors}
-          >
-            Limpar todos os erros
-          </Button>
+          <span className="inline-flex items-center gap-1">
+            <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={onClearErrors}>
+              Limpar todos os erros
+            </Button>
+            <FeatureInfo helpId="juridico.documentos.fila-status" />
+          </span>
         ) : null}
       </div>
     </div>

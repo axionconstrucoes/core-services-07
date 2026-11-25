@@ -1,0 +1,3 @@
+
+# Lista de testes do test:scripts: merge por união (cada agente acrescenta linhas sem conflito)
+scripts/test-scripts.list merge=union

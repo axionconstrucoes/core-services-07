@@ -6,14 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ALL_OFFICIAL_EXPERT_DEFINITIONS, type OfficialExpertId } from "@/lib/ai/expert-definitions";
-import { requestedSkillsForExpert, SKILL_DISCOVERY_TOOL, ENGINEERING_SKILL_REQUEST } from "@/lib/ai/expert-definitions/requested-skills";
-import { buildAiProviderUiMetadata } from "@/lib/ai/provider-ui-metadata";
-import { resolveAiProviderNameForExpert } from "@/lib/ai/providers/resolve-provider-for-expert";
+import { requestedSkillsForExpert, SKILL_DISCOVERY_TOOL, SKILL_STATE_LABEL } from "@/lib/ai/expert-definitions/requested-skills";
+import { describeExpertProvider } from "@/lib/ai/routing/provider-status";
 import { expertAccentBorderClassName, expertIconClassName, resolveExpertIcon } from "@/components/ai/expert-visual-identity";
 import { FeatureInfo } from "@/components/shared/feature-info";
+import { EXPERT_PROFILE_HELP_ID } from "@/lib/ui/help/modules/experts";
 import { cn } from "@/lib/utils";
 
-// Hub central dos 5 Experts oficiais do ACC — nunca substitui os
+// Hub central dos 6 Experts oficiais do ACC — nunca substitui os
 // acessos contextuais já existentes (Diretor Comercial IA no
 // Dashboard/Event Ledger, Diretor de ESG IA em ESG/SSMA), só reúne
 // todos num único lugar. Nome/missão/status vêm sempre de
@@ -22,7 +22,8 @@ import { cn } from "@/lib/utils";
 const EXPERT_ACCESS_HREF: Partial<Record<OfficialExpertId, (projectId: string) => string>> = {
   "commercial-director": (projectId) => `/${projectId}/dashboard`,
   "esg-director": (projectId) => `/${projectId}/esg`,
-  "planning-director": (projectId) => `/${projectId}/experts-ia/diretor-engenharia`,
+  "planning-director": (projectId) => `/${projectId}/experts-ia/diretor-planejamento`,
+  "engineering-director": (projectId) => `/${projectId}/experts-ia/diretor-engenharia`,
   "legal-consultant": (projectId) => `/${projectId}/juridico`,
 };
 
@@ -36,22 +37,24 @@ export default async function ExpertsIaPage({ params }: { params: Promise<{ proj
       <PageHeader
         title="Experts IA"
         description="Hub central dos Experts oficiais do ACC para este projeto — toda sugestão exige revisão humana. Os acessos já existentes (Diretor Comercial IA no Dashboard, Diretor de ESG IA em ESG/SSMA) continuam disponíveis normalmente; este hub não os substitui."
+        actions={<FeatureInfo helpId="experts.hub.pagina" />}
       />
 
-      <div>
+      <div className="flex items-center gap-2">
         <Link
           href={`/${projectId}/experts-ia/descricao`}
           className="inline-flex min-h-11 items-center justify-center rounded-md border border-yellow-500 bg-yellow-400 px-5 py-2 text-sm font-bold text-black hover:bg-yellow-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500"
         >
           Descrição dos Especialistas
         </Link>
+        <FeatureInfo helpId="experts.hub.descricao-botao" />
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {ALL_OFFICIAL_EXPERT_DEFINITIONS.map((expert) => {
           const isActive = expert.status === "IMPLEMENTED";
           const href = EXPERT_ACCESS_HREF[expert.expertId]?.(projectId);
-          const providerMeta = buildAiProviderUiMetadata(resolveAiProviderNameForExpert(expert.expertId), null);
+          const providerStatus = describeExpertProvider(expert.expertId, process.env);
           const Icon = resolveExpertIcon(expert.visualIdentity);
           const requestedSkills = requestedSkillsForExpert(expert.expertId);
 
@@ -62,39 +65,58 @@ export default async function ExpertsIaPage({ params }: { params: Promise<{ proj
                   <CardTitle className="flex items-center gap-1.5 text-base">
                     <Icon className={cn("size-4 shrink-0", expertIconClassName(expert.visualIdentity))} aria-hidden="true" />
                     {expert.expertName}
-                    <FeatureInfo helpId={`expert-${expert.expertId}`} />
+                    <FeatureInfo helpId={EXPERT_PROFILE_HELP_ID[expert.expertId]} />
                   </CardTitle>
-                  <Badge
-                    variant={isActive ? "default" : "secondary"}
-                    className={cn(
-                      "shrink-0",
-                      isActive && "border-green-600 bg-green-600 text-white hover:bg-green-600 hover:text-white"
-                    )}
-                  >
-                    {isActive ? <CheckCircle2 className="size-3" /> : <Clock className="size-3" />}
-                    {isActive ? "Ativo" : "Em implantação"}
-                  </Badge>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Badge
+                      variant={isActive ? "default" : "secondary"}
+                      className={cn(
+                        "shrink-0",
+                        isActive && "border-green-600 bg-green-600 text-white hover:bg-green-600 hover:text-white"
+                      )}
+                    >
+                      {isActive ? <CheckCircle2 className="size-3" /> : <Clock className="size-3" />}
+                      {isActive ? "Ativo" : "Em implantação"}
+                    </Badge>
+                    <FeatureInfo helpId="experts.hub.status-expert" />
+                  </div>
                 </div>
                 <p className="text-xs text-muted-foreground">{expert.mission}</p>
-                <Badge variant="outline" className="w-fit text-[10px] font-normal text-muted-foreground">
-                  Provider: {providerMeta.providerLabel}
-                </Badge>
+                <div className="flex items-center gap-1">
+                  <Badge
+                    variant="outline"
+                    data-testid={`expert-provider-${expert.expertId}`}
+                    className={cn(
+                      "h-auto w-fit whitespace-normal text-left text-[11px] font-medium",
+                      providerStatus.isReal ? "border-green-700 text-green-900" : "border-amber-700 bg-amber-50 text-amber-950"
+                    )}
+                  >
+                    Provider: {providerStatus.label}
+                  </Badge>
+                  <FeatureInfo helpId="experts.hub.provider" />
+                </div>
               </CardHeader>
               <CardContent className="mt-auto space-y-3">
                 <div className="space-y-2 border-t pt-3">
-                  <p className="text-xs font-semibold">Skills selecionadas para este especialista</p>
+                  <p className="flex items-center gap-1 text-xs font-semibold">
+                    Skills selecionadas para este especialista
+                    <FeatureInfo helpId="experts.hub.skills" />
+                  </p>
                   {requestedSkills.map((skill) => (
                     <div key={skill.id} className="space-y-1 rounded-md border p-2">
                       <p className="break-words text-xs font-semibold">{skill.label}</p>
                       <p className="text-xs text-muted-foreground">{skill.purpose}</p>
-                      <Badge variant="outline" className="text-[10px]">Pendente de integração ao ACC</Badge>
+                      <Badge variant="outline" className="whitespace-normal text-[10px]">{SKILL_STATE_LABEL[skill.state]}</Badge>
                     </div>
                   ))}
                 </div>
                 {isActive && href ? (
-                  <Link href={href} className={cn(buttonVariants({ size: "sm" }))}>
-                    Abrir Expert
-                  </Link>
+                  <div className="flex items-center gap-1">
+                    <Link href={href} className={cn(buttonVariants({ size: "sm" }))}>
+                      Abrir Expert
+                    </Link>
+                    <FeatureInfo helpId="experts.hub.abrir-expert" />
+                  </div>
                 ) : isActive ? (
                   <span className="text-xs font-medium text-muted-foreground">
                     Operacional — consulta disponível via API; interface dedicada ainda não construída nesta fase.
@@ -109,21 +131,15 @@ export default async function ExpertsIaPage({ params }: { params: Promise<{ proj
           );
         })}
       </div>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Engenharia industrial e logística — especialidade proposta</CardTitle>
-          <p className="text-xs text-muted-foreground">Ainda não existe um Expert oficial próprio de Engenharia neste catálogo. A skill está associada à especialidade futura, sem simular execução pelo Diretor de Planejamento.</p>
-        </CardHeader>
-        <CardContent className="space-y-1">
-          <p className="text-xs font-semibold">{ENGINEERING_SKILL_REQUEST.label}</p>
-          <p className="text-xs text-muted-foreground">{ENGINEERING_SKILL_REQUEST.purpose}</p>
-          <Badge variant="outline" className="text-[10px]">Pendente de integração ao ACC</Badge>
-        </CardContent>
-      </Card>
       <p className="text-xs text-muted-foreground">
-        Ferramenta administrativa selecionada: {SKILL_DISCOVERY_TOOL.label} — busca de skills, não é especialista.
+        <FeatureInfo helpId="experts.hub.nota-skills" /> Ferramenta administrativa selecionada: {SKILL_DISCOVERY_TOOL.label} — busca de skills, não é especialista.
         As skills foram informadas como instaladas no Claude Code; essa instalação não ativa automaticamente seu uso
-        pelas consultas do ACC. Antes de marcar uma skill como ativa, integrar e verificar seu conteúdo e execução.
+        pelas consultas do ACC. Planejamento e Engenharia recebem um resumo técnico próprio, versionado no ACC, com
+        procedência registrada; as demais seguem pendentes de integração.
+      </p>
+      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+        Diferença entre os especialistas e a AXIA
+        <FeatureInfo helpId="experts.hub.axia-diferenca" />
       </p>
     </div>
   );

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { CheckSquare2, CheckCircle2, ExternalLink } from "lucide-react";
+import { FeatureInfo } from "@/components/shared/feature-info";
 
 type StartupStep = {
   id: string;
@@ -70,13 +71,16 @@ export function NewProjectStartupChecklist({ projectId }: { projectId: string })
   return (
     <section aria-label="Checklist de implantação de novo projeto" className="space-y-4">
       <div className="rounded-md border p-4">
-        <h2 className="flex items-center gap-2 text-base font-semibold"><CheckSquare2 className="size-5" /> Checklist para configurar um novo projeto</h2>
+        <h2 className="flex items-center gap-2 text-base font-semibold"><CheckSquare2 className="size-5" /> Checklist para configurar um novo projeto<FeatureInfo helpId="juridico.startup.etapa" /></h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Clique no título da etapa para abrir sua página, preencha os dados e volte ao Start-up para marcar o checkbox. Um tique verde DONE confirma a marcação.
           O registro do checklist é manual e não substitui a validação dos dados pelo ACC.
         </p>
-        <p className="mt-3 text-sm font-semibold" aria-live="polite">
-          {loaded ? `${checkedCount} de ${STEPS.length} etapas marcadas (${Math.round(100 * checkedCount / STEPS.length)}%)` : "Carregando marcações..."}
+        <p className="mt-3 flex items-center gap-1 text-sm font-semibold">
+          <span aria-live="polite">
+            {loaded ? `${checkedCount} de ${STEPS.length} etapas marcadas (${Math.round(100 * checkedCount / STEPS.length)}%)` : "Carregando marcações..."}
+          </span>
+          <FeatureInfo helpId="juridico.startup.checklist" />
         </p>
         <div role="progressbar" aria-valuemin={0} aria-valuemax={STEPS.length} aria-valuenow={checkedCount} aria-label="Progresso do checklist" className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
           <div className="h-full bg-green-600 transition-all" style={{ width: `${100 * checkedCount / STEPS.length}%` }} />
@@ -92,10 +96,13 @@ export function NewProjectStartupChecklist({ projectId }: { projectId: string })
           <div className="space-y-2">
             {STEPS.filter((step) => step.group === group).map((step) => (
               <div key={step.id} className="flex gap-3 rounded-md border p-3">
-                <input type="checkbox" id={`startup-check-${step.id}`} checked={Boolean(completed[step.id])} disabled={!loaded}
-                  onChange={(event) => toggle(step.id, event.target.checked)}
-                  aria-label={`Marcar como concluído: ${step.title}`}
-                  className="mt-1 size-5 shrink-0 cursor-pointer accent-green-600" />
+                <div className="flex shrink-0 flex-col items-center gap-1">
+                  <input type="checkbox" id={`startup-check-${step.id}`} checked={Boolean(completed[step.id])} disabled={!loaded}
+                    onChange={(event) => toggle(step.id, event.target.checked)}
+                    aria-label={`Marcar como concluído: ${step.title}`}
+                    className="mt-1 size-5 shrink-0 cursor-pointer accent-green-600" />
+                  <FeatureInfo helpId="juridico.startup.etapa" />
+                </div>
                 <div className="min-w-0 flex-1 space-y-1">
                   <Link href={`/${projectId}/${step.path}`}
                     className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary underline-offset-2 hover:underline focus-visible:underline">

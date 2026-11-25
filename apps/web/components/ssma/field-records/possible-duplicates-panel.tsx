@@ -1,4 +1,5 @@
 import { decideIncidentLinkAction } from "@/app/[projectId]/ssma-registros/incident-link-actions";
+import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { PossibleDuplicate } from "@/lib/ssma/dashboard-metrics";
 
@@ -19,7 +20,7 @@ export function PossibleDuplicatesPanel({
   return (
     <Card data-testid="possible-duplicates">
       <CardHeader>
-        <CardTitle className="text-base">Possíveis duplicidades de acidente ({pairs.length})</CardTitle>
+        <CardTitle className="flex items-center gap-1.5 text-base">Possíveis duplicidades de acidente ({pairs.length})<FeatureInfo helpId="ssma.registros.duplicidades" /></CardTitle>
         <p className="text-xs text-muted-foreground">
           Um acidente do formulário e uma ocorrência de campo foram registrados com até 24 h de diferença. Só você, Administrador, decide:
           “Mesmo fato” conta os dois relatos uma vez no Dashboard; “Fatos distintos” mantém os dois e para de sugerir. Nada é apagado e a decisão fica na auditoria.
@@ -35,7 +36,8 @@ export function PossibleDuplicatesPanel({
               <input type="hidden" name="projectId" value={projectId} />
               <input type="hidden" name="formSubmissionId" value={pair.formSubmissionId} />
               <input type="hidden" name="fieldRecordId" value={pair.fieldRecordId} />
-              <input name="note" maxLength={500} placeholder="Observação (opcional)" className="min-w-48 flex-1 rounded-md border px-2 py-1 text-sm" />
+              <input name="note" maxLength={500} placeholder="Observação (opcional)" aria-label="Observação da decisão" className="min-w-48 flex-1 rounded-md border px-2 py-1 text-sm" />
+              <FeatureInfo helpId="ssma.registros.duplicidade-observacao" />
               <button type="submit" name="decision" value="SAME_FACT" className="rounded-md border border-[#7f1d1d] px-3 py-1.5 text-sm font-semibold text-red-700">Mesmo fato</button>
               <button type="submit" name="decision" value="DISTINCT_FACTS" className="rounded-md border px-3 py-1.5 text-sm font-semibold">Fatos distintos</button>
             </form>

@@ -3,6 +3,10 @@
 import { createSupabaseServerClient } from "@axion/db/server";
 import { getCurrentProjectPermission } from "@/lib/contract-review";
 import { LEGAL_ADMIN_ONLY_MESSAGE, isActiveAdminOfProject } from "@/lib/legal/access";
+import { precheckAiConsult, reserveAiConsult } from "./alert-consult/consult-quota";
+import { gatedProviderForExpert } from "./governance/quota-gated-provider";
+import { sessionAuditSink } from "./governance/consult-audit";
+import { LEGAL_CONSULTANT_EXPERT_ID } from "./experts/legal-consultant/identity";
 import { answerLegalConsultantQuery } from "./experts/legal-consultant/query";
 import {
   MISSING_QUERY_CONTEXT_MESSAGE,
@@ -59,11 +63,21 @@ export async function askLegalConsultantAction(
       meta: null,
     };
   }
+
+  // Limite de IA (EXPERT_PANEL): pré-verificação somente leitura; reserva na FRONTEIRA DO PROVEDOR — contrato
+  // ilegível (guard em answerLegalConsultantQuery) recusa sem consumir unidade. Sem reserva, nenhuma chamada.
+  const precheck = await precheckAiConsult(supabase, projectId);
+  if (!precheck.ok) return { response: null, error: precheck.error, meta: null };
+
   try {
     const result = await answerLegalConsultantQuery(
       supabase,
       { scope: "PROJECT", projectId, question },
-      undefined,
+      gatedProviderForExpert(LEGAL_CONSULTANT_EXPERT_ID, (expertId) =>
+        reserveAiConsult(supabase, projectId, "EXPERT_PANEL", projectId, expertId),
+        undefined,
+        sessionAuditSink(supabase, projectId, "EXPERT_PANEL", projectId)
+      ),
       // A analise pre-contratual so responde com o texto do contrato/minuta
       // em maos. Sem documento legivel, answerLegalConsultantQuery lanca um
       // ExpertQuerySafeError e o provider nem e chamado.
