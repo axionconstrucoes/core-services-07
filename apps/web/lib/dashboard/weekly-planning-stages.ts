@@ -79,3 +79,92 @@ export function scheduleUpdatedStage(input: { status: string; detail: string | n
   if (input.status === "ERRO") return { tone: "error", text: input.detail ?? "Erro" };
   return { tone: "warning", text: input.detail ?? "Pendente" };
 }
+
+// ---------------------------------------------------------------------------------------------
+// Correção de 25/11/2026 (fontes do Dashboard): (1) MPP EFETIVO, (2) data/semana da fonte, (3) frescor da sincronização.
+// ---------------------------------------------------------------------------------------------
+
+export interface MppAttachmentCandidate {
+  email_id: string;
+  processing_status: string | null | undefined;
+  /** Versão de documento criada a partir do anexo: só existe para o MPP que a regra de recebimento SELECIONOU. */
+  document_version_id?: string | null;
+}
+
+/**
+ * Escolhe, entre os anexos CRONOGRAMA_MPP, o que representa o cronograma da semana: o e-mail mais recente e, dentro dele,
+ * o MPP efetivamente selecionado (com versão de documento) ou, na falta, o processado. Antes o painel pegava o "primeiro" do
+ * e-mail e, quando o e-mail trazia um segundo .mpp preservado como evidência (ex.: "Estratificação de Tarefas Futuras"),
+ * exibia "Recebido, não processado" mesmo com o cronograma da semana já processado.
+ */
+export function pickEffectiveMppAttachment<T extends MppAttachmentCandidate>(
+  candidates: readonly T[],
+  sentAtByEmailId: (emailId: string) => string | null | undefined
+): T | undefined {
+  let best: T | undefined;
+  let bestTime = Number.NEGATIVE_INFINITY;
+  let bestRank = Number.POSITIVE_INFINITY;
+  for (const c of candidates) {
+    const parsed = Date.parse(sentAtByEmailId(c.email_id) ?? "");
+    const time = Number.isNaN(parsed) ? Number.NEGATIVE_INFINITY : parsed;
+    const rank = c.document_version_id ? 0 : c.processing_status === "PROCESSED" ? 1 : c.processing_status === "FAILED" ? 2 : 3;
+    if (best === undefined || time > bestTime || (time === bestTime && rank < bestRank)) {
+      best = c;
+      bestTime = time;
+      bestRank = rank;
+    }
+  }
+  return best;
+}
+
+const REFERENCE_TZ = "America/Sao_Paulo";
+
+function formatReferenceDate(iso: string): string | null {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  return new Date(t).toLocaleDateString("pt-BR", { timeZone: REFERENCE_TZ });
+}
+
+function formatReferenceDateTime(iso: string): string | null {
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return null;
+  const d = new Date(t);
+  return `${d.toLocaleDateString("pt-BR", { timeZone: REFERENCE_TZ })} ${d.toLocaleTimeString("pt-BR", { timeZone: REFERENCE_TZ, hour: "2-digit", minute: "2-digit" })}`;
+}
+
+/** Rótulo "Relatório semanal W43 · 22/10/2026" para dizer de QUAL semana e data vem um indicador. null quando a fonte não existe. */
+export function sourceReferenceLabel(input: { kind: string; weekLabel?: string | null; at?: string | null }): string | null {
+  const date = input.at ? formatReferenceDate(input.at) : null;
+  const week = input.weekLabel?.trim() || null;
+  if (!week && !date) return null;
+  return [input.kind, week, date ? `· ${date}` : null].filter(Boolean).join(" ").replace(" ·", " ·");
+}
+
+/** Idade máxima (h) aceitável da última sincronização, por fonte, conforme o agendamento (e-mail 15 min; Diário diário; Construmanager 6 h). */
+export const SYNC_MAX_AGE_HOURS: Readonly<Record<string, number>> = { EMAIL: 2, DIARIO_OBRA: 30, CONSTRUMANAGER: 8 };
+
+export interface SyncFreshness {
+  lastSyncAt: string | null;
+  ageHours: number | null;
+  /** true quando há agendamento esperado e a última sincronização é mais antiga que o limite (ou nunca ocorreu). */
+  stale: boolean;
+}
+
+/** null para fontes sem sincronização automática (ex.: SSMA/Drive, planilhas): não inventa frescor. */
+export function syncFreshness(sourceType: string, lastSyncAt: string | null | undefined, now: Date = new Date()): SyncFreshness | null {
+  const limit = SYNC_MAX_AGE_HOURS[sourceType];
+  if (limit === undefined) return null;
+  const t = lastSyncAt ? Date.parse(lastSyncAt) : Number.NaN;
+  if (Number.isNaN(t)) return { lastSyncAt: null, ageHours: null, stale: true };
+  const ageHours = Math.max(0, (now.getTime() - t) / (60 * 60 * 1000));
+  return { lastSyncAt: lastSyncAt ?? null, ageHours, stale: ageHours > limit };
+}
+
+/** "última sincronização 25/11/2026 02:44" ou, se atrasada, o aviso de que a conexão está ativa mas a sincronização automática parou. */
+export function syncFreshnessText(f: SyncFreshness): string {
+  if (!f.lastSyncAt) return "conectada, sem sincronização registrada — sincronização automática parada ou nunca executada";
+  const when = formatReferenceDateTime(f.lastSyncAt) ?? f.lastSyncAt;
+  if (!f.stale) return `última sincronização ${when}`;
+  const idade = f.ageHours === null ? "" : ` (há ${Math.floor(f.ageHours)} h)`;
+  return `última sincronização ${when}${idade} — conexão ativa, mas a sincronização automática parece pausada`;
+}
