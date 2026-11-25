@@ -24,7 +24,7 @@ const ICON_ON_DARK = "text-white hover:text-white focus-visible:text-white";
 export default async function ProjetosPage() {
   const projects = await getProjects();
   const contractedProjects = projects.filter(
-    (project) => project.workspaceType === "OBRA"
+    (project) => project.workspaceType === "OBRA" && project.status !== "ENCERRADO"
   );
 
   const supabase = await createSupabaseServerClient();
