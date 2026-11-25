@@ -26,7 +26,7 @@ import { startFakePostgrest } from "./lib/fake-postgrest-server.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..");
-const KEY = "sb_secret_TESTE_nao_e_chave_real_0000000000";
+const KEY = "sb_secret_FAKE_teste_nao_e_chave_real_000000";
 let passed = 0;
 async function test(name, fn) {
   try {
