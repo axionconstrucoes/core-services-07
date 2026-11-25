@@ -4,10 +4,10 @@
 //   1. política (quais status/métodos repetem; Retry-After; backoff com jitter e teto);
 //   2. indisponibilidade temporária do Supabase e recuperação após 522;
 //   3. falhas consecutivas além do limite (erro curto, sem HTML);
-//   4. escrita: 522 (não entregue) repete sem duplicar; 504 após gravar (ambíguo) NÃO repete;
+//   4. escrita: 522 e 504 após gravar não repetem POST genérico;
 //   5. sincronização interrompida: checkpoint preservado na falha, retomada sem duplicidade;
 //   6. concorrência entre agendadores (duas execuções simultâneas com falhas injetadas);
-//   7. recuperação da importação de anexos (upsert idempotente);
+//   7. reconciliação de anexo após escrita com resposta perdida;
 //   8. mecanismo real dos workflows: processo filho com NODE_OPTIONS=--import=install-resilient-fetch.mjs,
 //      o heartbeat e o gmail-inbound-sync (mensagem de erro de comunicação ≠ "configuração não encontrada");
 //   9. logs sem HTML, sem query string e sem chave; hosts fora do Supabase intocados.
@@ -70,26 +70,20 @@ await test("política: GET repete em 408/429/502/503/504/52x; 4xx/500 não", () 
   }
 });
 
-await test("política: escrita só repete quando a requisição comprovadamente não chegou à origem", () => {
-  for (const status of [408, 429, 503, 521, 522, 523]) {
-    assert.equal(decideRetry({ method: "POST", path: "/rest/v1/emails", status }).retry, true, `POST ${status}`);
-    assert.equal(decideRetry({ method: "PATCH", path: "/rest/v1/emails", status }).retry, true, `PATCH ${status}`);
+await test("política: POST e PATCH só repetem com idempotência explícita", () => {
+  for (const status of [408, 429, 502, 503, 504, 520, 521, 522, 523, 524]) {
+    for (const method of ["POST", "PATCH"]) {
+      assert.equal(decideRetry({ method, status }).retry, false, `${method} ${status}`);
+      assert.equal(decideRetry({ method, status, forceIdempotent: true }).retry, true, `${method} idempotente ${status}`);
+    }
   }
-  for (const status of [502, 504, 520, 524]) {
-    assert.equal(decideRetry({ method: "POST", path: "/rest/v1/emails", status }).retry, false, `POST ${status} ambíguo`);
-  }
-  // Upsert (Prefer resolution=merge-duplicates) é idempotente: repete inclusive em 504.
-  assert.equal(
-    decideRetry({ method: "POST", path: "/rest/v1/x", status: 504, headers: { Prefer: "resolution=merge-duplicates" } }).retry,
-    true
-  );
 });
 
-await test("política: erros de rede — conexão recusada repete até escrita; ECONNRESET em escrita não", () => {
+await test("política: erros de rede — falhas de rede em escrita genérica não são repetidas", () => {
   const refused = Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNREFUSED" } });
   const reset = Object.assign(new TypeError("fetch failed"), { cause: { code: "ECONNRESET" } });
   const abort = Object.assign(new Error("aborted"), { name: "AbortError" });
-  assert.equal(decideRetry({ method: "POST", networkError: refused }).retry, true);
+  assert.equal(decideRetry({ method: "POST", networkError: refused }).retry, false);
   assert.equal(decideRetry({ method: "POST", networkError: reset }).retry, false);
   assert.equal(decideRetry({ method: "GET", networkError: reset }).retry, true);
   assert.equal(decideRetry({ method: "GET", networkError: abort }).retry, false);
@@ -205,14 +199,16 @@ await test("GET 503 em /rest/v1 fica com o retry do postgrest-js (sem empilhar c
 });
 
 // ---------------------------------------------------------------- 4. Escrita sem duplicidade
-await test("escrita: POST com 522 (não entregue) é repetido e grava UMA vez", async () => {
-  const server = await startFakePostgrest({ tables: { emails: [] }, uniqueKeys: { emails: ["project_id", "provider_message_id"] } });
+await test("escrita: POST aplicado antes de um 522 gera um único efeito sem reenvio", async () => {
+  const server = await startFakePostgrest({ tables: { events: [] } });
   try {
-    server.inject(isTable("emails", "POST"), 2, "522");
+    server.inject(isTable("events", "POST"), 1, "522-after-commit");
     const { client } = makeClient(server);
-    const { error } = await client.from("emails").insert([{ project_id: "p1", provider_message_id: "m1" }, { project_id: "p1", provider_message_id: "m2" }]);
-    assert.equal(error, null);
-    assert.equal(server.state.emails.length, 2);
+    const result = await client.from("events").insert({ kind: "test" });
+    assert.equal(result.status, 522);
+    assert.equal(result.error.code, "HTTP_522");
+    assert.equal(server.hits.filter(isTable("events", "POST")).length, 1);
+    assert.equal(server.state.events.length, 1);
   } finally {
     await server.close();
   }
@@ -291,13 +287,12 @@ await test("sincronização interrompida: checkpoint preservado na falha e retom
   }
 });
 
-await test("recuperação dentro da própria execução: 522 transitório em cada etapa não derruba a sincronização", async () => {
+await test("recuperação dentro da própria execução: 522 transitório em leituras não derruba a sincronização", async () => {
   const server = await syncServer();
   try {
     server.inject(isTable("project_email_ingestion_configs", "GET"), 1, "522");
     server.inject(isTable("emails", "GET"), 1, "522");
-    server.inject(isTable("emails", "POST"), 1, "522");
-    server.inject(isTable("project_email_ingestion_configs", "PATCH"), 1, "522");
+
     const result = await miniSync(makeClient(server).client, ["a", "b"], "2026-11-25T17:02:00Z");
     assert.deepEqual(result, { inserted: 2, duplicates: 0 });
     assert.equal(server.state.project_email_ingestion_configs[0].last_sync_at, "2026-11-25T17:02:00Z");
@@ -309,7 +304,7 @@ await test("recuperação dentro da própria execução: 522 transitório em cad
 await test("concorrência entre agendadores: duas execuções simultâneas (pg_cron × schedule) com falhas → sem duplicidade", async () => {
   const server = await syncServer();
   try {
-    server.inject(isTable("emails", "POST"), 2, "522");
+
     server.inject(isTable("emails", "GET"), 1, "502");
     const msgs = Array.from({ length: 25 }, (_, i) => `msg-${i}`);
     const results = await Promise.all([
@@ -326,17 +321,19 @@ await test("concorrência entre agendadores: duas execuções simultâneas (pg_c
 });
 
 // ---------------------------------------------------------------- 7. Importação de anexos
-await test("importação de anexos: upsert idempotente repete em 504 e mantém um registro por anexo", async () => {
+await test("importação de anexos: upsert genérico com 522 após gravar pode ser reconciliado por leitura", async () => {
   const server = await startFakePostgrest({ tables: { email_attachments: [] }, uniqueKeys: { email_attachments: ["email_id", "gmail_attachment_id"] } });
   try {
-    server.inject(isTable("email_attachments", "POST"), 1, "504-after-commit");
-    server.inject(isTable("email_attachments", "POST"), 1, "522");
+    server.inject(isTable("email_attachments", "POST"), 1, "522-after-commit");
     const { client } = makeClient(server);
     const row = { email_id: "e1", gmail_attachment_id: "att-1", processing_status: "PROCESSED" };
-    const { error } = await client.from("email_attachments").upsert(row, { onConflict: "email_id,gmail_attachment_id" });
-    assert.equal(error, null);
+    const written = await client.from("email_attachments").upsert(row, { onConflict: "email_id,gmail_attachment_id" });
+    assert.equal(written.status, 522);
+    const found = await client.from("email_attachments").select("*").eq("email_id", "e1").eq("gmail_attachment_id", "att-1").single();
+    assert.equal(found.error, null);
+    assert.equal(found.data.processing_status, "PROCESSED");
     assert.equal(server.state.email_attachments.length, 1);
-    assert.equal(server.hits.length, 3);
+    assert.equal(server.hits.filter(isTable("email_attachments", "POST")).length, 1);
   } finally {
     await server.close();
   }

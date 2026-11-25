@@ -183,3 +183,4 @@ scripts/test-compat-app-antigo.mjs
 scripts/test-homolog-executor-api-pronto.mjs
 scripts/test-alert-send-governor.mjs
 scripts/test-alert-send-governor-sql.mjs
+scripts/test-resilient-fetch.mjs

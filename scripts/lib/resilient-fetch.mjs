@@ -7,11 +7,9 @@
 //
 // Regras (todas cobertas por scripts/test-resilient-fetch.mjs):
 //   - Status transitórios: 408, 429, 502, 503, 504 e a família Cloudflare 520–524.
-//   - Métodos idempotentes (GET, HEAD, OPTIONS, PUT, DELETE) e POST com `Prefer: resolution=...` (upsert) repetem em
-//     qualquer status transitório e em erro de rede.
-//   - POST/PATCH NÃO idempotentes só repetem quando a requisição comprovadamente NÃO chegou à origem: 408, 429, 503,
-//     521, 522, 523 e erros de conexão (ECONNREFUSED, ENOTFOUND, EAI_AGAIN, UND_ERR_CONNECT_TIMEOUT...). 502/504/520/524
-//     e ECONNRESET são ambíguos (a origem pode ter gravado) e NÃO são repetidos para escrita — evita duplicidade.
+//   - Métodos HTTP idempotentes e chamadas com opção explícita de idempotência repetem falhas transitórias.
+//   - POST/PATCH genéricos não repetem. Um status transitório ou um cabeçalho Prefer não comprova
+//     que a origem deixou de aplicar a escrita ou que os efeitos da operação podem ser repetidos.
 //   - Backoff exponencial com jitter completo, limite de tentativas e respeito a Retry-After (segundos ou data HTTP),
 //     sempre limitado por maxDelayMs.
 //   - Corpo só é reenviado quando é reaproveitável (string, ArrayBuffer, Uint8Array, Blob, URLSearchParams, FormData).
@@ -25,8 +23,6 @@
 //   - Só atua nos hosts informados (por padrão, o host do Supabase); qualquer outro host passa direto, sem alteração.
 
 export const TRANSIENT_STATUSES = new Set([408, 429, 502, 503, 504, 520, 521, 522, 523, 524]);
-// Status em que a requisição comprovadamente não foi processada pela origem (seguro repetir até escrita).
-export const NOT_DELIVERED_STATUSES = new Set([408, 429, 503, 521, 522, 523]);
 const IDEMPOTENT_METHODS = new Set(["GET", "HEAD", "OPTIONS", "PUT", "DELETE"]);
 const POSTGREST_OWN_RETRY = new Set([503, 520]);
 const CONNECT_PHASE_CODES = new Set([
@@ -62,10 +58,10 @@ function isAbort(error) {
 
 export function classifyNetworkError(error) {
   const code = errorCode(error);
-  if (error?.name === "TimeoutError") return { retryable: true, notDelivered: false, label: "timeout" };
-  if (isAbort(error)) return { retryable: false, notDelivered: false, label: "abortada" };
-  if (code && CONNECT_PHASE_CODES.has(code)) return { retryable: true, notDelivered: true, label: code };
-  return { retryable: true, notDelivered: false, label: code ?? error?.name ?? "erro de rede" };
+  if (error?.name === "TimeoutError") return { retryable: true, label: "timeout" };
+  if (isAbort(error)) return { retryable: false, label: "abortada" };
+  if (code && CONNECT_PHASE_CODES.has(code)) return { retryable: true, label: code };
+  return { retryable: true, label: code ?? error?.name ?? "erro de rede" };
 }
 
 export function parseRetryAfter(value, now = Date.now()) {
@@ -82,17 +78,6 @@ export function computeDelay(attemptIndex, { baseDelayMs, maxDelayMs, random = M
   const ceiling = Math.min(maxDelayMs, baseDelayMs * 2 ** attemptIndex);
   // Jitter completo com piso de metade: espalha execuções simultâneas sem zerar a espera.
   return Math.round(ceiling / 2 + random() * (ceiling / 2));
-}
-
-function headerValue(headers, name) {
-  if (!headers) return null;
-  if (typeof headers.get === "function") return headers.get(name);
-  if (Array.isArray(headers)) {
-    const found = headers.find(([key]) => String(key).toLowerCase() === name.toLowerCase());
-    return found ? found[1] : null;
-  }
-  const key = Object.keys(headers).find((k) => k.toLowerCase() === name.toLowerCase());
-  return key ? headers[key] : null;
 }
 
 function isReplayableBody(body) {
@@ -117,33 +102,22 @@ function describeRequest(input, init) {
     url = null;
   }
   const method = String(init?.method ?? (isRequest ? input.method : "GET")).toUpperCase();
-  const headers = init?.headers ?? (isRequest ? input.headers : undefined);
-  return { url, method, headers, isRequest };
-}
-
-export function isIdempotentRequest(method, headers) {
-  if (IDEMPOTENT_METHODS.has(method)) return true;
-  if (method === "POST") {
-    const prefer = String(headerValue(headers, "Prefer") ?? "");
-    if (/resolution=(merge|ignore)-duplicates/.test(prefer)) return true;
-  }
-  return false;
+  return { url, method, isRequest };
 }
 
 export function decideRetry({
   method,
-  headers,
   path,
   status = null,
   networkError = null,
   postgrestOwnRetry = true,
   forceIdempotent = false,
 }) {
-  const idempotent = forceIdempotent || isIdempotentRequest(method, headers);
+  const idempotent = forceIdempotent || IDEMPOTENT_METHODS.has(method);
   if (networkError) {
     const info = classifyNetworkError(networkError);
     if (!info.retryable) return { retry: false, reason: info.label };
-    if (idempotent || info.notDelivered) return { retry: true, reason: info.label };
+    if (idempotent) return { retry: true, reason: info.label };
     return { retry: false, reason: `${info.label} (escrita ambígua: não repetida)` };
   }
   if (!TRANSIENT_STATUSES.has(status)) return { retry: false, reason: `HTTP ${status}` };
@@ -156,7 +130,7 @@ export function decideRetry({
   ) {
     return { retry: false, reason: `HTTP ${status} (repetido pelo postgrest-js)` };
   }
-  if (idempotent || NOT_DELIVERED_STATUSES.has(status)) return { retry: true, reason: `HTTP ${status}` };
+  if (idempotent) return { retry: true, reason: `HTTP ${status}` };
   return { retry: false, reason: `HTTP ${status} (escrita ambígua: não repetida)` };
 }
 
@@ -241,7 +215,7 @@ export function createResilientFetch(options = {}) {
   const postgrestOwnRetry = options.postgrestOwnRetry ?? true;
 
   async function resilientFetch(input, init) {
-    const { url, method, headers, isRequest } = describeRequest(input, init);
+    const { url, method, isRequest } = describeRequest(input, init);
     const inScope = url && (!hosts || hosts.has(url.host.toLowerCase()));
     const body = init?.body;
     if (!inScope || isRequest || !isReplayableBody(body)) return fetchImpl(input, init);
@@ -279,7 +253,6 @@ export function createResilientFetch(options = {}) {
 
       const decision = decideRetry({
         method,
-        headers,
         path: url.pathname,
         status: response?.status ?? null,
         networkError,
