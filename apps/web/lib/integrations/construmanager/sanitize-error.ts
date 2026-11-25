@@ -34,6 +34,16 @@ export function sanitizeConstrumanagerApiError(error: unknown): string {
     return "A API do Construmanager rejeitou a consulta de metadados. Detalhe técnico omitido por segurança.";
   }
 
+  // Página HTML de erro (ex.: Cloudflare 522 do Supabase, incidente de
+  // 25/11/2026 — o log mostrou só "FALHA: <!DOCTYPE html>"). A primeira
+  // linha de um HTML não diz nada; extrai o código e omite o corpo.
+  if (/^\s*<(!doctype|html)/i.test(base)) {
+    const code = /\b(5\d\d)\b\s*:?\s*([A-Za-z][A-Za-z ]{3,40})?/.exec(base);
+    return code
+      ? `Resposta HTML de erro HTTP ${code[1]}${code[2] ? ` (${code[2].trim()})` : ""}; corpo omitido.`
+      : "Resposta HTML de erro; corpo omitido.";
+  }
+
   // Defesa em profundidade: qualquer quebra de linha indica resposta
   // multi-linha do fornecedor (stack trace é sempre multi-linha).
   const firstLine = base.split(/\r?\n/)[0].trim();

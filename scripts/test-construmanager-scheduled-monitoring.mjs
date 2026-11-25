@@ -291,6 +291,13 @@ check("sucesso com issue aberta nao faz escrita alguma", recuperado.length === 0
 const tranquilo = await rodar({ conclusion: "success" });
 check("sucesso sem issue aberta nao faz nada", tranquilo.length === 0);
 
+// (g2) `skipped` (disparo `schedule` pulado pela guarda de agendador unico
+// com pg_cron ligado) nao e falha: nao cria nem comenta.
+const pulado = await rodar({ conclusion: "skipped" });
+check("skipped nao cria issue", pulado.length === 0);
+const puladoComAberta = await rodar({ conclusion: "skipped", abertas: [issueAberta] });
+check("skipped nao comenta na issue aberta", puladoComAberta.length === 0);
+
 // (h) pull request nao e confundido com issue
 const comPR = await rodar({
   conclusion: "failure",

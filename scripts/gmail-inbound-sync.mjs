@@ -238,17 +238,30 @@ const supabase = createClient(
   }
 );
 
-const { data: config, error: configError } = await supabase
+const { data: config, error: configError, status: configStatus } = await supabase
   .from("project_email_ingestion_configs")
   .select("*")
   .eq("project_id", PROJECT_ID)
   .single();
 
-if (configError || !config) {
+// Falha de comunicação NÃO pode ser reportada como "configuração não encontrada" (incidente 25/11/2026, runs
+// 45552370563 e 45588517558: o edge log registrou HTTP 522 neste GET e o job imprimiu "não encontrada").
+// "Não encontrada" só quando o PostgREST respondeu de fato que não há linha (PGRST116) ou devolveu vazio com sucesso.
+if (configError && configError.code !== "PGRST116") {
   throw new Error(
-    configError?.message ??
-    "Configuração de ingestão não encontrada."
+    `Falha ao ler a configuração de ingestão (HTTP ${configStatus ?? "?"}${configError.code ? `, ${configError.code}` : ""}): ` +
+    (configError.message || "sem mensagem")
   );
+}
+
+if (!config && configStatus !== 200 && configStatus !== 406) {
+  throw new Error(
+    `Falha ao ler a configuração de ingestão (HTTP ${configStatus ?? "?"}, resposta sem dados).`
+  );
+}
+
+if (!config) {
+  throw new Error("Configuração de ingestão não encontrada.");
 }
 
 if (!config.enabled) {

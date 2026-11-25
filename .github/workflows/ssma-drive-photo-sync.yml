@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       # Agendador (docs/operacao-agendador-sla.md): INÍCIO real do job com run_id. Nunca falha o workflow.
       - name: Heartbeat do agendador (início)
         continue-on-error: true
@@ -31,7 +31,7 @@ jobs:
         run: node scripts/scheduler-heartbeat.mjs ssma-drive started
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: "24"
           cache: npm
@@ -43,6 +43,7 @@ jobs:
         run: node scripts/sync-ssma-drive-photos.mjs --apply --limit=100
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NODE_OPTIONS: --import=./scripts/lib/install-resilient-fetch.mjs
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           GOOGLE_DRIVE_CLIENT_ID: ${{ secrets.GOOGLE_DRIVE_CLIENT_ID }}
           GOOGLE_DRIVE_CLIENT_SECRET: ${{ secrets.GOOGLE_DRIVE_CLIENT_SECRET }}
