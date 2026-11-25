@@ -351,5 +351,55 @@ await check("página: alertas de risco separados dos achados de IA; sem zero par
   assert.ok(!/status=\{sheetByCategory\.get\("[A-Z_]+"\) \? "ok"/.test(page), "aba não pode ficar verde só por existir");
 });
 
+// ---------------------------------------------------------------- correção 25/11/2026: MPP efetivo, fonte datada, frescor
+await check("MPP efetivo: e-mail com dois .mpp (Cronograma processado + Estratificação preservada) => mostra o selecionado/processado", () => {
+  const sent = { e1: "2026-10-22T16:29:17Z", e0: "2026-10-19T12:28:54Z" };
+  const lista = [
+    { id: "a", email_id: "e1", original_file_name: "(W42) Estratificação de Tarefas Futuras.mpp", processing_status: "PENDING", document_version_id: null },
+    { id: "b", email_id: "e1", original_file_name: "(W42) WEG - Cronograma.mpp", processing_status: "PROCESSED", document_version_id: "dv1" },
+    { id: "c", email_id: "e0", original_file_name: "(W41) WEG - Cronograma.mpp", processing_status: "PROCESSED", document_version_id: "dv0" },
+  ];
+  assert.equal(WP.pickEffectiveMppAttachment(lista, (id) => sent[id]).id, "b");
+  assert.equal(WP.pickEffectiveMppAttachment([...lista].reverse(), (id) => sent[id]).id, "b", "independe da ordem de entrada");
+  assert.equal(WP.mppFileStage({ attachmentReceived: true, processingStatus: "PROCESSED" }).text, "Recebido e processado");
+});
+
+await check("MPP efetivo: sem selecionado, prefere PROCESSED; e-mail mais novo vence; vazio => undefined; só PENDING continua pendente", () => {
+  const sent = { n: "2026-11-02T10:00:00Z", v: "2026-10-22T10:00:00Z" };
+  assert.equal(WP.pickEffectiveMppAttachment([{ id: "x", email_id: "v", processing_status: "PROCESSED" }, { id: "y", email_id: "n", processing_status: "PENDING" }], (id) => sent[id]).id, "y");
+  assert.equal(WP.pickEffectiveMppAttachment([{ id: "p", email_id: "n", processing_status: "PENDING" }, { id: "q", email_id: "n", processing_status: "PROCESSED" }], (id) => sent[id]).id, "q");
+  assert.equal(WP.pickEffectiveMppAttachment([], () => null), undefined);
+  assert.equal(WP.pickEffectiveMppAttachment([{ id: "z", email_id: "n", processing_status: "PENDING" }], (id) => sent[id]).processing_status, "PENDING");
+});
+
+await check("fonte datada: semana e data (fuso de Brasília) e null sem fonte", () => {
+  assert.equal(WP.sourceReferenceLabel({ kind: "Relatório semanal", weekLabel: "W43", at: "2026-10-22T16:29:17Z" }), "Relatório semanal W43 · 22/10/2026");
+  assert.equal(WP.sourceReferenceLabel({ kind: "Relatório semanal", weekLabel: null, at: "2026-10-22T02:00:00Z" }), "Relatório semanal · 21/10/2026");
+  assert.equal(WP.sourceReferenceLabel({ kind: "Relatório semanal", weekLabel: " ", at: null }), null);
+});
+
+await check("frescor: conexão ativa != sincronizando (atrasada acima do limite; nunca sincronizou; fonte sem agendamento => null)", () => {
+  const now = new Date("2026-11-25T06:30:00Z");
+  const ok = WP.syncFreshness("CONSTRUMANAGER", "2026-11-25T02:44:18Z", now);
+  assert.equal(ok.stale, false);
+  assert.ok(WP.syncFreshnessText(ok).startsWith("última sincronização 24/11/2026"), WP.syncFreshnessText(ok));
+  const atrasada = WP.syncFreshness("CONSTRUMANAGER", "2026-11-25T00:18:29Z", now);
+  assert.equal(atrasada.stale, false, "6 h 12 min ainda dentro do limite de 8 h");
+  const velha = WP.syncFreshness("EMAIL", "2026-11-25T00:32:08Z", now);
+  assert.equal(velha.stale, true);
+  assert.ok(/conexão ativa, mas a sincronização automática parece pausada/.test(WP.syncFreshnessText(velha)));
+  assert.equal(WP.syncFreshness("DIARIO_OBRA", null, now).stale, true);
+  assert.ok(/nunca executada/.test(WP.syncFreshnessText(WP.syncFreshness("DIARIO_OBRA", null, now))));
+  assert.equal(WP.syncFreshness("ESG_SSMA", "2026-11-25T00:00:00Z", now), null);
+});
+
+await check("página: usa MPP efetivo, referência datada da fonte e frescor; 'ATIVO' só sem atraso", () => {
+  const page = src("apps/web/app/[projectId]/dashboard/page.tsx");
+  assert.ok(page.includes("pickEffectiveMppAttachment(") && page.includes("document_version_id"));
+  assert.ok(page.includes("weeklyReportReference") && page.includes("Fonte: {weeklyReportReference}"));
+  assert.ok(page.includes("syncFreshness(entry.sourceType") && page.includes("CONECTADO · SINC. ATRASADA") && page.includes("sync-freshness-"));
+  assert.ok(!/\.sort\(\(a, b\) => \{\s*const aDate[\s\S]{0,200}\}\)\[0\];\s*\n\s*\n\s*const weeklyAttachment/.test(page) || page.includes("pickEffectiveMppAttachment("));
+});
+
 console.log(`\n${passed} OK, ${failed} FAIL`);
 process.exit(failed ? 1 : 0);

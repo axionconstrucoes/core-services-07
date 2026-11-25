@@ -21,7 +21,17 @@ import { resolveEmailDisplayStatus, resolveEmailPipelineStages, type EmailStageS
 import { getDashboardOperationalFacts } from "@/lib/dashboard/get-dashboard-operational-facts";
 import { resolveDashboardRiskLevel, summarizeRiskAlertCases } from "@/lib/dashboard/risk-alert-cases-summary";
 import { computeSlaEscalationBreakdown } from "@/lib/dashboard/sla-escalation-breakdown";
-import { baselineStage, mppFileStage, scheduleUpdatedStage, sheetStage, weeklyReportStage } from "@/lib/dashboard/weekly-planning-stages";
+import {
+  baselineStage,
+  mppFileStage,
+  pickEffectiveMppAttachment,
+  scheduleUpdatedStage,
+  sheetStage,
+  sourceReferenceLabel,
+  syncFreshness,
+  syncFreshnessText,
+  weeklyReportStage,
+} from "@/lib/dashboard/weekly-planning-stages";
 import type { EsgSummary } from "@/lib/dashboard-visual/compute-esg-summary";
 import { getDashboardVisualData } from "@/lib/dashboard-visual/get-dashboard-visual-data";
 import { getEvents } from "@/lib/data";
@@ -337,7 +347,7 @@ export default async function DashboardPage({
       ? await supabase
           .from("email_attachments")
           .select(
-            "id,email_id,original_file_name,confirmed_classification,suggested_classification,processing_status"
+            "id,email_id,original_file_name,confirmed_classification,suggested_classification,processing_status,document_version_id"
           )
           .in("email_id", emailIds)
       : { data: [] };
@@ -346,17 +356,15 @@ export default async function DashboardPage({
     (recentEmails ?? []).map((email) => [email.id, email])
   );
 
-  const scheduleAttachment = (recentAttachments ?? [])
-    .filter(
+  // MPP EFETIVO da semana (o selecionado/processado), não o primeiro anexo .mpp do e-mail mais recente.
+  const scheduleAttachment = pickEffectiveMppAttachment(
+    (recentAttachments ?? []).filter(
       (attachment) =>
         attachment.confirmed_classification === "CRONOGRAMA_MPP" ||
         attachment.suggested_classification === "CRONOGRAMA_MPP"
-    )
-    .sort((a, b) => {
-      const aDate = emailById.get(a.email_id)?.sent_at ?? "";
-      const bDate = emailById.get(b.email_id)?.sent_at ?? "";
-      return new Date(bDate).getTime() - new Date(aDate).getTime();
-    })[0];
+    ),
+    (emailId) => emailById.get(emailId)?.sent_at ?? null
+  );
 
   const weeklyAttachment = (recentAttachments ?? [])
     .filter(
@@ -387,6 +395,12 @@ export default async function DashboardPage({
       : { data: [] };
 
   const latestWorkbook = workbookRows?.[0] ?? null;
+
+  // Semana e data da fonte dos indicadores (avanço físico/financeiro vêm do relatório semanal em Excel).
+  const weeklyReportEmail = weeklyAttachment ? emailById.get(weeklyAttachment.email_id) : undefined;
+  const weeklyReportReference = weeklyAttachment
+    ? sourceReferenceLabel({ kind: "Relatório semanal", weekLabel: weeklyReportEmail?.work_week_label ?? null, at: weeklyReportEmail?.sent_at ?? null })
+    : null;
 
   const { data: weeklySheets } = latestWorkbook
     ? await supabase
@@ -682,9 +696,35 @@ export default async function DashboardPage({
     emailReplyOrigins: opFacts.emailReplyOrigins,
   });
   const emailDisplayStatus = resolveEmailDisplayStatus(data.emailFacts.serviceStatus, emailPipeline);
+  // Frescor da sincronização: "ATIVO" é conexão configurada; só é "sincronizando" se a última execução bem-sucedida é recente.
+  const [{ data: diarioLastRun }, { data: construmanagerLastRun }] = await Promise.all([
+    supabase
+      .from("diario_de_obra_sync_runs")
+      .select("completed_at")
+      .eq("project_id", projectId)
+      .eq("status", "SUCESSO")
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(1),
+    supabase
+      .from("construmanager_sync_runs")
+      .select("completed_at")
+      .eq("project_id", projectId)
+      .eq("status", "SUCESSO")
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(1),
+  ]);
+  const lastSyncBySource: Record<string, string | null> = {
+    EMAIL: data.emailFacts.lastSuccessfulSyncAt ?? null,
+    DIARIO_OBRA: diarioLastRun?.[0]?.completed_at ?? null,
+    CONSTRUMANAGER: construmanagerLastRun?.[0]?.completed_at ?? null,
+  };
+  const freshnessNow = new Date();
   const integrationRows = data.integrationEntries.map((entry) => ({
     ...entry,
     displayStatus: entry.sourceType === "EMAIL" ? emailDisplayStatus : entry.status,
+    freshness: syncFreshness(entry.sourceType, lastSyncBySource[entry.sourceType] ?? null, freshnessNow),
   }));
 
   const activeIntegrations = integrationRows.filter((row) => row.displayStatus === "CONECTADO").length;
@@ -843,7 +883,7 @@ export default async function DashboardPage({
                   })}%`
                 : "—"
             }
-            subtitle={physicalActual === null ? "Aguardando Curva S" : "Último relatório semanal"}
+            subtitle={physicalActual === null ? "Aguardando Curva S" : (weeklyReportReference ?? "Último relatório semanal")}
             icon={CalendarClock}
           />
         </div>
@@ -984,6 +1024,7 @@ export default async function DashboardPage({
           {/* COLUNA 2 */}
           <div className="flex flex-col gap-2">
             <Panel title="Financeiro resumido — R$ mil">
+              {weeklyReportReference ? <SubNote>Fonte: {weeklyReportReference}</SubNote> : null}
               <StatusLine
                 label="Contrato + aditivos" helpId="dashboard.executivo.fin-contrato-aditivos"
                 value={formatDashboardMil(dashboardContractTotal)}
@@ -1175,7 +1216,7 @@ export default async function DashboardPage({
                     <StatusBadge
                       tone={
                         row.displayStatus === "CONECTADO"
-                          ? "ok"
+                          ? (row.freshness?.stale ? "warning" : "ok")
                           : row.displayStatus === "ATENCAO" || row.displayStatus === "PARCIAL"
                             ? "warning"
                             : row.displayStatus === "ERRO"
@@ -1184,7 +1225,7 @@ export default async function DashboardPage({
                       }
                     >
                       {row.displayStatus === "CONECTADO"
-                        ? "ATIVO"
+                        ? (row.freshness?.stale ? "CONECTADO · SINC. ATRASADA" : "ATIVO")
                         : row.displayStatus === "PARCIAL"
                           ? "PARCIAL"
                           : row.displayStatus === "ATENCAO"
@@ -1194,6 +1235,14 @@ export default async function DashboardPage({
                               : "PENDENTE"}
                     </StatusBadge>
                   </div>
+                  {row.freshness ? (
+                    <div
+                      className={`pb-0.5 pl-4 text-[10px] leading-tight ${row.freshness.stale ? "text-amber-300" : "text-[#b8c7dc]"}`}
+                      data-testid={`sync-freshness-${row.sourceType}`}
+                    >
+                      {syncFreshnessText(row.freshness)}
+                    </div>
+                  ) : null}
                   {row.sourceType === "EMAIL" ? (
                     <div className="pb-0.5 pl-4" data-testid="email-pipeline-stages">
                       {emailPipeline.stages.map((stage) => (
