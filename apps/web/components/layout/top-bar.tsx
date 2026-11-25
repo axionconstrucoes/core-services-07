@@ -66,7 +66,7 @@ export async function TopBar({
               nunca usam "hidden" — só truncam/quebram (nunca somem
               definitivamente, exigência explícita). */}
           <ProjectSwitcher
-            projects={projects}
+            projects={projects.filter((project) => project.status !== "ENCERRADO" || project.id === projectId)}
             currentProjectId={projectId}
             className="min-w-24 flex-1 sm:max-w-[9rem] sm:flex-initial sm:px-2 sm:text-xs lg:px-3 lg:text-sm lg:max-w-[10rem] xl:max-w-[16rem]"
           />
