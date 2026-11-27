@@ -105,6 +105,12 @@ async function snapshotOf(c) {
     slaActionId: r.sla_action_id, title: r.title, reference: r.reference, activeForward: null, escalatedLevels: [],
   };
 }
+// Previsão SEMPRE futura em relação ao relógio usado por transitionFor (now = Date.now() + minutos).
+// Antes era fixa em "2026-11-25": a regra correta do ACC (previsão já passada => FORECAST_INVALID) passou a recusá-la
+// depois dessa data e o teste quebrou sem defeito no produto. Data local de São Paulo (YYYY-MM-DD), 7 dias à frente.
+function futureForecastDate(days = 7) {
+  return new Date(Date.now() + days * 86_400_000).toLocaleString("sv-SE", { timeZone: "America/Sao_Paulo" }).slice(0, 10);
+}
 let minute = 0;
 async function transitionFor(c, action, payload, actor = U.RESP) {
   minute += 1;
@@ -193,7 +199,7 @@ await check("E4 TOMANDO PROVIDÊNCIAS em caso EMAIL não encerra o caso nem toca
   const s = await sideRecords();
   const before = await readSide(s);
   const c = await newCase("MEDIUM", "EMAIL");
-  const t1 = await transitionFor(c, "TAKING_ACTION", { text: "Equipe verificando.", forecastAt: "2026-11-25" });
+  const t1 = await transitionFor(c, "TAKING_ACTION", { text: "Equipe verificando.", forecastAt: futureForecastDate() });
   await asUser(U.RESP);
   await rpc(c, t1.expectedState, body(t1, U.RESP));
   assert((await caseRow(c)).state === "IN_PROGRESS");
