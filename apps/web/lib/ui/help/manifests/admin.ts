@@ -166,9 +166,9 @@ export const ADMIN_MANIFEST: HelpManifest = {
 
     // ---- /[projectId]/auditoria ----
     el(AUDIT, "page", "Auditoria", "admin.auditoria.pagina"),
-    el(AUDIT, "filter", "Filtrar logs (Todos, Projetos e versões, Atas, Relatórios e RDO, Medições, E-mails, Ações e SLA, SSMA/ESG, Integrações e falhas)", "admin.auditoria.filtros"),
+    el(AUDIT, "filter", "FILTRAR REGISTROS DE AUDITORIA (Todos, Projetos e versões, Atas, Relatórios e RDO, Medições, E-mails, Ações e SLA, SSMA/ESG, Integrações e falhas, Segurança e permissões; data, responsável, palavra-chave)", "admin.auditoria.filtros"),
     el(AUDIT, "message", "Supervisão do ACC (falhas e indisponibilidades)", "admin.auditoria.supervisao"),
-    el(AUDIT, "table", "Data/Hora", "admin.auditoria.col-data-hora"),
+    el(AUDIT, "table", "Data/Hora — Brasília", "admin.auditoria.col-data-hora"),
     el(AUDIT, "table", "Ator", "admin.auditoria.col-ator"),
     el(AUDIT, "table", "Ação", "admin.auditoria.col-acao"),
     el(AUDIT, "table", "Entidade", "admin.auditoria.col-entidade"),
