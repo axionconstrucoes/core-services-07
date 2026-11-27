@@ -1,6 +1,6 @@
 // Leitura do estado do agendador pelo client de SESSÃO (RLS/permissões
 // preservadas: a RPC exige membro ativo do projeto). Qualquer erro — RPC
-// ausente porque a migration 20261213100000 não foi aplicada, permissão
+// ausente porque a migration 20261213110000 não foi aplicada, permissão
 // negada, rede — vira { available: false }, e o resolvedor mostra
 // "estado do agendador indisponível" em vez de OPERACIONAL.
 

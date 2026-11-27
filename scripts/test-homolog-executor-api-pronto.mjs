@@ -67,7 +67,7 @@ check("o executor --dry-run --todas lista 71 itens e 15 ondas, incluindo a onda 
   assert(/Itens: 71\b/.test(out), "esperado 71 itens");
   assert((out.match(/^== onda /gm) ?? []).length === 15, "esperado 15 ondas");
   assert(/^== onda N \(1\)/m.test(out) && out.includes("20261212100000_watchdog_project_resolution"));
-  assert(/^== onda O \(1\)/m.test(out) && out.includes("20261213100000_scheduler_status_for_project"));
+  assert(/^== onda O \(1\)/m.test(out) && out.includes("20261213110000_scheduler_status_for_project"));
   assert(!out.includes("20261121177000") && !out.includes("20261123302000"), "as adiadas nao entram no plano --todas");
 });
 

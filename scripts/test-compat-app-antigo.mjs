@@ -253,10 +253,10 @@ check("sequencia: 15 ondas, 70 migrations executaveis + hotfix so-registro = 71 
   for (const m of [...seq.ondas.flatMap((o) => o.migrations), ...seq.adiadas.map((a) => a.migration), ...seq.jaEfetivaNaoReaplicar]) assert(local.has(m), `${m} nao existe`);
 });
 
-check("sequencia: o estado efetivo do agendador (onda O, 20261213100000, apos o watchdog N) e o ultimo item executavel e nao ha item irreversivel nas ondas executaveis", () => {
+check("sequencia: o estado efetivo do agendador (onda O, 20261213110000, apos o watchdog N) e o ultimo item executavel e nao ha item irreversivel nas ondas executaveis", () => {
   const ult = seq.ondas.at(-1);
   eq(ult.id, "O");
-  eq(ult.migrations, ["20261213100000_scheduler_status_for_project"]);
+  eq(ult.migrations, ["20261213110000_scheduler_status_for_project"]);
   eq(seq.ondas.at(-2).migrations, ["20261212100000_watchdog_project_resolution"]);
   const exec = seq.ondas.flatMap((o) => o.migrations);
   for (const m of exec) {

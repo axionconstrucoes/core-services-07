@@ -10,13 +10,13 @@
 \endif
 begin read only;
 with o(migration, tipo, objeto, existe) as (values
-    ('20261213100000_scheduler_status_for_project', 'funcao', 'acc_scheduler_status_for_project', exists (select 1 from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = 'acc_scheduler_status_for_project'))
+    ('20261213110000_scheduler_status_for_project', 'funcao', 'acc_scheduler_status_for_project', exists (select 1 from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = 'acc_scheduler_status_for_project'))
 )
 select migration, tipo, objeto, existe,
        case when existe is null or tipo = 'funcao' then null else existe = (:'fase' = 'depois') end as ok
   from o order by migration, tipo, objeto;
 with o(migration, tipo, objeto, existe) as (values
-    ('20261213100000_scheduler_status_for_project', 'funcao', 'acc_scheduler_status_for_project', exists (select 1 from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = 'acc_scheduler_status_for_project'))
+    ('20261213110000_scheduler_status_for_project', 'funcao', 'acc_scheduler_status_for_project', exists (select 1 from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = 'acc_scheduler_status_for_project'))
 )
 select :'fase' as fase,
        count(*) filter (where tipo <> 'funcao' and existe is not null) as objetos_verificados,

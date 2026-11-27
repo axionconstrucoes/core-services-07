@@ -219,7 +219,7 @@ check("cron: intervalo e frequência legível", () => {
 
 // ---------------------------------------------------------------- estrutura
 check("migration: SECURITY DEFINER, search_path vazio, membro do projeto, sem command, grants corretos", () => {
-  const sql = read("supabase/migrations/20261213100000_scheduler_status_for_project.sql");
+  const sql = read("supabase/migrations/20261213110000_scheduler_status_for_project.sql");
   ok(/security definer/i.test(sql) && /set search_path = ''/.test(sql), "definer/search_path");
   ok(/public\.is_project_member\(p_project\)/.test(sql), "guarda de membro");
   ok(!/\bj\.command\b|\bcommand\s*,/.test(sql), "não pode retornar cron.job.command");

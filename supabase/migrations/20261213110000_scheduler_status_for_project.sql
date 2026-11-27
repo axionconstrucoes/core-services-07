@@ -128,7 +128,7 @@ end;
 $fn$;
 
 comment on function public.acc_scheduler_status_for_project(uuid) is
-  'Somente leitura: estado efetivo dos jobs acc-* (pg_cron + heartbeats + janela de congelamento + incidentes SCHEDULER do projeto). Exige membro ativo do projeto. Nunca retorna cron.job.command nem segredos — 20261213100000.';
+  'Somente leitura: estado efetivo dos jobs acc-* (pg_cron + heartbeats + janela de congelamento + incidentes SCHEDULER do projeto). Exige membro ativo do projeto. Nunca retorna cron.job.command nem segredos — 20261213110000.';
 
 revoke all on function public.acc_scheduler_status_for_project(uuid) from public, anon;
 grant execute on function public.acc_scheduler_status_for_project(uuid) to authenticated;
