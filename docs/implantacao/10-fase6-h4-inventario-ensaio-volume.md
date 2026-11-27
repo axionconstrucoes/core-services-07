@@ -1,8 +1,8 @@
-# 10 - Fase 6/H4 (atualizado na H5): inventário das 71 pendentes, ensaio com perfil de volume e caminho para cópia fiel (PLANO; nada foi aplicado)
+# 10 - Fase 6/H4 (atualizado na H5): inventário das 72 pendentes, ensaio com perfil de volume e caminho para cópia fiel (PLANO; nada foi aplicado)
 
 Data da leitura: 21/11/2026. Base: `9858f7c` (integration/acc-noturna). Supabase operacional (`plbcvwostmdmdmrziwmd`): somente SELECT de contagens, tamanhos e metadados (`pg_class`, `pg_stat_user_tables`, `pg_constraint`, `cron.job`); nenhum conteúdo de linha e nenhum dado pessoal foi lido. Nada foi aplicado, registrado ou alterado; o hotfix P0 não foi reaplicado.
 
-## 1. Contagem confirmada (**71** pendentes; 65 na H4 + 4 da onda L + 1 da onda M/H6e + 1 da onda N/watchdog)
+## 1. Contagem confirmada (**72** pendentes; 65 na H4 + 4 da onda L + 1 da onda M/H6e + 1 da onda N/watchdog + 1 da onda O/estado efetivo do agendador)
 
 | Item | Valor |
 |---|---|
@@ -12,7 +12,7 @@ Data da leitura: 21/11/2026. Base: `9858f7c` (integration/acc-noturna). Supabase
 | Aplicada fora do histórico (hotfix `20261121090000`) | 1 |
 | Pendentes | **69** = 64 `pendente` + 3 `pendente-fora-de-ordem` + 1 `pendente-parcial` + 1 `pendente-decisao` |
 
-Conferência: 134 + 1 + 69 = 204 (H4: 134 + 1 + 65 = 200). Na sequência (`scripts/data/implantacao-sequencia.json`): 67 em ondas executáveis (A 3, B 12, C 2, D 12, F 1, G 5, H1 10, I 8, P0 1, J 1, K 8, L 4) + 2 adiadas (`20261121177000` por decisão do dono; `20261123302000` só junto com o app). A diferença para os 57 do doc `09` são as 8 da onda K (Fase 5), já integradas e presentes na sequência.
+Conferência: 134 + 1 + 72 = 207 (estado efetivo do agendador, onda O); 134 + 1 + 69 = 204 (H4: 134 + 1 + 65 = 200). Na sequência (`scripts/data/implantacao-sequencia.json`): 67 em ondas executáveis (A 3, B 12, C 2, D 12, F 1, G 5, H1 10, I 8, P0 1, J 1, K 8, L 4) + 2 adiadas (`20261121177000` por decisão do dono; `20261123302000` só junto com o app). A diferença para os 57 do doc `09` são as 8 da onda K (Fase 5), já integradas e presentes na sequência.
 
 As migrations de H2a (`20261208*`), H2b (`20261209*`) e H2c (`20261210*`) NÃO existiam na base da H4. **Atualização H5: entraram (204 arquivos; 69 pendentes; onda L com as 4; 67 em ondas executáveis + 2 adiadas).** Procedimento de atualização na seção 7 do doc `12`.
 

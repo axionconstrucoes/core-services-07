@@ -39,6 +39,8 @@ import { formatCurrency, formatDateTime } from "@/lib/labels";
 import type { FieldRecordRow } from "@/lib/ssma/field-records/field-record-view";
 import { computeSsmaDashboardMetrics, type SsmaFormMetricsRow, type SsmaIncidentLinkRow } from "@/lib/ssma/dashboard-metrics";
 import { resolveSystemStatus } from "@/lib/ui/resolve-system-status";
+import { dashboardEffectiveStatus } from "@/lib/integrations/effective-status";
+import { getSchedulerSnapshot } from "@/lib/integrations/get-scheduler-status";
 import { HelpHint } from "@/components/shared/help-hint";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -697,7 +699,7 @@ export default async function DashboardPage({
   });
   const emailDisplayStatus = resolveEmailDisplayStatus(data.emailFacts.serviceStatus, emailPipeline);
   // Frescor da sincronização: "ATIVO" é conexão configurada; só é "sincronizando" se a última execução bem-sucedida é recente.
-  const [{ data: diarioLastRun }, { data: construmanagerLastRun }] = await Promise.all([
+  const [{ data: diarioLastRun }, { data: construmanagerLastRun }, scheduler] = await Promise.all([
     supabase
       .from("diario_de_obra_sync_runs")
       .select("completed_at")
@@ -714,6 +716,8 @@ export default async function DashboardPage({
       .not("completed_at", "is", null)
       .order("completed_at", { ascending: false })
       .limit(1),
+    // Estado efetivo do agendador (RPC somente leitura; ausente => "indisponível", nunca ATIVO).
+    getSchedulerSnapshot(supabase, projectId),
   ]);
   const lastSyncBySource: Record<string, string | null> = {
     EMAIL: data.emailFacts.lastSuccessfulSyncAt ?? null,
@@ -725,9 +729,12 @@ export default async function DashboardPage({
     ...entry,
     displayStatus: entry.sourceType === "EMAIL" ? emailDisplayStatus : entry.status,
     freshness: syncFreshness(entry.sourceType, lastSyncBySource[entry.sourceType] ?? null, freshnessNow),
+    effective: dashboardEffectiveStatus(entry.sourceType, entry.sourceType === "EMAIL" ? emailDisplayStatus : entry.status, scheduler, freshnessNow),
   }));
+  // Fonte "conectada" com job desligado/atrasado/em falha (ou agendador ilegível) não conta como ativa.
+  const demotedIntegrations = integrationRows.filter((row) => row.effective !== null);
 
-  const activeIntegrations = integrationRows.filter((row) => row.displayStatus === "CONECTADO").length;
+  const activeIntegrations = integrationRows.filter((row) => row.displayStatus === "CONECTADO" && row.effective === null).length;
   const partialIntegrations = integrationRows.filter((row) => row.displayStatus === "PARCIAL").length;
   const totalIntegrations = integrationRows.length;
 
@@ -754,7 +761,13 @@ export default async function DashboardPage({
           label: "INTEGRAÇÕES PARCIAIS",
           reason: `E-mail com ${emailPipeline.proven} de ${emailPipeline.total} etapas comprovadas.`,
         }
-      : systemStatusBase;
+      : systemStatusBase.level === "OPERACIONAL" && demotedIntegrations.length > 0
+        ? {
+            level: "PARCIAL" as const,
+            label: "INTEGRAÇÕES PARCIAIS",
+            reason: `Estado efetivo: ${demotedIntegrations.map((row) => `${row.label} ${row.effective?.label}`).join("; ")}.`,
+          }
+        : systemStatusBase;
 
   // Planejamento semanal por etapa (recebido × processado × extraído × reconhecido × atualizado).
   const cronogramaEvaluated = data.cronogramaResolution.cause !== null || data.cronogramaResolution.status !== "PENDENTE";
@@ -1200,7 +1213,9 @@ export default async function DashboardPage({
                     <div className="flex min-w-0 items-center gap-2">
                       <span
                         className={`size-2 shrink-0 rounded-full ${
-                          row.displayStatus === "CONECTADO"
+                          row.effective
+                            ? row.effective.tone === "error" ? "bg-red-400" : "bg-amber-400"
+                            : row.displayStatus === "CONECTADO"
                             ? "bg-emerald-400"
                             : row.displayStatus === "ATENCAO" || row.displayStatus === "PARCIAL"
                               ? "bg-amber-400"
@@ -1213,6 +1228,11 @@ export default async function DashboardPage({
                       {row.sourceType === "EMAIL" ? <HelpHint helpId="dashboard.executivo.integracoes-email-etapas" iconClassName={HINT_ICON_CLASS} /> : null}
                     </div>
 
+                    {row.effective ? (
+                      <StatusBadge tone={row.effective.tone === "error" ? "error" : row.effective.tone === "warning" ? "warning" : "pending"}>
+                        {row.effective.label}
+                      </StatusBadge>
+                    ) : (
                     <StatusBadge
                       tone={
                         row.displayStatus === "CONECTADO"
@@ -1234,7 +1254,13 @@ export default async function DashboardPage({
                               ? "ERRO"
                               : "PENDENTE"}
                     </StatusBadge>
+                    )}
                   </div>
+                  {row.effective ? (
+                    <div className="pb-0.5 pl-4 text-[10px] leading-tight text-amber-300" data-testid={`effective-status-${row.sourceType}`}>
+                      {row.effective.reason}
+                    </div>
+                  ) : null}
                   {row.freshness ? (
                     <div
                       className={`pb-0.5 pl-4 text-[10px] leading-tight ${row.freshness.stale ? "text-amber-300" : "text-[#b8c7dc]"}`}

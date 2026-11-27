@@ -30,6 +30,10 @@ import { getDiarioDeObraMonitoringOverview } from "@/lib/integrations/diario-de-
 import { getDiarioDeObraClimateKpiOverview } from "@/lib/integrations/diario-de-obra/get-climate-kpi-overview";
 import { getUserIntegrationEvidence } from "@/lib/integrations/get-user-integration-evidence";
 import { buildSharedSourceRows, buildUserSourceRows } from "@/lib/integrations/user-integration-matrix";
+import { EffectiveStatusPanel, type EffectiveStatusRow } from "@/components/integrations/effective-status-panel";
+import { resolveEffectiveStatus, resolveSchedulerServices, SOURCE_SCHEDULER_JOB } from "@/lib/integrations/effective-status";
+import { resolveEmailIntegrationDisplayStatus } from "@/lib/ui/resolve-integration-display-status";
+import { getSchedulerSnapshot } from "@/lib/integrations/get-scheduler-status";
 
 export const metadata: Metadata = { title: "Integrações" };
 
@@ -44,7 +48,7 @@ export default async function IntegracoesPage({
   const supabase = await createSupabaseServerClient();
   const sources = getSourceDefinitions();
 
-  const [configs, permission, project, projectStartRow, accounts, ingestionConfig, latestRun, attachmentRows, construmanagerMetadata, construmanagerTransitions, diarioDeObraOverview, diarioDeObraClimateKpi, members, userIntegrationEvidence] = await Promise.all([
+  const [configs, permission, project, projectStartRow, accounts, ingestionConfig, latestRun, attachmentRows, construmanagerMetadata, construmanagerTransitions, diarioDeObraOverview, diarioDeObraClimateKpi, members, userIntegrationEvidence, scheduler] = await Promise.all([
     getIntegrationConfigs(projectId),
     getCurrentProjectPermission(projectId),
     getProject(projectId),
@@ -61,6 +65,8 @@ export default async function IntegracoesPage({
     getDiarioDeObraClimateKpiOverview(supabase, projectId),
     getProjectMembers(projectId),
     getUserIntegrationEvidence(supabase, projectId),
+    // Estado efetivo do agendador (RPC somente leitura; ausente => "indisponível", nunca OPERACIONAL).
+    getSchedulerSnapshot(supabase, projectId),
   ]);
 
   const canManage = permission === "ADMINISTRADOR";
@@ -75,6 +81,52 @@ export default async function IntegracoesPage({
     .map((member) => ({ id: member.userId, name: member.user.name }));
   const userSourceRows = buildUserSourceRows(members, userIntegrationEvidence);
   const sharedSourceRows = buildSharedSourceRows(userIntegrationEvidence);
+
+  const effectiveNow = new Date();
+  const linkedAccount = accounts.find((a) => a.id === ingestionConfig?.emailAccountId) ?? null;
+  const effectiveSourceRows: EffectiveStatusRow[] = sources.map((source) => {
+    const jobname = SOURCE_SCHEDULER_JOB[source.type] ?? null;
+    if (source.type === "EMAIL") {
+      const result = resolveEffectiveStatus({
+        configured: Boolean(ingestionConfig?.enabled) && Boolean(linkedAccount),
+        declaredStatus: resolveEmailIntegrationDisplayStatus({
+          configEnabled: ingestionConfig?.enabled ?? null,
+          hasEmailAccount: Boolean(linkedAccount),
+          hasClientDomain: Boolean(clientDomain),
+          accountStatus: linkedAccount?.status ?? null,
+        }),
+        declaredDetail: linkedAccount?.lastSyncError ?? null,
+        blockedReason: linkedAccount?.status === "AUTH_EXPIRED" ? "autorização da caixa de e-mail expirada" : null,
+        jobname,
+        scheduler,
+        mailbox: {
+          authorized: linkedAccount?.status === "CONNECTED" || linkedAccount?.status === "SYNCING" || linkedAccount?.status === "AUTH_EXPIRED" || linkedAccount?.status === "ERROR",
+          everSynced: Boolean(linkedAccount?.lastSyncAt) || latestRun?.status === "COMPLETED",
+        },
+        volume: latestRun ? { processed: latestRun.emailsImported } : null,
+        now: effectiveNow,
+      });
+      return { ...result, key: source.type, serviceLabel: source.label };
+    }
+    const config = configs.find((item) => item.sourceType === source.type);
+    const volume =
+      source.type === "DIARIO_OBRA" && diarioDeObraOverview?.ultimaConfirmadaAt
+        ? { processed: diarioDeObraOverview.novos + diarioDeObraOverview.alterados }
+        : source.type === "CONSTRUMANAGER" && construmanagerMetadata?.lastConfirmedSyncAt
+          ? { processed: construmanagerMetadata.documentsSeen }
+          : null;
+    const result = resolveEffectiveStatus({
+      configured: Boolean(config),
+      declaredStatus: config?.status ?? null,
+      declaredDetail: config?.lastConnectionError ?? null,
+      jobname,
+      scheduler,
+      volume,
+      now: effectiveNow,
+    });
+    return { ...result, key: source.type, serviceLabel: source.label };
+  });
+  const effectiveServiceRows: EffectiveStatusRow[] = resolveSchedulerServices(scheduler, effectiveNow).map((row) => ({ ...row, key: row.jobname ?? row.serviceLabel }));
 
   return (
     <div className="flex flex-col gap-4">
@@ -144,6 +196,8 @@ export default async function IntegracoesPage({
           Contatos externos monitorados: organizações, domínios, vínculos com a obra e contatos descobertos →
         </Link>
       </p>
+
+      <EffectiveStatusPanel sources={effectiveSourceRows} services={effectiveServiceRows} schedulerAvailable={scheduler.available} measuredAt={effectiveNow.toISOString()} />
 
       <UserIntegrationMatrix rows={userSourceRows} shared={sharedSourceRows} warnings={userIntegrationEvidence.warnings} measuredAt={userIntegrationEvidence.measuredAt} unassignedEmails={userIntegrationEvidence.unassignedEmails} systemOutputEmails={userIntegrationEvidence.systemOutputEmails} />
 
