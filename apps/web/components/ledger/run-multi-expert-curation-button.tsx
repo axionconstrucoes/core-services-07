@@ -7,7 +7,7 @@ import { SeverityBadge } from "@/components/shared/badges";
 import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { confrontationSeverityToAlertSeverity } from "@/lib/labels";
+import { confrontationSeverityToAlertSeverity, formatDateTimeBR } from "@/lib/labels";
 import { runMultiExpertCurationAction } from "@/app/[projectId]/ledger/[eventId]/run-multi-expert-curation-actions";
 import { initialRunMultiExpertCurationState } from "@/app/[projectId]/ledger/[eventId]/run-multi-expert-curation-actions-state";
 
@@ -115,7 +115,7 @@ export function RunMultiExpertCurationButton({ projectId, eventId }: { projectId
 
             <p className="text-xs text-muted-foreground">
               Análise de IA — nunca substitui decisão humana. Registrada em Auditoria (
-              {new Date(displayedResult.audit.generatedAt).toLocaleString("pt-BR")}).
+              {formatDateTimeBR(displayedResult.audit.generatedAt)}).
             </p>
           </div>
         ) : null}

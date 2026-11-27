@@ -19,6 +19,7 @@ import { FeatureInfo } from "@/components/shared/feature-info";
 import { EsgEvidenceLink } from "@/components/ssma/field-records/esg-evidence-link";
 import { RecordConsult } from "@/components/ssma/field-records/record-consult";
 import { cn } from "@/lib/utils";
+import { formatDateBR, formatDateTimeBR } from "@/lib/labels";
 
 interface ActionEvent {
   id: string;
@@ -41,8 +42,8 @@ const FORWARD_ERRORS: Array<[RegExp, string]> = [
   [/AUTH_REQUIRED/, "Sessão expirada. Faça login novamente."],
 ];
 const forwardErrorMessage = (message: string) => FORWARD_ERRORS.find(([pattern]) => pattern.test(message))?.[1] ?? "Não foi possível encaminhar. Tente novamente.";
-const dateTime = (iso: string) => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-const dateOnly = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR");
+const dateTime = (iso: string) => formatDateTimeBR(iso);
+const dateOnly = (iso: string) => formatDateBR(iso);
 
 export function RecordDetail({
   record,

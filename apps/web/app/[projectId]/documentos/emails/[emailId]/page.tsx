@@ -31,6 +31,7 @@ import { resolveAttachmentOpenBehavior } from "@/lib/email/registry/resolve-atta
 import { hasProjectEditPermission } from "@/lib/users/project-permission";
 import { cn } from "@/lib/utils";
 import { createSupabaseServerClient } from "@axion/db/server";
+import { formatDateTimeBR } from "@/lib/labels";
 
 export const metadata: Metadata = { title: "E-mail · Documentos" };
 
@@ -41,8 +42,7 @@ export const metadata: Metadata = { title: "E-mail · Documentos" };
 // Histograma, SSMA), risco, revisão humana e histórico auditado. Toda leitura via client de sessão (RLS).
 
 function formatDateTime(iso: string | null): string {
-  if (!iso) return "—";
-  return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }).format(new Date(iso));
+  return formatDateTimeBR(iso);
 }
 
 function buildSafeEmailHtml(

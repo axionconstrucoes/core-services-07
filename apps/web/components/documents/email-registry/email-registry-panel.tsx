@@ -12,7 +12,7 @@ import {
   REGISTRY_CLASSIFICATION_OPTIONS,
   type RegistrySearchParams,
 } from "@/lib/email/registry/email-document-registry-shared";
-import { formatDate } from "@/lib/labels";
+import { formatDate, formatDateTimeBR } from "@/lib/labels";
 import { cn } from "@/lib/utils";
 
 // Registro documental por e-mail (aba "Registro por e-mail" em
@@ -60,7 +60,7 @@ export function riskBadgeClassName(risk: string | null): string {
 }
 
 function formatDateTime(iso: string): string {
-  return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }).format(new Date(iso));
+  return formatDateTimeBR(iso);
 }
 
 function buildHref(projectId: string, params: RegistrySearchParams, page: number): string {

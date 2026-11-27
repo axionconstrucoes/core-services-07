@@ -3,6 +3,8 @@
 // €…); sem símbolo identificado, mostra só o número com a nota
 // "moeda não identificada". Dado ausente => "Dado não disponível" (nunca 0).
 
+import { DISPLAY_TIME_ZONE, formatDateTimeBR as formatDateTimeBRCentral } from "@/lib/labels";
+
 export const NOT_AVAILABLE = "Dado não disponível";
 
 export type FinancialUnit = "CURRENCY" | "PERCENT" | "QUANTITY" | "UNKNOWN";
@@ -40,11 +42,9 @@ export function formatDateBR(iso: string | null | undefined): string {
   return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short" }).format(date);
 }
 
+// Padrão ACC de exibição: "DD/MM/AAAA — HH:mm" em America/Sao_Paulo.
 export function formatDateTimeBR(iso: string | null | undefined): string {
-  if (!iso) return NOT_AVAILABLE;
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return NOT_AVAILABLE;
-  return new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }).format(date);
+  return formatDateTimeBRCentral(iso, DISPLAY_TIME_ZONE, NOT_AVAILABLE);
 }
 
 export function formatByUnit(value: number | null | undefined, unit: FinancialUnit, symbol: string | null): string {

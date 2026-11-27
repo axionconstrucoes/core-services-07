@@ -181,8 +181,8 @@ check("formatDate: data civil (YYYY-MM-DD, sem hora) formatada SEM deslocamento 
     assert(formatDate(iso).startsWith(day), `formatDate(${iso}) não pode reduzir o dia — obtido ${formatDate(iso)}`);
   }
 
-  // Timestamp completo (instante real, não data civil) continua com o
-  // comportamento anterior — nunca "consertado" para o caso que não tem bug.
+  // Timestamp completo (instante real, não data civil) é convertido para
+  // Brasília (formatDateBR) — a data civil nunca passa por fuso.
   assert(labelsSource.includes("CIVIL_DATE_ONLY"), "formatDate deveria distinguir data civil (YYYY-MM-DD) de timestamp completo");
   delete process.env.TZ;
 });

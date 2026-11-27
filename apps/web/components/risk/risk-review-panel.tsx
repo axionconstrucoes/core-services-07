@@ -19,6 +19,7 @@ import {
   type SourceRef,
 } from "@/lib/risk-classification/suggest-risk";
 import type { AlertSeverity } from "@axion/types";
+import { formatDateTimeBR } from "@/lib/labels";
 
 export interface RiskReviewHistoryItem {
   id: string;
@@ -51,8 +52,7 @@ const BASIS_STYLE: Record<BasisKind, string> = {
 };
 
 function formatWhen(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  return formatDateTimeBR(iso, undefined, iso);
 }
 
 export function RiskReviewPanel({

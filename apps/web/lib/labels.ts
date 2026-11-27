@@ -406,21 +406,100 @@ export const additionalProposalLinkRoleLabels: Record<AdditionalProposalLinkRole
 // exatamente o que deve aparecer na tela, sem conversão nenhuma.
 const CIVIL_DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-export function formatDate(iso: string): string {
-  const civilDateMatch = CIVIL_DATE_ONLY.exec(iso);
-  if (civilDateMatch) {
-    const [, year, month, day] = civilDateMatch;
-    return `${day}/${month}/${year}`;
+// Padrão de EXIBIÇÃO de data/hora do ACC: horário de Brasília
+// (America/Sao_Paulo), formato "DD/MM/AAAA — HH:mm". O banco continua em
+// UTC (timestamptz); a conversão acontece só na tela. Sem `timeZone`
+// explícito, `toLocaleString` usa o fuso do PROCESSO — no servidor
+// (Vercel) isso é UTC, e um evento das 21:30 de Brasília aparecia como
+// 00:30 do dia seguinte. Toda conversão é feita por `Intl` (nunca soma ou
+// subtrai hora/dia à mão). Datas civis "YYYY-MM-DD" nunca passam por fuso.
+export const DISPLAY_TIME_ZONE = "America/Sao_Paulo";
+export const DATE_TIME_SEPARATOR = " — ";
+const EMPTY_DATE_DISPLAY = "—";
+
+type DateInput = string | Date | null | undefined;
+
+const dateTimeFormatterCache = new Map<string, Intl.DateTimeFormat>();
+
+function dateTimeFormatter(timeZone: string): Intl.DateTimeFormat {
+  let formatter = dateTimeFormatterCache.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("pt-BR", {
+      timeZone,
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    });
+    dateTimeFormatterCache.set(timeZone, formatter);
   }
-  // Timestamp completo (instante real, ex.: created_at) — comportamento
-  // inalterado: converte para o timezone local, como sempre foi.
-  const date = new Date(iso);
-  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  return formatter;
 }
 
-export function formatDateTime(iso: string): string {
-  const date = new Date(iso);
-  return date.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+function toInstant(value: string | Date): Date | null {
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function zonedParts(date: Date, timeZone: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const part of dateTimeFormatter(timeZone).formatToParts(date)) out[part.type] = part.value;
+  return out;
+}
+
+/**
+ * Data de exibição "DD/MM/AAAA" em Brasília.
+ * - "YYYY-MM-DD" (coluna `date`): exibida como está, sem fuso (não desloca dia).
+ * - Timestamp/Date: convertido para `timeZone` (default America/Sao_Paulo).
+ * - null/vazio/inválido: `fallback` (default "—").
+ */
+export function formatDateBR(value: DateInput, timeZone: string = DISPLAY_TIME_ZONE, fallback: string = EMPTY_DATE_DISPLAY): string {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string") {
+    const civilDateMatch = CIVIL_DATE_ONLY.exec(value.trim());
+    if (civilDateMatch) {
+      const [, year, month, day] = civilDateMatch;
+      return `${day}/${month}/${year}`;
+    }
+  }
+  const date = toInstant(value);
+  if (!date) return fallback;
+  const p = zonedParts(date, timeZone);
+  return `${p.day}/${p.month}/${p.year}`;
+}
+
+/**
+ * Data e hora de exibição "DD/MM/AAAA — HH:mm" em Brasília.
+ * - "YYYY-MM-DD" (coluna `date`): só a data, sem hora inventada e sem fuso.
+ * - null/vazio/inválido: `fallback` (default "—"), nunca "Invalid Date".
+ */
+export function formatDateTimeBR(value: DateInput, timeZone: string = DISPLAY_TIME_ZONE, fallback: string = EMPTY_DATE_DISPLAY): string {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string" && CIVIL_DATE_ONLY.test(value.trim())) return formatDateBR(value, timeZone, fallback);
+  const date = toInstant(value);
+  if (!date) return fallback;
+  const p = zonedParts(date, timeZone);
+  return `${p.day}/${p.month}/${p.year}${DATE_TIME_SEPARATOR}${p.hour}:${p.minute}`;
+}
+
+/** Só a hora "HH:mm" em Brasília. */
+export function formatTimeBR(value: DateInput, timeZone: string = DISPLAY_TIME_ZONE, fallback: string = EMPTY_DATE_DISPLAY): string {
+  if (value === null || value === undefined || value === "") return fallback;
+  const date = toInstant(value);
+  if (!date) return fallback;
+  const p = zonedParts(date, timeZone);
+  return `${p.hour}:${p.minute}`;
+}
+
+// Nomes históricos mantidos: agora delegam ao padrão de Brasília.
+export function formatDate(iso: string | null | undefined): string {
+  return formatDateBR(iso);
+}
+
+export function formatDateTime(iso: string | null | undefined): string {
+  return formatDateTimeBR(iso);
 }
 
 export function formatCurrency(value: number): string {

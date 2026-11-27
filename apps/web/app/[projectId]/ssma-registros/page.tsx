@@ -17,6 +17,7 @@ import { createSupabaseServerClient } from "@axion/db/server";
 import { getRecentChecklistSubmissions } from "@/lib/ssma/checklist-photos/data";
 import { CHECKLIST_SUBMISSIONS_LIMIT } from "@/lib/ssma/checklist-photos/checklist-submissions-view";
 import { ChecklistSubmissionsGallery } from "@/components/ssma/checklist-photos/checklist-submissions-gallery";
+import { formatDateTimeBR } from "@/lib/labels";
 
 export const metadata: Metadata = { title: "Registros de campo SSMA" };
 
@@ -137,7 +138,7 @@ export default async function SsmaFieldRecordsPage({
                 <ul className="divide-y text-sm">
                   {nearMisses.map((item) => (
                     <li key={`${item.source}-${item.id}`} className="py-2">
-                      <p className="font-semibold">{new Date(item.occurredAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })} · {item.place || "local não informado"}</p>
+                      <p className="font-semibold">{formatDateTimeBR(item.occurredAt)} · {item.place || "local não informado"}</p>
                       <p className="text-muted-foreground">{item.description || "sem descrição"} · origem: {item.source === "FORMULARIO" ? "formulário" : "registro de campo"}</p>
                     </li>
                   ))}

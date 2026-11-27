@@ -2,8 +2,9 @@ import { decideIncidentLinkAction } from "@/app/[projectId]/ssma-registros/incid
 import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { PossibleDuplicate } from "@/lib/ssma/dashboard-metrics";
+import { formatDateTimeBR } from "@/lib/labels";
 
-const when = (iso: string) => new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
+const when = (iso: string) => formatDateTimeBR(iso);
 
 // Revisão humana de possíveis duplicidades (acidente de formulário × ocorrência de campo até 24 h um do outro).
 // Enquanto ninguém decide, NADA é descontado do total do Dashboard.

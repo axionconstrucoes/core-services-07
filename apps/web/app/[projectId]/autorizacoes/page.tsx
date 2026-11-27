@@ -12,6 +12,7 @@ import { isProjectAdmin } from "@/lib/email-authorization/guard";
 import { KNOWN_AUTHORIZATION_MESSAGES } from "@/lib/email-authorization/request";
 import { listProjectEmailAuthorizations } from "@/lib/email-authorization/store";
 import { adminRevokeAuthorizationAction, requestAuthorizationAction } from "./actions";
+import { formatDateTimeBR } from "@/lib/labels";
 
 export const metadata: Metadata = { title: "Autorizações" };
 
@@ -32,8 +33,7 @@ const STATUS_STYLE: Record<AuthorizationStatus, string> = {
 };
 
 function formatDateTime(value: string | null): string {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(value));
+  return formatDateTimeBR(value);
 }
 
 export default async function AuthorizationsPage({
