@@ -60,13 +60,14 @@ check("o executor recusa, sem rede: segredo ausente (homolog) e producao sem a b
   assert(b.status === 2 && /PRODUCAO_SEM_FLAG/.test(b.stdout + b.stderr), `status ${b.status}: ${(b.stdout + b.stderr).slice(0, 200)}`);
 });
 
-check("o executor --dry-run --todas lista 70 itens e 14 ondas, incluindo a onda N (watchdog), sem rede", () => {
+check("o executor --dry-run --todas lista 71 itens e 15 ondas, incluindo as ondas N (watchdog) e O (coleta Gmail por caixa), sem rede", () => {
   const r = spawnSync(process.execPath, ["--no-warnings", "scripts/implantacao/executor-ondas.mjs", "--dry-run", "--todas"], { cwd: root, encoding: "utf8", env: { PATH: process.env.PATH, SystemRoot: process.env.SystemRoot } });
   assert(r.status === 0, `status ${r.status}`);
   const out = r.stdout;
-  assert(/Itens: 70\b/.test(out), "esperado 70 itens");
-  assert((out.match(/^== onda /gm) ?? []).length === 14, "esperado 14 ondas");
+  assert(/Itens: 71\b/.test(out), "esperado 71 itens");
+  assert((out.match(/^== onda /gm) ?? []).length === 15, "esperado 15 ondas");
   assert(/^== onda N \(1\)/m.test(out) && out.includes("20261212100000_watchdog_project_resolution"));
+  assert(/^== onda O \(1\)/m.test(out) && out.includes("20261214100000_gmail_per_mailbox_collection"));
   assert(!out.includes("20261121177000") && !out.includes("20261123302000"), "as adiadas nao entram no plano --todas");
 });
 

@@ -6,6 +6,19 @@ import { extractGmailBody } from "./lib/gmail-message-body.mjs";
 import { createDelegatedGmailAuth } from "./lib/gmail-delegated-auth.mjs";
 import { deriveIndividualConsent, resolveDelegatedReadWindow } from "./lib/gmail-mailbox-gate.mjs";
 import { assertStillCollectable, isRetryableGmailError, prepareDelegatedRun, safeErrorDetail } from "./lib/gmail-mailbox-run.mjs";
+import {
+  classifyPerimeter,
+  dedupePerMailbox,
+  isMissingSchemaError,
+  latestImported,
+  maskMailbox,
+  nextCursor,
+  normalizeMessageIdHeader,
+  perimeterQueryTerms,
+  resolveMailboxCredential,
+  resolvePerMailboxWindow,
+  splitPerimeterDomains,
+} from "./lib/gmail-per-mailbox.mjs";
 
 const args = process.argv.slice(2);
 
@@ -23,7 +36,15 @@ if (!args.includes("--apply")) {
 // registradas em email_mailbox_collection_controls (ver scripts/lib/gmail-mailbox-gate.mjs).
 const DELEGATION =
   (process.env.ACC_GMAIL_AUTH_MODE ?? "OAUTH_USUARIO").trim().toUpperCase() === "DOMAIN_DELEGATION";
-const MAX_MESSAGES = Number(process.env.ACC_GMAIL_MAX_MESSAGES ?? "") || null; // amostra controlada (só no modo delegação)
+// Coleta POR CAIXA (docs/gmail-coleta-por-caixa.md): disparada por scripts/gmail-multi-mailbox-sync.mjs, uma caixa por
+// processo. Usa a MESMA porta por caixa do modo delegação (controle + lista + aceite + período), exige aceite individual
+// AUTORIZADO, cursor próprio da caixa (fatias de no máximo ACC_GMAIL_MAX_WINDOW_DAYS) e perímetro de domínios externos.
+// A autenticação vem da credencial da própria caixa (OAuth) ou da delegação, conforme resolveMailboxCredential.
+const PER_MAILBOX = process.env.ACC_GMAIL_PER_MAILBOX === "true";
+// Estado/cursor por caixa (controles) vale para os dois modos controlados; a autenticação por delegação só para DELEGATION.
+const CONTROLLED = DELEGATION || PER_MAILBOX;
+const MAX_WINDOW_DAYS = Number(process.env.ACC_GMAIL_MAX_WINDOW_DAYS ?? "") || 7;
+const MAX_MESSAGES = Number(process.env.ACC_GMAIL_MAX_MESSAGES ?? "") || null; // amostra controlada (só nos modos controlados)
 const TECHNICAL_CHECK_ONLY = process.env.ACC_GMAIL_TECHNICAL_CHECK_ONLY === "true";
 
 function required(name) {
@@ -208,7 +229,7 @@ async function getMessage(gmail, id) {
 
       // Retentativa LIMITADA e só para cota/indisponibilidade. No modo delegação, 403 de PERMISSÃO não é repetido
       // (repetir não muda nada); o caminho histórico mantém o comportamento anterior.
-      const retryable = DELEGATION
+      const retryable = CONTROLLED
         ? isRetryableGmailError(error)
         : [403, 429, 500, 502, 503, 504].includes(status);
       if (!retryable || attempt === 6) {
@@ -271,7 +292,7 @@ if (!config.enabled) {
   process.exit(0);
 }
 
-if (!config.last_sync_at && !DELEGATION) {
+if (!config.last_sync_at && !CONTROLLED) {
   throw new Error(
     "last_sync_at inexistente. O backfill precisa ser executado primeiro."
   );
@@ -314,8 +335,12 @@ if (
   );
 }
 
+// Log público (repositório e Actions públicos): no modo por caixa o endereço vira identificador opaco.
+const shown = PER_MAILBOX ? maskMailbox(mailbox) : mailbox;
+
 let mailboxControl = null;
-if (DELEGATION) {
+let perMailboxCredential = null;
+if (CONTROLLED) {
   // Estado ATUAL desta (obra, caixa): controle + lista da obra + aceite individual (o mais restritivo vale).
   // Tabela de controles ausente/ilegível => FALHA FECHADA com mensagem clara (nada é lido do Gmail).
   const decision = await prepareDelegatedRun({
@@ -329,8 +354,19 @@ if (DELEGATION) {
     process.exit(1);
   }
   mailboxControl = decision.state.control;
+  if (PER_MAILBOX) {
+    // Coleta por caixa: aceite individual AUTORIZADO é obrigatório (PENDENTE/ausente não é autorização) e é preciso
+    // ter credencial da própria caixa (OAuth) ou delegação configurada.
+    const consentState = mailboxControl?.individual_consent_status ?? "NAO_REGISTRADO";
+    if (consentState !== "ACEITE_REGISTRADO" && !decision.blockers.includes("ACEITE_INDIVIDUAL_RECUSADO_OU_REVOGADO")) {
+      decision.blockers.push("ACEITE_INDIVIDUAL_PENDENTE_OU_AUSENTE");
+    }
+    perMailboxCredential = resolveMailboxCredential(mailbox, mailboxControl);
+    if (!perMailboxCredential) decision.blockers.push("SEM_CREDENCIAL");
+    decision.proceed = decision.blockers.length === 0;
+  }
   if (!decision.proceed) {
-    console.log(`${TECHNICAL_CHECK_ONLY ? "Teste técnico" : "Coleta"} da caixa ${mailbox} BLOQUEADO: ${decision.blockers.join(", ")}`);
+    console.log(`${TECHNICAL_CHECK_ONLY ? "Teste técnico" : "Coleta"} da caixa ${shown} BLOQUEADO: ${decision.blockers.join(", ")}`);
     console.log("Nenhuma mensagem foi lida.");
     if (mailboxControl && !TECHNICAL_CHECK_ONLY) {
       await supabase.rpc("record_mailbox_sync_result", {
@@ -344,7 +380,7 @@ if (DELEGATION) {
   // ERRO, que conta para o teto de retentativas). Só o código/HTTP do erro, nunca tokens ou conteúdo.
   process.on("uncaughtException", async (error) => {
     const detail = safeErrorDetail(error);
-    console.error(`Falha na caixa ${mailbox}: ${detail}`);
+    console.error(`Falha na caixa ${shown}: ${detail}`);
     try {
       if (TECHNICAL_CHECK_ONLY) {
         await supabase.rpc("record_mailbox_technical_check", { p_project_id: PROJECT_ID, p_mailbox: mailbox, p_ok: false, p_detail: detail });
@@ -420,12 +456,15 @@ const requireProjectScopeMatch =
  */
 // Delegação: cursor PRÓPRIO da caixa; a sobreposição nunca recua para antes do início do período autorizado e a
 // janela nunca passa do fim do período.
-const delegatedWindow = DELEGATION && !TECHNICAL_CHECK_ONLY ? resolveDelegatedReadWindow(mailboxControl) : null;
-if (DELEGATION && !TECHNICAL_CHECK_ONLY && !delegatedWindow) {
+// Por caixa: mesma regra, com fatias de no máximo MAX_WINDOW_DAYS (carga inicial desde period_start retoma de onde parou).
+const delegatedWindow = CONTROLLED && !TECHNICAL_CHECK_ONLY
+  ? (PER_MAILBOX ? resolvePerMailboxWindow(mailboxControl, { maxWindowDays: MAX_WINDOW_DAYS }) : resolveDelegatedReadWindow(mailboxControl))
+  : null;
+if (CONTROLLED && !TECHNICAL_CHECK_ONLY && !delegatedWindow) {
   throw new Error("Caixa sem período inicial (period_start) nem última sincronização: defina o período autorizado.");
 }
 const lastSyncAt =
-  DELEGATION ? (delegatedWindow?.start ?? new Date()) : new Date(config.last_sync_at);
+  CONTROLLED ? (delegatedWindow?.start ?? new Date()) : new Date(config.last_sync_at);
 
 const overlapStart =
   delegatedWindow
@@ -457,17 +496,26 @@ const senderFilter = pilotSenderTerms(
   Array.from(allowedDomains).map((domain) => `from:${domain}`).join(" ")
 );
 
-const query =
-  `after:${afterEpoch} before:${beforeEpoch} {${senderFilter}} ${pilotSenderQuery(PROJECT_ID)}`.trim();
+// Perímetro por caixa: participantes dos domínios EXTERNOS da obra (From/To/Cc/Bcc), recebidas E enviadas.
+// E-mail só interno fica fora, salvo include_internal_only_messages = true (padrão false; decisão do Dono).
+const perimeter = splitPerimeterDomains(domains);
+const includeInternalOnly = PER_MAILBOX && config.include_internal_only_messages === true;
+if (PER_MAILBOX && perimeter.external.length === 0 && !includeInternalOnly) {
+  throw new Error("Nenhum domínio externo habilitado para a obra (project_email_ingestion_domains): nada a coletar por caixa.");
+}
+
+const query = PER_MAILBOX
+  ? `after:${afterEpoch} before:${beforeEpoch}${includeInternalOnly ? "" : ` {${perimeterQueryTerms(perimeter.external)}}`}`
+  : `after:${afterEpoch} before:${beforeEpoch} {${senderFilter}} ${pilotSenderQuery(PROJECT_ID)}`.trim();
 
 let auth;
-if (DELEGATION) {
+if (DELEGATION || perMailboxCredential?.mode === "DOMAIN_DELEGATION") {
   const delegated = await createDelegatedGmailAuth({ mailbox });
   auth = delegated.auth;
-  console.log(`Autenticação: delegação em todo o domínio (${delegated.mode}), somente leitura, caixa ${mailbox}.`);
+  console.log(`Autenticação: delegação em todo o domínio (${delegated.mode}), somente leitura, caixa ${shown}.`);
 } else {
   const credentialNames =
-    gmailCredentialNames(mailbox);
+    PER_MAILBOX ? perMailboxCredential.names : gmailCredentialNames(mailbox);
 
   auth =
     new google.auth.OAuth2(
@@ -500,17 +548,31 @@ if (
   );
 }
 
-if (DELEGATION && TECHNICAL_CHECK_ONLY) {
+// Estado OAuth da caixa (por caixa): origem da credencial e escopos concedidos (nomes curtos; nunca o token).
+const grantedScopes = String(auth.credentials?.scope ?? "")
+  .split(/\s+/).filter(Boolean).map((scope) => scope.split("/").pop()).filter((scope) => /^[a-z._]+$/.test(scope)).sort();
+if (PER_MAILBOX) {
+  const { error: oauthStateError } = await supabase.rpc("record_mailbox_oauth_state", {
+    p_project_id: PROJECT_ID, p_mailbox: mailbox, p_credential_source: perMailboxCredential.source, p_scopes: grantedScopes,
+  });
+  if (oauthStateError) throw new Error(`Estado OAuth da caixa não registrado: ${oauthStateError.message}`);
+  if (perMailboxCredential.mode === "OAUTH_USUARIO" && !grantedScopes.includes("gmail.readonly")) {
+    throw new Error("ESCOPO_INSUFICIENTE: a credencial da caixa não tem gmail.readonly.");
+  }
+}
+
+if (CONTROLLED && TECHNICAL_CHECK_ONLY) {
   // Teste técnico: o perfil abaixo já provou a delegação (e a caixa). Registra e encerra SEM ler mensagens.
   // Sucesso só com persistência confirmada: erro do registro falha a execução.
   const { error: techError } = await supabase.rpc("record_mailbox_technical_check", {
-    p_project_id: PROJECT_ID, p_mailbox: mailbox, p_ok: true, p_detail: "getProfile ok; escopo gmail.readonly",
+    p_project_id: PROJECT_ID, p_mailbox: mailbox, p_ok: true,
+    p_detail: PER_MAILBOX ? `getProfile ok; ${perMailboxCredential.source}; escopos ${grantedScopes.join(",") || "?"}`.slice(0, 200) : "getProfile ok; escopo gmail.readonly",
   });
   if (techError) {
     console.error(`Teste técnico OK no Google, mas o registro falhou: ${techError.message}`);
     process.exit(1);
   }
-  console.log(`Teste técnico OK para ${mailbox}. Nenhuma mensagem lida.`);
+  console.log(`Teste técnico OK para ${shown}. Nenhuma mensagem lida.`);
   process.exit(0);
 }
 
@@ -531,7 +593,7 @@ console.log(
 );
 console.log(
   "Mailbox:",
-  mailbox
+  shown
 );
 console.log("");
 
@@ -563,7 +625,7 @@ do {
 
 } while (pageToken);
 
-if (DELEGATION && MAX_MESSAGES && ids.length > MAX_MESSAGES) {
+if (CONTROLLED && MAX_MESSAGES && ids.length > MAX_MESSAGES) {
   ids.length = MAX_MESSAGES; // amostra: o ponteiro de leitura NÃO avança (ver persistência no fim)
 }
 
@@ -681,9 +743,19 @@ for (
           requireProjectScopeMatch,
       });
 
+    const perimeterDecision = PER_MAILBOX
+      ? classifyPerimeter({
+        participants: [...policy.from, ...policy.recipients],
+        externalDomains: perimeter.external,
+        internalDomains: perimeter.internal,
+        includeInternalOnly,
+      })
+      : null;
+
     if (
-      !pilotMessageEligible(PROJECT_ID, policy) ||
-      !(projectMatch || pilotScopeBypass(PROJECT_ID))
+      PER_MAILBOX
+        ? !perimeterDecision.eligible
+        : (!pilotMessageEligible(PROJECT_ID, policy) || !(projectMatch || pilotScopeBypass(PROJECT_ID)))
     ) {
       rejected += 1;
       continue;
@@ -766,12 +838,12 @@ for (
   await sleep(1000);
 }
 
-if (DELEGATION) {
+if (CONTROLLED) {
   // Revogação EFETIVA: relê o estado da caixa imediatamente antes de gravar. Revogada, desligada, fora do período
   // ou fora da lista durante a leitura => nada é gravado e o cursor não avança.
   const still = await assertStillCollectable({ supabase, projectId: PROJECT_ID, mailbox });
   if (!still.ok) {
-    console.log(`Coleta da caixa ${mailbox} interrompida antes da gravação: ${still.reason ?? still.blockers.join(", ")}`);
+    console.log(`Coleta da caixa ${shown} interrompida antes da gravação: ${still.reason ?? still.blockers.join(", ")}`);
     console.log("Nenhuma mensagem foi gravada.");
     await supabase.rpc("record_mailbox_sync_result", {
       p_project_id: PROJECT_ID, p_mailbox: mailbox, p_status: "BLOQUEADA",
@@ -781,27 +853,57 @@ if (DELEGATION) {
   }
 }
 
+// Por caixa: a MESMA mensagem já gravada a partir de OUTRA caixa da obra (mesmo Message-ID) não vira nova linha em
+// emails; só ganha a origem (email_message_sources) desta caixa. A mesma mensagem nesta caixa já é barrada acima.
+let rowsToInsert = rows;
+let crossMailbox = [];
+const insertedRows = [];
+if (PER_MAILBOX && rows.length > 0) {
+  const headers = [...new Set(rows.map((row) => normalizeMessageIdHeader(row.message_id_header)).filter(Boolean))];
+  const existingByHeader = new Map();
+  for (let index = 0; index < headers.length; index += 100) {
+    const chunk = headers.slice(index, index + 100);
+    const { data: others, error: othersError } = await supabase
+      .from("emails")
+      .select("id,mailbox_address,message_id_header")
+      .eq("project_id", PROJECT_ID)
+      .neq("mailbox_address", mailbox)
+      .in("message_id_header", rows.map((row) => row.message_id_header).filter((value) => value && chunk.includes(normalizeMessageIdHeader(value))));
+    if (othersError) throw new Error(othersError.message);
+    for (const other of others ?? []) {
+      const key = normalizeMessageIdHeader(other.message_id_header);
+      if (key && !existingByHeader.has(key)) existingByHeader.set(key, other);
+    }
+  }
+  const deduped = dedupePerMailbox(rows, { existingSameMailbox: existingIds, existingByHeader });
+  rowsToInsert = deduped.fresh;
+  crossMailbox = deduped.crossMailbox;
+  duplicates += deduped.sameMailbox;
+}
+
 let inserted = 0;
 
 for (
   let index = 0;
-  index < rows.length;
+  index < rowsToInsert.length;
   index += 100
 ) {
   const batch =
-    rows.slice(
+    rowsToInsert.slice(
       index,
       index + 100
     );
 
-  const { error } =
-    await supabase
+  const { data: insertedBatch, error } = PER_MAILBOX
+    ? await supabase.from("emails").insert(batch).select("id,provider_message_id,sent_at")
+    : await supabase
       .from("emails")
       .insert(batch);
 
   if (!error) {
     inserted +=
       batch.length;
+    if (PER_MAILBOX) insertedRows.push(...(insertedBatch ?? []));
 
     continue;
   }
@@ -810,13 +912,15 @@ for (
    * Fallback individual para corrida de concorrência.
    */
   for (const row of batch) {
-    const result =
-      await supabase
+    const result = PER_MAILBOX
+      ? await supabase.from("emails").insert(row).select("id,provider_message_id,sent_at")
+      : await supabase
         .from("emails")
         .insert(row);
 
     if (!result.error) {
       inserted += 1;
+      if (PER_MAILBOX) insertedRows.push(...(result.data ?? []));
     } else if (
       result.error.code === "23505"
     ) {
@@ -829,24 +933,54 @@ for (
   }
 }
 
+// Origem de cada mensagem (qual caixa a viu): novas linhas + mensagens já gravadas por outra caixa. Append-only;
+// repetição (23505) é ignorada. Tabela ausente (migration 20261201100000) não impede a coleta: só avisa.
+let originsRecorded = 0;
+if (PER_MAILBOX) {
+  const origins = [
+    ...insertedRows.map((row) => ({ email_id: row.id, provider_message_id: row.provider_message_id })),
+    ...crossMailbox.map((item) => ({ email_id: item.emailId, provider_message_id: item.providerMessageId })),
+  ];
+  for (const origin of origins) {
+    const { error: originError } = await supabase.from("email_message_sources").insert({
+      email_id: origin.email_id, project_id: PROJECT_ID, provider: "GMAIL", mailbox, provider_message_id: origin.provider_message_id,
+    });
+    if (!originError) originsRecorded += 1;
+    else if (isMissingSchemaError(originError)) { console.log("Aviso: email_message_sources indisponível; origem não registrada."); break; }
+    else if (originError.code !== "23505") throw new Error(originError.message);
+  }
+}
+
 const completedAt =
   new Date().toISOString();
 
-if (DELEGATION) {
-  // Modo delegação: estado POR CAIXA (o last_sync_at compartilhado da configuração não é tocado).
+if (CONTROLLED) {
+  // Modos controlados: estado POR CAIXA (o last_sync_at compartilhado da configuração não é tocado).
   const sampleRun = Boolean(MAX_MESSAGES);
   const { error: recordError } = await supabase.rpc("record_mailbox_sync_result", {
     p_project_id: PROJECT_ID,
     p_mailbox: mailbox,
     p_status: "SUCESSO",
-    p_detail: `${inserted} novas; ${duplicates} duplicadas; ${rejected} rejeitadas pelo perímetro${sampleRun ? " (AMOSTRA: ponteiro não avançou)" : ""}.`,
+    p_detail: `${inserted} novas; ${duplicates} duplicadas; ${crossMailbox.length} já vistas por outra caixa; ${rejected} rejeitadas pelo perímetro${sampleRun ? " (AMOSTRA: ponteiro não avançou)" : ""}${delegatedWindow?.capped ? " (fatia; continua na próxima execução)" : ""}.`,
     p_imported: inserted,
-    p_synced_through: sampleRun ? null : syncStartedAt.toISOString(), // início da janela lida (mensagens chegadas durante a leitura não são puladas)
+    // fim da janela lida (mensagens chegadas durante a leitura não são puladas); por caixa, o fim da FATIA
+    p_synced_through: PER_MAILBOX ? nextCursor(delegatedWindow, { sample: sampleRun }) : (sampleRun ? null : syncStartedAt.toISOString()),
   });
   if (recordError) throw new Error(recordError.message);
+
+  if (PER_MAILBOX) {
+    // Última mensagem importada desta caixa (só avança; nunca recua).
+    const last = latestImported(insertedRows);
+    if (last) {
+      const { error: progressError } = await supabase.rpc("record_mailbox_collection_progress", {
+        p_project_id: PROJECT_ID, p_mailbox: mailbox, p_last_message_id: last.messageId, p_last_message_at: last.at,
+      });
+      if (progressError) throw new Error(progressError.message);
+    }
+  }
 }
 
-const { error: updateError } = DELEGATION
+const { error: updateError } = CONTROLLED
   ? { error: null }
   : await supabase
     .from(
@@ -867,7 +1001,7 @@ if (updateError) {
   );
 }
 
-const { error: integrationError } = DELEGATION
+const { error: integrationError } = CONTROLLED
   ? { error: null }
   : await supabase
     .from("project_integrations")
@@ -925,9 +1059,10 @@ const { error: auditError } =
         "EmailIngestionRun",
 
       entity_id:
-        `GMAIL-INCREMENTAL:${completedAt}`,
+        PER_MAILBOX ? `GMAIL-INCREMENTAL:${mailbox}:${completedAt}` : `GMAIL-INCREMENTAL:${completedAt}`,
 
       detail:
+        (PER_MAILBOX ? `Caixa ${mailbox}: ` : "") +
         `${inserted} novas; ` +
         `${duplicates} duplicadas; ` +
         `${rejected} rejeitadas pelo perímetro.`,

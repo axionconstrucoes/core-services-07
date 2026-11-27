@@ -4,6 +4,23 @@ on:
   schedule:
     - cron: "*/15 * * * *"
   workflow_dispatch:
+    # Sem entradas (agendador pg_cron) = coleta. Os outros modos são manuais e NÃO gravam e-mails.
+    inputs:
+      mode:
+        description: "coleta | plano (só lista caixas e motivos) | teste_tecnico (só perfil Gmail) | comparacao (só ids, Gmail x banco)"
+        required: false
+        type: choice
+        default: coleta
+        options:
+          - coleta
+          - plano
+          - teste_tecnico
+          - comparacao
+      since:
+        description: "comparacao: início AAAA-MM-DD"
+        required: false
+        type: string
+        default: "2026-11-23"
 
 concurrency:
   group: gmail-inbound-sync
@@ -20,13 +37,15 @@ jobs:
     # O job pulado conclui `skipped`, que os watchdogs ignoram.
     if: ${{ github.event_name != 'schedule' || vars.ACC_SCHEDULER_PG_CRON_ENABLED != 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Várias caixas por execução (cada uma em processo próprio); a carga inicial anda em fatias de 7 dias.
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       # Agendador (docs/operacao-agendador-sla.md): INÍCIO real do job com run_id. Nunca falha o workflow.
       - name: Heartbeat do agendador (início)
+        if: ${{ (github.event.inputs.mode || 'coleta') == 'coleta' }}
         continue-on-error: true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -42,18 +61,51 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Sync Gmail
-        run: node scripts/gmail-inbound-sync.mjs --apply
+      # Coleta POR CAIXA (docs/gmail-coleta-por-caixa.md): as caixas vêm do BANCO (lista da obra + controle por caixa +
+      # aceite individual AUTORIZADO + credencial). Caixa pendente/recusada/revogada/sem credencial é pulada e relatada.
+      # GOOGLE_GMAIL_INBOUND_MAILBOX é só a caixa LEGADA (compatibilidade): é lida pelo caminho histórico enquanto não
+      # tiver coleta por caixa ligada, e é a única caixa lida se a migration 20261214100000 não estiver aplicada.
+      # Credenciais por caixa: GOOGLE_GMAIL_<LOCAL>_* ou slots neutros GOOGLE_GMAIL_TITULAR_<N>_* (segredo vazio = slot sem caixa).
+      - name: Sync Gmail (por caixa)
+        run: |
+          set -euo pipefail
+          case "${INPUT_MODE:-coleta}" in
+            coleta) node scripts/gmail-multi-mailbox-sync.mjs --apply --with-attachments ;;
+            plano) node scripts/gmail-multi-mailbox-sync.mjs --plan ;;
+            teste_tecnico) node scripts/gmail-multi-mailbox-sync.mjs --apply --technical-check ;;
+            comparacao)
+              [[ "${INPUT_SINCE}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] || { echo "::error::since inválido"; exit 1; }
+              node scripts/gmail-multi-mailbox-sync.mjs --compare "--since=${INPUT_SINCE}" ;;
+            *) echo "::error::modo inválido"; exit 1 ;;
+          esac
         env:
+          INPUT_MODE: ${{ github.event.inputs.mode || 'coleta' }}
+          INPUT_SINCE: ${{ github.event.inputs.since || '2026-11-23' }}
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NODE_OPTIONS: --import=./scripts/lib/install-resilient-fetch.mjs
           SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          ACC_GMAIL_MAX_WINDOW_DAYS: "7"
           GOOGLE_GMAIL_REYNALDO_CLIENT_ID: ${{ secrets.GOOGLE_GMAIL_REYNALDO_CLIENT_ID }}
           GOOGLE_GMAIL_REYNALDO_CLIENT_SECRET: ${{ secrets.GOOGLE_GMAIL_REYNALDO_CLIENT_SECRET }}
           GOOGLE_GMAIL_REYNALDO_REFRESH_TOKEN: ${{ secrets.GOOGLE_GMAIL_REYNALDO_REFRESH_TOKEN }}
           GOOGLE_GMAIL_INBOUND_MAILBOX: reynaldo@axion.com.br
+          GOOGLE_GMAIL_INBOUND_CLIENT_ID: ${{ secrets.GOOGLE_GMAIL_INBOUND_CLIENT_ID }}
+          GOOGLE_GMAIL_INBOUND_CLIENT_SECRET: ${{ secrets.GOOGLE_GMAIL_INBOUND_CLIENT_SECRET }}
+          GOOGLE_GMAIL_TITULAR_1_MAILBOX: ${{ secrets.GOOGLE_GMAIL_TITULAR_1_MAILBOX }}
+          GOOGLE_GMAIL_TITULAR_1_REFRESH_TOKEN: ${{ secrets.GOOGLE_GMAIL_TITULAR_1_REFRESH_TOKEN }}
+          GOOGLE_GMAIL_TITULAR_1_CLIENT_ID: ${{ secrets.GOOGLE_GMAIL_TITULAR_1_CLIENT_ID }}
+          GOOGLE_GMAIL_TITULAR_1_CLIENT_SECRET: ${{ secrets.GOOGLE_GMAIL_TITULAR_1_CLIENT_SECRET }}
+          GOOGLE_GMAIL_TITULAR_2_MAILBOX: ${{ secrets.GOOGLE_GMAIL_TITULAR_2_MAILBOX }}
+          GOOGLE_GMAIL_TITULAR_2_REFRESH_TOKEN: ${{ secrets.GOOGLE_GMAIL_TITULAR_2_REFRESH_TOKEN }}
+          GOOGLE_GMAIL_TITULAR_2_CLIENT_ID: ${{ secrets.GOOGLE_GMAIL_TITULAR_2_CLIENT_ID }}
+          GOOGLE_GMAIL_TITULAR_2_CLIENT_SECRET: ${{ secrets.GOOGLE_GMAIL_TITULAR_2_CLIENT_SECRET }}
+          GOOGLE_GMAIL_TITULAR_3_MAILBOX: ${{ secrets.GOOGLE_GMAIL_TITULAR_3_MAILBOX }}
+          GOOGLE_GMAIL_TITULAR_3_REFRESH_TOKEN: ${{ secrets.GOOGLE_GMAIL_TITULAR_3_REFRESH_TOKEN }}
+          GOOGLE_GMAIL_TITULAR_3_CLIENT_ID: ${{ secrets.GOOGLE_GMAIL_TITULAR_3_CLIENT_ID }}
+          GOOGLE_GMAIL_TITULAR_3_CLIENT_SECRET: ${{ secrets.GOOGLE_GMAIL_TITULAR_3_CLIENT_SECRET }}
 
       - name: Ingest email attachments and meeting minutes
+        if: ${{ (github.event.inputs.mode || 'coleta') == 'coleta' }}
         run: node scripts/gmail-ata-ingestion-worker.mjs
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -66,7 +118,7 @@ jobs:
 
       # Agendador: CONCLUSÃO efetiva do job (success|failure|cancelled) com o mesmo run_id. Nunca falha o workflow.
       - name: Heartbeat do agendador (conclusão)
-        if: always()
+        if: ${{ always() && (github.event.inputs.mode || 'coleta') == 'coleta' }}
         continue-on-error: true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

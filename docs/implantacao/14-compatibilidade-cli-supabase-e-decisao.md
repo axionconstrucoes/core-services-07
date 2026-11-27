@@ -7,8 +7,8 @@ Data da leitura: 21/11/2026. Nada foi aplicado, reparado ou registrado no operac
 | Item | Valor | Fonte |
 |---|---|---|
 | Registros em `supabase_migrations.schema_migrations` | **134**; última `20261119034721`; hash `md5(string_agg(version\|\|'_'\|\|name, ',' order by version))` = `70a176da74c9f88ac06b04d80bc55891` | SELECT via MCP **[VERIFICADO]** |
-| Arquivos locais | **206** (134 registrados + **72** não registrados) | `supabase/migrations` **[VERIFICADO]** |
-| Os 72 | 69 em 14 ondas (A, B, C, D, F, G, H1, I, P0, J, K, L, M, N) + 2 adiadas (`20261121177000` onda E, `20261123302000` onda H2) = **71 pendentes** + o hotfix `20261121090000` (efetivo fora do histórico) | `scripts/data/implantacao-sequencia.json`, `test-implantacao-cli` **[VERIFICADO]** |
+| Arquivos locais | **207** (134 registrados + **73** não registrados) | `supabase/migrations` **[VERIFICADO]** |
+| Os 73 | 70 em 15 ondas (A, B, C, D, F, G, H1, I, P0, J, K, L, M, N, O) + 2 adiadas (`20261121177000` onda E, `20261123302000` onda H2) = **72 pendentes** + o hotfix `20261121090000` (efetivo fora do histórico) | `scripts/data/implantacao-sequencia.json`, `test-implantacao-cli` **[VERIFICADO]** |
 | 134 remotas × nomes locais | versão e nome **idênticos** (hash do conjunto local equivalente = hash remoto; `test-implantacao-plano`) | **[VERIFICADO]** |
 | P0 `record_risk_alert_action` | md5 do `prosrc` = `930f6d75898793479b418950b0053bd9` (igual com e sem CR) | SELECT **[VERIFICADO]** |
 | Servidor | PostgreSQL 17.6, `pg_cron` 1.6.4 | SELECT **[VERIFICADO]** |
@@ -74,7 +74,7 @@ Fontes: `supabase.com/docs/reference/cli/supabase-db-push`, `-migration-repair`,
 
 **Híbrido, com a aplicação por (b)**: cada arquivo por `psql -1` + `insert` atômico (plano `12`), pois é a única via com `lock_timeout` por arquivo, P0 após **cada** arquivo e parada limpa; a CLI oficial entra **somente para leitura de conferência**: `supabase migration list` (Local = Remote depois de cada onda) e `supabase db push --dry-run --skip-vault` na pasta cumulativa da onda seguinte (deve listar exatamente a onda; ao final, nada pendente). O hotfix entra por `supabase migration repair --status applied 20261121090000` (oficial, pede confirmação) **ou** pelo insert de `12`: equivalentes (só inserem a linha). Se o Dono preferir a CLI para escrever: pasta cumulativa por onda, `--include-all` só na A, P0 por onda (não por arquivo) e aceitar a perda de `lock_timeout` por arquivo. Em qualquer caso: backup do histórico antes da janela (`12`, 1.3) e hash conferido depois de cada onda.
 
-Ensaio (Postgres 17 local descartável, `scripts/ensaio-implantacao-ondas-realpg.mjs`): histórico espelho com as mesmas colunas e 134 linhas com hash igual ao remoto; 71 pendentes por versão (3 fora de ordem); ondas aplicadas em ordem com registro na mesma transação e P0 após cada arquivo; `repair applied` do hotfix só insere (P0 idêntico) e `reverted` remove exatamente 1 linha; histórico final = os 205 arquivos (hash). Contagem de verificações: ver a última execução do ensaio (seção 9), 0 falhas (LF e CRLF).
+Ensaio (Postgres 17 local descartável, `scripts/ensaio-implantacao-ondas-realpg.mjs`): histórico espelho com as mesmas colunas e 134 linhas com hash igual ao remoto; 72 pendentes por versão (3 fora de ordem); ondas aplicadas em ordem com registro na mesma transação e P0 após cada arquivo; `repair applied` do hotfix só insere (P0 idêntico) e `reverted` remove exatamente 1 linha; histórico final = os 205 arquivos (hash). Contagem de verificações: ver a última execução do ensaio (seção 9), 0 falhas (LF e CRLF).
 
 ## 7. Onda M (H6e, TENANT_ADMIN) - INCLUÍDA na sequência
 

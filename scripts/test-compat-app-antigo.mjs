@@ -244,19 +244,19 @@ check("analisarMigration: bloco DO usa as tabelas existentes citadas como limite
 // ---------- sequencia de implantacao (fatos verificados contra o catalogo real em 22/11) ----------
 const seq = JSON.parse(read("scripts/data/implantacao-sequencia.json"));
 const local = new Set(readdirSync(path.join(root, "supabase", "migrations")).filter((f) => f.endsWith(".sql")).map((f) => f.replace(/\.sql$/, "")));
-check("sequencia: 14 ondas, 69 migrations executaveis + hotfix so-registro = 70 itens; 2 adiadas; todas existem em supabase/migrations", () => {
-  eq(seq.ondas.map((o) => o.id), ["A", "B", "C", "D", "F", "G", "H1", "I", "P0", "J", "K", "L", "M", "N"]);
+check("sequencia: 15 ondas, 70 migrations executaveis + hotfix so-registro = 71 itens; 2 adiadas; todas existem em supabase/migrations", () => {
+  eq(seq.ondas.map((o) => o.id), ["A", "B", "C", "D", "F", "G", "H1", "I", "P0", "J", "K", "L", "M", "N", "O"]);
   const n = seq.ondas.reduce((a, o) => a + o.migrations.length, 0);
-  eq(n, 69);
-  eq(n + seq.jaEfetivaNaoReaplicar.length, 70);
+  eq(n, 70);
+  eq(n + seq.jaEfetivaNaoReaplicar.length, 71);
   eq(seq.adiadas.map((a) => a.onda), ["E", "H2"]);
   for (const m of [...seq.ondas.flatMap((o) => o.migrations), ...seq.adiadas.map((a) => a.migration), ...seq.jaEfetivaNaoReaplicar]) assert(local.has(m), `${m} nao existe`);
 });
 
-check("sequencia: o watchdog (onda N, 20261212100000) e o ultimo item executavel e nao ha item irreversivel nas ondas executaveis", () => {
+check("sequencia: a coleta Gmail por caixa (onda O, 20261214100000) e o ultimo item executavel e nao ha item irreversivel nas ondas executaveis", () => {
   const ult = seq.ondas.at(-1);
-  eq(ult.id, "N");
-  eq(ult.migrations, ["20261212100000_watchdog_project_resolution"]);
+  eq(ult.id, "O");
+  eq(ult.migrations, ["20261214100000_gmail_per_mailbox_collection"]);
   const exec = seq.ondas.flatMap((o) => o.migrations);
   for (const m of exec) {
     const sql = read(`supabase/migrations/${m}.sql`).replace(/--[^\n]*/g, "");

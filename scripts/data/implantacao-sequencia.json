@@ -157,6 +157,13 @@
       "migrations": [
         "20261212100000_watchdog_project_resolution"
       ]
+    },
+    {
+      "id": "O",
+      "nome": "Coleta Gmail por caixa (estado visivel por caixa: ultima importada, origem da credencial e escopos; opcao de e-mail somente interno DESLIGADA; RPCs record_mailbox_collection_progress, record_mailbox_oauth_state e add_project_ingestion_mailbox). Cauda apos N; depende de 20261107090000/20261121110000/20261201100000 (ja aplicadas no remoto); sem publicacao de app obrigatoria (o coletor detecta a ausencia e volta ao modo historico).",
+      "migrations": [
+        "20261214100000_gmail_per_mailbox_collection"
+      ]
     }
   ],
   "adiadas": [
