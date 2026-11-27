@@ -488,7 +488,7 @@ Visões executivas da obra: Dashboard, Quatro Pilares, Timeline e Auditoria.
 
 **5. Regras e significados de status**
 - A auditoria é só de leitura; os registros não são alterados pela tela.
-- Os filtros agrupam por tipo de ação e podem ser aproximados.
+- Os filtros usam um catálogo explícito de códigos de ação, com contagem real, datas, responsável e palavra-chave; horários em Brasília.
 
 **6. Permissões.** Todo membro ATIVO da obra vê a tela. O que cada perfil consegue gravar é decidido pelo servidor e pelo banco; se uma ação for recusada, peça ao Administrador da obra.
 
@@ -497,7 +497,7 @@ Visões executivas da obra: Dashboard, Quatro Pilares, Timeline e Auditoria.
 
 **8. Exemplos de perguntas e respostas (as mesmas que a AXIA dá)**
 - **P:** Onde vejo quem fez uma ação no ACC?
-  **R:** Na aba Auditoria: a tabela mostra data e hora, ator, ação, entidade e detalhe. Use Filtrar logs para focar em e-mails, SLA, SSMA/ESG ou falhas.
+  **R:** Na aba Auditoria: a tabela mostra data e hora, ator, ação, entidade e detalhe. Use FILTRAR REGISTROS DE AUDITORIA para focar em e-mails, SLA, SSMA/ESG ou falhas.
 
 **9. Limitações e o que ainda não está liberado**
 - Tela ainda em validação final de uso.
