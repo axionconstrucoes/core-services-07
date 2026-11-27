@@ -3,9 +3,9 @@ name: SSMA Drive Photo Sync
 on:
   # Execução manual preservada para testes e reprocessamentos controlados.
   workflow_dispatch:
-  # Piloto real confirmado em 10/09/2026: sincronização automática a cada 2 horas.
-  schedule:
-    - cron: "0 */2 * * *"
+  # AGENDADOR UNICO (docs/operacao-workflows-agendador-unico.md): sem `schedule` do GitHub aqui.
+  # Quem agenda: pg_cron `acc-ssma-drive` (0 */2 * * *).
+  # Reversao: readicionar o bloco `schedule` removido (ver o doc) SOMENTE com o job do agendador principal desligado.
 
 concurrency:
   group: ssma-drive-photo-sync

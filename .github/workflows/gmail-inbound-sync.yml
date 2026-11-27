@@ -1,8 +1,9 @@
 name: Gmail Inbound Sync
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"
+  # AGENDADOR UNICO (docs/operacao-workflows-agendador-unico.md): sem `schedule` do GitHub aqui.
+  # Quem agenda: pg_cron `acc-gmail-sync` (1-59/15 * * * *).
+  # Reversao: readicionar o bloco `schedule` removido (ver o doc) SOMENTE com o job do agendador principal desligado.
   workflow_dispatch:
 
 concurrency:

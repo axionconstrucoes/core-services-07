@@ -20,7 +20,8 @@ check("tetos validados antes de executar", /-le 50/.test(WF) && /-le 100/.test(W
 check("sem segredos literais", !/sb_secret_[A-Za-z0-9]{6,}|eyJ[A-Za-z0-9_-]{20,}\./.test(WF));
 check("segredos vem de secrets e kill switch de vars", /secrets\.SUPABASE_SECRET_KEY/.test(WF) && /vars\.CONSTRUMANAGER_AUTO_KILL_SWITCH/.test(WF));
 check("monitoramento de metadados segue sem invocar o worker de conteudo", !/construmanager-content-worker\.mjs/.test(exec(MON)));
-check("nenhum cron novo: o monitoramento mantem seu unico cron", (MON.match(/- cron:/g) ?? []).length === 1);
+// Agendador unico (docs/operacao-workflows-agendador-unico.md): o monitoramento e agendado pelo pg_cron (acc-construmanager).
+check("nenhum cron novo: o monitoramento nao tem cron proprio (pg_cron agenda) e segue disparavel", (MON.match(/- cron:/g) ?? []).length === 0 && /^  workflow_dispatch:/m.test(MON));
 
 const env = (over) => ({ CONSTRUMANAGER_AUTO_DOWNLOAD_ENABLED: "true", CONSTRUMANAGER_AUTO_DRY_RUN: "true", CONSTRUMANAGER_AUTO_MAX_ITEMS: "10", CONSTRUMANAGER_AUTO_MAX_FILE_BYTES: "50000000", CONSTRUMANAGER_AUTO_TIME_BUDGET_MS: "6600000", ...over });
 const d = resolveAutomationConfig(env());

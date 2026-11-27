@@ -55,6 +55,8 @@ ao Gmail; essa duração ainda **não foi medida**.
 | acc-watchdog | `*/5` | SQL | reconciliação e incidentes |
 | acc-cron-history-cleanup | `30 3` | SQL | mantém 7 dias de `cron.job_run_details` |
 
+> **Atualização 27/11/2026 — agendador único:** o `schedule` de reserva do GitHub foi removido de todos os workflows despachados pelo pg_cron (e de `ssma-notifications`/`contract-alert-batches`). O pg_cron é o agendador principal; o GitHub Actions só executa (`workflow_dispatch`). Inventário, reativação e rollback: `docs/operacao-workflows-agendador-unico.md`. As menções a `schedule` "como reserva" nesta seção ficam como histórico.
+
 O `schedule` do GitHub nos workflows de coleta fica como **reserva**. As
 duplicatas são absorvidas pelos grupos de concorrência
 (`cancel-in-progress: false`) e pela idempotência dos fluxos.
@@ -124,6 +126,8 @@ um único chamador agendado, o pg_cron. Sem a variável, tudo continua como hoje
 | Aviso SSMA único por ação, prazo e destinatário | `sweepFieldNotifications` (comentário do workflow) | aviso SSMA repetido |
 
 ### 4.1 Disparos do pg_cron que podem coincidir com os `schedule` que continuam no GitHub
+
+> **Atualização 27/11/2026 — agendador único:** o `schedule` de reserva do GitHub foi removido de todos os workflows despachados pelo pg_cron (e de `ssma-notifications`/`contract-alert-batches`). O pg_cron é o agendador principal; o GitHub Actions só executa (`workflow_dispatch`). Inventário, reativação e rollback: `docs/operacao-workflows-agendador-unico.md`. As menções a `schedule` "como reserva" nesta seção ficam como histórico.
 
 O pg_cron só **substitui** as duas rotas (§4). Os workflows de coleta e processamento continuam com o `schedule` do GitHub como reserva **e** passam
 a receber `workflow_dispatch` do pg_cron. Em vários casos os horários coincidem ou se sobrepõem no tempo:

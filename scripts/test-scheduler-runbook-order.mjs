@@ -148,6 +148,9 @@ check("§4.1: a tabela de coincidências bate com os schedules REAIS dos workflo
     const yml = read(`.github/workflows/${workflow}.yml`);
     const gh = yml.match(/- cron: "([^"]+)"/)?.[1];
     const pg = migration.match(new RegExp("cron[.]schedule[(]'" + job + "',[ ]*'([^']+)'"))?.[1];
+    // Agendador unico (docs/operacao-workflows-agendador-unico.md): sem `schedule` no workflow nao ha coincidencia;
+    // a tabela do §4.1 fica como historico e precisa apontar para o doc novo.
+    if (!gh && pg) { assert(s41.includes("operacao-workflows-agendador-unico.md"), `${workflow} sem schedule, mas §4.1 nao aponta o agendador unico`); continue; }
     assert(gh && pg, `cron não encontrado para ${workflow}/${job}`);
     const row = s41.split(String.fromCharCode(10)).find((line) => line.startsWith("|") && line.includes("`" + gh + "`") && line.includes("`" + workflow.split("-").slice(0, 2).join("-")));
     assert(row, `linha de ${workflow} (schedule ${gh}) ausente na tabela`);

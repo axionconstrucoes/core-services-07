@@ -6,11 +6,12 @@ name: SSMA Notifications
 # ação/prazo e nunca se repete, então um atraso do agendador apenas adia o aviso.
 
 on:
-  # Religado em 18/11/2026 por autorização explícita, RESTRITO no servidor ao escopo ACC_SSMA_NOTIFICATIONS_SCOPE=WEG_CORRECTIVE_ACTIONS
-  # (somente aviso de ação corretiva em atraso da WEG ao responsável + confirmações de resposta). Sem ACC_SSMA_NOTIFICATIONS_ENABLED=true
-  # e escopo válido na Vercel, a rota responde 204 e nada é enviado. O aviso de atraso é único por ação/prazo/destinatário.
-  schedule:
-    - cron: "15 * * * *"
+  # AGENDADOR UNICO (docs/operacao-workflows-agendador-unico.md): sem `schedule` do GitHub aqui.
+  # Quem agenda: pg_cron `acc-ssma-notifications` chama a rota /api/cron/ssma-notifications DIRETO (3-59/5 * * * *); este workflow fica so como previa manual.
+  # Reversao: readicionar o bloco `schedule` removido (ver o doc) SOMENTE com o job do agendador principal desligado.
+  # Escopo no servidor (inalterado): ACC_SSMA_NOTIFICATIONS_SCOPE=WEG_CORRECTIVE_ACTIONS (aviso de acao corretiva em atraso
+  # da WEG ao responsavel + confirmacoes de resposta). Sem ACC_SSMA_NOTIFICATIONS_ENABLED=true e escopo valido na Vercel,
+  # a rota responde 204 e nada e enviado. O aviso de atraso e unico por acao/prazo/destinatario.
   workflow_dispatch:
     inputs:
       dry_run:

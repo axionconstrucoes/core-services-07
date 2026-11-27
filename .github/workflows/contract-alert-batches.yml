@@ -1,8 +1,9 @@
 name: Contract Alert Batches
 
 on:
-  schedule:
-    - cron: "10 10 * * 3"
+  # AGENDADOR UNICO (docs/operacao-workflows-agendador-unico.md): sem `schedule` do GitHub aqui.
+  # Quem agenda: Vercel cron /api/cron/weekly-alert-digest (0 10 * * 3), que ja executa runContractAlertBatches(); este workflow fica so manual.
+  # Reversao: readicionar o bloco `schedule` removido (ver o doc) SOMENTE com o job do agendador principal desligado.
   workflow_dispatch:
 
 concurrency:

@@ -36,22 +36,12 @@
 name: Diario de Obra Sync
 
 on:
-  # 00:43 UTC = 21:43 de Brasilia (UTC-3).
+  # AGENDADOR UNICO (docs/operacao-workflows-agendador-unico.md): sem `schedule` do GitHub aqui.
+  # Quem agenda: pg_cron `acc-diario` (43 0 * * *, sempre {"mode":"incremental"}).
+  # Reversao: readicionar o bloco `schedule` removido (ver o doc) SOMENTE com o job do agendador principal desligado.
   #
-  # Um unico horario, e um horario "quebrado" de proposito: o minuto 0 de
-  # cada hora e' o pico de agendamento do GitHub, onde a fila atrasa. 43
-  # e' barato e chega mais perto do horario pretendido.
-  #
-  # Fim da noite tambem e' escolha: a janela incremental cobre 14 dias e
-  # os RDOs do dia ja foram apontados quando a obra encerra.
-  #
-  # NUNCA agende BASELINE nem RECONCILE aqui. O baseline reimportaria
-  # historico e a reconciliacao varre o acervo inteiro — os dois sao
-  # operacoes de comando, com decisao humana. O `modo` abaixo torna isso
-  # estrutural: execucao agendada e' SEMPRE incremental.
-  schedule:
-    - cron: "43 0 * * *"
-
+  # NUNCA agende BASELINE nem RECONCILE. O pg_cron envia sempre {"mode":"incremental"};
+  # baseline e reconcile sao operacoes de comando, com decisao humana (disparo manual).
   workflow_dispatch:
     inputs:
       project_id:

@@ -28,8 +28,9 @@ name: Weekly Schedule Email Ingestion
 # motor da aplicação a cada chamada.
 
 on:
-  schedule:
-    - cron: "20 * * * *"
+  # AGENDADOR UNICO (docs/operacao-workflows-agendador-unico.md): sem `schedule` do GitHub aqui.
+  # Quem agenda: pg_cron `acc-weekly-all` (*/10 * * * *, {"phase":"all"}).
+  # Reversao: readicionar o bloco `schedule` removido (ver o doc) SOMENTE com o job do agendador principal desligado.
   workflow_dispatch:
     inputs:
       project_id:

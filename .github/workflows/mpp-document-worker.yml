@@ -1,9 +1,9 @@
 ﻿name: MPP Document Worker
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"
-
+  # AGENDADOR UNICO (docs/operacao-workflows-agendador-unico.md): sem `schedule` do GitHub aqui.
+  # Quem agenda: pg_cron `acc-mpp-worker` (5-59/10 * * * *).
+  # Reversao: readicionar o bloco `schedule` removido (ver o doc) SOMENTE com o job do agendador principal desligado.
   workflow_dispatch:
 
 concurrency:

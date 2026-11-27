@@ -34,11 +34,9 @@
 name: Construmanager Metadata Monitoring
 
 on:
-  # Quatro verificacoes por dia, fora do minuto cheio. A obra publica
-  # revisao em ritmo de dias: de hora em hora so multiplicaria chamadas
-  # a API de terceiro para reencontrar as mesmas 192 linhas.
-  schedule:
-    - cron: "17 */6 * * *"
+  # AGENDADOR UNICO (docs/operacao-workflows-agendador-unico.md): sem `schedule` do GitHub aqui.
+  # Quem agenda: pg_cron `acc-construmanager` (17 */6 * * *).
+  # Reversao: readicionar o bloco `schedule` removido (ver o doc) SOMENTE com o job do agendador principal desligado.
   workflow_dispatch:
     inputs:
       project_id:

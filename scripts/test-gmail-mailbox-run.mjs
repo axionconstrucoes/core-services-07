@@ -156,7 +156,8 @@ await check("S3 workflows: delegação continua manual e sem schedule; coletor a
   assert.ok(!/^\s*schedule:/m.test(wf.replace(/#[^\n]*/g, "")) && /workflow_dispatch/.test(wf));
   assert.ok(/gmail-ata-ingestion-worker\.mjs/.test(wf) && /mode != 'technical_check'/.test(wf), "anexos por delegação só fora do teste técnico");
   const cron = readFileSync(new URL("../.github/workflows/gmail-inbound-sync.yml", import.meta.url), "utf8");
-  assert.ok(cron.includes('cron: "*/15 * * * *"') && cron.includes("GOOGLE_GMAIL_INBOUND_MAILBOX: reynaldo@axion.com.br"));
+  // Agendador unico: o coletor e agendado pelo pg_cron (acc-gmail-sync, 15 min) via workflow_dispatch, sem schedule proprio.
+  assert.ok(!/^\s*schedule:/m.test(cron.replace(/#[^\n]*/g, "")) && /^  workflow_dispatch:/m.test(cron) && cron.includes("GOOGLE_GMAIL_INBOUND_MAILBOX: reynaldo@axion.com.br"));
 });
 
 await check("S4 caminhos OAuth históricos (coletor agendado e caixa do titular) param com recusa/revogação explícita do aceite no ACC", () => {
