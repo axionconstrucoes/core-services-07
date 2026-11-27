@@ -7,7 +7,10 @@ import { deliverSystemHealthIncident, sweepSpecialRoutineRetries } from "@/lib/e
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
-const ADMIN_RECIPIENTS = ["reynaldo@axion.com.br", "carla@axion.com.br"];
+// Cadastro oficial do piloto WEG (27/11/2026): alerta técnico vai à Diretoria (Reynaldo, administrador e supervisão de todos os
+// pilares). crm@axion.com.br recebe a cópia institucional obrigatória pelo perfil do projeto piloto — não é destinatário lógico.
+// Carla (FINANCEIRO) não recebe falhas técnicas de integração.
+const ADMIN_RECIPIENTS = ["reynaldo@axion.com.br"];
 
 function sanitize(value: unknown): string {
   return String(value ?? "Falha de integração sem detalhe")
