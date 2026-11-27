@@ -475,3 +475,12 @@ escalonamento de caso retido ou de reemissão.
 5. Decidir se a leitura de respostas vai para uma rota Vercel mais frequente (§3, atenção às respostas).
 6. Definir quem recebe aviso imediato de incidentes do agendador.
 7. Decidir quando remover o `schedule` do GitHub (sugestão: após 7 dias de heartbeats estáveis).
+
+## 14. Supervisão de paradas do pg_cron (migration 20261213100000)
+
+Origem: em 24/11/2026, 8 de 11 jobs ficaram com `active=false` após a janela de congelamento (o `7-pg-cron-retomar.sql` não foi executado) e nada avisou.
+
+- **Parada autorizada** = linha aberta em `public.acc_scheduler_authorized_pauses` (jobname `acc-…`, `paused_by`, `reason`, `expires_at` opcional, `resumed_at` nulo). Sem acesso pela API (somente service_role/SQL Editor). O `6-pg-cron-pausar.sql` registra a pausa de cada job ativo (vencimento em 3 h) e o `7-pg-cron-retomar.sql` a fecha. Pausa manual fora da janela: inserir a linha **antes** de desativar o job.
+- **Watchdog SQL** (`acc-watchdog`, a cada 5 min) abre incidentes `SCHEDULER`: `JOB_INACTIVE_UNAUTHORIZED` (inativo sem pausa), `JOB_INACTIVE_AUTHORIZED_EXPIRED` (pausa vencida), `JOB_PAUSED_AUTHORIZED` (informativo), `CONSECUTIVE_FAILURES` (3 últimas execuções falharam), `IMPORT_STALE` (gmail-sync sem sucesso há mais de 2 h), além dos motivos anteriores dos heartbeats (inalterados). Nunca reativa job.
+- **Rota Vercel `/api/cron/system-health`** (independente do pg_cron): abre `WATCHDOG_STALE` se o `acc-watchdog` não tem execução bem-sucedida há mais de 30 min (ou está desativado sem pausa válida), e envia os incidentes `SCHEDULER` abertos à Diretoria (`reynaldo@`; `crm@` em Cc pelo perfil do piloto), **um e-mail por incidente, nunca reenviado** (outbox `acc_system_health_alert_deliveries`), no máximo 10 por execução (o excedente segue na próxima). Pausa autorizada e falhas de heartbeat de job sob pausa válida: sem e-mail.
+- Rollback: `supabase/rollbacks/20261213100000_scheduler_supervision_authorized_pauses.rollback.sql` (preserva o registro de pausas).

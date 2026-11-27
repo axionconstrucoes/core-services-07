@@ -633,6 +633,8 @@ const SLA_RULE_MIGRATION_EXCEPTIONS = {
     "Prazos definitivos aprovados pelo responsável em 20/11/2026: MÉDIO 2 dias úteis e BAIXO 5 dias úteis, somente para NOVAS ações; não altera sla_actions existentes (provado em test-sla-medio-baixo-aprovados-sql).",
   "20261212100000_watchdog_project_resolution.sql":
     "Autorizado pelo responsável (22/11/2026, item 4 da autorização de homologação): corrige o project_id FIXO do acc_scheduler_watchdog (a FK quebrava onde a obra fixa não existe, ex. acc-homolog). Preserva o comportamento de produção (usa o id fixo se existir), NÃO altera prazos, escalonamento, destinatários, pg_cron nem record_risk_alert_action; validada no acc-homolog (onda N), em ensaio local e em test-watchdog-project-resolution-sql.",
+  "20261213100000_scheduler_supervision_authorized_pauses.sql":
+    "Autorizado pelo responsável (27/11/2026, PR feat/watchdog-supervisao) após a parada silenciosa de 24/11/2026 (8 de 11 jobs inativos sem aviso): nova versão do acc_scheduler_watchdog que PRESERVA o laço dos heartbeats e só ACRESCENTA motivos de supervisão (job inativo sem pausa autorizada, pausa vencida, falhas consecutivas, importação parada) e a leitura acc_scheduler_watchdog_liveness (somente service_role). Só LÊ cron.job/cron.job_run_details: NÃO chama cron.schedule/unschedule/alter_job, NÃO altera prazos, escalonamento nem destinatários; provado em test-scheduler-supervision-sql.",
 };
 // Alterações APROVADAS e estreitas (cada uma é verificada pelo CONTEÚDO, nunca só pelo nome):
 //  - default-matrix.ts: só vale se os prazos de assumir forem exatamente os aprovados (CRÍTICO 1, ALTO 4, MÉDIO 2, BAIXO 5);

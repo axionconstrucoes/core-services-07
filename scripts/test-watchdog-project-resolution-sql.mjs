@@ -56,7 +56,7 @@ await check("sem o projeto fixo e com projetos: usa o mais antigo (start_date, d
   const inc = await incidents();
   ok(inc.length > 0, "deveria abrir incidentes NO_RECENT_SUCCESS");
   ok(inc.every((r) => r.project_id === B && r.status === "OPEN"), `esperado todos em ${B}: ${JSON.stringify([...new Set(inc.map((r) => r.project_id))])}`);
-  ok(inc.every((r) => r.fingerprint.endsWith(":NO_RECENT_SUCCESS")), "motivo");
+  ok(inc.every((r) => /:(NO_RECENT_SUCCESS|IMPORT_STALE)$/.test(r.fingerprint)), "motivo (IMPORT_STALE do gmail-sync desde 20261213100000)");
 });
 
 await check("segunda execucao e idempotente (sem duplicar incidentes)", async () => {

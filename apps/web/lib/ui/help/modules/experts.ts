@@ -366,7 +366,7 @@ export const EXPERTS_HELP: FeatureHelpDefinition[] = [
     title: "CEO IA (Gestão Executiva) — perfil",
     shortDescription: "Camada executiva que consolida os demais especialistas. Perfil simulado; nunca decide nem substitui uma análise.",
     description:
-      `CEO IA (ceo, prompt v5) — Gestão Executiva e multi-especialista: camada integradora sobre o Diretor Comercial IA, o Consultor Jurídico IA, o Diretor de Planejamento IA, o Diretor de Engenharia e Construção IA, o Analista IA de Qualidade e o Diretor de ESG IA. Consolida, compara e prioriza; consolida os quatro pilares PRAZO, CUSTO, SEGURANÇA e QUALIDADE com a regra do pior pilar (nunca média simples); nunca substitui uma análise especializada nem executa decisão. ${EXPERT_SIMULATED_NOTICE}`,
+      `CEO IA (ceo, prompt v6) — Gestão Executiva e multi-especialista: camada integradora sobre o Diretor Comercial IA, o Consultor Jurídico IA, o Diretor de Planejamento IA, o Diretor de Engenharia e Construção IA, o Analista IA de Qualidade e o Diretor de ESG IA. Consolida, compara e prioriza; consolida os quatro pilares PRAZO, CUSTO, SEGURANÇA e QUALIDADE com a regra do pior pilar (nunca média simples); nunca substitui uma análise especializada nem executa decisão. ${EXPERT_SIMULATED_NOTICE}`,
     purpose:
       "Problemas que pode ajudar a resolver: ver numa só resposta a situação de um assunto que cruza áreas (comercial, jurídico, prazo, engenharia, ESG/SSMA); identificar divergências entre especialistas; priorizar riscos ALTO e CRÍTICO; listar as decisões humanas pendentes; comparar alternativas executivas; apontar a informação que falta para decidir.",
     howToUse: [

@@ -97,7 +97,7 @@ for (const [dir, instrName, versionName] of EXPERTS) {
 await check("versões subiram (framework comum; Planejamento e Engenharia separados; Comercial estratégico + Orçamentos): ceo v5, comercial v5, ESG v4, jurídico v7, planejamento v6, engenharia v1, qualidade v1", async () => {
   const get = async (dir, name) => (await import(`../apps/web/lib/ai/experts/${dir}/identity.ts`))[name];
   // v5/v7: bump por prompt alterado (CEO: quatro pilares + Qualidade; Jurídico: competência de seguros e garantias).
-  assert.equal(await get("ceo", "CEO_VERSION"), "v5");
+  assert.equal(await get("ceo", "CEO_VERSION"), "v6");
   assert.equal(await get("commercial-director", "COMMERCIAL_DIRECTOR_VERSION"), "v5");
   assert.equal(await get("esg-director", "ESG_DIRECTOR_VERSION"), "v4");
   assert.equal(await get("legal-consultant", "LEGAL_CONSULTANT_VERSION"), "v7");

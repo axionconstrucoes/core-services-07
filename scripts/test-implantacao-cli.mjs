@@ -15,16 +15,21 @@ function check(name, fn) { try { fn(); passed += 1; console.log(`OK   ${name}`);
 const assert = (c, m = "asserção falhou") => { if (!c) throw new Error(m); };
 const { seq, local, historicoBase, passos } = plano();
 const comps = composicoes();
+// Migrations NOVAS (posteriores a ultimaVersaoRemota e fora do JSON da janela, ex.: 20261213100000 da supervisao do agendador) nao fazem
+// parte da sequencia da janela: sao aplicadas depois, uma a uma, com aprovacao propria (verificacao em scripts/sql/verificacao-onda-novas.sql).
+const conhecidas = new Set([...seq.ondas.flatMap((o) => o.migrations), ...seq.adiadas.map((a) => a.migration), ...seq.jaEfetivaNaoReaplicar]);
+const novas = local.filter((s) => s.slice(0, 14) > seq.ultimaVersaoRemota && !conhecidas.has(s));
+const localJanela = local.filter((s) => !novas.includes(s));
 
 check("historico base = 134 registradas e todas as pendentes somam 72 (71 da sequencia + hotfix) = 206 arquivos locais", () => {
   assert(historicoBase.length === 134, `base ${historicoBase.length}`);
-  assert(local.length === 206, `locais ${local.length}`);
+  assert(localJanela.length === 206, `locais da janela ${localJanela.length} (novas fora da janela: ${novas.length})`);
   const seqN = seq.ondas.flatMap((o) => o.migrations).length + seq.adiadas.length;
-  assert(seqN === 71 && 134 + seqN + 1 === local.length, `sequencia ${seqN}`);
+  assert(seqN === 71 && 134 + seqN + 1 === localJanela.length, `sequencia ${seqN}`);
 });
 check("`db push --include-all` direto aplicaria 72 arquivos, inclusive o hotfix (reaplicacao) e as 2 adiadas: INADEQUADO", () => {
   const reg = new Set(historicoBase);
-  const pend = local.filter((s) => !reg.has(s));
+  const pend = localJanela.filter((s) => !reg.has(s));
   assert(pend.length === 72 && pend.includes(HOTFIX) && seq.adiadas.every((a) => pend.includes(a.migration)));
 });
 check("diretorio cumulativo: a CLI aplicaria exatamente a onda (pendentes = migrations da onda), sem hotfix nem adiadas fora do seu passo", () => {
