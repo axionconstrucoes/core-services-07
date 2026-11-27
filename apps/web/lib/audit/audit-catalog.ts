@@ -232,6 +232,7 @@ const ACTION_LABELS: Record<string, string> = {
   RISK_ALERT_ACTION: "Ação registrada no alerta de risco",
   RISK_ALERT_AREA_INFORMATIVE_SET: "Área de alerta definida como informativa",
   RISK_ALERT_AUTOMATION_SUSPENDED_BY_SCOPE: "Automação de alerta suspensa por escopo",
+  RISK_ALERT_CASE_COMMUNICATION_RESUMED: "Comunicação do caso de alerta retomada",
   RISK_ALERT_CASE_COMMUNICATION_SUSPENDED: "Comunicação do caso de alerta suspensa",
   RISK_ALERT_CASE_DUPLICATE_IDENTIFIED: "Caso de alerta duplicado identificado",
   RISK_ALERT_DEADLINE_EXPIRED: "Prazo do alerta de risco vencido",
