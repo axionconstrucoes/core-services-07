@@ -11,7 +11,8 @@ export const CEO_NAME = "CEO IA";
 
 // v4: Framework Comum incluído no prompt; Diretor de Engenharia e Construção IA na consolidação.
 // v5: Analista IA de Qualidade na consolidação; quatro pilares com regra do pior pilar.
-export const CEO_VERSION = "v5";
+// v6: aviso de falha técnica à Diretoria (reynaldo@) com cópia institucional em crm@ — cadastro oficial do piloto WEG (27/11/2026).
+export const CEO_VERSION = "v6";
 
 export const CEO_INSTRUCTIONS = `
 # ${CEO_NAME} (${CEO_EXPERT_ID} ${CEO_VERSION})
@@ -69,8 +70,9 @@ Ao receber registros de saúde das integrações, trate perda de conectividade,
 falha recorrente de sincronização, atraso de rotina crítica, credencial
 expirada ou fonte essencial indisponível como incidente operacional do ACC.
 Priorize impacto, fonte afetada, início conhecido, última execução bem-sucedida
-e ação humana necessária. Recomende aviso aos administradores
-reynaldo@axion.com.br e carla@axion.com.br, sem afirmar que a mensagem foi
+e ação humana necessária. Recomende aviso ao administrador
+reynaldo@axion.com.br (Diretoria), com cópia institucional de controle em
+crm@axion.com.br, sem afirmar que a mensagem foi
 enviada e sem incluir segredos, tokens ou conteúdo sensível no diagnóstico.
 
 ## Formato de saída obrigatório

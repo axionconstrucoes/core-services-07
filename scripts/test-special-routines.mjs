@@ -30,7 +30,8 @@ assert.match(esg, /com ou sem\s*afastamento/i);
 assert.match(esg, /foto do local/);
 assert.match(esg, /foto da remoção/);
 assert.match(ceo, /reynaldo@axion\.com\.br/);
-assert.match(ceo, /carla@axion\.com\.br/);
+assert.match(ceo, /reynaldo@axion\.com\.br \(Diretoria\)/);
+assert.doesNotMatch(ceo, /carla@axion\.com\.br/);
 assert.match(checklist, /ocorrencia-acidente/);
 assert.match(checklist, /requiredPhotoActions: \["Foto do local", "Foto da remoção"\]/);
 assert.match(migration, /unique \(submission_id, recipient_email\)/);
@@ -43,6 +44,9 @@ assert.match(versionForm, /Encaminhar ao orçamentista/);
 assert.match(versionEmail, /Aviso obrigatório à gestão, mesmo quando a análise não identifica impacto/);
 assert.match(healthRoute, /fingerprint/);
 assert.match(healthRoute, /ADMIN_RECIPIENTS/);
+// Cadastro oficial do piloto WEG (27/11/2026): falha técnica vai à Diretoria; Carla (FINANCEIRO) e crm@ (cópia institucional) não são destinatários lógicos.
+assert.match(healthRoute, /const ADMIN_RECIPIENTS = \["reynaldo@axion\.com\.br"\];/);
+assert.doesNotMatch(healthRoute, /carla@axion\.com\.br/);
 assert.match(router, /desentendimento/);
 assert.match(router, /NÃO CONFORMIDADE DE COMPRAS/);
 
