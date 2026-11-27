@@ -23,7 +23,9 @@ const inv = read("docs/implantacao/01-inventario-migrations.md");
 const all = [d10, d11, d12, d13].join("\n");
 
 const pend = new Set([...seq.ondas.flatMap((o) => o.migrations), ...seq.adiadas.map((a) => a.migration)]);
-const invPend = [...inv.matchAll(/^\| (\d{14}_[a-z0-9_]+) \| (pendente[a-z-]*) \|/gm)].map((m) => m[1]);
+// Linhas "NOVA, fora da sequência da janela" (migrations posteriores ao JSON, aplicadas depois com aprovação própria; verificação em
+// scripts/sql/verificacao-onda-novas.sql) não entram na contagem da janela.
+const invPend = [...inv.matchAll(/^\| (\d{14}_[a-z0-9_]+) \| (pendente[a-z-]*) \| (.*)$/gm)].filter((m) => !m[3].startsWith("NOVA, fora da sequência da janela")).map((m) => m[1]);
 
 check("a contagem de pendentes dos documentos 10/12 = inventário 01 = sequência JSON", () => {
   assert(invPend.length === pend.size, `inventário ${invPend.length} x sequência ${pend.size}`);
