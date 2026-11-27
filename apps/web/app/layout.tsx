@@ -1,12 +1,33 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import localFont from "next/font/local";
 import { TestModeBanner } from "@/components/layout/test-mode-banner";
 import { PwaRegistration } from "@/components/pwa-registration";
 import { AutomaticFieldHelp } from "@/components/shared/automatic-field-help";
 import "./globals.css";
 
-const plexSans = IBM_Plex_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plex-sans", display: "swap" });
-const plexMono = IBM_Plex_Mono({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-plex-mono", display: "swap" });
+// IBM Plex Sans/Mono servidas a partir de arquivos locais (app/fonts/,
+// copiados de @fontsource/ibm-plex-sans e @fontsource/ibm-plex-mono 5.3.0,
+// SIL Open Font License 1.1 — ver app/fonts/OFL-*.txt). Evita que o
+// `next build` consulte fonts.googleapis.com (falhas intermitentes no Vercel).
+// Mesmos pesos (400/500/600), subset latin, display swap e variáveis CSS.
+const plexSans = localFont({
+  src: [
+    { path: "./fonts/ibm-plex-sans-latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/ibm-plex-sans-latin-500-normal.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/ibm-plex-sans-latin-600-normal.woff2", weight: "600", style: "normal" },
+  ],
+  variable: "--font-plex-sans",
+  display: "swap",
+});
+const plexMono = localFont({
+  src: [
+    { path: "./fonts/ibm-plex-mono-latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/ibm-plex-mono-latin-500-normal.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/ibm-plex-mono-latin-600-normal.woff2", weight: "600", style: "normal" },
+  ],
+  variable: "--font-plex-mono",
+  display: "swap",
+});
 
 // Título de aba do navegador: "ACC | <Nome da aba>" — cada page.tsx
 // define seu próprio `title` curto (ex.: "Dashboard"), substituído no
