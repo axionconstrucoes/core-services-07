@@ -239,6 +239,7 @@ const ACTION_LABELS: Record<string, string> = {
   RISK_ALERT_EMAIL_SENT: "E-mail de alerta de risco enviado",
   RISK_ALERT_NOT_READY_FOR_REAL_SEND: "Alertas ainda não liberados para envio real",
   RISK_ALERT_PILOT_LEVEL_RECIPIENT_OVERRIDE_SET: "Destinatário de nível definido no piloto",
+  RISK_ALERT_PILOT_LEVEL_RECIPIENT_OVERRIDE_UNSET: "Destinatário de nível do piloto revogado",
   RISK_ALERT_PILOT_SINGLE_RUN: "Execução única de alerta no piloto",
   RISK_ALERT_PLANNED: "Alerta de risco planejado",
   RISK_ALERT_READY_FOR_REAL_SEND: "Alertas liberados para envio real",
