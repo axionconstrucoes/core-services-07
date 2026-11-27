@@ -1,6 +1,16 @@
 import { createHash } from "node:crypto";
 import { createSupabaseAdminClient } from "@axion/db/admin";
 import { isCronRequestAuthorized } from "@/lib/cron/cron-request-auth";
+import {
+  buildSchedulerIncidentEmailSummary,
+  buildWatchdogStaleSummary,
+  authorizedPausedJobs,
+  evaluateWatchdogLiveness,
+  sanitizeSchedulerAlertRecipients,
+  selectSchedulerIncidentsToEmail,
+  WATCHDOG_STALE_FINGERPRINT,
+  type SchedulerLiveness,
+} from "@/lib/cron/scheduler-supervision";
 import { informativeDeliveryOk } from "@/lib/email/informative-delivery";
 import { deliverSystemHealthIncident, sweepSpecialRoutineRetries } from "@/lib/email/special-routine-deliveries";
 
@@ -12,10 +22,12 @@ export const maxDuration = 300;
 // Carla (FINANCEIRO) não recebe falhas técnicas de integração.
 const ADMIN_RECIPIENTS = ["reynaldo@axion.com.br"];
 
-function sanitize(value: unknown): string {
+type Admin = ReturnType<typeof createSupabaseAdminClient>;
+
+function sanitize(value: unknown, max = 500): string {
   return String(value ?? "Falha de integração sem detalhe")
     .replace(/(token|secret|password|authorization)\s*[:=]\s*\S+/gi, "$1=[REMOVIDO]")
-    .slice(0, 500);
+    .slice(0, max);
 }
 
 // Supervisão operacional (Vercel Cron, Bearer CRON_SECRET). Alerta técnico INFORMATIVO por incidente (uma impressão
@@ -97,6 +109,15 @@ export async function GET(request: Request) {
     });
   }
 
+  let scheduler: Awaited<ReturnType<typeof superviseScheduler>>;
+  try {
+    scheduler = await superviseScheduler(admin, new Date(nowIso), nowIso);
+  } catch {
+    scheduler = { watchdog: "ERRO", sent: 0, failed: 1, informational: 0, deferred: 0 };
+  }
+  sent += scheduler.sent;
+  failed += scheduler.failed;
+
   let retries = { accidents: 0, versionReviews: 0, accepted: 0, failures: 0 };
   try {
     retries = await sweepSpecialRoutineRetries(admin, nowIso);
@@ -104,5 +125,91 @@ export async function GET(request: Request) {
     failed += 1;
   }
   failed += retries.failures;
-  return Response.json({ checked: integrations?.length ?? 0, created, sent, failed, retries }, { status: failed > 0 ? 207 : 200 });
+  return Response.json({ checked: integrations?.length ?? 0, created, sent, failed, retries, scheduler }, { status: failed > 0 ? 207 : 200 });
+}
+
+// Supervisão do agendador (pg_cron), independente do próprio pg_cron (esta rota roda pela Vercel Cron):
+//   1. o supervisor (job acc-watchdog) está vivo? Sem execução bem-sucedida há mais de 30 min, desativado sem pausa autorizada ou com
+//      pausa vencida => incidente WATCHDOG_STALE (resolvido automaticamente quando volta);
+//   2. incidentes ABERTOS do agendador (watchdog SQL + WATCHDOG_STALE) ainda não notificados vão à Diretoria pela mesma outbox
+//      idempotente das falhas técnicas (acc_system_health_alert_deliveries): um e-mail por incidente, nunca reenviado. Parada
+//      AUTORIZADA (registro em acc_scheduler_authorized_pauses) é informativa: fica registrada, sem e-mail. O envio passa pelo
+//      provedor governado (governor/kill switch, tipo SYSTEM_HEALTH) e pelo perfil do piloto (Cc crm@).
+// Nunca reativa job: só lê o estado e registra/avisa.
+async function superviseScheduler(admin: Admin, now: Date, nowIso: string) {
+  const out = { watchdog: "OK" as string, sent: 0, failed: 0, informational: 0, deferred: 0 };
+  const { data, error } = await admin.rpc("acc_scheduler_watchdog_liveness" as never);
+  if (error || !data) {
+    // Função ausente (migration 20261213100000 não aplicada) ou erro de leitura: registrado como falha desta execução (207).
+    out.watchdog = "INDISPONIVEL";
+    out.failed += 1;
+    return out;
+  }
+  const liveness = data as unknown as SchedulerLiveness;
+  const verdict = evaluateWatchdogLiveness(liveness, now);
+  out.watchdog = verdict.stale ? `WATCHDOG_STALE:${verdict.cause}` : verdict.state;
+  if (liveness.project_id) {
+    if (verdict.stale) {
+      await admin.from("acc_system_health_incidents").upsert(
+        {
+          project_id: liveness.project_id,
+          source_type: "SCHEDULER",
+          fingerprint: WATCHDOG_STALE_FINGERPRINT,
+          status: "OPEN",
+          summary: sanitize(buildWatchdogStaleSummary(verdict, liveness, now), 1000),
+          last_detected_at: nowIso,
+          resolved_at: null,
+        },
+        { onConflict: "project_id,fingerprint" }
+      );
+    } else {
+      await admin
+        .from("acc_system_health_incidents")
+        .update({ status: "RESOLVED", resolved_at: nowIso })
+        .eq("project_id", liveness.project_id)
+        .eq("fingerprint", WATCHDOG_STALE_FINGERPRINT)
+        .eq("status", "OPEN");
+    }
+  }
+
+  const { data: open, error: openError } = await admin
+    .from("acc_system_health_incidents")
+    .select("id,project_id,fingerprint,summary,first_detected_at,projects!inner(name,code)")
+    .eq("source_type", "SCHEDULER")
+    .eq("status", "OPEN")
+    .is("notified_at", null)
+    .limit(500);
+  if (openError) {
+    out.failed += 1;
+    return out;
+  }
+  const recipients = sanitizeSchedulerAlertRecipients(ADMIN_RECIPIENTS);
+  const selection = selectSchedulerIncidentsToEmail(
+    (open ?? []).map((row) => ({ ...row, fingerprint: String(row.fingerprint), first_detected_at: String(row.first_detected_at) })),
+    authorizedPausedJobs(liveness, now)
+  );
+  out.informational = selection.informational;
+  out.deferred = selection.deferred;
+  for (const incident of selection.toEmail) {
+    const projectRef = Array.isArray(incident.projects) ? incident.projects[0] : incident.projects;
+    const projectName = `${projectRef?.code ?? ""} — ${projectRef?.name ?? "Projeto"}`.replace(/^ — /, "");
+    const delivery = await deliverSystemHealthIncident(
+      admin,
+      {
+        id: String(incident.id),
+        projectId: String(incident.project_id),
+        projectName,
+        sourceType: "SCHEDULER",
+        summary: sanitize(buildSchedulerIncidentEmailSummary(incident.decision, String(incident.summary)), 1000),
+      },
+      recipients,
+      nowIso
+    );
+    out.sent += delivery.accepted;
+    out.failed += delivery.retryableFailures + delivery.terminalFailures + delivery.acceptedUnrecorded;
+    if (informativeDeliveryOk(delivery) && delivery.claimedElsewhere === 0) {
+      await admin.from("acc_system_health_incidents").update({ notified_at: nowIso }).eq("id", incident.id);
+    }
+  }
+  return out;
 }
