@@ -157,6 +157,13 @@
       "migrations": [
         "20261212100000_watchdog_project_resolution"
       ]
+    },
+    {
+      "id": "O",
+      "nome": "Estado efetivo das integracoes: nova funcao somente leitura acc_scheduler_status_for_project(uuid) (SECURITY DEFINER, search_path vazio, exige is_project_member; nunca devolve cron.job.command nem segredos). Cauda apos N; nao toca record_risk_alert_action nem SLA. Rollback: drop da funcao",
+      "migrations": [
+        "20261213110000_scheduler_status_for_project"
+      ]
     }
   ],
   "adiadas": [

@@ -99,6 +99,32 @@ export const INTEGRACOES_HELP: FeatureHelpDefinition[] = [
   },
   {
     ...D,
+    id: "integracoes.integracoes.estado-efetivo",
+    kind: "table",
+    title: "Estado efetivo dos serviços",
+    shortDescription: "Estado comprovado de cada fonte e serviço do agendador: Operacional, Parcial, Desatualizado, Desligado, Bloqueado, Falha ou Não configurado.",
+    description:
+      "Tabela que cruza a configuração declarada de cada fonte (E-mail, Diário de Obra, Construmanager, ESG/SSMA) com o estado real do agendador (pg_cron e heartbeats): estado efetivo, frequência, última execução, último sucesso, última falha, próxima execução, volume processado/pendente quando disponível, motivo e ação recomendada. Abaixo, os serviços globais do agendador (alertas de risco, notificações SSMA, rotina semanal, processamento de documentos e cronogramas, vigia e limpeza).",
+    purpose: "Evitar que uma fonte 'conectada' apareça como funcionando quando o job que a alimenta está desligado, atrasado ou falhando.",
+    criteria: [
+      "NÃO CONFIGURADO: fonte sem configuração no projeto ou e-mail sem caixa autorizada.",
+      "BLOQUEADO: autorização ou credencial expirada.",
+      "FALHA: a fonte registrou erro, ou a última falha do job é posterior ao último sucesso.",
+      "PARCIAL: caixa autorizada mas nunca sincronizada, configuração incompleta, ou estado do agendador indisponível (nunca OPERACIONAL nesse caso).",
+      "DESLIGADO: job inexistente ou inativo no agendador, mesmo com a fonte conectada (inclui pausa por janela de congelamento).",
+      "DESATUALIZADO: job ativo, mas sem sucesso registrado ou com último sucesso mais antigo que 3 vezes o intervalo esperado.",
+      "OPERACIONAL: job ativo, último sucesso dentro do intervalo e fonte conectada.",
+    ],
+    howItWorks:
+      "A RPC somente leitura acc_scheduler_status_for_project devolve, para membros ativos da obra, nome, agenda e situação de cada job acc-*, os marcos do heartbeat, o estado salvo pela janela de congelamento e os incidentes SCHEDULER abertos da obra; nunca devolve o comando do job nem segredos. A regra está em lib/integrations/effective-status.ts; a próxima execução é calculada da expressão cron (UTC) somente quando o job está ativo. Horários exibidos em Brasília.",
+    source: "cron.job, cron.job_run_details, acc_scheduler_heartbeats, acc_janela_cron_estado, acc_system_health_incidents e project_integrations.",
+    refresh: "A cada carga da página.",
+    missingData: "Se a RPC não estiver disponível (leitura do agendador ainda não habilitada no banco ou sem permissão), aparece o aviso 'Estado do agendador indisponível' e nenhuma fonte automática é marcada como OPERACIONAL.",
+    limitations: ["Os jobs do agendador são globais: o mesmo job atende todas as obras.", "Volume só aparece quando a fonte mede (e-mails importados, novos/alterados do Diário, documentos vistos no Construmanager)."],
+    humanReview: "Nenhuma ação desta tabela altera o agendador; religar um job é decisão do responsável técnico.",
+  },
+  {
+    ...D,
     id: "integracoes.integracoes.cartao-fonte",
     kind: "table",
     title: "Cartão de fonte de informação",

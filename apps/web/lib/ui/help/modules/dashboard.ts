@@ -549,8 +549,11 @@ export const DASHBOARD_HELP: FeatureHelpDefinition[] = [
     description: "Uma linha por integração conhecida do projeto, com a bolinha de cor e o selo textual. ATIVO = verde-escuro com texto branco; PENDENTE = laranja com texto preto; PARCIAL/ATENÇÃO = âmbar; ERRO = vermelho.",
     purpose: "Saber qual fonte está alimentando o ACC e qual precisa de ação.",
     howItWorks: "O status de cada fonte vem de resolveAllIntegrationStatuses (configuração + comprovação de uso). O e-mail e o cronograma têm regras próprias: e-mail é ATIVO só com todas as etapas comprovadas; cronograma só com o MPP da semana processado; para ESG/SSMA o rótulo informa módulo operacional, sem promover a integração externa.",
-    criteria: ["O texto do selo é só tradução de exibição; o valor interno do sistema não muda."],
-    source: "integration_configs, ingestão de e-mail e fatos operacionais (lib/ui/resolve-integration-display-status).",
+    criteria: [
+      "O texto do selo é só tradução de exibição; o valor interno do sistema não muda.",
+      "Estado efetivo: uma fonte automática exibida como ATIVA/PARCIAL/ATENÇÃO troca o selo para DESLIGADO, FALHA, DESATUALIZADO ou BLOQUEADO quando o job do agendador está inativo, falhou depois do último sucesso ou está sem sucesso há mais de 3 intervalos; sem leitura do agendador, aparece PARCIAL com o motivo 'estado do agendador indisponível'. Fontes rebaixadas não contam como ativas.",
+    ],
+    source: "integration_configs, ingestão de e-mail, fatos operacionais (lib/ui/resolve-integration-display-status) e estado do agendador (RPC acc_scheduler_status_for_project; lib/integrations/effective-status).",
     refresh: "A cada carga da página.",
     missingData: "Sem integrações listadas: o painel fica vazio e o selo geral indica 'SEM INTEGRAÇÕES'.",
     humanReview: "A correção de cada fonte é feita em Integrações.",
