@@ -16,6 +16,7 @@ import { ACTION_STATUS_LABELS, FIELD_RECORD_CATEGORIES, FIELD_RECORD_KINDS, FIEL
 import { cn } from "@/lib/utils";
 import type { SsmaRecordLinkAction } from "@/lib/ssma/field-records/deep-link";
 import { describeNotification, groupNotificationRows, type NotificationLine, type NotificationSummaryRow } from "@/lib/ssma/field-notifications/view";
+import { formatDateTimeBR } from "@/lib/labels";
 
 export type FieldProject = OfflineContext["projects"][number];
 export type FieldQueueApi = ReturnType<typeof useFieldQueue>;
@@ -27,7 +28,7 @@ const STATUS_STYLES: Record<QueueStatus, string> = {
   FAILED: "bg-red-100 text-red-800",
 };
 const RISK_DOT: Record<string, string> = { BAIXA: "bg-[#166534]", MEDIA: "bg-[#2563EB]", ALTA: "bg-[#FFD600]", CRITICA: "bg-[#DC2626]" };
-const dateTime = (iso: string) => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+const dateTime = (iso: string) => formatDateTimeBR(iso);
 
 function StatusPill({ status }: { status: QueueStatus }) {
   return <span className={cn("rounded px-2 py-1 text-[11px] font-bold", STATUS_STYLES[status])}>{QUEUE_STATUS_LABELS[status]}</span>;

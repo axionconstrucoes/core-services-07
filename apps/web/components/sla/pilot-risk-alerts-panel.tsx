@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { FeatureInfo } from "@/components/shared/feature-info";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { slaAreaLabels, slaEscalationLevelLabels, slaTimeUnitLabels } from "@/lib/labels";
+import { slaAreaLabels, slaEscalationLevelLabels, slaTimeUnitLabels, formatDateTimeBR } from "@/lib/labels";
 import type { PilotRiskAlertsView } from "@/lib/risk-alerts/pilot-risk-alerts-view-data";
 
 // Painel SOMENTE LEITURA dos alertas de risco do piloto (tela de
@@ -12,8 +12,7 @@ import type { PilotRiskAlertsView } from "@/lib/risk-alerts/pilot-risk-alerts-vi
 // configuração de projeto aplicada via script pelo administrador.
 
 function formatDateTime(value: string | null, timeZone: string): string {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("pt-BR", { timeZone, dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+  return formatDateTimeBR(value, timeZone);
 }
 
 const STATUS_LABEL: Record<string, string> = {

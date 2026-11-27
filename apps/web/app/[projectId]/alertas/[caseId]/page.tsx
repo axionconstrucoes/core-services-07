@@ -8,7 +8,7 @@ import { FeatureInfo } from "@/components/shared/feature-info";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { isWeeklyReportsEnabled } from "@/lib/feature-flags/weekly-reports";
-import { slaAreaLabels, slaTimeUnitLabels } from "@/lib/labels";
+import { slaAreaLabels, slaTimeUnitLabels, formatDateTimeBR } from "@/lib/labels";
 import { getAlertLinkedQuality } from "@/lib/pilares/alert-links-data";
 import { getAlertDetailView } from "@/lib/risk-alerts/alert-detail-data";
 import type { AlertActionType } from "@/lib/risk-alerts/types";
@@ -16,8 +16,7 @@ import type { AlertActionType } from "@/lib/risk-alerts/types";
 export const metadata: Metadata = { title: "Alerta de risco · ACC" };
 
 function fmt(value: string | null | undefined, timeZone: string): string {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("pt-BR", { timeZone, dateStyle: "short", timeStyle: "short" }).format(new Date(value));
+  return formatDateTimeBR(value, timeZone);
 }
 
 // Página AUTENTICADA do alerta. O link do e-mail (?acao=&t=) só

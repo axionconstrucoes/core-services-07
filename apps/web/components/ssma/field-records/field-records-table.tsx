@@ -3,6 +3,7 @@ import { FeatureInfo } from "@/components/shared/feature-info";
 import { buildOriginRef } from "@/lib/quality/ingestion";
 import { isActionOverdue, type FieldRecordView } from "@/lib/ssma/field-records/field-record-view";
 import { ACTION_STATUS_LABELS, RISK_LABELS } from "@/lib/ssma/field-records/types";
+import { formatDateBR, formatDateTimeBR } from "@/lib/labels";
 
 const RISK_BADGE: Record<string, string> = {
   BAIXA: "bg-[#166534] text-white",
@@ -10,8 +11,8 @@ const RISK_BADGE: Record<string, string> = {
   ALTA: "bg-[#FFD600] text-black",
   CRITICA: "bg-[#DC2626] text-white",
 };
-const dateTime = (iso: string) => new Date(iso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" });
-const dateOnly = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR");
+const dateTime = (iso: string) => formatDateTimeBR(iso);
+const dateOnly = (iso: string) => formatDateBR(iso);
 
 const HEADING_HELP: Record<string, string> = {
   Risco: "ssma.registro.risco",

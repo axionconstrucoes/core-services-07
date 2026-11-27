@@ -5,6 +5,7 @@ import type { ChecklistPhotoView, ChecklistSubmissionView } from "@/lib/ssma/che
 import { RegisterQualityIndication } from "@/components/quality/register-quality-indication";
 import { buildOriginRef } from "@/lib/quality/ingestion";
 import { checklistPhotoErrorMessage } from "@/lib/ssma/checklist-photos/resolve-checklist-photo";
+import { formatDateTimeBR } from "@/lib/labels";
 
 async function diagnose(url: string): Promise<string> {
   try {
@@ -86,7 +87,7 @@ export function ChecklistSubmissionsGallery({ submissions, projectId }: { submis
                 {submission.title}
               </span>
               <span className="text-muted-foreground">
-                {new Date(submission.occurredAt).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" })}
+                {formatDateTimeBR(submission.occurredAt)}
               </span>
               <span className="text-muted-foreground">· {submission.technicianName ?? "técnico não identificado"}</span>
               <span className="text-muted-foreground">

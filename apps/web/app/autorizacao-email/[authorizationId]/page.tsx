@@ -16,6 +16,7 @@ import {
 } from "@/lib/email-authorization/notice";
 import { getEmailAuthorization, getEmailAuthorizationEvents } from "@/lib/email-authorization/store";
 import { decideAuthorizationAction, revokeAuthorizationAction } from "./actions";
+import { formatDateTimeBR } from "@/lib/labels";
 
 export const metadata: Metadata = { title: "Autorização de acesso aos e-mails da obra" };
 
@@ -32,8 +33,7 @@ const MESSAGES: Record<string, { tone: "ok" | "warn"; text: string }> = {
 };
 
 function formatDateTime(value: string | null): string {
-  if (!value) return "—";
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: "America/Sao_Paulo" }).format(new Date(value));
+  return formatDateTimeBR(value);
 }
 
 const STATUS_STYLE: Record<AuthorizationStatus, string> = {

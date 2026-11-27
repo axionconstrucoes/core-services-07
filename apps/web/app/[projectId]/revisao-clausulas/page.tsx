@@ -17,6 +17,7 @@ import {
 } from "@/lib/clause-review-list";
 import { getVersionCoverageSummaries, type VersionCoverageSummary } from "@/lib/documents/extraction/version-coverage-summary";
 import { cn } from "@/lib/utils";
+import { formatDateTimeBR } from "@/lib/labels";
 
 export const metadata: Metadata = { title: "Análise de Cláusulas" };
 
@@ -429,7 +430,7 @@ export default async function ClauseReviewPage({
                   <ClearClauseDraft candidateId={detail.id} />
                   <p className="font-medium">
                     {detail.status === "APPROVED" ? "Aprovado por revisão humana" : "Rejeitado por revisão humana"}
-                    {detail.reviewedAt ? ` em ${new Date(detail.reviewedAt).toLocaleString("pt-BR")}` : ""}
+                    {detail.reviewedAt ? ` em ${formatDateTimeBR(detail.reviewedAt)}` : ""}
                   </p>
                   {detail.reviewNote ? <p className="mt-1 text-xs">Observação: {detail.reviewNote}</p> : null}
                   {detail.clauseId ? <p className="mt-1 text-xs text-muted-foreground">Cláusula criada: {detail.clauseId}</p> : null}

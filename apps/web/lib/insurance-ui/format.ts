@@ -25,7 +25,7 @@ export function formatDate(v: string | null | undefined): string {
   return m ? `${m[3]}/${m[2]}/${m[1]}` : NO_DATA;
 }
 
-/** timestamptz -> dd/mm/aaaa hh:mm (America/Sao_Paulo). */
+/** timestamptz -> "DD/MM/AAAA — HH:mm" (America/Sao_Paulo, padrão de exibição do ACC). */
 export function formatDateTime(v: string | null | undefined): string {
   if (!v) return NO_DATA;
   const d = new Date(v);
@@ -37,10 +37,10 @@ export function formatDateTime(v: string | null | undefined): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-    hour12: false,
+    hourCycle: "h23",
   }).formatToParts(d);
   const g = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  return `${g("day")}/${g("month")}/${g("year")} ${g("hour")}:${g("minute")}`;
+  return `${g("day")}/${g("month")}/${g("year")} — ${g("hour")}:${g("minute")}`;
 }
 
 /**

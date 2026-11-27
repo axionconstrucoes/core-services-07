@@ -7,6 +7,7 @@ import { FeatureInfo } from "@/components/shared/feature-info";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { formatDateBR } from "@/lib/labels";
 
 // Vínculo manual auditável entre uma versão documental e um e-mail já
 // ingerido no projeto. O usuário escolhe pelo contexto humano (data,
@@ -20,7 +21,7 @@ export type ProjectEmailOption = {
 };
 
 function formatEmailOption(option: ProjectEmailOption): string {
-  const date = new Date(option.sentAt).toLocaleDateString("pt-BR");
+  const date = formatDateBR(option.sentAt);
   return `${date} · ${option.fromAddress} · ${option.subject}`;
 }
 

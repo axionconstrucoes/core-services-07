@@ -84,22 +84,22 @@ const CLIMATE_KPI_SRC = ler("apps/web/lib/integrations/diario-de-obra/climate-kp
 
 check(
   "sync as 05:11 UTC (obra real) vira 02:11 em Brasilia, MESMO dia",
-  formatarDataHoraBrasilia("2026-09-08T05:11:47Z") === "08/09/2026, 02:11"
+  formatarDataHoraBrasilia("2026-09-08T05:11:47Z") === "08/09/2026 — 02:11"
 );
 
 check(
   "virada de dia: 02:30 UTC vira 23:30 do dia ANTERIOR em Brasilia",
-  formatarDataHoraBrasilia("2026-09-08T02:30:00Z") === "07/09/2026, 23:30"
+  formatarDataHoraBrasilia("2026-09-08T02:30:00Z") === "07/09/2026 — 23:30"
 );
 
 check(
   "sem virada: 14:39 UTC vira 11:39 do MESMO dia em Brasilia",
-  formatarDataHoraBrasilia("2026-09-08T14:39:08Z") === "08/09/2026, 11:39"
+  formatarDataHoraBrasilia("2026-09-08T14:39:08Z") === "08/09/2026 — 11:39"
 );
 
 check(
   "meia-noite exata em Brasilia (03:00 UTC) formata com o dia certo",
-  formatarDataHoraBrasilia("2026-01-15T03:00:00Z") === "15/01/2026, 00:00"
+  formatarDataHoraBrasilia("2026-01-15T03:00:00Z") === "15/01/2026 — 00:00"
 );
 
 check("null vira travessao", formatarDataHoraBrasilia(null) === "—");

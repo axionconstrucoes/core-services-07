@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@axion/db/browser";
 import { FeatureInfo } from "@/components/shared/feature-info";
 import { ESG_REFERENCE_NOTICE, eligibleSubmissions, esgReferenceErrorMessage } from "@/lib/ssma/esg-reference";
+import { formatDateTimeBR } from "@/lib/labels";
 
 interface Reference {
   id: string;
@@ -111,7 +112,7 @@ export function EsgEvidenceLink({
               <li key={ref.id} className="rounded border border-slate-200 p-2 text-sm">
                 <p className="font-bold text-slate-900">{sub ? `${titleOf(sub)} · ${sub.reference_date}` : "Comprovação ESG"}</p>
                 <p className="text-xs text-slate-600">
-                  Vinculado em {new Date(ref.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })} · situação da obrigação: {sub?.status ?? "—"} (inalterada)
+                  Vinculado em {formatDateTimeBR(ref.created_at)} · situação da obrigação: {sub?.status ?? "—"} (inalterada)
                 </p>
                 {!canLink || !(isAdmin || ref.created_by_user_id === userId) ? null : unlinking === ref.id ? (
                   <div className="mt-2 space-y-2">
