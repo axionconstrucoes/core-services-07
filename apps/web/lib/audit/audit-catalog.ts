@@ -113,7 +113,7 @@ const RULES: Rule[] = [
 
   // Integrações (Drive, Construmanager, origem de integração). Versões do Construmanager são "Projetos e versões".
   { id: "construmanager-versao", category: "PROJETOS", test: exact("CONSTRUMANAGER_NOVA_VERSAO_VIGENTE", "CONSTRUMANAGER_VERSION_IMPACT_REVIEWED") },
-  { id: "integracoes", category: "INTEGRACOES", test: (a, e) => prefix("DRIVE_FILE_", "INTEGRATION_", "CONSTRUMANAGER_")(a) || e === "Integration" },
+  { id: "integracoes", category: "INTEGRACOES", test: (a, e) => prefix("DRIVE_FILE_", "INTEGRATION_", "CONSTRUMANAGER_", "SCHEDULER_", "SYSTEM_HEALTH_")(a) || e === "Integration" || e === "CRON_JOB" },
 
   // Projeto, documentos, versões, cláusulas, eventos contratuais, IA e cronograma.
   {
@@ -248,6 +248,10 @@ const ACTION_LABELS: Record<string, string> = {
   RISK_ALERT_TOP_LEVEL_REACHED: "Alerta atingiu o nível máximo de escalonamento",
   RISK_ALERT_UNAUTHORIZED_REPLY: "Resposta não autorizada a alerta",
   RISK_ALERTS_ENABLED: "Alertas de risco habilitados",
+  SCHEDULER_JOB_DEACTIVATED: "Agendador desligado",
+  SCHEDULER_JOB_REACTIVATED: "Agendador religado",
+  SYSTEM_HEALTH_ALERT_FAILED: "Falha no envio do alerta técnico de supervisão",
+  SYSTEM_HEALTH_ALERT_SENT: "Alerta técnico de supervisão enviado",
   SCHEDULE_RISK_THRESHOLDS_CONFIGURED: "Limites de risco do cronograma configurados",
   SCHEDULE_VERSION_COMPARISON_COMPUTED: "Comparação de versões do cronograma calculada",
   SLA_ACTION_RESPONSIBLE_TRANSFERRED: "Responsável pela ação de SLA transferido",
